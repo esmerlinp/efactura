@@ -1,5 +1,17 @@
 {% extends "rrhh/layout_hr.html" %}
 {% block title %}Configuración de Nómina — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<style>
+.group-card {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 16px; border:1px solid var(--border-color);
+    border-radius:var(--radius-md); margin-bottom:8px;
+    transition:all 0.15s;
+}
+.group-card:hover { border-color:var(--accent-emerald); background:rgba(16,185,129,0.04); }
+.group-card-actions { display:flex; gap:4px; }
+</style>
+{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
 <div class="page-header hr-page-header">
@@ -10,8 +22,7 @@
 <div class="card-table-wrapper" style="padding:16px 24px; margin-bottom:16px; background:rgba(16,185,129,0.06); border:1px solid var(--accent-emerald);">
     <div style="display:flex; align-items:center; gap:12px;">
         <i class="fa-solid fa-circle-info" style="color:var(--accent-emerald); font-size:1.2rem;"></i>
-        <p style="margin:0; font-size:0.85rem;">Estas tasas y topes deben coincidir con los valores oficiales publicados por <strong>TSS</strong> y <strong>DGII</strong> para el año fiscal vigente.
-        El sistema usa estos valores en todos los cálculos de nómina.</p>
+        <p style="margin:0; font-size:0.85rem;">Estas tasas y topes deben coincidir con los valores oficiales publicados por <strong>TSS</strong> y <strong>DGII</strong> para el año fiscal vigente. El sistema usa estos valores en todos los cálculos de nómina.</p>
     </div>
 </div>
 
@@ -23,52 +34,119 @@
 </div>
 {% endif %}
 
-<form method="POST">
+<form method="POST" id="settings-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="year" value="{{ tax_rates.year }}">
 
-    <!-- ═══════════ MODO DE FRECUENCIA ═══════════ -->
+    <!-- ═══════════ GRUPOS DE NÓMINA ═══════════ -->
     <div class="card-table-wrapper" style="margin-bottom:16px;">
         <div class="table-header-row">
-            <div><h3><i class="fa-solid fa-sliders"></i> Modo de Frecuencia</h3></div>
+            <div>
+                <h3 style="margin:0;"><i class="fa-solid fa-layer-group"></i> Grupos de Nómina</h3>
+                <p style="margin:2px 0 0; font-size:0.82rem; color:var(--text-secondary);">
+                    Organiza tus nóminas en grupos. Cada grupo tiene su propia frecuencia y empleados. Asígnale empleados desde la vista de cada grupo.
+                </p>
+            </div>
+            <div>
+                <a href="{{ url_for('web_rrhh.payroll_groups_new') }}" class="btn btn-primary btn-sm">
+                    <i class="fa-solid fa-plus"></i> Nuevo grupo
+                </a>
+            </div>
         </div>
         <div style="padding:0 20px 20px;">
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-                {% set mode = frequency_mode or 'company' %}
-                <label id="mode-card-company" class="mode-card"
-                       style="display:flex; flex-direction:column; gap:8px; padding:20px 16px;
-                              border:2px solid {% if mode == 'company' %}var(--accent-emerald){% else %}var(--border-color){% endif %};
-                              border-radius:var(--radius-md); cursor:pointer; background:{% if mode == 'company' %}rgba(16,185,129,0.06){% else %}var(--bg-card){% endif %};
-                              transition:all 0.2s; text-align:center;"
-                       onclick="selectMode('company')">
-                    <input type="radio" name="frequency_mode" value="company" style="display:none;" {% if mode == 'company' %}checked{% endif %}>
-                    <i class="fa-solid fa-building" style="font-size:1.5rem; color:var(--accent-emerald);"></i>
-                    <span style="font-weight:700;">Por empresa</span>
-                    <span style="font-size:0.72rem; color:var(--text-muted);">Una frecuencia para todos. Más simple de administrar.</span>
-                </label>
-                <label id="mode-card-employee" class="mode-card"
-                       style="display:flex; flex-direction:column; gap:8px; padding:20px 16px;
-                              border:2px solid {% if mode == 'employee' %}var(--accent-purple){% else %}var(--border-color){% endif %};
-                              border-radius:var(--radius-md); cursor:pointer; background:{% if mode == 'employee' %}rgba(124,58,237,0.06){% else %}var(--bg-card){% endif %};
-                              transition:all 0.2s; text-align:center;"
-                       onclick="selectMode('employee')">
-                    <input type="radio" name="frequency_mode" value="employee" style="display:none;" {% if mode == 'employee' %}checked{% endif %}>
-                    <i class="fa-solid fa-users" style="font-size:1.5rem; color:var(--accent-purple);"></i>
-                    <span style="font-weight:700;">Por empleado</span>
-                    <span style="font-size:0.72rem; color:var(--text-muted);">Cada empleado con su propia frecuencia. Máxima flexibilidad.</span>
-                </label>
+            {% if payroll_groups %}
+                {% for g in payroll_groups %}
+                <div class="group-card">
+                    <div style="display:flex; align-items:center; gap:12px; flex:1;">
+                        <i class="fa-solid fa-layer-group" style="color:var(--accent-emerald); font-size:1.1rem;"></i>
+                        <div>
+                            <strong><a href="{{ url_for('web_rrhh.payroll_groups_view', group_id=g.id) }}" style="color:var(--text-primary); text-decoration:none;">{{ g.name }}</a></strong>
+                            <div style="display:flex; gap:8px; margin-top:2px;">
+                                <span class="badge {% if g.frequency == 'mensual' %}badge-info{% else %}badge-secondary{% endif %}" style="font-size:0.7rem;">
+                                    {{ 'Mensual' if g.frequency == 'mensual' else 'Quincenal' }}
+                                </span>
+                                <span style="font-size:0.75rem; color:var(--text-muted);">
+                                    <i class="fa-solid fa-user"></i> {{ group_employee_counts.get(g.id, 0) }} empleados
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="group-card-actions">
+                        <a href="{{ url_for('web_rrhh.payroll_groups_view', group_id=g.id) }}" class="btn btn-sm btn-ghost" title="Ver y asignar empleados">
+                            <i class="fa-solid fa-users"></i>
+                        </a>
+                        <a href="{{ url_for('web_rrhh.payroll_groups_edit', group_id=g.id) }}" class="btn btn-sm btn-ghost" title="Editar">
+                            <i class="fa-solid fa-pen"></i>
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+            <div class="text-center text-muted" style="padding:24px;">
+                <p style="margin:0 0 8px;">Aún no hay grupos de nómina. Crea un grupo para comenzar.</p>
+                <a href="{{ url_for('web_rrhh.payroll_groups_new') }}" class="btn btn-primary btn-sm">
+                    <i class="fa-solid fa-plus"></i> Crear primer grupo
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ═══════════ EMPLEADOS SIN GRUPO ═══════════ -->
+    {% if unassigned_employees %}
+    <div class="card-table-wrapper" style="margin-bottom:16px; border:1px solid var(--accent-orange);">
+        <div class="table-header-row">
+            <div>
+                <h3 style="margin:0; color:var(--accent-orange);"><i class="fa-solid fa-triangle-exclamation"></i> Empleados sin grupo</h3>
+                <p style="margin:2px 0 0; font-size:0.82rem; color:var(--text-secondary);">
+                    {{ unassigned_employees|length }} empleado(s) activo(s) no están asignados a ningún grupo. Asígnalos desde la vista de cada grupo.
+                </p>
+            </div>
+        </div>
+        <div style="padding:0 20px 20px;">
+            <div class="table-responsive">
+                <table class="table-premium" style="font-size:0.82rem;">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Cédula</th>
+                            <th>Cargo</th>
+                            <th>Asignar a</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for e in unassigned_employees %}
+                        <tr>
+                            <td><strong>{{ e.fullName or e.firstName ~ ' ' ~ e.lastName }}</strong></td>
+                            <td>{{ e.cedula or '—' }}</td>
+                            <td>{{ e.position or '—' }}</td>
+                            <td>
+                                <select class="form-select" style="width:auto; font-size:0.78rem;" onchange="assignEmployeeToGroup('{{ e.id }}', this.value)">
+                                    <option value="">Seleccionar grupo</option>
+                                    {% for g in payroll_groups %}
+                                    <option value="{{ g.id }}">{{ g.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 
-    <!-- ═══════════ FRECUENCIA (solo modo empresa) ═══════════ -->
-    <div id="company-freq-section" class="card-table-wrapper" style="margin-bottom:16px; {% if mode == 'employee' %}display:none;{% endif %}">
+    <!-- Frecuencia por defecto (solo si hay empleados sin grupo) -->
+    <div class="card-table-wrapper" style="margin-bottom:16px;">
         <div class="table-header-row">
-            <div><h3><i class="fa-solid fa-calendar-week"></i> Frecuencia de Nómina</h3></div>
+            <div><h3><i class="fa-solid fa-calendar"></i> Frecuencia por defecto</h3></div>
         </div>
         <div style="padding:0 20px 20px;">
+            <p style="font-size:0.82rem; color:var(--text-secondary); margin:0 0 12px;">
+                Esta frecuencia se usa solo para empleados que no pertenecen a ningún grupo. Si todos tus empleados están en grupos, este valor se ignora.
+            </p>
             <div style="display:flex; gap:12px; flex-wrap:wrap;">
-                {% for freq in [{'v':'quincenal','l':'Quincenal','i':'fa-calendar-week','c':'var(--accent-emerald)'},{'v':'mensual','l':'Mensual','i':'fa-calendar-alt','c':'var(--accent-purple)'}] %}
+                {% for freq in [{'v':'mensual','l':'Mensual','i':'fa-calendar-alt','c':'var(--accent-purple)'},{'v':'quincenal','l':'Quincenal','i':'fa-calendar-week','c':'var(--accent-emerald)'}] %}
                 <label style="display:flex; align-items:center; gap:8px; padding:10px 16px; border:2px solid {% if payroll_frequency == freq.v %}var(--accent-emerald){% else %}var(--border-color){% endif %}; border-radius:var(--radius-md); cursor:pointer; background:{% if payroll_frequency == freq.v %}rgba(16,185,129,0.06){% else %}var(--bg-card){% endif %}; transition:all 0.2s;"
                        onmouseover="this.style.borderColor='var(--accent-emerald)';"
                        onmouseout="if(!this.querySelector('input').checked) this.style.borderColor='var(--border-color)';">
@@ -81,7 +159,9 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
+    <!-- ═══════════ TASAS DE SEGURIDAD SOCIAL (TSS) ═══════════ -->
     <div class="card-table-wrapper" style="margin-bottom:16px;">
         <div class="table-header-row">
             <div><h3><i class="fa-solid fa-shield-halved"></i> Tasas de Seguridad Social (TSS)</h3></div>
@@ -122,6 +202,7 @@
         </div>
     </div>
 
+    <!-- ═══════════ TOPES SALARIALES TSS ═══════════ -->
     <div class="card-table-wrapper" style="margin-bottom:16px;">
         <div class="table-header-row">
             <div><h3><i class="fa-solid fa-arrow-up-wide-short"></i> Topes Salariales TSS</h3></div>
@@ -152,6 +233,7 @@
         </div>
     </div>
 
+    <!-- ═══════════ TABLA ISR ═══════════ -->
     <div class="card-table-wrapper" style="margin-bottom:16px;">
         <div class="table-header-row">
             <div><h3><i class="fa-solid fa-table-list"></i> Tabla ISR DGII — Escala Anual</h3></div>
@@ -207,7 +289,7 @@
         </div>
     </div>
 
-    <!-- ═══════════ CÁLCULO DE HORAS EXTRA ═══════════ -->
+    <!-- ═══════════ HORAS EXTRA ═══════════ -->
     <div class="card-table-wrapper" style="margin-bottom:16px;">
         <div class="table-header-row">
             <div><h3><i class="fa-solid fa-clock"></i> Cálculo de Horas Extra</h3></div>
@@ -218,7 +300,7 @@
                     <label>Multiplicador hora extra (%)</label>
                     <input type="number" step="0.01" name="overtimeRate" class="form-input"
                            value="{{ "%.2f" % (tax_rates.overtimeRate * 100) }}">
-                    <p style="font-size:0.7rem; color:var(--text-muted); margin:4px 0 0;">135% = pago a 1.35× la hora normal</p>
+                    <p style="font-size:0.7rem; color:var(--text-muted); margin:4px 0 0;">135% = pago a 1.35x la hora normal</p>
                 </div>
                 <div class="form-group">
                     <label>Días laborables por mes</label>
@@ -233,10 +315,6 @@
                     <p style="font-size:0.7rem; color:var(--text-muted); margin:4px 0 0;">Estándar: 8 horas diarias</p>
                 </div>
             </div>
-            <p style="font-size:0.78rem; color:var(--text-muted); margin-top:12px;">
-                <i class="fa-solid fa-circle-info"></i>
-                Fórmula: <strong>(Salario base / Días × Horas) × Multiplicador</strong>. Ej: RD$ 30,000 / 23.83 / 8 × 1.35 = RD$ 212.43/hora extra.
-            </p>
         </div>
     </div>
 
@@ -252,7 +330,7 @@
                     <input type="number" step="0.1" name="infotepThresholdMultiplier" class="form-input"
                            value="{{ "%.1f" % tax_rates.infotepThresholdMultiplier }}">
                     <p style="font-size:0.7rem; color:var(--text-muted); margin:4px 0 0;">
-                        INFOTEP se cobra al empleado si su ingreso > multiplicador × salario mínimo.
+                        INFOTEP se cobra al empleado si su ingreso > multiplicador x salario mínimo.
                     </p>
                 </div>
             </div>
@@ -268,7 +346,6 @@
             <p style="color:var(--text-muted); font-size:0.82rem; margin:0 0 16px;">
                 Códigos de cuenta del catálogo contable para el asiento automático de nómina.
             </p>
-
             <div style="margin-bottom:20px;">
                 <h4 style="font-size:0.85rem; font-weight:700; margin:0 0 10px; color:var(--text-primary);">Cuentas de pasivo (HABER)</h4>
                 <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:12px;">
@@ -291,7 +368,6 @@
                     {% endfor %}
                 </div>
             </div>
-
             <div>
                 <h4 style="font-size:0.85rem; font-weight:700; margin:0 0 10px; color:var(--text-primary);">Cuentas de gasto por centro de costo (DEBE)</h4>
                 {% set cc_accounts = tax_rates.costCenterAccounts %}
@@ -334,19 +410,8 @@
     </div>
 </div>
 {% endif %}
+
 <script>
-function selectMode(mode) {
-    document.querySelectorAll('.mode-card').forEach(c => {
-        c.style.borderColor = 'var(--border-color)';
-        c.style.background = 'var(--bg-card)';
-        c.querySelector('input').checked = false;
-    });
-    const card = document.getElementById('mode-card-' + mode);
-    card.style.borderColor = mode === 'company' ? 'var(--accent-emerald)' : 'var(--accent-purple)';
-    card.style.background = mode === 'company' ? 'rgba(16,185,129,0.06)' : 'rgba(124,58,237,0.06)';
-    card.querySelector('input').checked = true;
-    document.getElementById('company-freq-section').style.display = mode === 'company' ? '' : 'none';
-}
 function addCostCenterRow() {
     var tbody = document.getElementById('cc-accounts-tbody');
     var idx = tbody.querySelectorAll('tr').length;
@@ -363,18 +428,15 @@ function reindexIsrRows() {
         row.setAttribute('data-row', idx);
         row.querySelector('strong').textContent = idx + 1;
         var isLast = idx === total - 1;
-        // Update name attributes
-        row.querySelectorAll('input[name], input[name]').forEach(function(inp) {
+        row.querySelectorAll('input[name]').forEach(function(inp) {
             if (inp.name) inp.name = inp.name.replace(/_\d+$/, '_' + idx);
         });
-        // Update "hasta" column for last row
         var tdHasta = row.querySelectorAll('td')[2];
         if (isLast) {
             tdHasta.innerHTML = '<input type="text" class="form-input" value="inf" disabled style="width:130px; background:var(--bg-nav-hover);"><input type="hidden" name="isr_to_' + idx + '" value="999999999">';
         } else {
             tdHasta.innerHTML = '<input type="number" step="0.01" name="isr_to_' + idx + '" class="form-input" value="0.00" style="width:130px;">';
         }
-        // Show/hide delete button
         var delTd = row.querySelectorAll('td')[5];
         if (isLast || total <= 2) {
             delTd.innerHTML = '';
@@ -388,7 +450,6 @@ function addIsrRow() {
     var rows = tbody.querySelectorAll('tr');
     var total = rows.length;
     var newIdx = total;
-    // Convert current last row from "inf" to normal number input
     var lastRow = rows[total - 1];
     if (lastRow) {
         var tdHasta = lastRow.querySelectorAll('td')[2];
@@ -396,7 +457,6 @@ function addIsrRow() {
         var delTd = lastRow.querySelectorAll('td')[5];
         delTd.innerHTML = '<button type="button" class="btn btn-sm btn-ghost" onclick="removeIsrRow(this)" style="color:var(--danger);"><i class="fa-solid fa-trash"></i></button>';
     }
-    // Add new last row with "inf"
     var tr = document.createElement('tr');
     tr.setAttribute('data-row', newIdx);
     tr.innerHTML = ''
@@ -411,6 +471,28 @@ function addIsrRow() {
 function removeIsrRow(btn) {
     btn.closest('tr').remove();
     reindexIsrRows();
+}
+function getCSRFToken() {
+    return document.querySelector('input[name="csrf_token"]')?.value || '';
+}
+function assignEmployeeToGroup(employeeId, groupId) {
+    if (!groupId) return;
+    if (!confirm('¿Asignar este empleado al grupo seleccionado?')) return;
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{{ url_for("web_rrhh.payroll_groups_assign", group_id="__GID__") }}'.replace('__GID__', groupId);
+    var csrf = document.createElement('input');
+    csrf.type = 'hidden';
+    csrf.name = 'csrf_token';
+    csrf.value = getCSRFToken();
+    form.appendChild(csrf);
+    var inp = document.createElement('input');
+    inp.type = 'hidden';
+    inp.name = 'employee_ids';
+    inp.value = employeeId;
+    form.appendChild(inp);
+    document.body.appendChild(form);
+    form.submit();
 }
 </script>
 {% endblock %}

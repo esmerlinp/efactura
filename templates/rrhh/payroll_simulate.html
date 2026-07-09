@@ -24,14 +24,25 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
     <div class="card-table-wrapper" style="padding:16px 24px; margin-bottom:16px;">
-        <div class="form-group" style="max-width:400px;">
-            <label>Período a simular <span style="color:var(--danger);">*</span></label>
-            <select name="period_key" class="form-select" required>
-                <option value="">Seleccionar período</option>
-                {% for p in available_periods %}
-                <option value="{{ p.key }}">{{ p.label }}</option>
-                {% endfor %}
-            </select>
+        <div style="display:flex; gap:16px; flex-wrap:wrap;">
+            <div class="form-group" style="max-width:320px; flex:1;">
+                <label>Grupo de nómina</label>
+                <select name="payrollGroupId" class="form-select" onchange="this.form.submit()">
+                    <option value="">— General (sin grupo) —</option>
+                    {% for g in payroll_groups %}
+                    <option value="{{ g.id }}" {% if selected_group_id == g.id %}selected{% endif %}>{{ g.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" style="max-width:320px; flex:1;">
+                <label>Período a simular <span style="color:var(--danger);">*</span></label>
+                <select name="period_key" class="form-select" required>
+                    <option value="">Seleccionar período</option>
+                    {% for p in available_periods %}
+                    <option value="{{ p.key }}">{{ p.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
         </div>
     </div>
 

@@ -122,7 +122,6 @@ DEFAULT_REFERENCE_DATA = {
 
 DEFAULT_PAYROLL_CONFIG = {
     "payrollFrequency": "",
-    "frequencyMode": "company",
     "onboardingCompleted": False,
     "minSalary": 23223.00,
     "afpTotal": 464460.00,

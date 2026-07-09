@@ -1,0 +1,283 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}{{ group.name }} — Grupos de Nómina — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-layer-group"></i> {{ group.name }}</h1>
+    <div class="hr-page-actions">
+        <a href="{{ url_for('web_rrhh.payroll_groups_list') }}" class="btn btn-secondary">
+            <i class="fa-solid fa-arrow-left"></i> Volver
+        </a>
+        <a href="{{ url_for('web_rrhh.payroll_groups_edit', group_id=group.id) }}" class="btn btn-primary">
+            <i class="fa-solid fa-pen"></i> Editar
+        </a>
+    </div>
+</div>
+
+<!-- Group Info -->
+<div class="card-table-wrapper hr-document-sheet" style="padding:20px 24px; margin-bottom:16px;">
+    <div style="display:flex; gap:24px; flex-wrap:wrap;">
+        <div>
+            <span style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Frecuencia</span>
+            <div style="font-weight:600;">
+                <span class="badge {% if group.frequency == 'mensual' %}badge-info{% else %}badge-secondary{% endif %}">
+                    {{ 'Mensual' if group.frequency == 'mensual' else 'Quincenal' if group.frequency == 'quincenal' else group.frequency }}
+                </span>
+            </div>
+        </div>
+        <div>
+            <span style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Empleados asignados</span>
+            <div style="font-weight:600;" id="assigned-count-header">{{ assigned|length }}</div>
+        </div>
+        <div>
+            <span style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Períodos procesados</span>
+            <div style="font-weight:600;">{{ periods|length }}</div>
+        </div>
+        {% if group.description %}
+        <div style="flex:1; min-width:200px;">
+            <span style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Descripción</span>
+            <div style="font-size:0.9rem;">{{ group.description }}</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Picklist Dual -->
+<div style="display:grid; grid-template-columns:1fr auto 1fr; gap:12px; align-items:start; margin-bottom:16px;">
+
+    <!-- LEFT: Disponibles -->
+    <div class="card-table-wrapper hr-table-card" style="padding:0;">
+        <div class="table-header-row" style="padding:12px 16px; margin:0;">
+            <div>
+                <h3 style="margin:0; font-size:0.95rem;"><i class="fa-solid fa-user-plus"></i> Disponibles</h3>
+                <span style="font-size:0.78rem; color:var(--text-secondary);" id="unassigned-count">{{ unassigned|length }} empleado(s) sin asignar</span>
+            </div>
+        </div>
+        <div style="padding:8px 12px; border-bottom:1px solid var(--border-color);">
+            <input type="text" id="search-unassigned" class="form-input" placeholder="Buscar..." style="font-size:0.82rem;">
+        </div>
+        <div style="min-height:280px; max-height:400px; overflow-y:auto;" id="unassigned-list">
+            {% for e in unassigned %}
+            <label class="picklist-item" data-search="{{ (e.fullName or e.firstName ~ ' ' ~ e.lastName)|lower }} {{ e.cedula or '' }} {{ e.position or '' }}">
+                <input type="checkbox" class="picklist-cb unassign-cb" value="{{ e.id }}">
+                <div>
+                    <strong>{{ e.fullName or e.firstName ~ ' ' ~ e.lastName }}</strong>
+                    {% if e.position %}<span style="display:block; font-size:0.72rem; color:var(--text-muted);">{{ e.position }}</span>{% endif %}
+                </div>
+            </label>
+            {% else %}
+            <div class="text-center text-muted" style="padding:40px 16px;">
+                <p style="margin:0;">Todos los empleados activos están asignados</p>
+            </div>
+            {% endfor %}
+        </div>
+        <div style="padding:8px 12px; border-top:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:0.75rem; color:var(--text-muted);" id="unassigned-selected-count">0 seleccionados</span>
+            <div style="display:flex; gap:4px;">
+                <button type="button" class="btn btn-sm btn-primary" onclick="assignSelected()">
+                    <i class="fa-solid fa-chevron-right"></i> Asignar
+                </button>
+                <form method="POST" action="{{ url_for('web_rrhh.payroll_groups_assign_all', group_id=group.id) }}" style="display:inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sm btn-ghost" title="Asignar todos">
+                        <i class="fa-solid fa-forward"></i> Todos
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- CENTER: Spacer -->
+    <div style="display:flex; flex-direction:column; gap:8px; justify-content:center; align-items:center; padding-top:60px;">
+        <i class="fa-solid fa-arrows-left-right" style="font-size:1.5rem; color:var(--text-muted);"></i>
+    </div>
+
+    <!-- RIGHT: Asignados -->
+    <div class="card-table-wrapper hr-table-card" style="padding:0;">
+        <div class="table-header-row" style="padding:12px 16px; margin:0;">
+            <div>
+                <h3 style="margin:0; font-size:0.95rem;"><i class="fa-solid fa-users"></i> Asignados</h3>
+                <span style="font-size:0.78rem; color:var(--text-secondary);" id="assigned-count">{{ assigned|length }} empleado(s)</span>
+            </div>
+        </div>
+        <div style="padding:8px 12px; border-bottom:1px solid var(--border-color);">
+            <input type="text" id="search-assigned" class="form-input" placeholder="Buscar..." style="font-size:0.82rem;">
+        </div>
+        <div style="min-height:280px; max-height:400px; overflow-y:auto;" id="assigned-list">
+            {% for e in assigned %}
+            <label class="picklist-item" data-search="{{ (e.fullName or e.firstName ~ ' ' ~ e.lastName)|lower }} {{ e.cedula or '' }} {{ e.position or '' }}">
+                <input type="checkbox" class="picklist-cb assign-cb" value="{{ e.id }}">
+                <div>
+                    <strong>{{ e.fullName or e.firstName ~ ' ' ~ e.lastName }}</strong>
+                    {% if e.position %}<span style="display:block; font-size:0.72rem; color:var(--text-muted);">{{ e.position }}</span>{% endif %}
+                </div>
+            </label>
+            {% else %}
+            <div class="text-center text-muted" style="padding:40px 16px;">
+                <p style="margin:0;">No hay empleados asignados a este grupo</p>
+            </div>
+            {% endfor %}
+        </div>
+        <div style="padding:8px 12px; border-top:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:0.75rem; color:var(--text-muted);" id="assigned-selected-count">0 seleccionados</span>
+            <div style="display:flex; gap:4px;">
+                <form method="POST" action="{{ url_for('web_rrhh.payroll_groups_unassign_all', group_id=group.id) }}" style="display:inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sm btn-ghost" title="Remover todos">
+                        <i class="fa-solid fa-backward"></i> Todos
+                    </button>
+                </form>
+                <button type="button" class="btn btn-sm btn-ghost" style="color:var(--danger);" onclick="unassignSelected()">
+                    Remover <i class="fa-solid fa-chevron-left"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Periods -->
+<div class="card-table-wrapper hr-table-card" style="margin-top:0;">
+    <div class="table-header-row" style="padding-bottom:8px;">
+        <div>
+            <h3 style="margin:0;"><i class="fa-solid fa-clock-rotate-left"></i> Períodos procesados</h3>
+            <p style="margin:4px 0 0; font-size:0.82rem; color:var(--text-secondary);">{{ periods|length }} período(s)</p>
+        </div>
+        <div>
+            <a href="{{ url_for('web_rrhh.payroll_new', group=group.id) }}" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-plus"></i> Nuevo período
+            </a>
+        </div>
+    </div>
+    {% if periods %}
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th>Período</th>
+                    <th>Empleados</th>
+                    <th>Bruto</th>
+                    <th>Neto</th>
+                    <th>Estado</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in periods %}
+                <tr>
+                    <td><strong><a href="{{ url_for('web_rrhh.payroll_view', period_id=p.id) }}">{{ p.periodRange or p.periodKey }}</a></strong></td>
+                    <td>{{ p.lines|length }}</td>
+                    <td>{{ "RD$ {:,.2f}".format(p.totalGross|float) }}</td>
+                    <td>{{ "RD$ {:,.2f}".format(p.totalNet|float) }}</td>
+                    <td><span class="badge badge-success">{{ p.status }}</span></td>
+                    <td><a href="{{ url_for('web_rrhh.payroll_view', period_id=p.id) }}" class="btn btn-sm btn-ghost"><i class="fa-solid fa-eye"></i></a></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="text-center text-muted">Sin períodos.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center text-muted" style="padding:32px;">
+        <p>Este grupo aún no tiene períodos de nómina procesados.</p>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.picklist-item {
+    display:flex; align-items:center; gap:10px; padding:8px 12px;
+    cursor:pointer; transition:background 0.1s;
+    border-bottom:1px solid var(--border-color);
+}
+.picklist-item:hover { background:var(--bg-nav-hover); }
+.picklist-item:has(.picklist-cb:checked) { background:rgba(16,185,129,0.08); }
+.picklist-cb { width:16px; height:16px; accent-color:var(--accent-emerald); flex-shrink:0; }
+</style>
+
+<script>
+function getCSRFToken() {
+    return document.querySelector('input[name="csrf_token"]')?.value || '';
+}
+function searchList(inputId, listId) {
+    var input = document.getElementById(inputId);
+    var list = document.getElementById(listId);
+    if (!input || !list) return;
+    input.addEventListener('input', function() {
+        var q = this.value.trim().toLowerCase();
+        list.querySelectorAll('.picklist-item').forEach(function(item) {
+            var txt = (item.getAttribute('data-search') || '').toLowerCase();
+            item.style.display = q === '' || txt.indexOf(q) !== -1 ? '' : 'none';
+        });
+    });
+}
+searchList('search-unassigned', 'unassigned-list');
+searchList('search-assigned', 'assigned-list');
+
+function updateSelectedCount(containerId, countId) {
+    var container = document.getElementById(containerId);
+    var countEl = document.getElementById(countId);
+    if (!container || !countEl) return;
+    container.addEventListener('change', function() {
+        var checked = container.querySelectorAll('.picklist-cb:checked').length;
+        countEl.textContent = checked + ' seleccionados';
+    });
+    container.querySelectorAll('.picklist-cb').forEach(function(cb) {
+        cb.addEventListener('change', function() {
+            var checked = container.querySelectorAll('.picklist-cb:checked').length;
+            countEl.textContent = checked + ' seleccionados';
+        });
+    });
+}
+updateSelectedCount('unassigned-list', 'unassigned-selected-count');
+updateSelectedCount('assigned-list', 'assigned-selected-count');
+
+function assignSelected() {
+    var checked = document.querySelectorAll('#unassigned-list .unassign-cb:checked');
+    if (checked.length === 0) return;
+    var ids = Array.from(checked).map(function(cb) { return cb.value; });
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{{ url_for("web_rrhh.payroll_groups_assign", group_id=group.id) }}';
+    var csrf = document.createElement('input');
+    csrf.type = 'hidden';
+    csrf.name = 'csrf_token';
+    csrf.value = getCSRFToken();
+    form.appendChild(csrf);
+    ids.forEach(function(id) {
+        var inp = document.createElement('input');
+        inp.type = 'hidden';
+        inp.name = 'employee_ids';
+        inp.value = id;
+        form.appendChild(inp);
+    });
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function unassignSelected() {
+    var checked = document.querySelectorAll('#assigned-list .assign-cb:checked');
+    if (checked.length === 0) return;
+    if (!confirm('¿Remover ' + checked.length + ' empleado(s) del grupo?')) return;
+    var ids = Array.from(checked).map(function(cb) { return cb.value; });
+    var form = document.createElement('form');
+    form.method = 'POST';
+    var url = '{{ url_for("web_rrhh.payroll_groups_unassign_all", group_id=group.id) }}';
+    form.action = url;
+    var csrf = document.createElement('input');
+    csrf.type = 'hidden';
+    csrf.name = 'csrf_token';
+    csrf.value = getCSRFToken();
+    form.appendChild(csrf);
+    ids.forEach(function(id) {
+        var inp = document.createElement('input');
+        inp.type = 'hidden';
+        inp.name = 'employee_ids';
+        inp.value = id;
+        form.appendChild(inp);
+    });
+    document.body.appendChild(form);
+    form.submit();
+}
+</script>
+{% endblock %}

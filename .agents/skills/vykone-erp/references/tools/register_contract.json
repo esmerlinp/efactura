@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "tool_name": "register_contract",
+  "display_name": "Registrar Contrato de Facturación Recurrente",
+  "description": "Registra un contrato de facturación recurrente: define cliente, servicio, frecuencia de facturación (mensual/trimestral/anual), día de corte, precio unitario, y plantilla e-CF. El contrato se activa para facturación automática por el scheduler diario.",
+  "category": "billing",
+  "risk_level": "medium",
+  "idempotency": "not idempotent (creates new contract per call)",
+  "permissions": ["billing:write"],
+  "related_process": "BP-9 Facturación Recurrente por Contrato",
+
+  "input_schema": {
+    "type": "object",
+    "required": ["owner_uid", "client_id", "service_id", "frecuencia", "billing_day", "unit_price"],
+    "properties": {
+      "owner_uid": {"type": "string"},
+      "client_id": {"type": "string", "description": "ID del cliente en el sistema"},
+      "service_id": {"type": "string", "description": "ID del servicio a facturar"},
+      "frecuencia": {"type": "string", "enum": ["monthly", "quarterly", "yearly"]},
+      "billing_day": {"type": "integer", "minimum": 1, "maximum": 28, "description": "Día del mes para facturar (1-28)"},
+      "unit_price": {"type": "number", "exclusiveMinimum": 0},
+      "start_date": {"type": "string", "format": "date", "description": "Fecha de inicio del contrato. Default: hoy."},
+      "end_date": {"type": "string", "format": "date", "description": "Fecha de fin. null = indefinido."},
+      "itbis_apply": {"type": "boolean", "default": true, "description": "Aplicar ITBIS (18%) al monto"},
+      "retencion_isr": {"type": "number", "minimum": 0, "maximum": 100, "description": "Porcentaje de retención ISR (si aplica)"},
+      "template_id": {"type": "string", "description": "ID de la plantilla e-CF a usar"},
+      "description": {"type": "string", "description": "Descripción del servicio en la factura"},
+      "is_active": {"type": "boolean", "default": true}
+    }
+  },
+
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "contract_id": {"type": "string"},
+      "client_name": {"type": "string"},
+      "service_description": {"type": "string"},
+      "frecuencia": {"type": "string"},
+      "next_billing_date": {"type": "string", "format": "date"},
+      "monto_facturacion": {"type": "number", "description": "Monto a facturar por período (con ITBIS si aplica)"},
+      "created_at": {"type": "string", "format": "date-time"}
+    }
+  },
+
+  "validations": [
+    {"field": "client_id", "rule": "Cliente debe existir y estar activo"},
+    {"field": "service_id", "rule": "Servicio debe existir y tener precio vigente"},
+    {"field": "billing_day", "rule": "1-28 para evitar problemas con meses de 28-31 días"},
+    {"field": "start_date/end_date", "rule": "start_date < end_date si end_date no es null"}
+  ],
+
+  "errors": [
+    {"code": "CLIENT_NOT_FOUND", "message": "Cliente {client_id} no encontrado o inactivo."},
+    {"code": "SERVICE_NOT_FOUND", "message": "Servicio {service_id} no encontrado o sin precio vigente."},
+    {"code": "INVALID_BILLING_DAY", "message": "Día de facturación debe estar entre 1 y 28."}
+  ],
+
+  "post_effects": {
+    "events": ["ContractRegistered"],
+    "scheduler": "Contract will be picked up on next daily billing run (6 AM)"
+  },
+
+  "example": {
+    "input": {
+      "owner_uid": "abc123def456",
+      "client_id": "cust_001",
+      "service_id": "svc_hosting",
+      "frecuencia": "monthly",
+      "billing_day": 5,
+      "unit_price": 8500.00,
+      "itbis_apply": true,
+      "description": "Servicio de Hosting Cloud - Plan Premium"
+    },
+    "output": {
+      "contract_id": "ctr_20260708_005",
+      "client_name": "Tech Solutions SRL",
+      "service_description": "Servicio de Hosting Cloud - Plan Premium",
+      "frecuencia": "monthly",
+      "next_billing_date": "2026-08-05",
+      "monto_facturacion": 10030.00,
+      "created_at": "2026-07-08T17:45:00Z"
+    }
+  }
+}

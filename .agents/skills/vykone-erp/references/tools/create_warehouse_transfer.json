@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "tool_name": "create_warehouse_transfer",
+  "display_name": "Crear Transferencia entre Almacenes",
+  "description": "Inicia una transferencia de inventario entre dos almacenes. Valida disponibilidad de stock en origen, reserva el inventario, y opcionalmente requiere aprobación para cantidades sobre el threshold configurado. La recepción en destino se completa con receive_transfer.",
+  "category": "inventory",
+  "risk_level": "medium",
+  "idempotency": "not idempotent (creates new transfer per call)",
+  "permissions": ["inventory:write"],
+  "related_process": "BP-10 Transferencia entre Almacenes",
+
+  "input_schema": {
+    "type": "object",
+    "required": ["owner_uid", "item_id", "quantity", "warehouse_from_id", "warehouse_to_id"],
+    "properties": {
+      "owner_uid": {"type": "string", "description": "Identificador del tenant/empresa"},
+      "item_id": {"type": "string", "description": "ID del artículo a transferir"},
+      "quantity": {"type": "number", "exclusiveMinimum": 0, "description": "Cantidad a transferir"},
+      "warehouse_from_id": {"type": "string", "description": "ID del almacén origen"},
+      "warehouse_to_id": {"type": "string", "description": "ID del almacén destino"},
+      "reason": {"type": "string", "description": "Motivo de la transferencia"},
+      "reference": {"type": "string", "description": "Número de documento de referencia (ej: orden de despacho)"},
+      "require_approval": {"type": "boolean", "default": false, "description": "Forzar aprobación (si false, depende del threshold configurado)"},
+      "auto_approve": {"type": "boolean", "default": false, "description": "Si true y el usuario tiene permiso, aprueba automáticamente (salta workflow)"}
+    }
+  },
+
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "transfer_id": {"type": "string"},
+      "item_id": {"type": "string"},
+      "item_description": {"type": "string"},
+      "quantity": {"type": "number"},
+      "warehouse_from": {"type": "string"},
+      "warehouse_to": {"type": "string"},
+      "status": {"type": "string", "enum": ["Pendiente", "En Tránsito", "Completado", "Rechazado"]},
+      "requires_approval": {"type": "boolean"},
+      "approval_id": {"type": "string", "description": "ID del approval_request si requiere aprobación"},
+      "stock_snapshot": {
+        "type": "object",
+        "properties": {
+          "origen_disponible_antes": {"type": "number"},
+          "origen_disponible_despues": {"type": "number"},
+          "destino_disponible_antes": {"type": "number"}
+        }
+      },
+      "created_at": {"type": "string", "format": "date-time"}
+    }
+  },
+
+  "validations": [
+    {"field": "warehouse_from_id != warehouse_to_id", "rule": "Origen y destino deben ser almacenes diferentes"},
+    {"field": "quantity", "rule": "Debe ser <= stock_disponible en el almacén origen"},
+    {"field": "item.active", "rule": "El artículo debe estar activo"}
+  ],
+
+  "errors": [
+    {"code": "SAME_WAREHOUSE", "message": "Origen y destino no pueden ser el mismo almacén."},
+    {"code": "INSUFFICIENT_STOCK", "message": "Stock insuficiente en {warehouse_from}. Disponible: {disponible}, Solicitado: {solicitado}."},
+    {"code": "ITEM_NOT_FOUND", "message": "Artículo {item_id} no encontrado o inactivo."},
+    {"code": "WAREHOUSE_NOT_FOUND", "message": "Almacén {warehouse_id} no encontrado o inactivo."}
+  ],
+
+  "post_effects": {
+    "events": ["TransferInitiated"],
+    "inventory": "Stock reservado en origen (stock_disponible -= qty, stock_reservado += qty)"
+  },
+
+  "example": {
+    "input": {
+      "owner_uid": "abc123def456",
+      "item_id": "itm_prod_089",
+      "quantity": 25,
+      "warehouse_from_id": "wh_principal",
+      "warehouse_to_id": "wh_sucursal_norte",
+      "reason": "Reabastecimiento sucursal",
+      "auto_approve": true
+    },
+    "output": {
+      "transfer_id": "trf_20260708_003",
+      "item_id": "itm_prod_089",
+      "item_description": "Laptop Dell Latitude 5540",
+      "quantity": 25,
+      "warehouse_from": "Almacén Principal",
+      "warehouse_to": "Sucursal Norte",
+      "status": "En Tránsito",
+      "requires_approval": false,
+      "approval_id": null,
+      "stock_snapshot": {
+        "origen_disponible_antes": 50,
+        "origen_disponible_despues": 25,
+        "destino_disponible_antes": 5
+      },
+      "created_at": "2026-07-08T15:45:00Z"
+    }
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "tool": "cancel_e_cf_invoice",
+  "business_process": "BP-3",
+  "risk": "critical",
+  "requires_confirmation": true,
+  "requires_double_confirmation": true,
+  "confirmation_phrase_field": "invoice_number",
+  "required_permissions": ["canVoidInvoice"],
+  "sod_conflicts": ["canInvoice"],
+  "description": "Anula un comprobante fiscal electrónico ante la DGII. Este proceso es IRREVERSIBLE a efectos fiscales. Se envía una solicitud de cancelación al endpoint de anulación de la DGII con el e-NCF original. Requiere doble confirmación del usuario: debe escribir el número de factura como verificación.",
+  "precondition": "La factura debe haber sido emitida exitosamente (isSyncedWithDGII=true, dgiiStatus='ACCEPTED' o 'PENDING'). No se puede cancelar una factura ya anulada o en estado 'Rechazada'.",
+  "parameters": {
+    "type": "object",
+    "required": ["invoice_id", "reason"],
+    "properties": {
+      "invoice_id": {
+        "type": "string",
+        "description": "ID de la factura en Firestore"
+      },
+      "invoice_number": {
+        "type": "string",
+        "description": "Número visible de la factura (ej: FAC-123456). Requerido para doble confirmación."
+      },
+      "reason": {
+        "type": "string",
+        "minLength": 20,
+        "maxLength": 1000,
+        "description": "Motivo fiscal de la anulación. Debe ser un motivo válido según DGII (error en monto, error en RNC, factura duplicada, etc.)"
+      }
+    }
+  },
+  "validation_rules": [
+    "La factura debe existir y tener encf (e-NCF asignado)",
+    "La factura no debe estar previamente anulada (status != 'Anulada')",
+    "El certificado digital P12 debe ser válido (mismo que se usó para emitir)",
+    "El motivo de anulación debe ser un motivo fiscal válido",
+    "Se requiere el endpoint de cancelación de DGII (DGII_CANCEL_URL_SANDBOX o PRODUCTION)"
+  ],
+  "flow": [
+    "1. Verificar que la factura existe, tiene encf, y no está anulada",
+    "2. Validar que el certificado P12 sigue siendo válido",
+    "3. Construir XML de cancelación con el encf original y motivo",
+    "4. Firmar digitalmente el XML de cancelación",
+    "5. POST al endpoint de cancelación de DGII",
+    "6. Si DGII acepta: marcar factura como 'Anulada', revertir inventario (stockReverted=true), generar nota de crédito contable",
+    "7. Si DGII rechaza: notificar error, factura mantiene estado previo"
+  ],
+  "effects": [
+    "Factura marcada como 'Anulada'",
+    "Inventario revertido (si aplica)",
+    "Nota de crédito contable generada (reversión del asiento original)",
+    "e-NCF original queda marcado como anulado en sequence_logs",
+    "IRREVERSIBLE — no se puede re-emitir con el mismo e-NCF"
+  ],
+  "possible_errors": [
+    "Factura no encontrada o sin e-NCF",
+    "Factura ya anulada",
+    "Certificado digital expirado o inválido",
+    "DGII rechaza la cancelación (e-NCF no reconocido, fuera de plazo)",
+    "Error de conexión con DGII"
+  ],
+  "example": {
+    "invoice_id": "inv-abc-123",
+    "invoice_number": "FAC-123456",
+    "reason": "Error en el monto total de la factura. Se emitió por RD$150,000 cuando el monto correcto era RD$120,000. Se emitirá nueva factura con el monto corregido."
+  }
+}

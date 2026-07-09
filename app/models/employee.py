@@ -42,7 +42,6 @@ class Employee(BaseModel):
 
     # Datos contractuales
     contractType: str = ""  # "tiempo_indefinido" | "tiempo_definido" | ...
-    paymentFrequency: str = ""  # "quincenal" | "mensual"
     workday: str = "completa"  # "completa" | "media_jornada" | ...
     isVigilante: bool = False  # ¿Trabaja como vigilante?
     tssKey: str = ""  # Clave nómina TSS (3 dígitos)
@@ -75,6 +74,9 @@ class Employee(BaseModel):
     terminationDate: Optional[str] = None
     terminationReason: Optional[str] = None
     terminationType: str = ""  # "renuncia" | "despido" | "mutuo_acuerdo" | "fin_contrato" | "otro"
+
+    # Nóminas múltiples
+    payrollGroupIds: List[str] = []  # IDs de grupos de nómina a los que pertenece
 
     notes: str = ""
 
@@ -164,9 +166,22 @@ class PayrollLine(BaseModel):
     totalEmployerContrib: float = 0.0
 
 
+class PayrollGroup(BaseModel):
+    """Grupo de nómina — permite múltiples nóminas con distintos períodos y configuraciones."""
+    id: str = ""
+    name: str = ""  # "Administrativa", "Producción", etc.
+    description: str = ""
+    frequency: str = "mensual"  # "quincenal" | "mensual"
+    isActive: bool = True
+    createdAt: str = ""
+    updatedAt: str = ""
+    createdBy: str = ""
+
+
 class PayrollPeriod(BaseModel):
     """Período de nómina."""
     id: str = ""
+    payrollGroupId: str = ""  # "" = grupo por defecto (compatibilidad)
     periodKey: str = ""  # "2026-07" o "2026-01-15"
     periodType: str = "mensual"  # "quincenal" | "mensual"
     periodRange: str = ""  # "1 Ene - 15 Ene"
@@ -240,3 +255,53 @@ class SalaryHistory(BaseModel):
     reason: str = ""
     approvedBy: str = ""
     createdAt: str = ""
+    payrollPeriodKey: str = ""  # Período de nómina al que aplica (ej: "2026-08-1")
+
+
+class MassAction(BaseModel):
+    """Acción de personal masiva."""
+    ACTION_TYPES = (
+        "salary_change",
+        "position_change",
+        "supervisor_change",
+        "promotion",
+        "mass_absence",
+    )
+    STATUSES = ("draft", "processing", "completed", "partial", "failed")
+
+    id: str = ""
+    actionType: str = "salary_change"
+    status: str = "draft"
+    createdBy: str = ""
+    createdAt: str = ""
+    processedAt: str = ""
+    ownerUid: str = ""
+    sandbox: bool = True
+
+    selectionCriteria: dict = {}
+    totalEmployees: int = 0
+    successCount: int = 0
+    errorCount: int = 0
+
+    payload: dict = {}
+    results: list = []
+    errorLog: list = []
+    statusHistory: list = []
+
+
+class MassActionResult(BaseModel):
+    """Resultado por empleado en una acción masiva."""
+    employeeId: str = ""
+    employeeName: str = ""
+    status: str = ""  # "success" | "error" | "skipped"
+    errorMessage: str = ""
+    changes: dict = {}
+    processedAt: str = ""
+
+
+class MassActionError(BaseModel):
+    """Error individual de una acción masiva."""
+    employeeId: str = ""
+    employeeName: str = ""
+    field: str = ""
+    message: str = ""

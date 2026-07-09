@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "tool_name": "execute_asset_depreciation",
+  "display_name": "Ejecutar Depreciación de Activos",
+  "description": "Ejecuta el cálculo de depreciación mensual para todos los activos fijos activos según tablas DGII (ISR Reglamento Art. 31). Método de línea recta. Genera asiento contable de gasto de depreciación y depreciación acumulada por categoría.",
+  "category": "accounting",
+  "risk_level": "high",
+  "idempotency": "idempotent per period (checks if depreciation already executed for period)",
+  "permissions": ["accounting:write", "assets:write"],
+  "related_process": "BP-12 Depreciación de Activos",
+
+  "input_schema": {
+    "type": "object",
+    "required": ["owner_uid", "period_start", "period_end"],
+    "properties": {
+      "owner_uid": {"type": "string", "description": "Identificador del tenant/empresa"},
+      "period_start": {"type": "string", "format": "date", "description": "Inicio del período a depreciar (YYYY-MM-DD)"},
+      "period_end": {"type": "string", "format": "date", "description": "Fin del período (YYYY-MM-DD)"},
+      "asset_ids": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "IDs de activos específicos. Si se omite, se deprecian TODOS los activos activos."
+      },
+      "dry_run": {
+        "type": "boolean",
+        "default": true,
+        "description": "Si true, calcula sin aplicar cambios. Retorna resumen."
+      }
+    }
+  },
+
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "execution_id": {"type": "string"},
+      "period": {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}}},
+      "total_assets_processed": {"type": "integer"},
+      "total_depreciation": {"type": "number", "description": "Depreciación total del período en RD$"},
+      "dry_run": {"type": "boolean"},
+      "by_category": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "categoria": {"type": "string"},
+            "count": {"type": "integer"},
+            "depreciacion_total": {"type": "number"},
+            "average_monthly_rate": {"type": "number", "description": "Tasa mensual promedio"}
+          }
+        }
+      },
+      "details": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "asset_id": {"type": "string"},
+            "codigo": {"type": "string"},
+            "descripcion": {"type": "string"},
+            "categoria": {"type": "string"},
+            "valor_adquisicion": {"type": "number"},
+            "depreciacion_acumulada_anterior": {"type": "number"},
+            "depreciacion_periodo": {"type": "number"},
+            "valor_neto_libros": {"type": "number"},
+            "fully_depreciated": {"type": "boolean"}
+          }
+        }
+      },
+      "accounting_entry_id": {"type": "string", "description": "ID del asiento contable (null si dry_run)"},
+      "created_at": {"type": "string", "format": "date-time"}
+    }
+  },
+
+  "validations": [
+    {"field": "period", "rule": "Período no debe estar cerrado fiscalmente"},
+    {"field": "asset.estado", "rule": "Solo activos en estado 'Activo' que no estén fully_depreciated"},
+    {"field": "asset.fecha_inicio_uso", "rule": "fecha_inicio_uso debe ser <= period_end"}
+  ],
+
+  "errors": [
+    {"code": "PERIOD_CLOSED", "message": "El período {period} está cerrado fiscalmente. No se puede depreciar."},
+    {"code": "ALREADY_DEPRECIATED", "message": "Ya se ejecutó depreciación para el período {period}. Use force=true para recalcular."},
+    {"code": "NO_ACTIVE_ASSETS", "message": "No hay activos activos para depreciar en este período."}
+  ],
+
+  "post_effects": {
+    "events": ["DepreciationExecuted"],
+    "accounting": "auto (Depreciation Expense debit, Accumulated Depreciation credit per category)"
+  },
+
+  "example": {
+    "input": {
+      "owner_uid": "abc123def456",
+      "period_start": "2026-06-01",
+      "period_end": "2026-06-30",
+      "dry_run": false
+    },
+    "output": {
+      "execution_id": "dep_202606_001",
+      "period": {"start": "2026-06-01", "end": "2026-06-30"},
+      "total_assets_processed": 15,
+      "total_depreciation": 28500.00,
+      "dry_run": false,
+      "by_category": [
+        {"categoria": "vehiculos", "count": 2, "depreciacion_total": 12500.00, "average_monthly_rate": 1.67},
+        {"categoria": "equipo_informatico", "count": 8, "depreciacion_total": 10500.00, "average_monthly_rate": 2.78},
+        {"categoria": "mobiliario", "count": 5, "depreciacion_total": 5500.00, "average_monthly_rate": 1.67}
+      ],
+      "details": [
+        {"asset_id": "ast_001", "codigo": "VEH-001", "descripcion": "Toyota Hilux 2024", "categoria": "vehiculos", "valor_adquisicion": 1500000.00, "depreciacion_acumulada_anterior": 250000.00, "depreciacion_periodo": 25000.00, "valor_neto_libros": 1225000.00, "fully_depreciated": false}
+      ],
+      "accounting_entry_id": "asiento_20260708_050",
+      "created_at": "2026-07-08T14:00:00Z"
+    }
+  }
+}

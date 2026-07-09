@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "tool_name": "query_e_cf_status",
+  "display_name": "Consultar Estado e-CF DGII",
+  "description": "Consulta el estado actual de un comprobante fiscal electrónico (e-CF) ante la DGII. Retorna el estado (Enviado, Aceptado, Rechazado), fecha de respuesta DGII, y códigos de error si fue rechazado.",
+  "category": "e_cf",
+  "risk_level": "low (read-only)",
+  "idempotency": "idempotent",
+  "permissions": ["e-cf:read"],
+  "related_process": "BP-3 Emisión de e-CF",
+
+  "input_schema": {
+    "type": "object",
+    "required": ["owner_uid", "invoice_id"],
+    "properties": {
+      "owner_uid": {
+        "type": "string",
+        "description": "Identificador del tenant/empresa"
+      },
+      "invoice_id": {
+        "type": "string",
+        "description": "ID interno de la factura en el sistema"
+      },
+      "encf": {
+        "type": "string",
+        "description": "Número e-NCF alternativo (si no se conoce el invoice_id). Formato: E310000000001"
+      },
+      "force_refresh": {
+        "type": "boolean",
+        "default": false,
+        "description": "Si true, consulta la DGII en tiempo real. Si false, retorna el estado cacheado en Firestore."
+      }
+    }
+  },
+
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "invoice_id": {"type": "string"},
+      "encf": {"type": "string", "description": "Número e-NCF asignado por DGII"},
+      "rnc_emisor": {"type": "string"},
+      "rnc_comprador": {"type": "string"},
+      "tipo_comprobante": {"type": "string", "enum": ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15"]},
+      "monto_total": {"type": "number"},
+      "dgii_status": {
+        "type": "string",
+        "enum": ["Enviado", "Aceptado", "Rechazado", "Pendiente", "Anulado", "Error Comunicación"],
+        "description": "Estado actual según DGII"
+      },
+      "dgii_response_date": {"type": "string", "format": "date-time", "description": "Fecha/hora de respuesta DGII"},
+      "dgii_error_code": {"type": "string", "description": "Código de error DGII si fue Rechazado"},
+      "dgii_error_message": {"type": "string", "description": "Mensaje de error DGII si fue Rechazado"},
+      "track_id": {"type": "string", "description": "ID de tracking DGII"},
+      "last_checked": {"type": "string", "format": "date-time"},
+      "cached": {"type": "boolean", "description": "Si la respuesta viene de caché local"}
+    }
+  },
+
+  "validations": [
+    {"field": "invoice_id or encf", "rule": "Al menos uno de los dos debe ser proporcionado"},
+    {"field": "force_refresh", "rule": "Refresh en tiempo real tiene rate-limit de 60 consultas/minuto por tenant"}
+  ],
+
+  "errors": [
+    {"code": "INVOICE_NOT_FOUND", "message": "No se encontró factura con invoice_id={id} ni encf={encf} en este tenant."},
+    {"code": "DGII_UNAVAILABLE", "message": "API DGII no disponible en este momento. Último estado conocido: {status} del {date}."},
+    {"code": "DGII_TIMEOUT", "message": "Timeout consultando DGII después de 30 segundos. Intente nuevamente."},
+    {"code": "RATE_LIMIT_EXCEEDED", "message": "Límite de consultas excedido (60/min). Espere {retry_after} segundos."}
+  ],
+
+  "post_effects": {
+    "events": "none (read-only)",
+    "cache_updated": "true if force_refresh=true and DGII responds"
+  },
+
+  "example": {
+    "input": {
+      "owner_uid": "abc123def456",
+      "invoice_id": "inv_2026-089",
+      "force_refresh": true
+    },
+    "output": {
+      "invoice_id": "inv_2026-089",
+      "encf": "E310000045678",
+      "rnc_emisor": "130123456",
+      "rnc_comprador": "40212345678",
+      "tipo_comprobante": "01",
+      "monto_total": 118000.00,
+      "dgii_status": "Aceptado",
+      "dgii_response_date": "2026-07-05T14:22:00Z",
+      "dgii_error_code": null,
+      "dgii_error_message": null,
+      "track_id": "TRK-20260705-98765",
+      "last_checked": "2026-07-08T09:00:00Z",
+      "cached": false
+    }
+  }
+}

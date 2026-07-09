@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "tool_name": "register_employee",
+  "display_name": "Registrar Empleado",
+  "description": "Registra un nuevo empleado con todos los datos requeridos para nómina DGII, TSS y cumplimiento laboral dominicano. Valida cédula, salario mínimo sectorizado, y configura AFP/ARS por defecto.",
+  "category": "employee",
+  "risk_level": "medium",
+  "idempotency": "idempotent (checks duplicate cedula before creation)",
+  "permissions": ["employees:write"],
+  "related_process": "BP-1 Contratación de Personal",
+
+  "input_schema": {
+    "type": "object",
+    "required": ["owner_uid", "cedula", "nombre", "apellido", "fecha_nacimiento", "fecha_ingreso", "salario_base_mensual", "cargo", "tipo_contrato", "forma_pago"],
+    "properties": {
+      "owner_uid": {
+        "type": "string",
+        "description": "Identificador del tenant/empresa (Firebase UID del propietario)"
+      },
+      "cedula": {
+        "type": "string",
+        "description": "Cédula dominicana en formato 000-0000000-0",
+        "pattern": "^\\d{3}-\\d{7}-\\d{1}$"
+      },
+      "nombre": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 60,
+        "description": "Nombre(s) del empleado"
+      },
+      "apellido": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 60,
+        "description": "Apellido(s) del empleado"
+      },
+      "fecha_nacimiento": {
+        "type": "string",
+        "format": "date",
+        "description": "Fecha de nacimiento (YYYY-MM-DD). Debe ser >= 18 años antes de fecha_ingreso."
+      },
+      "fecha_ingreso": {
+        "type": "string",
+        "format": "date",
+        "description": "Fecha de inicio laboral (YYYY-MM-DD). Debe ser <= hoy."
+      },
+      "salario_base_mensual": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "description": "Salario base mensual en RD$. Debe ser >= salario mínimo del sector correspondiente."
+      },
+      "cargo": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 100,
+        "description": "Denominación del puesto"
+      },
+      "tipo_contrato": {
+        "type": "string",
+        "enum": ["indefinido", "fijo", "obra"],
+        "description": "Tipo de contrato según Código de Trabajo"
+      },
+      "forma_pago": {
+        "type": "string",
+        "enum": ["quincenal", "mensual"],
+        "description": "Frecuencia de pago"
+      },
+      "email": {
+        "type": "string",
+        "format": "email",
+        "description": "Correo electrónico (debe ser único en el tenant)"
+      },
+      "telefono": {
+        "type": "string",
+        "description": "Teléfono de contacto (formato libre)"
+      },
+      "direccion": {
+        "type": "string",
+        "description": "Dirección residencial"
+      },
+      "afp": {
+        "type": "string",
+        "default": "AFP_Siembra",
+        "description": "Administradora de Fondos de Pensiones asignada"
+      },
+      "ars": {
+        "type": "string",
+        "default": "ARS_SeNaSa",
+        "description": "Administradora de Riesgos de Salud asignada"
+      },
+      "sector_salarial": {
+        "type": "string",
+        "enum": ["comercio", "industrial", "zona_franca", "hoteleria", "construccion", "agricola", "servicios", "otro"],
+        "description": "Sector para validación contra salario mínimo"
+      },
+      "dependientes": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "nombre_completo": {"type": "string"},
+            "parentesco": {"type": "string", "enum": ["hijo", "hija", "conyuge"]},
+            "fecha_nacimiento": {"type": "string", "format": "date"}
+          },
+          "required": ["nombre_completo", "parentesco"]
+        },
+        "description": "Dependientes para registro ARS"
+      },
+      "cuenta_banco": {
+        "type": "object",
+        "properties": {
+          "banco": {"type": "string"},
+          "numero_cuenta": {"type": "string"},
+          "tipo_cuenta": {"type": "string", "enum": ["ahorro", "corriente"]}
+        },
+        "description": "Cuenta bancaria para pago de nómina"
+      }
+    }
+  },
+
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "employee_id": {"type": "string", "description": "ID del empleado creado en Firestore"},
+      "nombre_completo": {"type": "string"},
+      "cedula": {"type": "string"},
+      "salario_base": {"type": "number"},
+      "isr_proyectado_mensual": {"type": "number", "description": "Retención ISR mensual estimada"},
+      "afp_empleado_mensual": {"type": "number", "description": "Aporte AFP empleado (2.87%) sobre salario cotizable"},
+      "ars_empleado_mensual": {"type": "number", "description": "Aporte ARS empleado (3.04%) sobre salario cotizable"},
+      "tss_registrado": {"type": "boolean", "description": "Si se completó el registro TSS"},
+      "created_at": {"type": "string", "format": "date-time"}
+    }
+  },
+
+  "validations": [
+    {"field": "cedula", "rule": "Formato RD válido: 000-0000000-0, no duplicada en el tenant"},
+    {"field": "edad", "rule": "Mayor de 18 años al momento de fecha_ingreso"},
+    {"field": "salario_base_mensual", "rule": ">= salario mínimo del sector especificado"},
+    {"field": "email", "rule": "Único dentro del tenant, si se proporciona"}
+  ],
+
+  "errors": [
+    {"code": "DUPLICATE_CEDULA", "message": "Ya existe un empleado con la cédula {cedula} en este tenant."},
+    {"code": "UNDERAGE", "message": "El empleado debe ser mayor de 18 años al momento del ingreso."},
+    {"code": "SALARY_BELOW_MINIMUM", "message": "El salario RD${salario} está por debajo del mínimo sectorial de RD${minimo}."},
+    {"code": "INVALID_CEDULA_FORMAT", "message": "La cédula no cumple con el formato dominicano (000-0000000-0)."}
+  ],
+
+  "post_effects": {
+    "events": ["EmployeeCreated"],
+    "tss_actions": ["registrar_empleado_tss"],
+    "accounting": "none (activado en el siguiente período de nómina)"
+  },
+
+  "example": {
+    "input": {
+      "owner_uid": "abc123def456",
+      "cedula": "402-1234567-8",
+      "nombre": "María",
+      "apellido": "González Pérez",
+      "fecha_nacimiento": "1990-03-15",
+      "fecha_ingreso": "2026-07-01",
+      "salario_base_mensual": 45000.00,
+      "cargo": "Analista Contable Senior",
+      "tipo_contrato": "indefinido",
+      "forma_pago": "mensual",
+      "email": "maria.gonzalez@empresa.com",
+      "sector_salarial": "servicios",
+      "afp": "AFP_Siembra",
+      "ars": "ARS_SeNaSa"
+    },
+    "output": {
+      "employee_id": "emp_9f8a7b6c",
+      "nombre_completo": "María González Pérez",
+      "cedula": "402-1234567-8",
+      "salario_base": 45000.00,
+      "isr_proyectado_mensual": 0.00,
+      "afp_empleado_mensual": 1291.50,
+      "ars_empleado_mensual": 1368.00,
+      "tss_registrado": true,
+      "created_at": "2026-07-01T14:30:00Z"
+    }
+  }
+}

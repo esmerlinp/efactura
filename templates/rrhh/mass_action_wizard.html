@@ -1,0 +1,571 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Acción Masiva — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-people-arrows"></i> Acción de Personal Masiva</h1>
+    <div class="hr-page-actions">
+        <a href="{{ url_for('web_rrhh.employee_list') }}" class="btn btn-ghost">
+            <i class="fa-solid fa-arrow-left"></i> Volver a Empleados
+        </a>
+    </div>
+</div>
+
+<!-- Wizard Steps Indicator -->
+<div style="display:flex; gap:0; margin-bottom:32px; background:var(--card-bg); border-radius:12px; overflow:hidden; border:1px solid var(--border-color);">
+    <div class="wizard-step active" data-step="1" style="flex:1; padding:16px; text-align:center; border-right:1px solid var(--border-color);">
+        <div style="font-size:1.2rem; font-weight:700; color:var(--accent-blue);">1</div>
+        <div style="font-size:0.82rem; color:var(--text-muted);">Seleccionar Tipo</div>
+    </div>
+    <div class="wizard-step" data-step="2" style="flex:1; padding:16px; text-align:center; border-right:1px solid var(--border-color); opacity:0.4;">
+        <div style="font-size:1.2rem; font-weight:700;">2</div>
+        <div style="font-size:0.82rem; color:var(--text-muted);">Configurar Acción</div>
+    </div>
+    <div class="wizard-step" data-step="3" style="flex:1; padding:16px; text-align:center; border-right:1px solid var(--border-color); opacity:0.4;">
+        <div style="font-size:1.2rem; font-weight:700;">3</div>
+        <div style="font-size:0.82rem; color:var(--text-muted);">Previsualizar</div>
+    </div>
+    <div class="wizard-step" data-step="4" style="flex:1; padding:16px; text-align:center; opacity:0.4;">
+        <div style="font-size:1.2rem; font-weight:700;">4</div>
+        <div style="font-size:0.82rem; color:var(--text-muted);">Resultado</div>
+    </div>
+</div>
+
+<div class="card-table-wrapper hr-document-sheet" style="padding:24px;">
+
+    <!-- Step 1: Select Type -->
+    <div id="step1">
+        <h3><i class="fa-solid fa-list"></i> Selecciona el tipo de acción</h3>
+        <p style="color:var(--text-muted); margin-bottom:20px;">
+            {{ employees|length }} empleados seleccionados.
+            {% if not employees %}No hay empleados seleccionados.{% endif %}
+        </p>
+
+        {% if employees %}
+        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:12px; margin-bottom:24px;">
+            {% for key, type_info in action_types.items() %}
+            <div class="action-type-card" data-type="{{ key }}"
+                 style="border:2px solid var(--border-color); border-radius:12px; padding:20px; cursor:pointer; transition:all 0.2s; {% if action_type == key %}border-color:var(--accent-blue); background:var(--accent-blue-bg, rgba(59,130,246,0.05));{% endif %}"
+                 onclick="selectType('{{ key }}')">
+                <div style="font-size:1.6rem; margin-bottom:8px;"><i class="{{ type_info.icon }}"></i></div>
+                <div style="font-weight:600; margin-bottom:4px;">{{ type_info.label }}</div>
+                <div style="font-size:0.78rem; color:var(--text-muted);">{{ type_info.desc }}</div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div style="display:flex; gap:8px; justify-content:flex-end; border-top:1px solid var(--border-color); padding-top:16px;">
+            <button type="button" class="btn btn-primary" id="btnToStep2" disabled onclick="goToStep2()">
+                <i class="fa-solid fa-arrow-right"></i> Configurar acción
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Step 2: Configure Action -->
+    <div id="step2" style="display:none;">
+        <h3><i class="fa-solid fa-gear"></i> Configurar <span id="step2ActionLabel"></span></h3>
+        <p style="color:var(--text-muted); margin-bottom:20px;">Define los parámetros de la acción para <strong>{{ employees|length }}</strong> empleados.</p>
+
+        <form id="actionForm" style="max-width:700px;">
+            <input type="hidden" name="actionType" id="frmActionType" value="{{ action_type }}">
+            <input type="hidden" name="employeeIds" id="frmEmployeeIds" value="{{ employee_ids|join(',') }}">
+
+            <!-- Dynamic fields will be rendered here by JS -->
+            <div id="dynamicFormFields"></div>
+
+            <div style="display:flex; gap:8px; justify-content:space-between; border-top:1px solid var(--border-color); padding-top:16px; margin-top:24px;">
+                <button type="button" class="btn btn-ghost" onclick="goToStep1()">
+                    <i class="fa-solid fa-arrow-left"></i> Cambiar tipo
+                </button>
+                <button type="button" class="btn btn-primary" onclick="previewAction()">
+                    <i class="fa-solid fa-eye"></i> Previsualizar
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Step 3: Preview -->
+    <div id="step3" style="display:none;">
+        <h3><i class="fa-solid fa-file-pen"></i> Previsualización</h3>
+        <p style="color:var(--text-muted); margin-bottom:20px;">Revisa los detalles antes de aplicar la acción.</p>
+
+        <div id="previewContent">
+            <div class="text-center text-muted" style="padding:40px;">Cargando previsualización...</div>
+        </div>
+
+        <div style="display:flex; gap:8px; justify-content:space-between; border-top:1px solid var(--border-color); padding-top:16px; margin-top:24px;">
+            <button type="button" class="btn btn-ghost" onclick="goToStep2()">
+                <i class="fa-solid fa-arrow-left"></i> Ajustar parámetros
+            </button>
+            <button type="button" class="btn btn-success" id="btnExecute" onclick="executeAction()">
+                <i class="fa-solid fa-check"></i> Confirmar y ejecutar
+            </button>
+        </div>
+    </div>
+
+    <!-- Step 4: Result -->
+    <div id="step4" style="display:none;">
+        <h3><i class="fa-solid fa-circle-check"></i> Resultado</h3>
+        <div id="resultContent">
+            <div class="text-center text-muted" style="padding:40px;"><i class="fa-solid fa-spinner fa-spin"></i> Ejecutando...</div>
+        </div>
+    </div>
+</div>
+
+<!-- Selected employees summary -->
+{% if employees %}
+<div class="card-table-wrapper hr-document-sheet" style="padding:24px; margin-top:16px;">
+    <h4 style="margin-bottom:12px;"><i class="fa-solid fa-users"></i> Empleados seleccionados ({{ employees|length }})</h4>
+    <div class="table-responsive" style="max-height:300px; overflow-y:auto;">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th>Empleado</th>
+                    <th>Cédula</th>
+                    <th>Cargo</th>
+                    <th>Departamento</th>
+                    <th>Salario Base</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for emp in employees %}
+                <tr>
+                    <td>{{ emp.fullName }}</td>
+                    <td>{{ emp.cedula }}</td>
+                    <td>{{ emp.position }}</td>
+                    <td>{{ emp.department or emp.area }}</td>
+                    <td>RD$ {{ "{:,.2f}".format(emp.baseSalary) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<style>
+.action-type-card:hover {
+    border-color: var(--accent-blue) !important;
+    box-shadow: 0 2px 12px rgba(59,130,246,0.15);
+}
+.wizard-step.active {
+    opacity: 1 !important;
+    background: var(--accent-blue-bg, rgba(59,130,246,0.05));
+}
+.wizard-step.active div:first-child {
+    color: var(--accent-blue) !important;
+}
+.wizard-step.completed {
+    opacity: 0.7 !important;
+}
+</style>
+
+<script>
+{% if employees %}
+var selectedType = '{{ action_type }}';
+
+function selectType(key) {
+    selectedType = key;
+    document.querySelectorAll('.action-type-card').forEach(function(c) {
+        c.style.borderColor = 'var(--border-color)';
+        c.style.background = 'transparent';
+    });
+    var card = document.querySelector('.action-type-card[data-type="' + key + '"]');
+    if (card) {
+        card.style.borderColor = 'var(--accent-blue)';
+        card.style.background = 'rgba(59,130,246,0.05)';
+    }
+    document.getElementById('btnToStep2').disabled = false;
+}
+
+function goToStep1() {
+    showStep(1);
+}
+
+function goToStep2() {
+    if (!selectedType) return;
+    document.getElementById('frmActionType').value = selectedType;
+    document.getElementById('step2ActionLabel').textContent =
+        document.querySelector('.action-type-card[data-type="' + selectedType + '"]')?.querySelector('div:nth-child(3)')?.textContent || selectedType;
+    renderDynamicForm(selectedType);
+    showStep(2);
+}
+
+function showStep(n) {
+    for (var i = 1; i <= 4; i++) {
+        var el = document.getElementById('step' + i);
+        if (el) el.style.display = (i === n) ? 'block' : 'none';
+        var ws = document.querySelector('.wizard-step[data-step="' + i + '"]');
+        if (ws) {
+            ws.classList.toggle('active', i === n);
+            ws.classList.toggle('completed', i < n);
+            ws.style.opacity = (i <= n) ? '1' : '0.4';
+        }
+    }
+}
+
+function renderDynamicForm(type) {
+    var container = document.getElementById('dynamicFormFields');
+    var html = '';
+    var today = '{{ now.strftime("%Y-%m-%d") }}';
+
+    if (type === 'salary_change' || type === 'promotion') {
+        html += `
+        <div class="form-group">
+            <label class="form-label">Tipo de ajuste</label>
+            <select name="changeType" id="fldChangeType" class="form-select" onchange="toggleSalaryFields()">
+                <option value="fixed_amount">Monto fijo (nuevo salario)</option>
+                <option value="percentage">Porcentaje (%)</option>
+            </select>
+        </div>
+        <div id="fixedAmountField" class="form-group">
+            <label class="form-label">Nuevo salario (RD$)</label>
+            <input type="number" name="amount" id="fldAmount" class="form-input" step="0.01" min="0" placeholder="Ej: 25000.00">
+        </div>
+        <div id="percentageField" class="form-group" style="display:none;">
+            <label class="form-label">Porcentaje de ajuste (%)</label>
+            <input type="number" name="percentage" id="fldPercentage" class="form-input" step="0.1" min="-50" max="200" placeholder="Ej: 10 (para +10%)">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Fecha efectiva</label>
+            <input type="date" name="effectiveDate" id="fldEffectiveDate" class="form-input" value="${today}">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Período de nómina (opcional)</label>
+            <select name="payrollPeriodKey" id="fldPayrollPeriod" class="form-select">
+                <option value="">Auto-detectar según fecha efectiva</option>`;
+        {% for p in payroll_periods %}
+        html += `<option value="{{ p.key }}">{{ p.label }}</option>`;
+        {% endfor %}
+        html += `
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label">
+                <input type="checkbox" name="prorate" id="fldProrate" checked>
+                Prorratear salario dentro del período
+            </label>
+            <small class="form-hint" style="display:block; margin-left:24px; color:var(--text-muted);">Si la fecha cae a mitad del período, calcular días en cada tasa.</small>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Motivo</label>
+            <textarea name="reason" id="fldReason" class="form-input" rows="2" placeholder="Razón del ajuste..."></textarea>
+        </div>`;
+    }
+
+    if (type === 'position_change' || type === 'promotion') {
+        html += `
+        <div class="form-group">
+            <label class="form-label">Nuevo puesto</label>
+            <select name="newPosition" id="fldNewPosition" class="form-select">
+                <option value="">Seleccionar...</option>`;
+        {% for p in positions %}
+        html += `<option value="{{ p.name or p }}">{{ p.name or p }}</option>`;
+        {% endfor %}
+        html += `</select>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Nuevo departamento / área</label>
+            <input type="text" name="newDepartment" id="fldNewDepartment" class="form-input" placeholder="Nuevo departamento">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Fecha efectiva</label>
+            <input type="date" name="effectiveDate" id="fldEffectiveDate" class="form-input" value="${today}">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Motivo</label>
+            <textarea name="reason" id="fldReason" class="form-input" rows="2" placeholder="Razón del cambio..."></textarea>
+        </div>`;
+    }
+
+    if (type === 'supervisor_change') {
+        html += `
+        <div class="form-group">
+            <label class="form-label">Nuevo supervisor</label>
+            <div class="combo-wrapper" style="position:relative;">
+                <input type="text" class="form-input" id="supervisorInput"
+                       placeholder="Escribe para buscar y seleccionar supervisor..."
+                       autocomplete="off"
+                       oninput="filterSupervisors(this.value)"
+                       onfocus="filterSupervisors(this.value)">
+                <input type="hidden" name="newSupervisorId" id="supervisorId">
+                <div id="supervisorDropdown"
+                     style="display:none; position:absolute; top:100%; left:0; right:0; z-index:100;
+                            background:#ffffff; border:1px solid #d1d5db;
+                            border-radius:8px; max-height:240px; overflow-y:auto;
+                            box-shadow:0 4px 16px rgba(0,0,0,0.15);"></div>
+            </div>
+            <small class="form-hint" style="display:block; margin-top:2px; color:var(--text-muted);">{{ supervisors|length }} empleados activos disponibles.</small>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Fecha efectiva</label>
+            <input type="date" name="effectiveDate" id="fldEffectiveDate" class="form-input" value="${today}">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Motivo</label>
+            <textarea name="reason" id="fldReason" class="form-input" rows="2" placeholder="Razón de la reasignación..."></textarea>
+        </div>`;
+    }
+
+    if (type === 'mass_absence') {
+        html += `
+        <div class="form-group">
+            <label class="form-label">Tipo de ausencia</label>
+            <select name="absenceType" id="fldAbsenceType" class="form-select" onchange="toggleLeaveTypeField()">
+                <option value="vacation">Vacaciones</option>
+                <option value="leave">Permiso / Licencia</option>
+            </select>
+        </div>
+        <div id="leaveTypeField" class="form-group" style="display:none;">
+            <label class="form-label">Tipo de licencia</label>
+            <select name="leaveType" id="fldLeaveType" class="form-select">
+                <option value="enfermedad">Enfermedad</option>
+                <option value="maternidad">Maternidad</option>
+                <option value="luto">Luto</option>
+                <option value="sindical">Sindical</option>
+                <option value="otro">Otro</option>
+            </select>
+        </div>
+        <div class="form-row" style="display:flex; gap:16px;">
+            <div class="form-group" style="flex:1;">
+                <label class="form-label">Fecha inicio</label>
+                <input type="date" name="startDate" id="fldStartDate" class="form-input" value="${today}">
+            </div>
+            <div class="form-group" style="flex:1;">
+                <label class="form-label">Fecha fin</label>
+                <input type="date" name="endDate" id="fldEndDate" class="form-input" value="${today}">
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Días</label>
+            <input type="number" name="days" id="fldDays" class="form-input" min="1" placeholder="Ej: 10">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Motivo</label>
+            <textarea name="reason" id="fldReason" class="form-input" rows="2" placeholder="Razón de la ausencia..."></textarea>
+        </div>`;
+    }
+
+    container.innerHTML = html;
+}
+
+function toggleSalaryFields() {
+    var ct = document.getElementById('fldChangeType')?.value;
+    document.getElementById('fixedAmountField').style.display = (ct === 'fixed_amount' || !ct) ? 'block' : 'none';
+    document.getElementById('percentageField').style.display = (ct === 'percentage') ? 'block' : 'none';
+}
+
+function toggleLeaveTypeField() {
+    var at = document.getElementById('fldAbsenceType')?.value;
+    document.getElementById('leaveTypeField').style.display = (at === 'leave') ? 'block' : 'none';
+}
+
+function getFormPayload() {
+    var payload = {};
+    var form = document.getElementById('actionForm');
+    var inputs = form.querySelectorAll('input, select, textarea');
+    inputs.forEach(function(inp) {
+        if (inp.name && inp.name !== 'actionType' && inp.name !== 'employeeIds') {
+            if (inp.type === 'checkbox') {
+                payload[inp.name] = inp.checked;
+            } else if (inp.type === 'number') {
+                payload[inp.name] = parseFloat(inp.value) || 0;
+            } else {
+                payload[inp.name] = inp.value;
+            }
+        }
+    });
+    return payload;
+}
+
+function previewAction() {
+    var type = document.getElementById('frmActionType').value;
+    var ids = document.getElementById('frmEmployeeIds').value.split(',').filter(Boolean);
+    var payload = getFormPayload();
+
+    document.getElementById('previewContent').innerHTML = '<div class="text-center text-muted" style="padding:40px;"><i class="fa-solid fa-spinner fa-spin"></i> Validando...</div>';
+    showStep(3);
+
+    fetch('{{ url_for("web_rrhh.mass_action_preview") }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}'},
+        body: JSON.stringify({actionType: type, employeeIds: ids, payload: payload})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var html = '';
+
+        if (!data.valid) {
+            html += '<div class="alert alert-danger"><i class="fa-solid fa-circle-exclamation"></i> Se encontraron errores de validación:</div>';
+            html += '<ul style="color:var(--danger);">';
+            data.errors.forEach(function(e) {
+                html += '<li><strong>' + (e.employeeName || 'General') + ':</strong> ' + e.message + '</li>';
+            });
+            html += '</ul>';
+            document.getElementById('btnExecute').disabled = true;
+        } else {
+            html += '<div class="alert alert-success"><i class="fa-solid fa-circle-check"></i> Validación exitosa. ' + data.affectedCount + ' empleados afectados.</div>';
+            document.getElementById('btnExecute').disabled = false;
+        }
+
+        html += '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:12px; margin:16px 0;">';
+        html += '<div class="stat-box"><span class="stat-label">Acción</span><span class="stat-value" style="font-size:1rem;">' + (data.actionTypeLabel || type) + '</span></div>';
+        html += '<div class="stat-box"><span class="stat-label">Empleados</span><span class="stat-value">' + data.affectedCount + '</span></div>';
+        html += '</div>';
+
+        if (data.payload) {
+            html += '<div class="card-table-wrapper" style="padding:16px; margin-bottom:16px; background:var(--bg-secondary); border-radius:8px;">';
+            html += '<h5 style="margin-bottom:8px;">Parámetros:</h5>';
+            html += '<table class="table-premium" style="font-size:0.85rem;">';
+            for (var key in data.payload) {
+                if (data.payload.hasOwnProperty(key) && data.payload[key] !== '' && data.payload[key] !== null) {
+                    var label = key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/\b\w/g, function(l){return l.toUpperCase();});
+                    var val = data.payload[key];
+                    if (key === 'newSupervisorId') {
+                        val = document.getElementById('supervisorInput')?.value || val;
+                    } else if (typeof val === 'boolean') {
+                        val = val ? 'Sí' : 'No';
+                    } else if (typeof val === 'number') {
+                        val = 'RD$ ' + Number(val).toLocaleString('es-DO', {minimumFractionDigits: 2});
+                    }
+                    html += '<tr><td style="padding:4px 8px; font-weight:600;">' + label + '</td><td style="padding:4px 8px;">' + val + '</td></tr>';
+                }
+            }
+            html += '</table></div>';
+        }
+
+        if (data.employees && data.employees.length > 0) {
+            html += '<h5 style="margin:12px 0 8px;">Empleados afectados:</h5>';
+            html += '<div class="table-responsive" style="max-height:250px; overflow-y:auto;">';
+            html += '<table class="table-premium"><thead><tr><th>Empleado</th><th>Cédula</th><th>Cargo</th><th>Salario Actual</th></tr></thead><tbody>';
+            data.employees.forEach(function(e) {
+                html += '<tr><td>' + e.fullName + '</td><td>' + e.cedula + '</td><td>' + e.position + '</td><td>RD$ ' + Number(e.baseSalary).toLocaleString('es-DO', {minimumFractionDigits: 2}) + '</td></tr>';
+            });
+            html += '</tbody></table></div>';
+        }
+
+        document.getElementById('previewContent').innerHTML = html;
+    })
+    .catch(function(err) {
+        document.getElementById('previewContent').innerHTML = '<div class="alert alert-danger">Error al validar: ' + err.message + '</div>';
+    });
+}
+
+function executeAction() {
+    var type = document.getElementById('frmActionType').value;
+    var ids = document.getElementById('frmEmployeeIds').value.split(',').filter(Boolean);
+    var payload = getFormPayload();
+
+    document.getElementById('btnExecute').disabled = true;
+    document.getElementById('btnExecute').innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Ejecutando...';
+    showStep(4);
+
+    fetch('{{ url_for("web_rrhh.mass_action_execute") }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}'},
+        body: JSON.stringify({actionType: type, employeeIds: ids, payload: payload})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var html = '';
+        if (data.error) {
+            html += '<div class="alert alert-danger"><i class="fa-solid fa-circle-exclamation"></i> ' + data.error + '</div>';
+            if (data.errors) {
+                html += '<ul style="color:var(--danger);">';
+                data.errors.forEach(function(e) {
+                    html += '<li>' + (e.employeeName || '') + ': ' + e.message + '</li>';
+                });
+                html += '</ul>';
+            }
+        } else {
+            var icon = data.status === 'completed' ? 'fa-circle-check' : 'fa-triangle-exclamation';
+            var color = data.status === 'completed' ? 'var(--accent-emerald)' : 'var(--warning)';
+            html += '<div style="text-align:center; padding:32px;">';
+            html += '<i class="fa-solid ' + icon + '" style="font-size:3rem; color:' + color + '; margin-bottom:16px;"></i>';
+            html += '<h3 style="color:' + color + ';">Acción ' + (data.status === 'completed' ? 'Completada' : 'Parcial') + '</h3>';
+            html += '<div style="display:flex; gap:24px; justify-content:center; margin:24px 0;">';
+            html += '<div><strong style="font-size:1.5rem;">' + data.totalEmployees + '</strong><br><span class="text-muted">Total</span></div>';
+            html += '<div><strong style="font-size:1.5rem; color:var(--accent-emerald);">' + data.successCount + '</strong><br><span class="text-muted">Exitosos</span></div>';
+            html += '<div><strong style="font-size:1.5rem; color:var(--danger);">' + data.errorCount + '</strong><br><span class="text-muted">Errores</span></div>';
+            html += '</div>';
+            html += '<div style="margin-top:16px;">';
+            html += '<a href="' + '{{ url_for("web_rrhh.mass_action_detail", action_id="__ID__") }}'.replace('__ID__', data.actionId) + '" class="btn btn-primary"><i class="fa-solid fa-eye"></i> Ver detalle</a>';
+            html += ' <a href="' + '{{ url_for("web_rrhh.employee_list") }}' + '" class="btn btn-ghost"><i class="fa-solid fa-users"></i> Ir a empleados</a>';
+            html += '</div></div>';
+        }
+        document.getElementById('resultContent').innerHTML = html;
+    })
+    .catch(function(err) {
+        document.getElementById('resultContent').innerHTML = '<div class="alert alert-danger">Error al ejecutar: ' + err.message + '</div>';
+    });
+}
+
+// Auto-advance to step 2 if action_type pre-selected from employee view
+if (selectedType) {
+    document.getElementById('btnToStep2').disabled = false;
+    var empCount = {{ employee_ids|length }};
+    if (empCount === 1) {
+        goToStep2();
+    }
+}
+{% else %}
+// No employees selected - show message
+document.getElementById('step1').innerHTML = `
+    <div class="text-center" style="padding:60px;">
+        <i class="fa-solid fa-users-slash" style="font-size:3rem; color:var(--text-muted); margin-bottom:16px;"></i>
+        <h3>No hay empleados seleccionados</h3>
+        <p class="text-muted">Selecciona empleados desde la lista y vuelve a intentarlo.</p>
+        <a href="{{ url_for('web_rrhh.employee_list') }}" class="btn btn-primary"><i class="fa-solid fa-arrow-left"></i> Volver a empleados</a>
+    </div>
+`;
+{% endif %}
+
+function filterSupervisors(q) {
+    q = q.toLowerCase();
+    var list = document.getElementById('supervisorDropdown');
+    if (!list) return;
+    list.innerHTML = '';
+    var hasResults = false;
+
+    {% for sup in supervisors %}
+    var name = '{{ sup.fullName }}';
+    var detail = '{{ sup.position }}';
+    var full = name + ' ' + detail;
+    var itemId = '{{ sup.id }}';
+    if (!q || full.toLowerCase().includes(q)) {
+        hasResults = true;
+        var div = document.createElement('div');
+        div.style.cssText = 'padding:8px 12px; cursor:pointer; border-bottom:1px solid var(--border-color); font-size:0.85rem; display:flex; justify-content:space-between; align-items:center;';
+        div.innerHTML = '<span>' + name + '</span><span style="color:var(--text-muted); font-size:0.78rem;">' + detail + '</span>';
+        div.dataset.id = itemId;
+        div.onclick = function() {
+            document.getElementById('supervisorInput').value = this.querySelector('span').textContent;
+            document.getElementById('supervisorId').value = this.dataset.id;
+            list.style.display = 'none';
+        };
+        div.onmouseenter = function() { this.style.background = 'var(--bg-secondary)'; };
+        div.onmouseleave = function() { this.style.background = ''; };
+        list.appendChild(div);
+    }
+    {% endfor %}
+
+    if (!hasResults && q) {
+        var div = document.createElement('div');
+        div.style.cssText = 'padding:12px; font-size:0.82rem; color:var(--text-muted); text-align:center;';
+        div.textContent = 'Sin resultados para "' + q + '"';
+        list.appendChild(div);
+    }
+
+    list.style.display = q ? 'block' : 'none';
+}
+
+document.addEventListener('click', function(e) {
+    var dd = document.getElementById('supervisorDropdown');
+    if (dd && !e.target.closest('.combo-wrapper')) {
+        dd.style.display = 'none';
+    }
+});
+</script>
+{% endblock %}

@@ -49,6 +49,8 @@ _DEFAULT_ACCOUNT_AFP_EMPLOYER = "2.1.2.1.10"
 _DEFAULT_ACCOUNT_SFS_EMPLOYER = "2.1.2.1.09"
 _DEFAULT_ACCOUNT_SRL_EMPLOYER = "2.1.2.1.11"
 _DEFAULT_ACCOUNT_INFOTEP_EMPLOYER = "2.1.2.1.12"
+_DEFAULT_ACCOUNT_INFOTEP_EMPLOYEE = "2.1.2.1.12"
+_DEFAULT_ACCOUNT_OTHER_DEDUCTIONS = "2.1.2.1.13"
 _DEFAULT_COST_CENTER_ACCOUNTS = {
     "General":         "6.2.1.01",
     "Ventas":          "6.2.1.01.01",
@@ -104,6 +106,8 @@ class PayrollService:
             "account_sfs_employer": tax_rates.get("accountSfsEmployer", _DEFAULT_ACCOUNT_SFS_EMPLOYER),
             "account_srl_employer": tax_rates.get("accountSrlEmployer", _DEFAULT_ACCOUNT_SRL_EMPLOYER),
             "account_infotep_employer": tax_rates.get("accountInfotepEmployer", _DEFAULT_ACCOUNT_INFOTEP_EMPLOYER),
+            "account_infotep_employee": tax_rates.get("accountInfotepEmployee", _DEFAULT_ACCOUNT_INFOTEP_EMPLOYEE),
+            "account_other_deductions": tax_rates.get("accountOtherDeductions", _DEFAULT_ACCOUNT_OTHER_DEDUCTIONS),
             "cost_center_accounts": tax_rates.get("costCenterAccounts", _DEFAULT_COST_CENTER_ACCOUNTS),
         }
 
@@ -526,6 +530,8 @@ class PayrollService:
         total_sfs_empl = 0.0
         total_srl_empl = 0.0
         total_infotep = 0.0
+        total_infotep_emp = 0.0
+        total_other_ded = 0.0
 
         cc_accounts = r.get("cost_center_accounts", cls.DEFAULT_COST_CENTER_ACCOUNTS)
 
@@ -539,6 +545,8 @@ class PayrollService:
             total_sfs_empl += pl.get("sfsEmployer", 0)
             total_srl_empl += pl.get("srlEmployer", 0)
             total_infotep += pl.get("infotepEmployer", 0)
+            total_infotep_emp += pl.get("infotepEmployee", 0)
+            total_other_ded += pl.get("otherDeductions", 0)
 
             emp_id = pl.get("employeeId", "")
             emp = employees.get(emp_id, {})
@@ -619,6 +627,20 @@ class PayrollService:
                 "accountName": "Acumulaciones INFOTEP",
                 "debit": 0.00, "credit": round(total_infotep, 2),
                 "description": f"INFOTEP {period_label}",
+            })
+        if total_infotep_emp > 0:
+            lines.append({
+                "accountCode": r["account_infotep_employee"],
+                "accountName": "Retención INFOTEP empleados",
+                "debit": 0.00, "credit": round(total_infotep_emp, 2),
+                "description": f"INFOTEP empleado {period_label}",
+            })
+        if total_other_ded > 0:
+            lines.append({
+                "accountCode": r["account_other_deductions"],
+                "accountName": "Deducciones varias por pagar",
+                "debit": 0.00, "credit": round(total_other_ded, 2),
+                "description": f"Otras deducciones {period_label}",
             })
 
         return lines

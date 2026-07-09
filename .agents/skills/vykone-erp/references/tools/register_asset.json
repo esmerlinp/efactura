@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "tool_name": "register_asset",
+  "display_name": "Registrar Activo Fijo",
+  "description": "Registra un activo fijo en el sistema: código interno, categoría DGII, valor de adquisición, valor residual, fecha de inicio de uso. Automáticamente asigna vida útil según tabla DGII y configura las cuentas contables de depreciación. El activo queda listo para depreciación mensual.",
+  "category": "assets",
+  "risk_level": "medium",
+  "idempotency": "not idempotent (creates new asset per call; checks duplicate codigo_interno)",
+  "permissions": ["assets:write"],
+  "related_process": "BP-12 Depreciación de Activos",
+
+  "input_schema": {
+    "type": "object",
+    "required": ["owner_uid", "codigo_interno", "descripcion", "categoria", "valor_adquisicion", "fecha_adquisicion"],
+    "properties": {
+      "owner_uid": {"type": "string"},
+      "codigo_interno": {"type": "string", "description": "Código único interno del activo"},
+      "descripcion": {"type": "string", "minLength": 3},
+      "categoria": {
+        "type": "string",
+        "enum": ["edificios", "maquinaria", "equipo_oficina", "vehiculos", "equipo_informatico", "mobiliario", "herramientas", "software", "mejoras_propiedad_arrendada", "custom"],
+        "description": "Categoría DGII del activo"
+      },
+      "valor_adquisicion": {"type": "number", "exclusiveMinimum": 0},
+      "valor_residual": {"type": "number", "minimum": 0, "description": "Valor residual. Default: 1% del valor de adquisición."},
+      "fecha_adquisicion": {"type": "string", "format": "date"},
+      "fecha_inicio_uso": {"type": "string", "format": "date", "description": "Default: misma que fecha_adquisicion"},
+      "vida_util_meses": {"type": "integer", "minimum": 1, "description": "Solo requerido si categoria=custom. Para otras categorías se calcula automáticamente."},
+      "cuenta_gasto": {"type": "string", "description": "Cuenta contable de gasto de depreciación. Default: según categoría."},
+      "cuenta_depreciacion_acumulada": {"type": "string", "description": "Cuenta de depreciación acumulada. Default: según categoría."},
+      "ubicacion": {"type": "string", "description": "Ubicación física del activo"},
+      "numero_serie": {"type": "string"},
+      "proveedor": {"type": "string"}
+    }
+  },
+
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "asset_id": {"type": "string"},
+      "codigo_interno": {"type": "string"},
+      "categoria": {"type": "string"},
+      "vida_util_meses": {"type": "integer"},
+      "depreciacion_mensual_estimada": {"type": "number"},
+      "valor_neto_libros": {"type": "number"},
+      "estado": {"type": "string"},
+      "created_at": {"type": "string", "format": "date-time"}
+    }
+  },
+
+  "validations": [
+    {"field": "codigo_interno", "rule": "Único dentro del tenant"},
+    {"field": "categoria=custom", "rule": "Requiere vida_util_meses explícito"},
+    {"field": "valor_residual", "rule": "Debe ser < valor_adquisicion"}
+  ],
+
+  "errors": [
+    {"code": "DUPLICATE_CODE", "message": "Ya existe un activo con el código {codigo_interno}."},
+    {"code": "CUSTOM_REQUIRES_LIFE", "message": "La categoría 'custom' requiere especificar vida_util_meses."},
+    {"code": "RESIDUAL_TOO_HIGH", "message": "El valor residual ({residual}) no puede ser mayor o igual al valor de adquisición ({adquisicion})."}
+  ],
+
+  "post_effects": {
+    "events": ["AssetRegistered"],
+    "depreciation": "Activo listo para depreciación en el siguiente período mensual"
+  },
+
+  "example": {
+    "input": {
+      "owner_uid": "abc123def456",
+      "codigo_interno": "VEH-003",
+      "descripcion": "Toyota Hilux 2026 - Placa L456789",
+      "categoria": "vehiculos",
+      "valor_adquisicion": 1850000.00,
+      "fecha_adquisicion": "2026-06-15",
+      "fecha_inicio_uso": "2026-06-20",
+      "numero_serie": "MR0FZ29G906123456"
+    },
+    "output": {
+      "asset_id": "ast_20260708_003",
+      "codigo_interno": "VEH-003",
+      "categoria": "vehiculos",
+      "vida_util_meses": 60,
+      "depreciacion_mensual_estimada": 30525.00,
+      "valor_neto_libros": 1850000.00,
+      "estado": "Activo",
+      "created_at": "2026-07-08T18:00:00Z"
+    }
+  }
+}

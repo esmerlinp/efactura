@@ -4746,9 +4746,7 @@ def _update_expense_sequence_log(owner_uid, log_id, emission_res, expense_dict, 
 
 @web_invoices_bp.route('/expenses/new', methods=['GET', 'POST'])
 def new_expense_route():
-    if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Registrar Gasto", required_permission="canExpenses")
+    return redirect(url_for('web_invoices.payments_new_route'))
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
@@ -5053,6 +5051,574 @@ def new_expense_route():
         expense_sequences=expense_sequences,
         bank_accounts=bank_accounts
     )
+
+
+# =========================================================================
+# PAGOS / GASTOS — Listado y Creación
+# =========================================================================
+
+@web_invoices_bp.route('/expenses/payments')
+def payments_list():
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canExpenses'):
+        return render_template('auth/restricted.html', feature_name="Pagos y Gastos", required_permission="canExpenses")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    # Filter: exclude E43 (minor) and recurring
+    filtered = [e for e in expenses if e.get('ecfType') != 'E43' and not e.get('isRecurring')]
+
+    category_filter = request.args.get('category', '').strip()
+    start_date = request.args.get('start_date', '').strip()
+    end_date = request.args.get('end_date', '').strip()
+    search_query = request.args.get('search', '').strip().lower()
+
+    for exp in filtered[:]:
+        if category_filter and exp.get('category') != category_filter:
+            filtered.remove(exp); continue
+        if start_date and exp.get('date', '')[:10] < start_date:
+            filtered.remove(exp); continue
+        if end_date and exp.get('date', '')[:10] > end_date:
+            filtered.remove(exp); continue
+        if search_query:
+            concept = exp.get('concept', '').lower()
+            ncf = exp.get('ncf', '').lower()
+            rnc = exp.get('rncEmisor', '').lower()
+            provider = exp.get('providerName', '').lower()
+            if search_query not in concept and search_query not in ncf and search_query not in rnc and search_query not in provider:
+                filtered.remove(exp)
+                continue
+
+    total_items = len(filtered)
+    try:
+        page = int(request.args.get('page', 1))
+    except ValueError:
+        page = 1
+    per_page_val = 20
+    total_pages = max(1, (total_items + per_page_val - 1) // per_page_val)
+    if page < 1: page = 1
+    if page > total_pages: page = total_pages
+    start_idx = (page - 1) * per_page_val
+    paginated = filtered[start_idx:start_idx + per_page_val]
+    start_count = ((page - 1) * per_page_val) + 1 if total_items > 0 else 0
+    end_count = min(page * per_page_val, total_items)
+
+    total_amount = sum(e.get('amount', 0) for e in filtered)
+    paid_amount = sum(e.get('amount', 0) for e in filtered if e.get('cxpStatus') == 'Pagado')
+    pending_amount = sum(e.get('amount', 0) for e in filtered if e.get('cxpStatus') == 'Pendiente')
+    paid_count = sum(1 for e in filtered if e.get('cxpStatus') == 'Pagado')
+    pending_count = sum(1 for e in filtered if e.get('cxpStatus') == 'Pendiente')
+
+    return render_template(
+        'expenses/payments_list.html',
+        active_page='expenses_payments',
+        expenses=paginated,
+        page=page, total_pages=total_pages, total_items=total_items,
+        has_prev=page > 1, has_next=page < total_pages,
+        start_count=start_count, end_count=end_count,
+        category_filter=category_filter, start_date=start_date, end_date=end_date,
+        search_query=search_query,
+        total_amount=total_amount, paid_amount=paid_amount, pending_amount=pending_amount,
+        paid_count=paid_count, pending_count=pending_count
+    )
+
+
+@web_invoices_bp.route('/expenses/payments/new', methods=['GET', 'POST'])
+def payments_new_route():
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canExpenses'):
+        return render_template('auth/restricted.html', feature_name="Nuevo Pago", required_permission="canExpenses")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    if request.method == 'POST':
+        expense_id = str(uuid.uuid4())
+        currency = request.form.get('currency', 'DOP')
+        exchange_rate = float(request.form.get('exchangeRate', 1.0)) if currency != 'DOP' else 1.0
+
+        account_items = []
+        idx = 0
+        while True:
+            concept = request.form.get(f'account_items[{idx}][concept]')
+            if concept is None:
+                break
+            concept_id = request.form.get(f'account_items[{idx}][concept_id]', '')
+            value = float(request.form.get(f'account_items[{idx}][value]', 0) or 0)
+            tax = float(request.form.get(f'account_items[{idx}][tax]', 0) or 0)
+            qty = int(request.form.get(f'account_items[{idx}][quantity]', 1) or 1)
+            obs = request.form.get(f'account_items[{idx}][observations]', '')
+            total = float(request.form.get(f'account_items[{idx}][total]', 0) or 0)
+            account_items.append({
+                'concept': concept, 'concept_id': concept_id, 'value': value, 'tax': tax,
+                'quantity': qty, 'observations': obs, 'total': total
+            })
+            idx += 1
+
+        total_amount = sum(item['total'] for item in account_items)
+        amount = total_amount * exchange_rate
+
+        payment_type = 'Contado'
+        cxp_status = 'Pagado'
+
+        expense_dict = {
+            'supplierType': 'formal',
+            'concept': account_items[0]['concept'] if account_items else request.form.get('notes', 'Pago'),
+            'category': request.form.get('category', 'Otros Gastos'),
+            'currency': currency,
+            'exchangeRate': exchange_rate,
+            'amountOriginal': total_amount,
+            'amount': amount,
+            'date': request.form['date'],
+            'rncEmisor': request.form.get('rncEmisor', ''),
+            'providerName': request.form.get('providerName', ''),
+            'ncf': '',
+            'isMinorExpense': False,
+            'isSyncedWithDGII': False,
+            'notes': request.form.get('notes', ''),
+            'isRecurring': False,
+            'itbisAmountOriginal': 0.0,
+            'itbisAmount': 0.0,
+            'isITBISDeductible': True,
+            'isDeductible': True,
+            'ecfType': request.form.get('ecfType', 'Gasto'),
+            'cne': '',
+            'tipoGastoDGII': '02',
+            'paymentType': payment_type,
+            'paymentMethod': request.form.get('paymentMethod', 'transferencia'),
+            'cxpStatus': cxp_status,
+            'cxpRemainingBalance': 0.0,
+            'approvalStatus': 'Aprobado',
+            'dueDate': request.form.get('date', ''),
+            'bankAccountId': request.form.get('bankAccountId', ''),
+            'retainedISR': float(request.form.get('retainedISRRate', 0) or 0),
+            'retainedITBIS': float(request.form.get('retainedITBISRate', 0) or 0),
+            'accountItems': account_items,
+            'expense_type': 'payment',
+            'comentario': request.form.get('comentario', ''),
+        }
+
+        DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+
+        bank_account_id = expense_dict.get('bankAccountId')
+        if bank_account_id:
+            try:
+                bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox)
+                if bank_acc:
+                    new_balance = bank_acc['currentBalance'] - amount
+                    DatabaseService.save_bank_account(owner_uid, bank_account_id, {
+                        **bank_acc, 'currentBalance': new_balance
+                    }, sandbox=sandbox)
+            except Exception as e:
+                print(f"Error al actualizar saldo de cuenta bancaria: {e}")
+
+        try:
+            from app.services.accounting_service import AccountingService
+            AccountingService.auto_generate_expense_entry(owner_uid, expense_dict, sandbox=sandbox)
+        except Exception as acc_err:
+            print(f"Error al generar asiento contable del gasto: {acc_err}")
+
+        flash('Pago registrado exitosamente.', 'success')
+        return redirect(url_for('web_invoices.payments_list'))
+
+    today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
+    accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+    tax_rules = DatabaseService.get_tax_rules(owner_uid)
+    itbis_general = tax_rules.get('itbis', {}).get('general', 0.18)
+    itbis_reduced = tax_rules.get('itbis', {}).get('reduced', 0.16)
+    return render_template(
+        'expenses/payments_new.html',
+        active_page='expenses_payments',
+        today_str=today_str,
+        bank_accounts=bank_accounts,
+        accounting_accounts=accounting_accounts,
+        itbis_general=itbis_general,
+        itbis_reduced=itbis_reduced
+    )
+
+
+# =========================================================================
+# GASTOS MENORES (E43) — Listado y Creación
+# =========================================================================
+
+@web_invoices_bp.route('/expenses/minor')
+def minor_list():
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canExpenses'):
+        return render_template('auth/restricted.html', feature_name="Gastos Menores", required_permission="canExpenses")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    filtered = [e for e in expenses if e.get('ecfType') == 'E43']
+
+    start_date = request.args.get('start_date', '').strip()
+    end_date = request.args.get('end_date', '').strip()
+    search_query = request.args.get('search', '').strip().lower()
+
+    for exp in filtered[:]:
+        if start_date and exp.get('date', '')[:10] < start_date:
+            filtered.remove(exp); continue
+        if end_date and exp.get('date', '')[:10] > end_date:
+            filtered.remove(exp); continue
+        if search_query:
+            concept = exp.get('concept', '').lower()
+            notes = exp.get('notes', '').lower()
+            if search_query not in concept and search_query not in notes:
+                filtered.remove(exp)
+                continue
+
+    total_items = len(filtered)
+    try:
+        page = int(request.args.get('page', 1))
+    except ValueError:
+        page = 1
+    per_page_val = 20
+    total_pages = max(1, (total_items + per_page_val - 1) // per_page_val)
+    if page < 1: page = 1
+    if page > total_pages: page = total_pages
+    start_idx = (page - 1) * per_page_val
+    paginated = filtered[start_idx:start_idx + per_page_val]
+    start_count = ((page - 1) * per_page_val) + 1 if total_items > 0 else 0
+    end_count = min(page * per_page_val, total_items)
+
+    total_amount = sum(e.get('amount', 0) for e in filtered)
+    this_month = datetime.now(timezone.utc).strftime('%Y-%m')
+    this_month_expenses = [e for e in filtered if e.get('date', '')[:7] == this_month]
+    this_month_amount = sum(e.get('amount', 0) for e in this_month_expenses)
+    avg_amount = total_amount / total_items if total_items > 0 else 0
+
+    return render_template(
+        'expenses/minor_list.html',
+        active_page='expenses_minor',
+        expenses=paginated,
+        page=page, total_pages=total_pages, total_items=total_items,
+        has_prev=page > 1, has_next=page < total_pages,
+        start_count=start_count, end_count=end_count,
+        start_date=start_date, end_date=end_date, search_query=search_query,
+        total_amount=total_amount,
+        this_month_amount=this_month_amount, this_month_count=len(this_month_expenses),
+        avg_amount=avg_amount
+    )
+
+
+@web_invoices_bp.route('/expenses/minor/new', methods=['GET', 'POST'])
+def minor_new_route():
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canExpenses'):
+        return render_template('auth/restricted.html', feature_name="Nuevo Gasto Menor", required_permission="canExpenses")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    if request.method == 'POST':
+        expense_id = str(uuid.uuid4())
+        currency = request.form.get('currency', 'DOP')
+        exchange_rate = float(request.form.get('exchangeRate', 1.0)) if currency != 'DOP' else 1.0
+
+        account_items = []
+        idx = 0
+        while True:
+            concept = request.form.get(f'account_items[{idx}][concept]')
+            if concept is None:
+                break
+            concept_id = request.form.get(f'account_items[{idx}][concept_id]', '')
+            value = float(request.form.get(f'account_items[{idx}][value]', 0) or 0)
+            tax = float(request.form.get(f'account_items[{idx}][tax]', 0) or 0)
+            qty = int(request.form.get(f'account_items[{idx}][quantity]', 1) or 1)
+            obs = request.form.get(f'account_items[{idx}][observations]', '')
+            total = float(request.form.get(f'account_items[{idx}][total]', 0) or 0)
+            account_items.append({
+                'concept': concept, 'concept_id': concept_id, 'value': value, 'tax': tax,
+                'quantity': qty, 'observations': obs, 'total': total
+            })
+            idx += 1
+
+        total_amount = sum(item['total'] for item in account_items)
+        amount = total_amount * exchange_rate
+
+        expense_dict = {
+            'supplierType': 'informal',
+            'concept': account_items[0]['concept'] if account_items else request.form.get('notes', 'Gasto Menor'),
+            'category': request.form.get('category', 'Comida y Restaurantes'),
+            'currency': currency,
+            'exchangeRate': exchange_rate,
+            'amountOriginal': total_amount,
+            'amount': amount,
+            'date': request.form['date'],
+            'rncEmisor': '',
+            'providerName': '',
+            'ncf': '',
+            'isMinorExpense': True,
+            'isSyncedWithDGII': False,
+            'notes': request.form.get('notes', ''),
+            'isRecurring': False,
+            'itbisAmountOriginal': 0.0,
+            'itbisAmount': 0.0,
+            'isITBISDeductible': True,
+            'isDeductible': True,
+            'ecfType': 'E43',
+            'cne': '',
+            'tipoGastoDGII': '06',
+            'paymentType': 'Contado',
+            'cxpStatus': 'Pagado',
+            'cxpRemainingBalance': 0.0,
+            'approvalStatus': 'Aprobado',
+            'dueDate': request.form.get('date', ''),
+            'bankAccountId': request.form.get('bankAccountId', ''),
+            'accountItems': account_items,
+            'expense_type': 'minor',
+            'comentario': request.form.get('comentario', ''),
+        }
+
+        DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+
+        try:
+            from app.services.accounting_service import AccountingService
+            AccountingService.auto_generate_expense_entry(owner_uid, expense_dict, sandbox=sandbox)
+        except Exception as acc_err:
+            print(f"Error al generar asiento contable del gasto menor: {acc_err}")
+
+        try:
+            ecf_short = 'E43'
+            user_email = session['user']['email']
+            encf, log_id = DatabaseService.consume_next_sequence(
+                owner_uid, ecf_short, user_email, sandbox=sandbox
+            )
+            expense_dict['encf'] = encf
+            expense_dict['ecfNumber'] = encf
+            expense_dict['ncf'] = encf
+
+            company = DatabaseService.get_company_profile(owner_uid)
+            ecf_full_type = 'Gastos Menores (E43)'
+            invoice_payload = _build_expense_ecf_payload(expense_dict, ecf_full_type)
+            res = EcfEmissionService.emit_electronic_comprobante(
+                company, invoice_payload, sandbox=sandbox
+            )
+            if res.get('success'):
+                expense_dict['encf'] = res.get('encf', encf)
+                expense_dict['ecfNumber'] = res.get('encf', encf)
+                expense_dict['xmlSignature'] = res.get('xmlSignature', '')
+                expense_dict['qrCodeURL'] = res.get('qrCodeURL', '')
+                expense_dict['isSyncedWithDGII'] = (res.get('mode', 'API') == 'API')
+                expense_dict['emisionMode'] = res.get('mode', 'API')
+                expense_dict['trackId'] = res.get('trackId', '')
+                DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+                _update_expense_sequence_log(owner_uid, log_id, res, expense_dict, sandbox)
+                flash(f'E43 emitido ante DGII: {expense_dict["encf"]}', 'success')
+            else:
+                flash(f'Gasto guardado, pero error al emitir E43: {res.get("message", "Error")}', 'warning')
+        except Exception as e:
+            print(f"Error al emitir E43 para gasto menor {expense_id}: {e}")
+            flash(f'Gasto menor guardado. Error E43: {str(e)}', 'warning')
+
+        bank_account_id = expense_dict.get('bankAccountId')
+        if bank_account_id:
+            try:
+                bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox)
+                if bank_acc:
+                    new_balance = bank_acc['currentBalance'] - amount
+                    DatabaseService.save_bank_account(owner_uid, bank_account_id, {
+                        **bank_acc, 'currentBalance': new_balance
+                    }, sandbox=sandbox)
+            except Exception as e:
+                print(f"Error al actualizar saldo: {e}")
+
+        return redirect(url_for('web_invoices.minor_list'))
+
+    today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
+    accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+    tax_rules = DatabaseService.get_tax_rules(owner_uid)
+    itbis_general = tax_rules.get('itbis', {}).get('general', 0.18)
+    itbis_reduced = tax_rules.get('itbis', {}).get('reduced', 0.16)
+    return render_template(
+        'expenses/minor_new.html',
+        active_page='expenses_minor',
+        today_str=today_str,
+        bank_accounts=bank_accounts,
+        accounting_accounts=accounting_accounts,
+        itbis_general=itbis_general,
+        itbis_reduced=itbis_reduced
+    )
+
+
+# =========================================================================
+# PAGOS RECURRENTES — Listado y Creación
+# =========================================================================
+
+@web_invoices_bp.route('/expenses/recurring')
+def recurring_list():
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canExpenses'):
+        return render_template('auth/restricted.html', feature_name="Pagos Recurrentes", required_permission="canExpenses")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    filtered = [e for e in expenses if e.get('isRecurring')]
+
+    search_query = request.args.get('search', '').strip().lower()
+    frequency_filter = request.args.get('frequency', '').strip()
+
+    for exp in filtered[:]:
+        if search_query:
+            concept = exp.get('concept', '').lower()
+            if search_query not in concept:
+                filtered.remove(exp)
+                continue
+        if frequency_filter and exp.get('recurrenceInterval') != frequency_filter:
+            filtered.remove(exp)
+            continue
+
+    total_items = len(filtered)
+    try:
+        page = int(request.args.get('page', 1))
+    except ValueError:
+        page = 1
+    per_page_val = 20
+    total_pages = max(1, (total_items + per_page_val - 1) // per_page_val)
+    if page < 1: page = 1
+    if page > total_pages: page = total_pages
+    start_idx = (page - 1) * per_page_val
+    paginated = filtered[start_idx:start_idx + per_page_val]
+    start_count = ((page - 1) * per_page_val) + 1 if total_items > 0 else 0
+    end_count = min(page * per_page_val, total_items)
+
+    total_monthly = sum(e.get('amount', 0) for e in filtered if e.get('recurrenceInterval') == 'mensual')
+    now = datetime.now(timezone.utc)
+    upcoming = [e for e in filtered if e.get('nextOccurrenceDate') and e['nextOccurrenceDate'][:10] >= now.strftime('%Y-%m-%d')]
+    next_due = min((e['nextOccurrenceDate'][:10] for e in upcoming), default=None)
+    freq_summary = f"{sum(1 for e in filtered if e.get('recurrenceInterval')=='mensual')}M / {sum(1 for e in filtered if e.get('recurrenceInterval')=='semanal')}S"
+
+    return render_template(
+        'expenses/recurring_list.html',
+        active_page='expenses_recurring',
+        expenses=paginated,
+        page=page, total_pages=total_pages, total_items=total_items,
+        has_prev=page > 1, has_next=page < total_pages,
+        start_count=start_count, end_count=end_count,
+        search_query=search_query, frequency_filter=frequency_filter,
+        total_monthly=total_monthly, next_due=next_due,
+        upcoming_count=len(upcoming), frequency_summary=freq_summary
+    )
+
+
+@web_invoices_bp.route('/expenses/recurring/new', methods=['GET', 'POST'])
+def recurring_new_route():
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canExpenses'):
+        return render_template('auth/restricted.html', feature_name="Nuevo Pago Recurrente", required_permission="canExpenses")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    if request.method == 'POST':
+        expense_id = str(uuid.uuid4())
+        currency = request.form.get('currency', 'DOP')
+        exchange_rate = float(request.form.get('exchangeRate', 1.0)) if currency != 'DOP' else 1.0
+
+        concept_items = []
+        idx = 0
+        while True:
+            concept = request.form.get(f'concept_items[{idx}][concept]')
+            if concept is None:
+                break
+            concept_id = request.form.get(f'concept_items[{idx}][concept_id]', '')
+            price = float(request.form.get(f'concept_items[{idx}][price]', 0) or 0)
+            tax_raw = (request.form.get(f'concept_items[{idx}][tax]', 0) or 0)
+            if str(tax_raw) == 'exento':
+                tax = 0.0
+            else:
+                tax = float(tax_raw)
+            qty = int(request.form.get(f'concept_items[{idx}][quantity]', 1) or 1)
+            obs = request.form.get(f'concept_items[{idx}][observations]', '')
+            total = float(request.form.get(f'concept_items[{idx}][total]', 0) or 0)
+            concept_items.append({
+                'concept': concept, 'concept_id': concept_id, 'price': price, 'tax': tax,
+                'quantity': qty, 'observations': obs, 'total': total
+            })
+            idx += 1
+
+        total_amount = sum(item['total'] for item in concept_items)
+        amount = total_amount * exchange_rate
+        tax_amount = sum(float(item['price']) * float(item['tax']) * int(item['quantity']) for item in concept_items)
+
+        is_recurring = True
+        recurrence_interval = request.form.get('recurrenceInterval', 'mensual')
+        next_occurrence = request.form.get('nextOccurrenceDate')
+        recurrence_end_date = request.form.get('recurrenceEndDate')
+
+        expense_dict = {
+            'expense_type': 'recurring',
+            'concept': concept_items[0]['concept'] if concept_items else 'Pago Recurrente',
+            'category': 'Otros Gastos',
+            'currency': currency,
+            'exchangeRate': exchange_rate,
+            'amountOriginal': total_amount,
+            'amount': amount,
+            'date': request.form.get('nextOccurrenceDate', datetime.now(timezone.utc).strftime('%Y-%m-%d')),
+            'rncEmisor': '',
+            'providerName': '',
+            'ncf': '',
+            'isMinorExpense': False,
+            'isSyncedWithDGII': False,
+            'notes': '',
+            'isRecurring': True,
+            'recurrenceInterval': recurrence_interval,
+            'nextOccurrenceDate': next_occurrence,
+            'recurrenceEndDate': recurrence_end_date if recurrence_end_date else None,
+            'itbisAmountOriginal': tax_amount,
+            'itbisAmount': tax_amount * exchange_rate,
+            'isITBISDeductible': True,
+            'isDeductible': True,
+            'ecfType': 'E31',
+            'cne': '',
+            'tipoGastoDGII': '02',
+            'paymentType': 'Contado',
+            'cxpStatus': 'Pagado',
+            'cxpRemainingBalance': 0.0,
+            'approvalStatus': 'Aprobado',
+            'dueDate': next_occurrence,
+            'bankAccountId': request.form.get('bankAccountId', ''),
+            'conceptItems': concept_items,
+            'accountItems': [{
+                'concept': ci['concept'],
+                'concept_id': ci.get('concept_id', ''),
+                'value': ci['price'],
+                'tax': ci['tax'],
+                'quantity': ci['quantity'],
+                'observations': ci.get('observations', ''),
+                'total': ci['total'],
+            } for ci in concept_items],
+        }
+
+        DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+
+        try:
+            from app.services.accounting_service import AccountingService
+            AccountingService.auto_generate_expense_entry(owner_uid, expense_dict, sandbox=sandbox)
+        except Exception as acc_err:
+            print(f"Error al generar asiento contable del pago recurrente: {acc_err}")
+
+        flash('Pago recurrente programado exitosamente.', 'success')
+        return redirect(url_for('web_invoices.recurring_list'))
+
+    today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
+    accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+    tax_rules = DatabaseService.get_tax_rules(owner_uid)
+    itbis_general = tax_rules.get('itbis', {}).get('general', 0.18)
+    itbis_reduced = tax_rules.get('itbis', {}).get('reduced', 0.16)
+    return render_template(
+        'expenses/recurring_new.html',
+        active_page='expenses_recurring',
+        today_str=today_str,
+        bank_accounts=bank_accounts,
+        accounting_accounts=accounting_accounts,
+        itbis_general=itbis_general,
+        itbis_reduced=itbis_reduced
+    )
+
 
 @web_invoices_bp.route('/expenses/<expense_id>/delete', methods=['POST'])
 def delete_expense_route(expense_id):

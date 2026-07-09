@@ -91,6 +91,34 @@ PURCHASE_ORDER_STATES = {
     },
 }
 
+MASS_ACTION_STATES = {
+    "draft": {
+        "label": "Borrador",
+        "transitions": ["processing", "failed"],
+        "color": "secondary",
+    },
+    "processing": {
+        "label": "Procesando",
+        "transitions": ["completed", "partial", "failed"],
+        "color": "info",
+    },
+    "completed": {
+        "label": "Completada",
+        "transitions": [],
+        "color": "success",
+    },
+    "partial": {
+        "label": "Parcial",
+        "transitions": [],
+        "color": "warning",
+    },
+    "failed": {
+        "label": "Fallida",
+        "transitions": ["draft"],
+        "color": "danger",
+    },
+}
+
 JOURNAL_ENTRY_STATES = {
     "active": {
         "label": "Activo",
@@ -145,3 +173,7 @@ class StateMachineValidator:
     @staticmethod
     def for_journal_entries():
         return StateMachineValidator(JOURNAL_ENTRY_STATES)
+
+    @staticmethod
+    def for_mass_actions():
+        return StateMachineValidator(MASS_ACTION_STATES)

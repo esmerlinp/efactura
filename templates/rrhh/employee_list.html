@@ -102,16 +102,12 @@
     <!-- Bulk toolbar -->
     <div id="bulkToolbar" style="display:none; padding:0 20px 12px; gap:8px; align-items:center; flex-wrap:wrap;">
         <span id="bulkCount" style="font-size:0.82rem; color:var(--text-muted);">0 seleccionados</span>
-        <button type="button" class="btn btn-sm btn-ghost" onclick="bulkChangeStatus('activo')">Marcar Activo</button>
-        <button type="button" class="btn btn-sm btn-ghost" onclick="bulkChangeStatus('inactivo')">Marcar Inactivo</button>
         <button type="button" class="btn btn-sm btn-ghost" onclick="bulkExport()">
             <i class="fa-solid fa-download"></i> Exportar selección
         </button>
-        <form id="bulkForm" method="POST" action="{{ url_for('web_rrhh.employee_list') }}" style="display:none;">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="action" id="bulkAction" value="">
-            <input type="hidden" name="ids" id="bulkIds" value="">
-        </form>
+        <button type="button" class="btn btn-sm btn-primary" onclick="bulkMassAction()">
+            <i class="fa-solid fa-people-arrows"></i> Acción Masiva
+        </button>
     </div>
 
     <div class="table-responsive">
@@ -220,18 +216,15 @@ function toggleAll(el) {
     document.querySelectorAll('.emp-cb').forEach(function(cb) { cb.checked = el.checked; });
     updateBulk();
 }
-function bulkChangeStatus(s) {
-    var ids = Array.from(document.querySelectorAll('.emp-cb:checked')).map(function(cb) { return cb.value; }).join(',');
-    if (!ids) return;
-    if (!confirm('¿Cambiar estado de los empleados seleccionados a ' + s + '?')) return;
-    document.getElementById('bulkAction').value = s;
-    document.getElementById('bulkIds').value = ids;
-    document.getElementById('bulkForm').submit();
-}
 function bulkExport() {
     var ids = Array.from(document.querySelectorAll('.emp-cb:checked')).map(function(cb) { return cb.value; }).join(',');
     if (!ids) return;
     window.location.href = "{{ url_for('web_rrhh.employee_list') }}?export=1&ids=" + ids;
+}
+function bulkMassAction() {
+    var ids = Array.from(document.querySelectorAll('.emp-cb:checked')).map(function(cb) { return cb.value; });
+    if (!ids.length) return;
+    window.location.href = "{{ url_for('web_rrhh.mass_action_wizard') }}?ids=" + ids.join(',');
 }
 </script>
 {% endblock %}

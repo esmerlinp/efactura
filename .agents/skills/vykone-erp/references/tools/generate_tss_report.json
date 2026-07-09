@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "tool_name": "generate_tss_report",
+  "display_name": "Generar Reporte TSS",
+  "description": "Genera el reporte de nómina TSS para un período: detalle por empleado de AFP, ARS y Riesgos Laborales, tanto aportes del empleado como del empleador. Formato compatible con envío a la Tesorería de la Seguridad Social.",
+  "category": "reports",
+  "risk_level": "low (read-only)",
+  "idempotency": "idempotent",
+  "permissions": ["reports:read", "tss:read"],
+  "related_process": "BP-2 Ciclo de Nómina",
+
+  "input_schema": {
+    "type": "object",
+    "required": ["owner_uid", "period_start", "period_end"],
+    "properties": {
+      "owner_uid": {"type": "string"},
+      "period_start": {"type": "string", "format": "date"},
+      "period_end": {"type": "string", "format": "date"},
+      "employee_ids": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "IDs de empleados específicos. Si se omite, todos los empleados activos."
+      },
+      "format": {
+        "type": "string",
+        "enum": ["json", "csv", "tss_format"],
+        "default": "json",
+        "description": "Formato de salida. tss_format genera archivo compatible con plataforma TSS."
+      },
+      "include_inactive": {
+        "type": "boolean",
+        "default": false
+      }
+    }
+  },
+
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "period": {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}}},
+      "total_employees": {"type": "integer"},
+      "totals": {
+        "type": "object",
+        "properties": {
+          "salarios_totales": {"type": "number"},
+          "afp_empleado_total": {"type": "number"},
+          "afp_empleador_total": {"type": "number"},
+          "ars_empleado_total": {"type": "number"},
+          "ars_empleador_total": {"type": "number"},
+          "riesgos_laborales_total": {"type": "number"},
+          "gran_total_tss": {"type": "number"}
+        }
+      },
+      "details": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "employee_id": {"type": "string"},
+            "cedula": {"type": "string"},
+            "nombre": {"type": "string"},
+            "salario_mensual": {"type": "number"},
+            "salario_cotizable": {"type": "number"},
+            "afp_empleado": {"type": "number"},
+            "ars_empleado": {"type": "number"},
+            "afp_empleador": {"type": "number"},
+            "ars_empleador": {"type": "number"},
+            "riesgos_laborales": {"type": "number"}
+          }
+        }
+      },
+      "export_url": {"type": "string"},
+      "generated_at": {"type": "string", "format": "date-time"}
+    }
+  },
+
+  "errors": [
+    {"code": "NO_EMPLOYEES", "message": "No hay empleados activos para el período especificado."},
+    {"code": "NO_PAYROLL_DATA", "message": "No se encontraron datos de nómina para el período {start}-{end}."}
+  ],
+
+  "example": {
+    "input": {
+      "owner_uid": "abc123def456",
+      "period_start": "2026-06-01",
+      "period_end": "2026-06-30"
+    },
+    "output": {
+      "period": {"start": "2026-06-01", "end": "2026-06-30"},
+      "total_employees": 8,
+      "totals": {
+        "salarios_totales": 320000.00,
+        "afp_empleado_total": 9184.00,
+        "afp_empleador_total": 22720.00,
+        "ars_empleado_total": 9728.00,
+        "ars_empleador_total": 22688.00,
+        "riesgos_laborales_total": 3840.00,
+        "gran_total_tss": 68160.00
+      },
+      "details": [],
+      "generated_at": "2026-07-08T17:30:00Z"
+    }
+  }
+}

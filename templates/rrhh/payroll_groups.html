@@ -1,0 +1,80 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Grupos de Nómina — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-layer-group"></i> Grupos de Nómina</h1>
+    <div class="hr-page-actions">
+        <a href="{{ url_for('web_rrhh.payroll_groups_new') }}" class="btn btn-primary">
+            <i class="fa-solid fa-plus"></i> Nuevo grupo
+        </a>
+    </div>
+</div>
+
+{% if groups %}
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Descripción</th>
+                    <th>Frecuencia</th>
+                    <th>Empleados</th>
+                    <th>Estado</th>
+                    <th>Creado</th>
+                    <th></th>
+                </tr>
+            </thead>
+                <tbody>
+                {% for g in groups %}
+                <tr>
+                    <td><strong><a href="{{ url_for('web_rrhh.payroll_groups_view', group_id=g.id) }}" style="color:var(--text-primary); text-decoration:none;">{{ g.name }}</a></strong></td>
+                    <td style="color:var(--text-secondary); font-size:0.85rem;">{{ g.description or '—' }}</td>
+                    <td>
+                        <span class="badge {% if g.frequency == 'mensual' %}badge-info{% else %}badge-secondary{% endif %}">
+                            {{ 'Mensual' if g.frequency == 'mensual' else 'Quincenal' if g.frequency == 'quincenal' else g.frequency }}
+                        </span>
+                    </td>
+                    <td style="font-size:0.85rem;">{{ group_employee_counts.get(g.id, 0) }}</td>
+                    <td>
+                        {% if g.isActive %}
+                        <span class="badge badge-success">Activo</span>
+                        {% else %}
+                        <span class="badge badge-secondary">Inactivo</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size:0.82rem; color:var(--text-muted);">{{ g.createdAt[:10] if g.createdAt else '—' }}</td>
+                    <td>
+                        <a href="{{ url_for('web_rrhh.payroll_groups_view', group_id=g.id) }}" class="btn btn-sm btn-ghost" title="Ver detalle">
+                            <i class="fa-solid fa-eye"></i>
+                        </a>
+                        <a href="{{ url_for('web_rrhh.payroll_groups_edit', group_id=g.id) }}" class="btn btn-sm btn-ghost" title="Editar">
+                            <i class="fa-solid fa-pen"></i>
+                        </a>
+                        <form method="POST" action="{{ url_for('web_rrhh.payroll_groups_delete', group_id=g.id) }}" style="display:inline" onsubmit="return confirm('¿Eliminar grupo «{{ g.name }}»? Los períodos existentes no se verán afectados.');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-ghost" style="color:var(--danger);" title="Eliminar">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="hr-empty-state">
+    <i class="fa-solid fa-layer-group"></i>
+    <h3 style="margin:0 0 8px;">Sin grupos de nómina</h3>
+    <p style="color:var(--text-secondary); margin:0 0 16px;">
+        Crea grupos para organizar distintas nóminas (Administrativa, Producción, Vendedores, etc.) con su propia frecuencia y empleados.
+    </p>
+    <a href="{{ url_for('web_rrhh.payroll_groups_new') }}" class="btn btn-primary">
+        <i class="fa-solid fa-plus"></i> Crear primer grupo
+    </a>
+</div>
+{% endif %}
+{% endblock %}

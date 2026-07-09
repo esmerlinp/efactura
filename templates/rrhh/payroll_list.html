@@ -11,8 +11,21 @@
         <a href="{{ url_for('web_rrhh.payroll_new') }}" class="btn btn-primary">
             <i class="fa-solid fa-plus"></i> Calcular Nómina
         </a>
+        <a href="{{ url_for('web_rrhh.payroll_groups_list') }}" class="btn btn-secondary">
+            <i class="fa-solid fa-layer-group"></i> Grupos
+        </a>
     </div>
 </div>
+
+{% if payroll_groups is defined and payroll_groups %}
+<div style="margin-bottom:16px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+    <span style="font-size:0.85rem; color:var(--text-secondary); font-weight:600;">Filtrar por grupo:</span>
+    <a href="{{ url_for('web_rrhh.payroll_list') }}" class="btn btn-sm {% if not filter_group %}btn-primary{% else %}btn-ghost{% endif %}">Todos</a>
+    {% for g in payroll_groups %}
+    <a href="{{ url_for('web_rrhh.payroll_list', group=g.id) }}" class="btn btn-sm {% if filter_group == g.id %}btn-primary{% else %}btn-ghost{% endif %}">{{ g.name }}</a>
+    {% endfor %}
+</div>
+{% endif %}
 
 <div class="card-table-wrapper hr-table-card">
     <div class="table-header-row">
@@ -25,6 +38,7 @@
         <table class="table-premium">
         <thead>
             <tr>
+                {% if payroll_groups is defined and payroll_groups %}<th>Grupo</th>{% endif %}
                 <th>Período</th>
                 <th>Tipo</th>
                 <th>Empleados</th>
@@ -38,6 +52,7 @@
         <tbody>
             {% for p in periods %}
             <tr>
+                {% if payroll_groups is defined and payroll_groups %}<td style="white-space:nowrap; font-size:0.85rem;">{{ group_map.get(p.payrollGroupId, '—') }}</td>{% endif %}
                 <td><strong><a href="{{ url_for('web_rrhh.payroll_view', period_id=p.id) }}" style="color:var(--text-primary); text-decoration:none;">{{ p.get('periodRange') or p.periodKey }}</a></strong></td>
                 <td><span class="badge badge-info">{{ p.get('periodType', 'mensual') }}</span></td>
                 <td>{{ p.lines|length }}</td>
@@ -55,7 +70,7 @@
                 </div></td>
             </tr>
             {% else %}
-            <tr><td colspan="8" class="text-center text-muted">No hay períodos de nómina procesados.</td></tr>
+            <tr><td colspan="9" class="text-center text-muted">No hay períodos de nómina procesados.</td></tr>
             {% endfor %}
         </tbody>
         </table>

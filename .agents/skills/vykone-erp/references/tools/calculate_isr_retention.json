@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "tool_name": "calculate_isr_retention",
+  "display_name": "Calcular Retención ISR",
+  "description": "Calcula la retención de ISR para un empleado (salario) o para un proveedor de servicios profesionales (retención 10%). Para empleados, aplica la tabla progresiva DGII con deducciones de AFP y ARS, escala anualizada, y exención del primer tramo. Para proveedores, aplica retención fija del 10% sobre servicios profesionales, alquileres y comisiones.",
+  "category": "tax",
+  "risk_level": "low (read-only calculation)",
+  "idempotency": "idempotent",
+  "permissions": ["tax:read"],
+  "related_process": "BP-2 Ciclo de Nómina, BP-4 Pago de Factura",
+
+  "input_schema": {
+    "type": "object",
+    "required": ["owner_uid", "tipo_calculo", "ingreso_bruto"],
+    "properties": {
+      "owner_uid": {"type": "string"},
+      "tipo_calculo": {
+        "type": "string",
+        "enum": ["salario_empleado", "servicios_profesionales", "alquiler", "comision", "otro"],
+        "description": "Tipo de cálculo ISR"
+      },
+      "ingreso_bruto": {"type": "number", "exclusiveMinimum": 0, "description": "Ingreso bruto sobre el cual calcular ISR en RD$"},
+      "periodicidad": {
+        "type": "string",
+        "enum": ["mensual", "quincenal", "semanal"],
+        "default": "mensual",
+        "description": "Periodicidad del ingreso (solo relevante para salario_empleado)"
+      },
+      "deduccion_afp": {"type": "number", "minimum": 0, "description": "Deducción AFP del empleado ya calculada (para salario_empleado)"},
+      "deduccion_ars": {"type": "number", "minimum": 0, "description": "Deducción ARS del empleado ya calculada (para salario_empleado)"},
+      "es_retencion_proveedor": {
+        "type": "boolean",
+        "default": false,
+        "description": "Si true, aplica retención fija del 10% (servicios profesionales, alquiler, comisión)"
+      }
+    }
+  },
+
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "tipo_calculo": {"type": "string"},
+      "ingreso_bruto": {"type": "number"},
+      "ingreso_neto_gravable": {"type": "number", "description": "Ingreso después de deducciones AFP/ARS (solo empleados)"},
+      "isr_determinado": {"type": "number", "description": "ISR calculado"},
+      "tasa_efectiva": {"type": "number", "description": "Tasa efectiva aplicada (%)"},
+      "metodo": {"type": "string", "enum": ["tabla_progresiva_dgii", "retencion_fija_10", "exento"], "description": "Método utilizado"},
+      "detalle_tramos": {
+        "description": "Desglose por tramos (solo para tabla_progresiva_dgii)",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "tramo": {"type": "string"},
+            "desde": {"type": "number"},
+            "hasta": {"type": "number"},
+            "tasa": {"type": "number"},
+            "base_imponible_tramo": {"type": "number"},
+            "isr_tramo": {"type": "number"}
+          }
+        }
+      },
+      "exencion_aplicada": {"type": "number", "description": "Monto de la exención del primer tramo (aprox RD$34,685 mensual)"}
+    }
+  },
+
+  "dgii_scale": {
+    "description": "Tabla progresiva ISR personas físicas DGII (escala anual 2026 — aproximada)",
+    "tramos_anuales": [
+      {"desde": 0, "hasta": 416220.00, "tasa": 0, "descripcion": "Exento"},
+      {"desde": 416220.01, "hasta": 624329.00, "tasa": 15, "descripcion": "15% sobre excedente de RD$416,220.01"},
+      {"desde": 624329.01, "hasta": 867123.00, "tasa": 20, "descripcion": "20% sobre excedente de RD$624,329.01"},
+      {"desde": 867123.01, "hasta": null, "tasa": 25, "descripcion": "25% sobre excedente de RD$867,123.01"}
+    ]
+  },
+
+  "errors": [
+    {"code": "INVALID_INCOME", "message": "El ingreso bruto debe ser mayor que 0."},
+    {"code": "INVALID_PERIODICITY", "message": "Periodicidad no soportada para tipo_calculo={tipo}."}
+  ],
+
+  "example_salario": {
+    "input": {
+      "owner_uid": "abc123def456",
+      "tipo_calculo": "salario_empleado",
+      "ingreso_bruto": 45000.00,
+      "periodicidad": "mensual",
+      "deduccion_afp": 1291.50,
+      "deduccion_ars": 1368.00
+    },
+    "output": {
+      "tipo_calculo": "salario_empleado",
+      "ingreso_bruto": 45000.00,
+      "ingreso_neto_gravable": 42340.50,
+      "isr_determinado": 0.00,
+      "tasa_efectiva": 0.00,
+      "metodo": "exento",
+      "exencion_aplicada": 34685.00
+    }
+  },
+
+  "example_proveedor": {
+    "input": {
+      "owner_uid": "abc123def456",
+      "tipo_calculo": "servicios_profesionales",
+      "ingreso_bruto": 85000.00,
+      "es_retencion_proveedor": true
+    },
+    "output": {
+      "tipo_calculo": "servicios_profesionales",
+      "ingreso_bruto": 85000.00,
+      "ingreso_neto_gravable": 85000.00,
+      "isr_determinado": 8500.00,
+      "tasa_efectiva": 10.00,
+      "metodo": "retencion_fija_10",
+      "exencion_aplicada": 0.00
+    }
+  }
+}

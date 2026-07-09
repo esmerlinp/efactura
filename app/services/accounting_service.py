@@ -923,6 +923,22 @@ class AccountingService:
         cogs_lines = cls._build_cogs_lines(invoice, accounts)
         lines.extend(cogs_lines)
 
+        try:
+            entry = cls.generate_entry(owner_uid, {
+                "entryType": "invoice",
+                "date": str(invoice.get("date", ""))[:10],
+                "concept": f"Factura de venta {invoice.get('invoiceNumber', '')} - {client_name}",
+                "referenceType": "invoice",
+                "referenceId": invoice_id,
+                "referenceNumber": invoice.get("invoiceNumber", ""),
+                "lines": lines,
+                "createdBy": "system",
+                "prefix": "A",
+            }, sandbox=sandbox)
+            return entry
+        except ValueError:
+            return None
+
     @classmethod
     def _build_inventory_adjustment_lines(cls, operation_type, items, accounts, reference_id=""):
         """
@@ -1176,6 +1192,9 @@ class AccountingService:
 
     @classmethod
     def auto_generate_expense_entry(cls, owner_uid, expense, sandbox=True):
+        expense_id = expense.get("id", "")
+        if _accounting_entry_exists(owner_uid, "expense", expense_id):
+            return None
         accounts = DatabaseService.get_chart_of_accounts(owner_uid)
         if not accounts:
             cls.seed_default_accounts(owner_uid)
@@ -1183,27 +1202,124 @@ class AccountingService:
         cxp_acc = _find_account_by_usage(accounts, "cxp")
         compras_acc = _find_account_by_usage(accounts, "compras")
         gastos_acc = _find_account_by_usage(accounts, "gastos")
+        banco_acc = _find_account_by_usages(accounts, ["banco", "efectivo"])
         itbis_credito_acc = _find_account_by_usage(accounts, "itbis_credito")
+        itbis_retenido_acc = _find_account_by_usage(accounts, "itbis_retenido")
+        isr_retenido_acc = _find_account_by_usage(accounts, "isr_retenido")
         total = float(expense.get("amount", expense.get("total", 0)))
-        itbis = float(expense.get("itbisAmount", expense.get("itbis", 0)))
-        net = max(0, total - itbis)
+        account_items = expense.get("accountItems", [])
+        payment_type = expense.get("paymentType", expense.get("payment_type", "Contado"))
         lines = []
-        if compras_acc and expense.get("isCost"):
-            lines.append({"accountId": compras_acc["id"], "accountCode": compras_acc.get("code", ""), "accountName": compras_acc.get("name", ""), "debit": round(net, 2), "credit": 0.00, "description": expense.get("concept", "")})
-        elif gastos_acc:
-            lines.append({"accountId": gastos_acc["id"], "accountCode": gastos_acc.get("code", ""), "accountName": gastos_acc.get("name", ""), "debit": round(net, 2), "credit": 0.00, "description": expense.get("concept", "")})
-        if itbis > 0 and itbis_credito_acc:
-            lines.append({"accountId": itbis_credito_acc["id"], "accountCode": itbis_credito_acc.get("code", ""), "accountName": itbis_credito_acc.get("name", ""), "debit": round(itbis, 2), "credit": 0.00, "description": "ITBIS"})
-        if cxp_acc:
-            lines.append({"accountId": cxp_acc["id"], "accountCode": cxp_acc.get("code", ""), "accountName": cxp_acc.get("name", ""), "debit": 0.00, "credit": round(total, 2), "description": ""})
+
+        if account_items:
+            # Usar cuentas específicas seleccionadas por el usuario
+            total_debit_computed = 0.0
+            for item in account_items:
+                concept_id = item.get("concept_id", "")
+                item_value = float(item.get("value", 0))
+                item_total = float(item.get("total", 0))
+                tax_amount = round(item_total - item_value, 2)
+
+                if concept_id:
+                    acc = next((a for a in accounts if a.get("id") == concept_id), None)
+                else:
+                    acc = None
+
+                if acc:
+                    lines.append({
+                        "accountId": acc["id"],
+                        "accountCode": acc.get("code", ""),
+                        "accountName": acc.get("name", ""),
+                        "debit": round(item_value, 2),
+                        "credit": 0.00,
+                        "description": item.get("concept", "") or expense.get("concept", ""),
+                    })
+                    total_debit_computed += item_value
+                else:
+                    total_debit_computed += item_total
+
+                if tax_amount > 0 and itbis_credito_acc:
+                    lines.append({
+                        "accountId": itbis_credito_acc["id"],
+                        "accountCode": itbis_credito_acc.get("code", ""),
+                        "accountName": itbis_credito_acc.get("name", ""),
+                        "debit": round(tax_amount, 2),
+                        "credit": 0.00,
+                        "description": "ITBIS crédito fiscal",
+                    })
+                    total_debit_computed += tax_amount
+
+            # Retenciones
+            retained_isr_amount = 0.0
+            retained_isr_rate = float(expense.get("retainedISR", 0))
+            retained_itbis_amount = 0.0
+            retained_itbis_rate = float(expense.get("retainedITBIS", 0))
+            if retained_isr_rate > 0:
+                retained_isr_amount = round(total * retained_isr_rate, 2)
+            if retained_itbis_rate > 0:
+                tax_total = sum(max(0, round(float(it.get("total", 0)) - float(it.get("value", 0)), 2)) for it in account_items)
+                retained_itbis_amount = round(tax_total * retained_itbis_rate, 2)
+
+            if retained_isr_amount > 0 and isr_retenido_acc:
+                lines.append({
+                    "accountId": isr_retenido_acc["id"],
+                    "accountCode": isr_retenido_acc.get("code", ""),
+                    "accountName": isr_retenido_acc.get("name", ""),
+                    "debit": 0.00,
+                    "credit": round(retained_isr_amount, 2),
+                    "description": "ISR retenido",
+                })
+            if retained_itbis_amount > 0 and itbis_retenido_acc:
+                lines.append({
+                    "accountId": itbis_retenido_acc["id"],
+                    "accountCode": itbis_retenido_acc.get("code", ""),
+                    "accountName": itbis_retenido_acc.get("name", ""),
+                    "debit": 0.00,
+                    "credit": round(retained_itbis_amount, 2),
+                    "description": "ITBIS retenido",
+                })
+
+            # Crédito: CXP o Banco/Efectivo
+            credit_amount = round(total - retained_isr_amount - retained_itbis_amount, 2)
+            if payment_type == "Contado" and banco_acc:
+                credit_acc = banco_acc
+            elif cxp_acc:
+                credit_acc = cxp_acc
+            else:
+                credit_acc = None
+            if credit_acc and credit_amount > 0:
+                lines.append({
+                    "accountId": credit_acc["id"],
+                    "accountCode": credit_acc.get("code", ""),
+                    "accountName": credit_acc.get("name", ""),
+                    "debit": 0.00,
+                    "credit": round(credit_amount, 2),
+                    "description": expense.get("concept", "") or "Pago",
+                })
+        else:
+            # Fallback genérico cuando no hay account_items específicos
+            itbis = float(expense.get("itbisAmount", expense.get("itbis", 0)))
+            net = max(0, total - itbis)
+            if compras_acc and expense.get("isCost"):
+                lines.append({"accountId": compras_acc["id"], "accountCode": compras_acc.get("code", ""), "accountName": compras_acc.get("name", ""), "debit": round(net, 2), "credit": 0.00, "description": expense.get("concept", "")})
+            elif gastos_acc:
+                lines.append({"accountId": gastos_acc["id"], "accountCode": gastos_acc.get("code", ""), "accountName": gastos_acc.get("name", ""), "debit": round(net, 2), "credit": 0.00, "description": expense.get("concept", "")})
+            if itbis > 0 and itbis_credito_acc:
+                lines.append({"accountId": itbis_credito_acc["id"], "accountCode": itbis_credito_acc.get("code", ""), "accountName": itbis_credito_acc.get("name", ""), "debit": round(itbis, 2), "credit": 0.00, "description": "ITBIS"})
+            if cxp_acc:
+                lines.append({"accountId": cxp_acc["id"], "accountCode": cxp_acc.get("code", ""), "accountName": cxp_acc.get("name", ""), "debit": 0.00, "credit": round(total, 2), "description": ""})
+
         try:
+            supplier_name = expense.get("providerName", expense.get("supplierName", ""))
+            concept = expense.get("concept", "")
+            ncf = expense.get("ncf", "")
             entry = cls.generate_entry(owner_uid, {
                 "entryType": "expense",
                 "date": str(expense.get("date", ""))[:10],
-                "concept": f"Compra/gasto {expense.get('ncf', '')} - {expense.get('supplierName', '')}",
+                "concept": f"Gasto {ncf} - {supplier_name} - {concept}"[:200],
                 "referenceType": "expense",
                 "referenceId": expense.get("id", ""),
-                "referenceNumber": expense.get("ncf", ""),
+                "referenceNumber": ncf,
                 "lines": lines,
                 "createdBy": "system",
                 "prefix": "A",

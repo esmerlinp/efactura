@@ -51,32 +51,9 @@ def _sanitize_for_role(employee: dict) -> dict:
 MONTHS_ES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
 
 
-def _filter_employees_by_period(employees: list, period_key: str, frequency_mode: str = "company") -> tuple:
-    """Filtra empleados según su paymentFrequency vs el período.
-    En modo 'company', incluye a todos.
-    En modo 'employee': quincenal → Q1, mensual → Q2, ambos/empty → ambos.
-    Retorna (incluidos, excluidos)."""
-    if frequency_mode != "employee":
-        return list(employees), []
-    parts = period_key.split("-")
-    is_q2 = len(parts) == 3 and parts[2] == "2"
-    is_q1 = len(parts) == 3 and parts[2] == "1"
-    included, excluded = [], []
-    for emp in employees:
-        emp_freq = (emp.get("paymentFrequency") or "").strip()
-        if emp_freq == "quincenal":
-            if is_q1:
-                included.append(emp)
-            else:
-                excluded.append(emp)
-        elif emp_freq == "mensual":
-            if is_q2:
-                included.append(emp)
-            else:
-                excluded.append(emp)
-        else:
-            included.append(emp)
-    return included, excluded
+def _filter_employees_by_period(employees, period_key=None, frequency_mode=None):
+    """Compatibilidad: ahora todos los empleados del grupo se incluyen sin filtrar."""
+    return list(employees), []
 
 
 def _generate_periods(frequency: str, year: int = None):
@@ -171,28 +148,63 @@ def payroll_setup():
         return redirect(url_for("web_auth.login"))
     owner_uid, sandbox = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
+    from uuid import uuid4
 
     if request.method == "POST":
-        frequency_mode = request.form.get("frequency_mode", "company")
-        frequency = request.form.get("frequency", "mensual")
-        if frequency_mode in ("company", "employee"):
-            config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
-            config["frequencyMode"] = frequency_mode
-            if frequency_mode == "company":
-                if frequency not in ("quincenal", "mensual", "ambos", "quincenal_y_mensual"):
-                    flash("Frecuencia inválida.", "error")
-                    return redirect(url_for("web_rrhh.payroll_setup"))
-                config["payrollFrequency"] = frequency
-            config["onboardingCompleted"] = True
+        selection = request.form.get("payroll_type", "")
+        config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
+        now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        user_email = session.get("user", {}).get("email", "")
+
+        if selection == "mensual":
+            config["payrollFrequency"] = "mensual"
             hr.save_payroll_config(owner_uid, config, sandbox=sandbox)
-            flash("¡Configuración de nómina guardada exitosamente!", "success")
+            gid = str(uuid4())
+            hr.save_payroll_group(owner_uid, gid, {
+                "id": gid, "name": "Nómina Mensual", "description": "",
+                "frequency": "mensual", "isActive": True,
+                "createdAt": now_iso, "updatedAt": now_iso, "createdBy": user_email,
+            }, sandbox=sandbox)
+            flash("Grupo «Nómina Mensual» creado.", "success")
+
+        elif selection == "quincenal":
+            config["payrollFrequency"] = "quincenal"
+            hr.save_payroll_config(owner_uid, config, sandbox=sandbox)
+            gid = str(uuid4())
+            hr.save_payroll_group(owner_uid, gid, {
+                "id": gid, "name": "Nómina Quincenal", "description": "",
+                "frequency": "quincenal", "isActive": True,
+                "createdAt": now_iso, "updatedAt": now_iso, "createdBy": user_email,
+            }, sandbox=sandbox)
+            flash("Grupo «Nómina Quincenal» creado.", "success")
+
+        elif selection == "ambos":
+            config["payrollFrequency"] = "mensual"
+            hr.save_payroll_config(owner_uid, config, sandbox=sandbox)
+            gid1 = str(uuid4())
+            hr.save_payroll_group(owner_uid, gid1, {
+                "id": gid1, "name": "Nómina Mensual", "description": "",
+                "frequency": "mensual", "isActive": True,
+                "createdAt": now_iso, "updatedAt": now_iso, "createdBy": user_email,
+            }, sandbox=sandbox)
+            gid2 = str(uuid4())
+            hr.save_payroll_group(owner_uid, gid2, {
+                "id": gid2, "name": "Nómina Quincenal", "description": "",
+                "frequency": "quincenal", "isActive": True,
+                "createdAt": now_iso, "updatedAt": now_iso, "createdBy": user_email,
+            }, sandbox=sandbox)
+            flash("Grupos «Nómina Mensual» y «Nómina Quincenal» creados.", "success")
+
+        else:
+            flash("Selecciona una opción válida.", "error")
+            return redirect(url_for("web_rrhh.payroll_setup"))
+
+        config["onboardingCompleted"] = True
+        hr.save_payroll_config(owner_uid, config, sandbox=sandbox)
+        flash("¡Configuración de nómina guardada exitosamente!", "success")
         return redirect(url_for("web_rrhh.onboarding_guide"))
 
-    config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
-    current_mode = config.get("frequencyMode", "company")
-    current_freq = config.get("payrollFrequency", "mensual")
-    return render_template("rrhh/payroll_onboarding.html", active_page="rrhh_dashboard",
-                           current_mode=current_mode, current_freq=current_freq)
+    return render_template("rrhh/payroll_onboarding.html", active_page="rrhh_dashboard")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -253,20 +265,19 @@ def payroll_dashboard():
         steps += 1  # Paso 4: Al menos 1 período pagado o cerrado
     progress_percent = int((steps / 4) * 100)
 
+    # ── Grupos de nómina para dashboard ──
+    payroll_groups = hr.get_payroll_groups(owner_uid, sandbox=sandbox)
+    payroll_groups.sort(key=lambda g: g.get("name", ""))
+    for g in payroll_groups:
+        g["_employee_count"] = len([e for e in employees if g["id"] in e.get("payrollGroupIds", [])])
+        g["_period_count"] = len([p for p in periods if p.get("payrollGroupId") == g["id"]])
+
     # Periodo actual
-    frequency_mode = config.get("frequencyMode", "company")
+    # Periodo actual
     frequency = config.get("payrollFrequency", "mensual")
     now = date.today()
     current_period = ""
-    if frequency_mode == "employee":
-        day = now.day
-        label_m = MONTHS_ES[now.month - 1]
-        last_day = calendar.monthrange(now.year, now.month)[1]
-        if day <= 15:
-            current_period = f"Q1: 1 {label_m} - 15 {label_m}"
-        else:
-            current_period = f"Q2: 16 {label_m} - {last_day} {label_m}"
-    elif frequency in ("quincenal",):
+    if frequency in ("quincenal",):
         day = now.day
         label_m = MONTHS_ES[now.month - 1]
         last_day = calendar.monthrange(now.year, now.month)[1]
@@ -359,7 +370,7 @@ def payroll_dashboard():
                            recent_periods=recent, indicators=indicators,
                            onboard_steps=onboard_steps, onboard_done_count=onboard_done_count,
                            onboard_all_done=onboard_all_done,
-                           frequency_mode=frequency_mode, payroll_frequency=frequency)
+                           payroll_groups=payroll_groups, payroll_frequency=frequency)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -513,7 +524,7 @@ def employee_new():
             "address": request.form.get("address", "").strip(),
             "municipality": request.form.get("municipality", "").strip(),
             "contractType": request.form.get("contractType", "").strip(),
-            "paymentFrequency": request.form.get("paymentFrequency", "").strip(),
+            "payrollGroupIds": request.form.getlist("payrollGroupIds"),
             "workday": request.form.get("workday", "completa").strip(),
             "isVigilante": request.form.get("isVigilante") == "si",
             "tssKey": request.form.get("tssKey", "").strip(),
@@ -571,7 +582,8 @@ def employee_new():
     supervisors = [e for e in hr.get_employees(owner_uid, sandbox=sandbox) if e.get("status") == "activo"]
     positions = hr.get_catalog(owner_uid, "positions", sandbox=sandbox)
     departments = hr.get_catalog(owner_uid, "departments", sandbox=sandbox)
-    config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
+    payroll_groups = hr.get_payroll_groups(owner_uid, sandbox=sandbox)
+    payroll_groups.sort(key=lambda g: g.get("name", ""))
 
     from app.data.occupations_catalog import OCCUPATIONS
     return render_template("rrhh/employee_form.html", active_page="rrhh_employees", employee=None,
@@ -579,10 +591,9 @@ def employee_new():
                            contract_types=contract_types, areas=areas,
                            workdays=WORKDAYS, payment_methods=PAYMENT_METHODS,
                            bancos=BANCOS_RD, account_types=ACCOUNT_TYPES,
-                           frequencies=PAYROLL_FREQUENCIES,
                            supervisors=supervisors,
                            positions=positions, departments=departments,
-                           frequency_mode=config.get("frequencyMode", "company"),
+                           payroll_groups=payroll_groups,
                            occupations=OCCUPATIONS)
 
 
@@ -628,7 +639,7 @@ def employee_edit(employee_id):
             "address": request.form.get("address", "").strip(),
             "municipality": request.form.get("municipality", "").strip(),
             "contractType": request.form.get("contractType", "").strip(),
-            "paymentFrequency": request.form.get("paymentFrequency", "").strip(),
+            "payrollGroupIds": request.form.getlist("payrollGroupIds"),
             "workday": request.form.get("workday", "completa").strip(),
             "isVigilante": request.form.get("isVigilante") == "si",
             "tssKey": request.form.get("tssKey", "").strip(),
@@ -689,7 +700,8 @@ def employee_edit(employee_id):
                    if e.get("status") == "activo" and e.get("id") != employee_id]
     positions = hr.get_catalog(owner_uid, "positions", sandbox=sandbox)
     departments = hr.get_catalog(owner_uid, "departments", sandbox=sandbox)
-    config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
+    payroll_groups = hr.get_payroll_groups(owner_uid, sandbox=sandbox)
+    payroll_groups.sort(key=lambda g: g.get("name", ""))
 
     from app.data.occupations_catalog import OCCUPATIONS
     return render_template("rrhh/employee_form.html", active_page="rrhh_employees", employee=employee,
@@ -697,10 +709,9 @@ def employee_edit(employee_id):
                            contract_types=contract_types, areas=areas,
                            workdays=WORKDAYS, payment_methods=PAYMENT_METHODS,
                            bancos=BANCOS_RD, account_types=ACCOUNT_TYPES,
-                           frequencies=PAYROLL_FREQUENCIES,
                            supervisors=supervisors,
                            positions=positions, departments=departments,
-                           frequency_mode=config.get("frequencyMode", "company"),
+                           payroll_groups=payroll_groups,
                            occupations=OCCUPATIONS)
 
 
@@ -734,10 +745,35 @@ def employee_view(employee_id):
                 payment_history.append({"period": p, "line": l})
                 break
 
+    # Acciones de personal masivas que afectaron a este empleado
+    mass_actions = hr.get_mass_actions(owner_uid, sandbox=sandbox)
+    ACTION_LABELS = {
+        "salary_change": "Cambio Salarial", "position_change": "Cambio de Puesto",
+        "supervisor_change": "Cambio de Supervisor", "promotion": "Promoción",
+        "mass_absence": "Ausencia Masiva", "desvinculacion": "Desvinculación",
+    }
+    employee_actions = []
+    for ma in mass_actions:
+        for r in ma.get("results", []):
+            if r.get("employeeId") == employee_id:
+                employee_actions.append({
+                    "id": ma["id"],
+                    "actionType": ma["actionType"],
+                    "actionTypeLabel": ACTION_LABELS.get(ma["actionType"], ma["actionType"]),
+                    "createdAt": ma.get("createdAt", ""),
+                    "createdBy": ma.get("createdBy", ""),
+                    "status": ma.get("status", ""),
+                    "result": r,
+                })
+                break
+    employee_actions.sort(key=lambda a: a.get("createdAt", ""), reverse=True)
+
     return render_template("rrhh/employee_view.html", active_page="rrhh_employees",
                            employee=_sanitize_for_role(employee), vacation_days=vacation_days,
                            severance=severance, evaluations=evals, trainings=trainings,
-                           documents=docs, payment_history=payment_history)
+                           documents=docs, payment_history=payment_history,
+                           employee_actions=employee_actions,
+                           payroll_groups=hr.get_payroll_groups(owner_uid, sandbox=sandbox))
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -959,14 +995,55 @@ def employee_liquidacion(employee_id):
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_list"))
 
+    # ── Auto-calcular vacaciones desde el historial real ──
+    hire_date = employee.get("hireDate", "")
+    vac_requests = hr.get_vacation_requests(owner_uid, sandbox=sandbox)
+    emp_vacs = [v for v in vac_requests
+                if v.get("employeeId") == employee_id and v.get("status") == "aprobada"]
+
+    today_str = date.today().isoformat()
+    ant_approx = LiquidacionService.calcular_antiguedad(hire_date, today_str)
+    ant_years = ant_approx["years"]
+
+    def _add_years(d: str, years: int) -> str:
+        try:
+            dt = datetime.strptime(d[:10], "%Y-%m-%d")
+            y = dt.year + years
+            return dt.replace(year=y).strftime("%Y-%m-%d")
+        except (ValueError, TypeError):
+            return d
+
+    fecha_ultimo_aniversario = _add_years(hire_date, ant_years) if ant_years > 0 and hire_date else hire_date
+
+    dias_por_anio = 18 if ant_years >= 5 else 14
+    taken_before_anniversary = 0
+    taken_current = 0
+
+    for v in emp_vacs:
+        v_start = v.get("startDate", "")
+        if v_start and v_start >= fecha_ultimo_aniversario:
+            taken_current += v.get("days", 0)
+        else:
+            taken_before_anniversary += v.get("days", 0)
+
+    max_expected = ant_years * dias_por_anio
+    pending_complete = 0
+    if ant_years > 0 and max_expected > taken_before_anniversary:
+        pending_complete = (max_expected - taken_before_anniversary) // dias_por_anio
+
+    vacation_auto_pending_complete = max(0, pending_complete)
+    vacation_auto_taken_current = max(0, taken_current)
+    vacation_auto_total_taken = sum(v.get("days", 0) for v in emp_vacs)
+    vacation_auto_total_accrued = max_expected
+
     resultado = None
 
     if request.method == "POST":
         termination_type = request.form.get("terminationType", "renuncia").strip()
         termination_date = request.form.get("terminationDate", "").strip()
         preaviso_trabajado = request.form.get("preavisoTrabajado") == "on"
-        vacation_pending_days = int(request.form.get("vacationPendingDays", "0") or 0)
-        vacation_days_taken = int(request.form.get("vacationDaysTakenThisPeriod", "0") or 0)
+        vacation_pending_complete = int(request.form.get("vacationPendingCompleteYears", "0") or 0)
+        vacation_taken_current = int(request.form.get("vacationTakenCurrentPeriod", "0") or 0)
         notes = request.form.get("notes", "").strip()
 
         base_salary = float(employee.get("baseSalary", 0) or 0)
@@ -1007,8 +1084,8 @@ def employee_liquidacion(employee_id):
             monthly_salaries_last_12=salaries_12,
             monthly_salaries_ytd=salaries_ytd,
             preaviso_trabajado=preaviso_trabajado,
-            vacation_pending_days=vacation_pending_days,
-            vacation_days_taken_this_period=vacation_days_taken,
+            vacation_pending_complete_years=vacation_pending_complete,
+            vacation_taken_current_period=vacation_taken_current,
             notes=notes,
             created_by=session.get("user", {}).get("email", ""),
         )
@@ -1025,12 +1102,63 @@ def employee_liquidacion(employee_id):
                            "terminationType": termination_type,
                            "montoTotal": resultado["totales"]["montoTotal"],
                        }, sandbox=sandbox)
-            flash("Liquidación calculada y guardada.", "success")
+
+            # Desvincular empleado
+            if employee.get("status") != "inactivo":
+                employee["status"] = "inactivo"
+                employee["terminationDate"] = termination_date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+                employee["terminationType"] = termination_type
+                employee["terminationReason"] = notes
+                hr.save_employee(owner_uid, employee_id, employee, sandbox=sandbox)
+                log_action(owner_uid, "terminate", "employee", employee_id,
+                           session.get("user", {}).get("email", ""),
+                           changes={"status": "inactivo", "reason": notes}, sandbox=sandbox)
+
+                # Crear registro en historial de acciones de personal
+                from uuid import uuid4
+                now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                termination_action = {
+                    "id": str(uuid4()),
+                    "actionType": "desvinculacion",
+                    "createdAt": now_iso,
+                    "createdBy": session.get("user", {}).get("email", ""),
+                    "processedAt": now_iso,
+                    "status": "completed",
+                    "totalEmployees": 1,
+                    "successCount": 1,
+                    "errorCount": 0,
+                    "selectionCriteria": {"employeeIds": [employee_id]},
+                    "payload": {"terminationType": termination_type,
+                                "terminationDate": termination_date},
+                    "results": [{
+                        "employeeId": employee_id,
+                        "employeeName": employee.get("fullName", ""),
+                        "status": "success",
+                        "changes": {
+                            "before": {"status": "activo"},
+                            "after": {"status": "inactivo",
+                                      "terminationDate": termination_date,
+                                      "terminationType": termination_type},
+                        },
+                        "processedAt": now_iso,
+                    }],
+                    "statusHistory": [{"from": None, "to": "completed",
+                                       "at": now_iso,
+                                       "by": session.get("user", {}).get("email", "")}],
+                }
+                hr.save_mass_action(owner_uid, termination_action["id"], termination_action, sandbox=sandbox)
+
+            flash("Liquidación guardada y empleado desvinculado.", "success")
+            return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
 
     return render_template("rrhh/employee_liquidacion.html",
                            active_page="rrhh_employees",
                            employee=_sanitize_for_role(employee),
-                           resultado=resultado)
+                           resultado=resultado,
+                           vacation_auto_pending_complete=vacation_auto_pending_complete,
+                           vacation_auto_taken_current=vacation_auto_taken_current,
+                           vacation_auto_total_accrued=vacation_auto_total_accrued,
+                           vacation_auto_total_taken=vacation_auto_total_taken)
 
 
 @web_rrhh_bp.route("/rrhh/employees/<employee_id>/liquidaciones")
@@ -1619,9 +1747,19 @@ def employee_salary_history(employee_id):
 
     history = hr.get_salary_history(owner_uid, employee_id, sandbox=sandbox)
     from app.services.payroll_static_data import PAYROLL_FREQUENCIES
+    config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
+    frequency = config.get("payroll", {}).get("frequency", "mensual")
+    try:
+        now = date.today()
+        payroll_periods = _generate_periods(frequency, now.year)
+        if now.month < 12:
+            payroll_periods += _generate_periods(frequency, now.year + 1)
+    except Exception:
+        payroll_periods = []
     return render_template("rrhh/employee_salary_history.html", active_page="rrhh_employees",
                            employee=employee, history=history, frequencies=PAYROLL_FREQUENCIES,
-                           today=date.today().isoformat())
+                           today=date.today().isoformat(),
+                           payroll_periods=payroll_periods, effective_date=employee.get("effectiveDate", ""))
 
 
 @web_rrhh_bp.route("/rrhh/employees/<employee_id>/salary/add", methods=["POST"])
@@ -1639,10 +1777,25 @@ def employee_salary_add(employee_id):
     new_amount = float(request.form.get("amount", 0) or 0)
     eff_date = request.form.get("effective_date", date.today().isoformat()).strip()
     reason = request.form.get("reason", "Ajuste salarial").strip()
+    payroll_period_key = request.form.get("payrollPeriodKey", "").strip()
 
     if new_amount <= 0:
         flash("El salario debe ser mayor a 0.", "error")
         return redirect(url_for("web_rrhh.employee_salary_history", employee_id=employee_id))
+
+    # Auto-detectar período si no se especificó
+    if not payroll_period_key and eff_date:
+        config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
+        frequency = config.get("payroll", {}).get("frequency", "mensual")
+        try:
+            import calendar
+            year = eff_date[:4]
+            for p in _generate_periods(frequency, int(year)):
+                if p["start"] <= eff_date <= p["end"]:
+                    payroll_period_key = p["key"]
+                    break
+        except Exception:
+            pass
 
     old_amount = float(employee.get("baseSalary", 0))
     # Cerrar salario anterior
@@ -1656,6 +1809,7 @@ def employee_salary_add(employee_id):
         "reason": reason,
         "approvedBy": session.get("user", {}).get("email", ""),
         "createdAt": date.today().isoformat(),
+        "payrollPeriodKey": payroll_period_key,
     }, sandbox=sandbox)
     # Actualizar el salario del empleado
     employee["baseSalary"] = new_amount
@@ -2092,14 +2246,34 @@ def payroll_new():
     if not config.get("onboardingCompleted"):
         return redirect(url_for("web_rrhh.onboarding_guide"))
 
-    employees = [e for e in hr.get_employees(owner_uid, sandbox=sandbox) if e.get("status") == "activo"]
-    frequency_mode = config.get("frequencyMode", "company")
-    frequency = config.get("payrollFrequency", "mensual")
-    now = date.today()
-    if frequency_mode == "employee":
-        available_periods = _generate_periods("quincenal", now.year)
+    all_employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    active_employees = [e for e in all_employees if e.get("status") == "activo"]
+
+    # ── Grupos de nómina ──
+    payroll_groups = hr.get_payroll_groups(owner_uid, sandbox=sandbox)
+    payroll_groups.sort(key=lambda g: g.get("name", ""))
+
+    # Seleccionar grupo (desde query param o form, default = "" para comportamiento legacy)
+    selected_group_id = request.args.get("group", "") or request.form.get("payrollGroupId", "")
+
+    # Determinar frecuencia según grupo o config global
+    if selected_group_id:
+        selected_group = next((g for g in payroll_groups if g["id"] == selected_group_id), None)
+        group_frequency = selected_group["frequency"] if selected_group else config.get("payrollFrequency", "mensual")
     else:
-        available_periods = _generate_periods(frequency, now.year)
+        selected_group = None
+        group_frequency = config.get("payrollFrequency", "mensual")
+
+    # Filtrar empleados por grupo
+    if selected_group_id:
+        employees = [e for e in active_employees if selected_group_id in e.get("payrollGroupIds", [])]
+        if not employees:
+            flash(f"No hay empleados activos asignados al grupo «{selected_group.get('name', '')}».", "warning")
+    else:
+        employees = active_employees
+
+    now = date.today()
+    available_periods = _generate_periods(group_frequency, now.year)
 
     if request.method == "POST":
         period_key = request.form.get("period_key", "")
@@ -2107,16 +2281,29 @@ def payroll_new():
             flash("Debes seleccionar un período.", "error")
             return redirect(url_for("web_rrhh.payroll_new"))
 
-        # ── Anti-duplicados: verificar si ya existe nómina para este período ──
-        existing = hr.get_payroll_period_by_key(owner_uid, period_key, sandbox=sandbox)
-        if existing:
-            flash(f"Ya existe una nómina para el período «{period_key}». Puedes verla o recalcularla.", "warning")
-            return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll",
-                                   employees=employees, now=datetime.now,
-                                   available_periods=available_periods, frequency=frequency,
-                                   show_christmas_bonus=(now.month >= 11),
-                                   frequency_mode=frequency_mode,
-                                   existing_period=existing)
+        # ── Anti-duplicados: verificar si ya existe nómina para este período (mismo grupo) ──
+        if selected_group_id:
+            existing = hr.get_payroll_period_by_key_and_group(owner_uid, period_key, selected_group_id, sandbox=sandbox)
+            if existing:
+                flash(f"Ya existe una nómina para el período «{period_key}» en el grupo «{selected_group.get('name', '')}». Puedes verla o recalcularla.", "warning")
+                return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll",
+                                       employees=employees, now=datetime.now,
+                                       available_periods=available_periods, frequency=group_frequency,
+                                       show_christmas_bonus=(now.month >= 11),
+                                       payroll_groups=payroll_groups,
+                                       selected_group_id=selected_group_id,
+                                       existing_period=existing)
+        else:
+            existing = hr.get_payroll_period_by_key(owner_uid, period_key, sandbox=sandbox)
+            if existing:
+                flash(f"Ya existe una nómina para el período «{period_key}». Puedes verla o recalcularla.", "warning")
+                return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll",
+                                       employees=employees, now=datetime.now,
+                                       available_periods=available_periods, frequency=group_frequency,
+                                       show_christmas_bonus=(now.month >= 11),
+                                       payroll_groups=payroll_groups,
+                                       selected_group_id=selected_group_id,
+                                       existing_period=existing)
 
         # Parse period key
         parts = period_key.split("-")
@@ -2133,12 +2320,7 @@ def payroll_new():
         period_type = period_info.get("type", "mensual") if period_info else ("quincenal" if len(parts) == 3 and parts[2] != "M" else "mensual")
 
         # ── Filtrar empleados según frecuencia del período ──
-        period_employees, excluded = _filter_employees_by_period(employees, period_key, frequency_mode)
-        if excluded:
-            nombres = ", ".join(e.get("fullName", "?") for e in excluded[:5])
-            if len(excluded) > 5:
-                nombres += f" y {len(excluded) - 5} más"
-            flash(f"{len(excluded)} empleado(s) omitido(s) por frecuencia distinta: {nombres}", "info")
+        period_employees, excluded = _filter_employees_by_period(employees, period_key)
 
         period_id = str(uuid.uuid4())
         lines = []
@@ -2159,9 +2341,8 @@ def payroll_new():
             other_income = float(request.form.get(f"other_income_{emp_id}", 0) or 0)
             other_ded = float(request.form.get(f"other_ded_{emp_id}", 0) or 0)
 
-            # ── Frecuencia de pago por empleado (respeta configuración individual) ──
-            emp_freq = (emp.get("paymentFrequency") or "").strip()
-            emp_period_type = emp_freq if emp_freq in ("quincenal", "mensual") else period_type
+            # ── Frecuencia de pago: se deriva del grupo/período ──
+            emp_period_type = period_type
             emp_is_quincenal = emp_period_type == "quincenal"
 
             # ── Regalía pascual ──
@@ -2225,6 +2406,7 @@ def payroll_new():
             "endDate": end_date,
             "month": month,
             "year": year,
+            "payrollGroupId": selected_group_id,
             "status": "calculada",
             "lines": lines,
             "totalGross": round(total_gross, 2),
@@ -2254,9 +2436,10 @@ def payroll_new():
 
     return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll",
                            employees=employees, now=datetime.now,
-                           available_periods=available_periods, frequency=frequency,
+                           available_periods=available_periods, frequency=group_frequency,
                            show_christmas_bonus=(now.month >= 11),
-                           frequency_mode=frequency_mode)
+                           payroll_groups=payroll_groups,
+                           selected_group_id=selected_group_id)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -2275,14 +2458,25 @@ def payroll_simulate():
     if not config.get("onboardingCompleted"):
         return redirect(url_for("web_rrhh.payroll_setup"))
 
-    employees = [e for e in hr.get_employees(owner_uid, sandbox=sandbox) if e.get("status") == "activo"]
-    frequency_mode = config.get("frequencyMode", "company")
-    frequency = config.get("payrollFrequency", "mensual")
-    now = date.today()
-    if frequency_mode == "employee":
-        available_periods = _generate_periods("quincenal", now.year)
+    all_active = [e for e in hr.get_employees(owner_uid, sandbox=sandbox) if e.get("status") == "activo"]
+
+    # ── Grupos de nómina ──
+    payroll_groups = hr.get_payroll_groups(owner_uid, sandbox=sandbox)
+    payroll_groups.sort(key=lambda g: g.get("name", ""))
+
+    selected_group_id = request.args.get("group", "") or request.form.get("payrollGroupId", "")
+
+    if selected_group_id:
+        selected_group = next((g for g in payroll_groups if g["id"] == selected_group_id), None)
+        group_frequency = selected_group["frequency"] if selected_group else config.get("payrollFrequency", "mensual")
+        employees = [e for e in all_active if selected_group_id in e.get("payrollGroupIds", [])]
     else:
-        available_periods = _generate_periods(frequency, now.year)
+        selected_group = None
+        group_frequency = config.get("payrollFrequency", "mensual")
+        employees = all_active
+
+    now = date.today()
+    available_periods = _generate_periods(group_frequency, now.year)
 
     simulation = None
 
@@ -2294,7 +2488,7 @@ def payroll_simulate():
         period_type = period_info.get("type", "mensual") if period_info else ("quincenal" if len(period_key.split("-")) == 3 and period_key.split("-")[2] != "M" else "mensual")
 
         # ── Filtrar empleados según frecuencia del período ──
-        period_employees, _sim_excluded = _filter_employees_by_period(employees, period_key, frequency_mode)
+        period_employees, _sim_excluded = _filter_employees_by_period(employees)
 
         lines = []
         total_gross = 0.0
@@ -2314,9 +2508,8 @@ def payroll_simulate():
             other_income = float(request.form.get(f"other_income_{emp_id}", 0) or 0)
             other_ded = float(request.form.get(f"other_ded_{emp_id}", 0) or 0)
 
-            # ── Frecuencia de pago por empleado (respeta configuración individual) ──
-            emp_freq = (emp.get("paymentFrequency") or "").strip()
-            emp_period_type = emp_freq if emp_freq in ("quincenal", "mensual") else period_type
+            # ── Frecuencia de pago: se deriva del grupo/período ──
+            emp_period_type = period_type
 
             salary_history = hr.get_salary_history(owner_uid, emp_id, sandbox=sandbox)
             prorated = PayrollService.prorate_salary(
@@ -2356,8 +2549,226 @@ def payroll_simulate():
 
     return render_template("rrhh/payroll_simulate.html", active_page="rrhh_payroll",
                            employees=employees, available_periods=available_periods,
-                           frequency=frequency, simulation=simulation,
-                           frequency_mode=frequency_mode)
+                           frequency=group_frequency, simulation=simulation,
+                           payroll_groups=payroll_groups,
+                           selected_group_id=selected_group_id)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# GRUPOS DE NÓMINA — CRUD
+# ═══════════════════════════════════════════════════════════════════════════
+
+@web_rrhh_bp.route("/rrhh/payroll/groups")
+def payroll_groups_list():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+    groups = hr.get_payroll_groups(owner_uid, sandbox=sandbox)
+    groups.sort(key=lambda g: g.get("name", ""))
+    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    group_employee_counts = {}
+    for g in groups:
+        gid = g["id"]
+        group_employee_counts[gid] = len([e for e in employees if gid in e.get("payrollGroupIds", [])])
+    return render_template("rrhh/payroll_groups.html", active_page="rrhh_payroll",
+                           groups=groups, group_employee_counts=group_employee_counts)
+
+
+@web_rrhh_bp.route("/rrhh/payroll/groups/new", methods=["GET", "POST"])
+def payroll_groups_new():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        desc = request.form.get("description", "").strip()
+        frequency = request.form.get("frequency", "mensual").strip()
+        if not name:
+            flash("El nombre del grupo es obligatorio.", "error")
+            return render_template("rrhh/payroll_groups_form.html", active_page="rrhh_payroll", group=None)
+        from uuid import uuid4
+        gid = str(uuid4())
+        now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        data = {
+            "id": gid, "name": name, "description": desc,
+            "frequency": frequency,
+            "isActive": True,
+            "createdAt": now_iso, "updatedAt": now_iso,
+            "createdBy": session.get("user", {}).get("email", ""),
+        }
+        hr.save_payroll_group(owner_uid, gid, data, sandbox=sandbox)
+        flash(f"Grupo de nómina «{name}» creado.", "success")
+        return redirect(url_for("web_rrhh.payroll_groups_list"))
+    return render_template("rrhh/payroll_groups_form.html", active_page="rrhh_payroll", group=None)
+
+
+@web_rrhh_bp.route("/rrhh/payroll/groups/<group_id>/edit", methods=["GET", "POST"])
+def payroll_groups_edit(group_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+
+    group = hr.get_payroll_group(owner_uid, group_id, sandbox=sandbox)
+    if not group:
+        flash("Grupo no encontrado.", "error")
+        return redirect(url_for("web_rrhh.payroll_groups_list"))
+
+    if request.method == "POST":
+        group["name"] = request.form.get("name", "").strip()
+        group["description"] = request.form.get("description", "").strip()
+        group["frequency"] = request.form.get("frequency", "mensual").strip()
+        group["isActive"] = request.form.get("isActive") == "on"
+        group["updatedAt"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        hr.save_payroll_group(owner_uid, group_id, group, sandbox=sandbox)
+        flash(f"Grupo «{group['name']}» actualizado.", "success")
+        return redirect(url_for("web_rrhh.payroll_groups_list"))
+    return render_template("rrhh/payroll_groups_form.html", active_page="rrhh_payroll", group=group)
+
+
+@web_rrhh_bp.route("/rrhh/payroll/groups/<group_id>/delete", methods=["POST"])
+def payroll_groups_delete(group_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+    hr.delete_payroll_group(owner_uid, group_id, sandbox=sandbox)
+    flash("Grupo eliminado.", "success")
+    return redirect(url_for("web_rrhh.payroll_groups_list"))
+
+
+@web_rrhh_bp.route("/rrhh/payroll/groups/<group_id>")
+def payroll_groups_view(group_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+
+    group = hr.get_payroll_group(owner_uid, group_id, sandbox=sandbox)
+    if not group:
+        flash("Grupo no encontrado.", "error")
+        return redirect(url_for("web_rrhh.payroll_groups_list"))
+
+    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    assigned = [e for e in employees if group_id in e.get("payrollGroupIds", [])]
+    unassigned = [e for e in employees if group_id not in e.get("payrollGroupIds", []) and e.get("status") == "activo"]
+
+    periods = [p for p in hr.get_payroll_periods(owner_uid, sandbox=sandbox)
+               if p.get("payrollGroupId") == group_id]
+    periods.sort(key=lambda p: p.get("periodKey", ""), reverse=True)
+
+    return render_template("rrhh/payroll_groups_view.html", active_page="rrhh_payroll",
+                           group=group, assigned=assigned, unassigned=unassigned,
+                           periods=periods)
+
+
+@web_rrhh_bp.route("/rrhh/payroll/groups/<group_id>/assign", methods=["POST"])
+def payroll_groups_assign(group_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+
+    group = hr.get_payroll_group(owner_uid, group_id, sandbox=sandbox)
+    if not group:
+        flash("Grupo no encontrado.", "error")
+        return redirect(url_for("web_rrhh.payroll_groups_list"))
+
+    employee_ids = request.form.getlist("employee_ids")
+    count = 0
+    for emp_id in employee_ids:
+        emp = hr.get_employee(owner_uid, emp_id, sandbox=sandbox)
+        if not emp:
+            continue
+        current = emp.get("payrollGroupIds", [])
+        if group_id not in current:
+            current = list(current) + [group_id]
+            emp["payrollGroupIds"] = current
+            hr.save_employee(owner_uid, emp_id, emp, sandbox=sandbox)
+            count += 1
+
+    flash(f"{count} empleado(s) asignado(s) al grupo «{group.get('name', '')}».", "success")
+    return redirect(url_for("web_rrhh.payroll_groups_view", group_id=group_id))
+
+
+@web_rrhh_bp.route("/rrhh/payroll/groups/<group_id>/unassign/<employee_id>", methods=["POST"])
+def payroll_groups_unassign(group_id, employee_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+
+    emp = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
+    if emp:
+        current = emp.get("payrollGroupIds", [])
+        if group_id in current:
+            current = [g for g in current if g != group_id]
+            emp["payrollGroupIds"] = current
+            hr.save_employee(owner_uid, employee_id, emp, sandbox=sandbox)
+
+    flash("Empleado removido del grupo.", "success")
+    return redirect(url_for("web_rrhh.payroll_groups_view", group_id=group_id))
+
+
+@web_rrhh_bp.route("/rrhh/payroll/groups/<group_id>/assign-all", methods=["POST"])
+def payroll_groups_assign_all(group_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+
+    group = hr.get_payroll_group(owner_uid, group_id, sandbox=sandbox)
+    if not group:
+        flash("Grupo no encontrado.", "error")
+        return redirect(url_for("web_rrhh.payroll_groups_list"))
+
+    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    count = 0
+    for emp in employees:
+        if emp.get("status") != "activo":
+            continue
+        current = emp.get("payrollGroupIds", [])
+        if group_id not in current:
+            current = list(current) + [group_id]
+            emp["payrollGroupIds"] = current
+            hr.save_employee(owner_uid, emp["id"], emp, sandbox=sandbox)
+            count += 1
+
+    flash(f"{count} empleado(s) asignado(s) al grupo «{group.get('name', '')}».", "success")
+    return redirect(url_for("web_rrhh.payroll_groups_view", group_id=group_id))
+
+
+@web_rrhh_bp.route("/rrhh/payroll/groups/<group_id>/unassign-all", methods=["POST"])
+def payroll_groups_unassign_all(group_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+
+    group = hr.get_payroll_group(owner_uid, group_id, sandbox=sandbox)
+    if not group:
+        flash("Grupo no encontrado.", "error")
+        return redirect(url_for("web_rrhh.payroll_groups_list"))
+
+    specific_ids = request.form.getlist("employee_ids")
+    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    if specific_ids:
+        employees = [e for e in employees if e["id"] in specific_ids]
+
+    count = 0
+    for emp in employees:
+        current = emp.get("payrollGroupIds", [])
+        if group_id in current:
+            current = [g for g in current if g != group_id]
+            emp["payrollGroupIds"] = current
+            hr.save_employee(owner_uid, emp["id"], emp, sandbox=sandbox)
+            count += 1
+
+    flash(f"{count} empleado(s) removido(s) del grupo «{group.get('name', '')}».", "success")
+    return redirect(url_for("web_rrhh.payroll_groups_view", group_id=group_id))
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -2373,7 +2784,20 @@ def payroll_list():
 
     periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
     periods.sort(key=lambda p: p.get("periodKey", ""), reverse=True)
-    return render_template("rrhh/payroll_list.html", active_page="rrhh_payroll", periods=periods)
+
+    # Filtrar por grupo si se especifica
+    filter_group = request.args.get("group", "").strip()
+    if filter_group:
+        periods = [p for p in periods if p.get("payrollGroupId", "") == filter_group]
+
+    payroll_groups = hr.get_payroll_groups(owner_uid, sandbox=sandbox)
+    payroll_groups.sort(key=lambda g: g.get("name", ""))
+
+    group_map = {g["id"]: g["name"] for g in payroll_groups}
+
+    return render_template("rrhh/payroll_list.html", active_page="rrhh_payroll",
+                           periods=periods, payroll_groups=payroll_groups,
+                           filter_group=filter_group, group_map=group_map)
 
 
 @web_rrhh_bp.route("/rrhh/payroll/<period_id>")
@@ -2798,20 +3222,11 @@ def payroll_settings():
     if request.method == "POST":
         action = request.form.get("action", "save")
 
-        # ── Guardar modo de frecuencia ──
-        new_mode = request.form.get("frequency_mode", "")
-        if new_mode in ("company", "employee"):
-            if new_mode != config.get("frequencyMode", ""):
-                config["frequencyMode"] = new_mode
-                hr.save_payroll_config(owner_uid, config, sandbox=sandbox)
-
-        # ── Guardar frecuencia si cambió ──
+        # ── Guardar frecuencia por defecto (solo se usa como fallback) ──
         new_freq = request.form.get("payroll_frequency", "")
-        if new_freq in ("quincenal", "mensual", "ambos", "quincenal_y_mensual"):
-            current_freq = config.get("payrollFrequency", "")
-            if new_freq != current_freq:
-                config["payrollFrequency"] = new_freq
-                hr.save_payroll_config(owner_uid, config, sandbox=sandbox)
+        if new_freq in ("quincenal", "mensual"):
+            config["payrollFrequency"] = new_freq
+            hr.save_payroll_config(owner_uid, config, sandbox=sandbox)
 
         if action == "reset":
             hr.save_tax_rates(owner_uid, {
@@ -2939,10 +3354,22 @@ def payroll_settings():
     rates.setdefault("accountInfotepEmployer", default_rates["account_infotep_employer"])
     rates.setdefault("costCenterAccounts", default_rates["cost_center_accounts"])
     from types import SimpleNamespace
+    # ── Grupos de nómina para integrar en settings ──
+    payroll_groups = hr.get_payroll_groups(owner_uid, sandbox=sandbox)
+    payroll_groups.sort(key=lambda g: g.get("name", ""))
+    all_employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    assigned_group_ids = set()
+    for emp in all_employees:
+        for gid in emp.get("payrollGroupIds", []):
+            assigned_group_ids.add(gid)
+    unassigned_employees = [e for e in all_employees if e.get("status") == "activo"
+                            and not any(gid in e.get("payrollGroupIds", []) for gid in [g["id"] for g in payroll_groups])]
     return render_template("rrhh/settings.html", active_page="rrhh_settings",
                            tax_rates=SimpleNamespace(**rates), config_updated=config_updated,
                            payroll_frequency=config.get("payrollFrequency", "mensual"),
-                           frequency_mode=config.get("frequencyMode", "company"))
+                           payroll_groups=payroll_groups,
+                           unassigned_employees=unassigned_employees,
+                           group_employee_counts={g["id"]: len([e for e in all_employees if g["id"] in e.get("payrollGroupIds", [])]) for g in payroll_groups})
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -3315,7 +3742,7 @@ def report_isr_retentions_export():
 _VALID_TRANSITIONS = {
     "borrador":     ["calculada"],
     "calculada":    ["validada", "borrador"],
-    "validada":     ["aprobada", "calculada"],
+    "validada":     ["aprobada", "calculada", "borrador"],
     "aprobada":     ["contabilizada", "validada"],
     "contabilizada": ["pagada", "aprobada"],
     "pagada":       ["cerrada", "contabilizada"],
@@ -3647,6 +4074,102 @@ def payroll_send_payslips(period_id):
     return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
 
 
+@web_rrhh_bp.route("/rrhh/payroll/<period_id>/send-payslips/async", methods=["POST"])
+def payroll_send_payslips_async(period_id):
+    if _login_required():
+        return jsonify({"error": "unauthorized"}), 401
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+    from app.services.payroll_async_service import create_job, update_job
+
+    period = hr.get_payroll_period(owner_uid, period_id, sandbox=sandbox)
+    if not period:
+        return jsonify({"error": "period not found"}), 404
+
+    lines = period.get("lines", [])
+    employees_list = hr.get_employees(owner_uid, sandbox=sandbox)
+    emp_map = {e["id"]: e for e in employees_list}
+
+    try:
+        from app.services.mailer import Mailer
+    except Exception as e:
+        return jsonify({"error": "mailer unavailable"}), 500
+
+    job_id = create_job(owner_uid, sandbox=sandbox)
+    if not job_id:
+        return jsonify({"error": "could not create job"}), 500
+
+    period_label = period.get("periodRange") or period.get("periodKey", "")
+    total = len(lines)
+
+    update_job(owner_uid, job_id, {
+        "status": "running",
+        "progress": 0,
+        "total": total,
+        "message": "Iniciando envío de volantes...",
+    }, sandbox=sandbox)
+
+    def _send_worker():
+        import flask
+        sent = 0
+        skipped = 0
+        errors = 0
+        for idx, line in enumerate(lines):
+            emp_id = line.get("employeeId", "")
+            emp = emp_map.get(emp_id, {})
+            email = (emp.get("email") or "").strip()
+            if not email:
+                skipped += 1
+                update_job(owner_uid, job_id, {
+                    "progress": idx + 1,
+                    "message": f"Omitido {idx+1}/{total}: {emp.get('fullName','')} sin email",
+                }, sandbox=sandbox)
+                continue
+            try:
+                with current_app.app_context():
+                    html_body = flask.render_template("rrhh/employee_payslip_email.html",
+                                                       employee=emp, period=period, line=line)
+                    subject = f"Volante de pago — {period_label}"
+                    Mailer.send(
+                        app=current_app._get_current_object(),
+                        to_email=email,
+                        subject=subject,
+                        html_body=html_body,
+                        from_name=current_app.config.get("COMPANY_NAME", ""),
+                        category="noreply",
+                    )
+                sent += 1
+                update_job(owner_uid, job_id, {
+                    "progress": idx + 1,
+                    "message": f"Enviado {idx+1}/{total}: {emp.get('fullName','')}",
+                }, sandbox=sandbox)
+            except Exception as e:
+                errors += 1
+                print(f"⚠️ Error enviando volante a {email}: {e}")
+                update_job(owner_uid, job_id, {
+                    "progress": idx + 1,
+                    "message": f"Error {idx+1}/{total}: {emp.get('fullName','')} — {e}",
+                }, sandbox=sandbox)
+
+        msg = f"Completado: {sent} enviado(s), {skipped} omitido(s), {errors} error(es)"
+        update_job(owner_uid, job_id, {
+            "status": "completed",
+            "progress": total,
+            "message": msg,
+            "result": {"sent": sent, "skipped": skipped, "errors": errors},
+        }, sandbox=sandbox)
+
+        period["payslipsSentAt"] = datetime.now(timezone.utc).isoformat()
+        period["payslipsSentBy"] = session.get("user", {}).get("email", "")
+        hr.save_payroll_period(owner_uid, period_id, period, sandbox=sandbox)
+
+    import threading
+    t = threading.Thread(target=_send_worker, daemon=True)
+    t.start()
+
+    return jsonify({"job_id": job_id, "status": "created"})
+
+
 @web_rrhh_bp.route("/rrhh/payroll/jobs/<job_id>/status")
 def payroll_job_status(job_id):
     if _login_required():
@@ -3855,3 +4378,244 @@ def training_new():
         return redirect(url_for("web_rrhh.training_list"))
 
     return render_template("rrhh/training_form.html", active_page="rrhh_development", employees=employees, now=datetime.now)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ACCIONES DE PERSONAL MASIVAS
+# ═══════════════════════════════════════════════════════════════════════════
+
+MASS_ACTION_TYPES = {
+    "salary_change": {
+        "label": "Cambio de Salario",
+        "icon": "fa-solid fa-money-bill-trend-up",
+        "desc": "Ajuste salarial masivo por monto fijo o porcentaje.",
+    },
+    "position_change": {
+        "label": "Cambio de Puesto",
+        "icon": "fa-solid fa-briefcase",
+        "desc": "Reasignación de cargo, área o departamento.",
+    },
+    "supervisor_change": {
+        "label": "Cambio de Supervisor",
+        "icon": "fa-solid fa-user-tie",
+        "desc": "Reasignación masiva de reporting jerárquico.",
+    },
+    "promotion": {
+        "label": "Promoción",
+        "icon": "fa-solid fa-arrow-up",
+        "desc": "Combinación de cambio de puesto y ajuste salarial.",
+    },
+    "mass_absence": {
+        "label": "Ausencia Masiva",
+        "icon": "fa-solid fa-calendar-xmark",
+        "desc": "Vacaciones colectivas, permisos o licencias.",
+    },
+}
+
+
+@web_rrhh_bp.route("/rrhh/employees/mass-action", methods=["GET"])
+def mass_action_wizard():
+    """Paso 1 y 2: wizard de acción masiva."""
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+
+    ids_param = request.args.get("ids", "")
+    employee_ids = [i for i in ids_param.split(",") if i] if ids_param else []
+
+    employees = []
+    if employee_ids:
+        for eid in employee_ids:
+            emp = hr.get_employee(owner_uid, eid, sandbox=sandbox)
+            if emp:
+                employees.append(emp)
+
+    action_type = request.args.get("action_type", "")
+
+    employees_data = []
+    for emp in employees:
+        from app.services.payroll_service import PayrollService
+        vac_days = PayrollService.calculate_vacation_days(emp.get("hireDate", ""))
+        employees_data.append({
+            "id": emp.get("id", ""),
+            "fullName": emp.get("fullName", ""),
+            "cedula": emp.get("cedula", ""),
+            "position": emp.get("position", ""),
+            "department": emp.get("department", ""),
+            "area": emp.get("area", ""),
+            "baseSalary": emp.get("baseSalary", 0),
+            "status": emp.get("status", ""),
+            "reportsTo": emp.get("reportsTo", ""),
+            "vacationDays": vac_days,
+        })
+
+    all_employees_for_sup = hr.get_employees(owner_uid, sandbox=sandbox)
+    supervisors = [e for e in all_employees_for_sup
+                   if e.get("status") == "activo" and e.get("id") not in employee_ids]
+    positions = hr.get_catalog(owner_uid, "positions", sandbox=sandbox)
+    departments = hr.get_catalog(owner_uid, "departments", sandbox=sandbox)
+    config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
+    frequency = config.get("payroll", {}).get("frequency", "mensual")
+
+    try:
+        now = date.today()
+        payroll_periods = _generate_periods(frequency, now.year)
+        if now.month < 12:
+            payroll_periods += _generate_periods(frequency, now.year + 1)
+    except Exception:
+        payroll_periods = []
+
+    return render_template(
+        "rrhh/mass_action_wizard.html",
+        active_page="rrhh_employees",
+        action_type=action_type,
+        action_types=MASS_ACTION_TYPES,
+        employees=employees_data,
+        employee_ids=employee_ids,
+        supervisors=supervisors,
+        positions=positions,
+        departments=departments,
+        payroll_periods=payroll_periods,
+        now=datetime.now(),
+    )
+
+
+@web_rrhh_bp.route("/rrhh/employees/mass-action/preview", methods=["POST"])
+def mass_action_preview():
+    """Paso 4: previsualización (AJAX)."""
+    if _login_required():
+        return {"error": "No autorizado"}, 401
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+
+    try:
+        data = request.get_json(force=True)
+    except Exception:
+        return {"error": "JSON inválido"}, 400
+
+    action_type = data.get("actionType", "")
+    employee_ids = data.get("employeeIds", [])
+    payload = data.get("payload", {})
+
+    from app.services.mass_action_service import validate_action
+    errors = validate_action(owner_uid, action_type, employee_ids, payload, sandbox=sandbox)
+
+    from app.services import hr_data_service as hr
+    from app.services.payroll_service import PayrollService
+    employees = []
+    for eid in employee_ids:
+        emp = hr.get_employee(owner_uid, eid, sandbox=sandbox)
+        if emp:
+            vac_days = PayrollService.calculate_vacation_days(emp.get("hireDate", ""))
+            employees.append({
+                "id": emp.get("id", ""),
+                "fullName": emp.get("fullName", ""),
+                "cedula": emp.get("cedula", ""),
+                "position": emp.get("position", ""),
+                "department": emp.get("department", ""),
+                "area": emp.get("area", ""),
+                "baseSalary": emp.get("baseSalary", 0),
+                "status": emp.get("status", ""),
+                "vacationDays": vac_days,
+            })
+
+    return {
+        "valid": len(errors) == 0,
+        "errors": errors,
+        "employees": employees,
+        "affectedCount": len(employee_ids),
+        "actionTypeLabel": MASS_ACTION_TYPES.get(action_type, {}).get("label", action_type),
+        "payload": payload,
+    }
+
+
+@web_rrhh_bp.route("/rrhh/employees/mass-action/execute", methods=["POST"])
+def mass_action_execute():
+    """Paso 5: ejecutar la acción masiva."""
+    if _login_required():
+        return {"error": "No autorizado"}, 401
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    user_email = session.get("user", {}).get("email", "")
+
+    try:
+        data = request.get_json(force=True)
+    except Exception:
+        return {"error": "JSON inválido"}, 400
+
+    action_type = data.get("actionType", "")
+    employee_ids = data.get("employeeIds", [])
+    payload = data.get("payload", {})
+
+    if not action_type or not employee_ids:
+        return {"error": "Faltan datos requeridos."}, 400
+
+    from app.services.mass_action_service import create_mass_action, execute_action, validate_action
+
+    validation_errors = validate_action(owner_uid, action_type, employee_ids, payload, sandbox=sandbox)
+    if validation_errors:
+        return {"error": "Validación fallida.", "errors": validation_errors}, 400
+
+    action = create_mass_action(owner_uid, action_type, employee_ids, payload, user_email, sandbox=sandbox)
+    result = execute_action(owner_uid, action["id"], user_email, sandbox=sandbox)
+
+    return {
+        "actionId": result["id"],
+        "status": result["status"],
+        "successCount": result["successCount"],
+        "errorCount": result["errorCount"],
+        "totalEmployees": result["totalEmployees"],
+    }
+
+
+@web_rrhh_bp.route("/rrhh/mass-actions/<action_id>", methods=["GET"])
+def mass_action_detail(action_id):
+    """Detalle de una acción masiva específica."""
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+
+    action = hr.get_mass_action(owner_uid, action_id, sandbox=sandbox)
+    if not action:
+        flash("Acción masiva no encontrada.", "error")
+        return redirect(url_for("web_rrhh.employee_list"))
+
+    return render_template(
+        "rrhh/mass_action_detail.html",
+        active_page="rrhh_mass_actions",
+        action=action,
+        action_type_label=MASS_ACTION_TYPES.get(action.get("actionType", ""), {}).get("label", action.get("actionType", "")),
+    )
+
+
+@web_rrhh_bp.route("/rrhh/mass-actions/<action_id>/errors.csv", methods=["GET"])
+def mass_action_errors_csv(action_id):
+    """Exportar los errores de una acción masiva a CSV."""
+    if _login_required():
+        return {"error": "No autorizado"}, 401
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+
+    action = hr.get_mass_action(owner_uid, action_id, sandbox=sandbox)
+    if not action:
+        return {"error": "No encontrada"}, 404
+
+    import csv, io
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Empleado", "Cédula", "Campo", "Error"])
+    for err in action.get("errorLog", []):
+        writer.writerow([
+            err.get("employeeName", ""),
+            err.get("employeeId", ""),
+            err.get("field", ""),
+            err.get("message", ""),
+        ])
+
+    mem = io.BytesIO(output.getvalue().encode("utf-8-sig"))
+    return send_file(
+        mem,
+        mimetype="text/csv",
+        as_attachment=True,
+        download_name=f"errores_accion_{action_id[:8]}.csv",
+    )

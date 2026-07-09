@@ -4,6 +4,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
 {% endblock %}
 {% block content %}
+{% set no_groups = not (payroll_groups is defined and payroll_groups) %}
 <div class="dashboard-container">
 <div class="page-title-container" style="margin-bottom: 0; padding-left: 4px;">
     <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:var(--space-4); flex-wrap:wrap;">
@@ -19,24 +20,74 @@
     </div>
 </div>
 
+    <!-- Payroll Group Selector -->
+    {% if no_groups %}
+    <!-- NO GROUPS: standalone warning card -->
+    <div class="card-table-wrapper" style="margin-bottom:16px; border:2px solid var(--accent-orange);">
+        <div style="padding:18px 22px;">
+            <div style="display:flex; align-items:flex-start; gap:14px;">
+                <div style="width:42px; height:42px; border-radius:50%; background:rgba(249,115,22,0.12); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                    <i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-orange); font-size:1.2rem;"></i>
+                </div>
+                <div style="flex:1;">
+                    <div style="display:inline-block; background:rgba(249,115,22,0.15); color:var(--accent-orange); font-size:0.82rem; font-weight:700; padding:3px 12px; border-radius:20px; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:8px;">
+                        <i class="fa-solid fa-circle-exclamation" style="margin-right:4px;"></i>Acción requerida
+                    </div>
+                    <div style="font-weight:700; font-size:1.05rem; color:var(--text-primary); margin-bottom:8px;">
+                        No hay grupos de nómina definidos
+                    </div>
+                    <p style="margin:0 0 4px; font-size:0.85rem; color:var(--text-secondary); line-height:1.5;">
+                        Para procesar nómina necesitas tener al menos un grupo de nómina configurado.
+                        Los grupos definen la frecuencia de pago (<strong>mensual</strong> o <strong>quincenal</strong>)
+                        y qué empleados pertenecen a cada grupo.
+                    </p>
+                    <p style="margin:0 0 12px; font-size:0.85rem; color:var(--text-secondary); line-height:1.5;">
+                        Sin un grupo, el sistema no puede generar los períodos de nómina ni determinar
+                        qué empleados incluir en el cálculo.
+                    </p>
+                    <a href="{{ url_for('web_rrhh.payroll_settings') }}" style="display:inline-block; padding:7px 18px; background:var(--accent-orange); color:#fff; border-radius:6px; font-weight:600; font-size:0.85rem; text-decoration:none; transition:opacity .15s;" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">
+                        <i class="fa-solid fa-gear"></i> Ir a Configuración de Nómina
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% if payroll_groups is defined and payroll_groups %}
+    <!-- Group selector: standalone GET form (fuera del POST) -->
+    <div class="card-table-wrapper" style="padding:16px 24px; margin-bottom:16px;">
+        <form method="GET" action="{{ url_for('web_rrhh.payroll_new') }}">
+            <div style="max-width:500px;">
+                <div class="form-group">
+                    <label>Grupo de nómina</label>
+                    <select name="group" class="form-select" onchange="this.form.submit()">
+                        <option value="">General (sin grupo)</option>
+                        {% for g in payroll_groups %}
+                        <option value="{{ g.id }}" {% if selected_group_id == g.id %}selected{% endif %}>{{ g.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <p style="color:var(--text-muted); font-size:0.82rem; margin-top:4px;">
+                        <i class="fa-regular fa-circle-info"></i>
+                        Los períodos se generan según la frecuencia del grupo. Solo se muestran empleados asignados al grupo.
+                        <a href="{{ url_for('web_rrhh.payroll_groups_list') }}" style="color:var(--accent-emerald);">Gestionar grupos</a>
+                    </p>
+                </div>
+            </div>
+        </form>
+    </div>
+    {% endif %}
 <form method="POST">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
-    <!-- Period Selector -->
     <div class="card-table-wrapper" style="padding:20px 24px; margin-bottom:16px;">
         <div style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--text-primary); margin-bottom:12px;">
             <i class="fa-regular fa-calendar"></i> Nuevo período
         </div>
         <div style="max-width:500px;">
+            <input type="hidden" name="payrollGroupId" value="{{ selected_group_id or '' }}">
             <div class="form-group">
                 <label>Período <span style="color:var(--danger);">*</span></label>
-                <select name="period_key" class="form-select" required>
+                <select name="period_key" class="form-select" required {{ 'disabled' if no_groups }}>
                     <option value="">Seleccionar período</option>
-                    {% if frequency_mode == 'employee' %}
-                    {% for p in available_periods %}
-                    <option value="{{ p.key }}" {% if loop.first %}selected{% endif %}>{{ p.label }}</option>
-                    {% endfor %}
-                    {% else %}
                     {% set q_groups = available_periods|selectattr('type', 'equalto', 'quincenal')|list %}
                     {% set m_groups = available_periods|selectattr('type', 'equalto', 'mensual')|list %}
                     {% set other_groups = available_periods|rejectattr('type', 'defined')|list + available_periods|selectattr('type', 'undefined')|list %}
@@ -57,7 +108,6 @@
                     {% for p in other_groups %}
                     <option value="{{ p.key }}" {% if loop.first %}selected{% endif %}>{{ p.label }}</option>
                     {% endfor %}
-                    {% endif %}
                 </select>
                 <p style="color:var(--text-muted); font-size:0.82rem; margin-top:8px;">
                     <i class="fa-regular fa-circle-info"></i>
@@ -120,7 +170,7 @@
 
     <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
         <button type="submit" class="btn btn-primary"
-                onclick="return startPayrollProcessing()">
+                onclick="return startPayrollProcessing()" {{ 'disabled' if no_groups }}>
             <i class="fa-solid fa-play"></i> Procesar Nómina
         </button>
     </div>
@@ -294,7 +344,7 @@
     <div style="display:flex; justify-content:flex-end; gap:var(--space-2); flex-wrap:wrap;">
         <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost">Cancelar</a>
         <button type="submit" class="btn btn-primary"
-                onclick="return startPayrollProcessing()">
+                onclick="return startPayrollProcessing()" {{ 'disabled' if no_groups }}>
             <i class="fa-solid fa-play"></i> Procesar Nómina
         </button>
     </div>

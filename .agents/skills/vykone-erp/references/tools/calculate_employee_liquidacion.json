@@ -1,0 +1,217 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "tool": "calculate_employee_liquidacion",
+  "business_process": "BP-6",
+  "risk": "high",
+  "requires_confirmation": true,
+  "required_permissions": ["canHR"],
+  "sod_conflicts": [],
+  "description": "Calcula la liquidación laboral completa de un empleado según la Ley 16-92 del Código de Trabajo dominicano. Incluye preaviso (Art. 76), cesantía (Art. 80), salario diario promedio (Art. 85), vacaciones pendientes (Art. 177/182), regalía pascual (Art. 219), y tratamiento fiscal de cada concepto.",
+  "parameters": {
+    "type": "object",
+    "required": ["employee_id", "termination_date", "termination_type"],
+    "properties": {
+      "employee_id": {
+        "type": "string",
+        "description": "ID del empleado en Firestore"
+      },
+      "termination_date": {
+        "type": "string",
+        "format": "date",
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+        "description": "Fecha de terminación laboral (YYYY-MM-DD)"
+      },
+      "termination_type": {
+        "type": "string",
+        "enum": ["desahucio_empleador", "dimision_justificada", "despido_justificado", "renuncia"],
+        "description": "Tipo de terminación. 'desahucio_empleador' y 'dimision_justificada' aplican prestaciones. 'despido_justificado' y 'renuncia' no."
+      },
+      "preaviso_trabajado": {
+        "type": "boolean",
+        "default": false,
+        "description": "Si el empleado ya ejerció el preaviso trabajando, el monto monetario es 0"
+      },
+      "monthly_salaries_last_12": {
+        "type": "array",
+        "items": {"type": "number", "minimum": 0},
+        "minItems": 1,
+        "maxItems": 12,
+        "description": "Salarios mensuales de los últimos 12 meses para cálculo de SDP. Si se omite, se obtienen del historial salarial del empleado."
+      },
+      "vacation_pending_days": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Días de vacaciones pendientes no disfrutadas. Si se omite, se calculan automáticamente según antigüedad."
+      },
+      "vacation_days_taken_this_period": {
+        "type": "integer",
+        "minimum": 0,
+        "default": 0,
+        "description": "Días de vacaciones ya disfrutados en el período actual"
+      },
+      "salary_frequency": {
+        "type": "string",
+        "enum": ["mensual", "quincenal", "semanal", "diario"],
+        "default": "mensual",
+        "description": "Frecuencia de pago del empleado para calcular el SDP correctamente"
+      }
+    }
+  },
+  "calculation_detail": {
+    "antiguedad": "Años, meses y días exactos entre hireDate y terminationDate",
+    "sdp": "Salario Diario Promedio = promedio de salarios últimos 12 meses / días laborables según frecuencia (23.83 mensual, 11.91 quincenal, 5.5 semanal)",
+    "preaviso": {
+      "ranges": [
+        {"months": "0-2", "days": 0, "reason": "No aplica"},
+        {"months": "3-5", "days": 7, "reason": "Art. 76"},
+        {"months": "6-11", "days": 14, "reason": "Art. 76"},
+        {"months": "12+", "days": 28, "reason": "Art. 76"}
+      ],
+      "exento_tss": true,
+      "exento_isr": true
+    },
+    "cesantia": {
+      "ranges": [
+        {"months": "0-2", "days": 0, "reason": "No aplica"},
+        {"months": "3-5", "days": 6, "reason": "Art. 80"},
+        {"months": "6-11", "days": 13, "reason": "Art. 80"},
+        {"years": "1-5", "days_per_year": 21, "reason": "Art. 80"},
+        {"years": "5+", "days_per_year": 23, "reason": "Art. 80"}
+      ],
+      "exento_tss": true,
+      "exento_isr": true
+    },
+    "vacaciones": {
+      "ranges": [
+        {"years": "1-5", "days_per_year": 14, "reason": "Art. 177"},
+        {"years": "5+", "days_per_year": 18, "reason": "Art. 182"}
+      ],
+      "exento_tss": false,
+      "exento_isr": false,
+      "note": "Las vacaciones SÍ pagan TSS e ISR"
+    },
+    "regalia": {
+      "formula": "baseSalary / 12 × months_worked_in_year",
+      "exento_tss": true,
+      "exento_isr": true,
+      "reason": "Art. 219 + Ley 87-01"
+    }
+  },
+  "termination_type_rules": {
+    "desahucio_empleador": "Aplica preaviso + cesantía + vacaciones + regalía proporcional",
+    "dimision_justificada": "Aplica preaviso + cesantía + vacaciones + regalía proporcional",
+    "despido_justificado": "Solo vacaciones + regalía proporcional. Sin preaviso ni cesantía.",
+    "renuncia": "Solo vacaciones + regalía proporcional. Sin preaviso ni cesantía."
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "employeeId": {"type": "string"},
+      "employeeName": {"type": "string"},
+      "cedula": {"type": "string"},
+      "hireDate": {"type": "string"},
+      "terminationDate": {"type": "string"},
+      "terminationType": {"type": "string"},
+      "aplicaPrestaciones": {"type": "boolean"},
+      "antiguedad": {
+        "type": "object",
+        "properties": {
+          "years": {"type": "integer"},
+          "months": {"type": "integer"},
+          "days": {"type": "integer"},
+          "total_months": {"type": "integer"}
+        }
+      },
+      "salarioDiarioPromedio": {"type": "number"},
+      "conceptos": {
+        "type": "object",
+        "properties": {
+          "preaviso": {
+            "type": "object",
+            "properties": {
+              "aplica": {"type": "boolean"},
+              "dias": {"type": "number"},
+              "monto": {"type": "number"},
+              "detalle": {"type": "string"},
+              "exentoTSS": {"type": "boolean"},
+              "exentoISR": {"type": "boolean"},
+              "baseLegal": {"type": "string"}
+            }
+          },
+          "cesantia": {
+            "type": "object",
+            "properties": {
+              "aplica": {"type": "boolean"},
+              "dias": {"type": "number"},
+              "monto": {"type": "number"},
+              "detalle": {"type": "string"},
+              "exentoTSS": {"type": "boolean"},
+              "exentoISR": {"type": "boolean"},
+              "baseLegal": {"type": "string"}
+            }
+          },
+          "vacaciones": {
+            "type": "object",
+            "properties": {
+              "aplica": {"type": "boolean"},
+              "dias": {"type": "number"},
+              "monto": {"type": "number"},
+              "detalle": {"type": "string"},
+              "exentoTSS": {"type": "boolean"},
+              "exentoISR": {"type": "boolean"},
+              "baseLegal": {"type": "string"}
+            }
+          },
+          "regalia": {
+            "type": "object",
+            "properties": {
+              "aplica": {"type": "boolean"},
+              "monto": {"type": "number"},
+              "detalle": {"type": "string"},
+              "exentoTSS": {"type": "boolean"},
+              "exentoISR": {"type": "boolean"},
+              "baseLegal": {"type": "string"}
+            }
+          },
+          "bonificacion": {
+            "type": "object",
+            "properties": {
+              "aplica": {"type": "boolean"},
+              "monto": {"type": "number"},
+              "detalle": {"type": "string"}
+            }
+          }
+        }
+      },
+      "totales": {
+        "type": "object",
+        "properties": {
+          "montoPrestaciones": {"type": "number"},
+          "montoDerechosAdquiridos": {"type": "number"},
+          "montoTotal": {"type": "number"},
+          "montoGravableTSS": {"type": "number"},
+          "montoGravableISR": {"type": "number"},
+          "montoExento": {"type": "number"}
+        }
+      },
+      "notas": {"type": "string"},
+      "status": {"type": "string", "enum": ["calculada", "pagada"]}
+    }
+  },
+  "possible_errors": [
+    "Employee not found",
+    "hireDate missing or invalid format",
+    "terminationDate must be after hireDate",
+    "No salary history available for SDP calculation",
+    "Termination type does not apply prestaciones (despido_justificado, renuncia)"
+  ],
+  "example": {
+    "employee_id": "emp-abc-123",
+    "termination_date": "2026-07-31",
+    "termination_type": "desahucio_empleador",
+    "preaviso_trabajado": false,
+    "salary_frequency": "mensual",
+    "monthly_salaries_last_12": [45000, 45000, 45000, 45000, 45000, 45000, 45000, 45000, 45000, 45000, 45000, 45000],
+    "vacation_pending_days": 10
+  }
+}

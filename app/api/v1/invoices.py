@@ -836,10 +836,17 @@ def create_expense():
             "approvalStatus": data.get('approvalStatus', data.get('approval_status', 'Aprobado')),
             "requestedBy": data.get('requestedBy', data.get('requested_by', 'Usuario')),
             "approvedBy": data.get('approvedBy', data.get('approved_by', 'Usuario' if data.get('approvalStatus', data.get('approval_status', 'Aprobado')) == 'Aprobado' else '')),
-            "dueDate": data.get('dueDate', data.get('due_date', ''))
+            "dueDate": data.get('dueDate', data.get('due_date', '')),
+            "accountItems": data.get('accountItems', data.get('account_items', [])),
         }
         
         DatabaseService.save_expense(g.owner_uid, expense_id, expense_dict, sandbox=g.sandbox_mode)
+        
+        try:
+            from app.services.accounting_service import AccountingService
+            AccountingService.auto_generate_expense_entry(g.owner_uid, expense_dict, sandbox=g.sandbox_mode)
+        except Exception:
+            pass
         
         return jsonify({
             "success": True,
