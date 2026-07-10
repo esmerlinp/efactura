@@ -1,0 +1,120 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Parámetros Legales — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-scale-balanced"></i> Parámetros Legales</h1>
+    <div class="hr-page-actions">
+        <a href="{{ url_for('web_rrhh.legal_parameter_new') }}" class="btn btn-primary">
+            <i class="fa-solid fa-plus"></i> Nuevo Parámetro
+        </a>
+        <a href="{{ url_for('web_rrhh.settings_index') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Configuración</a>
+    </div>
+</div>
+
+<div class="card-table-wrapper hr-table-card" style="margin-bottom:12px; padding:12px 16px;">
+    <form method="GET" action="{{ url_for('web_rrhh.legal_parameters_list') }}" style="display:flex; gap:12px; flex-wrap:wrap; align-items:end;">
+        <div class="form-group" style="margin:0; min-width:250px;">
+            <label style="font-size:0.78rem;">Tipo de Parámetro</label>
+            <select name="parameter_type" class="form-select" onchange="this.form.submit()">
+                <option value="">Todos los tipos</option>
+                {% for pt in param_types %}
+                <option value="{{ pt }}" {% if selected_type == pt %}selected{% endif %}>{{ PARAM_TYPE_LABELS.get(pt, pt) }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% if selected_type %}
+        <a href="{{ url_for('web_rrhh.legal_parameters_list') }}" class="btn btn-sm btn-ghost" style="align-self:end;">
+            <i class="fa-solid fa-xmark"></i> Limpiar
+        </a>
+        {% endif %}
+    </form>
+</div>
+
+{% if grouped %}
+    {% for ptype, params in grouped.items() %}
+    <div class="card-table-wrapper hr-table-card" style="margin-bottom:16px;">
+        <div class="table-header-row">
+            <div>
+                <h3 style="margin:0; font-size:0.95rem;">
+                    <i class="fa-solid fa-tag"></i> {{ PARAM_TYPE_LABELS.get(ptype, ptype) }}
+                    <code style="font-size:0.7rem; color:var(--text-muted); margin-left:8px;">{{ ptype }}</code>
+                </h3>
+                <p style="margin:2px 0 0; font-size:0.75rem; color:var(--text-muted);">
+                    {{ params|length }} versión(es)
+                </p>
+            </div>
+            <div>
+                <a href="{{ url_for('web_rrhh.legal_parameter_history', param_id=params[0].id) }}" class="btn btn-sm btn-ghost">
+                    <i class="fa-solid fa-clock-rotate-left"></i> Historial
+                </a>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table-premium" style="font-size:0.82rem;">
+            <thead>
+                <tr>
+                    <th>Versión</th>
+                    <th>Valor</th>
+                    <th>Vigente Desde</th>
+                    <th>Vigente Hasta</th>
+                    <th>Estado</th>
+                    <th>Actualizado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in params %}
+                <tr>
+                    <td><strong>v{{ p.version }}</strong></td>
+                    <td style="font-family:monospace; font-size:0.8rem;">
+                        {% if p.parameterType == 'isr_annual_table' %}
+                        <span class="badge badge-info">{{ p.value|length if p.value else 0 }} escalas</span>
+                        {% elif p.value is number %}
+                        {{ "{:,.4f}".format(p.value) }}
+                        {% else %}
+                        {{ p.value }}
+                        {% endif %}
+                    </td>
+                    <td style="font-size:0.8rem;">{{ p.effectiveFrom[:10] if p.effectiveFrom else '—' }}</td>
+                    <td style="font-size:0.8rem;">{{ p.effectiveTo[:10] if p.effectiveTo else '—' }}</td>
+                    <td>
+                        {% if p.isActive %}
+                        <span class="badge badge-success">Vigente</span>
+                        {% else %}
+                        <span class="badge badge-secondary">Histórico</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size:0.75rem; color:var(--text-muted);">
+                        {% if p.updatedAt %}{{ p.updatedAt[:10] }}{% elif p.createdAt %}{{ p.createdAt[:10] }}{% else %}—{% endif %}
+                    </td>
+                    <td><div class="hr-table-actions">
+                        {% if p.isActive %}
+                        <a href="{{ url_for('web_rrhh.legal_parameter_edit', param_id=p.id) }}" class="btn btn-sm btn-ghost" title="Editar"><i class="fa-solid fa-pen-to-square"></i></a>
+                        <form method="POST" action="{{ url_for('web_rrhh.legal_parameter_delete', param_id=p.id) }}" style="display:contents;" onsubmit="return confirm('¿Desactivar este parámetro?')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-ghost" title="Desactivar" style="color:var(--danger);"><i class="fa-solid fa-ban"></i></button>
+                        </form>
+                        {% endif %}
+                    </div></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            </table>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+<div class="card-table-wrapper hr-table-card">
+    <div class="text-center text-muted" style="padding:48px;">
+        <i class="fa-solid fa-scale-balanced" style="font-size:2rem; display:block; margin-bottom:12px; opacity:0.3;"></i>
+        <p>No hay parámetros legales configurados.</p>
+        <p style="font-size:0.82rem; margin-bottom:16px;">
+            Crea el primer parámetro legal para comenzar. Los valores por defecto se cargarán
+            automáticamente desde la configuración interna si no se ha definido un parámetro explícito.
+        </p>
+        <a href="{{ url_for('web_rrhh.legal_parameter_new') }}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Crear primer parámetro</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

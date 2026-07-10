@@ -950,6 +950,223 @@ def get_active_rules_for_scope(owner_uid: str, scope: str = "global",
 # GARNISHMENTS (embargos salariales)
 # ═══════════════════════════════════════════════════════════════════════════
 
+# ═══════════════════════════════════════════════════════════════════════
+# PARÁMETROS LEGALES CON VIGENCIA HISTÓRICA
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def get_legal_parameters(owner_uid: str, parameter_type: str = "",
+                          sandbox: bool = True) -> list:
+    """Obtiene parámetros legales, opcionalmente filtrados por tipo.
+
+    Evita usar order_by en Firestore para no requerir índices compuestos.
+    El ordenamiento se hace en Python.
+    """
+    if not firebase_initialized or db_firestore is None:
+        return []
+    try:
+        coll_path = _hr_collection(owner_uid, "legal_parameters", sandbox)
+        query = db_firestore.collection(coll_path)
+        if parameter_type:
+            query = query.where("parameterType", "==", parameter_type)
+        docs = query.get()
+        results = [{"id": d.id, **d.to_dict()} for d in docs]
+        results.sort(key=lambda p: p.get("version", 0), reverse=True)
+        return results
+    except Exception as e:
+        print(f"⚠️ HRDataService.get_legal_parameters: {e}")
+        return []
+
+
+def get_legal_parameter(owner_uid: str, param_id: str,
+                        sandbox: bool = True) -> dict | None:
+    return _get_one(owner_uid, "legal_parameters", param_id, sandbox)
+
+
+def save_legal_parameter(owner_uid: str, param_id: str, data: dict,
+                         sandbox: bool = True):
+    _save(owner_uid, "legal_parameters", param_id, data, sandbox)
+
+
+def delete_legal_parameter(owner_uid: str, param_id: str, sandbox: bool = True):
+    _delete(owner_uid, "legal_parameters", param_id, sandbox)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# TRANSACCIONES DE NÓMINA (PayrollTransaction)
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def get_payroll_transactions(owner_uid: str, sandbox: bool = True,
+                              period_id: str = "", employee_id: str = "",
+                              concept_code: str = "", limit: int = None) -> list:
+    """Obtiene transacciones con filtros opcionales."""
+    if not firebase_initialized or db_firestore is None:
+        return []
+    try:
+        coll_path = _hr_collection(owner_uid, "payroll_transactions", sandbox)
+        query = db_firestore.collection(coll_path)
+        if period_id:
+            query = query.where("periodId", "==", period_id)
+        if employee_id:
+            query = query.where("employeeId", "==", employee_id)
+        if concept_code:
+            query = query.where("conceptCode", "==", concept_code)
+        if limit:
+            query = query.limit(limit)
+        docs = query.get()
+        return [{"id": d.id, **d.to_dict()} for d in docs]
+    except Exception as e:
+        print(f"⚠️ HRDataService.get_payroll_transactions: {e}")
+        return []
+
+
+def get_payroll_transaction(owner_uid: str, tx_id: str,
+                              sandbox: bool = True) -> dict | None:
+    return _get_one(owner_uid, "payroll_transactions", tx_id, sandbox)
+
+
+def save_payroll_transaction(owner_uid: str, tx_id: str, data: dict,
+                             sandbox: bool = True):
+    _save(owner_uid, "payroll_transactions", tx_id, data, sandbox)
+
+
+def save_payroll_transactions_batch(owner_uid: str, transactions: list,
+                                    sandbox: bool = True):
+    """Guarda múltiples transacciones como batch."""
+    if not firebase_initialized or db_firestore is None or not transactions:
+        return
+    try:
+        coll_path = _hr_collection(owner_uid, "payroll_transactions", sandbox)
+        batch = db_firestore.batch()
+        for tx in transactions:
+            tx_id = tx.get("id", str(uuid.uuid4()))
+            tx["id"] = tx_id
+            batch.set(db_firestore.collection(coll_path).document(tx_id), tx)
+        batch.commit()
+    except Exception as e:
+        print(f"⚠️ HRDataService.save_payroll_transactions_batch: {e}")
+
+
+def delete_payroll_transactions_by_period(owner_uid: str, period_id: str,
+                                          sandbox: bool = True):
+    """Elimina todas las transacciones de un período (usado en recálculos)."""
+    if not firebase_initialized or db_firestore is None:
+        return
+    try:
+        coll_path = _hr_collection(owner_uid, "payroll_transactions", sandbox)
+        docs = db_firestore.collection(coll_path)\
+                           .where("periodId", "==", period_id).get()
+        batch = db_firestore.batch()
+        for d in docs:
+            batch.delete(d.reference)
+        batch.commit()
+    except Exception as e:
+        print(f"⚠️ HRDataService.delete_payroll_transactions_by_period: {e}")
+
+
+def get_ytd_transactions(owner_uid: str, employee_id: str, year: int,
+                          concept_code: str = "", sandbox: bool = True) -> list:
+    """Obtiene las transacciones YTD de un empleado para un año."""
+    if not firebase_initialized or db_firestore is None:
+        return []
+    try:
+        coll_path = _hr_collection(owner_uid, "payroll_transactions", sandbox)
+        query = db_firestore.collection(coll_path)\
+                            .where("employeeId", "==", employee_id)\
+                            .where("periodYear", "==", year)\
+                            .where("status", "in", ["applied", "adjusted"])
+        if concept_code:
+            query = query.where("conceptCode", "==", concept_code)
+        docs = query.get()
+        return [{"id": d.id, **d.to_dict()} for d in docs]
+    except Exception as e:
+        print(f"⚠️ HRDataService.get_ytd_transactions: {e}")
+        return []
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# MOVIMIENTOS VARIABLES (VariableMovement)
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def get_variable_movements(owner_uid: str, sandbox: bool = True,
+                            period_id: str = "", employee_id: str = "") -> list:
+    if not firebase_initialized or db_firestore is None:
+        return []
+    try:
+        coll_path = _hr_collection(owner_uid, "variable_movements", sandbox)
+        query = db_firestore.collection(coll_path)
+        if period_id:
+            query = query.where("periodId", "==", period_id)
+        if employee_id:
+            query = query.where("employeeId", "==", employee_id)
+        docs = query.get()
+        return [{"id": d.id, **d.to_dict()} for d in docs]
+    except Exception as e:
+        print(f"⚠️ HRDataService.get_variable_movements: {e}")
+        return []
+
+
+def save_variable_movement(owner_uid: str, vm_id: str, data: dict,
+                           sandbox: bool = True):
+    _save(owner_uid, "variable_movements", vm_id, data, sandbox)
+
+
+def delete_variable_movements_by_period(owner_uid: str, period_id: str,
+                                        sandbox: bool = True):
+    if not firebase_initialized or db_firestore is None:
+        return
+    try:
+        coll_path = _hr_collection(owner_uid, "variable_movements", sandbox)
+        docs = db_firestore.collection(coll_path)\
+                           .where("periodId", "==", period_id).get()
+        batch = db_firestore.batch()
+        for d in docs:
+            batch.delete(d.reference)
+        batch.commit()
+    except Exception as e:
+        print(f"⚠️ HRDataService.delete_variable_movements_by_period: {e}")
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# MOVIMIENTOS RECURRENTES (delegar a RecurringService)
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def get_recurring_movements(owner_uid: str, employee_id: str = "",
+                             status: str = "", movement_type: str = "",
+                             payroll_group_id: str = "",
+                             sandbox: bool = True) -> list:
+    from app.services.recurring_service import get_recurring_movements as _rm
+    return _rm(owner_uid, employee_id=employee_id, status=status,
+               movement_type=movement_type, payroll_group_id=payroll_group_id,
+               sandbox=sandbox)
+
+
+def get_recurring_movement(owner_uid: str, movement_id: str,
+                            sandbox: bool = True) -> dict | None:
+    from app.services.recurring_service import get_recurring_movement as _rm
+    return _rm(owner_uid, movement_id, sandbox=sandbox)
+
+
+def save_recurring_movement(owner_uid: str, movement_id: str, data: dict,
+                            sandbox: bool = True):
+    from app.services.recurring_service import save_recurring_movement as _rm
+    _rm(owner_uid, movement_id, data, sandbox=sandbox)
+
+
+def delete_recurring_movement(owner_uid: str, movement_id: str,
+                               sandbox: bool = True):
+    from app.services.recurring_service import delete_recurring_movement as _rm
+    _rm(owner_uid, movement_id, sandbox=sandbox)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# EMBARGOS / GARNISHMENTS (existente)
+# ═══════════════════════════════════════════════════════════════════════
+
+
 def get_garnishments(owner_uid: str, employee_id: str = "", sandbox: bool = True) -> list:
     if employee_id:
         if not firebase_initialized or db_firestore is None:

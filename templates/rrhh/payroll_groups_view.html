@@ -42,21 +42,154 @@
     </div>
 </div>
 
+<!-- Configuración específica del grupo -->
+<div class="card-table-wrapper hr-document-sheet" style="padding:0; margin-bottom:16px;">
+    <div class="table-header-row" style="padding:12px 20px; cursor:pointer;" onclick="toggleSettings()">
+        <div>
+            <h3 style="margin:0; font-size:0.95rem;">
+                <i class="fa-solid fa-gear"></i> Configuración específica del grupo
+            </h3>
+            <p style="margin:2px 0 0; font-size:0.82rem; color:var(--text-secondary);">
+                Sobrescribe parámetros globales solo para esta nómina
+            </p>
+        </div>
+        <i class="fa-solid fa-chevron-down" id="settings-chevron" style="transition:transform 0.2s;"></i>
+    </div>
+    <div id="settings-body" style="display:none; padding:16px 20px 20px; border-top:1px solid var(--border-color);">
+        <form method="POST" action="{{ url_for('web_rrhh.payroll_groups_save_settings', group_id=group.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <h4 style="margin:0 0 8px; font-size:0.85rem; color:var(--text-muted); text-transform:uppercase;">
+                Componentes de ingreso
+            </h4>
+            <div style="display:flex; flex-wrap:wrap; gap:12px 24px; margin-bottom:20px;">
+                {% set inc_base = group_overrides.get('includeBaseSalary', True) %}
+                <label class="toggle-label">
+                    <input type="checkbox" name="includeBaseSalary" {% if inc_base %}checked{% endif %} style="accent-color:var(--accent-emerald);">
+                    Salario base
+                </label>
+                {% set inc_comm = group_overrides.get('includeCommission', True) %}
+                <label class="toggle-label">
+                    <input type="checkbox" name="includeCommission" {% if inc_comm %}checked{% endif %} style="accent-color:var(--accent-emerald);">
+                    Comisiones
+                </label>
+                {% set inc_ot = group_overrides.get('includeOvertime', True) %}
+                <label class="toggle-label">
+                    <input type="checkbox" name="includeOvertime" {% if inc_ot %}checked{% endif %} style="accent-color:var(--accent-emerald);">
+                    Horas extra
+                </label>
+                {% set inc_bonus = group_overrides.get('includeBonus', True) %}
+                <label class="toggle-label">
+                    <input type="checkbox" name="includeBonus" {% if inc_bonus %}checked{% endif %} style="accent-color:var(--accent-emerald);">
+                    Bonificaciones
+                </label>
+                {% set inc_other = group_overrides.get('includeOtherIncome', True) %}
+                <label class="toggle-label">
+                    <input type="checkbox" name="includeOtherIncome" {% if inc_other %}checked{% endif %} style="accent-color:var(--accent-emerald);">
+                    Otros ingresos
+                </label>
+            </div>
+
+            <h4 style="margin:0 0 8px; font-size:0.85rem; color:var(--text-muted); text-transform:uppercase;">
+                Cuentas contables y centros de costo (override por grupo)
+            </h4>
+            <p style="font-size:0.78rem; color:var(--text-muted); margin:0 0 12px;">
+                Las tasas legales (TSS, ISR, topes) y parámetros de cálculo son globales por ley
+                y se gestionan en <a href="{{ url_for('web_rrhh.legal_parameters_list') }}">Parámetros Legales</a>.
+                Aquí solo se pueden sobrescribir <strong>cuentas contables</strong> y centros de costo.
+            </p>
+            {% set rate_fields = [
+                ('accountSalariesPayable', 'Cta — Salarios por pagar', 'txt'),
+                ('accountAfpEmployee', 'Cta — AFP empleado', 'txt'),
+                ('accountSfsEmployee', 'Cta — SFS empleado', 'txt'),
+                ('accountIsrEmployee', 'Cta — ISR retención', 'txt'),
+                ('accountAfpEmployer', 'Cta — AFP empleador', 'txt'),
+                ('accountSfsEmployer', 'Cta — SFS empleador', 'txt'),
+                ('accountSrlEmployer', 'Cta — SRL empleador', 'txt'),
+                ('accountInfotepEmployer', 'Cta — INFOTEP empleador', 'txt'),
+            ] %}
+            <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:10px;">
+                {% for field_name, field_label, ftype in rate_fields %}
+                {% set display_global = global_rates.get(field_name, '') %}
+                {% set group_val = group_overrides.get(field_name, None) %}
+                {% set is_overridden = group_val is not none %}
+                {% set input_val = group_val if is_overridden else display_global %}
+                <div class="rate-field-group">
+                    <label class="rate-label" for="field-{{ field_name }}">{{ field_label }}</label>
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        <input type="text" id="field-{{ field_name }}" name="{{ field_name }}"
+                               class="form-input" style="flex:1; font-size:0.82rem;"
+                               value="{{ input_val }}"
+                               placeholder="{{ display_global }}"
+                               {% if not is_overridden %}disabled{% endif %}>
+                        <label class="use-global-label" style="white-space:nowrap; font-size:0.75rem;">
+                            <input type="checkbox" name="{{ field_name }}_use_global"
+                                   onchange="toggleFieldOverride('field-{{ field_name }}', this)"
+                                   {% if not is_overridden %}checked{% endif %}
+                                   style="accent-color:var(--accent-emerald);">
+                            Usar global
+                        </label>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px; padding-top:16px; border-top:1px solid var(--border-color);">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fa-solid fa-floppy-disk"></i> Guardar configuración
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.toggle-label {
+    display:flex; align-items:center; gap:6px; font-size:0.85rem;
+    cursor:pointer; padding:6px 12px; border-radius:var(--radius-md);
+    border:1px solid var(--border-color); transition:all 0.15s;
+    user-select:none;
+}
+.toggle-label:has(input:checked) {
+    border-color:var(--accent-emerald); background:rgba(16,185,129,0.06);
+}
+.toggle-label input { width:16px; height:16px; }
+.rate-field-group { padding:8px; border-radius:var(--radius-md); border:1px solid var(--border-color); }
+.rate-label { display:block; font-size:0.78rem; font-weight:600; margin-bottom:4px; color:var(--text-secondary); }
+.use-global-label { display:flex; align-items:center; gap:4px; cursor:pointer; }
+</style>
+
+<script>
+function toggleSettings() {
+    var body = document.getElementById('settings-body');
+    var chevron = document.getElementById('settings-chevron');
+    var isOpen = body.style.display !== 'none';
+    body.style.display = isOpen ? 'none' : 'block';
+    chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
+}
+function toggleFieldOverride(fieldId, checkbox) {
+    var input = document.getElementById(fieldId);
+    if (!input) return;
+    input.disabled = checkbox.checked;
+    if (checkbox.checked) input.value = '';
+}
+</script>
+
 <!-- Picklist Dual -->
-<div style="display:grid; grid-template-columns:1fr auto 1fr; gap:12px; align-items:start; margin-bottom:16px;">
+<div style="display:grid; grid-template-columns:1fr auto 1fr; gap:12px; margin-bottom:16px;">
 
     <!-- LEFT: Disponibles -->
-    <div class="card-table-wrapper hr-table-card" style="padding:0;">
-        <div class="table-header-row" style="padding:12px 16px; margin:0;">
+    <div class="card-table-wrapper hr-table-card" style="padding:0; display:flex; flex-direction:column;">
+        <div class="table-header-row" style="padding:12px 16px; margin:0; flex-shrink:0;">
             <div>
                 <h3 style="margin:0; font-size:0.95rem;"><i class="fa-solid fa-user-plus"></i> Disponibles</h3>
                 <span style="font-size:0.78rem; color:var(--text-secondary);" id="unassigned-count">{{ unassigned|length }} empleado(s) sin asignar</span>
             </div>
         </div>
-        <div style="padding:8px 12px; border-bottom:1px solid var(--border-color);">
+        <div style="padding:8px 12px; border-bottom:1px solid var(--border-color); flex-shrink:0;">
             <input type="text" id="search-unassigned" class="form-input" placeholder="Buscar..." style="font-size:0.82rem;">
         </div>
-        <div style="min-height:280px; max-height:400px; overflow-y:auto;" id="unassigned-list">
+        <div style="min-height:280px; max-height:400px; overflow-y:auto; flex:1;" id="unassigned-list">
             {% for e in unassigned %}
             <label class="picklist-item" data-search="{{ (e.fullName or e.firstName ~ ' ' ~ e.lastName)|lower }} {{ e.cedula or '' }} {{ e.position or '' }}">
                 <input type="checkbox" class="picklist-cb unassign-cb" value="{{ e.id }}">
@@ -71,7 +204,7 @@
             </div>
             {% endfor %}
         </div>
-        <div style="padding:8px 12px; border-top:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
+        <div style="padding:8px 12px; border-top:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
             <span style="font-size:0.75rem; color:var(--text-muted);" id="unassigned-selected-count">0 seleccionados</span>
             <div style="display:flex; gap:4px;">
                 <button type="button" class="btn btn-sm btn-primary" onclick="assignSelected()">
@@ -93,17 +226,17 @@
     </div>
 
     <!-- RIGHT: Asignados -->
-    <div class="card-table-wrapper hr-table-card" style="padding:0;">
-        <div class="table-header-row" style="padding:12px 16px; margin:0;">
+    <div class="card-table-wrapper hr-table-card" style="padding:0; display:flex; flex-direction:column;">
+        <div class="table-header-row" style="padding:12px 16px; margin:0; flex-shrink:0;">
             <div>
                 <h3 style="margin:0; font-size:0.95rem;"><i class="fa-solid fa-users"></i> Asignados</h3>
                 <span style="font-size:0.78rem; color:var(--text-secondary);" id="assigned-count">{{ assigned|length }} empleado(s)</span>
             </div>
         </div>
-        <div style="padding:8px 12px; border-bottom:1px solid var(--border-color);">
+        <div style="padding:8px 12px; border-bottom:1px solid var(--border-color); flex-shrink:0;">
             <input type="text" id="search-assigned" class="form-input" placeholder="Buscar..." style="font-size:0.82rem;">
         </div>
-        <div style="min-height:280px; max-height:400px; overflow-y:auto;" id="assigned-list">
+        <div style="min-height:280px; max-height:400px; overflow-y:auto; flex:1;" id="assigned-list">
             {% for e in assigned %}
             <label class="picklist-item" data-search="{{ (e.fullName or e.firstName ~ ' ' ~ e.lastName)|lower }} {{ e.cedula or '' }} {{ e.position or '' }}">
                 <input type="checkbox" class="picklist-cb assign-cb" value="{{ e.id }}">
@@ -118,7 +251,7 @@
             </div>
             {% endfor %}
         </div>
-        <div style="padding:8px 12px; border-top:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
+        <div style="padding:8px 12px; border-top:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
             <span style="font-size:0.75rem; color:var(--text-muted);" id="assigned-selected-count">0 seleccionados</span>
             <div style="display:flex; gap:4px;">
                 <form method="POST" action="{{ url_for('web_rrhh.payroll_groups_unassign_all', group_id=group.id) }}" style="display:inline;">
@@ -193,6 +326,26 @@
 .picklist-item:hover { background:var(--bg-nav-hover); }
 .picklist-item:has(.picklist-cb:checked) { background:rgba(16,185,129,0.08); }
 .picklist-cb { width:16px; height:16px; accent-color:var(--accent-emerald); flex-shrink:0; }
+/* Progress dialog */
+#progress-overlay {
+    display:none; position:fixed; z-index:99999; inset:0;
+    background:rgba(0,0,0,0.45); align-items:center; justify-content:center;
+}
+#progress-overlay.show { display:flex; }
+#progress-dialog {
+    background:var(--bg-card); border-radius:var(--radius-lg);
+    padding:32px 40px; text-align:center; box-shadow:0 8px 40px rgba(0,0,0,0.25);
+    max-width:360px; width:90%;
+}
+#progress-dialog .spinner {
+    display:inline-block; width:36px; height:36px; margin-bottom:12px;
+    border:4px solid var(--border-color); border-top-color:var(--accent-emerald);
+    border-radius:50%; animation:spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+#progress-dialog p { margin:8px 0 0; font-size:0.92rem; color:var(--text-primary); }
+#progress-dialog .error-msg { display:none; margin-top:12px; }
+#progress-dialog .error-msg.show { display:block; }
 </style>
 
 <script>
@@ -232,27 +385,39 @@ function updateSelectedCount(containerId, countId) {
 updateSelectedCount('unassigned-list', 'unassigned-selected-count');
 updateSelectedCount('assigned-list', 'assigned-selected-count');
 
+function showProgressDialog(text) {
+    document.getElementById('progress-text').textContent = text;
+    document.getElementById('progress-error').classList.remove('show');
+    document.getElementById('progress-overlay').classList.add('show');
+}
+function closeProgressDialog() {
+    document.getElementById('progress-overlay').classList.remove('show');
+}
+function showProgressError(msg) {
+    document.getElementById('progress-error').querySelector('button').textContent = 'Cerrar';
+    document.getElementById('progress-text').textContent = msg;
+    document.getElementById('progress-error').classList.add('show');
+}
+
 function assignSelected() {
     var checked = document.querySelectorAll('#unassigned-list .unassign-cb:checked');
     if (checked.length === 0) return;
     var ids = Array.from(checked).map(function(cb) { return cb.value; });
-    var form = document.createElement('form');
-    form.method = 'POST';
-    form.action = '{{ url_for("web_rrhh.payroll_groups_assign", group_id=group.id) }}';
-    var csrf = document.createElement('input');
-    csrf.type = 'hidden';
-    csrf.name = 'csrf_token';
-    csrf.value = getCSRFToken();
-    form.appendChild(csrf);
-    ids.forEach(function(id) {
-        var inp = document.createElement('input');
-        inp.type = 'hidden';
-        inp.name = 'employee_ids';
-        inp.value = id;
-        form.appendChild(inp);
-    });
-    document.body.appendChild(form);
-    form.submit();
+    showProgressDialog('Asignando ' + ids.length + ' empleado(s)…');
+    fetch('{{ url_for("web_rrhh.payroll_groups_assign_async", group_id=group.id) }}', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','X-CSRFToken':getCSRFToken()},
+        body: JSON.stringify({employee_ids: ids})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            window.location.reload();
+        } else {
+            showProgressError(data.message || 'Error al asignar empleados.');
+        }
+    })
+    .catch(function() { showProgressError('Error de conexión.'); });
 }
 
 function unassignSelected() {
@@ -260,24 +425,33 @@ function unassignSelected() {
     if (checked.length === 0) return;
     if (!confirm('¿Remover ' + checked.length + ' empleado(s) del grupo?')) return;
     var ids = Array.from(checked).map(function(cb) { return cb.value; });
-    var form = document.createElement('form');
-    form.method = 'POST';
-    var url = '{{ url_for("web_rrhh.payroll_groups_unassign_all", group_id=group.id) }}';
-    form.action = url;
-    var csrf = document.createElement('input');
-    csrf.type = 'hidden';
-    csrf.name = 'csrf_token';
-    csrf.value = getCSRFToken();
-    form.appendChild(csrf);
-    ids.forEach(function(id) {
-        var inp = document.createElement('input');
-        inp.type = 'hidden';
-        inp.name = 'employee_ids';
-        inp.value = id;
-        form.appendChild(inp);
-    });
-    document.body.appendChild(form);
-    form.submit();
+    showProgressDialog('Removiendo ' + ids.length + ' empleado(s)…');
+    fetch('{{ url_for("web_rrhh.payroll_groups_unassign_async", group_id=group.id) }}', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','X-CSRFToken':getCSRFToken()},
+        body: JSON.stringify({employee_ids: ids})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            window.location.reload();
+        } else {
+            showProgressError(data.message || 'Error al remover empleados.');
+        }
+    })
+    .catch(function() { showProgressError('Error de conexión.'); });
 }
 </script>
+
+<!-- Progress dialog -->
+<div id="progress-overlay">
+    <div id="progress-dialog">
+        <div class="spinner"></div>
+        <p id="progress-text">Asignando empleados…</p>
+        <div class="error-msg" id="progress-error">
+            <button type="button" class="btn btn-sm btn-primary" onclick="closeProgressDialog()">Cerrar</button>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

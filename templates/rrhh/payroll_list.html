@@ -22,7 +22,7 @@
     <span style="font-size:0.85rem; color:var(--text-secondary); font-weight:600;">Filtrar por grupo:</span>
     <a href="{{ url_for('web_rrhh.payroll_list') }}" class="btn btn-sm {% if not filter_group %}btn-primary{% else %}btn-ghost{% endif %}">Todos</a>
     {% for g in payroll_groups %}
-    <a href="{{ url_for('web_rrhh.payroll_list', group=g.id) }}" class="btn btn-sm {% if filter_group == g.id %}btn-primary{% else %}btn-ghost{% endif %}">{{ g.name }}</a>
+    <a href="{{ url_for('web_rrhh.payroll_list', group=g.id) }}" class="btn btn-sm {% if filter_group == g.id %}btn-primary{% else %}btn-ghost{% endif %}">{{ g.name }} ({{ group_employee_counts.get(g.id, 0) }})</a>
     {% endfor %}
 </div>
 {% endif %}

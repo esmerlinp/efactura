@@ -186,14 +186,18 @@ class PayrollPeriod(BaseModel):
     """Período de nómina."""
     id: str = ""
     payrollGroupId: str = ""  # "" = grupo por defecto (compatibilidad)
+    legalEntityId: str = ""  # Para multiempresa futuro
     periodKey: str = ""  # "2026-07" o "2026-01-15"
     periodType: str = "mensual"  # "quincenal" | "mensual"
+    periodSubType: str = "regular"  # regular | christmas_bonus | extraordinary | retroactive | vacation | liquidation
     periodRange: str = ""  # "1 Ene - 15 Ene"
-    startDate: str = ""  # Fecha inicio del período (YYYY-MM-DD)
-    endDate: str = ""  # Fecha fin del período (YYYY-MM-DD)
+    startDate: str = ""  # Fecha inicio del período trabajado (YYYY-MM-DD)
+    endDate: str = ""  # Fecha fin del período trabajado (YYYY-MM-DD)
+    scheduledPaymentDate: str = ""  # Fecha planificada de pago (YYYY-MM-DD)
     month: int = 0
     year: int = 0
-    status: str = "borrador"  # "borrador" | "calculada" | "validada" | "aprobada" | "contabilizada" | "pagada" | "cerrada"
+    revision: int = 1  # Se incrementa cada vez que se recalcula el período
+    status: str = "borrador"  # borrador | calculada | validada | aprobada | contabilizada | pagada | cerrada | reopened | cancelled
     lines: List[PayrollLine] = []
     totalGross: float = 0.0
     totalNet: float = 0.0
@@ -223,6 +227,11 @@ class PayrollPeriod(BaseModel):
     # Snapshot inmutable de tasas usadas para calcular este período
     taxRatesSnapshot: dict = {}  # Copia de tax_rates al momento del cálculo
     appliedRatesDate: str = ""  # ISO date de cuándo se aplicaron las tasas
+    parameterVersions: dict = {}  # {"afp_employee_rate": "param_id_123_v2", ...} — IDs + versión de cada parámetro usado
+
+    # Nómina especial: referencia al período padre (para retroactivos)
+    parentPeriodId: str = ""
+    specialNotes: str = ""
 
 
 class Evaluation(BaseModel):

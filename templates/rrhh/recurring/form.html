@@ -1,0 +1,671 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}{{ 'Editar' if movement else 'Nuevo' }} Movimiento Recurrente — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-rotate"></i> {{ 'Editar' if movement else 'Nuevo' }} Movimiento Recurrente</h1>
+    <a href="{{ url_for('web_rrhh.recurring_list') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Volver</a>
+</div>
+
+{% set _sub_type = 'loan' if movement and movement.isLoan else ('garnishment' if movement and movement.isGarnishment else 'regular') %}
+
+<form method="POST" class="hr-main-col">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="deductionSubType" id="deductionSubType" value="{{ _sub_type }}">
+
+    {# ── SECCIÓN 1: Empleado ── #}
+    <div class="hr-section-card">
+        <h3><i class="fa-solid fa-user"></i> Datos del Empleado</h3>
+        <div class="hr-form-grid">
+            <div class="form-group">
+                <label>Empleado <span style="color:var(--danger);">*</span></label>
+                <input type="text" id="employee-input" class="form-input" list="employee-list"
+                       placeholder="Buscar empleado por nombre o cédula…" autocomplete="off"
+                       value="{{ movement.employeeName if movement else '' }}"
+                       {% if movement and movement.employeeId %}data-selected="{{ movement.employeeId }}"{% endif %}>
+                <input type="hidden" name="employeeId" id="employee-id-hidden" value="{{ movement.employeeId if movement else '' }}">
+                <datalist id="employee-list">
+                    {% for e in employees %}
+                    {% set ename = e.get('fullName', e.get('firstName','') ~ ' ' ~ e.get('lastName','')) %}
+                    <option value="{{ ename }} ({{ e.cedula or 'S/C' }})" data-id="{{ e.id }}">
+                    {% endfor %}
+                </datalist>
+            </div>
+            <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                var input = document.getElementById('employee-input');
+                var hidden = document.getElementById('employee-id-hidden');
+                var datalist = document.getElementById('employee-list');
+                input.addEventListener('change', function() {
+                    var val = this.value.trim();
+                    var opts = datalist.querySelectorAll('option');
+                    for (var i = 0; i < opts.length; i++) {
+                        if (opts[i].value === val) {
+                            hidden.value = opts[i].getAttribute('data-id');
+                            return;
+                        }
+                    }
+                    hidden.value = '';
+                });
+            });
+            </script>
+            <div class="form-group">
+                <label>Contrato</label>
+                <input type="text" name="contractId" class="form-input" value="{{ movement.contractId if movement else '' }}" placeholder="ID del contrato (opcional)">
+            </div>
+        </div>
+    </div>
+
+    {# ── SECCIÓN 2: Tipo de Movimiento (PIVOTE) ── #}
+    <div class="hr-section-card hr-section-card--pivot">
+        <h3><i class="fa-solid fa-arrows-turn-right"></i> Tipo de Movimiento</h3>
+        <p class="hr-section-desc">Selecciona el tipo de movimiento para definir qué detalles mostrar.</p>
+        <div class="hr-form-grid" style="grid-template-columns: 1fr;">
+            <div class="form-group">
+                <label>¿Qué tipo de movimiento quieres crear? <span style="color:var(--danger);">*</span></label>
+                <select name="movementType" class="form-select" id="movementType" onchange="toggleMovementTypeSections()" required>
+                    {% for k, v in MOVEMENT_TYPES.items() %}
+                    <option value="{{ k }}" {% if movement and movement.movementType == k %}selected{% endif %}>{{ v }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+
+    {# ── SECCIÓN 3: Detalle del Movimiento ── #}
+    <div class="hr-section-card" id="detailSection">
+        <h3><i class="fa-solid fa-pen-to-square"></i> Detalle del Movimiento</h3>
+        <div class="hr-form-grid">
+            {# Concepto — siempre visible #}
+            <div class="form-group">
+                <label>Concepto de Nómina <span style="color:var(--danger);">*</span></label>
+                <select name="conceptCode" class="form-select" required>
+                    <option value="">Seleccionar concepto</option>
+                    {% for c in concepts %}
+                    <option value="{{ c.code }}" {% if movement and movement.conceptCode == c.code %}selected{% endif %}>
+                        {{ c.code }} — {{ c.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {# Descripción — siempre visible #}
+            <div class="form-group" style="grid-column:1/-1;">
+                <label>Descripción</label>
+                <input type="text" name="description" class="form-input" value="{{ movement.description if movement else '' }}" placeholder="Ej. Préstamo de vehículo, Aporte cooperativa, Seguro médico">
+            </div>
+        </div>
+
+        {# ── Campos de Monto (earning / employer_contrib) ── #}
+        <div id="earningAmountFields" class="hr-form-grid" style="margin-top:16px; display:none;">
+            <div class="form-group">
+                <label>Tipo de Monto</label>
+                <select name="amountType" class="form-select" id="amountType" onchange="toggleAmountFields()">
+                    {% for k, v in AMOUNT_TYPES.items() %}
+                    <option value="{{ k }}" {% if movement and movement.amountType == k %}selected{% endif %}>{{ v }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" id="fixedAmountGroup">
+                <label>Monto Fijo (RD$)</label>
+                <input type="number" step="0.01" name="amount" class="form-input" value="{{ movement.amount if movement else '0' }}" placeholder="0.00">
+            </div>
+            <div class="form-group" id="percentageGroup" style="display:none;">
+                <label>Porcentaje (%)</label>
+                <input type="number" step="0.0001" name="percentage" class="form-input" value="{{ "%.4f"|format(movement.percentage) if movement and movement.percentage else 0 }}" placeholder="0.00">
+            </div>
+            <div class="form-group" id="formulaGroup" style="display:none; grid-column:1/-1;">
+                <label>Fórmula</label>
+                <input type="text" name="formula" class="form-input" value="{{ movement.formula if movement else '' }}" placeholder="Ej. baseSalary * 0.10">
+                <span style="font-size:0.75rem; color:var(--text-muted);">Usa <code>baseSalary</code> como variable del salario base.</span>
+            </div>
+        </div>
+
+        {# ── Subtipo para DEDUCCIÓN ── #}
+        <div id="deductionSubtypeArea" class="hr-deduction-area" style="margin-top:16px; display:none;">
+            <div class="hr-deduction-subtype">
+                <label class="hr-deduction-subtype__label">Subtipo de Deducción</label>
+                <div class="hr-deduction-subtype__options">
+                    {% for sk, sv in DEDUCTION_SUBTYPE.items() %}
+                    <label class="hr-deduction-subtype__option{% if _sub_type == sk %} is-selected{% endif %}" data-value="{{ sk }}" id="subtype-label-{{ sk }}">
+                        <input type="radio" name="deductionSubTypeRadio" value="{{ sk }}"
+                               {% if _sub_type == sk %}checked{% endif %}
+                               onchange="toggleDeductionSubType()">
+                        <span>{{ sv }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {# Campos para Descuento Regular #}
+            <div id="regularAmountFields" class="hr-form-grid" style="margin-top:16px; display:none;">
+                <div class="form-group">
+                    <label>Tipo de Monto</label>
+                    <select name="amountType" class="form-select" id="deductionAmountType" onchange="toggleDeductionAmountFields()">
+                        {% for k, v in AMOUNT_TYPES.items() %}
+                        <option value="{{ k }}" {% if movement and movement.amountType == k %}selected{% endif %}>{{ v }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group" id="dedFixedAmountGroup">
+                    <label>Monto Fijo (RD$)</label>
+                    <input type="number" step="0.01" name="amount" class="form-input" value="{{ movement.amount if movement else '0' }}" placeholder="0.00">
+                </div>
+                <div class="form-group" id="dedPercentageGroup" style="display:none;">
+                    <label>Porcentaje (%)</label>
+                    <input type="number" step="0.0001" name="percentage" class="form-input" value="{{ "%.4f"|format(movement.percentage) if movement and movement.percentage else 0 }}" placeholder="0.00">
+                </div>
+                <div class="form-group" id="dedFormulaGroup" style="display:none; grid-column:1/-1;">
+                    <label>Fórmula</label>
+                    <input type="text" name="formula" class="form-input" value="{{ movement.formula if movement else '' }}" placeholder="Ej. baseSalary * 0.10">
+                    <span style="font-size:0.75rem; color:var(--text-muted);">Usa <code>baseSalary</code> como variable del salario base.</span>
+                </div>
+            </div>
+
+            {# Campos para Préstamo #}
+            <div id="loanFields" class="hr-form-grid hr-loan-fields" style="margin-top:16px; display:none;">
+                <div class="form-group">
+                    <label>Monto Total (RD$)</label>
+                    <input type="number" step="0.01" name="totalAmount" class="form-input" value="{{ movement.totalAmount if movement else 0 }}" placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label>Cuota por Período (RD$)</label>
+                    <input type="number" step="0.01" name="installmentAmount" class="form-input" value="{{ movement.installmentAmount if movement else 0 }}" placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label>Total Cuotas</label>
+                    <input type="number" name="totalInstallments" class="form-input" value="{{ movement.totalInstallments if movement else 0 }}" placeholder="0">
+                </div>
+                <div class="form-group">
+                    <label>Cuotas Pagadas</label>
+                    <input type="number" name="paidInstallments" class="form-input" value="{{ movement.paidInstallments if movement else 0 }}" placeholder="0">
+                </div>
+                <div class="form-group">
+                    <label>Saldo Restante (RD$)</label>
+                    <input type="number" step="0.01" name="remainingBalance" class="form-input" value="{{ movement.remainingBalance if movement else 0 }}" placeholder="0.00">
+                </div>
+                <div class="form-group" style="display:flex; align-items:end; padding-bottom:8px;">
+                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                        <input type="checkbox" name="autoComplete" {% if movement is none or movement.autoComplete %}checked{% endif %}>
+                        Auto-completar al llegar a saldo 0
+                    </label>
+                </div>
+            </div>
+
+            {# Campos para Embargo Judicial #}
+            <div id="garnishmentFields" class="hr-form-grid hr-garnishment-fields" style="margin-top:16px; display:none;">
+                <div class="form-group">
+                    <label>Tipo de Embargo</label>
+                    <input type="text" name="garnishmentType" class="form-input" value="{{ movement.garnishmentType if movement else '' }}" placeholder="Ej. Pensión alimenticia, Judicial">
+                </div>
+                <div class="form-group">
+                    <label>Número de Referencia</label>
+                    <input type="text" name="referenceNumber" class="form-input" value="{{ movement.referenceNumber if movement else '' }}" placeholder="Ej. EXP-2024-00123">
+                </div>
+                <div class="form-group">
+                    <label>Entidad Emisora</label>
+                    <input type="text" name="issuingEntity" class="form-input" value="{{ movement.issuingEntity if movement else '' }}" placeholder="Ej. Juzgado de Trabajo">
+                </div>
+                <div class="form-group">
+                    <label>Beneficiario</label>
+                    <input type="text" name="beneficiaryName" class="form-input" value="{{ movement.beneficiaryName if movement else '' }}" placeholder="Nombre del beneficiario">
+                </div>
+                <div class="form-group">
+                    <label>Cuenta del Beneficiario</label>
+                    <input type="text" name="beneficiaryAccount" class="form-input" value="{{ movement.beneficiaryAccount if movement else '' }}" placeholder="Cuenta bancaria">
+                </div>
+                <div class="form-group">
+                    <label>Tipo de Deducción</label>
+                    <select name="deductionType" class="form-select">
+                        {% for k, v in DEDUCTION_TYPES.items() %}
+                        <option value="{{ k }}" {% if movement and movement.deductionType == k %}selected{% endif %}>{{ v }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Porcentaje de Deducción</label>
+                    <input type="number" step="0.01" name="deductionPercent" class="form-input" value="{{ movement.deductionPercent if movement else 0 }}" placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label>Tasa Legal Máxima</label>
+                    <input type="number" step="0.01" name="maxLegalRate" class="form-input" value="{{ movement.maxLegalRate if movement else 0 }}" placeholder="0.00">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── SECCIÓN 4: Grupos de Nómina ── #}
+    <div class="hr-section-card">
+        <h3><i class="fa-solid fa-layer-group"></i> Grupos de Nómina</h3>
+        <p class="hr-section-desc">Selecciona uno o varios grupos de nómina. El movimiento solo se aplicará en estos grupos.</p>
+        <div class="hr-form-grid">
+            <div class="form-group" style="grid-column:1/-1;">
+                <label>Grupos de Nómina <span style="color:var(--danger);">*</span></label>
+                <div class="multiselect-container" id="payroll-multiselect">
+                    <div class="multiselect-trigger" tabindex="0" role="button" onclick="toggleDropdown()">
+                        <div class="multiselect-chips" id="multiselect-chips">
+                            <span class="multiselect-placeholder">Seleccionar grupos…</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down multiselect-arrow"></i>
+                    </div>
+                    <div class="multiselect-dropdown" id="multiselect-dropdown">
+                        <div class="multiselect-search">
+                            <i class="fa-solid fa-search"></i>
+                            <input type="text" class="multiselect-search-input" placeholder="Filtrar grupos…" oninput="filterOptions(this)">
+                        </div>
+                        <div class="multiselect-options" id="multiselect-options">
+                            {% for g in payroll_groups %}
+                            <label class="multiselect-option" data-value="{{ g.id }}">
+                                <input type="checkbox" value="{{ g.id }}"
+                                    {% if movement and g.id in movement.get('payrollGroupIds', []) %}checked{% endif %}>
+                                <span>{{ g.name }} <small>({{ g.frequency or 'mensual' }})</small></span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <input type="hidden" name="payrollGroupIds_hidden" id="payrollGroupIds-hidden" value="{{ ','.join(movement.get('payrollGroupIds', [])) if movement else '' }}">
+            </div>
+        </div>
+    </div>
+
+    {# ── SECCIÓN 5: Vigencia y Frecuencia ── #}
+    <div class="hr-section-card">
+        <h3><i class="fa-solid fa-calendar"></i> Vigencia y Frecuencia</h3>
+        <div class="hr-form-grid">
+            <div class="form-group">
+                <label>Vigencia Desde <span style="color:var(--danger);">*</span></label>
+                <input type="date" name="startDate" class="form-input" required value="{{ movement.startDate[:10] if movement and movement.startDate else '' }}">
+            </div>
+            <div class="form-group">
+                <label>Vigencia Hasta</label>
+                <input type="date" name="endDate" class="form-input" id="endDate" value="{{ movement.endDate[:10] if movement and movement.endDate and not movement.indefinite else '' }}" {% if movement and movement.indefinite %}disabled{% endif %}>
+            </div>
+            <div class="form-group" style="display:flex; align-items:end; padding-bottom:8px;">
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                    <input type="checkbox" name="indefinite" id="indefinite" {% if movement and movement.indefinite %}checked{% endif %} onchange="toggleIndefinite()">
+                    Indefinido (sin fecha de fin)
+                </label>
+            </div>
+            <div class="form-group">
+                <label>Frecuencia de Aplicación</label>
+                <select name="applyFrequency" class="form-select" id="applyFrequency" onchange="toggleApplyMonths()">
+                    {% for k, v in FREQUENCY_OPTS.items() %}
+                    <option value="{{ k }}" {% if movement and movement.applyFrequency == k %}selected{% endif %}>{{ v }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" id="applyMonthsGroup" style="display:none;">
+                <label>Meses de Aplicación</label>
+                <div style="display:flex; flex-wrap:wrap; gap:4px;">
+                    {% set apply_months = movement.applyMonths if movement and movement.applyMonths else [] %}
+                    {% for m_num in range(1, 13) %}
+                    <label style="display:flex; align-items:center; gap:3px; font-size:0.75rem; padding:4px 6px; border:1px solid var(--border-color); border-radius:4px; cursor:pointer;">
+                        <input type="checkbox" name="applyMonths" value="{{ m_num }}" {% if m_num in apply_months %}checked{% endif %}>
+                        {{ ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][m_num - 1] }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── SECCIÓN 6: Configuración Avanzada ── #}
+    <div class="hr-section-card">
+        <h3><i class="fa-solid fa-sliders"></i> Configuración Avanzada</h3>
+        <div class="hr-form-grid">
+            <div class="form-group">
+                <label>Prioridad</label>
+                <input type="number" name="priority" class="form-input" value="{{ movement.priority if movement else 50 }}" placeholder="50">
+                <span style="font-size:0.75rem; color:var(--text-muted);">Menor número = mayor prioridad.</span>
+            </div>
+            <div class="form-group">
+                <label>Estado</label>
+                <select name="status" class="form-select">
+                    {% for k, v in STATUS_OPTS.items() %}
+                    <option value="{{ k }}" {% if movement and movement.status == k %}selected{% endif %}>{{ v }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+                <label>Notas</label>
+                <textarea name="notes" class="form-input" rows="2" style="resize:vertical;">{{ movement.notes if movement else '' }}</textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="hr-section-card hr-actions-card hr-actions-bar">
+        <a href="{{ url_for('web_rrhh.recurring_list') }}" class="btn btn-ghost">Cancelar</a>
+        <button type="submit" class="btn btn-primary">{{ 'Guardar' if movement else 'Crear Movimiento' }}</button>
+    </div>
+</form>
+
+<style>
+.multiselect-container {
+    position: relative;
+    width: 100%;
+}
+.multiselect-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--input-bg, #fff);
+    cursor: pointer;
+    min-height: 42px;
+    gap: 8px;
+}
+.multiselect-trigger:hover {
+    border-color: var(--primary);
+}
+.multiselect-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    flex: 1;
+}
+.multiselect-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--primary-bg, rgba(37,99,235,0.1));
+    color: var(--primary);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+.multiselect-chip i {
+    cursor: pointer;
+    font-size: 0.7rem;
+    opacity: 0.7;
+}
+.multiselect-chip i:hover {
+    opacity: 1;
+}
+.multiselect-placeholder {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+.multiselect-arrow {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    transition: transform 0.2s;
+}
+.multiselect-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--card-bg, #fff);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    z-index: 100;
+    max-height: 320px;
+    overflow: hidden;
+}
+.multiselect-dropdown.open {
+    display: block;
+}
+.multiselect-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+.multiselect-search i {
+    color: var(--text-muted);
+}
+.multiselect-search-input {
+    border: none;
+    outline: none;
+    flex: 1;
+    background: transparent;
+    font-size: 0.9rem;
+}
+.multiselect-options {
+    max-height: 220px;
+    overflow-y: auto;
+}
+.multiselect-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.multiselect-option:hover {
+    background: var(--hover-bg, rgba(0,0,0,0.04));
+}
+.multiselect-option input[type="checkbox"] {
+    accent-color: var(--primary);
+}
+.multiselect-option small {
+    color: var(--text-muted);
+}
+
+/* ── Sección pivote (Tipo de Movimiento) ── */
+.hr-section-card--pivot {
+    border-left: 4px solid var(--accent-emerald, #10b981);
+    background: rgba(16, 185, 129, 0.03);
+}
+
+.hr-section-card--pivot h3 i {
+    color: var(--accent-emerald, #10b981);
+}
+
+.hr-section-desc {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin: -8px 0 14px 0;
+}
+
+/* ── Subtipo de deducción ── */
+.hr-deduction-subtype {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    background: rgba(0,0,0,0.01);
+}
+
+.hr-deduction-subtype__label {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+}
+
+.hr-deduction-subtype__options {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.hr-deduction-subtype__option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: var(--bg-card);
+    transition: all 0.15s;
+    user-select: none;
+}
+
+.hr-deduction-subtype__option:hover {
+    border-color: var(--primary);
+    background: var(--primary-bg, rgba(37,99,235,0.06));
+}
+
+.hr-deduction-subtype__option.is-selected {
+    border-color: var(--primary);
+    background: var(--primary-bg, rgba(37,99,235,0.1));
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.hr-deduction-subtype__option input[type="radio"] {
+    accent-color: var(--primary);
+    margin: 0;
+}
+
+/* ── Campos de préstamo ── */
+.hr-loan-fields {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    padding: 16px;
+    background: rgba(16,185,129,0.04);
+    border: 1px solid rgba(16,185,129,0.15);
+    border-radius: var(--radius-md);
+}
+
+/* ── Campos de embargo ── */
+.hr-garnishment-fields {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    padding: 16px;
+    background: rgba(245,158,11,0.06);
+    border: 1px solid rgba(245,158,11,0.18);
+    border-radius: var(--radius-md);
+}
+</style>
+
+<script>
+const multiselectState = { selected: [] };
+
+function toggleDropdown() {
+    document.getElementById('multiselect-dropdown').classList.toggle('open');
+}
+
+function filterOptions(input) {
+    const q = input.value.toLowerCase();
+    document.querySelectorAll('#multiselect-options .multiselect-option').forEach(function(opt) {
+        opt.style.display = opt.textContent.toLowerCase().includes(q) ? 'flex' : 'none';
+    });
+}
+
+function updateMultiselect() {
+    const chips = document.getElementById('multiselect-chips');
+    const hidden = document.getElementById('payrollGroupIds-hidden');
+    const checked = document.querySelectorAll('#multiselect-options input[type="checkbox"]:checked');
+    const values = [];
+    let html = '';
+    checked.forEach(function(cb) {
+        const val = cb.value;
+        values.push(val);
+        const label = cb.closest('.multiselect-option').querySelector('span').textContent.trim();
+        html += '<span class="multiselect-chip" data-value="' + val + '">' + label + ' <i class="fa-solid fa-xmark" onclick="removeChip(\'' + val + '\')"></i></span>';
+    });
+    if (values.length === 0) {
+        html = '<span class="multiselect-placeholder">Seleccionar grupos…</span>';
+    }
+    chips.innerHTML = html;
+    hidden.value = values.join(',');
+}
+
+function removeChip(val) {
+    document.querySelectorAll('#multiselect-options input[type="checkbox"]').forEach(function(cb) {
+        if (cb.value === val) cb.checked = false;
+    });
+    updateMultiselect();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('#multiselect-options input[type="checkbox"]').forEach(function(cb) {
+        cb.addEventListener('change', updateMultiselect);
+    });
+    updateMultiselect();
+    document.addEventListener('click', function(e) {
+        const container = document.getElementById('payroll-multiselect');
+        if (!container.contains(e.target)) {
+            document.getElementById('multiselect-dropdown').classList.remove('open');
+        }
+    });
+});
+</script>
+
+<script>
+function toggleIndefinite() {
+    document.getElementById('endDate').disabled = document.getElementById('indefinite').checked;
+    if (document.getElementById('indefinite').checked) document.getElementById('endDate').value = '';
+}
+
+function toggleApplyMonths() {
+    var monthsGroup = document.getElementById('applyMonthsGroup');
+    if (monthsGroup) monthsGroup.style.display = document.getElementById('applyFrequency').value === 'specific_months' ? 'block' : 'none';
+}
+
+function toggleAmountFields() {
+    var val = document.getElementById('amountType').value;
+    document.getElementById('fixedAmountGroup').style.display = val === 'fixed' ? 'block' : 'none';
+    document.getElementById('percentageGroup').style.display = val === 'percentage' ? 'block' : 'none';
+    document.getElementById('formulaGroup').style.display = val === 'formula' ? 'block' : 'none';
+}
+
+function toggleDeductionAmountFields() {
+    var val = document.getElementById('deductionAmountType').value;
+    document.getElementById('dedFixedAmountGroup').style.display = val === 'fixed' ? 'block' : 'none';
+    document.getElementById('dedPercentageGroup').style.display = val === 'percentage' ? 'block' : 'none';
+    document.getElementById('dedFormulaGroup').style.display = val === 'formula' ? 'block' : 'none';
+}
+
+function toggleDeductionSubType() {
+    var selected = document.querySelector('input[name="deductionSubTypeRadio"]:checked');
+    var val = selected ? selected.value : 'regular';
+
+    document.getElementById('deductionSubType').value = val;
+
+    var opts = document.querySelectorAll('.hr-deduction-subtype__option');
+    opts.forEach(function(o) { o.classList.remove('is-selected'); });
+    var activeLabel = document.getElementById('subtype-label-' + val);
+    if (activeLabel) activeLabel.classList.add('is-selected');
+
+    document.getElementById('regularAmountFields').style.display = val === 'regular' ? 'grid' : 'none';
+    document.getElementById('loanFields').style.display = val === 'loan' ? 'grid' : 'none';
+    document.getElementById('garnishmentFields').style.display = val === 'garnishment' ? 'grid' : 'none';
+    if (val === 'regular') toggleDeductionAmountFields();
+}
+
+function toggleMovementTypeSections() {
+    var type = document.getElementById('movementType').value;
+    var isDeduction = (type === 'deduction');
+
+    document.getElementById('earningAmountFields').style.display = isDeduction ? 'none' : 'grid';
+    document.getElementById('deductionSubtypeArea').style.display = isDeduction ? 'block' : 'none';
+
+    if (isDeduction) {
+        toggleDeductionSubType();
+    } else {
+        document.getElementById('regularAmountFields').style.display = 'none';
+        document.getElementById('loanFields').style.display = 'none';
+        document.getElementById('garnishmentFields').style.display = 'none';
+        var defaultRadio = document.querySelector('#subtype-label-regular input[type="radio"]');
+        if (defaultRadio) defaultRadio.checked = true;
+        document.getElementById('deductionSubType').value = 'regular';
+        var opts = document.querySelectorAll('.hr-deduction-subtype__option');
+        opts.forEach(function(o) { o.classList.remove('is-selected'); });
+        var regularLabel = document.getElementById('subtype-label-regular');
+        if (regularLabel) regularLabel.classList.add('is-selected');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    toggleMovementTypeSections();
+    toggleIndefinite();
+    toggleApplyMonths();
+    toggleAmountFields();
+    toggleDeductionAmountFields();
+});
+</script>
+{% endblock %}

@@ -67,7 +67,10 @@
                             data-tooltip="Asistencia">
                             <a href="{{ url_for('web_rrhh.attendance') }}"><span>Asistencia</span></a>
                         </li>
-
+                        <li class="nav-item {% if active_page == 'rrhh_mass_actions' %}active{% endif %}"
+                            data-tooltip="Acciones masivas">
+                            <a href="{{ url_for('web_rrhh.mass_action_pending_list') }}"><span>Acciones masivas</span></a>
+                        </li>
                     </ul>
                 </div>
 
@@ -114,6 +117,26 @@
                             data-tooltip="Historial">
                             <a href="{{ url_for('web_rrhh.payroll_list') }}"><span>Historial de nóminas</span></a>
                         </li>
+                        <li class="nav-item {% if active_page == 'rrhh_payroll_calendar' %}active{% endif %}"
+                            data-tooltip="Calendario">
+                            <a href="{{ url_for('web_rrhh.payroll_calendar_view') }}"><span>Calendario</span></a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'rrhh_recurring' %}active{% endif %}"
+                            data-tooltip="Movimientos Recurrentes">
+                            <a href="{{ url_for('web_rrhh.recurring_list') }}"><span>Movimientos recurrentes</span></a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'rrhh_concepts' %}active{% endif %}"
+                            data-tooltip="Conceptos">
+                            <a href="{{ url_for('web_rrhh.concept_list') }}"><span>Conceptos de nómina</span></a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'rrhh_payroll_config' %}active{% endif %}"
+                            data-tooltip="Configuración de nómina">
+                            <a href="{{ url_for('web_rrhh.payroll_settings') }}"><span>Configuración de nómina</span></a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'rrhh_legal_params' %}active{% endif %}"
+                            data-tooltip="Parámetros Legales">
+                            <a href="{{ url_for('web_rrhh.legal_parameters_list') }}"><span>Parámetros legales</span></a>
+                        </li>
                     </ul>
                 </div>
 
@@ -154,10 +177,6 @@
                             data-tooltip="Reportes">
                             <a href="{{ url_for('web_rrhh.reports_index') }}"><span>Reportes de RRHH</span></a>
                         </li>
-                        <li class="nav-item {% if active_page == 'rrhh_dgt' %}active{% endif %}"
-                            data-tooltip="DGT">
-                            <a href="{{ url_for('web_rrhh.dgt_index') }}"><span>Formularios DGT / SIRLA</span></a>
-                        </li>
                     </ul>
                 </div>
 
@@ -181,14 +200,6 @@
                         <li class="nav-item {% if active_page == 'rrhh_departments' %}active{% endif %}"
                             data-tooltip="Departamentos">
                             <a href="{{ url_for('web_rrhh.department_list') }}"><span>Departamentos</span></a>
-                        </li>
-                        <li class="nav-item {% if active_page == 'rrhh_concepts' %}active{% endif %}"
-                            data-tooltip="Conceptos">
-                            <a href="{{ url_for('web_rrhh.concept_list') }}"><span>Conceptos de nómina</span></a>
-                        </li>
-                        <li class="nav-item {% if active_page == 'rrhh_payroll_config' %}active{% endif %}"
-                            data-tooltip="Configuración de nómina">
-                            <a href="{{ url_for('web_rrhh.payroll_settings') }}"><span>Configuración de nómina</span></a>
                         </li>
                         <li class="nav-item {% if active_page == 'rrhh_audit' %}active{% endif %}"
                             data-tooltip="Auditoría">

@@ -34,9 +34,16 @@ def payroll_list():
 
     group_map = {g["id"]: g["name"] for g in payroll_groups}
 
+    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    group_employee_counts = {
+        g["id"]: len([e for e in employees if g["id"] in e.get("payrollGroupIds", [])])
+        for g in payroll_groups
+    }
+
     return render_template("rrhh/payroll_list.html", active_page="rrhh_payroll",
                            periods=periods, payroll_groups=payroll_groups,
-                           filter_group=filter_group, group_map=group_map)
+                           filter_group=filter_group, group_map=group_map,
+                           group_employee_counts=group_employee_counts)
 
 
 @web_rrhh_bp.route("/rrhh/payroll/<period_id>")

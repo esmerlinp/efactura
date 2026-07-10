@@ -8,9 +8,6 @@
         <a href="{{ url_for('web_rrhh.employee_edit', employee_id=employee.id) }}" class="btn btn-primary">
             <i class="fa-solid fa-pen-to-square"></i> Editar
         </a>
-        <a href="{{ url_for('web_rrhh.employee_salary_history', employee_id=employee.id) }}" class="btn btn-ghost btn-sm">
-            <i class="fa-solid fa-chart-line"></i> Salarial
-        </a>
         <div class="dropdown" style="position:relative; display:inline-block;">
             <button class="btn btn-primary" onclick="event.stopPropagation(); document.getElementById('actionMenu').style.display='block'">
                 <i class="fa-solid fa-bolt"></i> Acción <i class="fa-solid fa-caret-down"></i>
@@ -42,6 +39,11 @@
                    style="display:flex; align-items:center; gap:8px; padding:10px 14px; text-decoration:none; color:var(--text-primary); font-size:0.85rem; border-bottom:1px solid var(--border-color); transition:background 0.15s;"
                    onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
                     <i class="fa-solid fa-calendar-xmark" style="color:#4338ca; width:16px; text-align:center;"></i> Ausencia
+                </a>
+                <a href="{{ url_for('web_rrhh.employee_retroactive_pay', employee_id=employee.id) }}"
+                   style="display:flex; align-items:center; gap:8px; padding:10px 14px; text-decoration:none; color:var(--text-primary); font-size:0.85rem; border-bottom:1px solid var(--border-color); transition:background 0.15s;"
+                   onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
+                    <i class="fa-solid fa-clock-rotate-left" style="color:#2563eb; width:16px; text-align:center;"></i> Cálculo retroactivo
                 </a>
                 <a href="{{ url_for('web_rrhh.employee_liquidacion', employee_id=employee.id) }}"
                    style="display:flex; align-items:center; gap:8px; padding:10px 14px; text-decoration:none; color:var(--danger); font-size:0.85rem; transition:background 0.15s;"
