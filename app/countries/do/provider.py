@@ -104,5 +104,15 @@ class DOProvider(BaseCountryProvider):
             "income_tax_withholding": "isr_retenido",
         }
 
+    def get_tax_labels(self) -> dict:
+        return {
+            "vat_invoice": "ITBIS factura",
+            "vat_withholding": "ITBIS retenido",
+            "vat_credit": "ITBIS crédito fiscal",
+            "vat_credit_note": "ITBIS devolución",
+            "income_tax_withholding": "ISR retenido",
+            "vat": "ITBIS",
+        }
+
     def supports_feature(self, feature: str) -> bool:
         return feature in self.SUPPORTED_FEATURES

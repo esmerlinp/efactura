@@ -472,6 +472,7 @@ class AccountingService:
         from app.services.country_provider import CountryProviderFactory
         provider = CountryProviderFactory.create(country)
         mapping = provider.get_account_mapping() if provider else {}
+        labels = provider.get_tax_labels() if provider else {}
         debit_acc, debit_desc = cls._resolve_debit_account(invoice, accounts)
         sales_acc = _find_account_by_usage(accounts, "ventas")
         itbis_acc = _find_account_by_usage(accounts, mapping.get("vat_payable"))
@@ -546,7 +547,7 @@ class AccountingService:
                 "accountName": itbis_acc.get("name", ""),
                 "debit": 0.00,
                 "credit": round(itbis, 2),
-                "description": "ITBIS factura",
+                "description": labels.get("vat_invoice", "ITBIS factura"),
                 "branchId": branch_id,
                 "costCenterId": cost_center_id,
                 "currency": currency
@@ -558,7 +559,7 @@ class AccountingService:
                 "accountName": itbis_ret_acc.get("name", ""),
                 "debit": round(retained_itbis, 2),
                 "credit": 0.00,
-                "description": "ITBIS retenido",
+                "description": labels.get("vat_withholding", "ITBIS retenido"),
                 "branchId": branch_id,
                 "costCenterId": cost_center_id,
                 "currency": currency
@@ -570,7 +571,7 @@ class AccountingService:
                 "accountName": isr_ret_acc.get("name", ""),
                 "debit": round(retained_isr, 2),
                 "credit": 0.00,
-                "description": "ISR retenido",
+                "description": labels.get("income_tax_withholding", "ISR retenido"),
                 "branchId": branch_id,
                 "costCenterId": cost_center_id,
                 "currency": currency
@@ -790,6 +791,7 @@ class AccountingService:
         from app.services.country_provider import CountryProviderFactory
         provider = CountryProviderFactory.create(country)
         mapping = provider.get_account_mapping() if provider else {}
+        labels = provider.get_tax_labels() if provider else {}
         cxc_acc = _find_account_by_usage(accounts, "cxc")
         sales_acc = _find_account_by_usage(accounts, "ventas")
         devolucion_acc = _find_account_by_usages(accounts, ["devoluciones_ventas", "devoluciones_clientes"])
@@ -834,7 +836,7 @@ class AccountingService:
                 "accountName": itbis_acc.get("name", ""),
                 "debit": round(itbis, 2),
                 "credit": 0.00,
-                "description": "ITBIS devolución",
+                "description": labels.get("vat_credit_note", "ITBIS devolución"),
                 "branchId": branch_id,
                 "costCenterId": cost_center_id,
                 "currency": currency
@@ -884,6 +886,7 @@ class AccountingService:
         from app.services.country_provider import CountryProviderFactory
         provider = CountryProviderFactory.create(country)
         mapping = provider.get_account_mapping() if provider else {}
+        labels = provider.get_tax_labels() if provider else {}
         cxp_acc = _find_account_by_usage(accounts, "cxp")
         compras_acc = _find_account_by_usage(accounts, "compras")
         gastos_acc = _find_account_by_usage(accounts, "gastos")
@@ -939,7 +942,7 @@ class AccountingService:
                         "accountName": itbis_credito_acc.get("name", ""),
                         "debit": round(tax_amount, 2),
                         "credit": 0.00,
-                        "description": "ITBIS crédito fiscal",
+                        "description": labels.get("vat_credit", "ITBIS crédito fiscal"),
                     })
                     total_debit_computed += tax_amount
 
@@ -961,7 +964,7 @@ class AccountingService:
                     "accountName": isr_retenido_acc.get("name", ""),
                     "debit": 0.00,
                     "credit": round(retained_isr_amount, 2),
-                    "description": "ISR retenido",
+                    "description": labels.get("income_tax_withholding", "ISR retenido"),
                 })
             if retained_itbis_amount > 0 and itbis_retenido_acc:
                 lines.append({
@@ -970,7 +973,7 @@ class AccountingService:
                     "accountName": itbis_retenido_acc.get("name", ""),
                     "debit": 0.00,
                     "credit": round(retained_itbis_amount, 2),
-                    "description": "ITBIS retenido",
+                    "description": labels.get("vat_withholding", "ITBIS retenido"),
                 })
 
             # Crédito: CXP o Banco/Efectivo
@@ -999,7 +1002,7 @@ class AccountingService:
             elif gastos_acc:
                 lines.append({"accountId": gastos_acc["id"], "accountCode": gastos_acc.get("code", ""), "accountName": gastos_acc.get("name", ""), "debit": round(net, 2), "credit": 0.00, "description": expense.get("concept", "")})
             if itbis > 0 and itbis_credito_acc:
-                lines.append({"accountId": itbis_credito_acc["id"], "accountCode": itbis_credito_acc.get("code", ""), "accountName": itbis_credito_acc.get("name", ""), "debit": round(itbis, 2), "credit": 0.00, "description": "ITBIS"})
+                lines.append({"accountId": itbis_credito_acc["id"], "accountCode": itbis_credito_acc.get("code", ""), "accountName": itbis_credito_acc.get("name", ""), "debit": round(itbis, 2), "credit": 0.00, "description": labels.get("vat", "ITBIS")})
             credit_acc = None
             if payment_type == "Contado" and banco_acc:
                 credit_acc = banco_acc
