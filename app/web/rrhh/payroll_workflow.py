@@ -215,7 +215,7 @@ def payroll_post(period_id):
         acct_lines = PayrollService.build_payroll_accounting_lines(period, employees=emp_map, tax_rates=tax_rates_data,
                                                                    owner_uid=owner_uid, sandbox=sandbox)
         if acct_lines:
-            AccountingService.seed_default_accounts(owner_uid)
+            AccountingService.seed_default_accounts(owner_uid, country=session.get('company_country', 'DO'))
             accounts = DatabaseService.get_chart_of_accounts(owner_uid)
             full_lines = []
             for al in acct_lines:

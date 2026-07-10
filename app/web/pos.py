@@ -872,6 +872,7 @@ def create_pos_sale():
                     invoice_number=invoice_number,
                     invoice_data=invoice_dict,
                     sandbox=sandbox,
+                    country=session.get("company_country", "DO"),
                 ))
             except Exception:
                 pass
@@ -899,6 +900,7 @@ def create_pos_sale():
                 invoice_number=invoice_number,
                 invoice_data=invoice_dict,
                 sandbox=sandbox,
+                country=session.get("company_country", "DO"),
             ))
         except Exception:
             pass

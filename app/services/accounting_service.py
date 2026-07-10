@@ -62,10 +62,10 @@ def _accounting_entry_exists(owner_uid, reference_type, reference_id):
 class AccountingService:
 
     @classmethod
-    def seed_default_accounts(cls, owner_uid):
+    def seed_default_accounts(cls, owner_uid, country="DO"):
         existing = DatabaseService.get_chart_of_accounts(owner_uid)
         existing_codes = {a.get("code") for a in existing}
-        default_accounts = _default_chart_of_accounts()
+        default_accounts = _default_chart_of_accounts(country)
         if existing:
             missing = [a for a in default_accounts if a["code"] not in existing_codes]
             if not missing:
@@ -112,17 +112,17 @@ class AccountingService:
             DatabaseService.save_entry_type(owner_uid, et["id"], et)
 
     @classmethod
-    def get_accounts_tree(cls, owner_uid):
+    def get_accounts_tree(cls, owner_uid, country="DO"):
         accounts = DatabaseService.get_chart_of_accounts(owner_uid)
         if not accounts:
-            cls.seed_default_accounts(owner_uid)
+            cls.seed_default_accounts(owner_uid, country=country)
             accounts = DatabaseService.get_chart_of_accounts(owner_uid)
         else:
             # Verificar si faltan cuentas del default sin hacer fetch extra
             existing_codes = {a.get("code") for a in accounts}
-            missing = [a for a in _default_chart_of_accounts() if a["code"] not in existing_codes]
+            missing = [a for a in _default_chart_of_accounts(country) if a["code"] not in existing_codes]
             if missing:
-                cls.seed_default_accounts(owner_uid)
+                cls.seed_default_accounts(owner_uid, country=country)
                 accounts = DatabaseService.get_chart_of_accounts(owner_uid)
         children_map = defaultdict(list)
         for acc in accounts:
@@ -281,11 +281,11 @@ class AccountingService:
         return entry
 
     @classmethod
-    def get_balance_sheet(cls, owner_uid, date=None, accounts=None, entries=None):
+    def get_balance_sheet(cls, owner_uid, date=None, accounts=None, entries=None, country="DO"):
         if accounts is None:
             accounts = DatabaseService.get_chart_of_accounts(owner_uid)
             if not accounts:
-                cls.seed_default_accounts(owner_uid)
+                cls.seed_default_accounts(owner_uid, country=country)
                 accounts = DatabaseService.get_chart_of_accounts(owner_uid)
         balances = cls._compute_balances_map(entries or [], date_to=date)
         active_accounts = [a for a in accounts if a.get("group") in ("activos", "pasivos", "patrimonio")]
@@ -310,11 +310,11 @@ class AccountingService:
         return result
 
     @classmethod
-    def get_income_statement(cls, owner_uid, date_from=None, date_to=None, accounts=None, entries=None):
+    def get_income_statement(cls, owner_uid, date_from=None, date_to=None, accounts=None, entries=None, country="DO"):
         if accounts is None:
             accounts = DatabaseService.get_chart_of_accounts(owner_uid)
             if not accounts:
-                cls.seed_default_accounts(owner_uid)
+                cls.seed_default_accounts(owner_uid, country=country)
                 accounts = DatabaseService.get_chart_of_accounts(owner_uid)
         balances = cls._compute_balances_map(entries or [], date_from=date_from, date_to=date_to)
         result = {"ingresos": {"total": 0.0, "children": []}, "costos": {"total": 0.0, "children": []}, "gastos": {"total": 0.0, "children": []}}
@@ -341,11 +341,11 @@ class AccountingService:
         return result
 
     @classmethod
-    def get_trial_balance(cls, owner_uid, date=None, accounts=None, entries=None):
+    def get_trial_balance(cls, owner_uid, date=None, accounts=None, entries=None, country="DO"):
         if accounts is None:
             accounts = DatabaseService.get_chart_of_accounts(owner_uid)
             if not accounts:
-                cls.seed_default_accounts(owner_uid)
+                cls.seed_default_accounts(owner_uid, country=country)
                 accounts = DatabaseService.get_chart_of_accounts(owner_uid)
         balances = cls._compute_balances_map(entries or [], date_to=date)
         rows = []
@@ -460,13 +460,13 @@ class AccountingService:
         return lines
 
     @classmethod
-    def auto_generate_invoice_entry(cls, owner_uid, invoice, sandbox=True):
+    def auto_generate_invoice_entry(cls, owner_uid, invoice, sandbox=True, country="DO"):
         invoice_id = invoice.get("id", "")
         if _accounting_entry_exists(owner_uid, "invoice", invoice_id):
             return None
         accounts = DatabaseService.get_chart_of_accounts(owner_uid)
         if not accounts:
-            cls.seed_default_accounts(owner_uid)
+            cls.seed_default_accounts(owner_uid, country=country)
             accounts = DatabaseService.get_chart_of_accounts(owner_uid)
         debit_acc, debit_desc = cls._resolve_debit_account(invoice, accounts)
         sales_acc = _find_account_by_usage(accounts, "ventas")
@@ -687,7 +687,7 @@ class AccountingService:
         return lines
 
     @classmethod
-    def auto_generate_inventory_entry(cls, owner_uid, operation_type, items, reference_id="", performed_by="", sandbox=True):
+    def auto_generate_inventory_entry(cls, owner_uid, operation_type, items, reference_id="", performed_by="", sandbox=True, country="DO"):
         """
         Genera asiento contable para operaciones de inventario (ajustes, mermas, transferencias).
         operation_type: 'ajuste', 'merma', 'transferencia'
@@ -696,7 +696,7 @@ class AccountingService:
             return None
         accounts = DatabaseService.get_chart_of_accounts(owner_uid)
         if not accounts:
-            cls.seed_default_accounts(owner_uid)
+            cls.seed_default_accounts(owner_uid, country=country)
             accounts = DatabaseService.get_chart_of_accounts(owner_uid)
         lines = cls._build_inventory_adjustment_lines(operation_type, items, accounts, reference_id)
         if not lines:
@@ -773,13 +773,13 @@ class AccountingService:
         return reversed_entries[0] if reversed_entries else None
 
     @classmethod
-    def auto_generate_credit_note_entry(cls, owner_uid, invoice, sandbox=True):
+    def auto_generate_credit_note_entry(cls, owner_uid, invoice, sandbox=True, country="DO"):
         invoice_id = invoice.get("id", "")
         if _accounting_entry_exists(owner_uid, "credit_note", invoice_id):
             return None
         accounts = DatabaseService.get_chart_of_accounts(owner_uid)
         if not accounts:
-            cls.seed_default_accounts(owner_uid)
+            cls.seed_default_accounts(owner_uid, country=country)
             accounts = DatabaseService.get_chart_of_accounts(owner_uid)
         cxc_acc = _find_account_by_usage(accounts, "cxc")
         sales_acc = _find_account_by_usage(accounts, "ventas")
@@ -864,13 +864,13 @@ class AccountingService:
             return None
 
     @classmethod
-    def auto_generate_expense_entry(cls, owner_uid, expense, sandbox=True):
+    def auto_generate_expense_entry(cls, owner_uid, expense, sandbox=True, country="DO"):
         expense_id = expense.get("id", "")
         if _accounting_entry_exists(owner_uid, "expense", expense_id):
             return None
         accounts = DatabaseService.get_chart_of_accounts(owner_uid)
         if not accounts:
-            cls.seed_default_accounts(owner_uid)
+            cls.seed_default_accounts(owner_uid, country=country)
             accounts = DatabaseService.get_chart_of_accounts(owner_uid)
         cxp_acc = _find_account_by_usage(accounts, "cxp")
         compras_acc = _find_account_by_usage(accounts, "compras")

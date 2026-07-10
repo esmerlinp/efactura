@@ -619,6 +619,7 @@ class TestEventBusIntegration:
             invoice_number="F001-TEST",
             invoice_data={"total": 1000},
             sandbox=True,
+            country="DO",
         )
         bus.publish(event)
 
@@ -641,6 +642,7 @@ class TestEventBusIntegration:
             invoice_number="F001-00001",
             payment_data={"amount": 5000},
             sandbox=True,
+            country="DO",
         )
 
         # No debe lanzar excepción

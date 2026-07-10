@@ -151,12 +151,14 @@ def emit_invoice():
             # Event Bus: notificar emisión de factura vía API
             try:
                 from app.events import get_event_bus, InvoiceEmitted
+                country = g.company.get("country", "DO") if g.company else "DO"
                 get_event_bus().publish(InvoiceEmitted(
                     owner_uid=g.owner_uid,
                     invoice_id=invoice_id,
                     invoice_number=invoice_dict.get("invoiceNumber", ""),
                     invoice_data=invoice_dict,
                     sandbox=g.sandbox_mode,
+                    country=country,
                 ))
             except Exception:
                 pass
