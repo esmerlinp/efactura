@@ -285,6 +285,19 @@
                                     placeholder="Calle, Sector, Santo Domingo, RD" rows="2"
                                     style="resize: vertical;">{{ profile.companyAddress }}</textarea>
                             </div>
+                            <div class="form-group" style="margin-top: 20px;">
+                                <label for="country">País de Operación Fiscal</label>
+                                <select id="country" name="country" class="form-select">
+                                    <option value="DO" {% if profile.country == 'DO' %}selected{% endif %}>República Dominicana</option>
+                                    <option value="MX" {% if profile.country == 'MX' %}selected{% endif %}>México</option>
+                                    <option value="CO" {% if profile.country == 'CO' %}selected{% endif %}>Colombia</option>
+                                    <option value="PA" {% if profile.country == 'PA' %}selected{% endif %}>Panamá</option>
+                                    <option value="CR" {% if profile.country == 'CR' %}selected{% endif %}>Costa Rica</option>
+                                </select>
+                                <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px; display: block;">
+                                    Determina el plan de cuentas, reglas fiscales y retenciones aplicables a tu empresa.
+                                </small>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -659,6 +672,19 @@
                         <textarea id="companyAddress" name="companyAddress" class="form-input"
                             placeholder="Calle, Sector, Santo Domingo, RD" rows="2"
                             style="resize: vertical;">{{ profile.companyAddress }}</textarea>
+                    </div>
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label for="country2">País de Operación Fiscal</label>
+                        <select id="country2" name="country" class="form-select">
+                            <option value="DO" {% if profile.country == 'DO' %}selected{% endif %}>República Dominicana</option>
+                            <option value="MX" {% if profile.country == 'MX' %}selected{% endif %}>México</option>
+                            <option value="CO" {% if profile.country == 'CO' %}selected{% endif %}>Colombia</option>
+                            <option value="PA" {% if profile.country == 'PA' %}selected{% endif %}>Panamá</option>
+                            <option value="CR" {% if profile.country == 'CR' %}selected{% endif %}>Costa Rica</option>
+                        </select>
+                        <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px; display: block;">
+                            Determina el plan de cuentas, reglas fiscales y retenciones aplicables a tu empresa.
+                        </small>
                     </div>
                 </div>
 
