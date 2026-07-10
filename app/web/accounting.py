@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, send_file, make_response
 from app.services.db_service import DatabaseService
 from app.services.accounting_service import AccountingService, ACCOUNT_GROUPS
+from app.utils.country_context import get_current_country
 
 USAGE_LABELS = {
     "efectivo": "Bancos tipo efectivo",
@@ -111,7 +112,7 @@ def dashboard():
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
     sandbox = _sandbox()
-    AccountingService.seed_default_accounts(owner_uid, country=session.get('company_country', 'DO'))
+    AccountingService.seed_default_accounts(owner_uid, country=get_current_country())
     AccountingService.seed_default_entry_types(owner_uid)
     tree, accounts = AccountingService.get_accounts_tree(owner_uid)
     # Obtener entradas UNA sola vez y pasarlas a todos los reportes
@@ -166,7 +167,7 @@ def api_accounts():
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
     owner_uid = _owner_uid()
-    AccountingService.seed_default_accounts(owner_uid, country=session.get('company_country', 'DO'))
+    AccountingService.seed_default_accounts(owner_uid, country=get_current_country())
     accounts = DatabaseService.get_chart_of_accounts(owner_uid)
     return jsonify(success=True, accounts=accounts)
 
@@ -178,7 +179,7 @@ def api_accounts_tree():
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
     owner_uid = _owner_uid()
-    AccountingService.seed_default_accounts(owner_uid, country=session.get('company_country', 'DO'))
+    AccountingService.seed_default_accounts(owner_uid, country=get_current_country())
     tree, accounts = AccountingService.get_accounts_tree(owner_uid)
     return jsonify(success=True, tree=tree)
 
@@ -324,7 +325,7 @@ def journal_entries():
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
     sandbox = _sandbox()
-    AccountingService.seed_default_accounts(owner_uid, country=session.get('company_country', 'DO'))
+    AccountingService.seed_default_accounts(owner_uid, country=get_current_country())
     entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox)
     entry_types = DatabaseService.get_entry_types(owner_uid)
     accounts = DatabaseService.get_chart_of_accounts(owner_uid)
@@ -419,7 +420,7 @@ def new_journal_entry():
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
     sandbox = _sandbox()
-    AccountingService.seed_default_accounts(owner_uid, country=session.get('company_country', 'DO'))
+    AccountingService.seed_default_accounts(owner_uid, country=get_current_country())
     AccountingService.seed_default_entry_types(owner_uid)
     accounts = DatabaseService.get_chart_of_accounts(owner_uid)
     entry_types = DatabaseService.get_entry_types(owner_uid)
@@ -564,7 +565,7 @@ def balance_sheet():
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
-    AccountingService.seed_default_accounts(owner_uid, country=session.get('company_country', 'DO'))
+    AccountingService.seed_default_accounts(owner_uid, country=get_current_country())
     accounts = DatabaseService.get_chart_of_accounts(owner_uid)
 
     date_to = request.args.get('date_to', '')
@@ -945,7 +946,7 @@ def income_statement():
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
-    AccountingService.seed_default_accounts(owner_uid, country=session.get('company_country', 'DO'))
+    AccountingService.seed_default_accounts(owner_uid, country=get_current_country())
     accounts = DatabaseService.get_chart_of_accounts(owner_uid)
 
     # Build code_map for O(1) lookups
@@ -1507,7 +1508,7 @@ def fixed_assets():
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
     sandbox = _sandbox()
-    AccountingService.seed_default_accounts(owner_uid, country=session.get('company_country', 'DO'))
+    AccountingService.seed_default_accounts(owner_uid, country=get_current_country())
     assets = DatabaseService.get_fixed_assets(owner_uid, sandbox=sandbox)
     summary = FixedAssetService.get_assets_summary(owner_uid, sandbox=sandbox)
     accounts = DatabaseService.get_chart_of_accounts(owner_uid)
@@ -1529,7 +1530,7 @@ def new_fixed_asset():
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
     sandbox = _sandbox()
-    AccountingService.seed_default_accounts(owner_uid, country=session.get('company_country', 'DO'))
+    AccountingService.seed_default_accounts(owner_uid, country=get_current_country())
     accounts = DatabaseService.get_chart_of_accounts(owner_uid)
     if request.method == 'POST':
         try:
@@ -1684,7 +1685,7 @@ def initial_balances():
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
     sandbox = _sandbox()
-    AccountingService.seed_default_accounts(owner_uid, country=session.get('company_country', 'DO'))
+    AccountingService.seed_default_accounts(owner_uid, country=get_current_country())
     accounts = DatabaseService.get_chart_of_accounts(owner_uid)
     if request.method == 'POST':
         try:
@@ -1737,7 +1738,7 @@ def import_initial_balances():
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
     sandbox = _sandbox()
-    AccountingService.seed_default_accounts(owner_uid, country=session.get('company_country', 'DO'))
+    AccountingService.seed_default_accounts(owner_uid, country=get_current_country())
     accounts = DatabaseService.get_chart_of_accounts(owner_uid)
 
     if request.method == 'POST' and 'file' in request.files:
