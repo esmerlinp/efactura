@@ -1,0 +1,149 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Acciones Masivas Pendientes — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-clock"></i> Acciones Masivas Pendientes</h1>
+    <div class="hr-page-actions">
+        <a href="{{ url_for('web_rrhh.mass_action_wizard') }}" class="btn btn-primary">
+            <i class="fa-solid fa-plus"></i> Nueva Acción Masiva
+        </a>
+        <a href="{{ url_for('web_rrhh.employee_list') }}" class="btn btn-ghost">
+            <i class="fa-solid fa-arrow-left"></i> Volver a Empleados
+        </a>
+    </div>
+</div>
+
+<div class="card-table-wrapper hr-table-card" style="margin-bottom:24px;">
+    <div class="table-header-row">
+        <div><h3>Pendientes de Aprobación ({{ pending|length }})</h3></div>
+    </div>
+    {% if pending %}
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Tipo</th>
+                    <th>Creado por</th>
+                    <th>Empleados</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in pending %}
+                <tr>
+                    <td>{{ a.createdAt[:19]|replace('T', ' ') if a.createdAt else '—' }}</td>
+                    <td><strong>{{ a.actionType or a.type or '—' }}</strong></td>
+                    <td>{{ a.createdBy or '—' }}</td>
+                    <td>{{ a.totalEmployees or (a.selectionCriteria.employeeIds|length if a.selectionCriteria else '—') }}</td>
+                    <td><span class="badge badge-warning">Pendiente</span></td>
+                    <td>
+                        <a href="{{ url_for('web_rrhh.mass_action_detail', action_id=a.id) }}" class="btn btn-sm btn-ghost" title="Ver detalle"><i class="fa-solid fa-eye"></i></a>
+                        <form method="POST" action="{{ url_for('web_rrhh.mass_action_approve', action_id=a.id) }}" style="display:inline;" onsubmit="return confirm('¿Aprobar esta acción masiva?')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-success" title="Aprobar"><i class="fa-solid fa-check"></i></button>
+                        </form>
+                        <button type="button" class="btn btn-sm btn-danger" title="Rechazar" onclick="showReject('{{ a.id }}')"><i class="fa-solid fa-xmark"></i></button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center text-muted" style="padding:40px;">
+        <p><i class="fa-solid fa-check-circle" style="font-size:2rem; display:block; margin-bottom:12px;"></i></p>
+        <p>No hay acciones masivas pendientes de aprobación.</p>
+    </div>
+    {% endif %}
+</div>
+
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-header-row">
+        <div><h3>Recientes</h3></div>
+    </div>
+    {% if recent %}
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Tipo</th>
+                    <th>Creado por</th>
+                    <th>Empleados</th>
+                    <th>Estado</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in recent %}
+                <tr>
+                    <td>{{ a.createdAt[:19]|replace('T', ' ') if a.createdAt else '—' }}</td>
+                    <td><strong>{{ a.actionType or a.type or '—' }}</strong></td>
+                    <td>{{ a.createdBy or '—' }}</td>
+                    <td>{{ a.totalEmployees or (a.selectionCriteria.employeeIds|length if a.selectionCriteria else '—') }}</td>
+                    <td>
+                        {% if a.status == 'completed' %}
+                        <span class="badge badge-success">Completada</span>
+                        {% elif a.status == 'partial' %}
+                        <span class="badge badge-warning">Parcial</span>
+                        {% elif a.status == 'processing' %}
+                        <span class="badge badge-info">Procesando</span>
+                        {% elif a.status == 'failed' %}
+                        <span class="badge badge-danger">Fallida</span>
+                        {% elif a.status == 'rejected' %}
+                        <span class="badge badge-danger">Rechazada</span>
+                        {% elif a.status == 'pending_approval' %}
+                        <span class="badge badge-warning">Pendiente</span>
+                        {% else %}
+                        <span class="badge badge-secondary">{{ a.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td><a href="{{ url_for('web_rrhh.mass_action_detail', action_id=a.id) }}" class="btn btn-sm btn-ghost"><i class="fa-solid fa-eye"></i></a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center text-muted" style="padding:40px;">
+        <p>No hay acciones masivas recientes.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Reject Modal -->
+<div class="search-modal" id="reject-modal" style="display:none; animation:none;">
+    <div class="modal-backdrop" onclick="closeReject()"></div>
+    <div class="modal-content" style="max-width:420px;">
+        <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; padding:16px 24px; border-bottom:1px solid var(--border-color);">
+            <span style="font-family:var(--font-heading); font-weight:600; color:var(--text-primary);">Rechazar Acción Masiva</span>
+            <button type="button" onclick="closeReject()" style="background:none; border:none; color:var(--text-muted); font-size:1.3rem; cursor:pointer; padding:4px; line-height:1;">&times;</button>
+        </div>
+        <form method="POST" id="reject-form" style="padding:24px; display:flex; flex-direction:column; gap:var(--space-3);">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div>
+                <label style="font-size:0.85rem; font-weight:500; display:block; margin-bottom:6px;">Motivo del rechazo</label>
+                <textarea name="reason" class="form-input" rows="3" required placeholder="Indique el motivo..."></textarea>
+            </div>
+            <div style="display:flex; gap:var(--space-2); justify-content:flex-end; padding-top:var(--space-2); border-top:1px solid var(--border-color);">
+                <button type="button" class="btn btn-ghost" onclick="closeReject()">Cancelar</button>
+                <button type="submit" class="btn btn-danger">Rechazar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let rejectActionId = '';
+function showReject(actionId) {
+    rejectActionId = actionId;
+    document.getElementById('reject-form').action = "{{ url_for('web_rrhh.mass_action_reject', action_id='__ID__') }}".replace('__ID__', actionId);
+    document.getElementById('reject-modal').style.display = 'flex';
+}
+function closeReject() { document.getElementById('reject-modal').style.display = 'none'; }
+</script>
+{% endblock %}

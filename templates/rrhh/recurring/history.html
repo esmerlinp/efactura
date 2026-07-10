@@ -1,0 +1,78 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Historial de Aplicación — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-clock-rotate-left"></i> Historial de Aplicación</h1>
+    <div class="hr-page-actions">
+        <a href="{{ url_for('web_rrhh.recurring_edit', movement_id=movement.id) }}" class="btn btn-ghost">
+            <i class="fa-solid fa-pen-to-square"></i> Editar Movimiento
+        </a>
+        <a href="{{ url_for('web_rrhh.recurring_list') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Volver</a>
+    </div>
+</div>
+
+<div class="card-table-wrapper hr-table-card" style="padding:12px 20px; margin-bottom:16px;">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:8px; font-size:0.85rem;">
+        <div><strong>Empleado:</strong> {{ movement.employeeName or '—' }}</div>
+        <div><strong>Descripción:</strong> {{ movement.description or movement.conceptCode }}</div>
+        <div><strong>Tipo:</strong>
+            {% if movement.movementType == 'earning' %}<span class="badge badge-success">Ingreso</span>
+            {% elif movement.movementType == 'deduction' %}<span class="badge badge-danger">Deducción</span>
+            {% else %}<span class="badge badge-purple">Aporte Emp.</span>
+            {% endif %}
+        </div>
+        <div><strong>Estado:</strong> {{ STATUS_OPTS.get(movement.status, movement.status) }}</div>
+        {% if movement.isLoan %}
+        <div><strong>Préstamo:</strong> Cuota {{ movement.paidInstallments }}/{{ movement.totalInstallments }} · Saldo: RD$ {{ "{:,.2f}".format(movement.remainingBalance or 0) }}</div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-header-row">
+        <div><h3 style="margin:0;"><i class="fa-solid fa-receipt"></i> Aplicaciones en Períodos</h3></div>
+    </div>
+    <div class="table-responsive">
+        <table class="table-premium" style="font-size:0.82rem;">
+        <thead>
+            <tr>
+                <th>Período</th>
+                <th>Revisión</th>
+                <th>Monto Aplicado (RD$)</th>
+                <th>Saldo Restante (RD$)</th>
+                <th>Acción</th>
+                <th>Fecha</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for a in applications %}
+            <tr>
+                <td><strong>{{ a.periodLabel or a.periodKey }}</strong></td>
+                <td>{{ a.periodRevision }}</td>
+                <td style="text-align:right; font-weight:600;">{{ "{:,.2f}".format(a.appliedAmount) }}</td>
+                <td style="text-align:right;">{{ "{:,.2f}".format(a.remainingAfter) }}</td>
+                <td>
+                    {% if a.action == 'applied' %}
+                    <span class="badge badge-success">Aplicado</span>
+                    {% elif a.action == 'skipped' %}
+                    <span class="badge badge-warning">Saltado</span>
+                    {% elif a.action == 'modified' %}
+                    <span class="badge badge-info">Modificado</span>
+                    {% else %}
+                    {{ a.action }}
+                    {% endif %}
+                </td>
+                <td style="font-size:0.75rem; color:var(--text-muted);">{{ a.appliedAt[:16] if a.appliedAt else '—' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted" style="padding:32px;">
+                <i class="fa-solid fa-clock-rotate-left" style="font-size:1.5rem; display:block; margin-bottom:8px; opacity:0.3;"></i>
+                Este movimiento aún no se ha aplicado en ningún período.
+            </td></tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -361,7 +361,7 @@
                 {% for l in period.lines %}
                 <tr data-search="{{ (l.employeeName or '')|lower }} {{ (l.cedula or '')|lower }}">
                     <td style="white-space:nowrap;"><a href="{{ url_for('web_rrhh.employee_view', employee_id=l.employeeId) }}" class="emp-link">{{ l.employeeName }}</a></td>
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.grossSalary|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.get('grossSalary', l.get('baseSalary', 0))|float) }}</td>
                     <td style="text-align:right; white-space:nowrap;">
                         {% if l.overtimePay and l.overtimePay|float > 0 %}
                         {{ "RD$ {:,.2f}".format(l.overtimePay|float) }}
@@ -406,6 +406,9 @@
                     <th style="text-align:right;">SFS</th>
                     <th style="text-align:right;">INFOTEP</th>
                     <th style="text-align:right;">ISR</th>
+                    {% for col in period.get('recurringDeductionColumns', []) %}
+                    <th style="text-align:right;">{{ col }}</th>
+                    {% endfor %}
                     <th style="text-align:right;">Otras Ded.</th>
                     <th style="text-align:right;">Neto</th>
                     <th style="text-align:right;">Aportes Emp.</th>
@@ -420,6 +423,10 @@
                     <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.sfsEmployee|float) }}</td>
                     <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.get('infotepEmployee', 0)|float) }}</td>
                     <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.isrRetention|float) }}</td>
+                    {% set rmap = l.get('recurringDeductionsMap', {}) %}
+                    {% for col in period.get('recurringDeductionColumns', []) %}
+                    <td style="text-align:right; white-space:nowrap;">{% set amt = rmap.get(col, 0) %}{% if amt > 0 %}RD$ {{ "{:,.2f}".format(amt) }}{% else %}—{% endif %}</td>
+                    {% endfor %}
                     <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.otherDeductions|float) }}</td>
                     <td style="text-align:right; white-space:nowrap; font-weight:700; color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(l.netSalary|float) }}</td>
                     <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.totalEmployerContrib|float) }}</td>
@@ -466,6 +473,9 @@
                     <th style="text-align:right;">SFS</th>
                     <th style="text-align:right;">INFOTEP</th>
                     <th style="text-align:right;">ISR</th>
+                    {% for col in period.get('recurringDeductionColumns', []) %}
+                    <th style="text-align:right;">{{ col }}</th>
+                    {% endfor %}
                     <th style="text-align:right;">Otras Ded.</th>
                     <th style="text-align:right;">Neto</th>
                     <th style="text-align:right;">Aportes Emp.</th>
@@ -477,7 +487,7 @@
                     <td style="white-space:nowrap;"><a href="{{ url_for('web_rrhh.employee_view', employee_id=l.employeeId) }}" class="emp-link">{{ l.employeeName }}</a></td>
                     <td style="white-space:nowrap;">{{ l.cedula }}</td>
                     <td style="white-space:nowrap;">{{ l.position }}</td>
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.grossSalary|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.get('grossSalary', l.get('baseSalary', 0))|float) }}</td>
                     <td style="text-align:right; white-space:nowrap;">
                         {% if l.overtimePay and l.overtimePay|float > 0 %}
                         {{ "RD$ {:,.2f}".format(l.overtimePay|float) }}
@@ -492,6 +502,10 @@
                     <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.sfsEmployee|float) }}</td>
                     <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.get('infotepEmployee', 0)|float) }}</td>
                     <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.isrRetention|float) }}</td>
+                    {% set rmap = l.get('recurringDeductionsMap', {}) %}
+                    {% for col in period.get('recurringDeductionColumns', []) %}
+                    <td style="text-align:right; white-space:nowrap;">{% set amt = rmap.get(col, 0) %}{% if amt > 0 %}RD$ {{ "{:,.2f}".format(amt) }}{% else %}—{% endif %}</td>
+                    {% endfor %}
                     <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.otherDeductions|float) }}</td>
                     <td style="text-align:right; white-space:nowrap; font-weight:700; color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(l.netSalary|float) }}</td>
                     <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.totalEmployerContrib|float) }}</td>

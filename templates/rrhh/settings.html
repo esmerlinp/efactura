@@ -18,15 +18,20 @@
     <h1 class="page-title"><i class="fa-solid fa-gear"></i> Configuración de Nómina</h1>
     <div class="hr-page-actions">
         <a href="{{ url_for('web_rrhh.payroll_rules_list') }}" class="btn btn-ghost"><i class="fa-solid fa-code-branch"></i> Reglas</a>
-        <a href="{{ url_for('web_rrhh.tax_rates_history_view') }}" class="btn btn-ghost"><i class="fa-solid fa-clock-rotate-left"></i> Historial</a>
+        <a href="{{ url_for('web_rrhh.legal_parameters_list') }}" class="btn btn-ghost"><i class="fa-solid fa-scale-balanced"></i> Parámetros Legales</a>
+        <a href="{{ url_for('web_rrhh.fiscal_closing_validation') }}" class="btn btn-ghost"><i class="fa-solid fa-check-circle"></i> Validar cierre fiscal</a>
         <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Dashboard</a>
     </div>
 </div>
 
-<div class="card-table-wrapper" style="padding:16px 24px; margin-bottom:16px; background:rgba(16,185,129,0.06); border:1px solid var(--accent-emerald);">
+<div class="card-table-wrapper" style="padding:16px 24px; margin-bottom:16px; background:rgba(99,102,241,0.06); border:1px solid var(--accent-emerald);">
     <div style="display:flex; align-items:center; gap:12px;">
         <i class="fa-solid fa-circle-info" style="color:var(--accent-emerald); font-size:1.2rem;"></i>
-        <p style="margin:0; font-size:0.85rem;">Estas tasas y topes deben coincidir con los valores oficiales publicados por <strong>TSS</strong> y <strong>DGII</strong> para el año fiscal vigente. El sistema usa estos valores en todos los cálculos de nómina.</p>
+        <p style="margin:0; font-size:0.85rem;">
+            Las tasas legales (TSS, ISR, topes) ahora se gestionan en
+            <strong>Parámetros Legales</strong> con vigencia histórica.
+            En esta página solo se configuran <strong>cuentas contables</strong> y <strong>centros de costo</strong>.
+        </p>
     </div>
 </div>
 
@@ -165,179 +170,19 @@
     </div>
     {% endif %}
 
-    <!-- ═══════════ TASAS DE SEGURIDAD SOCIAL (TSS) ═══════════ -->
-    <div class="card-table-wrapper" style="margin-bottom:16px;">
-        <div class="table-header-row">
-            <div><h3><i class="fa-solid fa-shield-halved"></i> Tasas de Seguridad Social (TSS)</h3></div>
-        </div>
-        <div style="padding:0 20px 20px;">
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px;">
-                <div class="form-group">
-                    <label>AFP Empleado (%)</label>
-                    <input type="number" step="0.0001" name="afpEmployeeRate" class="form-input"
-                           value="{{ "%.4f" % (tax_rates.afpEmployeeRate * 100) }}">
-                </div>
-                <div class="form-group">
-                    <label>AFP Empleador (%)</label>
-                    <input type="number" step="0.0001" name="afpEmployerRate" class="form-input"
-                           value="{{ "%.4f" % (tax_rates.afpEmployerRate * 100) }}">
-                </div>
-                <div class="form-group">
-                    <label>SFS Empleado (%)</label>
-                    <input type="number" step="0.0001" name="sfsEmployeeRate" class="form-input"
-                           value="{{ "%.4f" % (tax_rates.sfsEmployeeRate * 100) }}">
-                </div>
-                <div class="form-group">
-                    <label>SFS Empleador (%)</label>
-                    <input type="number" step="0.0001" name="sfsEmployerRate" class="form-input"
-                           value="{{ "%.4f" % (tax_rates.sfsEmployerRate * 100) }}">
-                </div>
-                <div class="form-group">
-                    <label>SRL Empleador (%)</label>
-                    <input type="number" step="0.0001" name="srlEmployerRate" class="form-input"
-                           value="{{ "%.4f" % (tax_rates.srlEmployerRate * 100) }}">
-                </div>
-                <div class="form-group">
-                    <label>INFOTEP (%)</label>
-                    <input type="number" step="0.0001" name="infotepRate" class="form-input"
-                           value="{{ "%.4f" % (tax_rates.infotepRate * 100) }}">
-                </div>
+    <!-- ═══════════ PARÁMETROS LEGALES (REDIRIGIDO A VISTA DEDICADA) ═══════════ -->
+    <div class="card-table-wrapper" style="margin-bottom:16px; padding:16px 20px; border-color:var(--accent-emerald);">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+            <div>
+                <h3 style="margin:0; font-size:0.95rem;"><i class="fa-solid fa-scale-balanced"></i> Parámetros Legales</h3>
+                <p style="margin:4px 0 0; font-size:0.82rem; color:var(--text-muted);">
+                    Tasas TSS, topes salariales, tabla ISR y parámetros de cálculo se gestionan
+                    desde la vista con vigencia histórica.
+                </p>
             </div>
-        </div>
-    </div>
-
-    <!-- ═══════════ TOPES SALARIALES TSS ═══════════ -->
-    <div class="card-table-wrapper" style="margin-bottom:16px;">
-        <div class="table-header-row">
-            <div><h3><i class="fa-solid fa-arrow-up-wide-short"></i> Topes Salariales TSS</h3></div>
-        </div>
-        <div style="padding:0 20px 20px;">
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px;">
-                <div class="form-group">
-                    <label>Tope AFP (RD$ mensual)</label>
-                    <input type="number" step="0.01" name="afpSalaryCap" class="form-input"
-                           value="{{ "%.2f" % tax_rates.afpSalaryCap }}">
-                </div>
-                <div class="form-group">
-                    <label>Tope SFS (RD$ mensual)</label>
-                    <input type="number" step="0.01" name="sfsSalaryCap" class="form-input"
-                           value="{{ "%.2f" % tax_rates.sfsSalaryCap }}">
-                </div>
-                <div class="form-group">
-                    <label>Salario Mínimo Nacional (RD$)</label>
-                    <input type="number" step="0.01" name="minSalary" class="form-input"
-                           value="{{ "%.2f" % tax_rates.minSalary }}">
-                </div>
-                <div class="form-group">
-                    <label>Deducción Max. Educación (RD$ anual)</label>
-                    <input type="number" step="0.01" name="educationDeduction" class="form-input"
-                           value="{{ "%.2f" % tax_rates.educationDeduction }}">
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ═══════════ TABLA ISR ═══════════ -->
-    <div class="card-table-wrapper" style="margin-bottom:16px;">
-        <div class="table-header-row">
-            <div><h3><i class="fa-solid fa-table-list"></i> Tabla ISR DGII — Escala Anual</h3></div>
-        </div>
-        <div style="padding:0 20px 20px;">
-            <p style="color:var(--text-muted); font-size:0.82rem; margin:0 0 12px;">
-                Cada fila define un tramo: <strong>desde, hasta, tasa (%), cuota fija (RD$)</strong>.
-                La última escala debe tener "inf" como límite superior.
-            </p>
-            <div class="table-responsive">
-                <table class="table-premium" style="font-size:0.82rem;">
-                    <thead>
-                        <tr>
-                            <th>Escala</th>
-                            <th>Desde (RD$)</th>
-                            <th>Hasta (RD$)</th>
-                            <th>Tasa (%)</th>
-                            <th>Cuota Fija (RD$)</th>
-                            <th style="width:40px;"></th>
-                        </tr>
-                    </thead>
-                    <tbody id="isr-tbody">
-                        {% set isr_table = tax_rates.isrAnnualTable %}
-                        {% for i in range(isr_table|length) %}
-                        {% set tramo = isr_table[i] %}
-                        {% set is_last = loop.last %}
-                        <tr data-row="{{ i }}">
-                            <td><strong>{{ i + 1 }}</strong></td>
-                            <td><input type="number" step="0.01" name="isr_from_{{ i }}" class="form-input" value="{{ "%.2f" % tramo[0] }}" style="width:130px;"></td>
-                            <td>
-                                {% if is_last %}
-                                <input type="text" class="form-input" value="inf" disabled style="width:130px; background:var(--bg-nav-hover);">
-                                <input type="hidden" name="isr_to_{{ i }}" value="999999999">
-                                {% else %}
-                                <input type="number" step="0.01" name="isr_to_{{ i }}" class="form-input" value="{{ "%.2f" % tramo[1] }}" style="width:130px;">
-                                {% endif %}
-                            </td>
-                            <td><input type="number" step="0.01" name="isr_rate_{{ i }}" class="form-input" value="{{ "%.2f" % (tramo[2] * 100) }}" style="width:100px;"></td>
-                            <td><input type="number" step="0.01" name="isr_fixed_{{ i }}" class="form-input" value="{{ "%.2f" % tramo[3] }}" style="width:120px;"></td>
-                            <td>
-                                {% if not is_last and isr_table|length > 2 %}
-                                <button type="button" class="btn btn-sm btn-ghost" onclick="removeIsrRow(this)" style="color:var(--danger);"><i class="fa-solid fa-trash-can"></i></button>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            <button type="button" class="btn btn-sm btn-ghost" onclick="addIsrRow()" style="margin-top:8px;">
-                <i class="fa-solid fa-plus"></i> Agregar escala
-            </button>
-        </div>
-    </div>
-
-    <!-- ═══════════ HORAS EXTRA ═══════════ -->
-    <div class="card-table-wrapper" style="margin-bottom:16px;">
-        <div class="table-header-row">
-            <div><h3><i class="fa-solid fa-clock"></i> Cálculo de Horas Extra</h3></div>
-        </div>
-        <div style="padding:0 20px 20px;">
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px;">
-                <div class="form-group">
-                    <label>Multiplicador hora extra (%)</label>
-                    <input type="number" step="0.01" name="overtimeRate" class="form-input"
-                           value="{{ "%.2f" % (tax_rates.overtimeRate * 100) }}">
-                    <p style="font-size:0.7rem; color:var(--text-muted); margin:4px 0 0;">135% = pago a 1.35x la hora normal</p>
-                </div>
-                <div class="form-group">
-                    <label>Días laborables por mes</label>
-                    <input type="number" step="0.01" name="workingDaysPerMonth" class="form-input"
-                           value="{{ "%.2f" % tax_rates.workingDaysPerMonth }}">
-                    <p style="font-size:0.7rem; color:var(--text-muted); margin:4px 0 0;">Estándar RD: 23.83 (promedio anual)</p>
-                </div>
-                <div class="form-group">
-                    <label>Horas laborables por día</label>
-                    <input type="number" step="0.1" name="workingHoursPerDay" class="form-input"
-                           value="{{ "%.1f" % tax_rates.workingHoursPerDay }}">
-                    <p style="font-size:0.7rem; color:var(--text-muted); margin:4px 0 0;">Estándar: 8 horas diarias</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ═══════════ PARÁMETROS ADICIONALES ═══════════ -->
-    <div class="card-table-wrapper" style="margin-bottom:16px;">
-        <div class="table-header-row">
-            <div><h3><i class="fa-solid fa-sliders"></i> Parámetros Adicionales</h3></div>
-        </div>
-        <div style="padding:0 20px 20px;">
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:16px;">
-                <div class="form-group">
-                    <label>Multiplicador umbral INFOTEP empleado</label>
-                    <input type="number" step="0.1" name="infotepThresholdMultiplier" class="form-input"
-                           value="{{ "%.1f" % tax_rates.infotepThresholdMultiplier }}">
-                    <p style="font-size:0.7rem; color:var(--text-muted); margin:4px 0 0;">
-                        INFOTEP se cobra al empleado si su ingreso > multiplicador x salario mínimo.
-                    </p>
-                </div>
-            </div>
+            <a href="{{ url_for('web_rrhh.legal_parameters_list') }}" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-pen-to-square"></i> Gestionar Parámetros Legales
+            </a>
         </div>
     </div>
 
@@ -396,10 +241,6 @@
 
     <div style="display:flex; gap:12px; justify-content:flex-end; flex-wrap:wrap; margin-bottom:24px;">
         <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost">Cancelar</a>
-        <button type="submit" name="action" value="reset" class="btn btn-ghost" style="color:var(--danger);"
-                onclick="return confirm('¿Restaurar valores por defecto? Se perderán los cambios personalizados.')">
-            <i class="fa-solid fa-rotate-left"></i> Restaurar valores por defecto
-        </button>
         <button type="submit" name="action" value="save" class="btn btn-primary">
             <i class="fa-solid fa-floppy-disk"></i> Guardar configuración
         </button>

@@ -21,13 +21,15 @@ from datetime import datetime, timezone, date
 # ═══════════════════════════════════════════════════════════════════════════
 
 _VALID_TRANSITIONS = {
-    "borrador":     ["calculada"],
-    "calculada":    ["validada", "borrador"],
-    "validada":     ["aprobada", "calculada", "borrador"],
-    "aprobada":     ["contabilizada", "validada"],
-    "contabilizada": ["pagada", "aprobada"],
-    "pagada":       ["cerrada", "contabilizada"],
-    "cerrada":      [],
+    "borrador":      ["calculada", "cancelled"],
+    "calculada":     ["validada", "borrador"],
+    "validada":      ["aprobada", "calculada"],
+    "aprobada":      ["contabilizada", "validada"],
+    "contabilizada": ["pagada", "aprobada", "reopened"],
+    "pagada":        ["cerrada", "contabilizada"],
+    "cerrada":       ["reopened"],
+    "reopened":      ["calculada"],
+    "cancelled":     [],
 }
 
 STATUS_LABELS = {
@@ -38,7 +40,11 @@ STATUS_LABELS = {
     "contabilizada": "Contabilizada",
     "pagada": "Pagada",
     "cerrada": "Cerrada",
+    "reopened": "Reabierta",
+    "cancelled": "Cancelada",
 }
+
+IMMUTABLE_STATUSES = ("cerrada", "cancelled")
 
 
 def _transition(period, to_status, comment="", owner_uid="", sandbox=True):
@@ -63,6 +69,12 @@ def _transition(period, to_status, comment="", owner_uid="", sandbox=True):
     if to_status == "calculada":
         period["calculatedBy"] = user_email
         period["calculatedAt"] = now_iso
+        # Incrementar revisión al recalcular
+        period["revision"] = period.get("revision", 1)
+        if from_status in ("reopened", "calculada"):
+            period["revision"] = period.get("revision", 1) + 1
+    elif to_status == "reopened":
+        period["revision"] = period.get("revision", 1)  # Mantener revisión
     elif to_status == "validada":
         period["validatedBy"] = user_email
         period["validatedAt"] = now_iso

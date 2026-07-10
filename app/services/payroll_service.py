@@ -120,7 +120,7 @@ class PayrollService:
     # GUARDAS DE ESTADO
     # ═══════════════════════════════════════════════════════════════════════
 
-    IMMUTABLE_STATUSES = ("cerrada", "contabilizada", "pagada")
+    IMMUTABLE_STATUSES = ("cerrada", "cancelled")
 
     @classmethod
     def assert_period_mutable(cls, period: dict):
@@ -244,6 +244,28 @@ class PayrollService:
         """Obtiene las líneas de un período desde subcolección, con fallback a embebidas."""
         from app.services import hr_data_service as _hr
         return _hr.get_payroll_lines_unified(period, owner_uid=owner_uid, sandbox=sandbox)
+
+    @staticmethod
+    def merge_group_overrides(global_rates: dict, overrides: dict) -> dict:
+        """Mergea groupOverrides del grupo sobre tasas globales.
+
+        NOTA: Solo se mergean campos NO legales (cuentas contables,
+        centros de costo). Los parámetros legales (tasas TSS, ISR,
+        topes) son globales por ley y NO deben variar por grupo.
+        """
+        merged = dict(global_rates)
+        overrideable_fields = [
+            "accountSalariesPayable", "accountAfpEmployee",
+            "accountSfsEmployee", "accountIsrEmployee",
+            "accountAfpEmployer", "accountSfsEmployer",
+            "accountSrlEmployer", "accountInfotepEmployer",
+            "infotepEmployeeRate", "accountInfotepEmployee",
+            "accountOtherDeductions", "costCenterAccounts",
+        ]
+        for field in overrideable_fields:
+            if field in overrides and overrides[field] is not None:
+                merged[field] = overrides[field]
+        return merged
 
     @classmethod
     def resolve_overtime_rates(cls, owner_uid: str, group_id: str = "",
@@ -931,7 +953,7 @@ class PayrollService:
             "scenario": {
                 "type": scenario_type,
                 "value": value,
-                "label": _what_if_label(scenario_type, value),
+                "label": self._what_if_label(scenario_type, value),
             },
             "affectedEmployees": affected,
             "currentMonthly": {
@@ -953,15 +975,15 @@ class PayrollService:
             "perEmployee": per_employee,
         }
 
-
-def _what_if_label(scenario_type: str, value: float) -> str:
-    labels = {
-        "pct_increase": f"Aumento del {value}% en salario base",
-        "fixed_increase": f"Aumento fijo de RD$ {value:,.2f}",
-        "department_increase": f"Aumento del {value}% por departamento",
-        "executive_bonus": f"Bono ejecutivo de RD$ {value:,.2f}",
-    }
-    return labels.get(scenario_type, f"Escenario: {scenario_type}")
+    @staticmethod
+    def _what_if_label(scenario_type: str, value: float) -> str:
+        labels = {
+            "pct_increase": f"Aumento del {value}% en salario base",
+            "fixed_increase": f"Aumento fijo de RD$ {value:,.2f}",
+            "department_increase": f"Aumento del {value}% por departamento",
+            "executive_bonus": f"Bono ejecutivo de RD$ {value:,.2f}",
+        }
+        return labels.get(scenario_type, f"Escenario: {scenario_type}")
 
     # ═══════════════════════════════════════════════════════════════════════
     # ASIENTO CONTABLE DE NÓMINA

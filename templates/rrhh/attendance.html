@@ -66,6 +66,37 @@
     </div>
 </div>
 
+<form method="GET" style="display:flex; gap:10px; flex-wrap:wrap; padding:12px 0; align-items:flex-end;">
+    <div class="form-group" style="margin:0; flex:2; min-width:180px;">
+        <input type="text" name="search" class="form-input" placeholder="Buscar empleado..."
+               value="{{ search }}" style="border-radius:20px;">
+    </div>
+    <div class="form-group" style="margin:0;">
+        <select name="position" class="form-select" style="width:auto;">
+            <option value="">Todos los cargos</option>
+            {% for p in positions_set %}
+            <option value="{{ p }}" {% if filter_position==p %}selected{% endif %}>{{ p }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="form-group" style="margin:0;">
+        <select name="area" class="form-select" style="width:auto;">
+            <option value="">Todos los departamentos</option>
+            {% for a in areas_set %}
+            <option value="{{ a }}" {% if filter_area==a %}selected{% endif %}>{{ a }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <input type="hidden" name="month" value="{{ sel_month }}">
+    <input type="hidden" name="year" value="{{ sel_year }}">
+    <button type="submit" class="btn btn-secondary btn-sm"><i class="fa-solid fa-filter"></i> Filtrar</button>
+    {% if search or filter_area or filter_position %}
+    <a href="{{ url_for('web_rrhh.attendance', month=sel_month, year=sel_year) }}" class="btn btn-ghost btn-sm" style="color:var(--danger);">
+        <i class="fa-solid fa-xmark"></i> Limpiar
+    </a>
+    {% endif %}
+</form>
+
 <form method="POST" id="attendance-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="att_date" id="att_date" value="{{ days_list[0] if days_list else '' }}">
@@ -107,6 +138,36 @@
         <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Guardar Asistencia</button>
     </div>
 </form>
+
+<div style="display:flex; justify-content:center; align-items:center; gap:12px; margin-top:16px; flex-wrap:wrap;">
+    <form method="GET" style="display:flex; align-items:center; gap:6px; margin:0;">
+        <label style="font-size:0.82rem; color:var(--text-muted);">Por página:</label>
+        <input type="hidden" name="month" value="{{ sel_month }}">
+        <input type="hidden" name="year" value="{{ sel_year }}">
+        <input type="hidden" name="search" value="{{ search }}">
+        <input type="hidden" name="area" value="{{ filter_area }}">
+        <input type="hidden" name="position" value="{{ filter_position }}">
+        <input type="hidden" name="page" value="1">
+        <select name="per_page" class="form-select" style="width:auto; font-size:0.82rem; padding:4px 8px;" onchange="this.form.submit()">
+            <option value="10" {% if per_page==10 %}selected{% endif %}>10</option>
+            <option value="25" {% if per_page==25 %}selected{% endif %}>25</option>
+            <option value="50" {% if per_page==50 %}selected{% endif %}>50</option>
+            <option value="100" {% if per_page==100 %}selected{% endif %}>100</option>
+        </select>
+    </form>
+    {% if total_pages > 1 %}
+    {% set base_url = '?month=' + sel_month|string + '&year=' + sel_year|string + '&search=' + search + '&area=' + filter_area + '&position=' + filter_position + '&per_page=' + per_page|string %}
+    <div style="display:flex; align-items:center; gap:8px;">
+        {% if page > 1 %}
+        <a href="{{ base_url }}&page={{ page - 1 }}" class="btn btn-sm btn-ghost"><i class="fa-solid fa-chevron-left"></i></a>
+        {% endif %}
+        <span style="font-size:0.82rem; color:var(--text-muted);">Página {{ page }} de {{ total_pages }} ({{ total }} empleados)</span>
+        {% if page < total_pages %}
+        <a href="{{ base_url }}&page={{ page + 1 }}" class="btn btn-sm btn-ghost"><i class="fa-solid fa-chevron-right"></i></a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
 
 <!-- Modal rápido de asistencia -->
 <div class="search-modal" id="att-modal" style="display:none; animation:none;">

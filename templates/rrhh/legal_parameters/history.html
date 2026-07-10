@@ -1,0 +1,73 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Historial de Parámetro — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-clock-rotate-left"></i> Historial de Parámetro</h1>
+    <div class="hr-page-actions">
+        <a href="{{ url_for('web_rrhh.legal_parameter_edit', param_id=parameter.id) }}" class="btn btn-ghost">
+            <i class="fa-solid fa-pen-to-square"></i> Editar Vigente
+        </a>
+        <a href="{{ url_for('web_rrhh.legal_parameters_list') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Volver</a>
+    </div>
+</div>
+
+<div class="card-table-wrapper hr-table-card" style="padding:12px 20px; margin-bottom:16px;">
+    <div style="font-size:0.9rem;">
+        <strong>{{ PARAM_TYPE_LABELS.get(parameter.parameterType, parameter.parameterType) }}</strong>
+        <code style="font-size:0.75rem; color:var(--text-muted); margin-left:8px;">{{ parameter.parameterType }}</code>
+    </div>
+</div>
+
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-header-row">
+        <div><h3 style="margin:0;"><i class="fa-solid fa-layer-group"></i> Versiones</h3></div>
+    </div>
+    <div class="table-responsive">
+        <table class="table-premium" style="font-size:0.82rem;">
+        <thead>
+            <tr>
+                <th>Versión</th>
+                <th>Valor</th>
+                <th>Vigente Desde</th>
+                <th>Vigente Hasta</th>
+                <th>Estado</th>
+                <th>Supera a</th>
+                <th>Actualizado por</th>
+                <th>Actualizado</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in history %}
+            <tr>
+                <td><strong>v{{ p.version }}</strong></td>
+                <td style="font-family:monospace; font-size:0.8rem;">
+                    {% if p.value is mapping %}
+                    <span class="badge badge-info">JSON</span>
+                    {% elif p.value is iterable and not p.value is string %}
+                    <span class="badge badge-info">{{ p.value|length }} items</span>
+                    {% else %}
+                    {{ p.value }}
+                    {% endif %}
+                </td>
+                <td style="font-size:0.8rem;">{{ p.effectiveFrom[:10] if p.effectiveFrom else '—' }}</td>
+                <td style="font-size:0.8rem;">{{ p.effectiveTo[:10] if p.effectiveTo else '—' }}</td>
+                <td>
+                    {% if p.isActive %}
+                    <span class="badge badge-success">Vigente</span>
+                    {% else %}
+                    <span class="badge badge-secondary">Histórico</span>
+                    {% endif %}
+                </td>
+                <td>v{{ p.supersedesVersion if p.supersedesVersion else '—' }}</td>
+                <td style="font-size:0.78rem;">{{ p.updatedBy or p.createdBy or '—' }}</td>
+                <td style="font-size:0.75rem; color:var(--text-muted);">{{ (p.updatedAt or p.createdAt)[:16] if p.updatedAt or p.createdAt else '—' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-center text-muted" style="padding:32px;">Sin historial disponible.</td></tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

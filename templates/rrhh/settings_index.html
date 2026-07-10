@@ -52,9 +52,10 @@
             <span class="badge">nómina</span>
         </div>
         <div class="card-title">Conceptos y configuración de nómina</div>
-        <div class="card-desc">Administrar conceptos de pago, tasas y configuración general de nómina.</div>
+        <div class="card-desc">Administrar conceptos de pago, parámetros legales, tasas y configuración general.</div>
         <ul class="link-list">
             <li><a href="{{ url_for('web_rrhh.concept_list') }}"><i class="fa-solid fa-list" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Conceptos de pago</a></li>
+            <li><a href="{{ url_for('web_rrhh.legal_parameters_list') }}"><i class="fa-solid fa-scale-balanced" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Parámetros legales</a></li>
             <li><a href="{{ url_for('web_rrhh.payroll_settings') }}"><i class="fa-solid fa-sliders" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Configuración de nómina</a></li>
         </ul>
     </div>
