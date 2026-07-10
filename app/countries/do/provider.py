@@ -30,8 +30,18 @@ class DOProvider(BaseCountryProvider):
         return rules
 
     def get_regimen_rules(self) -> dict:
-        from app.countries.do.dgii_client import REGIMEN_RULES
-        return REGIMEN_RULES
+        from app.countries.do.dgii_client import (
+            REGIMEN_RULES, REGIMEN_DEFAULT, REGIMEN_LEGACY_MAP,
+            REGIMEN_ORDINARY, REGIMEN_RST_INCOME, REGIMEN_RST_PURCHASES,
+        )
+        return {
+            "default": REGIMEN_DEFAULT,
+            "ordinary_key": REGIMEN_ORDINARY,
+            "legacy_map": REGIMEN_LEGACY_MAP,
+            "rst_income": REGIMEN_RST_INCOME,
+            "rst_purchases": REGIMEN_RST_PURCHASES,
+            "regimes": REGIMEN_RULES,
+        }
 
     def get_payroll_rules(self) -> dict:
         from app.countries.do.payroll_rules import (
