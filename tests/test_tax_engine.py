@@ -1,20 +1,16 @@
 import pytest
-from app.services.tax_engine import (
-    TaxEngine,
-    calc_rst_isr,
-    ITBIS_RATE_GENERAL,
-    ITBIS_RATE_REDUCED,
-    ISR_CORPORATE_RATE,
-    ISR_LARGE_TAXPAYER_RATE,
-    WITHHOLDING_ISR_RATES,
-    WITHHOLDING_ITBIS_RATES,
-    RST_ANNUAL_LIMIT_2026,
-)
+from app.services.tax_engine import TaxEngine
+
+ITBIS_RATE_GENERAL = 0.18
+ITBIS_RATE_REDUCED = 0.16
+ISR_CORPORATE_RATE = 0.27
+ISR_LARGE_TAXPAYER_RATE = 0.30
+RST_ANNUAL_LIMIT_2026 = 12068181.09
 
 
 class TestTaxEngineDefaults:
     def setup_method(self):
-        self.engine = TaxEngine()
+        self.engine = TaxEngine(country="DO")
 
     def test_itbis_general_rate(self):
         assert self.engine.get_itbis_rate("general") == ITBIS_RATE_GENERAL
@@ -47,9 +43,29 @@ class TestTaxEngineDefaults:
         assert self.engine.get_rst_limit() == RST_ANNUAL_LIMIT_2026
 
 
+class TestTaxEngineMX:
+    def setup_method(self):
+        self.engine = TaxEngine(country="MX")
+
+    def test_mx_iva_general_rate(self):
+        assert self.engine.get_itbis_rate("general") == 0.16
+
+    def test_mx_isr_corporate_rate(self):
+        assert self.engine.get_isr_corporate_rate() == 0.30
+
+    def test_mx_withholding_isr(self):
+        assert self.engine.get_withholding_isr_rate("professional_fees") == pytest.approx(0.1066)
+
+    def test_mx_withholding_vat(self):
+        assert self.engine.get_withholding_itbis_rate("goods_services") == pytest.approx(0.1066)
+
+    def test_mx_country(self):
+        assert self.engine.get_country() == "MX"
+
+
 class TestTaxEngineSupplier:
     def setup_method(self):
-        self.engine = TaxEngine()
+        self.engine = TaxEngine(country="DO")
 
     def test_supplier_with_custom_isr_rate(self):
         supplier = {"tasaRetencionISR": 5.0}
@@ -87,36 +103,39 @@ class TestTaxEngineSupplier:
 
 
 class TestRstCalculation:
+    def setup_method(self):
+        self.engine = TaxEngine(country="DO")
+
     def test_below_exempt_threshold(self):
-        assert calc_rst_isr(400000.0) == 0.0
+        assert self.engine.calc_rst_isr(400000.0) == 0.0
 
     def test_exact_exempt_threshold(self):
-        assert calc_rst_isr(416220.0) == 0.0
+        assert self.engine.calc_rst_isr(416220.0) == 0.0
 
     def test_first_bracket(self):
-        tax = calc_rst_isr(500000.0)
+        tax = self.engine.calc_rst_isr(500000.0)
         expected = (500000.0 - 416220.0) * 0.15
         assert tax == pytest.approx(expected)
 
     def test_second_bracket(self):
-        tax = calc_rst_isr(700000.0)
+        tax = self.engine.calc_rst_isr(700000.0)
         expected = 31216.35 + (700000.0 - 624329.0) * 0.20
         assert tax == pytest.approx(expected, rel=1e-9)
 
     def test_third_bracket(self):
-        tax = calc_rst_isr(900000.0)
+        tax = self.engine.calc_rst_isr(900000.0)
         expected = 79775.15 + (900000.0 - 867123.0) * 0.25
         assert tax == pytest.approx(expected, rel=1e-9)
 
     def test_high_income(self):
-        tax = calc_rst_isr(5000000.0)
+        tax = self.engine.calc_rst_isr(5000000.0)
         expected = 79775.15 + (5000000.0 - 867123.0) * 0.25
         assert tax == pytest.approx(expected, rel=1e-9)
 
 
 class TestResolveItbisRate:
     def setup_method(self):
-        self.engine = TaxEngine()
+        self.engine = TaxEngine(country="DO")
 
     def test_reduced_for_tax_code_003(self):
         item = {"codigoImpuesto": "003", "itbisRate": 0.0}

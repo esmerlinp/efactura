@@ -4660,7 +4660,7 @@ class DatabaseService:
     @classmethod
     def get_tax_rules(cls, owner_uid):
         """Retorna la configuración general de impuestos (ITBIS, ISC, ISR, retenciones, RST)."""
-        from app.services.tax_engine import DEFAULT_TAX_RULES
+        from app.countries.do.tax_rules import DEFAULT_TAX_RULES
         rules = _deepcopy_dict(DEFAULT_TAX_RULES)
         if firebase_initialized:
             try:

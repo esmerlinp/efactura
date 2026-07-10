@@ -24,7 +24,10 @@ class DOProvider(BaseCountryProvider):
 
     def get_tax_rules(self) -> dict:
         from app.countries.do.tax_rules import DEFAULT_TAX_RULES
-        return DEFAULT_TAX_RULES
+        rules = dict(DEFAULT_TAX_RULES)
+        rules.setdefault("vat", rules.pop("itbis", {}))
+        rules.setdefault("withholding_vat", rules.pop("withholding_itbis", {}))
+        return rules
 
     def get_regimen_rules(self) -> dict:
         from app.countries.do.dgii_client import REGIMEN_RULES
