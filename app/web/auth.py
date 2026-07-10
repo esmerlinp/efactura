@@ -172,6 +172,7 @@ def login():
                     session.pop('selected_owner_uid', None)
                 else:
                     session['selected_owner_uid'] = associated[0]['ownerUID'] if len(associated) == 1 else user_profile.get('ownerUID')
+                    session['user']['ownerUID'] = session['selected_owner_uid']
                 
                 from app.services.audit_service import AuditService, ACTION_LOGIN, MODULE_AUTH
                 AuditService.log_from_request(
@@ -267,6 +268,7 @@ def verify_2fa():
                 session.pop('selected_owner_uid', None)
             else:
                 session['selected_owner_uid'] = associated[0]['ownerUID'] if len(associated) == 1 else user_profile.get('ownerUID')
+                session['user']['ownerUID'] = session['selected_owner_uid']
             
             # Limpiar estado temporal de MFA
             session.pop('mfa_pending_uid', None)

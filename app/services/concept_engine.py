@@ -35,13 +35,16 @@ class ISRContext:
     """Contexto de entrada para el cálculo de ISR."""
     def __init__(self, gross_income: float = 0.0, annual_projection: float = 0.0,
                  is_quincenal: bool = False, period_count: int = 1,
-                 ytd_isr: float = 0.0, prorated_salary: float = None):
+                 ytd_isr: float = 0.0, prorated_salary: float = None,
+                 afp_deduction: float = 0.0, sfs_deduction: float = 0.0):
         self.gross_income = gross_income
         self.annual_projection = annual_projection
         self.is_quincenal = is_quincenal
         self.period_count = period_count
         self.ytd_isr = ytd_isr
         self.prorated_salary = prorated_salary
+        self.afp_deduction = afp_deduction
+        self.sfs_deduction = sfs_deduction
 
 
 class TSSResolver:
@@ -73,11 +76,12 @@ class TSSResolver:
         # Aplicar topes
         afp_cap = params.get("afp_salary_cap", 464460.0)
         sfs_cap = params.get("sfs_salary_cap", 232230.0)
-        period_factor = 24 if is_q else 12
 
-        # Topes por período
-        afp_cap_period = round(afp_cap / period_factor, 2)
-        sfs_cap_period = round(sfs_cap / period_factor, 2)
+        # Topes por período — el cap viene como valor mensual, dividir entre 2 para quincenal
+        # (consistente con PayrollService y TaxCalculator)
+        cap_divisor = 2 if is_q else 1
+        afp_cap_period = round(afp_cap / cap_divisor, 2)
+        sfs_cap_period = round(sfs_cap / cap_divisor, 2)
 
         amount = 0.0
         tss_base_capped = 0.0
@@ -145,6 +149,7 @@ class ISRResolver:
         """Calcula el ISR a retener en este período.
 
         Método: retención acumulada DGII Norma 08-04.
+        Consistente con PayrollService._calculate_isr_monthly.
         """
         gross_income = context.gross_income
         is_q = context.is_quincenal
@@ -162,14 +167,18 @@ class ISRResolver:
 
         annual_projection = period_salary * period_factor
 
-        # Aplicar deducción educativa
-        taxable_annual = max(0, annual_projection - education_ded)
+        # Anualizar descuentos TSS y educativo (consistente con PayrollService)
+        annual_afp = context.afp_deduction * period_factor
+        annual_sfs = context.sfs_deduction * period_factor
 
-        # Calcular ISR anual según tabla progresiva
-        annual_isr = ISRResolver._lookup_isr(isr_table, taxable_annual)
+        # Renta neta anual = ingresos - AFP - SFS - educación
+        taxable_annual = max(0, annual_projection - annual_afp - annual_sfs - education_ded)
 
-        # ISR del período = (ISR anual / períodos) - ISR ya retenido YTD
-        isr_period = round((annual_isr / period_factor), 2)
+        # Calcular ISR anual según tabla progresiva (bracket-by-bracket)
+        annual_isr = ISRResolver._calculate_isr_by_bracket(isr_table, taxable_annual)
+
+        # ISR del período = ISR anual / períodos - ISR ya retenido YTD
+        isr_period = round((annual_isr / period_factor) - ytd_isr, 2)
 
         if isr_period < 0:
             isr_period = 0.0
@@ -183,22 +192,16 @@ class ISRResolver:
 
     @staticmethod
     def _calculate_isr(isr_table: list, taxable_annual: float) -> float:
-        """Aplica la tabla progresiva de ISR."""
-        for bracket in isr_table:
-            if isinstance(bracket, dict):
-                r_from = bracket.get("from", 0)
-                r_to = bracket.get("to", float("inf"))
-                rate = bracket.get("rate", 0)
-                deduction = bracket.get("deduction", 0)
-            else:
-                r_from, r_to, rate, deduction = bracket
-            if r_from <= taxable_annual <= r_to:
-                return round((taxable_annual * rate) - deduction, 2)
-        return 0.0
+        """Aplica la tabla progresiva de ISR (marginal bracket-by-bracket).
+
+        Para cada tramo, calcula el ISR del excedente en ese tramo y lo suma.
+        Equivalente a PayrollService._calculate_isr_monthly.
+        """
+        return ISRResolver._calculate_isr_by_bracket(isr_table, taxable_annual)
 
     @staticmethod
     def _lookup_isr(isr_table: list, taxable_annual: float) -> float:
-        return ISRResolver._calculate_isr(isr_table, taxable_annual)
+        return ISRResolver._calculate_isr_by_bracket(isr_table, taxable_annual)
 
     @staticmethod
     def _calculate_isr_by_bracket(isr_table: list, taxable_annual: float) -> float:
@@ -276,6 +279,8 @@ class ConceptEngine:
                 is_quincenal=context.get("isQuincenal", False),
                 ytd_isr=context.get("ytd_isr", 0),
                 prorated_salary=context.get("proratedSalary"),
+                afp_deduction=context.get("afpDeduction", 0),
+                sfs_deduction=context.get("sfsDeduction", 0),
             )
             result = ISRResolver.resolve(isr_ctx, params)
             amount = result["amount"]
