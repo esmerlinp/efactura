@@ -1,5 +1,6 @@
 import pytest
-from app.services.dgii import DGIIService, REGIMEN_RULES
+from app.services.dgii import DGIIService
+from app.countries.do.dgii_client import REGIMEN_RULES
 
 
 class TestDgiiRounding:

@@ -126,7 +126,14 @@ class MXProvider(BaseCountryProvider):
         return dict(_MX_TAX_RULES)
 
     def get_regimen_rules(self) -> dict:
-        return dict(_MX_REGIMEN_RULES)
+        return {
+            "default": "moral",
+            "ordinary_key": "moral",
+            "legacy_map": {},
+            "rst_income": None,
+            "rst_purchases": None,
+            "regimes": dict(_MX_REGIMEN_RULES),
+        }
 
     def get_payroll_rules(self) -> dict:
         return {

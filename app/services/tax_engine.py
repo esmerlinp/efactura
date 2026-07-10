@@ -165,5 +165,7 @@ class TaxEngine:
 
     def _get_regimen_rules(self, regimen):
         self._resolve_provider()
-        regimen_rules = self._provider.get_regimen_rules()
-        return regimen_rules.get(regimen, regimen_rules.get("ordinary", {}))
+        regimen_data = self._provider.get_regimen_rules()
+        regimes = regimen_data["regimes"]
+        default = regimen_data["default"]
+        return regimes.get(regimen, regimes.get(default, {}))

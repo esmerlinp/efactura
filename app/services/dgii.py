@@ -1,67 +1,65 @@
 import requests
 import re
 
-from app.countries.do.dgii_client import (
-    REGIMEN_ORDINARY, REGIMEN_RST_INCOME, REGIMEN_RST_PURCHASES,
-    REGIMEN_CONSUMER, REGIMEN_EXEMPT,
-    REGIMEN_CHOICES, REGIMEN_DEFAULT,
-    REGIMEN_LEGACY_MAP, REGIMEN_RULES,
-)
-
 
 class DGIIService:
 
-    @staticmethod
-    def normalize_regimen(regimen):
-        """Convert legacy regime values to new codes."""
+    @classmethod
+    def _resolve_client(cls, country="DO"):
+        from app.services.country_provider import CountryProviderFactory
+        provider = CountryProviderFactory.create(country)
+        if not provider:
+            raise ValueError(f"No country provider for {country}")
+        return provider.get_regimen_rules()
+
+    @classmethod
+    def normalize_regimen(cls, regimen, country="DO"):
+        client = cls._resolve_client(country)
         if not regimen:
-            return REGIMEN_DEFAULT
-        return REGIMEN_LEGACY_MAP.get(regimen, regimen)
+            return client["default"]
+        return client["legacy_map"].get(regimen, regimen)
 
-    @staticmethod
-    def is_rst_regimen(regimen):
-        """Check if the regime is an RST type."""
-        normalized = DGIIService.normalize_regimen(regimen)
-        return normalized in (REGIMEN_RST_INCOME, REGIMEN_RST_PURCHASES)
+    @classmethod
+    def is_rst_regimen(cls, regimen, country="DO"):
+        client = cls._resolve_client(country)
+        normalized = cls.normalize_regimen(regimen, country=country)
+        rst_income = client.get("rst_income")
+        rst_purchases = client.get("rst_purchases")
+        if rst_income and rst_purchases:
+            return normalized in (rst_income, rst_purchases)
+        return False
 
-    @staticmethod
-    def get_regimen_rules(regimen):
-        """Return the rules dict for a given regimen, or the default."""
-        return REGIMEN_RULES.get(regimen, REGIMEN_RULES[REGIMEN_ORDINARY])
+    @classmethod
+    def get_regimen_rules(cls, regimen, country="DO"):
+        client = cls._resolve_client(country)
+        regimes = client["regimes"]
+        default = client["default"]
+        return regimes.get(regimen, regimes.get(default, {}))
 
     @staticmethod
     def is_ecf_type_allowed(regimen, ecf_type):
-        """Check if a given e-CF type is allowed for this regime."""
         rules = DGIIService.get_regimen_rules(regimen)
         ecf_code = ecf_type.split("(")[-1].replace(")", "").strip() if "(" in ecf_type else ecf_type
         return ecf_code in rules["allowed_ecf_types"]
 
     @staticmethod
     def get_default_ecf_type(regimen):
-        """Get the default e-CF type for this regime."""
         return DGIIService.get_regimen_rules(regimen)["default_ecf_type"]
 
     @staticmethod
     def is_itbis_enabled(regimen):
-        """Check if ITBIS can be applied for this regime."""
-        return DGIIService.get_regimen_rules(regimen)["itbis_enabled"]
+        rules = DGIIService.get_regimen_rules(regimen)
+        return rules.get("vat_enabled", rules.get("itbis_enabled", True))
+
     @staticmethod
     def clean_rnc(rnc):
-        """Limpia el RNC o Cédula removiendo guiones, espacios u otros caracteres."""
         if not rnc:
             return ""
         return re.sub(r'[^0-9]', '', str(rnc))
 
     @staticmethod
     def _validate_rnc_local(clean_rnc):
-        """
-        Valida un RNC o Cédula dominicana con el algoritmo de dígito verificador.
-        - RNC (9 dígitos): aplica ponderadores 7,9,8,6,5,4,3,2
-        - Cédula (11 dígitos): aplica ponderadores 1,2,1,2,1,2,1,2,1,2
-        Retorna dict con error y message.
-        """
         if len(clean_rnc) == 9:
-            # Validación RNC
             weights = [7, 9, 8, 6, 5, 4, 3, 2]
             digits = [int(d) for d in clean_rnc[:8]]
             check_digit = int(clean_rnc[8])
@@ -72,11 +70,10 @@ class DGIIService:
             else:
                 expected = 11 - remainder
             if expected != check_digit:
-                return {"error": True, "message": "RNC inválido: el dígito verificador no coincide."}
+                return {"error": True, "message": "RNC invalido: el digito verificador no coincide."}
             return {"error": False, "rnc": clean_rnc, "razon_social": "", "actividad": "", "regimen": "", "source": "local"}
 
         elif len(clean_rnc) == 11:
-            # Validación Cédula
             weights = [1, 2, 1, 2, 1, 2, 1, 2, 1, 2]
             digits = [int(d) for d in clean_rnc[:10]]
             check_digit = int(clean_rnc[10])
@@ -91,26 +88,20 @@ class DGIIService:
             next_ten = ((total + 9) // 10) * 10
             expected = next_ten - total
             if expected != check_digit:
-                return {"error": True, "message": "Cédula inválida: el dígito verificador no coincide."}
+                return {"error": True, "message": "Cedula invalida: el digito verificador no coincide."}
             return {"error": False, "rnc": clean_rnc, "razon_social": "", "actividad": "", "regimen": "", "source": "local"}
 
-        return {"error": True, "message": "Formato de RNC/Cédula inválido. Debe tener 9 u 11 dígitos sin guiones."}
+        return {"error": True, "message": "Formato de RNC/Cedula invalido. Debe tener 9 u 11 digitos sin guiones."}
 
     @classmethod
     def validate_and_fetch_rnc(cls, rnc):
-        """
-        Consulta en tiempo real un RNC o Cédula.
-        Primero intenta API pública de Megaplus; si falla, usa validación local
-        con dígito verificador como fallback.
-        """
         clean_rnc = cls.clean_rnc(rnc)
         if len(clean_rnc) not in [9, 11]:
             return {
                 "error": True,
-                "message": "Formato de RNC/Cédula inválido. Debe tener 9 u 11 dígitos sin guiones."
+                "message": "Formato de RNC/Cedula invalido. Debe tener 9 u 11 digitos sin guiones."
             }
 
-        # Intentar API de Megaplus primero
         url = f"https://rnc.megaplus.com.do/api/consulta?rnc={clean_rnc}"
         try:
             response = requests.get(url, timeout=10)
@@ -128,84 +119,62 @@ class DGIIService:
                             "source": "megaplus"
                         }
         except requests.RequestException:
-            pass  # Fallback a validación local
+            pass
 
-        # Fallback: validación local con dígito verificador
         return cls._validate_rnc_local(clean_rnc)
 
     @staticmethod
     def dgii_round(value, decimals=2):
-        """
-        Redondeo basado en la regla de DGII:
-        El tercer decimal debe redondear al segundo decimal, dejando así fijo las cifras con dos decimales.
-        Cuando el valor numérico del tercer decimal sea menor que 5, se debe mantener el valor del segundo decimal,
-        mientras que, si es igual o mayor a 5, se debe incrementar el segundo decimal en una unidad.
-        """
         if value is None:
             return 0.0
-        # Utilizar Decimal con ROUND_HALF_UP para cumplir con la regla de la DGII
         from decimal import Decimal, ROUND_HALF_UP
         quantize_str = '0.00' if decimals == 2 else '0.' + '0'*decimals
-        # Convertimos a string primero para evitar problemas de precisión de punto flotante de Python
         return float(Decimal(str(float(value))).quantize(Decimal(quantize_str), rounding=ROUND_HALF_UP))
 
     @staticmethod
     def calculate_invoice_totals(items, discount_rate=0.0, retained_isr_rate=0.0, retained_itbis_rate=0.0):
-        """
-        Realiza cálculos financieros robustos para los comprobantes:
-        - Subtotal = Cantidad * Precio Unitario (descontando descuento individual y global)
-        - ISC = Impuesto Selectivo al Consumo Específico y Ad-Valorem
-        - ITBIS = Subtotal * Tasa de ITBIS del ítem
-        - Retenciones de ISR y de ITBIS
-        - Neto a Pagar
-        """
         subtotal_raw = 0.0
         total_discount = 0.0
         total_itbis = 0.0
         total_isc_especifico = 0.0
         total_isc_advalorem = 0.0
         total_otros_impuestos = 0.0
-        
+
         calculated_items = []
         for item in items:
             price = float(item.get('price', 0.0))
             quantity = float(item.get('quantity', 1.0))
             itbis_rate = float(item.get('itbisRate', 0.18))
             item_discount_rate = float(item.get('discountRate', 0.0))
-            
-            # Campos ISC
+
             codigo_impuesto = str(item.get('codigoImpuesto', '')).strip().zfill(3)
             tasa_impuesto_adicional = float(item.get('tasaImpuestoAdicional', 0.0))
             grados_alcohol = float(item.get('gradosAlcohol', 0.0))
             cantidad_referencia = float(item.get('cantidadReferencia', 0.0))
             subcantidad = float(item.get('subcantidad', 0.0))
             unidad_medida = str(item.get('unidadMedida', ''))
-            precio_referencia = float(item.get('precioReferencia', 0.0)) # PVP
-            tasa_impuesto_ad_valorem = float(item.get('tasaImpuestoAdValorem', 0.0)) # En algunos casos es diferente a adicional
-            # Subtotal crudo de la partida
+            precio_referencia = float(item.get('precioReferencia', 0.0))
+            tasa_impuesto_ad_valorem = float(item.get('tasaImpuestoAdValorem', 0.0))
+
             item_subtotal_raw = DGIIService.dgii_round(price * quantity, 2)
-            
-            # Descuento de la partida
+
             item_discount = DGIIService.dgii_round(item_subtotal_raw * item_discount_rate, 2)
             item_subtotal = item_subtotal_raw - item_discount
-            
-            # Calcular ISC Específico e ISC AdValorem simultáneamente para Alcoholes y Tabacos
+
             isc_especifico = 0.0
             isc_advalorem = 0.0
-            
+
             is_alcohol = ('006' <= codigo_impuesto <= '018') or ('023' <= codigo_impuesto <= '035')
             is_tabaco = ('019' <= codigo_impuesto <= '022') or ('036' <= codigo_impuesto <= '039')
-            
+
             if is_alcohol:
-                # 1. ISC Específico de Alcohol
                 tasa_esp = tasa_impuesto_adicional if ('006' <= codigo_impuesto <= '018') else 632.58
                 val_esp = tasa_esp * (grados_alcohol / 100.0 if grados_alcohol > 1.0 else grados_alcohol) * cantidad_referencia * subcantidad * quantity
                 isc_especifico = DGIIService.dgii_round(val_esp, 2)
-                
-                # 2. ISC Ad-Valorem de Alcohol (si hay precio de referencia PVP)
+
                 if precio_referencia > 0.0:
                     tasa_adv = tasa_impuesto_adicional if ('023' <= codigo_impuesto <= '035') else 0.10
-                    if unidad_medida == '18': # Granel
+                    if unidad_medida == '18':
                         val_adv = (price * 1.30 * tasa_adv) * quantity
                         isc_advalorem = DGIIService.dgii_round(val_adv, 2)
                     else:
@@ -216,14 +185,12 @@ class DGIIService:
                             precio_sin_isc_ad = precio_sin_isc_esp / (1.0 + tasa_adv)
                             val_adv = precio_sin_isc_ad * tasa_adv * cantidad_referencia * quantity
                             isc_advalorem = DGIIService.dgii_round(val_adv, 2)
-                            
+
             elif is_tabaco:
-                # 1. ISC Específico de Tabaco
                 tasa_esp = tasa_impuesto_adicional if ('019' <= codigo_impuesto <= '022') else 2.50
                 val_esp = quantity * cantidad_referencia * tasa_esp
                 isc_especifico = DGIIService.dgii_round(val_esp, 2)
-                
-                # 2. ISC Ad-Valorem de Tabaco
+
                 if precio_referencia > 0.0:
                     tasa_adv = tasa_impuesto_adicional if ('036' <= codigo_impuesto <= '039') else 0.20
                     precio_sin_itbis = precio_referencia / (1.0 + itbis_rate)
@@ -232,39 +199,36 @@ class DGIIService:
                     val_adv = precio_sin_isc_ad * tasa_adv * cantidad_referencia * quantity
                     isc_advalorem = DGIIService.dgii_round(val_adv, 2)
 
-            # Otros Impuestos Adicionales (Propina Legal, CDT, Primera Placa, etc. - Códigos 001 a 005)
             otros_impuestos = 0.0
             if '001' <= codigo_impuesto <= '005':
                 tasa = tasa_impuesto_adicional
-                if codigo_impuesto == '001': # Propina Legal
+                if codigo_impuesto == '001':
                     tasa = 0.10
-                elif codigo_impuesto == '002': # CDT
+                elif codigo_impuesto == '002':
                     tasa = 0.02
-                elif codigo_impuesto == '003': # ISC Seguros
+                elif codigo_impuesto == '003':
                     tasa = 0.16
-                elif codigo_impuesto == '004': # Telecomunicaciones
+                elif codigo_impuesto == '004':
                     tasa = 0.10
-                elif codigo_impuesto == '005': # Primera Placa
+                elif codigo_impuesto == '005':
                     tasa = 0.17
-                
+
                 otros_impuestos = DGIIService.dgii_round(item_subtotal * tasa, 2)
-            
+
             total_isc = isc_especifico + isc_advalorem + otros_impuestos
-            
-            # ITBIS de la partida (se calcula sobre subtotal + ISC según regla general, pero la DGII suele pedirlo sobre el monto gravado)
-            # Para e-CF, el ISC forma parte de la base imponible del ITBIS en la mayoría de los casos.
+
             base_itbis = item_subtotal + total_isc
             item_itbis = DGIIService.dgii_round(base_itbis * itbis_rate, 2)
-            
+
             item_total = item_subtotal + total_isc + item_itbis
-            
+
             subtotal_raw += item_subtotal_raw
             total_discount += item_discount
             total_itbis += item_itbis
             total_isc_especifico += isc_especifico
             total_isc_advalorem += isc_advalorem
             total_otros_impuestos += otros_impuestos
-            
+
             calculated_items.append({
                 **item,
                 'subtotal_raw': item_subtotal_raw,
@@ -277,14 +241,11 @@ class DGIIService:
                 'total': item_total
             })
 
-        # Aplicar descuento global comercial adicional si existe
         global_discount = DGIIService.dgii_round((subtotal_raw - total_discount) * discount_rate, 2)
         total_discount += global_discount
-        
-        # Subtotal neto final
+
         subtotal = subtotal_raw - total_discount
-        
-        # Recalcular ITBIS si hay descuento global proporcional o usar la suma de ITBIS individuales
+
         if discount_rate > 0.0:
             total_itbis = 0.0
             for item in calculated_items:
@@ -299,13 +260,12 @@ class DGIIService:
             total_otros_impuestos = sum(item['otros_impuestos_amount'] for item in calculated_items)
 
         total = subtotal + total_isc_especifico + total_isc_advalorem + total_otros_impuestos + total_itbis
-        
-        # Retenciones de Impuestos en RD
+
         retained_isr = DGIIService.dgii_round(subtotal * retained_isr_rate, 2)
         retained_itbis = DGIIService.dgii_round(total_itbis * retained_itbis_rate, 2)
-        
+
         net_payable = max(0.0, total - retained_isr - retained_itbis)
-        
+
         return {
             'items': calculated_items,
             'subtotal_raw': DGIIService.dgii_round(subtotal_raw, 2),
@@ -324,37 +284,31 @@ class DGIIService:
 
     @classmethod
     def check_tolerancia_cuadratura(cls, items, total_emisor):
-        """
-        Aplica la regla de tolerancia y cuadratura según la normativa de la DGII.
-        Admite una diferencia de +- 1 unidad del valor de (precio * cantidad) por línea,
-        y una diferencia global equivalente al total de líneas del detalle.
-        Retorna un dict con el resultado de la verificación.
-        """
         total_lines = len(items)
         line_diffs = []
         is_condicional = False
         warnings = []
-        
+
         for idx, item in enumerate(items):
             qty = float(item.get('quantity', 1))
             price = float(item.get('price', 0.0))
             expected_line_subtotal = qty * price
             reported_line_subtotal = float(item.get('subtotal', item.get('total', 0.0)))
-            
+
             diff = abs(reported_line_subtotal - expected_line_subtotal)
             line_diffs.append(diff)
-            
+
             if diff > 1.0:
                 is_condicional = True
-                warnings.append(f"Línea {idx+1}: Dif {diff:.2f} excede la tolerancia de +-1")
-            
+                warnings.append(f"Linea {idx+1}: Dif {diff:.2f} excede la tolerancia de +-1")
+
         calculated_total = sum(float(item.get('total', 0.0)) for item in items)
         global_diff = abs(total_emisor - calculated_total)
-        
+
         if global_diff > total_lines:
             is_condicional = True
             warnings.append(f"Global: Dif {global_diff:.2f} excede la tolerancia de {total_lines}")
-            
+
         return {
             "within_tolerance": not is_condicional,
             "status": "ACCEPTED" if not is_condicional else "ACCEPTED_CONDITIONAL",
