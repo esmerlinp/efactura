@@ -1,6 +1,6 @@
 """RRHH module — auto-extracted."""
 
-from datetime import date
+from datetime import date, datetime, timezone
 from flask import render_template, request, redirect, url_for, session, flash, jsonify, send_file
 from app.web.rrhh import (
     web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
@@ -8,7 +8,8 @@ from app.web.rrhh import (
     _filter_employees_by_period, _generate_periods,
 )
 from app.services import hr_data_service as hr
-import csv, io, json, os, uuid, threading
+from app.services.ai_service import AIService
+import csv, html, io, json, os, re, uuid, threading
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -110,9 +111,33 @@ def _sanitize_float_import(val, default=0.0):
 def employee_import():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+
+    positions = hr.get_catalog(owner_uid, "positions", sandbox)
+    departments = hr.get_catalog(owner_uid, "departments", sandbox)
+
+    from app.services.payroll_static_data import (
+        AREAS, CONTRACT_TYPES, PAYMENT_METHODS, WORKDAYS,
+        BANCOS_RD, ACCOUNT_TYPES, ID_TYPES, PAYROLL_FREQUENCIES
+    )
+
+    system_defaults = {
+        "position": [p["name"] for p in positions],
+        "department_catalog": [d["name"] for d in departments],
+        "area": [a["value"] for a in AREAS],
+        "contractType": [c["value"] for c in CONTRACT_TYPES],
+        "paymentMethod": [p["value"] for p in PAYMENT_METHODS],
+        "workday": [w["value"] for w in WORKDAYS],
+        "bank": BANCOS_RD,
+        "accountType": [a["value"] for a in ACCOUNT_TYPES],
+        "idType": [t["value"] for t in ID_TYPES],
+        "paymentFrequency": [f["value"] for f in PAYROLL_FREQUENCIES],
+    }
+
     return render_template("rrhh/employee_import.html", active_page="rrhh_employees",
                            target_fields=EMPLOYEE_TARGET_FIELDS,
-                           required_fields=EMPLOYEE_REQUIRED_FIELDS)
+                           required_fields=EMPLOYEE_REQUIRED_FIELDS,
+                           system_defaults=system_defaults)
 
 
 @web_rrhh_bp.route("/rrhh/employees/import/template")
@@ -186,6 +211,23 @@ def employee_import_upload():
         "delimiter": delimiter,
         "target_fields": EMPLOYEE_TARGET_FIELDS,
     })
+
+
+@web_rrhh_bp.route("/rrhh/employees/import/ai-suggest", methods=["POST"])
+def employee_import_ai_suggest():
+    if _login_required():
+        return jsonify({"success": False, "message": "No autorizado"}), 401
+
+    owner_uid, _ = _get_owner_uid_and_sandbox()
+    data = request.get_json() or {}
+    headers = data.get("headers", [])
+    target_fields = data.get("target_fields", [])
+
+    if not headers or not target_fields:
+        return jsonify({"success": False, "message": "Datos faltantes."}), 400
+
+    res = AIService.suggest_mapping(owner_uid, headers, target_fields)
+    return jsonify(res)
 
 
 @web_rrhh_bp.route("/rrhh/employees/import/process", methods=["POST"])
@@ -270,210 +312,248 @@ def employee_import_process():
         skipped = 0
         errors = []
         processed = 0
-        update_every = max(1, total // 20)
+        try:
+            update_every = max(1, total // 20)
 
-        for row_idx, row_data in enumerate(rows):
-            if not row_data:
-                continue
-            processed += 1
-            row_num = row_idx + 2
+            for row_idx, row_data in enumerate(rows):
+                if not row_data:
+                    continue
+                processed += 1
+                row_num = row_idx + 2
 
-            try:
-                first_name = _get_val(row_data, "firstName")
-                first_last_name = _get_val(row_data, "firstLastName")
-                id_number = re.sub(r'\D', '', _get_val(row_data, "idNumber"))
-                email = _get_val(row_data, "email")
-                municipality = _get_val(row_data, "municipality")
-                address = _get_val(row_data, "address")
-                hire_date = _get_val(row_data, "hireDate")
-                contract_type = _get_val(row_data, "contractType")
-                salary = _sanitize_float_import(_get_val(row_data, "salary"))
-                workday = _get_val(row_data, "workday", "completa")
-                tss_key = _get_val(row_data, "tssKey")
-                position = _get_val(row_data, "position")
-                area = _get_val(row_data, "area")
-                payment_method = _get_val(row_data, "paymentMethod")
-                account_number = _get_val(row_data, "accountNumber")
-                bank = _get_val(row_data, "bank")
-                account_type = _get_val(row_data, "accountType")
-
-                if not first_name:
-                    errors.append({"row": row_num, "reason": "Falta primer nombre (firstName)"})
-                    skipped += 1
-                    continue
-                if not first_last_name:
-                    errors.append({"row": row_num, "reason": "Falta primer apellido (firstLastName)"})
-                    skipped += 1
-                    continue
-                if not id_number:
-                    errors.append({"row": row_num, "reason": "Falta número de identificación (idNumber)"})
-                    skipped += 1
-                    continue
-                if not email:
-                    errors.append({"row": row_num, "reason": "Falta correo electrónico (email)"})
-                    skipped += 1
-                    continue
-                if not municipality:
-                    errors.append({"row": row_num, "reason": "Falta municipio (municipality)"})
-                    skipped += 1
-                    continue
-                if not address:
-                    errors.append({"row": row_num, "reason": "Falta dirección (address)"})
-                    skipped += 1
-                    continue
-                if not hire_date:
-                    errors.append({"row": row_num, "reason": "Falta fecha de contratación (hireDate)"})
-                    skipped += 1
-                    continue
                 try:
-                    datetime.strptime(hire_date, "%Y-%m-%d")
-                except ValueError:
-                    errors.append({"row": row_num, "reason": f"Fecha de contratación inválida: '{hire_date}'. Use YYYY-MM-DD."})
-                    skipped += 1
-                    continue
-                if not contract_type:
-                    errors.append({"row": row_num, "reason": "Falta tipo de contrato (contractType)"})
-                    skipped += 1
-                    continue
-                if salary <= 0:
-                    errors.append({"row": row_num, "reason": "Salario inválido o faltante (salary)"})
-                    skipped += 1
-                    continue
-                if not workday:
-                    errors.append({"row": row_num, "reason": "Falta jornada (workday)"})
-                    skipped += 1
-                    continue
-                if not tss_key or not re.match(r'^\d{3}$', tss_key):
-                    errors.append({"row": row_num, "reason": "Falta o es inválida la clave TSS (tssKey). Debe ser 3 dígitos."})
-                    skipped += 1
-                    continue
-                if not position:
-                    errors.append({"row": row_num, "reason": "Falta cargo (position)"})
-                    skipped += 1
-                    continue
-                if not area:
-                    errors.append({"row": row_num, "reason": "Falta área (area)"})
-                    skipped += 1
-                    continue
-                if not payment_method:
-                    errors.append({"row": row_num, "reason": "Falta método de pago (paymentMethod)"})
-                    skipped += 1
-                    continue
-                if not account_number:
-                    errors.append({"row": row_num, "reason": "Falta número de cuenta (accountNumber)"})
-                    skipped += 1
-                    continue
-                if not bank:
-                    errors.append({"row": row_num, "reason": "Falta banco (bank)"})
-                    skipped += 1
-                    continue
-                if not account_type:
-                    errors.append({"row": row_num, "reason": "Falta tipo de cuenta (accountType)"})
-                    skipped += 1
-                    continue
+                    first_name = _get_val(row_data, "firstName")
+                    first_last_name = _get_val(row_data, "firstLastName")
+                    id_number = re.sub(r'\D', '', _get_val(row_data, "idNumber"))
+                    email = _get_val(row_data, "email")
+                    municipality = _get_val(row_data, "municipality")
+                    address = _get_val(row_data, "address")
+                    hire_date = _get_val(row_data, "hireDate")
+                    contract_type = _get_val(row_data, "contractType")
+                    salary = _sanitize_float_import(_get_val(row_data, "salary"))
+                    workday = _get_val(row_data, "workday", "completa")
+                    tss_key = _get_val(row_data, "tssKey")
+                    position = _get_val(row_data, "position")
+                    area = _get_val(row_data, "area")
+                    department_catalog = _get_val(row_data, "department_catalog")
+                    payment_method = _get_val(row_data, "paymentMethod")
+                    account_number = _get_val(row_data, "accountNumber")
+                    bank = _get_val(row_data, "bank")
+                    account_type = _get_val(row_data, "accountType")
 
-                if id_number in existing_cedulas:
-                    errors.append({"row": row_num, "reason": f"La cédula {id_number} ya está registrada en el sistema."})
+                    if not first_name:
+                        errors.append({"row": row_num, "reason": "Falta primer nombre (firstName)"})
+                        skipped += 1
+                        continue
+                    if not first_last_name:
+                        errors.append({"row": row_num, "reason": "Falta primer apellido (firstLastName)"})
+                        skipped += 1
+                        continue
+                    if not id_number:
+                        errors.append({"row": row_num, "reason": "Falta número de identificación (idNumber)"})
+                        skipped += 1
+                        continue
+                    if not email:
+                        errors.append({"row": row_num, "reason": "Falta correo electrónico (email)"})
+                        skipped += 1
+                        continue
+                    if not municipality:
+                        errors.append({"row": row_num, "reason": "Falta municipio (municipality)"})
+                        skipped += 1
+                        continue
+                    if not address:
+                        errors.append({"row": row_num, "reason": "Falta dirección (address)"})
+                        skipped += 1
+                        continue
+                    if not hire_date:
+                        errors.append({"row": row_num, "reason": "Falta fecha de contratación (hireDate)"})
+                        skipped += 1
+                        continue
+                    try:
+                        if re.match(r'^\d{2}/\d{2}/\d{4}$', hire_date):
+                            dt = datetime.strptime(hire_date, "%d/%m/%Y")
+                            hire_date = dt.strftime("%Y-%m-%d")
+                        elif re.match(r'^\d{4}-\d{2}-\d{2}$', hire_date):
+                            datetime.strptime(hire_date, "%Y-%m-%d")
+                        elif re.match(r'^\d{2}-\d{2}-\d{4}$', hire_date):
+                            dt = datetime.strptime(hire_date, "%d-%m-%Y")
+                            hire_date = dt.strftime("%Y-%m-%d")
+                        elif re.match(r'^\d{2}/\d{2}/\d{2}$', hire_date):
+                            dt = datetime.strptime(hire_date, "%d/%m/%y")
+                            hire_date = dt.strftime("%Y-%m-%d")
+                        else:
+                            raise ValueError
+                    except Exception:
+                        errors.append({"row": row_num, "reason": f"Fecha de contratación inválida: '{hire_date}'. Use DD/MM/AAAA o AAAA-MM-DD."})
+                        skipped += 1
+                        continue
+                    if not contract_type:
+                        errors.append({"row": row_num, "reason": "Falta tipo de contrato (contractType)"})
+                        skipped += 1
+                        continue
+                    if salary <= 0:
+                        errors.append({"row": row_num, "reason": "Salario inválido o faltante (salary)"})
+                        skipped += 1
+                        continue
+                    if not workday:
+                        errors.append({"row": row_num, "reason": "Falta jornada (workday)"})
+                        skipped += 1
+                        continue
+                    if not tss_key or not re.match(r'^\d{3}$', tss_key):
+                        errors.append({"row": row_num, "reason": "Falta o es inválida la clave TSS (tssKey). Debe ser 3 dígitos."})
+                        skipped += 1
+                        continue
+                    if not position:
+                        errors.append({"row": row_num, "reason": "Falta cargo (position)"})
+                        skipped += 1
+                        continue
+                    if not area:
+                        errors.append({"row": row_num, "reason": "Falta área (area)"})
+                        skipped += 1
+                        continue
+
+                    hr.find_or_create_catalog_item(owner_uid, "positions", position, sandbox=sandbox)
+                    if department_catalog:
+                        hr.find_or_create_catalog_item(owner_uid, "departments", department_catalog, sandbox=sandbox)
+
+                    if not payment_method:
+                        errors.append({"row": row_num, "reason": "Falta método de pago (paymentMethod)"})
+                        skipped += 1
+                        continue
+                    if not account_number:
+                        errors.append({"row": row_num, "reason": "Falta número de cuenta (accountNumber)"})
+                        skipped += 1
+                        continue
+                    if not bank:
+                        errors.append({"row": row_num, "reason": "Falta banco (bank)"})
+                        skipped += 1
+                        continue
+                    if not account_type:
+                        errors.append({"row": row_num, "reason": "Falta tipo de cuenta (accountType)"})
+                        skipped += 1
+                        continue
+
+                    if id_number in existing_cedulas:
+                        errors.append({"row": row_num, "reason": f"La cédula {id_number} ya está registrada en el sistema."})
+                        skipped += 1
+                        continue
+
+                    middle_name = _get_val(row_data, "middleName")
+                    second_last_name = _get_val(row_data, "secondLastName")
+
+                    emp_id = str(uuid.uuid4())
+                    data = {
+                        "id": emp_id,
+                        "idType": _get_val(row_data, "idType", "cedula"),
+                        "idNumber": id_number,
+                        "cedula": id_number,
+                        "firstName": first_name,
+                        "middleName": middle_name,
+                        "lastName": first_last_name,
+                        "firstLastName": first_last_name,
+                        "secondLastName": second_last_name,
+                        "fullName": " ".join(p for p in [first_name, middle_name, first_last_name, second_last_name] if p),
+                        "position": position,
+                        "area": area,
+                        "costCenter": _get_val(row_data, "costCenter", area),
+                        "department": department_catalog or area,
+                        "branchId": _get_val(row_data, "branchId", ""),
+                        "hireDate": hire_date,
+                        "salary": salary,
+                        "baseSalary": salary,
+                        "salaryType": "fijo",
+                        "status": "activo",
+                        "email": email,
+                        "phone": re.sub(r'\D', '', _get_val(row_data, "phone")),
+                        "address": address,
+                        "municipality": municipality,
+                        "contractType": contract_type,
+                        "paymentFrequency": _get_val(row_data, "paymentFrequency"),
+                        "workday": workday,
+                        "isVigilante": _get_val(row_data, "isVigilante").lower() == "si",
+                        "tssKey": tss_key,
+                        "paymentMethod": payment_method,
+                        "accountNumber": account_number,
+                        "bank": bank,
+                        "accountType": account_type,
+                        "emergencyContact": _get_val(row_data, "emergencyContact"),
+                        "emergencyPhone": re.sub(r'\D', '', _get_val(row_data, "emergencyPhone")),
+                        "afpProvider": _get_val(row_data, "afpProvider"),
+                        "notes": _get_val(row_data, "notes") or "Importado masivamente desde CSV.",
+                        "gender": _get_val(row_data, "gender"),
+                        "birthDate": _get_val(row_data, "birthDate"),
+                        "probationEndDate": _get_val(row_data, "probationEndDate"),
+                        "reportsTo": _get_val(row_data, "reportsTo"),
+                        "maritalStatus": _get_val(row_data, "maritalStatus"),
+                        "occupationCode": _get_val(row_data, "occupationCode"),
+                        "weeklyHours": int(_get_val(row_data, "weeklyHours", "44") or 44),
+                        "workShift": int(_get_val(row_data, "workShift", "1") or 1),
+                        "educationLevel": int(_get_val(row_data, "educationLevel", "0") or 0),
+                        "vacationGranted": int(_get_val(row_data, "vacationGranted", "1") or 1),
+                        "nationality": 1,
+                    }
+
+                    hr.save_employee(owner_uid, emp_id, data, sandbox=sandbox)
+
+                    if salary > 0:
+                        history_id = str(uuid.uuid4())
+                        hr.save_salary_history_entry(owner_uid, {
+                            "id": history_id,
+                            "employeeId": emp_id,
+                            "amount": salary,
+                            "previousAmount": 0.0,
+                            "effectiveDate": hire_date,
+                            "endDate": "",
+                            "reason": "Salario inicial (importación masiva)",
+                            "approvedBy": user_email,
+                            "createdAt": date.today().isoformat(),
+                        }, sandbox=sandbox)
+
+                    log_action(owner_uid, "create", "employee", emp_id, user_email,
+                               changes={"name": data["fullName"], "salary": salary, "source": "csv_import"},
+                               sandbox=sandbox)
+
+                    existing_cedulas.add(id_number)
+                    imported += 1
+
+                except Exception as e:
+                    errors.append({"row": row_num, "reason": f"Error inesperado: {html.escape(str(e))}"})
                     skipped += 1
-                    continue
 
-                middle_name = _get_val(row_data, "middleName")
-                second_last_name = _get_val(row_data, "secondLastName")
+                if processed % update_every == 0 or processed == total:
+                    current_state = {
+                        "job_id": job_id, "status": "processing", "total": total,
+                        "processed": processed, "imported": imported, "skipped": skipped,
+                        "errors": errors[-30:],
+                    }
+                    try:
+                        _write_job(current_state)
+                    except Exception as e:
+                        print(f"⚠️ [import] Error escribiendo progreso: {e}")
 
-                emp_id = str(uuid.uuid4())
-                data = {
-                    "id": emp_id,
-                    "idType": _get_val(row_data, "idType", "cedula"),
-                    "idNumber": id_number,
-                    "cedula": id_number,
-                    "firstName": first_name,
-                    "middleName": middle_name,
-                    "lastName": first_last_name,
-                    "firstLastName": first_last_name,
-                    "secondLastName": second_last_name,
-                    "fullName": " ".join(p for p in [first_name, middle_name, first_last_name, second_last_name] if p),
-                    "position": position,
-                    "area": area,
-                    "costCenter": _get_val(row_data, "costCenter", area),
-                    "department": area,
-                    "branchId": "",
-                    "hireDate": hire_date,
-                    "salary": salary,
-                    "baseSalary": salary,
-                    "salaryType": "fijo",
-                    "status": "activo",
-                    "email": email,
-                    "phone": re.sub(r'\D', '', _get_val(row_data, "phone")),
-                    "address": address,
-                    "municipality": municipality,
-                    "contractType": contract_type,
-                    "paymentFrequency": _get_val(row_data, "paymentFrequency"),
-                    "workday": workday,
-                    "isVigilante": _get_val(row_data, "isVigilante").lower() == "si",
-                    "tssKey": tss_key,
-                    "paymentMethod": payment_method,
-                    "accountNumber": account_number,
-                    "bank": bank,
-                    "accountType": account_type,
-                    "emergencyContact": _get_val(row_data, "emergencyContact"),
-                    "emergencyPhone": re.sub(r'\D', '', _get_val(row_data, "emergencyPhone")),
-                    "afpProvider": _get_val(row_data, "afpProvider"),
-                    "notes": _get_val(row_data, "notes") or "Importado masivamente desde CSV.",
-                    "gender": _get_val(row_data, "gender"),
-                    "birthDate": _get_val(row_data, "birthDate"),
-                    "probationEndDate": _get_val(row_data, "probationEndDate"),
-                    "reportsTo": _get_val(row_data, "reportsTo"),
-                    "maritalStatus": _get_val(row_data, "maritalStatus"),
-                    "occupationCode": _get_val(row_data, "occupationCode"),
-                    "weeklyHours": int(_get_val(row_data, "weeklyHours", "44") or 44),
-                    "workShift": int(_get_val(row_data, "workShift", "1") or 1),
-                    "educationLevel": int(_get_val(row_data, "educationLevel", "0") or 0),
-                    "vacationGranted": int(_get_val(row_data, "vacationGranted", "1") or 1),
-                    "nationality": 1,
-                }
-
-                hr.save_employee(owner_uid, emp_id, data, sandbox=sandbox)
-
-                if salary > 0:
-                    history_id = str(uuid.uuid4())
-                    hr.save_salary_history_entry(owner_uid, {
-                        "id": history_id,
-                        "employeeId": emp_id,
-                        "amount": salary,
-                        "previousAmount": 0.0,
-                        "effectiveDate": hire_date,
-                        "endDate": "",
-                        "reason": "Salario inicial (importación masiva)",
-                        "approvedBy": user_email,
-                        "createdAt": date.today().isoformat(),
-                    }, sandbox=sandbox)
-
-                log_action(owner_uid, "create", "employee", emp_id, user_email,
-                           changes={"name": data["fullName"], "salary": salary, "source": "csv_import"},
-                           sandbox=sandbox)
-
-                existing_cedulas.add(id_number)
-                imported += 1
-
+            final_state = {
+                "job_id": job_id, "status": "completed", "total": total,
+                "processed": processed, "imported": imported, "skipped": skipped,
+                "errors": errors,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+            try:
+                _write_job(final_state)
             except Exception as e:
-                errors.append({"row": row_num, "reason": f"Error inesperado: {html.escape(str(e))}"})
-                skipped += 1
-
-            if processed % update_every == 0 or processed == total:
-                current_state = {
-                    "job_id": job_id, "status": "processing", "total": total,
-                    "processed": processed, "imported": imported, "skipped": skipped,
-                    "errors": errors[-30:],
-                }
-                _write_job(current_state)
-
-        final_state = {
-            "job_id": job_id, "status": "completed", "total": total,
-            "processed": processed, "imported": imported, "skipped": skipped,
-            "errors": errors,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
-        _write_job(final_state)
+                print(f"⚠️ [import] Error escribiendo estado final: {e}")
+        except Exception as e:
+            print(f"⚠️ [import] Error fatal en process_rows: {e}")
+            error_state = {
+                "job_id": job_id, "status": "failed", "total": total,
+                "processed": processed, "imported": imported, "skipped": skipped,
+                "errors": errors[-30:] if errors else [{"row": 0, "reason": f"Error fatal: {html.escape(str(e))}"}],
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "error": str(e),
+            }
+            try:
+                _write_job(error_state)
+            except Exception:
+                pass
 
     thread = threading.Thread(target=process_rows)
     thread.daemon = True

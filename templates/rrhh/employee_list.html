@@ -2,6 +2,13 @@
 {% block title %}Empleados — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
+<style>
+.content-wrapper { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.employee-list-page { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.employee-list-page .card-table-wrapper.hr-table-card { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.employee-list-page .card-table-wrapper.hr-table-card .table-responsive { flex: 1; overflow: auto; min-height: 0; }
+</style>
+<div class="employee-list-page">
 <div class="page-header hr-page-header">
     <h1 class="page-title"><i class="fa-solid fa-users"></i> Empleados</h1>
     <div class="hr-page-actions">
@@ -84,15 +91,23 @@
             </select>
         </div>
         <div class="form-group" style="margin:0;">
-            <select name="area" class="form-select" style="width:auto;">
-                <option value="">Todas las áreas</option>
-                {% for a in areas_set %}
-                <option value="{{ a }}" {% if filter_area==a %}selected{% endif %}>{{ a }}</option>
+            <select name="department" class="form-select" style="width:auto;">
+                <option value="">Todos los departamentos</option>
+                {% for d in departments_set %}
+                <option value="{{ d }}" {% if filter_department==d %}selected{% endif %}>{{ d }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <select name="branch" class="form-select" style="width:auto;">
+                <option value="">Todas las sucursales</option>
+                {% for b in branches %}
+                <option value="{{ b.id }}" {% if filter_branch==b.id %}selected{% endif %}>{{ b.name }}</option>
                 {% endfor %}
             </select>
         </div>
         <button type="submit" class="btn btn-secondary btn-sm"><i class="fa-solid fa-filter"></i> Filtrar</button>
-        {% if search or filter_status or filter_area %}
+        {% if search or filter_status or filter_department or filter_branch %}
         <a href="{{ url_for('web_rrhh.employee_list') }}" class="btn btn-ghost btn-sm" style="color:var(--danger);">
             <i class="fa-solid fa-xmark"></i> Limpiar
         </a>
@@ -118,7 +133,8 @@
                 <th>Empleado</th>
                 <th>Cédula</th>
                 <th>Cargo</th>
-                <th>Área</th>
+                <th>Departamento</th>
+                <th>Sucursal</th>
                 <th>Salario Base</th>
                 {% if filter_status == 'inactivo' %}
                 <th>Fecha Salida</th>
@@ -127,18 +143,23 @@
                 {% endif %}
                 <th>Vacaciones</th>
                 <th>Estado</th>
-                <th style="width:40px;" title="Datos completos para DGT">DGT</th>
-                <th>Acciones</th>
+                <th style="width:40px;">Acciones</th>
             </tr>
         </thead>
         <tbody>
             {% for emp in employees %}
             <tr>
                 <td><input type="checkbox" class="emp-cb" value="{{ emp.id }}" onchange="updateBulk()"></td>
-                <td><strong><a href="{{ url_for('web_rrhh.employee_view', employee_id=emp.id) }}" style="color:var(--text-primary); text-decoration:none;">{{ emp.fullName }}</a></strong></td>
+                <td style="max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                    <strong><a href="{{ url_for('web_rrhh.employee_view', employee_id=emp.id) }}" style="color:var(--text-primary); text-decoration:none;">{{ emp.fullName }}</a></strong>
+                </td>
                 <td>{{ emp.cedula or emp.idNumber }}</td>
                 <td>{{ emp.position }}</td>
-                <td>{{ emp.area or emp.department }}</td>
+                <td>{{ emp.department or emp.area or '—' }}</td>
+                <td>
+                    {% set branch = branches|selectattr("id", "equalto", emp.branchId)|first %}
+                    {{ branch.name if branch else '—' }}
+                </td>
                 <td>{{ "RD$ {:,.2f}".format(emp.baseSalary|float) if emp.baseSalary else '—' }}</td>
                 {% if filter_status == 'inactivo' %}
                 <td>{{ emp.terminationDate or '—' }}</td>
@@ -159,34 +180,40 @@
                     <span class="badge badge-danger">Inactivo</span>
                     {% endif %}
                 </td>
-                <td style="text-align:center;">
-                    {% if emp.occupationCode and emp.maritalStatus and emp.educationLevel %}
-                    <span class="badge badge-success" title="Datos DGT completos">✓</span>
-                    {% elif emp.occupationCode %}
-                    <span class="badge badge-warning" title="Faltan datos DGT (estado civil, instrucción)">⚠</span>
-                    {% else %}
-                    <span class="badge badge-secondary" title="Sin datos DGT">—</span>
-                    {% endif %}
-                </td>
-                <td><div class="hr-table-actions">
-                    <a href="{{ url_for('web_rrhh.employee_view', employee_id=emp.id) }}" class="btn btn-sm btn-ghost"
-                       title="Ver"><i class="fa-solid fa-eye"></i></a>
-                    <a href="{{ url_for('web_rrhh.employee_edit', employee_id=emp.id) }}" class="btn btn-sm btn-ghost"
-                       title="Editar"><i class="fa-solid fa-pen-to-square"></i></a>
-                    {% if emp.status == 'activo' %}
-                    <form method="POST" action="{{ url_for('web_rrhh.employee_terminate', employee_id=emp.id) }}"
-                          onsubmit="return confirm('¿Desvincular a {{ emp.fullName }}?')" style="display:contents;">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <input type="hidden" name="reason" value="">
-                        <button type="submit" class="btn btn-sm btn-ghost" title="Desvincular" style="color:var(--danger);">
-                            <i class="fa-solid fa-user-slash"></i>
+                <td>
+                    <div class="dropdown" style="position:relative; display:inline-block;">
+                        <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); var m=this.nextElementSibling; m.style.display=m.style.display==='block'?'none':'block'" style="font-size:1.1rem; line-height:1; padding:2px 6px;">
+                            <i class="fa-solid fa-ellipsis-vertical"></i>
                         </button>
-                    </form>
-                    {% endif %}
-                </div></td>
+                        <div style="display:none; position:absolute; right:0; top:100%; z-index:50; background:#fff; border:1px solid #d1d5db; border-radius:8px; min-width:160px; box-shadow:0 4px 16px rgba(0,0,0,0.15); overflow:hidden;">
+                            <a href="{{ url_for('web_rrhh.employee_view', employee_id=emp.id) }}"
+                               style="display:flex; align-items:center; gap:8px; padding:8px 12px; text-decoration:none; color:var(--text-primary); font-size:0.82rem; border-bottom:1px solid var(--border-color); transition:background 0.15s;"
+                               onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
+                                <i class="fa-solid fa-eye" style="color:#6b7280; width:16px;"></i> Ver
+                            </a>
+                            <a href="{{ url_for('web_rrhh.employee_edit', employee_id=emp.id) }}"
+                               style="display:flex; align-items:center; gap:8px; padding:8px 12px; text-decoration:none; color:var(--text-primary); font-size:0.82rem; border-bottom:1px solid var(--border-color); transition:background 0.15s;"
+                               onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
+                                <i class="fa-solid fa-pen-to-square" style="color:#6b7280; width:16px;"></i> Editar
+                            </a>
+                            {% if emp.status == 'activo' %}
+                            <form method="POST" action="{{ url_for('web_rrhh.employee_terminate', employee_id=emp.id) }}"
+                                  onsubmit="return confirm('¿Desvincular a {{ emp.fullName }}?')" style="display:contents;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="reason" value="">
+                                <button type="submit"
+                                        style="display:flex; align-items:center; gap:8px; width:100%; padding:8px 12px; border:none; background:none; cursor:pointer; color:var(--danger); font-size:0.82rem; text-align:left; transition:background 0.15s;"
+                                        onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
+                                    <i class="fa-solid fa-user-slash" style="width:16px;"></i> Desvincular
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </td>
             </tr>
             {% else %}
-            <tr><td colspan="{{ 11 if filter_status == 'inactivo' else 8 }}" class="text-center text-muted">No hay empleados que coincidan con los filtros.</td></tr>
+            <tr><td colspan="{{ 10 if filter_status == 'inactivo' else 7 }}" class="text-center text-muted">No hay empleados que coincidan con los filtros.</td></tr>
             {% endfor %}
         </tbody>
         </table>
@@ -195,7 +222,7 @@
 
 {% if total_pages > 1 %}
 <div style="display:flex; justify-content:center; align-items:center; gap:8px; margin-top:16px;">
-    {% set base_url = '?search=' + search + '&status=' + filter_status + '&area=' + filter_area + '&per_page=' + per_page|string %}
+    {% set base_url = '?search=' + search + '&status=' + filter_status + '&department=' + filter_department + '&branch=' + filter_branch + '&per_page=' + per_page|string %}
     {% if page > 1 %}
     <a href="{{ base_url }}&page={{ page - 1 }}" class="btn btn-sm btn-ghost"><i class="fa-solid fa-chevron-left"></i></a>
     {% endif %}
@@ -226,5 +253,13 @@ function bulkMassAction() {
     if (!ids.length) return;
     window.location.href = "{{ url_for('web_rrhh.mass_action_wizard') }}?ids=" + ids.join(',');
 }
+document.addEventListener('click', function(e) {
+    document.querySelectorAll('.dropdown > div[style*="display: block"]').forEach(function(menu) {
+        if (!menu.parentElement.contains(e.target)) {
+            menu.style.display = 'none';
+        }
+    });
+});
 </script>
+</div>
 {% endblock %}

@@ -225,7 +225,7 @@
             <i class="fa-solid fa-circle-info"></i> Este período está en borrador. Recalcule la nómina para actualizarlo.
         </span>
         <a href="{{ url_for('web_rrhh.payroll_new') }}" class="btn btn-primary btn-sm">
-            <i class="fa-solid fa-calculator"></i> Calcular Nómina
+            <i class="fa-solid fa-calculator"></i> Procesar Nómina
         </a>
         <form method="POST" action="{{ url_for('web_rrhh.payroll_delete', period_id=period.id) }}" style="margin:0;"
               onsubmit="document.getElementById('deleteConfirmField').value = prompt('⚠️ ¿Eliminar este período definitivamente?\\n\\nEsta acción NO se puede deshacer.\\n\\nEscribe ELIMINAR para confirmar:'); return document.getElementById('deleteConfirmField').value === 'ELIMINAR';">

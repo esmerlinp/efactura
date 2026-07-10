@@ -1,5 +1,6 @@
 """RRHH module — auto-extracted."""
 
+from datetime import datetime, timezone
 from flask import render_template, request, redirect, url_for, session, flash, jsonify, send_file
 from app.web.rrhh import (
     web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
@@ -46,8 +47,8 @@ def onboarding_guide():
          "title": "Conceptos de nómina", "description": "Revisa ingresos, deducciones y aportes configurados.",
          "url": url_for("web_rrhh.concept_list"), "action": "Revisar conceptos"},
         {"number": 5, "done": step5_done,
-         "title": "Calcular nómina", "description": "Procesa tu primer período de nómina.",
-         "url": url_for("web_rrhh.payroll_new"), "action": "Calcular nómina"},
+         "title": "Procesar nómina", "description": "Procesa tu primer período de nómina.",
+         "url": url_for("web_rrhh.payroll_new"), "action": "Procesar nómina"},
     ]
 
     all_done = all(s["done"] for s in steps)

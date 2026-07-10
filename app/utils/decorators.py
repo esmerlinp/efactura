@@ -58,3 +58,18 @@ def require_permission(permission_name, feature_name="esta sección"):
             return f(*args, **kwargs)
         return decorated_function
     return decorator
+
+
+def require_country(*allowed_countries):
+    """Decorador para restringir un endpoint a países específicos."""
+    def decorator(f):
+        from functools import wraps
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if session.get('company_country', 'DO') not in allowed_countries:
+                return render_template('auth/restricted.html',
+                    feature_name="El recurso solicitado no está disponible para tu país",
+                    required_permission="")
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator

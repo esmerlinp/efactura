@@ -198,18 +198,29 @@
                 </div>
             </div>
 
-            <!-- Auto-map button -->
-            <div style="margin-bottom:16px;">
+            <!-- Auto-map buttons -->
+            <div style="margin-bottom:16px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                 <button type="button" class="btn btn-secondary btn-sm" onclick="autoMapFields()">
                     <i class="fa-solid fa-wand-magic-sparkles"></i> Auto-detectar columnas
                 </button>
-                <span style="font-size:0.78rem; color:var(--text-muted); margin-left:8px;">
-                    El sistema intentará emparejar las columnas por nombre.
+                <button type="button" id="aiSuggestBtn" class="btn btn-secondary btn-sm" onclick="suggestWithAI()" style="border-color:var(--accent-blue, #3b82f6); color:var(--accent-blue, #3b82f6);">
+                    <i class="fa-solid fa-brain"></i> Sugerir con IA
+                </button>
+                <div id="aiSuggestStatus" style="display:none; font-size:0.78rem; color:var(--text-muted);">
+                    <i class="fa-solid fa-spinner fa-spin"></i> Analizando columnas con IA...
+                </div>
+                <span style="font-size:0.78rem; color:var(--text-muted); margin-left:4px;">
+                    El sistema intentará emparejar las columnas por nombre o con IA.
                 </span>
             </div>
 
-            <!-- Mapping grid -->
+            <!-- Mapping grid with defaults -->
             <div id="mappingGrid" class="import-mapping-grid">
+                <div class="import-mapping-header">
+                    <span class="import-mapping-hfield">Campo del sistema</span>
+                    <span class="import-mapping-hcol">Columna del archivo</span>
+                    <span class="import-mapping-hdefault">Valor por defecto</span>
+                </div>
                 {% for f in target_fields %}
                 <div class="import-mapping-row" data-field="{{ f.id }}" data-required="{{ 'true' if f.required else 'false' }}">
                     <div class="import-mapping-field">
@@ -222,6 +233,18 @@
                         <select class="form-select import-map-select" data-field-id="{{ f.id }}" style="width:100%;">
                             <option value="">— Ignorar —</option>
                         </select>
+                    </div>
+                    <div class="import-mapping-default">
+                        {% if f.id in system_defaults %}
+                        <select class="form-input import-default-input" data-field-id="{{ f.id }}" title="Valor por defecto si la columna está vacía">
+                            <option value="">— Default —</option>
+                            {% for opt in system_defaults[f.id] %}
+                            <option value="{{ opt }}">{{ opt }}</option>
+                            {% endfor %}
+                        </select>
+                        {% else %}
+                        <input type="text" class="form-input import-default-input" data-field-id="{{ f.id }}" placeholder="Default..." title="Valor por defecto si la columna está vacía">
+                        {% endif %}
                     </div>
                 </div>
                 {% endfor %}
@@ -468,6 +491,11 @@
     border: 1px solid rgba(249,115,22,0.25);
     color: var(--accent-orange);
 }
+.import-alert-info {
+    background: rgba(59,130,246,0.08);
+    border: 1px solid rgba(59,130,246,0.25);
+    color: var(--accent-blue, #3b82f6);
+}
 
 /* Fields table */
 .import-fields-table {
@@ -538,6 +566,23 @@
     border-radius: var(--radius-sm);
     overflow: hidden;
 }
+.import-mapping-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 14px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    border-bottom: 2px solid var(--border-color);
+    background: rgba(0,0,0,0.02);
+}
+.import-mapping-hfield { flex: 0 0 200px; min-width: 160px; }
+.import-mapping-hcol { flex: 1; min-width: 120px; }
+.import-mapping-hdefault { flex: 0 0 160px; min-width: 120px; }
+
 .import-mapping-row {
     display: flex;
     align-items: center;
@@ -576,7 +621,26 @@
 }
 .import-mapping-select {
     flex: 1;
-    min-width: 140px;
+    min-width: 120px;
+}
+.import-mapping-default {
+    flex: 0 0 160px;
+    min-width: 120px;
+}
+.import-default-input {
+    width: 100%;
+    padding: 6px 8px;
+    font-size: 0.78rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    transition: border-color 0.15s;
+}
+.import-default-input:focus {
+    border-color: var(--accent-blue, #3b82f6);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.12);
 }
 
 /* Progress bar */
@@ -697,8 +761,13 @@
     let csvRowCount = 0;
     let jobId = null;
     let pollingInterval = null;
+    let templateHeaders = Array.from(document.querySelectorAll('.import-mapping-row')).map(function(row) {
+        return row.getAttribute('data-field');
+    });
     let finalErrors = [];
     let finalImported = 0;
+
+    const systemDefaults = {{ system_defaults|tojson|safe }};
 
     const processingPhrases = [
         "Validando datos...",
@@ -821,6 +890,8 @@
 
             buildUploadPreviewTable();
             step2NextBtn.disabled = false;
+
+            checkTemplateMatch();
         })
         .catch(function(err) {
             document.getElementById('uploadLoading').style.display = 'none';
@@ -898,6 +969,31 @@
 
         autoMapFields();
         validateMapping();
+    }
+
+    function checkTemplateMatch() {
+        const cleanHeaders = csvHeaders.map(function(h) {
+            return h.replace(/^\*/, '').replace(/[_\s]/g, '').toLowerCase();
+        });
+        const cleanTemplate = templateHeaders.map(function(h) {
+            return h.replace(/[_\s]/g, '').toLowerCase();
+        });
+        let matched = 0;
+        cleanHeaders.forEach(function(h) {
+            if (cleanTemplate.indexOf(h) !== -1) matched++;
+        });
+        const pct = csvHeaders.length > 0 ? matched / csvHeaders.length : 0;
+        if (pct < 0.5) {
+            const banner = document.createElement('div');
+            banner.id = 'aiSuggestionBanner';
+            banner.className = 'import-alert import-alert-info';
+            banner.style.cssText = 'margin-bottom:16px; padding:12px 16px; border-left:3px solid var(--accent-blue,#3b82f6); background:rgba(59,130,246,0.06); display:flex; align-items:center; gap:8px;';
+            banner.innerHTML = '<i class="fa-solid fa-brain" style="color:var(--accent-blue,#3b82f6);font-size:1.1rem;"></i>' +
+                '<span style="flex:1;font-size:0.85rem;">Tus columnas no coinciden con la plantilla. Usa <strong>Sugerir con IA</strong> para un mapeo inteligente.</span>' +
+                '<button type="button" class="btn btn-sm" style="background:var(--accent-blue,#3b82f6);color:#fff;border:none;padding:6px 14px;border-radius:var(--radius-sm);cursor:pointer;" onclick="document.getElementById(\'aiSuggestBtn\').click()">Usar IA</button>';
+            const grid = document.getElementById('mappingGrid');
+            grid.parentNode.insertBefore(banner, grid);
+        }
     }
 
     window.autoMapFields = function() {
@@ -986,6 +1082,62 @@
         updateMappingRowStyles();
     };
 
+    window.suggestWithAI = function() {
+        const statusEl = document.getElementById('aiSuggestStatus');
+        const btn = document.getElementById('aiSuggestBtn');
+        btn.disabled = true;
+        statusEl.style.display = 'inline';
+
+        fetch('{{ url_for("web_rrhh.employee_import_ai_suggest") }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            body: JSON.stringify({
+                headers: csvHeaders,
+                target_fields: Array.from(document.querySelectorAll('.import-mapping-row')).map(function(row) {
+                    return {
+                        id: row.getAttribute('data-field'),
+                        name: (row.querySelector('.import-field-name') || {}).textContent || ''
+                    };
+                })
+            })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            statusEl.style.display = 'none';
+            btn.disabled = false;
+            if (!data.success) {
+                alert('IA no disponible: ' + (data.message || 'Error al conectar con la IA.'));
+                return;
+            }
+            const mapping = data.mapping || {};
+            const selects = document.querySelectorAll('.import-map-select');
+            selects.forEach(function(sel) {
+                const fieldId = sel.getAttribute('data-field-id');
+                if (mapping[fieldId] !== undefined && mapping[fieldId] !== null) {
+                    const idx = parseInt(mapping[fieldId]);
+                    if (idx >= 0 && idx < csvHeaders.length) {
+                        sel.value = idx;
+                    }
+                }
+            });
+            validateMapping();
+            updateMappingRowStyles();
+            const banner = document.getElementById('aiSuggestionBanner');
+            if (banner) banner.remove();
+        })
+        .catch(function(err) {
+            statusEl.style.display = 'none';
+            btn.disabled = false;
+            alert('Error de conexión al consultar la IA.');
+        });
+    };
+
+    function getDefaultValue(fieldId) {
+        var input = document.querySelector('.import-default-input[data-field-id="' + fieldId + '"]');
+        if (!input) return '';
+        return (input.value || '').trim();
+    }
+
     function validateMapping() {
         const selects = document.querySelectorAll('.import-map-select');
         let unmappedRequired = 0;
@@ -994,7 +1146,7 @@
             const row = document.querySelector('.import-mapping-row[data-field="' + fieldId + '"]');
             if (!row) return;
             const isRequired = row.getAttribute('data-required') === 'true';
-            if (isRequired && (!sel.value || sel.value === '')) {
+            if (isRequired && (!sel.value || sel.value === '') && !getDefaultValue(fieldId)) {
                 unmappedRequired++;
             }
         });
@@ -1024,11 +1176,15 @@
             validateMapping();
             updateMappingRowStyles();
         }
+        if (e.target && e.target.classList.contains('import-default-input')) {
+            validateMapping();
+        }
     });
 
     // ── Import processing ────────────────────────────────────────────
     window.startImport = function() {
         const selects = document.querySelectorAll('.import-map-select');
+        const defaults = document.querySelectorAll('.import-default-input');
         const formData = new FormData();
         formData.append('temp_filename', tempFilename);
 
@@ -1036,6 +1192,14 @@
             const fieldId = sel.getAttribute('data-field-id');
             if (sel.value && sel.value !== '') {
                 formData.append('map_' + fieldId, sel.value);
+            }
+        });
+
+        defaults.forEach(function(inp) {
+            const fieldId = inp.getAttribute('data-field-id');
+            const val = inp.value.trim();
+            if (val) {
+                formData.append('default_' + fieldId, val);
             }
         });
 
@@ -1077,8 +1241,14 @@
         });
     };
 
+    var noProgressSince = null;
+    var noProgressThreshold = 30000;
+    var noProgressAlertShown = false;
+
     function startPolling() {
         if (pollingInterval) clearInterval(pollingInterval);
+        noProgressSince = Date.now();
+        noProgressAlertShown = false;
         pollingInterval = setInterval(pollStatus, 500);
     }
 
@@ -1096,9 +1266,14 @@
         .then(function(data) {
             if (data.status === 'not_found') return;
 
-            const total = data.total || csvRowCount || 1;
-            const processed = data.processed || 0;
-            const percent = Math.round((processed / total) * 100);
+            var total = data.total || csvRowCount || 1;
+            var processed = data.processed || 0;
+            var percent = Math.round((processed / total) * 100);
+
+            if (processed > 0) {
+                noProgressSince = Date.now();
+                noProgressAlertShown = false;
+            }
 
             document.getElementById('progressFill').style.width = percent + '%';
             document.getElementById('progressPercent').textContent = percent + '%';
@@ -1106,18 +1281,25 @@
             document.getElementById('counterImported').textContent = data.imported || 0;
             document.getElementById('counterSkipped').textContent = data.skipped || 0;
 
-            const errorCount = (data.errors || []).length;
+            var errorCount = (data.errors || []).length;
             document.getElementById('counterErrors').textContent = errorCount;
 
             if (data.errors && data.errors.length > 0) {
                 document.getElementById('processingErrors').style.display = '';
-                let errHtml = '<thead><tr><th>Fila</th><th>Motivo</th></tr></thead><tbody>';
-                const showErrors = data.errors.slice(-15);
+                var errHtml = '<thead><tr><th>Fila</th><th>Motivo</th></tr></thead><tbody>';
+                var showErrors = data.errors.slice(-15);
                 showErrors.forEach(function(e) {
                     errHtml += '<tr><td style="width:50px;">' + e.row + '</td><td>' + escapeHtml(e.reason) + '</td></tr>';
                 });
                 errHtml += '</tbody>';
                 document.getElementById('processingErrorsTable').innerHTML = errHtml;
+            }
+
+            if (data.status === 'failed') {
+                stopPolling();
+                stopPhrasesRotation();
+                showImportError(data.error || 'Error en el procesamiento. Revise el log del servidor.');
+                return;
             }
 
             if (data.status === 'completed') {
@@ -1126,6 +1308,14 @@
                 finalErrors = data.errors || [];
                 finalImported = data.imported || 0;
                 showCompleted(data);
+                return;
+            }
+
+            if (!noProgressAlertShown && noProgressSince && (Date.now() - noProgressSince) > noProgressThreshold) {
+                noProgressAlertShown = true;
+                document.getElementById('processingTitle').textContent = 'La importación parece estar detenida...';
+                document.getElementById('progressFill').style.background = 'var(--danger)';
+                document.getElementById('processingPhrase').textContent = 'Sin progreso por más de 30 segundos. Verifica la consola del servidor.';
             }
         })
         .catch(function() {});

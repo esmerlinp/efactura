@@ -146,7 +146,9 @@
             {% endif %}
             <div class="plan-card-header">
                 <h2>{{ plan.name }}</h2>
-                <div class="price">${{ "%.0f"|format(plan.monthlyPrice|float) if plan.monthlyPrice == plan.monthlyPrice|int else "%.2f"|format(plan.monthlyPrice|float) }}</div>
+                {% with price = plan.get('monthlyPrice', 0) | float %}
+                <div class="price">${{ "%.0f"|format(price) if price == price|int else "%.2f"|format(price) }}</div>
+                {% endwith %}
                 <div class="price-period">USD / mes</div>
                 {% if plan.annual_discount_pct %}
                 <div style="font-size:0.75rem;color:var(--accent-emerald);font-weight:600;margin-top:4px;">{{ plan.annual_discount_pct }}% descuento anual</div>

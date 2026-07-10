@@ -8,6 +8,14 @@ from app.utils.decorators import check_permission
 
 web_reports_607_bp = Blueprint('web_reports_607', __name__)
 
+
+@web_reports_607_bp.before_request
+def restrict_to_do():
+    if session.get('company_country', 'DO') != 'DO':
+        return render_template('auth/restricted.html',
+            feature_name="Reporte 607 DGII (solo disponible para República Dominicana)",
+            required_permission="")
+
 ECF_TYPE_LABELS_607 = {
     "E31": "E-31 (Crédito Fiscal)",
     "E32": "E-32 (Consumo)",

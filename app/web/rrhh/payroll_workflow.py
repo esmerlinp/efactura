@@ -544,7 +544,7 @@ def payroll_recalculate(period_id):
         flash(msg, "error")
     else:
         hr.save_payroll_period(owner_uid, period_id, period, sandbox=sandbox)
-        flash("Nómina revertida a borrador. Puede recalcularla desde «Calcular nómina».", "success")
+        flash("Nómina revertida a borrador. Puede recalcularla desde «Procesar nómina».", "success")
     return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
 
 

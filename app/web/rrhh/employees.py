@@ -1,6 +1,8 @@
 """RRHH module — auto-extracted."""
 
-from datetime import date
+import re
+import uuid
+from datetime import date, datetime, timezone
 from flask import render_template, request, redirect, url_for, session, flash, jsonify, send_file
 from app.web.rrhh import (
     web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
@@ -24,16 +26,20 @@ def employee_list():
         return redirect(url_for("web_auth.login"))
     owner_uid, sandbox = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
+    from app.services.db_service import DatabaseService
 
     employees = hr.get_employees(owner_uid, sandbox=sandbox)
     from app.services.payroll_service import PayrollService
     for emp in employees:
         emp["vacationDays"] = PayrollService.calculate_vacation_days(emp.get("hireDate", ""))
 
+    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
+
     # ── Filtros ──
     search = request.args.get("search", "").strip().lower()
     filter_status = request.args.get("status", "").strip()
-    filter_area = request.args.get("area", "").strip()
+    filter_department = request.args.get("department", "").strip()
+    filter_branch = request.args.get("branch", "").strip()
     if search:
         employees = [e for e in employees if
                      search in (e.get("fullName", "") + " " +
@@ -42,15 +48,17 @@ def employee_list():
                                e.get("position", "")).lower()]
     if filter_status:
         employees = [e for e in employees if e.get("status", "") == filter_status]
-    if filter_area:
-        employees = [e for e in employees if e.get("area", "") == filter_area or e.get("department", "") == filter_area]
+    if filter_department:
+        employees = [e for e in employees if e.get("department", "") == filter_department or e.get("area", "") == filter_department]
+    if filter_branch:
+        employees = [e for e in employees if e.get("branchId", "") == filter_branch]
 
     total = len(employees)
     active_count = sum(1 for e in employees if e.get("status") == "activo")
     inactive_count = sum(1 for e in employees if e.get("status") == "inactivo")
 
-    # ── Áreas disponibles para filtro ──
-    areas_set = sorted(set(e.get("area", "") or e.get("department", "") for e in employees if e.get("area") or e.get("department")))
+    # ── Departamentos disponibles para filtro ──
+    departments_set = sorted(set(e.get("department", "") or e.get("area", "") for e in employees if e.get("department") or e.get("area")))
 
     # ── Paginación ──
     try:
@@ -66,8 +74,9 @@ def employee_list():
                            employees=paged, page=page, total_pages=total_pages,
                            total=total, per_page=per_page,
                            search=request.args.get("search", ""),
-                           filter_status=filter_status, filter_area=filter_area,
-                           areas_set=areas_set, active_count=active_count,
+                           filter_status=filter_status, filter_department=filter_department,
+                           filter_branch=filter_branch, branches=branches,
+                           departments_set=departments_set, active_count=active_count,
                            inactive_count=inactive_count)
 
 
@@ -103,8 +112,8 @@ def employee_new():
             "position": request.form.get("position", "").strip(),
             "area": request.form.get("area", "").strip(),
             "costCenter": request.form.get("costCenter", request.form.get("area", "")).strip(),
-            "department": request.form.get("area", "").strip(),
-            "branchId": "",
+            "department": request.form.get("department_catalog", request.form.get("area", "")).strip(),
+            "branchId": request.form.get("branchId", "").strip(),
             "hireDate": request.form.get("hireDate", "").strip(),
             "salary": float(request.form.get("salary", 0) or 0),
             "baseSalary": float(request.form.get("salary", 0) or 0),
@@ -175,6 +184,8 @@ def employee_new():
     departments = hr.get_catalog(owner_uid, "departments", sandbox=sandbox)
     payroll_groups = hr.get_payroll_groups(owner_uid, sandbox=sandbox)
     payroll_groups.sort(key=lambda g: g.get("name", ""))
+    from app.services.db_service import DatabaseService
+    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
 
     from app.data.occupations_catalog import OCCUPATIONS
     return render_template("rrhh/employee_form.html", active_page="rrhh_employees", employee=None,
@@ -185,7 +196,7 @@ def employee_new():
                            supervisors=supervisors,
                            positions=positions, departments=departments,
                            payroll_groups=payroll_groups,
-                           occupations=OCCUPATIONS)
+                           occupations=OCCUPATIONS, branches=branches)
 
 
 @web_rrhh_bp.route("/rrhh/employees/<employee_id>/edit", methods=["GET", "POST"])
@@ -223,7 +234,8 @@ def employee_edit(employee_id):
             "position": request.form.get("position", "").strip(),
             "area": request.form.get("area", "").strip(),
             "costCenter": request.form.get("costCenter", request.form.get("area", "")).strip(),
-            "department": request.form.get("area", "").strip(),
+            "department": request.form.get("department_catalog", request.form.get("area", "")).strip(),
+            "branchId": request.form.get("branchId", "").strip(),
             "hireDate": request.form.get("hireDate", "").strip(),
             "email": request.form.get("email", "").strip(),
             "phone": re.sub(r'\D', '', request.form.get("phone", "")),
@@ -293,6 +305,8 @@ def employee_edit(employee_id):
     departments = hr.get_catalog(owner_uid, "departments", sandbox=sandbox)
     payroll_groups = hr.get_payroll_groups(owner_uid, sandbox=sandbox)
     payroll_groups.sort(key=lambda g: g.get("name", ""))
+    from app.services.db_service import DatabaseService
+    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
 
     from app.data.occupations_catalog import OCCUPATIONS
     return render_template("rrhh/employee_form.html", active_page="rrhh_employees", employee=employee,
@@ -303,7 +317,7 @@ def employee_edit(employee_id):
                            supervisors=supervisors,
                            positions=positions, departments=departments,
                            payroll_groups=payroll_groups,
-                           occupations=OCCUPATIONS)
+                           occupations=OCCUPATIONS, branches=branches)
 
 
 @web_rrhh_bp.route("/rrhh/employees/<employee_id>/view")
@@ -313,6 +327,7 @@ def employee_view(employee_id):
     owner_uid, sandbox = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_service import PayrollService
+    from app.services.db_service import DatabaseService
 
     employee = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
     if not employee:
@@ -359,10 +374,12 @@ def employee_view(employee_id):
                 break
     employee_actions.sort(key=lambda a: a.get("createdAt", ""), reverse=True)
 
+    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
     return render_template("rrhh/employee_view.html", active_page="rrhh_employees",
                            employee=_sanitize_for_role(employee), vacation_days=vacation_days,
                            severance=severance, evaluations=evals, trainings=trainings,
                            documents=docs, payment_history=payment_history,
                            employee_actions=employee_actions,
-                           payroll_groups=hr.get_payroll_groups(owner_uid, sandbox=sandbox))
+                           payroll_groups=hr.get_payroll_groups(owner_uid, sandbox=sandbox),
+                           branches=branches)
 

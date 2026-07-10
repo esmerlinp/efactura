@@ -1,71 +1,12 @@
 import requests
 import re
 
-# Regímenes fiscales reconocidos por la DGII
-REGIMEN_ORDINARY = "ordinary"
-REGIMEN_RST_INCOME = "rst_income"
-REGIMEN_RST_PURCHASES = "rst_purchases"
-REGIMEN_CONSUMER = "consumer"
-REGIMEN_EXEMPT = "exempt"
-
-REGIMEN_CHOICES = [
-    (REGIMEN_ORDINARY, "Régimen Ordinario (General)"),
-    (REGIMEN_RST_INCOME, "RST basado en ingresos"),
-    (REGIMEN_RST_PURCHASES, "RST basado en compras"),
-    (REGIMEN_CONSUMER, "Consumidor Final"),
-    (REGIMEN_EXEMPT, "Exento"),
-]
-
-REGIMEN_DEFAULT = REGIMEN_ORDINARY
-
-REGIMEN_LEGACY_MAP = {
-    "General": REGIMEN_ORDINARY,
-    "RST": REGIMEN_RST_INCOME,
-    "Simplificado": REGIMEN_RST_INCOME,
-}
-
-REGIMEN_RULES = {
-    REGIMEN_ORDINARY: {
-        "label": "Régimen Ordinario (General)",
-        "allowed_ecf_types": ["E31", "E32", "E33", "E34", "E41", "E43", "E44", "E45", "E46", "E47"],
-        "itbis_enabled": True,
-        "default_ecf_type": "E31",
-        "rst_limit": None,
-        "description": "Contabilidad completa, ITBIS 16%/18% según actividad.",
-    },
-    REGIMEN_RST_INCOME: {
-        "label": "RST basado en ingresos",
-        "allowed_ecf_types": ["E32", "E33", "E34", "E41", "E43"],
-        "itbis_enabled": True,
-        "default_ecf_type": "E32",
-        "rst_limit": 12060000,
-        "description": "La DGII estima ISR por escala de ingresos. Factura con ITBIS.",
-    },
-    REGIMEN_RST_PURCHASES: {
-        "label": "RST basado en compras",
-        "allowed_ecf_types": ["E32", "E33", "E34", "E41", "E43"],
-        "itbis_enabled": True,
-        "default_ecf_type": "E32",
-        "rst_limit": 12060000,
-        "description": "La DGII estima ventas desde compras. Factura con ITBIS.",
-    },
-    REGIMEN_CONSUMER: {
-        "label": "Consumidor Final",
-        "allowed_ecf_types": ["E32"],
-        "itbis_enabled": True,
-        "default_ecf_type": "E32",
-        "rst_limit": None,
-        "description": "Factura solo E32 (consumo), sin RNC de cliente.",
-    },
-    REGIMEN_EXEMPT: {
-        "label": "Exento",
-        "allowed_ecf_types": ["E32"],
-        "itbis_enabled": False,
-        "default_ecf_type": "E32",
-        "rst_limit": None,
-        "description": "Actividades exentas de ITBIS. Factura E32 sin ITBIS.",
-    },
-}
+from app.countries.do.dgii_client import (
+    REGIMEN_ORDINARY, REGIMEN_RST_INCOME, REGIMEN_RST_PURCHASES,
+    REGIMEN_CONSUMER, REGIMEN_EXEMPT,
+    REGIMEN_CHOICES, REGIMEN_DEFAULT,
+    REGIMEN_LEGACY_MAP, REGIMEN_RULES,
+)
 
 
 class DGIIService:
