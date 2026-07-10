@@ -18,9 +18,10 @@ NATURE_CREDIT_INCREASE = {"pasivos": True, "patrimonio": True, "ingresos": True}
 
 
 def _default_chart_of_accounts(country="DO"):
-    if country == "DO":
-        from app.countries.do.chart_of_accounts import get_default_chart
-        return get_default_chart()
+    from app.services.country_provider import CountryProviderFactory
+    provider = CountryProviderFactory.create(country)
+    if provider:
+        return provider.get_default_chart()
     return []
 
 
