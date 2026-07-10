@@ -34,6 +34,11 @@ class CountryProviderFactory:
             cls._registry["DO"] = DOProvider
             logger.info("Country provider registered (lazy)", extra={"country": "DO", "provider": "DOProvider"})
             return DOProvider
+        if country_code == "MX":
+            from app.countries.mx.provider import MXProvider
+            cls._registry["MX"] = MXProvider
+            logger.info("Country provider registered (lazy)", extra={"country": "MX", "provider": "MXProvider"})
+            return MXProvider
         return None
 
     @classmethod

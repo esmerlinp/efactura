@@ -69,6 +69,10 @@ class TaxCalculatorFactory:
             from app.countries.do.tax_calculator import DominicanTaxCalculator
             cls._registry["DO"] = DominicanTaxCalculator
             return DominicanTaxCalculator
+        if country_code == "MX":
+            from app.countries.mx.tax_calculator import MexicanTaxCalculator
+            cls._registry["MX"] = MexicanTaxCalculator
+            return MexicanTaxCalculator
         return None
 
     @classmethod
