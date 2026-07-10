@@ -96,5 +96,13 @@ class DOProvider(BaseCountryProvider):
         from app.countries.do.tax_calculator import DominicanTaxCalculator
         return DominicanTaxCalculator(tax_rates=tax_rates)
 
+    def get_account_mapping(self) -> dict:
+        return {
+            "vat_payable": "itbis_pagar",
+            "vat_credit": "itbis_credito",
+            "vat_withholding": "itbis_retenido",
+            "income_tax_withholding": "isr_retenido",
+        }
+
     def supports_feature(self, feature: str) -> bool:
         return feature in self.SUPPORTED_FEATURES
