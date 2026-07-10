@@ -255,12 +255,14 @@ class RecurrenceService:
                 # Event Bus: notificar emisión de factura recurrente
                 try:
                     from app.events import get_event_bus, InvoiceEmitted
+                    country = DatabaseService.get_company_profile(owner_uid).get("country", "DO")
                     get_event_bus().publish(InvoiceEmitted(
                         owner_uid=owner_uid,
                         invoice_id=new_id,
                         invoice_number=new_invoice.get("invoiceNumber", ""),
                         invoice_data=new_invoice,
                         sandbox=sandbox,
+                        country=country,
                     ))
                 except Exception:
                     pass

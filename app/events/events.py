@@ -32,6 +32,7 @@ class DomainEvent:
     event_type: str
     owner_uid: str
     sandbox: bool = False
+    country: str = "DO"
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     def to_dict(self) -> Dict[str, Any]:

@@ -310,7 +310,9 @@ def execute_action(owner_uid: str, action_id: str,
             payroll_period_key=payload.get("payrollPeriodKey", ""),
         )
         if event:
-            event = dataclasses.replace(event, owner_uid=owner_uid, sandbox=sandbox)
+            from app.services.db_service import DatabaseService
+            country = DatabaseService.get_company_profile(owner_uid).get("country", "DO")
+            event = dataclasses.replace(event, owner_uid=owner_uid, sandbox=sandbox, country=country)
             get_event_bus().publish(event)
     except Exception:
         pass

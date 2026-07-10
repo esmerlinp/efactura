@@ -42,7 +42,7 @@ def handle_invoice_emitted(event: DomainEvent) -> None:
             invoice_data["invoiceNumber"] = event.invoice_number
 
         result = AccountingService.auto_generate_invoice_entry(
-            event.owner_uid, invoice_data, sandbox=event.sandbox
+            event.owner_uid, invoice_data, sandbox=event.sandbox, country=event.country
         )
         if result:
             logger.info(
@@ -80,7 +80,7 @@ def handle_expense_created(event: DomainEvent) -> None:
             expense_data["ncf"] = event.ncf
 
         result = AccountingService.auto_generate_expense_entry(
-            event.owner_uid, expense_data, sandbox=event.sandbox
+            event.owner_uid, expense_data, sandbox=event.sandbox, country=event.country
         )
         if result:
             logger.info(

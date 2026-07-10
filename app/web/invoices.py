@@ -1612,6 +1612,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                                 invoice_number=invoice_dict.get("invoiceNumber", ""),
                                 invoice_data=invoice_dict,
                                 sandbox=sandbox,
+                                country=session.get("company_country", "DO"),
                             ))
                         except Exception:
                             pass
@@ -1641,6 +1642,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                                 invoice_number=invoice_dict.get("invoiceNumber", ""),
                                 invoice_data=invoice_dict,
                                 sandbox=sandbox,
+                                country=session.get("company_country", "DO"),
                             ))
                         except Exception:
                             pass
