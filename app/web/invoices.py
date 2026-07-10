@@ -6371,7 +6371,7 @@ def tax_settings():
     if request.method == 'POST':
         action = request.form.get('action', 'save')
         if action == 'reset':
-            from app.services.tax_engine import DEFAULT_TAX_RULES
+            from app.countries.do.tax_rules import DEFAULT_TAX_RULES
             import copy
             rules = copy.deepcopy(DEFAULT_TAX_RULES)
             rules["updatedBy"] = session.get("user", {}).get("email", "")
