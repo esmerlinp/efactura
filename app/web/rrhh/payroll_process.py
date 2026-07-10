@@ -830,6 +830,15 @@ def payroll_simulate():
                     pass
 
             # ── ISR vía ConceptEngine ──
+            # Extraer AFP/SFS ya calculados para restarlos de la base imponible (consistente con PayrollService)
+            afp_ded = sum(
+                float(t.get("amount", 0)) for t in employee_transactions
+                if t.get("conceptCode") == "AFP_EMPLEADO"
+            )
+            sfs_ded = sum(
+                float(t.get("amount", 0)) for t in employee_transactions
+                if t.get("conceptCode") == "SFS_EMPLEADO"
+            )
             isr_concept = concept_map.get("ISR_RETENCION")
             if isr_concept:
                 from app.services.concept_engine import ConceptEngine as CE
@@ -838,6 +847,7 @@ def payroll_simulate():
                     context={
                         "baseSalary": base, "grossIncome": gross_income,
                         "isQuincenal": emp_is_quincenal, "ytd_isr": 0,
+                        "afpDeduction": afp_ded, "sfsDeduction": sfs_ded,
                     },
                     params=params,
                     period_id=sim_period_id, period_key=period_key,

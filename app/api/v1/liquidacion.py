@@ -7,7 +7,7 @@ api_liquidacion_bp = Blueprint("api_liquidacion", __name__)
 
 
 def _get_owner(uid_override=None):
-    uid = session.get("user", {}).get("ownerUID", "")
+    uid = session.get("selected_owner_uid", "") or session.get("user", {}).get("ownerUID", "")
     sandbox = session.get("is_sandbox_mode", True)
     return uid, sandbox
 

@@ -9,6 +9,10 @@
 .payroll-tab.active { color:var(--accent-emerald); border-bottom-color:var(--accent-emerald); }
 .tab-panel { display:none; }
 .tab-panel.active { display:block; }
+.sim-loader-overlay { position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.45); display:flex; flex-direction:column; align-items:center; justify-content:center; backdrop-filter:blur(2px); }
+.sim-loader-spinner { width:48px; height:48px; border:4px solid rgba(255,255,255,0.3); border-top-color:#fff; border-radius:50%; animation:sim-spin .7s linear infinite; }
+@keyframes sim-spin { to { transform:rotate(360deg); } }
+.sim-loader-text { color:#fff; margin-top:16px; font-size:1rem; font-weight:600; }
 </style>
 {% endblock %}
 {% block content %}
@@ -20,20 +24,30 @@
     <p style="color:var(--text-secondary); margin:4px 0 0;">Prueba escenarios sin guardar. Los resultados no se almacenan.</p>
 </div>
 
-<form method="POST" style="margin-top:16px;">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
-    <div class="card-table-wrapper" style="padding:16px 24px; margin-bottom:16px;">
-        <div style="display:flex; gap:16px; flex-wrap:wrap;">
-            <div class="form-group" style="max-width:320px; flex:1;">
+{% if payroll_groups is defined and payroll_groups %}
+<div class="card-table-wrapper" style="padding:16px 24px; margin-bottom:16px;">
+    <form method="GET" action="{{ url_for('web_rrhh.payroll_simulate') }}">
+        <div style="max-width:500px;">
+            <div class="form-group">
                 <label>Grupo de nómina</label>
-                <select name="payrollGroupId" class="form-select" onchange="this.form.submit()">
+                <select name="group" class="form-select" onchange="this.form.submit()">
                     <option value="">— General (sin grupo) —</option>
                     {% for g in payroll_groups %}
                     <option value="{{ g.id }}" {% if selected_group_id == g.id %}selected{% endif %}>{{ g.name }}</option>
                     {% endfor %}
                 </select>
             </div>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+<form method="POST" style="margin-top:16px;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="payrollGroupId" value="{{ selected_group_id or '' }}">
+
+    <div class="card-table-wrapper" style="padding:16px 24px; margin-bottom:16px;">
+        <div style="display:flex; gap:16px; flex-wrap:wrap;">
             <div class="form-group" style="max-width:320px; flex:1;">
                 <label>Período a simular <span style="color:var(--danger);">*</span></label>
                 <select name="period_key" class="form-select" required>
@@ -305,7 +319,16 @@
 {% endif %}
 </div>
 
+<div id="simLoader" class="sim-loader-overlay" style="display:none;">
+    <div class="sim-loader-spinner"></div>
+    <div class="sim-loader-text">Calculando nómina…</div>
+</div>
+
 <script>
+document.querySelector('form[method="POST"]')?.addEventListener('submit', function() {
+    document.getElementById('simLoader').style.display = '';
+});
+
 (function() {
     var tbody = document.getElementById('simVarTbody');
     var searchEl = document.getElementById('simVarSearch');

@@ -71,16 +71,14 @@ class TestTSSResolver:
     """Verifica cálculos TSS con topes legales RD."""
 
     def test_afp_employee_mensual(self):
-        """Salario RD$ 50,000 mensual > tope AFP período (38,705) → 38,705 × 2.87% = 1,110.83"""
-        period_cap = round(464460.00 / 12, 2)
-        expected = round(period_cap * 0.0287, 2)
+        """Salario RD$ 50,000 mensual < tope AFP mensual (464,460) → sin tope"""
+        expected = round(50000.00 * 0.0287, 2)
         ctx = TSSContext(base_salary=50000.00, is_quincenal=False)
         result = TSSResolver.resolve_concept("AFP_EMPLEADO", {}, ctx, RD_PARAMS)
         assert result["amount"] == pytest.approx(expected, abs=0.01)
 
     def test_afp_employee_sin_tope(self):
-        """Salario RD$ 250,000 anual (20,833/mes) < tope AFP período → sin tope"""
-        period_cap = round(464460.00 / 12, 2)
+        """Salario RD$ 20,000 mensual < tope AFP mensual → sin tope"""
         sal = 20000.00
         expected = round(sal * 0.0287, 2)
         ctx = TSSContext(base_salary=sal, is_quincenal=False)
@@ -88,35 +86,31 @@ class TestTSSResolver:
         assert result["amount"] == pytest.approx(expected, abs=0.01)
 
     def test_afp_employee_excede_tope(self):
-        """Salario RD$ 500,000 mensual → tope AFP = 464,460 / 12 × 2.87% = 1,110.83"""
+        """Salario RD$ 500,000 mensual > tope AFP mensual (464,460) → topado"""
         ctx = TSSContext(base_salary=500000.00, is_quincenal=False)
         result = TSSResolver.resolve_concept("AFP_EMPLEADO", {}, ctx, RD_PARAMS)
-        period_cap = round(464460.00 / 12, 2)
-        expected = round(period_cap * 0.0287, 2)
+        expected = round(464460.00 * 0.0287, 2)
         assert result["amount"] == pytest.approx(expected, abs=0.01)
 
     def test_afp_empleador_mensual(self):
-        """Salario 50,000 > tope AFP período → AFP empleador = 38,705 × 7.10% = 2,748.05"""
-        period_cap = round(464460.00 / 12, 2)
-        expected = round(period_cap * 0.0710, 2)
+        """Salario 50,000 < tope AFP mensual → AFP empleador = 50,000 × 7.10% = 3,550.00"""
+        expected = round(50000.00 * 0.0710, 2)
         ctx = TSSContext(base_salary=50000.00, is_quincenal=False)
         result = TSSResolver.resolve_concept("AFP_EMPLEADOR", {}, ctx, RD_PARAMS)
         assert result["amount"] == pytest.approx(expected, abs=0.01)
 
     def test_sfs_empleado_mensual(self):
-        """Salario RD$ 50,000 > tope SFS período (19,352.50) → topado"""
-        period_cap = round(232230.00 / 12, 2)
-        expected = round(period_cap * 0.0304, 2)
+        """Salario RD$ 50,000 < tope SFS mensual (232,230) → sin tope"""
+        expected = round(50000.00 * 0.0304, 2)
         ctx = TSSContext(base_salary=50000.00, is_quincenal=False)
         result = TSSResolver.resolve_concept("SFS_EMPLEADO", {}, ctx, RD_PARAMS)
         assert result["amount"] == pytest.approx(expected, abs=0.01)
 
     def test_sfs_empleado_excede_tope(self):
-        """Salario RD$ 300,000 → tope SFS = 232,230 / 12 × 3.04% = 588.32"""
+        """Salario RD$ 300,000 > tope SFS mensual (232,230) → topado"""
         ctx = TSSContext(base_salary=300000.00, is_quincenal=False)
         result = TSSResolver.resolve_concept("SFS_EMPLEADO", {}, ctx, RD_PARAMS)
-        period_cap = round(232230.00 / 12, 2)
-        expected = round(period_cap * 0.0304, 2)
+        expected = round(232230.00 * 0.0304, 2)
         assert result["amount"] == pytest.approx(expected, abs=0.01)
 
     def test_srl_empleador(self):
@@ -138,28 +132,25 @@ class TestTSSResolver:
         assert result["amount"] == 0.0
 
     def test_infotep_empleado_aplica(self):
-        """Salario 150,000 > 116,115 → INFOTEP empleado sobre base topada AFP"""
+        """Salario 150,000 > 116,115 → INFOTEP empleado sobre base (sin tope mensual)"""
         ctx = TSSContext(base_salary=150000.00)
         result = TSSResolver.resolve_concept("INFOTEP_EMPLEADO", {}, ctx, RD_PARAMS)
-        period_cap = round(464460.00 / 12, 2)
-        expected = round(period_cap * 0.01, 2)
+        expected = round(150000.00 * 0.01, 2)
         assert result["amount"] == pytest.approx(expected, abs=0.01)
 
     def test_tss_quincenal_doble_tope(self):
-        """Quincenal: topes se dividen entre 24, no 12"""
+        """Quincenal: topes se dividen entre 2 (cap mensual → período)"""
         ctx = TSSContext(base_salary=25000.00, is_quincenal=True)
         result = TSSResolver.resolve_concept("AFP_EMPLEADO", {}, ctx, RD_PARAMS)
-        expected = round(min(25000.00, 464460.00 / 24) * 0.0287, 2)
+        expected = round(min(25000.00, 464460.00 / 2) * 0.0287, 2)
         assert result["amount"] == pytest.approx(expected, abs=0.01)
 
     def test_tss_combinado_mensual(self):
-        """Nómina mensual RD$ 50,000: AFP (topado 38,705) + SFS (topado 19,352.50)"""
+        """Nómina mensual RD$ 50,000: AFP + SFS sin tope (50k < 232,230)"""
         ctx = TSSContext(base_salary=50000.00, is_quincenal=False)
         afp = TSSResolver.resolve_concept("AFP_EMPLEADO", {}, ctx, RD_PARAMS)
         sfs = TSSResolver.resolve_concept("SFS_EMPLEADO", {}, ctx, RD_PARAMS)
-        afp_cap = round(464460.00 / 12, 2)
-        sfs_cap = round(232230.00 / 12, 2)
-        expected = round(afp_cap * 0.0287 + sfs_cap * 0.0304, 2)
+        expected = round(50000.00 * 0.0287 + 50000.00 * 0.0304, 2)
         assert round(afp["amount"] + sfs["amount"], 2) == pytest.approx(expected, abs=0.01)
 
 
@@ -170,41 +161,73 @@ class TestTSSResolver:
 class TestISRResolver:
     """Verifica cálculos ISR con tabla progresiva anual (DGII Norma 08-04)."""
 
+    def _bracket_isr(self, taxable_annual: float) -> float:
+        """Helper: calcula ISR anual por bracket (marginal)."""
+        remaining = taxable_annual
+        total = 0.0
+        for r_from, r_to, rate, fixed in [
+            (0.0, 416220.00, 0.0, 0.0),
+            (416220.01, 624329.00, 0.15, 0.0),
+            (624329.01, 867123.00, 0.20, 31216.00),
+            (867123.01, float("inf"), 0.25, 79775.00),
+        ]:
+            bracket_range = r_to - r_from if r_to != float("inf") else remaining
+            amount = min(remaining, max(0.0, bracket_range))
+            if amount > 0:
+                total += amount * rate
+                remaining -= amount
+            if remaining <= 0:
+                break
+        return round(total, 2)
+
     def test_isr_menor_416220_exento(self):
         """Ingreso anual ≤ RD$ 416,220 → ISR = 0"""
         ctx = ISRContext(gross_income=34000.00, is_quincenal=False)
-        # mensual: 34,000 × 12 = 408,000 < 416,220
+        # mensual: 34,000 × 12 = 408,000; -50k educ = 358,000 < 416,220
         result = ISRResolver.resolve(ctx, RD_PARAMS)
         assert result["amount"] == 0.0
 
     def test_isr_tramo_15_pct(self):
-        """Ingreso mensual RD$ 50,000 → anual = 600,000 - 50,000 ded = 550,000 → tramo 15%"""
+        """Ingreso mensual RD$ 50,000 → taxable anual = 550k → tramo 15% marginal"""
         ctx = ISRContext(gross_income=50000.00, is_quincenal=False)
         result = ISRResolver.resolve(ctx, RD_PARAMS)
-        # ISR anual = 550,000 × 0.15 = 82,500 → ISR mensual = 82,500 / 12 = 6,875
-        expected = round((((50000.00 * 12) - 50000.00) * 0.15) / 12, 2)
+        annual_isr = self._bracket_isr(550000.00)
+        expected = round(annual_isr / 12, 2)
         assert result["amount"] == pytest.approx(expected, abs=0.01)
 
     def test_isr_tramo_20_pct_con_deduccion(self):
-        """Ingreso anual RD$ 750,000 → -50,000 educ = 700,000 → tramo 20%, cuota fija 31,216"""
+        """Ingreso anual RD$ 750,000 → -50k educ = 700k → tramo marginal 20%"""
         ctx = ISRContext(gross_income=62500.00, is_quincenal=False)
         result = ISRResolver.resolve(ctx, RD_PARAMS)
-        # ISR anual = 700,000 × 0.20 - 31,216 = 108,784 → mensual = 9,065.33
-        expected = round((108784.00) / 12, 2)
+        annual_isr = self._bracket_isr(700000.00)
+        expected = round(annual_isr / 12, 2)
         assert result["amount"] == pytest.approx(expected, abs=0.01)
 
     def test_isr_tramo_25_pct(self):
-        """Ingreso anual RD$ 1,200,000 → -50,000 = 1,150,000 → tramo 25%, cuota 79,775"""
+        """Ingreso anual RD$ 1,200,000 → -50k educ = 1,150,000 → tramo marginal 25%"""
         ctx = ISRContext(gross_income=100000.00, is_quincenal=False)
         result = ISRResolver.resolve(ctx, RD_PARAMS)
-        expected = round(((1150000.00 * 0.25 - 79775.00) / 12), 2)
+        annual_isr = self._bracket_isr(1150000.00)
+        expected = round(annual_isr / 12, 2)
         assert result["amount"] == pytest.approx(expected, abs=0.01)
 
     def test_isr_quincenal_proporcional(self):
-        """Quincenal RD$25,000 → anual = 600,000 (-50k educ) = 550k × 0.15 = 82,500 / 24 = 3,437.50"""
+        """Quincenal RD$25,000 → anual = 600k (-50k educ) = 550k → ISR / 24"""
         ctx = ISRContext(gross_income=25000.00, is_quincenal=True)
         result = ISRResolver.resolve(ctx, RD_PARAMS)
-        expected = round(((600000.00 - 50000.00) * 0.15) / 24, 2)
+        annual_isr = self._bracket_isr(550000.00)
+        expected = round(annual_isr / 24, 2)
+        assert result["amount"] == pytest.approx(expected, abs=0.01)
+
+    def test_isr_con_ts_deduccion(self):
+        """Ingreso 82,500 con AFP=2,367.75 y SFS=2,508.00 → base gravable se reduce"""
+        ctx = ISRContext(gross_income=82500.00, is_quincenal=False,
+                         afp_deduction=2367.75, sfs_deduction=2508.00)
+        result = ISRResolver.resolve(ctx, RD_PARAMS)
+        # annual = 990k, annual TSS = (2367.75+2508)*12 = 58,509, edu = 50k
+        # taxable = 990k - 58,509 - 50k = 881,491
+        annual_isr = self._bracket_isr(881491.00)
+        expected = round(annual_isr / 12, 2)
         assert result["amount"] == pytest.approx(expected, abs=0.01)
 
     def test_isr_tabla_dict_format(self):

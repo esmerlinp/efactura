@@ -14,7 +14,7 @@ web_dgt_bp = Blueprint("web_dgt", __name__, template_folder="templates")
 
 
 def _get_owner():
-    uid = session.get("user", {}).get("ownerUID", "")
+    uid = session.get("selected_owner_uid", "") or session.get("user", {}).get("ownerUID", "")
     sandbox = session.get("is_sandbox_mode", True)
     return uid, sandbox
 
