@@ -50,5 +50,5 @@ class CountryProviderFactory:
 
     @classmethod
     def get_current_provider(cls) -> Optional[BaseCountryProvider]:
-        from flask import session
-        return cls.create(session.get("company_country", "DO"))
+        from app.utils.country_context import get_current_country
+        return cls.create(get_current_country())

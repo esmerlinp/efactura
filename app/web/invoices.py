@@ -23,6 +23,7 @@ from app.services.mailer import Mailer
 from app.services.dgii import DGIIService
 from app.utils.currency import CurrencyService
 from app.services.ecf_emission import EcfEmissionService
+from app.utils.country_context import get_current_country
 from app.services.dgii_direct import DgiiDirectService
 from app.services.recurrence import RecurrenceService
 from app.utils.decorators import check_permission, require_permission
@@ -1612,7 +1613,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                                 invoice_number=invoice_dict.get("invoiceNumber", ""),
                                 invoice_data=invoice_dict,
                                 sandbox=sandbox,
-                                country=session.get("company_country", "DO"),
+                                country=get_current_country(),
                             ))
                         except Exception:
                             pass
@@ -1642,7 +1643,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                                 invoice_number=invoice_dict.get("invoiceNumber", ""),
                                 invoice_data=invoice_dict,
                                 sandbox=sandbox,
-                                country=session.get("company_country", "DO"),
+                                country=get_current_country(),
                             ))
                         except Exception:
                             pass

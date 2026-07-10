@@ -7,6 +7,7 @@ from app.services.db_service import DatabaseService
 from app.services.contingency_sync_service import ContingencySyncService
 from app.services.ecf_emission import EcfEmissionService
 from app.services.dgii import DGIIService
+from app.utils.country_context import get_current_country
 from app.utils.decorators import require_permission, check_permission
 from app.brand import get_product_name
 
@@ -872,7 +873,7 @@ def create_pos_sale():
                     invoice_number=invoice_number,
                     invoice_data=invoice_dict,
                     sandbox=sandbox,
-                    country=session.get("company_country", "DO"),
+                    country=get_current_country(),
                 ))
             except Exception:
                 pass
@@ -900,7 +901,7 @@ def create_pos_sale():
                 invoice_number=invoice_number,
                 invoice_data=invoice_dict,
                 sandbox=sandbox,
-                country=session.get("company_country", "DO"),
+                country=get_current_country(),
             ))
         except Exception:
             pass

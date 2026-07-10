@@ -9,6 +9,7 @@ from app.web.rrhh import (
 )
 from app.services import hr_data_service as hr
 from app.services.payroll_service import PayrollService
+from app.utils.country_context import get_current_country
 from app.services.payroll_audit_service import log_action
 from app.services.payroll_async_service import create_job, update_job, get_job
 from app.services.mailer import Mailer
@@ -215,7 +216,7 @@ def payroll_post(period_id):
         acct_lines = PayrollService.build_payroll_accounting_lines(period, employees=emp_map, tax_rates=tax_rates_data,
                                                                    owner_uid=owner_uid, sandbox=sandbox)
         if acct_lines:
-            AccountingService.seed_default_accounts(owner_uid, country=session.get('company_country', 'DO'))
+            AccountingService.seed_default_accounts(owner_uid, country=get_current_country())
             accounts = DatabaseService.get_chart_of_accounts(owner_uid)
             full_lines = []
             for al in acct_lines:
