@@ -1,0 +1,8 @@
+COUNTRY_CODE = "DO"
+COUNTRY_NAME = "República Dominicana"
+CURRENCY = "DOP"
+TAX_AUTHORITY = "DGII"
+TAX_AUTHORITY_FULL = "Dirección General de Impuestos Internos"
+SOCIAL_SECURITY_NAME = "TSS"
+SOCIAL_SECURITY_FULL = "Tesorería de la Seguridad Social"
+LABOR_MINISTRY = "Ministerio de Trabajo"

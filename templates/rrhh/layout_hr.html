@@ -106,16 +106,16 @@
                     </div>
                     <ul class="sidebar-section-content">
                         <li class="nav-item {% if active_page == 'rrhh_payroll' %}active{% endif %}"
-                            data-tooltip="Calcular Nómina">
-                            <a href="{{ url_for('web_rrhh.payroll_new') }}"><span>Calcular período</span></a>
-                        </li>
-                        <li class="nav-item {% if active_page == 'rrhh_payroll_simulate' %}active{% endif %}"
-                            data-tooltip="Simular">
-                            <a href="{{ url_for('web_rrhh.payroll_simulate') }}"><span>Simular</span></a>
+                            data-tooltip="Procesar nómina">
+                            <a href="{{ url_for('web_rrhh.payroll_new') }}"><span>Procesar nómina</span></a>
                         </li>
                         <li class="nav-item {% if active_page == 'rrhh_payroll_history' %}active{% endif %}"
                             data-tooltip="Historial">
                             <a href="{{ url_for('web_rrhh.payroll_list') }}"><span>Historial de nóminas</span></a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'rrhh_payroll_simulate' %}active{% endif %}"
+                            data-tooltip="Simular">
+                            <a href="{{ url_for('web_rrhh.payroll_simulate') }}"><span>Simular</span></a>
                         </li>
                         <li class="nav-item {% if active_page == 'rrhh_payroll_calendar' %}active{% endif %}"
                             data-tooltip="Calendario">
@@ -129,13 +129,13 @@
                             data-tooltip="Conceptos">
                             <a href="{{ url_for('web_rrhh.concept_list') }}"><span>Conceptos de nómina</span></a>
                         </li>
-                        <li class="nav-item {% if active_page == 'rrhh_payroll_config' %}active{% endif %}"
-                            data-tooltip="Configuración de nómina">
-                            <a href="{{ url_for('web_rrhh.payroll_settings') }}"><span>Configuración de nómina</span></a>
-                        </li>
                         <li class="nav-item {% if active_page == 'rrhh_legal_params' %}active{% endif %}"
                             data-tooltip="Parámetros Legales">
                             <a href="{{ url_for('web_rrhh.legal_parameters_list') }}"><span>Parámetros legales</span></a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'rrhh_payroll_config' %}active{% endif %}"
+                            data-tooltip="Configuración de nómina">
+                            <a href="{{ url_for('web_rrhh.payroll_settings') }}"><span>Configuración de nómina</span></a>
                         </li>
                     </ul>
                 </div>

@@ -100,6 +100,7 @@ def create_app():
                     session['company_sandbox_start_date'] = company_profile.get('sandboxStartDate', '')
                     session['company_sandbox_end_date'] = company_profile.get('sandboxEndDate', '')
                     session['company_plan_id'] = company_profile.get('planId', '')
+                    session['company_country'] = company_profile.get('country', 'DO')
 
                     plan_version = company_profile.get('plan_version', 0) or 0
                     cached_plan_version = session.get('company_plan_version', -1)

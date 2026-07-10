@@ -9,6 +9,14 @@ from app.services.dgii import DGIIService
 web_fiscal_notes_bp = Blueprint('web_fiscal_notes', __name__)
 
 
+@web_fiscal_notes_bp.before_request
+def restrict_to_do():
+    if session.get('company_country', 'DO') != 'DO':
+        return render_template('auth/restricted.html',
+            feature_name="Notas Fiscales e-CF (solo disponibles para República Dominicana)",
+            required_permission="")
+
+
 @web_fiscal_notes_bp.route('/fiscal-notes')
 @require_permission('canInvoice', 'Notas Fiscales')
 def list_fiscal_notes():

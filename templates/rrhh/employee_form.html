@@ -337,6 +337,15 @@
                        value="{{ employee.costCenter if employee else '' }}">
                 <span style="font-size:0.75rem; color:var(--text-muted);">Determina la cuenta contable donde se registra el gasto de este empleado.</span>
             </div>
+            <div class="form-group">
+                <label>Sucursal</label>
+                <select name="branchId" class="form-select">
+                    <option value="">Seleccionar sucursal</option>
+                    {% for b in branches %}
+                    <option value="{{ b.id }}" {% if employee and employee.branchId == b.id %}selected{% endif %}>{{ b.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
         </div>
     </div>
 
@@ -387,7 +396,6 @@
     <input type="hidden" name="baseSalary" id="hiddenBaseSalary" value="0">
     <input type="hidden" name="salaryType" value="fijo">
     <input type="hidden" name="department" id="hiddenDepartment" value="">
-    <input type="hidden" name="branchId" value="">
     <input type="hidden" name="status" value="activo">
 
     <!-- Navigation buttons -->

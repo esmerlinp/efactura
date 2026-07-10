@@ -1343,7 +1343,7 @@
                     <a href="{{ url_for('web_rrhh.payroll_dashboard') }}"
                         class="sidebar-discover-item {% if active_page and active_page.startswith('rrhh_') %}active{% endif %}"
                         data-tooltip="Nómina y RRHH"
-                        onclick="event.preventDefault(); showAppLoaderAndNavigate('{{ url_for('web_rrhh.payroll_dashboard') }}');">
+                        target="_blank" rel="noopener noreferrer">
                         <i class="fa-solid fa-coins"></i>
                         <span>Nómina y RRHH</span>
                     </a>
@@ -1352,7 +1352,7 @@
                     <a href="{{ url_for('web_accounting.dashboard') }}"
                         class="sidebar-discover-item {% if active_page and active_page.startswith('acc_') %}active{% endif %}"
                         data-tooltip="Contabilidad"
-                        onclick="event.preventDefault(); showAppLoaderAndNavigate('{{ url_for('web_accounting.dashboard') }}');">
+                        target="_blank" rel="noopener noreferrer">
                         <i class="fa-solid fa-scale-balanced"></i>
                         <span>Contabilidad</span>
                     </a>

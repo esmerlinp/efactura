@@ -72,7 +72,8 @@ def _cached_company_profile(owner_uid):
         "certificateName": "",
         "certificateExtension": "",
         "certificateContent": "",
-        "certificatePassword": ""
+        "certificatePassword": "",
+        "country": "DO"
     }
     if firebase_initialized:
         try:

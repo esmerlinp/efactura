@@ -13,6 +13,14 @@ from app.data.occupations_catalog import OCCUPATIONS
 web_dgt_bp = Blueprint("web_dgt", __name__, template_folder="templates")
 
 
+@web_dgt_bp.before_request
+def restrict_to_do():
+    if session.get('company_country', 'DO') != 'DO':
+        return render_template('auth/restricted.html',
+            feature_name="Formularios DGT Ministerio de Trabajo (solo disponibles para República Dominicana)",
+            required_permission="")
+
+
 def _get_owner():
     uid = session.get("selected_owner_uid", "") or session.get("user", {}).get("ownerUID", "")
     sandbox = session.get("is_sandbox_mode", True)

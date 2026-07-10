@@ -56,6 +56,7 @@ def sample_company_profile():
         "regimenFiscal": "ordinary",
         "certificateContent": "",
         "certificatePassword": "",
+        "country": "DO",
     }
 
 

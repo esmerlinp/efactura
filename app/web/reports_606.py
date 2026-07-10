@@ -8,6 +8,14 @@ from app.utils.decorators import check_permission
 
 web_reports_606_bp = Blueprint('web_reports_606', __name__)
 
+
+@web_reports_606_bp.before_request
+def restrict_to_do():
+    if session.get('company_country', 'DO') != 'DO':
+        return render_template('auth/restricted.html',
+            feature_name="Reporte 606 DGII (solo disponible para República Dominicana)",
+            required_permission="")
+
 TIPO_GASTO_606 = {
     "01": "Gastos Personales",
     "02": "Trabajos/Suministros",

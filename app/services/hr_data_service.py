@@ -688,6 +688,25 @@ def delete_catalog_item(owner_uid: str, catalog_name: str, item_id: str, sandbox
         print(f"⚠️ delete_catalog_item: {e}")
 
 
+def find_or_create_catalog_item(owner_uid: str, catalog_name: str, name: str, sandbox: bool = True) -> dict:
+    if not name or not name.strip():
+        return None
+    name = name.strip()
+    normalized = name.lower()
+    try:
+        existing = get_catalog(owner_uid, catalog_name, sandbox)
+        for item in existing:
+            if item.get("name", "").strip().lower() == normalized:
+                return item
+    except Exception:
+        pass
+    import uuid as _uuid
+    item_id = str(_uuid.uuid4())
+    item = {"id": item_id, "name": name, "active": True}
+    save_catalog_item(owner_uid, catalog_name, item, sandbox)
+    return item
+
+
 def _default_catalog(catalog_name: str) -> list:
     defaults = {
         "positions": [
