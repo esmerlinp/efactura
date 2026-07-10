@@ -41,6 +41,9 @@ class BaseCountryProvider(ABC):
     def get_account_mapping(self) -> dict:
         pass
 
+    def get_tax_labels(self) -> dict:
+        return {}
+
     @abstractmethod
     def supports_feature(self, feature: str) -> bool:
         pass
