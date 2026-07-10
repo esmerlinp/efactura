@@ -38,5 +38,9 @@ class BaseCountryProvider(ABC):
         pass
 
     @abstractmethod
+    def get_account_mapping(self) -> dict:
+        pass
+
+    @abstractmethod
     def supports_feature(self, feature: str) -> bool:
         pass

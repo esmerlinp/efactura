@@ -469,11 +469,14 @@ class AccountingService:
         if not accounts:
             cls.seed_default_accounts(owner_uid, country=country)
             accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+        from app.services.country_provider import CountryProviderFactory
+        provider = CountryProviderFactory.create(country)
+        mapping = provider.get_account_mapping() if provider else {}
         debit_acc, debit_desc = cls._resolve_debit_account(invoice, accounts)
         sales_acc = _find_account_by_usage(accounts, "ventas")
-        itbis_acc = _find_account_by_usage(accounts, "itbis_pagar")
-        itbis_ret_acc = _find_account_by_usage(accounts, "itbis_retenido")
-        isr_ret_acc = _find_account_by_usage(accounts, "isr_retenido")
+        itbis_acc = _find_account_by_usage(accounts, mapping.get("vat_payable"))
+        itbis_ret_acc = _find_account_by_usage(accounts, mapping.get("vat_withholding"))
+        isr_ret_acc = _find_account_by_usage(accounts, mapping.get("income_tax_withholding"))
         if not debit_acc or not sales_acc:
             return None
         total = float(invoice.get("netPayable", invoice.get("total", 0)))
@@ -483,7 +486,7 @@ class AccountingService:
         retained_itbis = float(invoice.get("retainedITBIS", 0))
         branch_id = invoice.get("branchId", "")
         cost_center_id = invoice.get("costCenterId", "")
-        currency = invoice.get("currency", "DOP")
+        currency = invoice.get("currency", provider.currency if provider else "DOP")
         client_id = invoice.get("clientId", "")
         client_name = invoice.get("clientName", "")
 
@@ -726,7 +729,7 @@ class AccountingService:
         return entry
 
     @classmethod
-    def auto_reverse_invoice_entry(cls, owner_uid, invoice, reason="", user_id="", sandbox=True):
+    def auto_reverse_invoice_entry(cls, owner_uid, invoice, reason="", user_id="", sandbox=True, country="DO"):
         invoice_id = invoice.get("id", "")
         entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox)
         existing_entries = [
@@ -741,6 +744,8 @@ class AccountingService:
         for orig_entry in existing_entries:
             if _accounting_entry_exists(owner_uid, "invoice_reversal", f"{invoice_id}_{orig_entry.get('id', '')}"):
                 continue
+            from app.services.country_provider import CountryProviderFactory
+            provider = CountryProviderFactory.create(country)
             reversed_lines = []
             for line in orig_entry.get("lines", []):
                 reversed_lines.append({
@@ -754,7 +759,7 @@ class AccountingService:
                     "contactName": line.get("contactName"),
                     "branchId": line.get("branchId", ""),
                     "costCenterId": line.get("costCenterId", ""),
-                    "currency": line.get("currency", "DOP")
+                    "currency": line.get("currency", provider.currency if provider else "DOP")
                 })
             try:
                 rev_entry = cls.generate_entry(owner_uid, {
@@ -782,10 +787,13 @@ class AccountingService:
         if not accounts:
             cls.seed_default_accounts(owner_uid, country=country)
             accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+        from app.services.country_provider import CountryProviderFactory
+        provider = CountryProviderFactory.create(country)
+        mapping = provider.get_account_mapping() if provider else {}
         cxc_acc = _find_account_by_usage(accounts, "cxc")
         sales_acc = _find_account_by_usage(accounts, "ventas")
         devolucion_acc = _find_account_by_usages(accounts, ["devoluciones_ventas", "devoluciones_clientes"])
-        itbis_acc = _find_account_by_usage(accounts, "itbis_pagar")
+        itbis_acc = _find_account_by_usage(accounts, mapping.get("vat_payable"))
         if not cxc_acc or not sales_acc:
             return None
         total = float(invoice.get("netPayable", invoice.get("total", 0)))
@@ -793,7 +801,7 @@ class AccountingService:
         itbis = float(invoice.get("totalITBIS", invoice.get("itbis", 0)))
         branch_id = invoice.get("branchId", "")
         cost_center_id = invoice.get("costCenterId", "")
-        currency = invoice.get("currency", "DOP")
+        currency = invoice.get("currency", provider.currency if provider else "DOP")
         lines = []
         if devolucion_acc:
             lines.append({
@@ -873,13 +881,16 @@ class AccountingService:
         if not accounts:
             cls.seed_default_accounts(owner_uid, country=country)
             accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+        from app.services.country_provider import CountryProviderFactory
+        provider = CountryProviderFactory.create(country)
+        mapping = provider.get_account_mapping() if provider else {}
         cxp_acc = _find_account_by_usage(accounts, "cxp")
         compras_acc = _find_account_by_usage(accounts, "compras")
         gastos_acc = _find_account_by_usage(accounts, "gastos")
         banco_acc = _find_account_by_usages(accounts, ["banco", "efectivo"])
-        itbis_credito_acc = _find_account_by_usage(accounts, "itbis_credito")
-        itbis_retenido_acc = _find_account_by_usage(accounts, "itbis_retenido")
-        isr_retenido_acc = _find_account_by_usage(accounts, "isr_retenido")
+        itbis_credito_acc = _find_account_by_usage(accounts, mapping.get("vat_credit"))
+        itbis_retenido_acc = _find_account_by_usage(accounts, mapping.get("vat_withholding"))
+        isr_retenido_acc = _find_account_by_usage(accounts, mapping.get("income_tax_withholding"))
         total = float(expense.get("amount", expense.get("total", 0)))
         account_items = expense.get("accountItems", [])
         payment_type = expense.get("paymentType", expense.get("payment_type", "Contado"))
