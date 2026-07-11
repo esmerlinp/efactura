@@ -68,6 +68,9 @@ def create_fiscal_note():
                       and not s.get('bloqueadaManualmente', False)]
     warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox) or []
     price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox) or []
+    active_price_lists = [pl for pl in price_lists if pl.get('isActive', True)]
+    default_price_list = next((pl for pl in active_price_lists if pl.get('isDefault')), None)
+    default_price_list_id = default_price_list['id'] if default_price_list else ''
     sellers = DatabaseService.get_team_members(owner_uid) or []
 
     return render_template('fiscal_notes/form.html',
@@ -77,7 +80,8 @@ def create_fiscal_note():
                            catalog_json=catalog_json,
                            sequences=note_sequences,
                            warehouses=warehouses,
-                           price_lists=price_lists,
+                           price_lists=active_price_lists,
+                           default_price_list_id=default_price_list_id,
                            sellers=sellers,
                            active_page='fiscal_notes')
 

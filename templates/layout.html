@@ -1062,8 +1062,8 @@
                             </a>
                         </li>
                         {% endif %}
-                        {% if module_enabled('price_lists') and (session.get('user', {}).get('role') == 'owner' or
-                        session.get('user', {}).get('permissions', {}).get('canInvoice', True)) %}
+                        {% if session.get('user', {}).get('role') == 'owner' or
+                        session.get('user', {}).get('permissions', {}).get('canInvoice', True) %}
                         <li class="nav-item {% if active_page == 'price_lists' %}active{% endif %}"
                             data-tooltip="Listas de Precios">
                             <a href="{{ url_for('web_invoices.list_price_lists') }}">

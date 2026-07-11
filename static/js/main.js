@@ -2,6 +2,82 @@
    ASINCRONISMO Y CONTROL DE INTERFAZ DE USUARIO - MAIN JS
    ========================================================================= */
 
+/* =========================================================================
+   MANEJADOR GLOBAL DE ERRORES — Cliente (JavaScript)
+   ========================================================================= */
+
+(function () {
+    'use strict';
+
+    function showErrorToast(message) {
+        var existing = document.querySelector('.js-global-error-toast');
+        if (existing) existing.remove();
+
+        var toast = document.createElement('div');
+        toast.className = 'js-global-error-toast';
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'polite');
+        toast.style.cssText = [
+            'position:fixed',
+            'bottom:20px',
+            'right:20px',
+            'max-width:400px',
+            'padding:14px 18px',
+            'background:var(--bg-card, #1f2937)',
+            'color:var(--text-primary, #f9fafb)',
+            'border:1px solid var(--accent-red, #dc2626)',
+            'border-left:4px solid var(--accent-red, #dc2626)',
+            'border-radius:8px',
+            'font-family:\'Fira Sans\',\'Inter\',sans-serif',
+            'font-size:0.85rem',
+            'line-height:1.5',
+            'box-shadow:0 8px 24px rgba(0,0,0,0.3)',
+            'z-index:99999',
+            'animation:fadeInUp 0.3s ease forwards',
+            'display:flex',
+            'align-items:flex-start',
+            'gap:10px'
+        ].join(';');
+
+        toast.innerHTML = [
+            '<i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-red, #dc2626);font-size:1.1rem;margin-top:2px;flex-shrink:0;"></i>',
+            '<div style="flex:1;">',
+                '<strong style="display:block;margin-bottom:2px;">Ha ocurrido un error</strong>',
+                '<span>' + (message || 'Ocurrió un problema inesperado. Recarga la página e intenta nuevamente.') + '</span>',
+            '</div>',
+            '<button style="background:none;border:none;color:var(--text-muted, #9ca3af);cursor:pointer;font-size:1rem;padding:0;line-height:1;flex-shrink:0;" onclick="this.parentElement.remove()">&times;</button>'
+        ].join('');
+
+        document.body.appendChild(toast);
+
+        var style = document.createElement('style');
+        style.textContent = '@keyframes fadeInUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}';
+        if (!document.querySelector('style[data-error-toast-keyframes]')) {
+            style.setAttribute('data-error-toast-keyframes', '');
+            document.head.appendChild(style);
+        }
+
+        setTimeout(function () {
+            if (toast.parentNode) {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(10px)';
+                toast.style.transition = 'all 0.3s ease';
+                setTimeout(function () { if (toast.parentNode) toast.remove(); }, 300);
+            }
+        }, 8000);
+    }
+
+    window.addEventListener('error', function (e) {
+        console.error('Error no controlado:', e.error || e.message, '(archivo: ' + e.filename + ', línea: ' + e.lineno + ')');
+        showErrorToast('Ocurrió un problema inesperado. Recarga la página e intenta nuevamente.');
+    });
+
+    window.addEventListener('unhandledrejection', function (e) {
+        console.error('Promesa rechazada sin manejar:', e.reason);
+        showErrorToast('Falló una operación en segundo plano. Recarga la página si el problema persiste.');
+    });
+})();
+
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Inicializar animaciones de entrada en cascada
     const cards = document.querySelectorAll('.card-kpi, .card-table-wrapper, .auth-card');
@@ -363,25 +439,6 @@ document.addEventListener('click', function (e) {
     }
 });
 
-// =========================================================================
-// UNIFIED GUIDE BANNER DISMISS (single global function)
-// =========================================================================
-function closeGuide(id) {
-    var el = document.getElementById(id);
-    if (!el) return;
-    el.style.display = 'none';
-    sessionStorage.setItem('closed-' + id, 'true');
-}
-
-// Auto-hide guides that were previously dismissed
-document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll('.guide-banner[id]').forEach(function (el) {
-        if (sessionStorage.getItem('closed-' + el.id) === 'true') {
-            el.style.display = 'none';
-        }
-    });
-});
-
     // 7. Formateo Automático de Entradas de Teléfono y Montos
     function formatPhoneNumber(value) {
         if (!value) return value;
@@ -562,6 +619,27 @@ document.addEventListener('DOMContentLoaded', function () {
 
     renderQuickAccess();
     addPinButtons();
+});
+
+// =========================================================================
+// UNIFIED GUIDE BANNER DISMISS (single global function)
+// =========================================================================
+function closeGuide(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.style.display = 'none';
+    try { sessionStorage.setItem('closed-' + id, 'true'); } catch (e) {}
+}
+
+// Auto-hide guides that were previously dismissed
+document.addEventListener('DOMContentLoaded', function () {
+    try {
+        document.querySelectorAll('.guide-banner[id]').forEach(function (el) {
+            if (sessionStorage.getItem('closed-' + el.id) === 'true') {
+                el.style.display = 'none';
+            }
+        });
+    } catch (e) {}
 });
 
 // =========================================================================

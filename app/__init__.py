@@ -767,6 +767,23 @@ def create_app():
         return redirect(url_for('web_dashboard.dashboard'))
 
     # =========================================================================
+    # ERROR HANDLERS — Pantallas amigables para errores HTTP
+    # =========================================================================
+
+    @app.errorhandler(500)
+    def handle_500(e):
+        app.logger.exception("Internal Server Error (500)")
+        return render_template('errors/500.html'), 500
+
+    @app.errorhandler(404)
+    def handle_404(e):
+        return render_template('errors/404.html'), 404
+
+    @app.errorhandler(403)
+    def handle_403(e):
+        return render_template('errors/403.html'), 403
+
+    # =========================================================================
     # APScheduler — Facturación automática diaria de contratos recurrentes
     # Se activa solo si no estamos en el proceso secundario del reloader de Flask
     # =========================================================================

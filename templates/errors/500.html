@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="theme-color" content="{{ company_color_marca or '#7c3aed' }}">
+    <script>
+        (function () {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error Inesperado - {{ product_name }}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    {% if company_theme == 'moderno' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_moderno.css') }}">
+    {% elif company_theme == 'landing' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_landing.css') }}">
+    {% else %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_clasico.css') }}">
+    {% endif %}
+    <style>
+        .error-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            background: radial-gradient(circle at top right, rgba(239, 68, 68, 0.08), transparent 400px),
+                radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.05), transparent 400px);
+        }
+
+        .error-card {
+            background: rgba(255, 255, 255, 0.01);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: var(--radius-md);
+            padding: 40px;
+            max-width: 520px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            animation: cardEntrance 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes cardEntrance {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .error-icon-container {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 24px;
+        }
+
+        .error-icon {
+            font-size: 4rem;
+            color: var(--accent-red);
+            filter: drop-shadow(0 0 15px rgba(239, 68, 68, 0.3));
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .error-icon-bg {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 6rem;
+            opacity: 0.05;
+            color: var(--accent-red);
+            z-index: -1;
+        }
+
+        .error-code {
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: var(--accent-red);
+            background: rgba(239, 68, 68, 0.1);
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            margin-bottom: 16px;
+        }
+
+        .error-title {
+            font-size: 1.6rem;
+            font-family: var(--font-heading);
+            color: var(--text-primary);
+            margin-bottom: 12px;
+            font-weight: 700;
+        }
+
+        .error-message {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 28px;
+        }
+
+        .error-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .btn-error {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            padding: 14px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            border-radius: var(--radius-sm);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: none;
+            font-family: var(--font-body);
+        }
+
+        .btn-error-primary {
+            background: var(--accent-emerald);
+            color: #fff;
+        }
+
+        .btn-error-primary:hover {
+            background: var(--accent-emerald-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-error-secondary {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-error-secondary:hover {
+            background: rgba(255, 255, 255, 0.03);
+            border-color: var(--text-muted);
+        }
+
+        .error-footer {
+            margin-top: 24px;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border-color);
+            padding-top: 18px;
+        }
+
+        .error-footer a {
+            color: var(--accent-emerald);
+            text-decoration: none;
+        }
+
+        .error-footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body class="auth-container">
+    <div class="error-wrapper">
+        <div class="error-card">
+            <div class="error-code">HTTP 500</div>
+
+            <div class="error-icon-container">
+                <i class="fa-solid fa-bug error-icon"></i>
+                <i class="fa-solid fa-circle-exclamation error-icon-bg"></i>
+            </div>
+
+            <h2 class="error-title">Error Inesperado</h2>
+
+            <p class="error-message">
+                Ocurrió un problema inesperado en el sistema. Nuestro equipo ha sido notificado automáticamente.
+                Por favor, intenta recargar la página o regresar al inicio para continuar.
+            </p>
+
+            <div class="error-actions">
+                <a href="{{ url_for('web_dashboard.dashboard') }}" class="btn-error btn-error-primary">
+                    <i class="fa-solid fa-house"></i>
+                    <span>Volver al Dashboard</span>
+                </a>
+                <button onclick="window.location.reload()" class="btn-error btn-error-secondary">
+                    <i class="fa-solid fa-rotate-right"></i>
+                    <span>Recargar Página</span>
+                </button>
+            </div>
+
+            <div class="error-footer">
+                Si el problema persiste, contacta a
+                <a href="mailto:soporte@vykcore.com">soporte@vykcore.com</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+
+</html>
