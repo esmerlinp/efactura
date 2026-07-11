@@ -223,6 +223,41 @@
     border-color: var(--wz-primary);
 }
 
+.wz-voice-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--wz-primary);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 10px;
+}
+
+.wz-voice-btn:hover {
+    background: var(--wz-primary-dark);
+    transform: translateY(-1px);
+}
+
+.wz-voice-btn.recording {
+    background: #DC2626;
+    animation: wz-pulse 1.5s ease-in-out infinite;
+}
+
+.wz-voice-btn .wz-voice-label {
+    white-space: nowrap;
+}
+
+@keyframes wz-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+    50% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
+}
+
 .wz-nav-buttons {
     display: flex;
     justify-content: space-between;
@@ -741,6 +776,9 @@
             <div class="wz-ai-context-box">
                 <div class="wz-form-group">
                     <label>Describe el proyecto en detalle:</label>
+                    <button type="button" id="wz-voice-btn" class="wz-voice-btn">
+                        <i class="fa-solid fa-microphone"></i> <span class="wz-voice-label">Dictar proyecto</span>
+                    </button>
                     <textarea id="wz-ai-context" placeholder="Ej: Necesito una aplicación móvil para gestión de inventario con sincronización en la nube, facturación electrónica y reportes. El proyecto debe entregarse en 3 meses. Presupuesto aproximado RD$ 500,000..." style="min-height:140px;"></textarea>
                 </div>
                 <button type="button" class="btn-wz-primary wz-btn-ai-full" style="width:100%;padding:12px;">
