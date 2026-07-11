@@ -2,7 +2,7 @@ import io
 import csv
 from datetime import datetime, timezone
 from collections import defaultdict
-from flask import Blueprint, render_template, request, redirect, url_for, session, send_file
+from flask import Blueprint, render_template, request, redirect, url_for, session, send_file, g
 from app.services.db_service import DatabaseService
 from app.utils.decorators import check_permission
 
@@ -43,7 +43,7 @@ def _parse_int(val, default=0):
 
 def _get_minor_expenses_for_period(owner_uid, sandbox, year, month):
     """Filtra gastos menores: montos pequeños, proveedores informales o E43."""
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     prefix = f"{year:04d}-{month:02d}"
     filtered = []
     for exp in expenses:

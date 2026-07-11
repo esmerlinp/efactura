@@ -36,7 +36,7 @@
         <div><h2 style="font-size:1.15rem; font-family:var(--font-heading);">Filtros</h2></div>
         <div style="display:flex; gap:8px;">
             <div class="dropdown" style="position:relative; display:inline-block;">
-                <button class="btn btn-secondary" onclick="this.nextElementSibling.classList.toggle('show')">
+                <button class="btn btn-secondary" onclick="var d=this.nextElementSibling;d.style.display=d.style.display==='block'?'none':'block'">
                     <i class="fa-solid fa-download"></i> Exportar ▾
                 </button>
                 <div style="display:none; position:absolute; right:0; top:100%; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:var(--shadow-lg); z-index:100; min-width:200px; margin-top:4px;">
@@ -208,19 +208,10 @@
 {% endif %}
 
 <script>
-document.querySelectorAll('.dropdown button').forEach(btn => {
-    btn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        const menu = this.nextElementSibling;
-        menu.classList.toggle('show');
-        menu.style.display = menu.classList.contains('show') ? 'block' : 'none';
-    });
-});
-document.addEventListener('click', function() {
-    document.querySelectorAll('.dropdown [style*="display: block"]').forEach(el => {
-        el.style.display = 'none';
-        el.classList.remove('show');
-    });
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.dropdown')) {
+        document.querySelectorAll('.dropdown > div').forEach(d => d.style.display = 'none');
+    }
 });
 </script>
 

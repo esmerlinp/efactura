@@ -21,7 +21,7 @@ def serialize_field(val):
 class SupplierService:
 
     @classmethod
-    def get_suppliers(cls, owner_uid, sandbox=True):
+    def get_suppliers(cls, owner_uid, sandbox=True, branch_id=None, project_id=None):
         if not firebase_initialized or db_firestore is None:
             return []
         suppliers = []
@@ -31,10 +31,18 @@ class SupplierService:
             for doc in docs:
                 data = doc.to_dict()
                 data["id"] = doc.id
+                data["branchId"] = data.get("branchId", "default-sucursal-principal")
+                data["projectId"] = data.get("projectId")
                 suppliers.append(data)
             suppliers.sort(key=lambda x: x.get("name", "").lower())
         except Exception as e:
             print(f"⚠️ Error al obtener proveedores: {e}")
+        if branch_id:
+            suppliers = [s for s in suppliers if s.get("branchId") == branch_id]
+        if project_id == '__no_project__':
+            suppliers = [s for s in suppliers if not s.get("projectId")]
+        elif project_id:
+            suppliers = [s for s in suppliers if s.get("projectId") == project_id]
         return suppliers
 
     @classmethod
@@ -47,6 +55,8 @@ class SupplierService:
             if doc.exists:
                 data = doc.to_dict()
                 data["id"] = doc.id
+                data["branchId"] = data.get("branchId", "default-sucursal-principal")
+                data["projectId"] = data.get("projectId")
                 return data
         except Exception as e:
             print(f"⚠️ Error al obtener proveedor {supplier_id}: {e}")
@@ -56,6 +66,8 @@ class SupplierService:
     def save_supplier(cls, owner_uid, supplier_id, supplier_dict, sandbox=True):
         supplier_dict["id"] = supplier_id
         supplier_dict["ownerUID"] = owner_uid
+        supplier_dict["branchId"] = supplier_dict.get("branchId", "default-sucursal-principal")
+        supplier_dict["projectId"] = supplier_dict.get("projectId", None)
         if "createdAt" not in supplier_dict or not supplier_dict["createdAt"]:
             supplier_dict["createdAt"] = serialize_field(datetime.now(timezone.utc))
         supplier_dict["updatedAt"] = serialize_field(datetime.now(timezone.utc))

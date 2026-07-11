@@ -170,6 +170,8 @@ def _cached_clients(owner_uid, sandbox):
                 data = doc.to_dict()
                 client_dict = {
                     "id": doc.id,
+                    "branchId": data.get("branchId", "default-sucursal-principal"),
+                    "projectId": data.get("projectId"),
                     "ownerUID": owner_uid,
                     "rnc": data.get("rnc", ""),
                     "razonSocial": data.get("razonSocial", ""),
@@ -216,6 +218,8 @@ def _cached_expenses(owner_uid, sandbox):
                         dgii_status = ""
                 expenses.append({
                     "id": doc.id,
+                    "branchId": data.get("branchId", "default-sucursal-principal"),
+                    "projectId": data.get("projectId"),
                     "concept": data.get("concept", ""),
                     "category": data.get("category", ""),
                     "amount": float(data.get("amount", 0.0)),
@@ -272,6 +276,8 @@ def _cached_items(owner_uid, sandbox):
                 data = doc.to_dict()
                 items.append({
                     "id": doc.id,
+                    "branchId": data.get("branchId", "default-sucursal-principal"),
+                    "projectId": data.get("projectId"),  # None = sin proyecto
                     "code": data.get("code", ""),
                     "type": data.get("type", "Bien"),
                     "name": data.get("name", ""),
@@ -318,6 +324,8 @@ def _cached_sequences(owner_uid, sandbox):
                 ultimoConsecutivoUsado = int(data.get("ultimoConsecutivoUsado", secuenciaInicial - 1))
                 seqs.append({
                     "id": doc.id,
+                    "branchId": data.get("branchId", "default-sucursal-principal"),
+                    "projectId": data.get("projectId"),
                     "tipoComprobante": data.get("tipoComprobante", ""),
                     "prefijo": data.get("prefijo", data.get("tipoComprobante", "")),
                     "secuenciaInicial": secuenciaInicial,
@@ -490,6 +498,7 @@ def _cached_invoices(owner_uid, sandbox, quotations_only, include_all):
                     "paymentAgreement": agreement,
                     "installments": installments,
                     "branchId": data.get("branchId", "default-sucursal-principal"),
+                    "projectId": data.get("projectId"),
                     "createdAt": serialize_field(data.get("createdAt")),
                     "items": items,
                     "pendingPaymentProof": data.get("pendingPaymentProof"),
@@ -1342,10 +1351,113 @@ class DatabaseService:
     # =========================================================================
 
     @classmethod
-    def get_clients(cls, owner_uid, sandbox=True):
-        """Retorna la lista de clientes del owner."""
+    def get_branches_for_user(cls, owner_uid, user_uid, sandbox=True):
+        """Retorna las sucursales a las que un usuario tiene acceso."""
+        branches = cls.get_branches(owner_uid, sandbox=sandbox)
+        user_profile = cls.get_user_profile(user_uid)
+        if not user_profile:
+            return branches
+        role = user_profile.get("role", "owner")
+        if role == "owner":
+            return branches
+        assigned_branches = user_profile.get("assignedBranches", [])
+        if assigned_branches:
+            return [b for b in branches if b["id"] in assigned_branches]
+        return branches
+
+    @classmethod
+    def get_default_branch(cls, owner_uid, sandbox=True):
+        """Retorna la sucursal por defecto."""
+        branches = cls.get_branches(owner_uid, sandbox=sandbox)
+        for b in branches:
+            if b.get("isDefault"):
+                return b
+        if branches:
+            return branches[0]
+        return None
+
+    # =========================================================================
+    # GESTIÓN DE PROYECTOS (PROJECTS)
+    # =========================================================================
+
+    @classmethod
+    def get_projects(cls, owner_uid, branch_id=None, sandbox=True):
+        """Retorna la lista de proyectos, opcionalmente filtrados por sucursal."""
+        projects = []
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_projects" if sandbox else "projects"
+                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    p_branch_id = data.get("branchId", "")
+                    if branch_id and p_branch_id != branch_id:
+                        continue
+                    projects.append({
+                        "id": doc.id,
+                        "branchId": p_branch_id,
+                        "name": data.get("name", ""),
+                        "code": data.get("code", ""),
+                        "description": data.get("description", ""),
+                        "isDefault": bool(data.get("isDefault", False)),
+                        "createdAt": serialize_field(data.get("createdAt"))
+                    })
+                projects.sort(key=lambda x: x["name"].lower())
+            except Exception as e:
+                print(f"Error al obtener proyectos desde Firestore: {e}")
+        return projects
+
+    @classmethod
+    def save_project(cls, owner_uid, project_id, project_dict, sandbox=True, update_defaults=True):
+        """Guarda o actualiza un proyecto en Firestore."""
+        project_dict["id"] = project_id
+        project_dict["ownerUID"] = owner_uid
+        if "createdAt" not in project_dict or not project_dict["createdAt"]:
+            project_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
+        project_dict["createdAt"] = serialize_field(project_dict["createdAt"])
+
+        if project_dict.get("isDefault") and update_defaults:
+            branch_id = project_dict.get("branchId")
+            projects = cls.get_projects(owner_uid, branch_id=branch_id, sandbox=sandbox)
+            for p in projects:
+                if p["id"] != project_id and p.get("isDefault"):
+                    p["isDefault"] = False
+                    try:
+                        coll_name = "sandbox_projects" if sandbox else "projects"
+                        db_firestore.collection("users").document(owner_uid).collection(coll_name).document(p["id"]).update({"isDefault": False})
+                    except Exception:
+                        pass
+
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_projects" if sandbox else "projects"
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(project_id).set(project_dict)
+            except Exception as e:
+                print(f"Fallo al guardar proyecto en Firestore: {e}")
+        return project_dict
+
+    @classmethod
+    def delete_project(cls, owner_uid, project_id, sandbox=True):
+        """Elimina un proyecto en Firestore."""
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_projects" if sandbox else "projects"
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(project_id).delete()
+            except Exception as e:
+                print(f"Fallo al borrar proyecto de Firestore: {e}")
+
+    @classmethod
+    def get_clients(cls, owner_uid, sandbox=True, branch_id=None, project_id=None):
+        """Retorna la lista de clientes del owner, filtrados por sucursal y/o proyecto."""
         import copy
-        return copy.deepcopy(_cached_clients(owner_uid, sandbox))
+        clients = copy.deepcopy(_cached_clients(owner_uid, sandbox))
+        if branch_id:
+            clients = [c for c in clients if c.get("branchId") == branch_id]
+        if project_id == '__no_project__':
+            clients = [c for c in clients if not c.get("projectId")]
+        elif project_id:
+            clients = [c for c in clients if c.get("projectId") == project_id]
+        return clients
 
     @classmethod
     def get_client(cls, owner_uid, client_id, sandbox=True):
@@ -1447,6 +1559,8 @@ class DatabaseService:
         """Guarda o actualiza un cliente en Firestore."""
         client_dict["id"] = client_id
         client_dict["ownerUID"] = owner_uid
+        client_dict["branchId"] = client_dict.get("branchId", "default-sucursal-principal")
+        client_dict["projectId"] = client_dict.get("projectId")
         if "createdAt" not in client_dict or not client_dict["createdAt"]:
             client_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
         
@@ -1563,16 +1677,25 @@ class DatabaseService:
     # =========================================================================
 
     @classmethod
-    def get_items(cls, owner_uid, sandbox=True):
-        """Retorna la lista de productos del catálogo."""
+    def get_items(cls, owner_uid, sandbox=True, branch_id=None, project_id=None):
+        """Retorna la lista de productos del catálogo, filtrados por sucursal y/o proyecto."""
         import copy
-        return copy.deepcopy(_cached_items(owner_uid, sandbox))
+        items = copy.deepcopy(_cached_items(owner_uid, sandbox))
+        if branch_id:
+            items = [i for i in items if i.get("branchId") == branch_id]
+        if project_id == '__no_project__':
+            items = [i for i in items if not i.get("projectId")]
+        elif project_id:
+            items = [i for i in items if i.get("projectId") == project_id]
+        return items
 
     @classmethod
     def save_item(cls, owner_uid, item_id, item_dict, sandbox=True):
         """Guarda o actualiza un producto en el catálogo en Firestore."""
         item_dict["id"] = item_id
         item_dict["ownerUID"] = owner_uid
+        item_dict["branchId"] = item_dict.get("branchId", "default-sucursal-principal")
+        item_dict["projectId"] = item_dict.get("projectId")  # None si no se especifica
         if "createdAt" not in item_dict or not item_dict["createdAt"]:
             item_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
         
@@ -1617,8 +1740,8 @@ class DatabaseService:
     # GESTIÓN DE CATEGORÍAS (CATEGORIES)
     # =========================================================================
     @classmethod
-    def get_categories(cls, owner_uid, sandbox=True):
-        """Retorna la lista de categorías del catálogo."""
+    def get_categories(cls, owner_uid, sandbox=True, branch_id=None, project_id=None):
+        """Retorna la lista de categorías del catálogo, filtradas por sucursal y/o proyecto."""
         categories = []
         if firebase_initialized:
             try:
@@ -1628,6 +1751,8 @@ class DatabaseService:
                     data = doc.to_dict()
                     categories.append({
                         "id": doc.id,
+                        "branchId": data.get("branchId", "default-sucursal-principal"),
+                        "projectId": data.get("projectId"),
                         "name": data.get("name", ""),
                         "createdAt": serialize_field(data.get("createdAt"))
                     })
@@ -1650,6 +1775,12 @@ class DatabaseService:
                 categories.sort(key=lambda x: x["name"].lower())
             except Exception as e:
                 print(f"⚠️ Error al obtener categorías desde Firestore: {e}")
+        if branch_id:
+            categories = [c for c in categories if c.get("branchId") == branch_id]
+        if project_id == '__no_project__':
+            categories = [c for c in categories if not c.get("projectId")]
+        elif project_id:
+            categories = [c for c in categories if c.get("projectId") == project_id]
         return categories
 
     @classmethod
@@ -1708,8 +1839,8 @@ class DatabaseService:
     # LISTAS DE PRECIOS (PRICE LISTS)
     # =========================================================================
     @classmethod
-    def get_price_lists(cls, owner_uid, sandbox=True):
-        """Retorna la lista de listas de precios."""
+    def get_price_lists(cls, owner_uid, sandbox=True, branch_id=None, project_id=None):
+        """Retorna la lista de listas de precios, filtradas por sucursal y/o proyecto."""
         lists = []
         if firebase_initialized:
             try:
@@ -1719,6 +1850,8 @@ class DatabaseService:
                     data = doc.to_dict()
                     lists.append({
                         "id": doc.id,
+                        "branchId": data.get("branchId", "default-sucursal-principal"),
+                        "projectId": data.get("projectId"),
                         "name": data.get("name", ""),
                         "description": data.get("description", ""),
                         "isDefault": bool(data.get("isDefault", False)),
@@ -1728,6 +1861,12 @@ class DatabaseService:
                 lists.sort(key=lambda x: x["name"].lower())
             except Exception as e:
                 print(f"⚠️ Error al obtener listas de precios desde Firestore: {e}")
+        if branch_id:
+            lists = [l for l in lists if l.get("branchId") == branch_id]
+        if project_id == '__no_project__':
+            lists = [l for l in lists if not l.get("projectId")]
+        elif project_id:
+            lists = [l for l in lists if l.get("projectId") == project_id]
         return lists
 
     @classmethod
@@ -1756,6 +1895,8 @@ class DatabaseService:
         """Guarda o actualiza una lista de precios en Firestore."""
         list_dict["id"] = list_id
         list_dict["ownerUID"] = owner_uid
+        list_dict["branchId"] = list_dict.get("branchId", "default-sucursal-principal")
+        list_dict["projectId"] = list_dict.get("projectId", None)
         if "createdAt" not in list_dict or not list_dict["createdAt"]:
             list_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
         list_dict["createdAt"] = serialize_field(list_dict["createdAt"])
@@ -2043,6 +2184,8 @@ class DatabaseService:
         """Registra una anulación en Firestore."""
         canc_dict["id"] = cancellation_id
         canc_dict["ownerUID"] = owner_uid
+        canc_dict["branchId"] = canc_dict.get("branchId", "default-sucursal-principal")
+        canc_dict["projectId"] = canc_dict.get("projectId", None)
         if "date" not in canc_dict or not canc_dict["date"]:
             canc_dict["date"] = datetime.now(timezone.utc).isoformat()
         
@@ -2063,10 +2206,17 @@ class DatabaseService:
     # =========================================================================
 
     @classmethod
-    def get_invoices(cls, owner_uid, sandbox=True, quotations_only=False, include_all=False):
-        """Retorna las facturas o cotizaciones de un owner."""
+    def get_invoices(cls, owner_uid, sandbox=True, quotations_only=False, include_all=False, branch_id=None, project_id=None):
+        """Retorna las facturas o cotizaciones de un owner, filtradas por sucursal y/o proyecto."""
         import copy
-        return copy.deepcopy(_cached_invoices(owner_uid, sandbox, quotations_only, include_all))
+        invoices = copy.deepcopy(_cached_invoices(owner_uid, sandbox, quotations_only, include_all))
+        if branch_id:
+            invoices = [inv for inv in invoices if inv.get("branchId") == branch_id]
+        if project_id == '__no_project__':
+            invoices = [inv for inv in invoices if not inv.get("projectId")]
+        elif project_id:
+            invoices = [inv for inv in invoices if inv.get("projectId") == project_id]
+        return invoices
 
     @classmethod
     def get_contingency_invoices(cls, owner_uid, sandbox=True):
@@ -2775,16 +2925,25 @@ class DatabaseService:
         return None
 
     @classmethod
-    def get_expenses(cls, owner_uid, sandbox=True):
-        """Retorna la lista de gastos desde Firestore (con caché)."""
+    def get_expenses(cls, owner_uid, sandbox=True, branch_id=None, project_id=None):
+        """Retorna la lista de gastos desde Firestore (con caché), filtrados por sucursal y/o proyecto."""
         import copy
-        return copy.deepcopy(_cached_expenses(owner_uid, sandbox))
+        expenses = copy.deepcopy(_cached_expenses(owner_uid, sandbox))
+        if branch_id:
+            expenses = [e for e in expenses if e.get("branchId") == branch_id]
+        if project_id == '__no_project__':
+            expenses = [e for e in expenses if not e.get("projectId")]
+        elif project_id:
+            expenses = [e for e in expenses if e.get("projectId") == project_id]
+        return expenses
 
     @classmethod
     def save_expense(cls, owner_uid, expense_id, exp_dict, sandbox=True):
         """Guarda o actualiza un gasto en Firestore."""
         exp_dict["id"] = expense_id
         exp_dict["ownerUID"] = owner_uid
+        exp_dict["branchId"] = exp_dict.get("branchId", "default-sucursal-principal")
+        exp_dict["projectId"] = exp_dict.get("projectId")
 
         if exp_dict.get("status") not in ("Borrador", "Anulada", None) and exp_dict.get("approvalStatus") != "Borrador":
             try:
@@ -2807,7 +2966,36 @@ class DatabaseService:
         exp_dict["isRecurring"] = bool(exp_dict.get("isRecurring", False))
         exp_dict["isITBISDeductible"] = bool(exp_dict.get("isITBISDeductible", True))
         exp_dict["isDeductible"] = bool(exp_dict.get("isDeductible", True))
+
+        # Retenciones
+        exp_dict["retainedISR"] = float(exp_dict.get("retainedISR", 0.0))
+        exp_dict["retainedITBIS"] = float(exp_dict.get("retainedITBIS", 0.0))
+        exp_dict["isrWithheld"] = float(exp_dict.get("isrWithheld", 0.0))
+        exp_dict["itbisWithheld"] = float(exp_dict.get("itbisWithheld", 0.0))
         
+        # Auto-calcular retención ISR según proveedor (Norma 07-2019)
+        if exp_dict["retainedISR"] == 0.0 and exp_dict["isrWithheld"] == 0.0:
+            try:
+                supplier = None
+                supplier_id = exp_dict.get("supplierId", "")
+                rnc = exp_dict.get("rncEmisor", "")
+                if supplier_id:
+                    from app.services.supplier_service import SupplierService
+                    supplier = SupplierService.get_supplier(owner_uid, supplier_id, sandbox=sandbox)
+                if not supplier and rnc:
+                    from app.services.supplier_service import SupplierService
+                    supplier = SupplierService.get_supplier_by_rnc(owner_uid, rnc, sandbox=sandbox)
+                if supplier:
+                    from app.services.tax_engine import TaxEngine
+                    engine = TaxEngine(owner_uid=owner_uid, sandbox=sandbox, country="DO")
+                    isr_rate = engine.get_withholding_isr_rate_for_supplier(supplier)
+                    if isr_rate > 0:
+                        total = exp_dict["amount"]
+                        exp_dict["retainedISR"] = isr_rate
+                        exp_dict["isrWithheld"] = round(total * isr_rate, 2)
+            except Exception as e:
+                print(f"⚠️ Error al calcular retención ISR automática: {e}")
+
         # Nuevos campos e-CF y CxP:
         exp_dict["ecfType"] = exp_dict.get("ecfType", "")
         exp_dict["ecfNumber"] = exp_dict.get("ecfNumber", "")
@@ -3034,6 +3222,7 @@ class DatabaseService:
                         "description": data.get("description", ""),
                         "address": data.get("address", ""),
                         "branchId": data.get("branchId", "default-sucursal-principal"),
+                        "projectId": data.get("projectId"),
                         "createdAt": serialize_field(data.get("createdAt"))
                     })
                 
@@ -3061,6 +3250,8 @@ class DatabaseService:
         """Guarda o actualiza un almacén físico en Firestore."""
         wh_dict["id"] = warehouse_id
         wh_dict["ownerUID"] = owner_uid
+        wh_dict["branchId"] = wh_dict.get("branchId", "default-sucursal-principal")
+        wh_dict["projectId"] = wh_dict.get("projectId", None)
         if "createdAt" not in wh_dict or not wh_dict["createdAt"]:
             wh_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
         wh_dict["createdAt"] = serialize_field(wh_dict["createdAt"])
@@ -3769,7 +3960,7 @@ class DatabaseService:
     # =========================================================================
 
     @classmethod
-    def get_cash_registers(cls, owner_uid, sandbox=True):
+    def get_cash_registers(cls, owner_uid, sandbox=True, branch_id=None, project_id=None):
         """Retorna la lista de cajas registradoras de la empresa."""
         registers = []
         if firebase_initialized:
@@ -3780,6 +3971,8 @@ class DatabaseService:
                     data = doc.to_dict()
                     registers.append({
                         "id": doc.id,
+                        "branchId": data.get("branchId", "default-sucursal-principal"),
+                        "projectId": data.get("projectId"),
                         "name": data.get("name", "Caja"),
                         "status": data.get("status", "CLOSED"),  # OPEN o CLOSED
                         "consolidationMode": data.get("consolidationMode", False),
@@ -3793,6 +3986,8 @@ class DatabaseService:
                         "id": default_id,
                         "name": "Caja Principal 01",
                         "status": "CLOSED",
+                        "branchId": "default-sucursal-principal",
+                        "projectId": None,
                         "createdAt": datetime.now(timezone.utc).isoformat()
                     }
                     cls.save_cash_register(owner_uid, default_id, default_reg, sandbox=sandbox)
@@ -3801,6 +3996,12 @@ class DatabaseService:
                     registers.sort(key=lambda x: x["name"].lower())
             except Exception as e:
                 print(f"⚠️ Error al obtener cajas registradoras: {e}")
+        if branch_id:
+            registers = [c for c in registers if c.get("branchId") == branch_id]
+        if project_id == '__no_project__':
+            registers = [c for c in registers if not c.get("projectId")]
+        elif project_id:
+            registers = [c for c in registers if c.get("projectId") == project_id]
         return registers
 
     @classmethod
@@ -3808,6 +4009,8 @@ class DatabaseService:
         """Guarda o actualiza una caja registradora en Firestore."""
         reg_dict["id"] = register_id
         reg_dict["ownerUID"] = owner_uid
+        reg_dict["branchId"] = reg_dict.get("branchId", "default-sucursal-principal")
+        reg_dict["projectId"] = reg_dict.get("projectId", None)
         if "createdAt" not in reg_dict or not reg_dict["createdAt"]:
             reg_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
         reg_dict["createdAt"] = serialize_field(reg_dict["createdAt"])
@@ -4536,14 +4739,15 @@ class DatabaseService:
                 if doc.exists:
                     data = doc.to_dict()
                     data["id"] = doc.id
-                    data["amount"] = float(data.get("amount", 0.0))
+                    data["branchId"] = data.get("branchId", "default-sucursal-principal")
+                    data["projectId"] = data.get("projectId")
                     return data
             except Exception as e:
                 print(f"⚠️ Error al obtener contrato {contract_id}: {e}")
         return None
 
     @classmethod
-    def get_contracts(cls, owner_uid, sandbox=True):
+    def get_contracts(cls, owner_uid, sandbox=True, branch_id=None, project_id=None):
         """Retorna todos los contratos registrados del owner."""
         contracts = []
         if firebase_initialized:
@@ -4554,6 +4758,8 @@ class DatabaseService:
                     data = doc.to_dict()
                     contracts.append({
                         "id": doc.id,
+                        "branchId": data.get("branchId", "default-sucursal-principal"),
+                        "projectId": data.get("projectId"),
                         "contractNumber": data.get("contractNumber", ""),
                         "clientId": data.get("clientId", ""),
                         "clientName": data.get("clientName", ""),
@@ -4571,6 +4777,12 @@ class DatabaseService:
                 contracts.sort(key=lambda x: x["contractNumber"] or "")
             except Exception as e:
                 print(f"⚠️ Error al obtener contratos: {e}")
+        if branch_id:
+            contracts = [c for c in contracts if c.get("branchId") == branch_id]
+        if project_id == '__no_project__':
+            contracts = [c for c in contracts if not c.get("projectId")]
+        elif project_id:
+            contracts = [c for c in contracts if c.get("projectId") == project_id]
         return contracts
 
     @classmethod
@@ -4578,6 +4790,8 @@ class DatabaseService:
         """Guarda o actualiza un contrato en Firestore con versionado automático."""
         contract_dict["id"] = contract_id
         contract_dict["ownerUID"] = owner_uid
+        contract_dict["branchId"] = contract_dict.get("branchId", "default-sucursal-principal")
+        contract_dict["projectId"] = contract_dict.get("projectId", None)
         if "createdAt" not in contract_dict or not contract_dict["createdAt"]:
             contract_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
         contract_dict["updatedAt"] = datetime.now(timezone.utc).isoformat()
@@ -4698,7 +4912,10 @@ class DatabaseService:
             try:
                 doc = db_firestore.collection("users").document(owner_uid).collection("config").document("sales_goals").get()
                 if doc.exists:
-                    goals.update(doc.to_dict())
+                    data = doc.to_dict()
+                    data["branchId"] = data.get("branchId", "default-sucursal-principal")
+                    data["projectId"] = data.get("projectId")
+                    goals.update(data)
             except Exception as e:
                 print(f"⚠️ Error al obtener metas de venta: {e}")
         return goals
@@ -4706,6 +4923,8 @@ class DatabaseService:
     @classmethod
     def save_sales_goals(cls, owner_uid, goals_dict):
         """Guarda las metas de venta de la empresa."""
+        goals_dict["branchId"] = goals_dict.get("branchId", "default-sucursal-principal")
+        goals_dict["projectId"] = goals_dict.get("projectId", None)
         if firebase_initialized:
             try:
                 db_firestore.collection("users").document(owner_uid).collection("config").document("sales_goals").set(goals_dict)
@@ -5111,7 +5330,7 @@ class DatabaseService:
     # =========================================================================
 
     @classmethod
-    def get_bank_accounts(cls, owner_uid, sandbox=True):
+    def get_bank_accounts(cls, owner_uid, sandbox=True, branch_id=None, project_id=None):
         """Retorna la lista de cuentas bancarias, efectivo y tarjetas."""
         accounts = []
         if firebase_initialized:
@@ -5122,6 +5341,8 @@ class DatabaseService:
                     data = doc.to_dict()
                     accounts.append({
                         "id": doc.id,
+                        "branchId": data.get("branchId", "default-sucursal-principal"),
+                        "projectId": data.get("projectId"),
                         "name": data.get("name", ""),
                         "type": data.get("type", "banco"),
                         "accountNumber": data.get("accountNumber", ""),
@@ -5136,6 +5357,12 @@ class DatabaseService:
                 accounts.sort(key=lambda x: x["name"].lower())
             except Exception as e:
                 print(f"⚠️ Error al obtener cuentas bancarias desde Firestore: {e}")
+        if branch_id:
+            accounts = [c for c in accounts if c.get("branchId") == branch_id]
+        if project_id == '__no_project__':
+            accounts = [c for c in accounts if not c.get("projectId")]
+        elif project_id:
+            accounts = [c for c in accounts if c.get("projectId") == project_id]
         return accounts
 
     @classmethod
@@ -5149,6 +5376,8 @@ class DatabaseService:
                     data = doc.to_dict()
                     return {
                         "id": doc.id,
+                        "branchId": data.get("branchId", "default-sucursal-principal"),
+                        "projectId": data.get("projectId"),
                         "name": data.get("name", ""),
                         "type": data.get("type", "banco"),
                         "accountNumber": data.get("accountNumber", ""),
@@ -5169,6 +5398,8 @@ class DatabaseService:
         """Guarda o actualiza una cuenta bancaria en Firestore."""
         account_dict["id"] = account_id
         account_dict["ownerUID"] = owner_uid
+        account_dict["branchId"] = account_dict.get("branchId", "default-sucursal-principal")
+        account_dict["projectId"] = account_dict.get("projectId", None)
         if "createdAt" not in account_dict or not account_dict["createdAt"]:
             account_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
         account_dict["updatedAt"] = datetime.now(timezone.utc).isoformat()
@@ -5432,7 +5663,7 @@ class DatabaseService:
     # CONTABILIDAD — ACCOUNTING ENTRIES (ASIENTOS CONTABLES)
     # =========================================================================
     @classmethod
-    def get_accounting_entries(cls, owner_uid, sandbox=True):
+    def get_accounting_entries(cls, owner_uid, sandbox=True, branch_id=None, project_id=None):
         entries = []
         if firebase_initialized:
             try:
@@ -5441,9 +5672,17 @@ class DatabaseService:
                 for doc in docs:
                     data = doc.to_dict()
                     data["id"] = doc.id
+                    data["branchId"] = data.get("branchId", "default-sucursal-principal")
+                    data["projectId"] = data.get("projectId")
                     entries.append(data)
             except Exception as e:
                 print(f"⚠️ Error al obtener asientos contables: {e}")
+        if branch_id:
+            entries = [c for c in entries if c.get("branchId") == branch_id]
+        if project_id == '__no_project__':
+            entries = [c for c in entries if not c.get("projectId")]
+        elif project_id:
+            entries = [c for c in entries if c.get("projectId") == project_id]
         return entries
 
     @classmethod
@@ -5455,6 +5694,8 @@ class DatabaseService:
                 if doc.exists:
                     data = doc.to_dict()
                     data["id"] = doc.id
+                    data["branchId"] = data.get("branchId", "default-sucursal-principal")
+                    data["projectId"] = data.get("projectId")
                     return data
             except Exception as e:
                 print(f"⚠️ Error al obtener asiento contable: {e}")
@@ -5462,6 +5703,9 @@ class DatabaseService:
 
     @classmethod
     def save_accounting_entry(cls, owner_uid, entry_id, entry_dict, sandbox=True):
+        entry_dict["ownerUID"] = owner_uid
+        entry_dict["branchId"] = entry_dict.get("branchId", "default-sucursal-principal")
+        entry_dict["projectId"] = entry_dict.get("projectId", None)
         if firebase_initialized:
             try:
                 coll_name = "sandbox_accounting_entries" if sandbox else "accounting_entries"
@@ -5508,7 +5752,7 @@ class DatabaseService:
     # CONTABILIDAD — FIXED ASSETS (ACTIVOS FIJOS)
     # =========================================================================
     @classmethod
-    def get_fixed_assets(cls, owner_uid, sandbox=True):
+    def get_fixed_assets(cls, owner_uid, sandbox=True, branch_id=None, project_id=None):
         assets = []
         if firebase_initialized:
             try:
@@ -5517,9 +5761,17 @@ class DatabaseService:
                 for doc in docs:
                     data = doc.to_dict()
                     data["id"] = doc.id
+                    data["branchId"] = data.get("branchId", "default-sucursal-principal")
+                    data["projectId"] = data.get("projectId")
                     assets.append(data)
             except Exception as e:
                 print(f"⚠️ Error al obtener activos fijos: {e}")
+        if branch_id:
+            assets = [c for c in assets if c.get("branchId") == branch_id]
+        if project_id == '__no_project__':
+            assets = [c for c in assets if not c.get("projectId")]
+        elif project_id:
+            assets = [c for c in assets if c.get("projectId") == project_id]
         return assets
 
     @classmethod
@@ -5531,6 +5783,8 @@ class DatabaseService:
                 if doc.exists:
                     data = doc.to_dict()
                     data["id"] = doc.id
+                    data["branchId"] = data.get("branchId", "default-sucursal-principal")
+                    data["projectId"] = data.get("projectId")
                     return data
             except Exception as e:
                 print(f"⚠️ Error al obtener activo fijo: {e}")
@@ -5538,6 +5792,9 @@ class DatabaseService:
 
     @classmethod
     def save_fixed_asset(cls, owner_uid, asset_id, asset_dict, sandbox=True):
+        asset_dict["ownerUID"] = owner_uid
+        asset_dict["branchId"] = asset_dict.get("branchId", "default-sucursal-principal")
+        asset_dict["projectId"] = asset_dict.get("projectId", None)
         if firebase_initialized:
             try:
                 coll_name = "sandbox_fixed_assets" if sandbox else "fixed_assets"
@@ -5602,7 +5859,7 @@ class DatabaseService:
     # CENTROS DE COSTO (COST CENTERS)
     # =========================================================================
     @classmethod
-    def get_cost_centers(cls, owner_uid, sandbox=True):
+    def get_cost_centers(cls, owner_uid, sandbox=True, branch_id=None, project_id=None):
         """Retorna la lista de centros de costo de la empresa."""
         centers = []
         if firebase_initialized:
@@ -5613,6 +5870,8 @@ class DatabaseService:
                     data = doc.to_dict()
                     centers.append({
                         "id": doc.id,
+                        "branchId": data.get("branchId", "default-sucursal-principal"),
+                        "projectId": data.get("projectId"),
                         "name": data.get("name", ""),
                         "code": data.get("code", ""),
                         "description": data.get("description", ""),
@@ -5622,6 +5881,12 @@ class DatabaseService:
                 centers.sort(key=lambda x: x.get("name", "").lower())
             except Exception as e:
                 print(f"⚠️ Error al obtener centros de costo desde Firestore: {e}")
+        if branch_id:
+            centers = [c for c in centers if c.get("branchId") == branch_id]
+        if project_id == '__no_project__':
+            centers = [c for c in centers if not c.get("projectId")]
+        elif project_id:
+            centers = [c for c in centers if c.get("projectId") == project_id]
         return centers
 
     @classmethod
@@ -5635,6 +5900,8 @@ class DatabaseService:
                     data = doc.to_dict()
                     return {
                         "id": doc.id,
+                        "branchId": data.get("branchId", "default-sucursal-principal"),
+                        "projectId": data.get("projectId"),
                         "name": data.get("name", ""),
                         "code": data.get("code", ""),
                         "description": data.get("description", ""),
@@ -5650,6 +5917,8 @@ class DatabaseService:
         """Guarda o actualiza un centro de costo en Firestore."""
         center_dict["id"] = center_id
         center_dict["ownerUID"] = owner_uid
+        center_dict["branchId"] = center_dict.get("branchId", "default-sucursal-principal")
+        center_dict["projectId"] = center_dict.get("projectId", None)
         if "createdAt" not in center_dict or not center_dict.get("createdAt"):
             center_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
         center_dict["createdAt"] = serialize_field(center_dict["createdAt"])

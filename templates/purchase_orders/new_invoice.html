@@ -1,0 +1,743 @@
+{% extends "layout.html" %}
+
+{% block title %}Nueva Factura de Compra Directa{% endblock %}
+{% block page_header %}Nueva Factura de Compra Directa{% endblock %}
+
+{% block content %}
+<style>
+    {% include 'components/_accordion_css.html' %}
+
+    .items-table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+    .items-table th { padding:8px 12px; text-align:left; font-size:0.72rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid var(--border-color); white-space:nowrap; }
+    .items-table td { padding:6px 10px; border-bottom:1px solid var(--border-color); vertical-align:middle; }
+    .items-table td:last-child { text-align:center; width:40px; padding:6px 8px; }
+
+    .totals-strip { display:flex; justify-content:flex-end; align-items:flex-end; flex-direction:column; gap:4px; padding-top:14px; border-top:1px solid var(--border-color); margin-top:10px; font-size:0.82rem; }
+    .totals-strip .tl-row { display:flex; justify-content:space-between; width:260px; }
+    .totals-strip .tl-row.total { font-size:1.15rem; font-weight:800; border-top:2px solid var(--border-color); padding-top:6px; margin-top:4px; }
+
+    .actions-bar { display:flex; justify-content:flex-end; align-items:center; gap:12px; padding-top:8px; }
+    .actions-bar .btn { padding:10px 24px; font-size:0.85rem; }
+
+    .row-menu-btn { background:none; border:none; color:var(--text-muted); cursor:pointer; padding:6px 8px; border-radius:6px; transition:all 0.15s; }
+    .row-menu-btn:hover { background:rgba(0,0,0,0.05); color:var(--text-primary); }
+
+    .account-cell { position:relative; overflow:visible; }
+    .acco-dropdown { display:none; position:absolute; top:100%; left:0; min-width:340px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-sm); box-shadow:var(--shadow-lg); z-index:9999; max-height:350px; overflow-y:auto; margin-top:2px; }
+    .acco-dropdown.open { display:block; }
+    .acco-tree-item { display:flex; align-items:center; gap:4px; padding:6px 8px; cursor:pointer; border-bottom:1px solid var(--border-color); font-size:0.78rem; transition:background 0.12s; }
+    .acco-tree-item:hover { background:rgba(16,185,129,0.06); }
+    .acco-tree-item.selected { background:rgba(16,185,129,0.1); font-weight:600; }
+    .acco-tree-item.selected .acco-name { color:var(--accent-emerald); }
+    .acco-tree-item .acco-toggle { font-size:0.6rem; color:var(--text-muted); width:14px; text-align:center; flex-shrink:0; cursor:pointer; user-select:none; }
+    .acco-tree-item .acco-toggle:hover { color:var(--accent-emerald); }
+    .acco-tree-item .acco-icon { font-size:0.65rem; width:14px; text-align:center; flex-shrink:0; color:var(--text-muted); }
+    .acco-tree-item .acco-name { color:var(--text-primary); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+    .acco-search-no-results { padding:12px; text-align:center; font-size:0.75rem; color:var(--text-muted); }
+    .acco-search-box { padding:8px 12px; border-bottom:1px solid var(--border-color); position:sticky; top:0; background:var(--bg-card); z-index:1; }
+
+    .credit-box { display:none; flex-direction:column; gap:12px; margin-top:12px; padding:16px; background:rgba(0,0,0,0.02); border:1px solid var(--border-color); border-radius:var(--radius-sm); }
+
+    .uploader-zone { border:2px dashed var(--border-color); border-radius:var(--radius-md); padding:40px 20px; text-align:center; background:rgba(0,0,0,0.01); cursor:pointer; transition:all 0.25s ease; }
+    .uploader-zone:hover { border-color:var(--accent-emerald); background:rgba(16,185,129,0.03); }
+
+    .help-banner { background:rgba(59,130,246,0.05); border:1px solid rgba(59,130,246,0.15); border-radius:var(--radius-sm); padding:14px 18px; font-size:0.78rem; color:var(--text-secondary); line-height:1.5; margin-bottom:20px; }
+    .help-banner i { color:var(--accent-blue); margin-right:6px; }
+
+    .form-inner-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .form-inner-grid .span-full { grid-column: 1 / -1; }
+</style>
+
+<div style="max-width:850px; margin:0 auto 50px auto; width:100%;">
+
+    <div class="help-banner">
+        <i class="fa-solid fa-circle-info"></i>
+        Registra una factura de compra directamente, sin necesidad de crear una orden de compra previa.
+        Completa los datos del proveedor, comprobante fiscal y partidas para llevar el control de CxP.
+    </div>
+
+    <form method="POST" id="invoice-form" action="{{ url_for('web_purchase_orders.new_supplier_invoice_direct') }}" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="settings-accordion">
+
+            <!-- SECCIÓN 1: PROVEEDOR -->
+            <div class="accordion-item active" id="sec-proveedor">
+                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                    <div class="accordion-title">
+                        <i class="fa-solid fa-truck" style="color:var(--accent-purple);"></i>
+                        <span>1. Proveedor</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                </button>
+                <div class="accordion-content" style="max-height:none;">
+                    <div class="accordion-body">
+                        <div class="form-inner-grid">
+                            <div class="form-group span-full" style="position:relative;">
+                                <label for="supplier-search">Buscar Proveedor del Catálogo <span style="font-size:0.7rem; color:var(--text-muted);">(opcional — autocompleta RNC y datos)</span></label>
+                                <input type="text" id="supplier-search" class="form-input" placeholder="Escribe el nombre o RNC del proveedor..." autocomplete="off" style="width:100%;">
+                                <div id="supplier-search-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:var(--shadow-lg); z-index:999; max-height:250px; overflow-y:auto; margin-top:4px;"></div>
+                                <input type="hidden" id="supplierId" name="supplierId" value="">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="supplierType">Tipo de Proveedor</label>
+                                <select id="supplierType" name="supplierType" class="form-select" style="width:100%;">
+                                    <option value="formal" selected>Proveedor Formal (RNC)</option>
+                                    <option value="informal">Proveedor Informal</option>
+                                    <option value="internacional">Proveedor Internacional</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="supplierName">Razón Social *</label>
+                                <input type="text" id="supplierName" name="supplierName" class="form-input" placeholder="Nombre del proveedor" required style="width:100%;">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="supplierRnc">RNC</label>
+                                <input type="text" id="supplierRnc" name="supplierRnc" class="form-input" placeholder="101001011" style="width:100%; font-family:monospace;">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="category">Categoría DGII 606</label>
+                                <select id="category" name="category" class="form-select" style="width:100%;">
+                                    <option value="Comida y Restaurantes">Comida y Restaurantes</option>
+                                    <option value="Transporte y Combustible">Transporte y Combustible</option>
+                                    <option value="Servicios Básicos">Servicios Básicos</option>
+                                    <option value="Software y Tecnología">Software y Tecnología</option>
+                                    <option value="Materiales de Oficina">Materiales de Oficina</option>
+                                    <option value="Alquileres">Alquileres</option>
+                                    <option value="Impuestos y Tasas">Impuestos y Tasas</option>
+                                    <option value="Otros Gastos" selected>Otros Gastos</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="tipoGastoDGII">Tipo Gasto Deducible DGII</label>
+                                <select id="tipoGastoDGII" name="tipoGastoDGII" class="form-select" style="width:100%;">
+                                    <option value="01">01 - Gastos de Personal</option>
+                                    <option value="02" selected>02 - Trabajos, Suministros y Servicios</option>
+                                    <option value="03">03 - Arrendamientos</option>
+                                    <option value="04">04 - Gastos de Activos Fijos</option>
+                                    <option value="05">05 - Gastos de Representación</option>
+                                    <option value="06">06 - Otras Deducciones</option>
+                                    <option value="07">07 - Gastos Financieros</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN 2: DATOS FISCALES -->
+            <div class="accordion-item" id="sec-fiscal">
+                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                    <div class="accordion-title">
+                        <i class="fa-solid fa-stamp" style="color:var(--accent-blue);"></i>
+                        <span>2. Datos del Comprobante Fiscal (e-CF)</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                </button>
+                <div class="accordion-content">
+                    <div class="accordion-body">
+                        <div class="form-inner-grid">
+                            <div class="form-group">
+                                <label for="ecfType">Tipo de Comprobante e-CF</label>
+                                <select id="ecfType" name="ecfType" class="form-select" style="width:100%;">
+                                    <option value="E31" selected>E31 - Factura de Crédito Fiscal</option>
+                                    <option value="E32">E32 - Factura de Consumo</option>
+                                    <option value="E41">E41 - Comprobante de Compras</option>
+                                    <option value="E43">E43 - Gastos Menores</option>
+                                    <option value="E45">E45 - Comprobante Gubernamental</option>
+                                    <option value="E47">E47 - Pagos al Exterior</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="ncf">NCF / e-CF del Proveedor</label>
+                                <input type="text" id="ncf" name="ncf" class="form-input" placeholder="Ej: E310120000452" style="width:100%; font-family:monospace;">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="cne">CNE / Código Seguridad</label>
+                                <input type="text" id="cne" name="cne" class="form-input" placeholder="Firma digital DGII" style="width:100%; font-family:monospace;">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="invoiceNumber">No. Factura del Proveedor *</label>
+                                <input type="text" id="invoiceNumber" name="invoiceNumber" class="form-input" placeholder="Ej: F001-123" required style="width:100%;">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="date">Fecha de Emisión *</label>
+                                <input type="date" id="date" name="date" class="form-input" value="{{ today }}" required max="{{ today }}" style="width:100%;">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="dueDate">Fecha de Vencimiento</label>
+                                <input type="date" id="dueDate" name="dueDate" class="form-input" style="width:100%;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN 3: PARTIDAS (TABLA DINÁMICA) -->
+            <div class="accordion-item active" id="sec-partidas">
+                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                    <div class="accordion-title">
+                        <i class="fa-solid fa-box" style="color:var(--accent-emerald);"></i>
+                        <span>3. Partidas</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                </button>
+                <div class="accordion-content" style="max-height:none;">
+                    <div class="accordion-body" style="overflow:visible;">
+                        <div style="overflow:visible;">
+                            <table class="items-table" id="items-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width:22%;">Descripción *</th>
+                                        <th style="width:7%;text-align:center;">Cant.</th>
+                                        <th style="width:10%;text-align:right;">Precio U.</th>
+                                        <th style="width:8%;text-align:center;">ITBIS</th>
+                                        <th style="width:7%;text-align:right;">Desc%</th>
+                                        <th style="width:18%;">Cuenta Contable</th>
+                                        <th style="width:12%;text-align:right;">Total</th>
+                                        <th style="width:4%;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="items-body">
+                                    <tr class="item-row">
+                                        <td>
+                                            <input type="text" class="form-input item-name" name="items[0][name]" placeholder="Descripción del producto/servicio" required style="width:100%;">
+                                        </td>
+                                        <td style="text-align:center;">
+                                            <input type="number" class="form-input item-qty" name="items[0][quantity]" value="1" min="0.01" step="0.01" required style="width:70px;text-align:center;" oninput="recalculateTotals()">
+                                        </td>
+                                        <td style="text-align:right;">
+                                            <input type="number" class="form-input item-price" name="items[0][unitPrice]" value="0.00" step="0.01" min="0" required style="width:110px;text-align:right;" oninput="recalculateTotals()">
+                                        </td>
+                                        <td style="text-align:center;">
+                                            <select class="form-select item-itbis" name="items[0][itbisRate]" onchange="recalculateTotals()" style="width:100%;">
+                                                <option value="{{ itbis_general }}">{{ "%.0f"|format(itbis_general * 100) }}%</option>
+                                                <option value="{{ itbis_reduced }}">{{ "%.0f"|format(itbis_reduced * 100) }}%</option>
+                                                <option value="0.0">0% (Exento)</option>
+                                            </select>
+                                        </td>
+                                        <td style="text-align:right;">
+                                            <input type="number" class="form-input item-discount" name="items[0][discount]" value="0" step="0.01" min="0" max="100" style="width:70px;text-align:right;" oninput="recalculateTotals()">
+                                        </td>
+                                        <td class="account-cell">
+                                            <input type="text" class="form-input item-account-display" value="" placeholder="Buscar cuenta..." autocomplete="off" onfocus="openAccountDropdown(this)" oninput="filterAccountDropdown(this)" style="width:100%;">
+                                            <input type="hidden" class="item-account-id" name="items[0][accountingAccountId]" value="">
+                                            <div class="acco-dropdown"></div>
+                                        </td>
+                                        <td style="text-align:right;font-weight:600;">
+                                            <span class="item-total-label">RD$ 0.00</span>
+                                        </td>
+                                        <td style="text-align:center;">
+                                            <button type="button" class="row-menu-btn remove-row-btn" title="Eliminar"><i class="fa-solid fa-xmark"></i></button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="totals-strip">
+                            <div class="tl-row"><span>Subtotal</span><span id="sum-subtotal">RD$ 0.00</span></div>
+                            <div class="tl-row"><span>Descuento</span><span id="sum-discount">RD$ 0.00</span></div>
+                            <div class="tl-row"><span>ITBIS</span><span id="sum-itbis">RD$ 0.00</span></div>
+                            <div class="tl-row total"><span>Total</span><span id="sum-total">RD$ 0.00</span></div>
+                        </div>
+                        <div style="margin-top:12px;">
+                            <button type="button" id="btn-add-item" class="btn btn-sm btn-secondary"><i class="fa-solid fa-plus"></i> Añadir Partida</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN 4: CONDICIONES DE PAGO, MONEDA Y PROYECTO -->
+            <div class="accordion-item" id="sec-pago">
+                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                    <div class="accordion-title">
+                        <i class="fa-solid fa-credit-card" style="color:var(--accent-orange);"></i>
+                        <span>4. Condiciones de Pago, Moneda y Proyecto</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                </button>
+                <div class="accordion-content">
+                    <div class="accordion-body">
+                        <div class="form-inner-grid">
+                            <div class="form-group">
+                                <label for="paymentType">Estado del Pago</label>
+                                <select id="paymentType" name="paymentType" class="form-select" onchange="togglePaymentFields()" style="width:100%;">
+                                    <option value="Contado" selected>Pagado (Contado)</option>
+                                    <option value="Crédito">Pendiente de pago (Crédito / CxP)</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="paymentMethod">Forma de Pago</label>
+                                <select id="paymentMethod" name="paymentMethod" class="form-select" style="width:100%;">
+                                    <option value="transferencia" selected>Transferencia bancaria</option>
+                                    <option value="cheque">Cheque</option>
+                                    <option value="efectivo">Efectivo</option>
+                                    <option value="tarjeta">Tarjeta</option>
+                                    <option value="otro">Otro</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group span-full">
+                                <label for="bankAccountId">Cuenta Bancaria <span style="color:var(--accent-red);" id="bank-required">*</span></label>
+                                <select id="bankAccountId" name="bankAccountId" class="form-select" style="width:100%;">
+                                    <option value="">-- Seleccionar Cuenta --</option>
+                                    {% for acc in bank_accounts %}
+                                    <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.type|capitalize }}) — RD$ {{ "{:,.2f}".format(acc.currentBalance) }}</option>
+                                    {% endfor %}
+                                </select>
+                                <small style="color:var(--text-muted); font-size:0.72rem;">El saldo se descontará automáticamente al registrar la factura si es Contado.</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="currency">Moneda</label>
+                                <select id="currency" name="currency" class="form-select" style="width:100%;" onchange="handleCurrencyChange()">
+                                    <option value="DOP" selected>DOP - Peso Dominicano</option>
+                                    <option value="USD">USD - Dólar</option>
+                                    <option value="EUR">EUR - Euro</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group" id="exchange-rate-container">
+                                <label for="exchangeRate">Tasa de Cambio</label>
+                                <input type="number" id="exchangeRate" name="exchangeRate" class="form-input" value="1.00" step="0.01" min="0.01" style="width:100%;">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="projectId">Proyecto</label>
+                                <select id="projectId" name="projectId" class="form-select" style="width:100%;">
+                                    <option value="">Sin proyecto</option>
+                                    {% for p in projects %}
+                                    <option value="{{ p.id }}" {% if p.id == active_project_id %}selected{% endif %}>{{ p.name }} ({{ p.code }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN 5: RETENCIONES -->
+            <div class="accordion-item" id="sec-retenciones">
+                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                    <div class="accordion-title">
+                        <i class="fa-solid fa-percent" style="color:var(--accent-red);"></i>
+                        <span>5. Retenciones</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                </button>
+                <div class="accordion-content">
+                    <div class="accordion-body">
+                        <div class="form-inner-grid">
+                            <div class="form-group">
+                                <label for="retainedISRRate">Retención ISR</label>
+                                <select id="retainedISRRate" name="retainedISRRate" class="form-select" style="width:100%;">
+                                    <option value="0.0" selected>Sin retención (0%)</option>
+                                    <option value="0.02">2% — Bienes y servicios</option>
+                                    <option value="0.10">10% — Honorarios / Alquiler</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="retainedITBISRate">Retención ITBIS</label>
+                                <select id="retainedITBISRate" name="retainedITBISRate" class="form-select" style="width:100%;">
+                                    <option value="0.0" selected>Sin retención (0%)</option>
+                                    <option value="0.30">30% — Bienes corporativos</option>
+                                    <option value="0.75">75% — Servicios jurídicos</option>
+                                    <option value="1.00">100% — Profesionales independientes</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN 6: ADJUNTOS Y NOTAS -->
+            <div class="accordion-item" id="sec-adjuntos">
+                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                    <div class="accordion-title">
+                        <i class="fa-solid fa-paperclip" style="color:var(--text-muted);"></i>
+                        <span>6. Adjuntos y Notas</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                </button>
+                <div class="accordion-content">
+                    <div class="accordion-body">
+                        <div class="form-inner-grid">
+                            <div class="form-group span-full">
+                                <div class="uploader-zone" id="drop-zone" onclick="document.getElementById('attachment-input').click()">
+                                    <i class="fa-solid fa-cloud-arrow-up" style="font-size:2.5rem; color:var(--text-muted); margin-bottom:12px;"></i>
+                                    <p style="font-size:0.9rem; font-weight:600; margin:0 0 6px 0; color:var(--text-primary);">Arrastra o haz clic para adjuntar</p>
+                                    <span style="font-size:0.75rem; color:var(--text-muted);">PDF, JPG o PNG (máx. 10 MB)</span>
+                                    <input type="file" id="attachment-input" name="attachment" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="showFileName(this)">
+                                </div>
+                                <div id="file-name-display" style="margin-top:12px; font-size:0.8rem; color:var(--text-secondary); display:none;">
+                                    <i class="fa-solid fa-file" style="color:var(--accent-emerald); margin-right:6px;"></i>
+                                    <span id="file-name-text"></span>
+                                </div>
+                            </div>
+
+                            <div class="form-group span-full">
+                                <label for="notes">Notas</label>
+                                <textarea id="notes" name="notes" class="form-textarea" rows="3" placeholder="Detalles adicionales de la factura..." style="width:100%; resize:vertical;"></textarea>
+                            </div>
+
+                            <div class="form-group span-full">
+                                <label for="comentario">Comentarios Internos</label>
+                                <textarea id="comentario" name="comentario" class="form-textarea" rows="2" placeholder="Comentarios para tu equipo (no visibles en impresión)..." style="width:100%; resize:vertical;"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="actions-bar">
+            <a href="{{ url_for('web_purchase_orders.list_purchase_cxp') }}" class="btn btn-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-primary" style="background:var(--accent-emerald);border-color:var(--accent-emerald);">
+                <i class="fa-solid fa-floppy-disk"></i> Registrar Factura de Compra
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    const accountingAccounts = {{ accounting_accounts | tojson | safe }};
+    const itbisGeneral = {{ itbis_general }};
+    const itbisReduced = {{ itbis_reduced }};
+
+    let rowIndex = 0;
+    let openDropdownCell = null;
+
+    function getNextRowIndex() {
+        rowIndex++;
+        return rowIndex;
+    }
+
+    function buildItbisSelect(idx) {
+        return `<select class="form-select item-itbis" name="items[${idx}][itbisRate]" onchange="recalculateTotals()" style="width:100%;">
+            <option value="${itbisGeneral}">${(itbisGeneral * 100).toFixed(0)}%</option>
+            <option value="${itbisReduced}">${(itbisReduced * 100).toFixed(0)}%</option>
+            <option value="0.0">0% (Exento)</option>
+        </select>`;
+    }
+
+    function addItemRow() {
+        const idx = getNextRowIndex();
+        const tbody = document.getElementById('items-body');
+        const tr = document.createElement('tr');
+        tr.className = 'item-row';
+        tr.innerHTML = `
+            <td>
+                <input type="text" class="form-input item-name" name="items[${idx}][name]" placeholder="Descripción del producto/servicio" required style="width:100%;">
+            </td>
+            <td style="text-align:center;">
+                <input type="number" class="form-input item-qty" name="items[${idx}][quantity]" value="1" min="0.01" step="0.01" required style="width:70px;text-align:center;" oninput="recalculateTotals()">
+            </td>
+            <td style="text-align:right;">
+                <input type="number" class="form-input item-price" name="items[${idx}][unitPrice]" value="0.00" step="0.01" min="0" required style="width:110px;text-align:right;" oninput="recalculateTotals()">
+            </td>
+            <td style="text-align:center;">
+                ${buildItbisSelect(idx)}
+            </td>
+            <td style="text-align:right;">
+                <input type="number" class="form-input item-discount" name="items[${idx}][discount]" value="0" step="0.01" min="0" max="100" style="width:70px;text-align:right;" oninput="recalculateTotals()">
+            </td>
+            <td class="account-cell">
+                <input type="text" class="form-input item-account-display" value="" placeholder="Buscar cuenta..." autocomplete="off" onfocus="openAccountDropdown(this)" oninput="filterAccountDropdown(this)" style="width:100%;">
+                <input type="hidden" class="item-account-id" name="items[${idx}][accountingAccountId]" value="">
+                <div class="acco-dropdown"></div>
+            </td>
+            <td style="text-align:right;font-weight:600;">
+                <span class="item-total-label">RD$ 0.00</span>
+            </td>
+            <td style="text-align:center;">
+                <button type="button" class="row-menu-btn remove-row-btn" title="Eliminar"><i class="fa-solid fa-xmark"></i></button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+        attachRowEvents(tr);
+        updateRemoveButtons();
+    }
+
+    function attachRowEvents(tr) {
+        const removeBtn = tr.querySelector('.remove-row-btn');
+        if (removeBtn) {
+            removeBtn.addEventListener('click', function() {
+                const rows = document.querySelectorAll('#items-body .item-row');
+                if (rows.length <= 1) return;
+                tr.remove();
+                recalculateTotals();
+                updateRemoveButtons();
+            });
+        }
+    }
+
+    function updateRemoveButtons() {
+        const rows = document.querySelectorAll('#items-body .item-row');
+        rows.forEach(function(row) {
+            const btn = row.querySelector('.remove-row-btn');
+            if (btn) {
+                btn.style.visibility = rows.length <= 1 ? 'hidden' : 'visible';
+            }
+        });
+    }
+
+    function recalculateTotals() {
+        let subtotal = 0, totalItbis = 0, totalDiscount = 0;
+        const rows = document.querySelectorAll('#items-body .item-row');
+        rows.forEach(function(row) {
+            const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
+            const price = parseFloat(row.querySelector('.item-price').value) || 0;
+            const itbisRate = parseFloat(row.querySelector('.item-itbis').value) || 0;
+            const discountPct = parseFloat(row.querySelector('.item-discount').value) || 0;
+            const lineSub = qty * price;
+            const lineDiscount = lineSub * (discountPct / 100);
+            const lineItbis = (lineSub - lineDiscount) * itbisRate;
+            const lineTotal = lineSub - lineDiscount + lineItbis;
+            subtotal += lineSub;
+            totalDiscount += lineDiscount;
+            totalItbis += lineItbis;
+            const label = row.querySelector('.item-total-label');
+            if (label) label.textContent = 'RD$ ' + lineTotal.toFixed(2);
+        });
+        document.getElementById('sum-subtotal').textContent = 'RD$ ' + subtotal.toFixed(2);
+        document.getElementById('sum-discount').textContent = 'RD$ ' + totalDiscount.toFixed(2);
+        document.getElementById('sum-itbis').textContent = 'RD$ ' + totalItbis.toFixed(2);
+        const grandTotal = subtotal - totalDiscount + totalItbis;
+        document.getElementById('sum-total').textContent = 'RD$ ' + grandTotal.toFixed(2);
+    }
+
+    document.getElementById('btn-add-item').addEventListener('click', addItemRow);
+
+    document.querySelectorAll('#items-body .item-row').forEach(function(tr) {
+        attachRowEvents(tr);
+    });
+    updateRemoveButtons();
+
+    function togglePaymentFields() {
+        const paymentType = document.getElementById('paymentType').value;
+        const bankReq = document.getElementById('bank-required');
+        const bankSelect = document.getElementById('bankAccountId');
+        if (paymentType === 'Contado') {
+            bankReq.style.display = 'inline';
+            bankSelect.required = true;
+        } else {
+            bankReq.style.display = 'none';
+            bankSelect.required = false;
+        }
+    }
+
+    function handleCurrencyChange() {
+        const currency = document.getElementById('currency').value;
+        const rateContainer = document.getElementById('exchange-rate-container');
+        if (currency === 'DOP') {
+            rateContainer.style.display = 'none';
+            document.getElementById('exchangeRate').value = '1.00';
+        } else {
+            rateContainer.style.display = '';
+        }
+    }
+
+    function showFileName(input) {
+        const display = document.getElementById('file-name-display');
+        const text = document.getElementById('file-name-text');
+        if (input.files && input.files.length > 0) {
+            text.textContent = input.files[0].name;
+            display.style.display = 'block';
+        } else {
+            display.style.display = 'none';
+        }
+    }
+
+    const dropZone = document.getElementById('drop-zone');
+    ['dragenter', 'dragover'].forEach(function(evt) {
+        dropZone.addEventListener(evt, function(e) { e.preventDefault(); dropZone.style.borderColor = 'var(--accent-emerald)'; }, false);
+    });
+    ['dragleave', 'drop'].forEach(function(evt) {
+        dropZone.addEventListener(evt, function(e) { e.preventDefault(); dropZone.style.borderColor = 'var(--border-color)'; }, false);
+    });
+    dropZone.addEventListener('drop', function(e) {
+        const dt = e.dataTransfer;
+        if (dt.files.length) {
+            document.getElementById('attachment-input').files = dt.files;
+            showFileName(document.getElementById('attachment-input'));
+        }
+    });
+
+    function buildAccountTree(accounts) {
+        const map = {};
+        const roots = [];
+        accounts.forEach(function(a) {
+            a._children = [];
+            map[a.code || ''] = a;
+        });
+        accounts.forEach(function(a) {
+            const code = a.code || '';
+            const parts = code.split('.');
+            let parentCode = '';
+            if (parts.length > 1) {
+                const parentParts = parts.slice(0, -1);
+                parentCode = parentParts.join('.');
+                if (!map[parentCode]) {
+                    for (let i = parentParts.length - 1; i >= 0; i--) {
+                        const testCode = parentParts.slice(0, i + 1).join('.');
+                        if (map[testCode]) { parentCode = testCode; break; }
+                    }
+                }
+            }
+            if (parentCode && map[parentCode]) {
+                map[parentCode]._children.push(a);
+            } else {
+                roots.push(a);
+            }
+        });
+        function sortTree(nodes) {
+            nodes.sort(function(a, b) { return (a.orderIdx || 0) - (b.orderIdx || 0) || (a.code || '').localeCompare(b.code || ''); });
+            nodes.forEach(function(n) { sortTree(n._children); });
+        }
+        sortTree(roots);
+        return roots;
+    }
+
+    function renderTreeNodes(nodes, depth) {
+        depth = depth || 0;
+        let html = '';
+        nodes.forEach(function(node) {
+            const hasChildren = node._children && node._children.length > 0;
+            html += '<div class="acco-tree-item" data-account-id="' + node.id + '" data-account-name="' + (node.name || '').replace(/"/g, '&quot;') + '" data-account-code="' + (node.code || '') + '" onclick="selectAccount(this)" style="padding-left:' + (8 + depth * 16) + 'px;">';
+            if (hasChildren) {
+                html += '<span class="acco-toggle" onclick="event.stopPropagation(); toggleAccoNode(this)">&#9654;</span>';
+                html += '<span class="acco-icon"><i class="fa-solid fa-folder"></i></span>';
+            } else {
+                html += '<span class="acco-toggle" style="visibility:hidden;">&#9654;</span>';
+                html += '<span class="acco-icon"><i class="fa-solid fa-file-lines"></i></span>';
+            }
+            html += '<span class="acco-name">' + (node.code ? '<strong>' + node.code + '</strong> — ' : '') + (node.name || 'Sin nombre') + '</span>';
+            html += '</div>';
+            if (hasChildren) {
+                html += '<div class="acco-children" style="display:none;">' + renderTreeNodes(node._children, depth + 1) + '</div>';
+            }
+        });
+        return html;
+    }
+
+    function openAccountDropdown(inputEl) {
+        const cell = inputEl.closest('.account-cell');
+        const dropdown = cell.querySelector('.acco-dropdown');
+        closeAllDropdowns();
+        openDropdownCell = cell;
+        const roots = buildAccountTree(accountingAccounts);
+        const searchHtml = '<div class="acco-search-box"><input type="text" class="form-input" placeholder="Buscar cuenta contable..." oninput="filterAccountDropdown(this)" style="width:100%;font-size:0.78rem;height:32px;"></div>';
+        dropdown.innerHTML = searchHtml + renderTreeNodes(roots, 0);
+        dropdown.classList.add('open');
+        setTimeout(function() {
+            const searchInput = dropdown.querySelector('.acco-search-box input');
+            if (searchInput) searchInput.focus();
+        }, 50);
+    }
+
+    function filterAccountDropdown(inputEl) {
+        const dropdown = inputEl.closest('.acco-dropdown') || openDropdownCell.querySelector('.acco-dropdown');
+        if (!dropdown) return;
+        const filter = inputEl.value.toLowerCase();
+        const items = dropdown.querySelectorAll('.acco-tree-item');
+        items.forEach(function(item) {
+            const name = (item.getAttribute('data-account-name') || '').toLowerCase();
+            const code = (item.getAttribute('data-account-code') || '').toLowerCase();
+            if (!filter || name.indexOf(filter) !== -1 || code.indexOf(filter) !== -1) {
+                item.style.display = '';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+
+    function selectAccount(item) {
+        const cell = item.closest('.account-cell');
+        const display = cell.querySelector('.item-account-display');
+        const hidden = cell.querySelector('.item-account-id');
+        const code = item.getAttribute('data-account-code') || '';
+        const name = item.getAttribute('data-account-name') || '';
+        display.value = code ? code + ' — ' + name : name;
+        hidden.value = item.getAttribute('data-account-id');
+        const dropdown = cell.querySelector('.acco-dropdown');
+        dropdown.classList.remove('open');
+        openDropdownCell = null;
+    }
+
+    function toggleAccoNode(toggleEl) {
+        const item = toggleEl.parentElement;
+        const children = item.nextElementSibling;
+        if (children && children.classList.contains('acco-children')) {
+            if (children.style.display === 'none' || children.style.display === '') {
+                children.style.display = 'block';
+                toggleEl.innerHTML = '&#9660;';
+            } else {
+                children.style.display = 'none';
+                toggleEl.innerHTML = '&#9654;';
+            }
+        }
+    }
+
+    function closeAllDropdowns() {
+        document.querySelectorAll('.acco-dropdown.open').forEach(function(dd) { dd.classList.remove('open'); });
+        openDropdownCell = null;
+    }
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.account-cell')) {
+            closeAllDropdowns();
+        }
+    });
+
+    const suppliers = {{ suppliers | tojson | safe }};
+    const searchInput = document.getElementById('supplier-search');
+    const searchResults = document.getElementById('supplier-search-results');
+
+    searchInput.addEventListener('input', function() {
+        const q = this.value.toLowerCase().trim();
+        if (q.length < 1) { searchResults.style.display = 'none'; return; }
+        const matches = suppliers.filter(function(s) {
+            return (s.name || '').toLowerCase().indexOf(q) !== -1 || (s.rnc || '').indexOf(q) !== -1;
+        });
+        if (matches.length === 0) { searchResults.style.display = 'none'; return; }
+        let html = '';
+        matches.slice(0, 8).forEach(function(s) {
+            html += '<div style="padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border-color); transition:background 0.15s;" onmouseover="this.style.background=\'rgba(16,185,129,0.06)\'" onmouseout="this.style.background=\'\'" onclick="selectSupplier(\'' + (s.id || '') + '\', \'' + (s.name || '').replace(/'/g, "\\'") + '\', \'' + (s.rnc || '').replace(/'/g, "\\'") + '\')">';
+            html += '<div style="font-weight:600;font-size:0.85rem;">' + (s.name || '') + '</div>';
+            html += '<div style="font-size:0.72rem;color:var(--text-muted);">RNC: ' + (s.rnc || '—') + '</div>';
+            html += '</div>';
+        });
+        searchResults.innerHTML = html;
+        searchResults.style.display = 'block';
+    });
+
+    function selectSupplier(id, name, rnc) {
+        document.getElementById('supplierId').value = id;
+        document.getElementById('supplierName').value = name;
+        document.getElementById('supplierRnc').value = rnc;
+        searchInput.value = name;
+        searchResults.style.display = 'none';
+    }
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#supplier-search') && !e.target.closest('#supplier-search-results')) {
+            searchResults.style.display = 'none';
+        }
+    });
+
+    handleCurrencyChange();
+    togglePaymentFields();
+</script>
+{% endblock %}

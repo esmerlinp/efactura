@@ -2,7 +2,7 @@ import io
 import csv
 from datetime import datetime, timezone
 from collections import defaultdict
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, send_file
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, send_file, g
 from app.services.db_service import DatabaseService
 from app.utils.decorators import check_permission
 
@@ -117,7 +117,7 @@ def reporte_607():
         if not by_client[key].get("rnc"):
             by_client[key]["rnc"] = e.get("clientRNC", "—")
 
-    clients_list = DatabaseService.get_clients(owner_uid, sandbox=sandbox) or []
+    clients_list = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
 
     return render_template(
         "reports/reporte_607.html",

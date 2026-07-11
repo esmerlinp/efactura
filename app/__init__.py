@@ -2,7 +2,7 @@ import flask.helpers
 
 flask_url_for = flask.helpers.url_for
 
-from flask import Flask, request, session, jsonify, flash, redirect, render_template, url_for
+from flask import Flask, request, session, g, jsonify, flash, redirect, render_template, url_for
 from flask_wtf.csrf import CSRFError
 from config import Config
 from app.extensions import init_extensions, csrf
@@ -47,6 +47,9 @@ def create_app():
         if 'user' in session:
             if 'is_sandbox_mode' not in session:
                 session['is_sandbox_mode'] = False
+            # Cargar contexto de sucursal
+            if 'selected_branch_id' not in session:
+                session['selected_branch_id'] = None
             # Cargar perfil fresco en tiempo real de Firestore para sincronización reactiva
             fresh_profile = DatabaseService.get_user_profile(session['user']['uid'])
             if fresh_profile:
@@ -67,6 +70,37 @@ def create_app():
                     elif len(associated) == 0:
                         session['selected_owner_uid'] = fresh_profile.get('ownerUID')
                 
+                # Validar sucursal seleccionada
+                owner_uid = session.get('selected_owner_uid') or session['user'].get('ownerUID')
+                if owner_uid:
+                    branches = DatabaseService.get_branches(owner_uid, sandbox=session.get('is_sandbox_mode', False))
+                    session['available_branches'] = branches
+                    if session.get('selected_branch_id'):
+                        branch_ids = [b['id'] for b in branches]
+                        if session['selected_branch_id'] not in branch_ids:
+                            session['selected_branch_id'] = None
+                    if not session.get('selected_branch_id') and branches:
+                        default_branch = DatabaseService.get_default_branch(owner_uid, sandbox=session.get('is_sandbox_mode', False))
+                        if default_branch:
+                            session['selected_branch_id'] = default_branch['id']
+                    g.branch_id = session.get('selected_branch_id')
+                
+                # Cargar contexto de proyecto (opcional, dentro de la sucursal)
+                if 'selected_project_id' not in session:
+                    session['selected_project_id'] = None
+                selected_bid = session.get('selected_branch_id')
+                if selected_bid:
+                    projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=session.get('is_sandbox_mode', False))
+                    session['available_projects'] = projects
+                else:
+                    projects = DatabaseService.get_projects(owner_uid, sandbox=session.get('is_sandbox_mode', False))
+                    session['available_projects'] = projects
+                if session.get('selected_project_id'):
+                    project_ids = [p['id'] for p in projects]
+                    if session['selected_project_id'] not in project_ids and session['selected_project_id'] != '__no_project__':
+                        session['selected_project_id'] = None
+                g.project_id = session.get('selected_project_id')
+
                 session['user'] = fresh_profile
             else:
                 session.pop('user', None)
@@ -81,12 +115,17 @@ def create_app():
             if 'selected_owner_uid' not in session and session.get('user_has_multiple_companies'):
                 allowed_auth_endpoints = [
                     'web_auth.select_company',
+                    'web_auth.select_branch',
+                    'web_auth.select_project',
                     'web_auth.logout',
                     'static'
                 ]
                 if request.endpoint not in allowed_auth_endpoints:
                     return redirect(flask_url_for('web_auth.select_company'))
                 return
+            
+            # Si no hay sucursal seleccionada y hay sucursales disponibles, permitir continuar
+            # (selected_branch_id None = ver todas como admin)
             
             # Obligar al propietario a configurar el perfil si no lo ha hecho (incluso en sandbox)
             owner_uid = session['user'].get('ownerUID')
@@ -481,6 +520,12 @@ def create_app():
         companies = []
         has_mult = False
         act_name = "Mi Empresa"
+        active_branch_name = "Todas las sucursales"
+        available_branches = []
+        selected_branch_id = None
+        active_project_name = "Todos los proyectos"
+        available_projects = []
+        selected_project_id = None
         if has_request_context() and 'user' in session:
             companies = session.get('associated_companies', [])
             has_mult = session.get('user_has_multiple_companies', False)
@@ -496,10 +541,34 @@ def create_app():
                         act_name = profile.get('companyName') or profile.get('tradeName') or 'Mi Empresa'
                 except Exception:
                     pass
+            active_branch_name = "Todas las sucursales"
+            selected_branch_id = session.get('selected_branch_id')
+            available_branches = session.get('available_branches', [])
+            if selected_branch_id:
+                for b in available_branches:
+                    if b['id'] == selected_branch_id:
+                        active_branch_name = b['name']
+                        break
+            active_project_name = "Todos los proyectos"
+            selected_project_id = session.get('selected_project_id')
+            available_projects = session.get('available_projects', [])
+            if selected_project_id == '__no_project__':
+                active_project_name = "Sin proyecto"
+            elif selected_project_id:
+                for p in available_projects:
+                    if p['id'] == selected_project_id:
+                        active_project_name = p['name']
+                        break
         return dict(
             associated_companies=companies,
             user_has_multiple_companies=has_mult,
-            active_company_name=act_name
+            active_company_name=act_name,
+            active_branch_name=active_branch_name,
+            available_branches=available_branches,
+            active_branch_id=selected_branch_id or '',
+            active_project_name=active_project_name,
+            available_projects=available_projects,
+            active_project_id=selected_project_id or '',
         )
 
     # =========================================================================

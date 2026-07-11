@@ -843,6 +843,8 @@ def create_expense():
             "approvedBy": data.get('approvedBy', data.get('approved_by', 'Usuario' if data.get('approvalStatus', data.get('approval_status', 'Aprobado')) == 'Aprobado' else '')),
             "dueDate": data.get('dueDate', data.get('due_date', '')),
             "accountItems": data.get('accountItems', data.get('account_items', [])),
+            "branchId": data.get('branchId', data.get('branch_id', g.get('branch_id') or 'default-sucursal-principal')),
+            "projectId": data.get('projectId', data.get('project_id', g.get('project_id') or None))
         }
         
         DatabaseService.save_expense(g.owner_uid, expense_id, expense_dict, sandbox=g.sandbox_mode)

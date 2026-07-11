@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="theme-color" content="#7c3aed">
+    <script>
+        // Aplicar tema guardado antes de renderizar la página para evitar destellos (flash)
+        (function () {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seleccionar Proyecto - {{ product_name }}</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/efactura_logo.png') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    {% if company_theme == 'moderno' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_moderno.css') }}">
+    {% elif company_theme == 'landing' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_landing.css') }}">
+    {% else %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_clasico.css') }}">
+    {% endif %}
+    <style>
+        .project-card-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 24px;
+            max-height: 280px;
+            overflow-y: auto;
+            padding-right: 6px;
+        }
+
+        .project-card-grid::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .project-card-grid::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        .project-card {
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: all var(--transition-smooth);
+            text-align: left;
+        }
+
+        .project-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent-emerald);
+            background: var(--bg-card);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .project-info {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .project-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-emerald);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .project-details h4 {
+            margin: 0 0 2px 0;
+            font-size: 0.92rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .project-details span {
+            font-size: 0.76rem;
+            color: var(--text-secondary);
+        }
+
+        .project-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 2px;
+        }
+
+        .project-meta .project-code {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            background: var(--bg-card);
+            padding: 1px 8px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+
+        .project-meta .project-description {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+
+        .badge-default {
+            font-size: 0.68rem;
+            font-weight: 600;
+            color: var(--accent-emerald);
+            background: rgba(16, 185, 129, 0.1);
+            padding: 2px 10px;
+            border-radius: 20px;
+            white-space: nowrap;
+        }
+
+        .select-arrow {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            transition: transform var(--transition-fast);
+        }
+
+        .project-card:hover .select-arrow {
+            color: var(--accent-emerald);
+            transform: translateX(4px);
+        }
+
+        .project-card-all {
+            background: rgba(124, 58, 237, 0.05);
+            border: 1px dashed var(--accent-purple, #7c3aed);
+            border-radius: 12px;
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: all var(--transition-smooth);
+            text-align: left;
+            margin-bottom: 4px;
+        }
+
+        .project-card-all:hover {
+            background: rgba(124, 58, 237, 0.1);
+            border-style: solid;
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .project-card-all .project-icon {
+            background: rgba(124, 58, 237, 0.1);
+            color: var(--accent-purple, #7c3aed);
+        }
+
+        .project-card-all .project-details h4 {
+            color: var(--accent-purple, #7c3aed);
+        }
+
+        .project-card-all .select-arrow:hover {
+            color: var(--accent-purple, #7c3aed);
+        }
+
+        .project-card-no-project {
+            background: rgba(107, 114, 128, 0.05);
+            border: 1px dashed var(--text-muted, #6b7280);
+            border-radius: 12px;
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: all var(--transition-smooth);
+            text-align: left;
+            margin-bottom: 4px;
+        }
+
+        .project-card-no-project:hover {
+            background: rgba(107, 114, 128, 0.1);
+            border-style: solid;
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .project-card-no-project .project-icon {
+            background: rgba(107, 114, 128, 0.1);
+            color: var(--text-muted, #6b7280);
+        }
+
+        .project-card-no-project .project-details h4 {
+            color: var(--text-muted, #6b7280);
+        }
+
+        .project-card-no-project .select-arrow:hover {
+            color: var(--text-muted, #6b7280);
+        }
+    </style>
+</head>
+
+<body class="auth-container">
+    <div class="auth-card" style="max-width: 520px; width: 100%;">
+        <div class="auth-header">
+            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo {{ product_name }}"
+                style="height: 80px; margin-bottom: 5px; display: inline-block; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15));">
+            <h2>Seleccionar Proyecto</h2>
+            <p>Elige el proyecto donde registrarás tus operaciones, o selecciona una vista sin filtro.</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="badge {% if category == 'error' %}badge-danger{% else %}badge-success{% endif %}"
+            style="width: 100%; padding: 12px; margin-bottom: 20px; border-radius: var(--radius-sm); font-size: 0.85rem; text-transform: none; font-weight: 500; text-align: center;">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <form action="{{ url_for('web_auth.select_project') }}" method="POST" id="select-project-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="project_id" id="selected-project-id">
+
+            <div class="project-card-grid">
+                <div class="project-card-all" onclick="selectProject('__all__')">
+                    <div class="project-info">
+                        <div class="project-icon">
+                            <i class="fa-solid fa-diagram-project"></i>
+                        </div>
+                        <div class="project-details">
+                            <h4>Ver todos los proyectos</h4>
+                            <span>Todos los proyectos de la empresa</span>
+                        </div>
+                    </div>
+                    <div class="select-arrow">
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </div>
+
+                <div class="project-card-no-project" onclick="selectProject('__no_project__')">
+                    <div class="project-info">
+                        <div class="project-icon">
+                            <i class="fa-solid fa-circle-xmark"></i>
+                        </div>
+                        <div class="project-details">
+                            <h4>Sin proyecto asignado</h4>
+                            <span>Registros sin un proyecto asignado</span>
+                        </div>
+                    </div>
+                    <div class="select-arrow">
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </div>
+
+                {% for project in projects %}
+                <div class="project-card" onclick="selectProject('{{ project.id }}')">
+                    <div class="project-info">
+                        <div class="project-icon">
+                            <i class="fa-solid fa-diagram-project"></i>
+                        </div>
+                        <div class="project-details">
+                            <h4>{{ project.name }}</h4>
+                            <div class="project-meta">
+                                <span class="project-code">{{ project.code }}</span>
+                                {% if project.description %}
+                                <span class="project-description">{{ project.description }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        {% if project.isDefault %}
+                        <span class="badge-default">Predeterminado</span>
+                        {% endif %}
+                        <div class="select-arrow">
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <a href="{{ url_for('web_auth.logout') }}" class="btn btn-secondary"
+                style="width: 100%; padding: 12px; font-size: 0.88rem; border-radius: var(--radius-sm); margin-top: 24px; text-decoration: none;">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i> Cerrar Sesión
+            </a>
+        </form>
+    </div>
+
+    <script>
+        function selectProject(projectId) {
+            document.getElementById('selected-project-id').value = projectId;
+            document.getElementById('select-project-form').submit();
+        }
+    </script>
+</body>
+
+</html>

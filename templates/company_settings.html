@@ -897,6 +897,133 @@
         </div>
     </div>
 
+    <!-- Gestión de Proyectos -->
+    <div class="card-table-wrapper" style="margin-bottom: 24px; padding: 28px;">
+        <h3
+            style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-diagram-project" style="color: var(--accent-purple);"></i>
+                <span>Gestión de Proyectos</span>
+            </div>
+            <button type="button" id="btn-open-project-modal" class="btn btn-primary"
+                style="padding: 6px 12px; font-size: 0.75rem;">
+                <i class="fa-solid fa-plus-circle"></i>
+                <span>Añadir</span>
+            </button>
+        </h3>
+
+        <p style="margin: 0 0 16px 0; font-size: 0.8rem; color: var(--text-muted);">Administra los proyectos de tu empresa. Los proyectos son opcionales y permiten agrupar operaciones dentro de una sucursal.</p>
+
+        <div
+            style="display: flex; flex-direction: column; gap: 14px; max-height: 380px; overflow-y: auto; padding-right: 5px;">
+            {% if projects_list %}
+            {% for proj in projects_list %}
+            <div
+                style="background-color: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <strong style="font-size: 0.9rem; display: block; color: var(--text-primary);">
+                            {{ proj.name }} ({{ proj.code }})
+                            {% if proj.isDefault %}
+                            <span class="badge"
+                                style="background: rgba(124,58,237,0.1); color: var(--accent-purple); font-size: 0.65rem; padding: 1px 8px; border-radius: 10px; margin-left: 6px;">Predeterminado</span>
+                            {% endif %}
+                        </strong>
+                        {% if proj.description %}
+                        <span
+                            style="font-size: 0.78rem; color: var(--text-secondary); display: block; margin-top: 2px;">{{ proj.description }}</span>
+                        {% endif %}
+                        <span
+                            style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-top: 2px;">Sucursal: {{ proj.branchName or '—' }}</span>
+                    </div>
+                    <div style="display: flex; gap: 6px;">
+                        <button type="button" class="btn btn-secondary btn-edit-project"
+                            style="padding: 6px 8px; font-size: 0.75rem;" data-id="{{ proj.id }}"
+                            data-name="{{ proj.name }}" data-code="{{ proj.code }}"
+                            data-description="{{ proj.description or '' }}"
+                            data-branchid="{{ proj.branchId }}"
+                            data-isdefault="{{ 'true' if proj.isDefault else 'false' }}" title="Editar Proyecto">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </button>
+                        <form action="/settings/projects/{{ proj.id }}/delete" method="POST"
+                            onsubmit="return confirm('¿Eliminar el proyecto {{ proj.name|e }}?');"
+                            style="display: inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-danger"
+                                style="padding: 6px 8px; font-size: 0.75rem;" title="Eliminar Proyecto">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div style="text-align: center; color: var(--text-muted); font-size: 0.82rem; padding: 20px 0;">
+                No hay proyectos registrados. Crea tu primer proyecto para empezar a organizar operaciones.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Modal Añadir/Editar Proyecto -->
+    <div class="search-modal" id="project-modal" style="display: none;">
+        <div class="modal-backdrop" id="project-modal-backdrop"></div>
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-diagram-project" style="color: var(--accent-purple);"></i> <span
+                        id="project-modal-title">Añadir Proyecto</span></h3>
+                <button type="button" class="btn-close-modal" id="btn-close-project-modal"><i
+                        class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="project-form" action="/settings/projects/save" method="POST"
+                    style="display: flex; flex-direction: column; gap: 15px;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="project_id" id="project-id" value="">
+
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="project-name">Nombre del Proyecto</label>
+                        <input type="text" id="project-name" name="name" class="form-input"
+                            placeholder="Ej: Proyecto Alpha" required>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="project-code">Código</label>
+                        <input type="text" id="project-code" name="code" class="form-input" placeholder="Ej: PRJ-001">
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="project-description">Descripción</label>
+                        <textarea id="project-description" name="description" class="form-input" rows="2"
+                            placeholder="Descripción opcional del proyecto"></textarea>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="project-branch">Sucursal</label>
+                        <select id="project-branch" name="branchId" class="form-input" required>
+                            {% for b in available_branches %}
+                            <option value="{{ b.id }}">{{ b.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <label
+                        style="display: flex; align-items: center; gap: 10px; font-size: 0.9rem; cursor: pointer; margin-top: 5px;">
+                        <input type="checkbox" id="project-is-default" name="isDefault" value="true"
+                            style="width: 16px; height: 16px; accent-color: var(--accent-purple);">
+                        <span>Establecer como proyecto predeterminado</span>
+                    </label>
+
+                    <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">
+                        <i class="fa-solid fa-save"></i>
+                        <span>Guardar Proyecto</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Formulario oculto para regeneración de API Key (Evita formularios anidados en el acordeón) -->
     <form id="generateKeyForm" action="{{ url_for('web_invoices.generate_company_api_key') }}" method="POST"
         style="display: none;">
@@ -1444,6 +1571,50 @@
                 if (branchBackdrop) {
                     branchBackdrop.addEventListener('click', function () {
                         branchModal.style.display = 'none';
+                    });
+                }
+
+                // ======== Proyectos Modal ========
+                const projectModal = document.getElementById('project-modal');
+                const openProjectBtn = document.getElementById('btn-open-project-modal');
+                const closeProjectBtn = document.getElementById('btn-close-project-modal');
+                const projectForm = document.getElementById('project-form');
+                const projectTitle = document.getElementById('project-modal-title');
+
+                if (openProjectBtn) {
+                    openProjectBtn.addEventListener('click', () => {
+                        projectTitle.textContent = "Añadir Proyecto";
+                        projectForm.reset();
+                        document.getElementById('project-id').value = '';
+                        projectModal.style.display = 'flex';
+                    });
+                }
+
+                if (closeProjectBtn) {
+                    closeProjectBtn.addEventListener('click', () => {
+                        projectModal.style.display = 'none';
+                    });
+                }
+
+                document.querySelectorAll('.btn-edit-project').forEach(btn => {
+                    btn.addEventListener('click', function () {
+                        projectTitle.textContent = "Editar Proyecto";
+                        document.getElementById('project-id').value = this.dataset.id;
+                        document.getElementById('project-name').value = this.dataset.name;
+                        document.getElementById('project-code').value = this.dataset.code;
+                        document.getElementById('project-description').value = this.dataset.description;
+                        document.getElementById('project-branch').value = this.dataset.branchid;
+                        document.getElementById('project-is-default').checked = this.dataset.isdefault === 'true';
+                        projectModal.style.display = 'flex';
+                    });
+                });
+
+                const projectBackdrop = document.getElementById('project-modal-backdrop');
+
+                // Cerrar modal al hacer clic fuera (Proyectos)
+                if (projectBackdrop) {
+                    projectBackdrop.addEventListener('click', function () {
+                        projectModal.style.display = 'none';
                     });
                 }
 

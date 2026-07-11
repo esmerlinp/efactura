@@ -60,13 +60,17 @@ class BudgetService:
         }
 
     @classmethod
-    def get_budget(cls, owner_uid: str, year: int) -> dict:
+    def get_budget(cls, owner_uid: str, year: int, branch_id=None, project_id=None) -> dict:
         db = cls._get_db()
         if db:
             try:
                 doc = db.document(cls._path(owner_uid, year)).get()
                 if doc.exists:
-                    return cls.normalise_budget(year, doc.to_dict())
+                    data = doc.to_dict()
+                    budget = cls.normalise_budget(year, data)
+                    budget["branchId"] = data.get("branchId", "default-sucursal-principal")
+                    budget["projectId"] = data.get("projectId")
+                    return budget
             except Exception:
                 pass
         return cls.normalise_budget(year, {"year": year, "months": {}})
@@ -77,6 +81,8 @@ class BudgetService:
         budget = cls.normalise_budget(year, {"year": year, "months": budget_data.get("months", {})})
         budget["updatedAt"] = datetime.now(timezone.utc).isoformat()
         budget["updatedBy"] = budget_data.get("updatedBy", "")
+        budget["branchId"] = budget_data.get("branchId", "default-sucursal-principal")
+        budget["projectId"] = budget_data.get("projectId", None)
         if db:
             db.document(cls._path(owner_uid, year)).set(budget)
         return budget

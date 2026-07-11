@@ -445,6 +445,10 @@ def logout():
     session.pop('user', None)
     session.pop('is_sandbox_mode', None)
     session.pop('selected_owner_uid', None)
+    session.pop('selected_branch_id', None)
+    session.pop('available_branches', None)
+    session.pop('selected_project_id', None)
+    session.pop('available_projects', None)
     session.pop('associated_companies', None)
     session.pop('user_has_multiple_companies', None)
     flash('Sesión cerrada correctamente.', 'success')
@@ -474,6 +478,10 @@ def select_company():
         if any(c['ownerUID'] == selected_uid for c in associated_companies):
             session['selected_owner_uid'] = selected_uid
             session['user']['ownerUID'] = selected_uid
+            session.pop('selected_branch_id', None)
+            session.pop('available_branches', None)
+            session.pop('selected_project_id', None)
+            session.pop('available_projects', None)
             
             # Registrar cambio de empresa en auditoría
             from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_AUTH
@@ -493,6 +501,74 @@ def select_company():
             flash('Selección de empresa inválida o no autorizada.', 'error')
             
     return render_template('auth/select_company.html', associated_companies=associated_companies)
+
+
+@web_auth_bp.route('/select-branch', methods=['GET', 'POST'])
+def select_branch():
+    if 'user' not in session:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+            return jsonify({"success": False, "error": "No autenticado"}), 401
+        return redirect(url_for('web_auth.login'))
+    
+    owner_uid = session.get('selected_owner_uid') or session['user'].get('ownerUID')
+    sandbox = session.get('is_sandbox_mode', False)
+    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
+    
+    if request.method == 'POST':
+        selected_branch = request.form.get('branch_id') or (request.json or {}).get('branch_id')
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json
+        if selected_branch == '__all__':
+            session['selected_branch_id'] = None
+            if not is_ajax: flash('Vista de todas las sucursales activada.', 'success')
+        elif any(b['id'] == selected_branch for b in branches):
+            session['selected_branch_id'] = selected_branch
+            session.pop('selected_project_id', None)
+            session.pop('available_projects', None)
+            if not is_ajax: flash('Sucursal seleccionada con éxito.', 'success')
+        else:
+            if is_ajax:
+                return jsonify({"success": False, "error": "Selección de sucursal inválida."}), 400
+            flash('Selección de sucursal inválida.', 'error')
+        if is_ajax:
+            return jsonify({"success": True})
+        return redirect(url_for('web_dashboard.dashboard'))
+    
+    return render_template('auth/select_branch.html', branches=branches)
+
+
+@web_auth_bp.route('/select-project', methods=['GET', 'POST'])
+def select_project():
+    if 'user' not in session:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+            return jsonify({"success": False, "error": "No autenticado"}), 401
+        return redirect(url_for('web_auth.login'))
+    
+    owner_uid = session.get('selected_owner_uid') or session['user'].get('ownerUID')
+    sandbox = session.get('is_sandbox_mode', False)
+    selected_bid = session.get('selected_branch_id')
+    projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox)
+    
+    if request.method == 'POST':
+        selected_project = request.form.get('project_id') or (request.json or {}).get('project_id')
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json
+        if selected_project == '__all__':
+            session['selected_project_id'] = None
+            if not is_ajax: flash('Vista de todos los proyectos activada.', 'success')
+        elif selected_project == '__no_project__':
+            session['selected_project_id'] = '__no_project__'
+            if not is_ajax: flash('Vista de registros sin proyecto activada.', 'success')
+        elif any(p['id'] == selected_project for p in projects):
+            session['selected_project_id'] = selected_project
+            if not is_ajax: flash('Proyecto seleccionado con éxito.', 'success')
+        else:
+            if is_ajax:
+                return jsonify({"success": False, "error": "Selección de proyecto inválida."}), 400
+            flash('Selección de proyecto inválida.', 'error')
+        if is_ajax:
+            return jsonify({"success": True})
+        return redirect(url_for('web_dashboard.dashboard'))
+    
+    return render_template('auth/select_project.html', projects=projects)
 
 
 @web_auth_bp.route('/forgot-password', methods=['POST'])

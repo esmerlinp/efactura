@@ -5,7 +5,7 @@ import json
 import uuid
 import html
 from datetime import datetime, timedelta, timezone
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_file, make_response
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_file, make_response, g
 import qrcode
 try:
     from weasyprint import HTML as WeasyprintHTML
@@ -72,7 +72,7 @@ def check_document_limit_exceeded(owner_uid, sandbox=True):
 
 def _company_has_issued_documents(owner_uid, sandbox=True):
     """Retorna True si la empresa tiene al menos un documento emitido (no borrador, no cotización)."""
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     for inv in invoices:
         if not inv.get('isQuotation') and inv.get('status') not in ('Borrador', 'Anulada', 'Pagado pero no emitido'):
             return True
@@ -93,7 +93,7 @@ def list_items():
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
-    items = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     
     if request.args.get('export') == 'csv':
         import io
@@ -143,6 +143,7 @@ def new_item():
         item_dict = {
             "code": request.form.get('code', ''),
             "barcode": request.form.get('barcode', '').strip(),
+            "branchId": request.form.get('branchId') or session.get('selected_branch_id') or 'default-sucursal-principal',
             "costPrice": float(request.form.get('costPrice') or 0.0),
             "categoryId": request.form.get('categoryId', 'general').strip(),
             "type": request.form.get('type', 'Bien'),
@@ -171,7 +172,7 @@ def new_item():
         flash('Artículo añadido al catálogo de ventas.', 'success')
         return redirect(url_for('web_invoices.list_items'))
         
-    categories = DatabaseService.get_categories(owner_uid, sandbox=sandbox)
+    categories = DatabaseService.get_categories(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     return render_template('items/form.html', active_page='items', item=None, categories=categories)
 
 @web_invoices_bp.route('/items/<item_id>/edit', methods=['GET', 'POST'])
@@ -182,7 +183,7 @@ def edit_item(item_id):
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
-    items = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     item = next((it for it in items if it['id'] == item_id), None)
     
     if not item:
@@ -193,6 +194,7 @@ def edit_item(item_id):
         item_dict = {
             "code": request.form.get('code', ''),
             "barcode": request.form.get('barcode', '').strip(),
+            "branchId": request.form.get('branchId') or item.get('branchId') or session.get('selected_branch_id') or 'default-sucursal-principal',
             "costPrice": float(request.form.get('costPrice') or 0.0),
             "categoryId": request.form.get('categoryId', 'general').strip(),
             "type": request.form.get('type', 'Bien'),
@@ -221,7 +223,7 @@ def edit_item(item_id):
         flash('Artículo del catálogo actualizado.', 'success')
         return redirect(url_for('web_invoices.list_items'))
         
-    categories = DatabaseService.get_categories(owner_uid, sandbox=sandbox)
+    categories = DatabaseService.get_categories(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     return render_template('items/form.html', active_page='items', item=item, categories=categories)
 
 @web_invoices_bp.route('/items/<item_id>/delete', methods=['POST'])
@@ -342,7 +344,7 @@ def export_stock_report():
     
     # Obtener almacenes, productos y existencias
     warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox)
-    items = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     stocks = DatabaseService.get_inventory_stock(owner_uid, sandbox=sandbox)
     
     # Cruzar datos de existencias para cada item y almacén
@@ -412,7 +414,7 @@ def list_price_lists():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
-    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox)
+    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     return render_template('price_lists/list.html', active_page='price_lists', price_lists=price_lists)
 
 @web_invoices_bp.route('/price-lists/new', methods=['GET', 'POST'])
@@ -510,7 +512,7 @@ def manage_price_list_items(list_id):
             flash('Precio asignado exitosamente.', 'success')
         return redirect(url_for('web_invoices.manage_price_list_items', list_id=list_id))
 
-    items = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     price_list_items = DatabaseService.get_price_list_items(owner_uid, list_id, sandbox=sandbox)
 
     # Combinar items con sus precios en la lista
@@ -625,7 +627,7 @@ def inventory_dashboard():
     
     # Obtener almacenes, productos y existencias
     warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox)
-    items = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     stocks = DatabaseService.get_inventory_stock(owner_uid, sandbox=sandbox)
     
     # Cruzar datos de existencias para cada item y almacén
@@ -683,7 +685,8 @@ def new_warehouse():
             "name": request.form['name'],
             "description": request.form.get('description', ''),
             "address": request.form.get('address', ''),
-            "branchId": request.form.get('branchId', 'default-sucursal-principal')
+            "branchId": request.form.get('branchId', 'default-sucursal-principal'),
+            "projectId": request.form.get('projectId') or session.get('selected_project_id') or None
         }
         DatabaseService.save_warehouse(owner_uid, warehouse_id, wh_dict, sandbox=sandbox)
         flash('Almacén registrado exitosamente.', 'success')
@@ -712,6 +715,7 @@ def edit_warehouse(warehouse_id):
             "description": request.form.get('description', ''),
             "address": request.form.get('address', ''),
             "branchId": request.form.get('branchId', 'default-sucursal-principal'),
+            "projectId": request.form.get('projectId') or warehouse.get('projectId') or session.get('selected_project_id') or None,
             "createdAt": warehouse["createdAt"]
         }
         DatabaseService.save_warehouse(owner_uid, warehouse_id, wh_dict, sandbox=sandbox)
@@ -748,7 +752,7 @@ def inventory_transactions():
     sandbox = session.get('is_sandbox_mode', True)
     
     txs = DatabaseService.get_inventory_transactions(owner_uid, sandbox=sandbox)
-    items = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox)
     
     item_map = {it['id']: it['name'] for it in items}
@@ -776,7 +780,7 @@ def new_inventory_transaction():
         reason = request.form['reason']
         notes = request.form.get('notes', '')
         
-        items = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+        items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         item = next((it for it in items if it['id'] == item_id), None)
         item_name = item['name'] if item else 'Producto'
         
@@ -805,7 +809,7 @@ def new_inventory_transaction():
             
         return redirect(url_for('web_invoices.inventory_dashboard'))
         
-    items = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     goods = [it for it in items if it.get('type', 'Bien') == 'Bien']
     warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox)
     
@@ -837,10 +841,10 @@ def list_invoices():
     except ValueError:
         page = 1
         
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False)
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), quotations_only=False)
     
     # Incluir gastos E41/E43 como documentos en la misma lista
-    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     ecf_expenses = []
     for exp in all_expenses:
         if exp.get("ecfType") in ("E41", "E43") and exp.get("encf"):
@@ -995,7 +999,7 @@ def list_quotations():
     except ValueError:
         page = 1
         
-    quotations = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=True)
+    quotations = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), quotations_only=True)
     
     # Filtrar
     filtered = []
@@ -1264,12 +1268,14 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         # Buscar datos del cliente
         client_name = "Consumidor Final"
         client_rnc = request.form.get('clientRNC', '')
+        client_project_id = None
         if client_id:
-            clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+            clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
             client = next((c for c in clients if c['id'] == client_id), None)
             if client:
                 client_name = client['razonSocial']
                 client_rnc = client['rnc']
+                client_project_id = client.get('projectId')
                 
         # 2. Reconstruir items dinámicos enviados por el cliente en el DOM
         parsed_items = []
@@ -1285,7 +1291,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                     item_indices.add(int(idx))
                     
         # Obtener el catálogo para resolver automáticamente si es un Bien o Servicio e Impuestos Adicionales
-        catalog = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+        catalog = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         catalog_types = {it['name'].lower().strip(): it.get('type', 'Bien') for it in catalog}
         catalog_tax_data = {
             it['name'].lower().strip(): {
@@ -1428,7 +1434,8 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             invoice_dict["paymentType"] = request.form.get('paymentType') or ("Crédito" if due_date > datetime.now(timezone.utc).strftime("%Y-%m-%d") else "Contado")
             invoice_dict["paymentMethod"] = payment_method
             invoice_dict["warehouseId"] = request.form.get('warehouseId', '')
-            invoice_dict["branchId"] = request.form.get('branchId', 'default-sucursal-principal')
+            invoice_dict["branchId"] = request.form.get('branchId') or session.get('selected_branch_id') or 'default-sucursal-principal'
+            invoice_dict["projectId"] = request.form.get('projectId') or client_project_id or session.get('selected_project_id') or None
             invoice_dict["incomeType"] = income_type
             invoice_dict["items"] = calcs["items"]
             # Balances
@@ -1482,7 +1489,8 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                 "customFields": [],
                 "exchangeRate": float(request.form.get('exchangeRate', 0) or 0) or CurrencyService.get_rate(currency),
                 "warehouseId": request.form.get('warehouseId', ''),
-                "branchId": request.form.get('branchId', 'default-sucursal-principal'),
+                "branchId": request.form.get('branchId') or session.get('selected_branch_id') or 'default-sucursal-principal',
+                "projectId": request.form.get('projectId') or client_project_id or session.get('selected_project_id') or None,
                 "items": calcs["items"],
                 "totalPaid": 0.0,
                 "remainingBalance": calcs["net_payable"],
@@ -1681,15 +1689,18 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             return redirect(url_for('web_invoices.invoice_detail', invoice_id=target_invoice_id))
 
     # Cargar catálogo de ítems, clientes y almacenes para alimentar form
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
-    catalog = [it for it in DatabaseService.get_items(owner_uid, sandbox=sandbox) if it.get('isActive', True)]
+    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    catalog = [it for it in DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) if it.get('isActive', True)]
     warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox)
     branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
+    selected_bid = g.get('branch_id') or session.get('selected_branch_id')
+    projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox) if selected_bid else []
+    active_project_id = session.get('selected_project_id') or ''
     catalog_json = json.dumps(catalog)
     clients_json = json.dumps(clients)
 
     # Cargar listas de precios para integración en facturación
-    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox)
+    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     active_price_lists = [pl for pl in price_lists if pl.get('isActive', True)]
     price_list_prices = {}
     for pl in price_lists:
@@ -1728,6 +1739,8 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         price_lists=active_price_lists,
         default_price_list_id=default_price_list_id,
         cost_centers=active_cost_centers,
+        projects=projects,
+        active_project_id=active_project_id,
     )
 
 
@@ -1736,7 +1749,7 @@ def _get_client_email(owner_uid, invoice, sandbox):
     try:
         client_id = invoice.get("clientId", "")
         if client_id:
-            clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+            clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
             client = next((c for c in clients if c["id"] == client_id), None)
             if client:
                 return client.get("email", "")
@@ -3129,7 +3142,8 @@ def convert_quotation_route(invoice_id):
                 "itbisRate": float(inv_item.get('itbisRate', 0.18)),
                 "type": "Servicio",
                 "unit": "Unidad",
-                "isActive": True
+                "isActive": True,
+                "branchId": session.get('selected_branch_id') or 'default-sucursal-principal'
             }
             DatabaseService.save_item(owner_uid, new_item_id, new_item, sandbox=sandbox)
             new_invoice['items'][idx]['catalogId'] = new_item_id
@@ -3842,7 +3856,7 @@ def invoice_preview_route():
     client_phone = ""
     client_address = ""
     if client_id:
-        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         client = next((c for c in clients if c['id'] == client_id), None)
         if client:
             client_name = client.get('razonSocial', 'Consumidor Final')
@@ -3862,7 +3876,7 @@ def invoice_preview_route():
             if idx.isdigit():
                 item_indices.add(int(idx))
                 
-    catalog = DatabaseService.get_items(owner_uid, sandbox=sandbox) or []
+    catalog = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
     catalog_types = {it['name'].lower().strip(): it.get('type', 'Bien') for it in catalog}
     catalog_tax_data = {
         it['name'].lower().strip(): {
@@ -4326,7 +4340,7 @@ def sync_contingency_invoices():
     sandbox = session.get('is_sandbox_mode', True)
     company = DatabaseService.get_company_profile(owner_uid)
 
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     pending = [
         inv for inv in invoices
         if inv.get('emisionMode') == 'FALLBACK' and not inv.get('isSyncedWithDGII', True)
@@ -4490,8 +4504,8 @@ def list_expenses():
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     
     # Calcular márgenes y enriquecer con números de facturas
     for exp in expenses:
@@ -4885,7 +4899,9 @@ def new_expense_route():
             "requestedBy": session['user'].get('name', 'Usuario'),
             "approvedBy": session['user'].get('name', 'Usuario') if request.form.get('approvalStatus', 'Aprobado') == 'Aprobado' else '',
             "dueDate": due_date,
-            "bankAccountId": request.form.get('bankAccountId', '')
+            "bankAccountId": request.form.get('bankAccountId', ''),
+            "branchId": request.form.get('branchId') or session.get('selected_branch_id') or 'default-sucursal-principal',
+            "projectId": request.form.get('projectId') or session.get('selected_project_id') or None
         }
         
         DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
@@ -5072,7 +5088,7 @@ def payments_list():
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
 
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     # Filter: exclude E43 (minor) and recurring
     filtered = [e for e in expenses if e.get('ecfType') != 'E43' and not e.get('isRecurring')]
 
@@ -5208,6 +5224,8 @@ def payments_new_route():
             'accountItems': account_items,
             'expense_type': 'payment',
             'comentario': request.form.get('comentario', ''),
+            "branchId": request.form.get('branchId') or session.get('selected_branch_id') or 'default-sucursal-principal',
+            "projectId": request.form.get('projectId') or session.get('selected_project_id') or None
         }
 
         try:
@@ -5243,6 +5261,9 @@ def payments_new_route():
     tax_rules = DatabaseService.get_tax_rules(owner_uid)
     itbis_general = tax_rules.get('itbis', {}).get('general', 0.18)
     itbis_reduced = tax_rules.get('itbis', {}).get('reduced', 0.16)
+    selected_bid = g.get('branch_id') or session.get('selected_branch_id')
+    projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox) if selected_bid else []
+    active_project_id = session.get('selected_project_id') or ''
     return render_template(
         'expenses/payments_new.html',
         active_page='expenses_payments',
@@ -5250,7 +5271,9 @@ def payments_new_route():
         bank_accounts=bank_accounts,
         accounting_accounts=accounting_accounts,
         itbis_general=itbis_general,
-        itbis_reduced=itbis_reduced
+        itbis_reduced=itbis_reduced,
+        projects=projects,
+        active_project_id=active_project_id,
     )
 
 
@@ -5266,7 +5289,7 @@ def minor_list():
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
 
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     filtered = [e for e in expenses if e.get('ecfType') == 'E43']
 
     start_date = request.args.get('start_date', '').strip()
@@ -5390,6 +5413,8 @@ def minor_new_route():
             'accountItems': account_items,
             'expense_type': 'minor',
             'comentario': request.form.get('comentario', ''),
+            "branchId": request.form.get('branchId') or session.get('selected_branch_id') or 'default-sucursal-principal',
+            "projectId": request.form.get('projectId') or session.get('selected_project_id') or None
         }
 
         try:
@@ -5457,6 +5482,9 @@ def minor_new_route():
     tax_rules = DatabaseService.get_tax_rules(owner_uid)
     itbis_general = tax_rules.get('itbis', {}).get('general', 0.18)
     itbis_reduced = tax_rules.get('itbis', {}).get('reduced', 0.16)
+    selected_bid = g.get('branch_id') or session.get('selected_branch_id')
+    projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox) if selected_bid else []
+    active_project_id = session.get('selected_project_id') or ''
     return render_template(
         'expenses/minor_new.html',
         active_page='expenses_minor',
@@ -5464,7 +5492,9 @@ def minor_new_route():
         bank_accounts=bank_accounts,
         accounting_accounts=accounting_accounts,
         itbis_general=itbis_general,
-        itbis_reduced=itbis_reduced
+        itbis_reduced=itbis_reduced,
+        projects=projects,
+        active_project_id=active_project_id,
     )
 
 
@@ -5480,7 +5510,7 @@ def recurring_list():
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
 
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     filtered = [e for e in expenses if e.get('isRecurring')]
 
     search_query = request.args.get('search', '').strip().lower()
@@ -5620,6 +5650,8 @@ def recurring_new_route():
                 'observations': ci.get('observations', ''),
                 'total': ci['total'],
             } for ci in concept_items],
+            "branchId": request.form.get('branchId') or session.get('selected_branch_id') or 'default-sucursal-principal',
+            "projectId": request.form.get('projectId') or session.get('selected_project_id') or None
         }
 
         try:
@@ -5643,6 +5675,9 @@ def recurring_new_route():
     tax_rules = DatabaseService.get_tax_rules(owner_uid)
     itbis_general = tax_rules.get('itbis', {}).get('general', 0.18)
     itbis_reduced = tax_rules.get('itbis', {}).get('reduced', 0.16)
+    selected_bid = g.get('branch_id') or session.get('selected_branch_id')
+    projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox) if selected_bid else []
+    active_project_id = session.get('selected_project_id') or ''
     return render_template(
         'expenses/recurring_new.html',
         active_page='expenses_recurring',
@@ -5650,7 +5685,9 @@ def recurring_new_route():
         bank_accounts=bank_accounts,
         accounting_accounts=accounting_accounts,
         itbis_general=itbis_general,
-        itbis_reduced=itbis_reduced
+        itbis_reduced=itbis_reduced,
+        projects=projects,
+        active_project_id=active_project_id,
     )
 
 
@@ -5665,7 +5702,7 @@ def delete_expense_route(expense_id):
     # Obtener el gasto antes de eliminarlo
     before_expense = {}
     try:
-        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         before_expense = next((e for e in expenses if e['id'] == expense_id), {})
     except Exception:
         pass
@@ -5700,7 +5737,7 @@ def delete_multiple_expenses_route():
         return redirect(url_for('web_invoices.list_expenses'))
 
     from app.services.audit_service import AuditService, ACTION_DELETE, MODULE_GASTOS
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     deleted_count = 0
 
     for expense_id in expense_ids:
@@ -5731,7 +5768,7 @@ def edit_expense_route(expense_id):
     sandbox = session.get('is_sandbox_mode', True)
     
     # Obtener el gasto existente
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     expense = None
     for exp in expenses:
         if exp['id'] == expense_id:
@@ -5872,7 +5909,9 @@ def edit_expense_route(expense_id):
             "approvedBy": session['user'].get('name', 'Usuario') if request.form.get('approvalStatus', 'Aprobado') == 'Aprobado' else '',
             "dueDate": due_date,
             "createdAt": expense.get('createdAt'),
-            "bankAccountId": request.form.get('bankAccountId', expense.get('bankAccountId', ''))
+            "bankAccountId": request.form.get('bankAccountId', expense.get('bankAccountId', '')),
+            "branchId": request.form.get('branchId') or expense.get('branchId') or session.get('selected_branch_id') or 'default-sucursal-principal',
+            "projectId": request.form.get('projectId') or expense.get('projectId') or session.get('selected_project_id') or None
         }
         
         try:
@@ -5990,6 +6029,9 @@ def edit_expense_route(expense_id):
     tax_rules = DatabaseService.get_tax_rules(owner_uid)
     itbis_general = tax_rules.get('itbis', {}).get('general', 0.18)
     itbis_reduced = tax_rules.get('itbis', {}).get('reduced', 0.16)
+    selected_bid = g.get('branch_id') or session.get('selected_branch_id')
+    projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox) if selected_bid else []
+    active_project_id = session.get('selected_project_id') or ''
 
     common_vars = {
         'active_page': 'expenses',
@@ -6000,6 +6042,8 @@ def edit_expense_route(expense_id):
         'itbis_general': itbis_general,
         'itbis_reduced': itbis_reduced,
         'today_str': today_str,
+        'projects': projects,
+        'active_project_id': active_project_id,
     }
 
     if expense.get('isMinorExpense'):
@@ -6111,7 +6155,7 @@ def approve_expense_route(expense_id):
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     expense = next((e for e in expenses if e['id'] == expense_id), None)
     
     if not expense:
@@ -6141,7 +6185,7 @@ def list_cxp():
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     
     cxp_list = []
     total_cxp_pending = 0.0
@@ -6601,11 +6645,15 @@ def company_settings():
 
     # Obtener sucursales
     branches = DatabaseService.get_branches(owner_uid, sandbox=session.get('is_sandbox_mode', True))
+    # Obtener proyectos
+    projects = DatabaseService.get_projects(owner_uid, sandbox=session.get('is_sandbox_mode', True))
+    for p in projects:
+        p['branchName'] = next((b['name'] for b in branches if b['id'] == p.get('branchId')), '')
 
     onboarding_success = request.args.get('onboarding_success') == 'true'
     show_wizard = False
     has_issued_documents = _company_has_issued_documents(owner_uid, sandbox=session.get('is_sandbox_mode', True))
-    return render_template('company_settings.html', active_page='settings', profile=profile, branches=branches, show_wizard=show_wizard, onboarding_success=onboarding_success, has_issued_documents=has_issued_documents, e_cf_provider=Config.E_CF_PROVIDER.lower())
+    return render_template('company_settings.html', active_page='settings', profile=profile, branches=branches, projects_list=projects, available_branches=branches, show_wizard=show_wizard, onboarding_success=onboarding_success, has_issued_documents=has_issued_documents, e_cf_provider=Config.E_CF_PROVIDER.lower())
 
 @web_invoices_bp.route('/onboarding', methods=['GET', 'POST'])
 def onboarding_wizard():
@@ -6889,6 +6937,43 @@ def delete_branch_route(branch_id):
     flash("Sucursal eliminada.", 'success')
     return redirect(url_for('web_invoices.company_settings'))
 
+@web_invoices_bp.route('/settings/projects/save', methods=['POST'])
+def save_project_route():
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canModifySettings'):
+        flash('No tienes permisos.', 'error')
+        return redirect(url_for('web_invoices.company_settings'))
+    
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    project_id = request.form.get('project_id') or str(uuid.uuid4())
+    project_dict = {
+        "name": request.form.get('name', ''),
+        "code": request.form.get('code', ''),
+        "description": request.form.get('description', ''),
+        "branchId": request.form.get('branchId', ''),
+        "isDefault": request.form.get('isDefault') == 'true'
+    }
+    
+    DatabaseService.save_project(owner_uid, project_id, project_dict, sandbox=sandbox)
+    flash(f"Proyecto '{project_dict['name']}' guardado correctamente.", 'success')
+    return redirect(url_for('web_invoices.company_settings'))
+
+@web_invoices_bp.route('/settings/projects/<project_id>/delete', methods=['POST'])
+def delete_project_route(project_id):
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canModifySettings'):
+        flash('No tienes permisos.', 'error')
+        return redirect(url_for('web_invoices.company_settings'))
+    
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    DatabaseService.delete_project(owner_uid, project_id, sandbox=sandbox)
+    flash("Proyecto eliminado.", 'success')
+    return redirect(url_for('web_invoices.company_settings'))
+
 @web_invoices_bp.route('/settings/team/<employee_uid>/permissions', methods=['POST'])
 def update_team_member_permissions(employee_uid):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
@@ -7013,7 +7098,7 @@ def export_company_data():
         output = io.StringIO()
         writer = csv.writer(output, quoting=csv.QUOTE_ALL)
         writer.writerow(["ID", "RNC/Cedula", "Razon Social", "Email", "Telefono", "Direccion", "Notas CRM", "Proximo Contacto", "Creado En"])
-        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         for c in clients:
             writer.writerow([
                 c.get("id", ""),
@@ -7032,7 +7117,7 @@ def export_company_data():
         output = io.StringIO()
         writer = csv.writer(output, quoting=csv.QUOTE_ALL)
         writer.writerow(["ID", "Codigo", "Tipo", "Nombre", "Precio", "Unidad", "Tasa ITBIS", "Stock Minimo", "Ubicacion Estanteria", "Stock Total", "Creado En", "Precio Costo", "Categoria", "Codigo de Barra", "Codigo Impuesto Selectivo", "Tasa Impuesto Selectivo", "Proveedor", "Precio Mayorista", "Marca", "Stock Maximo", "Imagen URL", "Estado"])
-        products = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+        products = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         for p in products:
             writer.writerow([
                 p.get("id", ""),
@@ -7064,7 +7149,7 @@ def export_company_data():
         output = io.StringIO()
         writer = csv.writer(output, quoting=csv.QUOTE_ALL)
         writer.writerow(["ID", "Numero Cotizacion", "Fecha", "Fecha Vencimiento", "ID Cliente", "Nombre Cliente", "RNC Cliente", "Estado", "Monto Neto a Pagar", "Total ITBIS", "Subtotal", "Total"])
-        quotes = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=True)
+        quotes = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), quotations_only=True)
         for q in quotes:
             writer.writerow([
                 q.get("id", ""),
@@ -7086,7 +7171,7 @@ def export_company_data():
         output = io.StringIO()
         writer = csv.writer(output, quoting=csv.QUOTE_ALL)
         writer.writerow(["ID", "Concepto", "Categoria", "Monto", "Monto ITBIS", "Fecha", "RNC Emisor", "NCF", "Notas", "Recurrente", "Deducible"])
-        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         for e in expenses:
             writer.writerow([
                 e.get("id", ""),
@@ -7107,7 +7192,7 @@ def export_company_data():
         output = io.StringIO()
         writer = csv.writer(output, quoting=csv.QUOTE_ALL)
         writer.writerow(["ID", "Numero Documento", "Fecha", "Fecha Vencimiento", "ID Cliente", "Nombre Cliente", "RNC Cliente", "Estado", "Tipo e-CF", "e-NCF", "Sincronizado DGII", "Monto Neto a Pagar", "Total ITBIS", "Subtotal", "Total"])
-        documents = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False)
+        documents = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), quotations_only=False)
         for d in documents:
             writer.writerow([
                 d.get("id", ""),
@@ -7389,8 +7474,8 @@ def it1_diagnostic():
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     
     real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador', 'Pagado pero no emitido']]
     
@@ -7426,12 +7511,12 @@ def backup_export():
     sandbox_flag = session.get('is_sandbox_mode', True)
 
     if request.method == 'GET':
-        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox_flag)
+        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         real_invoices = [inv for inv in invoices if not inv.get('isQuotation')]
-        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox_flag)
-        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox_flag)
-        items = DatabaseService.get_items(owner_uid, sandbox=sandbox_flag)
-        categories = DatabaseService.get_categories(owner_uid, sandbox=sandbox_flag)
+        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        items = DatabaseService.get_items(owner_uid, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        categories = DatabaseService.get_categories(owner_uid, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox_flag)
         warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox_flag)
 
@@ -7448,7 +7533,7 @@ def backup_export():
         except Exception:
             pass
         try:
-            price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox_flag)
+            price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         except Exception:
             pass
         try:
@@ -7504,20 +7589,20 @@ def backup_export():
 
     # Cargar m\u00f3dulos seleccionados
     if 'invoices' in selected:
-        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox_flag)
+        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         backup["data"]["invoices"] = [inv for inv in invoices if not inv.get('isQuotation')]
 
     if 'expenses' in selected:
-        backup["data"]["expenses"] = DatabaseService.get_expenses(owner_uid, sandbox=sandbox_flag)
+        backup["data"]["expenses"] = DatabaseService.get_expenses(owner_uid, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
 
     if 'clients' in selected:
-        backup["data"]["clients"] = DatabaseService.get_clients(owner_uid, sandbox=sandbox_flag)
+        backup["data"]["clients"] = DatabaseService.get_clients(owner_uid, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
 
     if 'items' in selected:
-        backup["data"]["items"] = DatabaseService.get_items(owner_uid, sandbox=sandbox_flag)
+        backup["data"]["items"] = DatabaseService.get_items(owner_uid, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
 
     if 'categories' in selected:
-        backup["data"]["categories"] = DatabaseService.get_categories(owner_uid, sandbox=sandbox_flag)
+        backup["data"]["categories"] = DatabaseService.get_categories(owner_uid, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
 
     if 'branches' in selected:
         backup["data"]["branches"] = DatabaseService.get_branches(owner_uid, sandbox=sandbox_flag)
@@ -7539,7 +7624,7 @@ def backup_export():
 
     if 'price_lists' in selected:
         try:
-            backup["data"]["price_lists"] = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox_flag)
+            backup["data"]["price_lists"] = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         except Exception:
             backup["data"]["price_lists"] = []
 
@@ -7631,7 +7716,7 @@ def report_607_export():
     year, month = _parse_period_args()
     fmt = request.args.get('format', 'dgii')
 
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False)
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), quotations_only=False)
     real_invoices = [
         inv for inv in invoices
         if inv.get('status') not in ['Borrador', 'Anulada', 'Consolidada', 'Pagado pero no emitido']
@@ -7727,7 +7812,7 @@ def report_608_export():
     sandbox = session.get('is_sandbox_mode', True)
     year, month = _parse_period_args()
 
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False)
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), quotations_only=False)
     anuladas = [inv for inv in invoices if inv.get('status') == 'Anulada']
     filtered = _filter_docs_by_period(anuladas, year, month)
 
@@ -7774,7 +7859,7 @@ def report_609_export():
     sandbox = session.get('is_sandbox_mode', True)
     year, month = _parse_period_args()
 
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False)
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), quotations_only=False)
     contingencia = [
         inv for inv in invoices
         if inv.get('emisionMode') == 'FALLBACK' and not inv.get('isSyncedWithDGII', False)
@@ -8189,7 +8274,7 @@ def cxc_dashboard():
         print(f"⚠️ Error al procesar recordatorios automáticos en CxC Dashboard: {e}")
         
     # 1. Obtener todas las facturas
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False)
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), quotations_only=False)
     
     # 2. Filtrar facturas pendientes o vencidas
     # Estados de cobro: Emitida, Parcialmente Cobrada, Vencida (dinámico en get_invoices)
@@ -8222,7 +8307,7 @@ def cxc_dashboard():
     total_prometido = sum(float(p.get('montoPrometido', 0.0)) for p in active_promises)
     
     # Obtener listado de clientes para el formulario de promesas/búsquedas si es necesario
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     company = DatabaseService.get_company_profile(owner_uid) or {}
     
     # Exportar a CSV si se solicita
@@ -8601,7 +8686,7 @@ def accounting_export_download():
     if date_to:
         real = [inv for inv in real if (inv.get('date') or '')[:10] <= date_to]
 
-    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     real_exp = [exp for exp in all_expenses if exp.get('status') not in ('Anulada',)]
     if date_from:
         real_exp = [exp for exp in real_exp if (exp.get('date') or '')[:10] >= date_from]
@@ -8860,6 +8945,8 @@ def expense_import_confirm():
         "xmlContent": "",
         "supplierId": supplier_id or "",
         "_importMeta": importMeta,
+        "branchId": session.get('selected_branch_id') or 'default-sucursal-principal',
+        "projectId": session.get('selected_project_id') or None
     }
 
     try:
@@ -9430,7 +9517,7 @@ def professional_quotation_route():
     if request.method == 'GET':
         owner_uid = session['user']['ownerUID']
         sandbox = session.get('is_sandbox_mode', True)
-        catalog = [it for it in DatabaseService.get_items(owner_uid, sandbox=sandbox) if it.get('isActive', True)]
+        catalog = [it for it in DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) if it.get('isActive', True)]
         
         initial_data_json = 'null'
         clone_id = request.args.get('clone')

@@ -41,7 +41,7 @@
                 <i class="fa-solid fa-chart-pie"></i> KPIs
             </a>
             <div class="dropdown" style="position:relative; display:inline-block;">
-                <button class="btn btn-secondary" onclick="this.nextElementSibling.classList.toggle('show')">
+                <button class="btn btn-secondary" onclick="var d=this.nextElementSibling;d.style.display=d.style.display==='block'?'none':'block'">
                     <i class="fa-solid fa-download"></i> Exportar ▾
                 </button>
                 <div style="display:none; position:absolute; right:0; top:100%; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:var(--shadow-lg); z-index:100; min-width:200px; margin-top:4px;">
@@ -243,4 +243,12 @@ document.addEventListener('click', function() {
 }
 .mono { font-family:monospace; font-size:0.82rem; }
 </style>
+
+<script>
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.dropdown')) {
+        document.querySelectorAll('.dropdown > div').forEach(d => d.style.display = 'none');
+    }
+});
+</script>
 {% endblock %}

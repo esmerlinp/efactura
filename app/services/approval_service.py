@@ -70,6 +70,8 @@ class ApprovalService:
             for doc in docs:
                 data = doc.to_dict()
                 data["id"] = data.get("id") or doc.id
+                data["branchId"] = data.get("branchId", "default-sucursal-principal")
+                data["projectId"] = data.get("projectId")
                 rules.append(data)
             rules.sort(key=lambda r: (r.get("document_type", ""), float(r.get("min_amount", 0))), reverse=True)
             return rules
@@ -86,6 +88,8 @@ class ApprovalService:
             if doc.exists:
                 data = doc.to_dict()
                 data["id"] = data.get("id") or doc.id
+                data["branchId"] = data.get("branchId", "default-sucursal-principal")
+                data["projectId"] = data.get("projectId")
                 return data
         except Exception:
             pass
@@ -104,6 +108,8 @@ class ApprovalService:
             "require_all": bool(rule_data.get("require_all", True)),
             "is_active": bool(rule_data.get("is_active", True)),
             "notes": rule_data.get("notes", ""),
+            "branchId": rule_data.get("branchId", "default-sucursal-principal"),
+            "projectId": rule_data.get("projectId"),
             "createdAt": rule_data.get("createdAt") or now,
             "updatedAt": now,
         }

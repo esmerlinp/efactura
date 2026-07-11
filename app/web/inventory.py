@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime, timezone, date
 
-from flask import Blueprint, render_template, request, redirect, url_for, session, flash
+from flask import Blueprint, render_template, request, redirect, url_for, session, flash, g
 
 from app.utils.decorators import check_permission
 
@@ -32,7 +32,7 @@ def advanced_dashboard():
     from app.services.inventory_alert_service import InventoryAlertService
 
     owner_uid, sb = _owner(), _sandbox()
-    items = DatabaseService.get_items(owner_uid, sandbox=sb)
+    items = DatabaseService.get_items(owner_uid, sandbox=sb, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sb)
     stocks = DatabaseService.get_inventory_stock(owner_uid, sandbox=sb)
 
@@ -78,7 +78,7 @@ def transfer_new():
 
     owner_uid, sb = _owner(), _sandbox()
     warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sb)
-    items = [it for it in DatabaseService.get_items(owner_uid, sandbox=sb) if it.get("type", "Bien") == "Bien"]
+    items = [it for it in DatabaseService.get_items(owner_uid, sandbox=sb, branch_id=g.get('branch_id'), project_id=g.get('project_id')) if it.get("type", "Bien") == "Bien"]
 
     if request.method == "POST":
         lines = []

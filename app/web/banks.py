@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, g
 from app.services.db_service import DatabaseService
 from app.utils.decorators import check_permission
 from app.utils.module_gate import module_enabled
@@ -111,7 +111,9 @@ def new_bank():
             "initialBalance": float(request.form.get('initialBalance', 0)),
             "balanceDate": request.form.get('balanceDate', ''),
             "description": request.form.get('description', ''),
-            "creditLimit": float(request.form.get('creditLimit', 0)) if request.form.get('type') == 'tarjeta' else 0
+            "creditLimit": float(request.form.get('creditLimit', 0)) if request.form.get('type') == 'tarjeta' else 0,
+            "branchId": g.get('branch_id', 'default-sucursal-principal'),
+            "projectId": g.get('project_id'),
         }
         DatabaseService.save_bank_account(owner_uid, account_id, account_dict, sandbox=sandbox)
         flash('Cuenta creada exitosamente.', 'success')
@@ -137,12 +139,16 @@ def edit_bank(account_id):
             "initialBalance": float(request.form.get('initialBalance', 0)),
             "balanceDate": request.form.get('balanceDate', ''),
             "description": request.form.get('description', ''),
-            "creditLimit": float(request.form.get('creditLimit', 0)) if request.form.get('type') == 'tarjeta' else 0
+            "creditLimit": float(request.form.get('creditLimit', 0)) if request.form.get('type') == 'tarjeta' else 0,
+            "branchId": g.get('branch_id', 'default-sucursal-principal'),
+            "projectId": g.get('project_id'),
         }
         existing = DatabaseService.get_bank_account(owner_uid, account_id, sandbox=sandbox)
         if existing:
             account_dict["currentBalance"] = existing["currentBalance"]
             account_dict["createdAt"] = existing["createdAt"]
+            account_dict["branchId"] = existing.get("branchId", account_dict["branchId"])
+            account_dict["projectId"] = existing.get("projectId", account_dict["projectId"])
         DatabaseService.save_bank_account(owner_uid, account_id, account_dict, sandbox=sandbox)
         flash('Cuenta actualizada exitosamente.', 'success')
         return redirect(url_for('web_banks.list_banks'))
@@ -182,7 +188,7 @@ def new_bank_payment(account_id):
         flash('Cuenta no encontrada.', 'error')
         return redirect(url_for('web_banks.list_banks'))
 
-    expenses = [e for e in DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    expenses = [e for e in DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
                 if e.get('cxpStatus') in ('Pendiente', 'Abonado') and e.get('cxpRemainingBalance', 0) > 0]
 
     if request.method == 'POST':
@@ -596,7 +602,7 @@ def import_bank_statement(account_id):
                                     "type": "income",
                                 })
                 elif trans_type == 'expense_payments':
-                    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+                    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
                     for exp in expenses:
                         cxp_payments = DatabaseService.get_cxp_payments(owner_uid, exp['id'], sandbox=sandbox)
                         for p in cxp_payments:

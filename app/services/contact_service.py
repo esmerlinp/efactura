@@ -68,6 +68,8 @@ def _build_contact_from_doc(doc, owner_uid):
     contact = dict(CONTACT_DEFAULTS)
     contact["id"] = doc.id
     contact["ownerUID"] = owner_uid
+    contact["branchId"] = data.get("branchId", "default-sucursal-principal")
+    contact["projectId"] = data.get("projectId")
     for k, v in data.items():
         if k == "types":
             if isinstance(v, list):
@@ -337,10 +339,21 @@ class ContactService:
             return c
         return None
 
+        # Fallback: buscar en legacy
+        c = cls._legacy_client_to_contact(owner_uid, contact_id, sandbox)
+        if c:
+            return c
+        c = cls._legacy_supplier_to_contact(owner_uid, contact_id, sandbox)
+        if c:
+            return c
+        return None
+
     @classmethod
     def save_contact(cls, owner_uid, contact_id, contact_dict, sandbox=True):
         contact_dict["id"] = contact_id
         contact_dict["ownerUID"] = owner_uid
+        contact_dict["branchId"] = contact_dict.get("branchId", "default-sucursal-principal")
+        contact_dict["projectId"] = contact_dict.get("projectId", None)
         if "createdAt" not in contact_dict or not contact_dict["createdAt"]:
             contact_dict["createdAt"] = serialize_field(datetime.now(timezone.utc))
         contact_dict["updatedAt"] = serialize_field(datetime.now(timezone.utc))

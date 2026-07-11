@@ -719,51 +719,66 @@
             display: none !important;
         }
 
-        /* --- Barra de Utilidades Derecha (Right Side Utility Bar) estilo GCP/Firebase --- */
+        /* --- Layout: 2 columnas (sidebar + contenido) --- */
         @media (min-width: 769px) {
             .app-container {
                 display: grid;
-                grid-template-columns: 280px minmax(0, 1fr) 64px !important;
-                min-height: 100vh;
+                grid-template-columns: 280px minmax(0, 1fr) !important;
+                min-height: calc(100vh - 48px);
             }
 
             .app-container.sidebar-collapsed {
-                grid-template-columns: 80px minmax(0, 1fr) 64px !important;
+                grid-template-columns: 80px minmax(0, 1fr) !important;
             }
         }
 
-.utility-bar {
-            background-color: var(--bg-sidebar) !important;
-            border-left: 1px solid var(--border-color);
-            padding: 16px 0;
+        /* --- Barra de Herramientas Superior (dentro del contenido) --- */
+        .top-utility-bar {
+            background-color: var(--bg-card) !important;
+            border-bottom: 1px solid var(--border-color);
+            padding: 0 16px;
             display: flex;
-            flex-direction: column;
+            flex-direction: row;
             align-items: center;
-            height: 100vh;
+            height: 44px;
             position: sticky;
             top: 0;
-            z-index: 90;
-            width: 64px;
+            z-index: 95;
+            width: 100%;
             justify-content: space-between;
             box-sizing: border-box;
+            gap: 8px;
         }
 
-        [data-theme="dark"] .utility-bar {
-            background-color: var(--bg-sidebar) !important;
+        [data-theme="dark"] .top-utility-bar {
+            background-color: var(--bg-card) !important;
         }
 
-        .utility-bar-top,
-        .utility-bar-bottom {
+        .utility-bar-left,
+        .utility-bar-center,
+        .utility-bar-right {
             display: flex;
-            flex-direction: column;
+            flex-direction: row;
             align-items: center;
-            gap: 16px;
-            width: 100%;
+            gap: 6px;
+        }
+
+        .utility-bar-left {
+            flex: 0 0 auto;
+        }
+
+        .utility-bar-center {
+            flex: 1 1 auto;
+            justify-content: center;
+        }
+
+        .utility-bar-right {
+            flex: 0 0 auto;
         }
 
         .utility-item {
-            width: 40px;
-            height: 40px;
+            width: 36px;
+            height: 36px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -771,7 +786,7 @@
             color: var(--text-secondary);
             transition: all var(--transition-fast);
             cursor: pointer;
-            font-size: 1.15rem;
+            font-size: 1.05rem;
             position: relative;
             background: transparent;
             border: none;
@@ -784,8 +799,8 @@
         }
 
         .utility-avatar-wrapper {
-            width: 34px;
-            height: 34px;
+            width: 30px;
+            height: 30px;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -798,7 +813,7 @@
             text-decoration: none;
             color: #ffffff !important;
             font-weight: 700;
-            font-size: 0.8rem;
+            font-size: 0.7rem;
         }
 
         .utility-avatar-wrapper img {
@@ -815,30 +830,43 @@
         }
 
         .utility-divider {
-            width: 24px;
-            height: 1px;
+            width: 1px;
+            height: 20px;
             background-color: var(--border-color);
-            margin: 6px 0;
+            margin: 0 4px;
             opacity: 0.6;
         }
 
-        /* Posicionamiento flotante del dropdown de CRM en la barra derecha */
-        .utility-bar .crm-dropdown .dropdown-menu,
-        .utility-bar .config-dropdown .dropdown-menu {
-            position: absolute;
-            right: calc(100% + 12px) !important;
-            top: 0 !important;
-            left: auto !important;
+        .utility-pill {
+            width: auto !important;
+            height: 30px !important;
+            border-radius: 6px !important;
+            padding: 0 10px !important;
+            font-size: 0.75rem !important;
+            font-weight: 500 !important;
+            gap: 6px;
+            white-space: nowrap;
         }
 
-        /* Ocultar en dispositivos móviles */
+        .utility-pill.branch-pill {
+            border: 1px solid var(--accent-emerald);
+            color: var(--accent-emerald);
+        }
+
+        .utility-pill.project-pill {
+            border: 1px solid var(--accent-purple, #7c3aed);
+            color: var(--accent-purple, #7c3aed);
+        }
+
+        /* Ocultar barra en móviles */
         @media (max-width: 768px) {
-            .utility-bar {
+            .top-utility-bar {
                 display: none !important;
             }
 
             .app-container {
                 grid-template-columns: 1fr !important;
+                min-height: 100vh !important;
             }
         }
 
@@ -1100,75 +1128,54 @@
                         {% if module_enabled('cxp_compras') and (session.get('user', {}).get('role') == 'owner' or
                         session.get('user', {}).get('permissions', {}).get('canManagePurchaseCXP', True)) %}
                         <li class="nav-item {% if active_page == 'purchase_cxp' %}active{% endif %}"
-                            data-tooltip="Facturas de Proveedores">
+                            data-tooltip="Registra las compras que realizas a tus proveedores y actualiza tu inventario de forma automática con solo registrar la factura.">
                             <a href="{{ url_for('web_purchase_orders.list_purchase_cxp') }}">
-                                <span>Facturas de Proveedores</span>
-                            </a>
-                        </li>
-                        {% endif %}
-                        {% if module_enabled('cxp_compras') and (session.get('user', {}).get('role') == 'owner' or
-                        session.get('user', {}).get('permissions', {}).get('canExpenses', True)) %}
-                        <li class="nav-item {% if active_page == 'purchase_orders' %}active{% endif %}"
-                            data-tooltip="Órdenes de Compra">
-                            <a href="{{ url_for('web_purchase_orders.list_purchase_orders') }}">
-                                <span>Órdenes de Compra</span>
-                            </a>
-                        </li>
-                        {% endif %}
-                        {% if module_enabled('gastos') and (session.get('user', {}).get('role') == 'owner' or
-                        session.get('user', {}).get('permissions', {}).get('canExpenses', True)) %}
-                        <li class="nav-item {% if active_page == 'workflows' %}active{% endif %}"
-                            data-tooltip="Aprobaciones">
-                            <a href="{{ url_for('web_workflows.dashboard') }}">
-                                <span>Aprobaciones</span>
+                                <span>Facturas de proveedores</span>
                             </a>
                         </li>
                         {% endif %}
                         {% if module_enabled('gastos') and (session.get('user', {}).get('role') == 'owner' or
                         session.get('user', {}).get('permissions', {}).get('canExpenses', True)) %}
                         <li class="nav-item {% if active_page == 'expenses_payments' %}active{% endif %}"
-                            data-tooltip="Pagos y Gastos operativos">
+                            data-tooltip="Registra tus comprobantes de egreso y controla las salidas de dinero de tu negocio.">
                             <a href="{{ url_for('web_invoices.payments_list') }}">
-                                <span>Pagos / Gastos</span>
+                                <span>Pagos</span>
                             </a>
                         </li>
                         <li class="nav-item {% if active_page == 'expenses_minor' %}active{% endif %}"
-                            data-tooltip="Gastos Menores">
+                            data-tooltip="Registra tus gastos menores para deducir los pagos y compras que realices en el mercado informal.">
                             <a href="{{ url_for('web_invoices.minor_list') }}">
-                                <span>Gastos Menores</span>
+                                <span>Gastos menores</span>
                             </a>
                         </li>
                         <li class="nav-item {% if active_page == 'expenses_recurring' %}active{% endif %}"
-                            data-tooltip="Pagos Recurrentes">
+                            data-tooltip="Programa los gastos que se repiten periódicamente, puedes programar el día y la frecuencia del pago en meses.">
                             <a href="{{ url_for('web_invoices.recurring_list') }}">
-                                <span>Pagos Recurrentes</span>
+                                <span>Pagos recurrentes</span>
                             </a>
                         </li>
                         {% endif %}
                         {% if module_enabled('cxp_compras') and (session.get('user', {}).get('role') == 'owner' or
                         session.get('user', {}).get('permissions', {}).get('canManagePurchaseCXP', True)) %}
                         <li class="nav-item {% if active_page == 'purchase_credit_notes' %}active{% endif %}"
-                            data-tooltip="Notas de Crédito en Compras">
+                            data-tooltip="Crea Notas de crédito en compras para disminuir el saldo por pagar a proveedores, sea por errores en el registro, devoluciones de inventario u otro motivo.">
                             <a href="{{ url_for('web_purchase_orders.list_credit_notes') }}">
-                                <span>Notas de Crédito Compras</span>
-                            </a>
-                        </li>
-                        {% endif %}
-                        {% if module_enabled('ia_bi') and (session.get('user', {}).get('role') == 'owner' or
-                        session.get('user', {}).get('permissions', {}).get('canViewBI', True)) %}
-                        <li class="nav-item {% if active_page == 'budgets' %}active{% endif %}"
-                            data-tooltip="Presupuestos">
-                            <a href="{{ url_for('web_budgets.dashboard') }}">
-                                <span>Presupuestos</span>
+                                <span>Notas de crédito en compras</span>
                             </a>
                         </li>
                         {% endif %}
                         {% if module_enabled('cxp_compras') and (session.get('user', {}).get('role') == 'owner' or
                         session.get('user', {}).get('permissions', {}).get('canExpenses', True)) %}
+                        <li class="nav-item {% if active_page == 'purchase_orders' %}active{% endif %}"
+                            data-tooltip="Crea órdenes de compra para solicitar a tus proveedores mercancías o servicios. Este documento es de control y no genera movimientos en tu inventario.">
+                            <a href="{{ url_for('web_purchase_orders.list_purchase_orders') }}">
+                                <span>Órdenes de compra</span>
+                            </a>
+                        </li>
                         <li class="nav-item {% if active_page == 'receipts' %}active{% endif %}"
-                            data-tooltip="Recepción de Comprobantes">
+                            data-tooltip="Recibe automáticamente los e-CF emitidos por tus proveedores. Acéptalos o recházalos.">
                             <a href="{{ url_for('web_purchase_orders.list_receipts') }}">
-                                <span>Recepción de Comprobantes</span>
+                                <span>Recepción de comprobantes electrónicos</span>
                             </a>
                         </li>
                         {% endif %}
@@ -1594,6 +1601,10 @@
                 {% endif %}
                 <!-- Botón Toggle limpio, sin borde ni fondo -->
                 <div class="sidebar-toggle-wrapper">
+                    <button type="button" id="theme-toggle-sidebar-btn" class="sidebar-toggle" title="Modo Oscuro" style="margin-right: auto;">
+                        <i class="fa-solid fa-moon theme-icon-dark" id="theme-icon-sidebar-dark"></i>
+                        <i class="fa-solid fa-sun theme-icon-light" id="theme-icon-sidebar-light" style="display:none; color:#f59e0b;"></i>
+                    </button>
                     <button type="button" id="sidebar-toggle-btn" class="sidebar-toggle" title="Contraer / Expandir menú">
                         <i class="fa-solid fa-chevron-left" id="toggle-icon"></i>
                     </button>
@@ -1603,6 +1614,128 @@
 
         <!-- 2. CONTENIDO PRINCIPAL -->
         <main class="main-content" id="main-content" aria-label="Contenido principal">
+
+            <!-- BARRA DE HERRAMIENTAS SUPERIOR (dentro del contenido) -->
+            <nav class="top-utility-bar" id="top-utility-bar">
+                <div class="utility-bar-left">
+                    {% if available_branches and available_branches|length > 0 %}
+                    <div class="branch-dropdown" id="branch-dropdown-trigger" style="position: relative;">
+                        <button class="utility-item utility-pill branch-pill" title="Sucursal: {{ active_branch_name }}">
+                            <i class="fa-solid fa-store"></i>
+                            <span>{{ active_branch_name }}</span>
+                            <i class="fa-solid fa-caret-down" style="font-size:0.55rem;"></i>
+                        </button>
+                        <div class="dropdown-menu" id="branch-dropdown-menu" style="display:none; position:absolute; top:100%; left:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-md); width:220px; max-height:300px; overflow-y:auto; box-shadow:0 4px 12px rgba(0,0,0,0.1); padding:6px; z-index:1001; flex-direction:column;">
+                            <div style="font-size:0.68rem; font-weight:600; color:var(--text-muted); padding:6px 10px 4px; text-transform:uppercase;">Sucursales</div>
+                            <button type="button" onclick="quickSelectBranch('__all__')" style="font-size:0.78rem; padding:8px 12px; border:none; background:transparent; text-align:left; cursor:pointer; border-radius:6px; color:var(--accent-purple); display:flex; align-items:center; gap:8px; width:100%;" onmouseover="this.style.background='var(--bg-nav-hover)'" onmouseout="this.style.background='transparent'"><i class="fa-solid fa-building-circle-check"></i> Ver todas</button>
+                            {% for b in available_branches %}
+                            <button type="button" onclick="quickSelectBranch('{{ b.id }}')" style="font-size:0.78rem; padding:8px 12px; border:none; background:{% if b.id == active_branch_id %}var(--bg-nav-hover){% else %}transparent{% endif %}; text-align:left; cursor:pointer; border-radius:6px; color:var(--text-primary); display:flex; align-items:center; gap:8px; width:100%;" onmouseover="this.style.background='var(--bg-nav-hover)'" onmouseout="if(this.getAttribute('data-active')!=='true')this.style.background='transparent'" data-active="{% if b.id == active_branch_id %}true{% endif %}">
+                                <i class="fa-solid fa-store"></i><span style="font-weight:500;">{{ b.name }}</span>{% if b.isDefault %}<span style="margin-left:auto;font-size:0.6rem;color:var(--accent-emerald);background:rgba(16,185,129,0.1);padding:1px 6px;border-radius:8px;">Principal</span>{% endif %}
+                            </button>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if available_projects is defined and available_projects|length > 0 %}
+                    <div class="project-dropdown" id="project-dropdown-trigger" style="position: relative;">
+                        <button class="utility-item utility-pill project-pill" title="Proyecto: {{ active_project_name }}">
+                            <i class="fa-solid fa-diagram-project"></i>
+                            <span>{{ active_project_name }}</span>
+                            <i class="fa-solid fa-caret-down" style="font-size:0.55rem;"></i>
+                        </button>
+                        <div class="dropdown-menu" id="project-dropdown-menu" style="display:none; position:absolute; top:100%; left:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-md); width:220px; max-height:300px; overflow-y:auto; box-shadow:0 4px 12px rgba(0,0,0,0.1); padding:6px; z-index:1001; flex-direction:column;">
+                            <div style="font-size:0.68rem; font-weight:600; color:var(--text-muted); padding:6px 10px 4px; text-transform:uppercase;">Proyectos</div>
+                            <button type="button" onclick="quickSelectProject('__all__')" onmouseover="this.style.background='var(--bg-nav-hover)'" onmouseout="this.style.background='transparent'" style="font-size:0.78rem; padding:8px 12px; border:none; background:transparent; text-align:left; cursor:pointer; border-radius:6px; color:var(--text-primary); display:flex; align-items:center; gap:8px; width:100%;"><i class="fa-solid fa-layer-group"></i> Todos los proyectos</button>
+                            <button type="button" onclick="quickSelectProject('__no_project__')" onmouseover="this.style.background='var(--bg-nav-hover)'" onmouseout="this.style.background='transparent'" style="font-size:0.78rem; padding:8px 12px; border:none; background:transparent; text-align:left; cursor:pointer; border-radius:6px; color:var(--text-muted); display:flex; align-items:center; gap:8px; width:100%;"><i class="fa-solid fa-circle-xmark"></i> Sin proyecto</button>
+                            {% for p in available_projects %}
+                            <button type="button" onclick="quickSelectProject('{{ p.id }}')" style="font-size:0.78rem; padding:8px 12px; border:none; background:{% if p.id == active_project_id %}var(--bg-nav-hover){% else %}transparent{% endif %}; text-align:left; cursor:pointer; border-radius:6px; color:var(--text-primary); display:flex; align-items:center; gap:8px; width:100%;" onmouseover="this.style.background='var(--bg-nav-hover)'" onmouseout="if(this.getAttribute('data-active')!=='true')this.style.background='transparent'" data-active="{% if p.id == active_project_id %}true{% endif %}">
+                                <i class="fa-solid fa-diagram-project" style="color:var(--accent-purple);"></i><span style="font-weight:500;">{{ p.name }}</span>{% if p.isDefault %}<span style="margin-left:auto;font-size:0.6rem;color:var(--accent-purple);background:rgba(124,58,237,0.1);padding:1px 6px;border-radius:8px;">Default</span>{% endif %}
+                            </button>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if user_has_multiple_companies %}
+                    <a href="{{ url_for('web_auth.select_company') }}" class="utility-item" title="Cambiar de Empresa">
+                        <i class="fa-solid fa-building-circle-arrow-right"></i>
+                    </a>
+                    {% endif %}
+
+                    <div class="utility-divider"></div>
+
+                    {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canInvoice', True) %}
+                    <a href="{{ url_for('web_invoices.new_invoice_route') }}" class="utility-item" title="Nuevo Documento" style="color:var(--accent-emerald);">
+                        <i class="fa-solid fa-file-circle-plus"></i>
+                    </a>
+                    {% endif %}
+                </div>
+
+                <div class="utility-bar-right">
+                    <div class="crm-dropdown" id="crm-dropdown-trigger" style="position:relative;">
+                        <button class="utility-item" title="Notificaciones"><i class="fa-solid fa-bell"></i>
+                            {% set has_unread = false %}{% if user_notifications %}{% for n in user_notifications %}{% if not n.read %}{% set has_unread = true %}{% endif %}{% endfor %}{% endif %}
+                            {% if (crm_contacts is defined and crm_contacts|length > 0) or has_unread %}
+                            <span id="bell-badge" style="position:absolute; top:6px; right:6px; background:var(--accent-red); border-radius:50%; width:7px; height:7px;"></span>{% endif %}
+                        </button>
+                        <div class="dropdown-menu" id="crm-dropdown-menu" style="display:none; position:absolute; top:100%; right:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-md); width:320px; box-shadow:0 4px 12px rgba(0,0,0,0.1); padding:0; z-index:1001; flex-direction:column;">
+                            <div style="display:flex; border-bottom:1px solid var(--border-color); background:rgba(0,0,0,0.05); border-radius:var(--radius-md) var(--radius-md) 0 0;">
+                                <button type="button" onclick="switchBellTab('menciones-tab', event)" class="bell-tab-btn active" style="flex:1; padding:12px; border:none; background:transparent; font-weight:600; font-size:0.8rem; color:var(--text-primary); cursor:pointer; border-bottom:2px solid var(--accent-purple);">Menciones</button>
+                                <button type="button" onclick="switchBellTab('crm-tab', event)" class="bell-tab-btn" style="flex:1; padding:12px; border:none; background:transparent; font-weight:500; font-size:0.8rem; color:var(--text-muted); cursor:pointer; border-bottom:2px solid transparent;">Compromisos</button>
+                            </div>
+                            <div id="menciones-tab-content" class="bell-tab-content" style="max-height:300px; overflow-y:auto; padding:8px; display:flex; flex-direction:column; gap:4px;">
+                                {% if user_notifications %}{% for n in user_notifications %}<a href="{{ n.link }}" style="display:block; text-decoration:none; padding:10px; border-bottom:1px solid var(--border-color); font-size:0.8rem; border-radius:var(--radius-sm); background:{% if not n.read %}rgba(124,58,237,0.05){% else %}transparent{% endif %}; color:var(--text-primary);"><strong>{{ n.title }}</strong><p style="color:var(--text-secondary); margin:4px 0; font-size:0.75rem;">{{ n.message }}</p><span style="font-size:0.7rem; color:var(--accent-purple);">{{ n.documentNumber }}</span></a>{% endfor %}{% else %}<div style="text-align:center; color:var(--text-muted); padding:20px;">No tienes menciones.</div>{% endif %}
+                            </div>
+                            <div id="crm-tab-content" class="bell-tab-content" style="max-height:300px; overflow-y:auto; padding:8px; display:none; flex-direction:column; gap:4px;">
+                                {% if crm_contacts is defined and crm_contacts %}{% for contact in crm_contacts %}<div style="padding:10px; border-bottom:1px solid var(--border-color); font-size:0.8rem;"><strong style="color:var(--text-primary);">{{ contact.razonSocial }}</strong><p style="color:var(--text-secondary); margin:4px 0; font-size:0.75rem;">{{ contact.crmNotes or 'Sin anotaciones.' }}</p></div>{% endfor %}{% else %}<div style="text-align:center; color:var(--text-muted); padding:20px;">No tienes compromisos.</div>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if module_enabled('ia_bi') and (session.get('user', {}).get('role') == 'owner' or check_permission('canUseChatbot')) %}
+                    <button class="utility-item" id="chatbot-toggle-btn" title="Asistente IA" style="color:var(--accent-emerald);">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    </button>
+                    {% endif %}
+
+                    <div class="config-dropdown" id="config-dropdown-trigger" style="position:relative;">
+                        <button class="utility-item" title="Configuración"><i class="fa-solid fa-gear"></i></button>
+                        <div class="dropdown-menu" id="config-dropdown-menu" style="display:none; position:absolute; top:100%; right:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-md); width:220px; box-shadow:0 4px 12px rgba(0,0,0,0.1); padding:8px; z-index:1001; flex-direction:column;">
+                            <a href="{{ url_for('web_i18n.language_settings') }}" style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--radius-sm); color:var(--text-primary); text-decoration:none; font-size:0.85rem;" onmouseover="this.style.background='var(--bg-nav-hover)'" onmouseout="this.style.background='transparent'"><i class="fa-solid fa-language" style="width:16px; text-align:center;"></i> Idioma</a>
+
+                            {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canToggleSandbox', True) %}
+                            <button id="sandbox-toggle" style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--radius-sm); color:var(--text-primary); font-size:0.85rem; width:100%; border:none; background:transparent; cursor:pointer;" onmouseover="this.style.background='var(--bg-nav-hover)'" onmouseout="this.style.background='transparent'">
+                                <i class="fa-solid fa-flask" style="width:16px; text-align:center; color:var(--accent-purple);"></i> Modo Sandbox
+                            </button>
+                            {% endif %}
+
+                            <a href="{{ url_for('web_invoices.help_center') }}" style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--radius-sm); color:var(--text-primary); text-decoration:none; font-size:0.85rem;" onmouseover="this.style.background='var(--bg-nav-hover)'" onmouseout="this.style.background='transparent'"><i class="fa-solid fa-circle-question" style="width:16px; text-align:center;"></i> Centro de Ayuda</a>
+
+                            {% if module_enabled('auditoria') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canViewAuditLog', False)) %}
+                            <a href="{{ url_for('web_audit.audit_log') }}" style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--radius-sm); color:var(--text-primary); text-decoration:none; font-size:0.85rem;" onmouseover="this.style.background='var(--bg-nav-hover)'" onmouseout="this.style.background='transparent'"><i class="fa-solid fa-shield-halved" style="width:16px; text-align:center;"></i> Auditoría</a>
+                            {% endif %}
+
+                            <div style="border-top:1px solid var(--border-color); margin:4px 0;"></div>
+
+                            <a href="{{ url_for('web_auth.logout') }}" onclick="localStorage.removeItem('pos_cart'); return confirm('¿Cerrar sesión?');" style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--radius-sm); color:var(--accent-red); text-decoration:none; font-size:0.85rem;" onmouseover="this.style.background='var(--bg-nav-hover)'" onmouseout="this.style.background='transparent'">
+                                <i class="fa-solid fa-right-from-bracket" style="width:16px; text-align:center;"></i> Cerrar Sesión
+                            </a>
+                        </div>
+                    </div>
+
+                    <a href="{{ url_for('web_auth.user_profile_page') }}" class="utility-avatar-wrapper" title="Mi Perfil">
+                        {% if session.get('user', {}).get('profileImageUrl') %}
+                        <img src="{{ session.get('user').get('profileImageUrl') }}" alt="Avatar" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">
+                        {% elif company_logo_url %}
+                        <img src="{{ company_logo_url }}" alt="Avatar">
+                        {% else %}
+                        {{ session.get('user', {}).get('name', 'P')[0] | upper }}
+                        {% endif %}
+                    </a>
+                </div>
+            </nav>
+
             <!-- Mensajes flash flotantes de Jinja2 -->
             {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -1625,227 +1758,6 @@
                 {% block content %}{% endblock %}
             </div>
         </main>
-
-        <!-- 3. BARRA DE HERRAMIENTAS (BARRA LATERAL DERECHA / TOOL BAR) -->
-        <aside class="tool-bar utility-bar">
-            <div class="utility-bar-top">
-
-
-                <a href="{{ url_for('web_auth.user_profile_page') }}" class="utility-avatar-wrapper"
-                    title="Mi Perfil / Ajustes de Cuenta">
-                    {% if session.get('user', {}).get('profileImageUrl') %}
-                    <img src="{{ session.get('user').get('profileImageUrl') }}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
-                    {% elif company_logo_url %}
-                    <img src="{{ company_logo_url }}" alt="Avatar">
-                    {% else %}
-                    {{ session.get('user', {}).get('name', 'P')[0] | upper }}
-                    {% endif %}
-                </a>
-
-                <!-- Notificaciones CRM / Menciones -->
-                <div class="crm-dropdown" id="crm-dropdown-trigger" style="position: relative; display: inline-block;">
-                    <button class="utility-item" title="Notificaciones e Historial">
-                        <i class="fa-solid fa-bell"></i>
-                        {% set has_unread = false %}
-                        {% if user_notifications %}
-                            {% for n in user_notifications %}
-                                {% if not n.read %}
-                                    {% set has_unread = true %}
-                                {% endif %}
-                            {% endfor %}
-                        {% endif %}
-                        {% if (crm_contacts is defined and crm_contacts|length > 0) or has_unread %}
-                        <span id="bell-badge"
-                            style="position: absolute; top: 8px; right: 8px; background-color: var(--accent-red); color: white; border-radius: 50%; width: 8px; height: 8px;"></span>
-                        {% endif %}
-                    </button>
-
-                    <!-- Menú Desplegable de Notificaciones / CRM -->
-                    <div class="dropdown-menu" id="crm-dropdown-menu" style="
-                        display: none;
-                        position: absolute;
-                        background-color: var(--bg-card);
-                        backdrop-filter: blur(16px);
-                        -webkit-backdrop-filter: blur(16px);
-                        border: 1px solid var(--border-color);
-                        border-radius: var(--radius-md);
-                        width: 320px;
-                        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-                        padding: 0;
-                        z-index: 1000;
-                        flex-direction: column;
-                        box-sizing: border-box;
-                    ">
-                        <!-- Header Selector de Tabs -->
-                        <div style="display: flex; border-bottom: 1px solid var(--border-color); background: rgba(0,0,0,0.05); border-top-left-radius: var(--radius-md); border-top-right-radius: var(--radius-md);">
-                            <button type="button" onclick="switchBellTab('menciones-tab', event)" class="bell-tab-btn active" style="flex: 1; padding: 12px; border: none; background: transparent; font-weight: 600; font-size: 0.8rem; color: var(--text-primary); cursor: pointer; border-bottom: 2px solid var(--accent-purple); outline: none;">
-                                Menciones
-                            </button>
-                            <button type="button" onclick="switchBellTab('crm-tab', event)" class="bell-tab-btn" style="flex: 1; padding: 12px; border: none; background: transparent; font-weight: 500; font-size: 0.8rem; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; outline: none;">
-                                Compromisos
-                            </button>
-                        </div>
-
-                        <!-- Contenedor Menciones -->
-                        <div id="menciones-tab-content" class="bell-tab-content" style="max-height: 300px; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px;">
-                            {% if user_notifications %}
-                                {% for n in user_notifications %}
-                                <a href="{{ n.link }}" class="notification-item" style="display: block; text-decoration: none; padding: 10px; border-bottom: 1px solid var(--border-color); font-size: 0.8rem; border-radius: var(--radius-sm); transition: background 0.2s; background: {% if not n.read %}rgba(124, 58, 237, 0.05){% else %}transparent{% endif %};">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                                        <strong style="color: var(--text-primary); font-weight: 600;">{{ n.title }}</strong>
-                                        <span style="color: var(--text-muted); font-size: 0.65rem;">{{ n.createdAt[11:16] if n.createdAt else '' }}</span>
-                                    </div>
-                                    <p style="color: var(--text-secondary); margin: 0 0 6px 0; font-size: 0.75rem; line-height: 1.4;">
-                                        {{ n.message }}
-                                    </p>
-                                    <span style="font-size: 0.7rem; color: var(--accent-purple); font-weight: 500;"><i class="fa-solid fa-file-invoice"></i> {{ n.documentNumber }}</span>
-                                </a>
-                                {% endfor %}
-                            {% else %}
-                                <div style="text-align: center; color: var(--text-muted); font-size: 0.8rem; padding: 20px 0;">
-                                    No tienes menciones.
-                                </div>
-                            {% endif %}
-                        </div>
-
-                        <!-- Contenedor CRM -->
-                        <div id="crm-tab-content" class="bell-tab-content" style="max-height: 300px; overflow-y: auto; padding: 8px; display: none; flex-direction: column; gap: 4px;">
-                            {% if crm_contacts is defined and crm_contacts %}
-                            {% for contact in crm_contacts %}
-                            <div class="crm-notification-item"
-                                style="padding: 10px; border-bottom: 1px solid var(--border-color); font-size: 0.8rem;">
-                                <div
-                                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                                    <strong
-                                        style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; color: var(--text-primary);">{{
-                                        contact.razonSocial }}</strong>
-                                    <span class="badge"
-                                        style="background-color: #e8f0fe; color: #1a73e8; border: none; font-size: 0.6rem; padding: 2px 6px;">CRM</span>
-                                </div>
-                                <p style="color: var(--text-secondary); margin: 0 0 6px 0; font-size: 0.75rem;">
-                                    {% if contact.crmNotes %}
-                                    {{ contact.crmNotes }}
-                                    {% elif contact.total_cxc and contact.total_cxc > 0 %}
-                                    <span style="color: var(--text-secondary);"><i class="fa-solid fa-circle-info"></i>
-                                        Cliente con saldo pendiente.</span>
-                                    {% else %}
-                                    Sin anotaciones.
-                                    {% endif %}
-                                </p>
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="color: var(--text-muted); font-size: 0.7rem;"><i
-                                            class="fa-solid fa-phone"></i> {{ contact.telefono or 'N/A' }}</span>
-                                    <a href="{% if contact.commitmentType == 'activity' %}{{ url_for('web_crm.activities') }}{% else %}{{ url_for('web_contacts.contact_detail', contact_id=contact.id) }}{% endif %}"
-                                        style="color: var(--accent-emerald); font-weight: 500; text-decoration: none; font-size: 0.75rem;"><i
-                                            class="fa-solid fa-eye"></i> Ver</a>
-                                </div>
-                            </div>
-                            {% endfor %}
-                            {% else %}
-                            <div
-                                style="text-align: center; color: var(--text-muted); font-size: 0.8rem; padding: 20px 0;">
-                                No tienes compromisos para hoy.
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Configuración Dropdown / Herramienta -->
-                <div class="config-dropdown" id="config-dropdown-trigger" style="position: relative; display: inline-block;">
-                    <button class="utility-item" title="Configuración y Ajustes">
-                        <i class="fa-solid fa-gear"></i>
-                    </button>
-                    <!-- Menú Desplegable de Configuración -->
-                    <div class="dropdown-menu" id="config-dropdown-menu" style="
-                        display: none;
-                        position: absolute;
-                        background-color: var(--bg-card);
-                        backdrop-filter: blur(16px);
-                        -webkit-backdrop-filter: blur(16px);
-                        border: 1px solid var(--border-color);
-                        border-radius: var(--radius-md);
-                        width: 240px;
-                        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-                        padding: 8px;
-                        z-index: 1000;
-                        flex-direction: column;
-                        box-sizing: border-box;
-                    ">
-                        <a href="{{ url_for('web_i18n.language_settings') }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-size: 0.85rem; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
-                            <i class="fa-solid fa-language" style="width: 16px; text-align: center;"></i>
-                            <span>Idioma</span>
-                        </a>
-
-                        <a href="{{ url_for('web_invoices.help_center') }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-size: 0.85rem; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
-                            <i class="fa-solid fa-circle-question" style="width: 16px; text-align: center;"></i>
-                            <span>Centro de Ayuda</span>
-                        </a>
-                    </div>
-                </div>
-
-                {% if module_enabled('ia_bi') and (session.get('user', {}).get('role') == 'owner' or check_permission('canUseChatbot')) %}
-                <button class="utility-item" id="chatbot-toggle-btn"
-                    title="Asistente {{ product_name }} IA"
-                    style="color: var(--accent-emerald);">
-                    <i class="fa-solid fa-wand-magic-sparkles"></i>
-                </button>
-                {% endif %}
-
-                <!-- Centro de Ayuda -->
-                <a href="{{ url_for('web_invoices.help_center') }}" class="utility-item" title="Centro de Ayuda">
-                    <i class="fa-solid fa-circle-question"></i>
-                </a>
-
-                {% if module_enabled('auditoria') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canViewAuditLog', False)) %}
-                <a href="{{ url_for('web_audit.audit_log') }}" class="utility-item {% if active_page == 'audit' %}active{% endif %}" title="Registro de Auditoría" id="utility-audit-log">
-                    <i class="fa-solid fa-shield-halved"></i>
-                </a>
-                {% endif %}
-
-                <div class="utility-divider"></div>
-
-                <!-- Botón: Nuevo Documento Rápido -->
-                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions',
-                {}).get('canInvoice', True) %}
-                <a href="{{ url_for('web_invoices.new_invoice_route') }}" class="utility-item" title="Nuevo Documento (+)"
-                    style="color: var(--accent-emerald);">
-                    <i class="fa-solid fa-file-circle-plus" style="font-size: 1.25rem;"></i>
-                </a>
-                {% endif %}
-
-                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canToggleSandbox', True) %}
-                <!-- Modo Pruebas (Sandbox) -->
-                <button id="sandbox-toggle" class="utility-item"
-                    style="color: {% if session.get('is_sandbox_mode', False) %}var(--accent-purple){% else %}var(--text-secondary){% endif %};"
-                    title="Alternar Modo Pruebas (Sandbox)">
-                    <i class="fa-solid fa-flask"></i>
-                </button>
-                {% endif %}
-
-                {% if user_has_multiple_companies %}
-                <a href="{{ url_for('web_auth.select_company') }}" class="utility-item" title="Cambiar de Empresa / Compañía">
-                    <i class="fa-solid fa-building-circle-arrow-right"></i>
-                </a>
-                {% endif %}
-            </div>
-
-            <div class="utility-bar-bottom">
-                <!-- Modo Oscuro -->
-                <button id="theme-toggle-dropdown-btn" class="utility-item" title="Alternar Modo Oscuro">
-                    <i class="fa-solid fa-moon" id="theme-icon-dropdown-dark"></i>
-                    <i class="fa-solid fa-sun" id="theme-icon-dropdown-light"
-                        style="display: none; color: #f59e0b;"></i>
-                </button>
-
-                <!-- Cerrar Sesión -->
-                <a href="{{ url_for('web_auth.logout') }}" class="utility-item" style="color: var(--accent-red);"
-                    title="Cerrar Sesión"
-                    onclick="localStorage.removeItem('pos_cart'); return confirm('¿Seguro que deseas cerrar la sesión?');">
-                    <i class="fa-solid fa-right-from-bracket"></i>
-                </a>
-            </div>
-        </aside>
     </div>
 
     <!-- CHATBOT — Asistente Inteligente -->
@@ -2063,6 +1975,8 @@
                         e.stopPropagation();
                         // Cerrar otros dropdowns
                         if (configMenu) configMenu.style.display = 'none';
+                        if (branchMenu) branchMenu.style.display = 'none';
+                        if (projectMenu) projectMenu.style.display = 'none';
 
                         const isVisible = crmMenu.style.display === 'flex';
                         crmMenu.style.display = isVisible ? 'none' : 'flex';
@@ -2110,6 +2024,8 @@
                         e.stopPropagation();
                         // Cerrar otros dropdowns de la barra de herramientas
                         if (crmMenu) crmMenu.style.display = 'none';
+                        if (branchMenu) branchMenu.style.display = 'none';
+                        if (projectMenu) projectMenu.style.display = 'none';
                         
                         const isVisible = configMenu.style.display === 'flex';
                         configMenu.style.display = isVisible ? 'none' : 'flex';
@@ -2133,6 +2049,82 @@
                 }
             }
 
+
+
+            // ======== Branch & Project Quick Select Dropdowns ========
+            window.quickSelectBranch = function(branchId) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/select-branch';
+                form.style.display = 'none';
+                const csrfInput = document.createElement('input');
+                csrfInput.name = 'csrf_token';
+                csrfInput.value = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+                form.appendChild(csrfInput);
+                const branchInput = document.createElement('input');
+                branchInput.name = 'branch_id';
+                branchInput.value = branchId;
+                form.appendChild(branchInput);
+                document.body.appendChild(form);
+                form.submit();
+            };
+
+            window.quickSelectProject = function(projectId) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/select-project';
+                form.style.display = 'none';
+                const csrfInput = document.createElement('input');
+                csrfInput.name = 'csrf_token';
+                csrfInput.value = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+                form.appendChild(csrfInput);
+                const projectInput = document.createElement('input');
+                projectInput.name = 'project_id';
+                projectInput.value = projectId;
+                form.appendChild(projectInput);
+                document.body.appendChild(form);
+                form.submit();
+            };
+
+            const branchTrigger = document.getElementById('branch-dropdown-trigger');
+            const branchMenu = document.getElementById('branch-dropdown-menu');
+            if (branchTrigger && branchMenu) {
+                const btn = branchTrigger.querySelector('.utility-item');
+                if (btn) {
+                    btn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        if (projectMenu) projectMenu.style.display = 'none';
+                        if (crmMenu) crmMenu.style.display = 'none';
+                        if (configMenu) configMenu.style.display = 'none';
+                        branchMenu.style.display = branchMenu.style.display === 'flex' ? 'none' : 'flex';
+                    });
+                }
+                document.addEventListener('click', function(e) {
+                    if (!branchTrigger.contains(e.target)) {
+                        branchMenu.style.display = 'none';
+                    }
+                });
+            }
+
+            const projectTrigger = document.getElementById('project-dropdown-trigger');
+            const projectMenu = document.getElementById('project-dropdown-menu');
+            if (projectTrigger && projectMenu) {
+                const btn = projectTrigger.querySelector('.utility-item');
+                if (btn) {
+                    btn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        if (branchMenu) branchMenu.style.display = 'none';
+                        if (crmMenu) crmMenu.style.display = 'none';
+                        if (configMenu) configMenu.style.display = 'none';
+                        projectMenu.style.display = projectMenu.style.display === 'flex' ? 'none' : 'flex';
+                    });
+                }
+                document.addEventListener('click', function(e) {
+                    if (!projectTrigger.contains(e.target)) {
+                        projectMenu.style.display = 'none';
+                    }
+                });
+            }
 
 
             // ── Flyout positioning con position:fixed ──────────────────────────────────

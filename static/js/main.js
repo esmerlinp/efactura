@@ -140,46 +140,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 5. Control de Alternancia de Tema (Oscuro / Claro) con persistencia
-    const themeToggleBtn = document.getElementById('theme-toggle-dropdown-btn');
-    if (themeToggleBtn) {
-        const themeIconLight = document.getElementById('theme-icon-dropdown-light');
-        const themeIconDark = document.getElementById('theme-icon-dropdown-dark');
-        
-        // Función para actualizar iconos
-        const updateThemeIcons = (theme) => {
-            if (theme === 'dark') {
-                themeIconLight.style.display = 'block';
-                themeIconDark.style.display = 'none';
-            } else {
-                themeIconLight.style.display = 'none';
-                themeIconDark.style.display = 'block';
-            }
-        };
+    const themeIcons = {
+        dark: document.querySelectorAll('.theme-icon-dark'),
+        light: document.querySelectorAll('.theme-icon-light'),
+    };
+    const updateThemeIcons = (theme) => {
+        themeIcons.dark.forEach(el => { if (el) el.style.display = theme === 'dark' ? 'block' : 'none'; });
+        themeIcons.light.forEach(el => { if (el) el.style.display = theme === 'light' ? 'block' : 'none'; });
+    };
 
-        // Leer tema inicial y sincronizar iconos
-        const currentTheme = localStorage.getItem('theme') || 'light';
-        updateThemeIcons(currentTheme);
+    const handleThemeToggle = () => {
+        const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+        document.documentElement.style.transition = 'background-color 0.3s ease, color 0.3s ease';
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+        if (typeof window.setThemeColor === 'function') {
+            const lightColor = document.documentElement.getAttribute('data-theme-color-light') || '#7c3aed';
+            const darkColor = document.documentElement.getAttribute('data-theme-color-dark') || '#0f172a';
+            window.setThemeColor(newTheme === 'dark' ? darkColor : lightColor);
+        }
+        updateThemeIcons(newTheme);
+    };
 
-        // Click event listener
-        themeToggleBtn.addEventListener('click', () => {
-            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
-            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-            
-            // Efecto de transición sutil en el fondo
-            document.documentElement.style.transition = 'background-color 0.3s ease, color 0.3s ease';
-            document.documentElement.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
-            
-            // Actualizar theme-color para Safari (reemplazar elemento para compatibilidad)
-            if (typeof window.setThemeColor === 'function') {
-                const lightColor = document.documentElement.getAttribute('data-theme-color-light') || '#7c3aed';
-                const darkColor = document.documentElement.getAttribute('data-theme-color-dark') || '#0f172a';
-                window.setThemeColor(newTheme === 'dark' ? darkColor : lightColor);
-            }
-            
-            updateThemeIcons(newTheme);
-        });
-    }
+    ['theme-toggle-dropdown-btn', 'theme-toggle-sidebar-btn'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.addEventListener('click', handleThemeToggle);
+    });
+
+    const currentTheme = localStorage.getItem('theme') || 'light';
+    updateThemeIcons(currentTheme);
 
     // 6. Control de Barra Lateral Colapsable con Persistencia
     const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');

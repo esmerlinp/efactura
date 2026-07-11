@@ -1,7 +1,7 @@
 import uuid
 import json
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, g
 from app.services.db_service import DatabaseService
 from app.utils.decorators import require_permission, check_permission
 from app.services.dgii import DGIIService
@@ -58,7 +58,7 @@ def create_fiscal_note():
     real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') not in ('Anulada', 'Borrador')
                      and inv.get('ecfType') not in ('Nota de Crédito (E34)', 'Nota de Débito (E33)', 'Cotización')]
 
-    catalog = DatabaseService.get_items(owner_uid, sandbox=sandbox) or []
+    catalog = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
     catalog_json = json.dumps(catalog, default=str)
 
     # Data for "Más ajustes" sidebar
@@ -67,7 +67,7 @@ def create_fiscal_note():
                       and s.get('estado', '').upper() == 'ACTIVA'
                       and not s.get('bloqueadaManualmente', False)]
     warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox) or []
-    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox) or []
+    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
     active_price_lists = [pl for pl in price_lists if pl.get('isActive', True)]
     default_price_list = next((pl for pl in active_price_lists if pl.get('isDefault')), None)
     default_price_list_id = default_price_list['id'] if default_price_list else ''
@@ -139,7 +139,7 @@ def save_fiscal_note():
             if idx.isdigit():
                 item_indices.add(int(idx))
 
-    catalog = DatabaseService.get_items(owner_uid, sandbox=sandbox) or []
+    catalog = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
     catalog_types = {it['name'].lower().strip(): it.get('type', 'Bien') for it in catalog}
 
     for idx in sorted(item_indices):
@@ -243,6 +243,8 @@ def save_fiscal_note():
         "priceListId": price_list_id,
         "sellerId": seller_id,
         "sequenceId": sequence_id,
+        "branchId": ref_invoice.get("branchId") or session.get('selected_branch_id') or 'default-sucursal-principal',
+        "projectId": ref_invoice.get("projectId") or session.get('selected_project_id') or None,
         "createdBy": user.get('displayName', 'Usuario'),
         "createdAt": datetime.now(timezone.utc).isoformat(),
         "creditedAmount": calcs["net_payable"] if note_type == 'E34' else 0.0,

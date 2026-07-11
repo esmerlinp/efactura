@@ -1,7 +1,7 @@
 import uuid
 import html
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, g
 from app.services.db_service import DatabaseService
 from app.services.contact_service import ContactService
 from app.services.mailer import Mailer
@@ -50,7 +50,7 @@ def list_contacts():
         contacts = all_contacts
 
     invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
 
     for c in contacts:
         cid = c['id']
@@ -252,7 +252,7 @@ def new_contact():
         return redirect(url_for('web_contacts.list_contacts'))
 
     collaborators = DatabaseService.get_team_members(owner_uid) or []
-    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox)
+    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     return render_template('contacts/form.html',
                            active_page='contacts',
                            contact=None,
@@ -344,7 +344,7 @@ def contact_detail(contact_id):
     contact['total_invoiced'] = sum(inv['total'] for inv in client_invoices if inv.get('status') not in ['Anulada', 'Borrador'])
     contact['total_cxc'] = sum(inv['netPayable'] for inv in client_invoices if inv['status'] in ['Emitida', 'Vencida', 'Revisión de Pago'])
 
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     linked_expenses = [e for e in expenses if e.get('supplierId') == contact_id] if is_supplier else []
     contact['total_purchases'] = sum(float(e.get('amount', 0)) for e in linked_expenses)
     contact['cxp_balance'] = sum(float(e.get('cxpRemainingBalance', 0)) for e in linked_expenses)
@@ -541,7 +541,7 @@ def edit_contact(contact_id):
         return redirect(url_for('web_contacts.list_contacts'))
 
     collaborators = DatabaseService.get_team_members(owner_uid) or []
-    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox)
+    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     return render_template('contacts/form.html',
                            active_page='contacts',
                            contact=contact,

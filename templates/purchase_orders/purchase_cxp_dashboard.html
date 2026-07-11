@@ -1,13 +1,23 @@
 {% extends "layout.html" %}
-{% block title %}CxP Compras{% endblock %}
-{% block page_header %}Cuentas por Pagar - Compras{% endblock %}
+{% block title %}Facturas de Compra{% endblock %}
+{% block page_header %}Facturas de Compra{% endblock %}
 
 {% block content %}
-<div class="page-title-container" style="margin-bottom:24px; padding-left:4px;">
-    <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
-        <i class="fa-solid fa-file-invoice-dollar" style="color:var(--accent-purple); margin-right:10px;"></i>
-        Cuentas por Pagar - Compras
-    </h1>
+<div class="page-title-container" style="margin-bottom:24px; padding-left:4px; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+    <div>
+        <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+            <i class="fa-solid fa-file-invoice" style="color:var(--accent-purple); margin-right:10px;"></i>
+            Facturas de Compra
+        </h1>
+        <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
+            Registra las compras que realizas a tus proveedores y actualiza tu inventario automáticamente.
+        </p>
+    </div>
+    <div>
+        <a href="{{ url_for('web_purchase_orders.new_supplier_invoice_direct') }}" class="btn btn-primary" style="background:var(--accent-emerald);border-color:var(--accent-emerald); padding:10px 20px; font-size:0.88rem;">
+            <i class="fa-solid fa-plus"></i> Nueva Factura de Compra
+        </a>
+    </div>
 </div>
 
 <div class="guide-banner" id="guide-purchase-cxp">
@@ -18,38 +28,38 @@
         <i class="fa-solid fa-lightbulb"></i>
     </div>
     <div class="guide-banner-content">
-        <h4>Guía de Uso: Cuentas por Pagar</h4>
+        <h4>Guía de Uso: Facturas de Compra</h4>
         <p>
-            Controla las facturas pendientes de pago a tus proveedores y administra los plazos de vencimiento.
+            Registra las facturas electrónicas recibidas de tus proveedores. El inventario se actualiza automáticamente al registrar cada factura.
         </p>
         <ul>
-            <li><strong>Facturas de Proveedores:</strong> Registra las facturas electrónicas recibidas de tus proveedores.</li>
-            <li><strong>Estado de Pagos:</strong> Visualiza el saldo pendiente, vencido y las próximas fechas de pago.</li>
-            <li><strong>Conciliación:</strong> Asocia pagos realizados a facturas específicas para mantener un control financiero exacto.</li>
+            <li><strong>Registrar factura:</strong> Usa el botón "Nueva Factura de Compra" para registrar una factura directamente o desde una orden de compra.</li>
+            <li><strong>Actualización de inventario:</strong> Los productos facturados se suman automáticamente al inventario con su costo FIFO.</li>
+            <li><strong>Control de pagos:</strong> Visualiza el estado de pago y registra abonos desde el detalle de cada factura.</li>
         </ul>
     </div>
 </div>
 
-<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:16px; margin-bottom:24px;">
-    <div class="card-dashboard" style="padding:18px;">
-        <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.03em;">Total Pendiente</div>
-        <div style="font-size:1.5rem; font-weight:800; color:var(--accent-amber);">RD$ {{ "{:,.2f}".format(total_pending) }}</div>
+<div class="summary-strip">
+    <div class="summary-strip-item">
+        <div class="summary-strip-label">Total Facturas</div>
+        <div class="summary-strip-value">{{ invoices|length }}</div>
     </div>
-    <div class="card-dashboard" style="padding:18px;">
-        <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.03em;">Vencido</div>
-        <div style="font-size:1.5rem; font-weight:800; color:var(--accent-red);">RD$ {{ "{:,.2f}".format(total_overdue) }}</div>
+    <div class="summary-strip-item">
+        <div class="summary-strip-label">Compras del Mes</div>
+        <div class="summary-strip-value" style="color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(total_month_purchases) }}</div>
     </div>
-    <div class="card-dashboard" style="padding:18px;">
-        <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.03em;">Total Facturas</div>
-        <div style="font-size:1.5rem; font-weight:800; color:var(--text-primary);">{{ invoices|length }}</div>
+    <div class="summary-strip-item">
+        <div class="summary-strip-label">Pendiente de Pago</div>
+        <div class="summary-strip-value" style="color: var(--accent-amber);">RD$ {{ "{:,.2f}".format(total_pending) }}</div>
     </div>
 </div>
 
 <div class="card-table-wrapper" style="margin-bottom:30px;">
     <div class="table-header-row">
         <div>
-            <h3 style="font-size:1.25rem; font-family:var(--font-heading); margin-bottom:6px;">Facturas de Proveedor</h3>
-            <p style="color:var(--text-secondary); font-size:0.88rem;">Registro de facturas de compras a crédito.</p>
+            <h3 style="font-size:1.25rem; font-family:var(--font-heading); margin-bottom:6px;">Facturas Registradas</h3>
+            <p style="color:var(--text-secondary); font-size:0.88rem;">Historial de facturas de compra registradas.</p>
         </div>
     </div>
 
@@ -57,16 +67,16 @@
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:12px; align-items:flex-end;">
             <div class="form-group" style="margin-bottom:0;">
                 <label style="font-size:0.72rem; margin-bottom:4px; display:block; color:var(--text-secondary);">Buscar</label>
-                <input type="text" name="search" class="form-input" placeholder="Factura#, OC#, Proveedor, RNC..." value="{{ search_query }}" style="width:100%; font-size:0.78rem; height:36px; padding:6px 10px;">
+                <input type="text" name="search" class="form-input" placeholder="Factura#, OC#, Proveedor, RNC, NCF..." value="{{ search_query }}" style="width:100%; font-size:0.78rem; height:36px; padding:6px 10px;">
             </div>
             <div class="form-group" style="margin-bottom:0;">
                 <label style="font-size:0.72rem; margin-bottom:4px; display:block; color:var(--text-secondary);">Estado</label>
                 <select name="status" class="form-select" style="width:100%; font-size:0.78rem; height:36px; padding:6px 10px;">
                     <option value="">Todos</option>
+                    <option value="Pagado" {% if status_filter == 'Pagado' %}selected{% endif %}>Pagado</option>
                     <option value="Pendiente" {% if status_filter == 'Pendiente' %}selected{% endif %}>Pendiente</option>
                     <option value="Abonado" {% if status_filter == 'Abonado' %}selected{% endif %}>Abonado</option>
                     <option value="Vencido" {% if status_filter == 'Vencido' %}selected{% endif %}>Vencido</option>
-                    <option value="Pagado" {% if status_filter == 'Pagado' %}selected{% endif %}>Pagado</option>
                 </select>
             </div>
             <div style="display:flex; gap:8px;">
@@ -85,14 +95,13 @@
             <thead>
                 <tr>
                     <th>Factura#</th>
-                    <th>OC#</th>
                     <th>Proveedor</th>
                     <th>RNC</th>
                     <th>NCF</th>
                     <th>Emisión</th>
                     <th>Vence</th>
-                    <th>Total (RD$)</th>
-                    <th>Balance (RD$)</th>
+                    <th style="text-align:right;">ITBIS</th>
+                    <th style="text-align:right;">Total</th>
                     <th>Estado</th>
                     <th style="text-align:right; width: 50px;"></th>
                 </tr>
@@ -102,16 +111,13 @@
                 {% for inv in invoices %}
                 <tr>
                     <td><span class="mono" style="font-weight:600; color:var(--accent-blue);">{{ inv.invoiceNumber or '—' }}</span></td>
-                    <td><span class="mono">{{ inv.poNumber or '—' }}</span></td>
-                    <td>{{ inv.supplierName or '—' }}</td>
+                    <td>{{ inv.supplierName or '—' }}<br><span style="font-size:0.72rem; color:var(--text-muted);">{{ inv.supplierInvoiceNumber or '' }}</span></td>
                     <td><span class="mono">{{ inv.supplierRnc or '—' }}</span></td>
                     <td><span class="mono">{{ inv.ncf or '—' }}</span></td>
                     <td style="font-size:0.82rem;">{{ (inv.date or '')[:10] }}</td>
                     <td style="font-size:0.82rem;">{{ (inv.dueDate or '')[:10] }}</td>
-                    <td style="font-weight:600;">{{ "{:,.2f}".format(inv.total|default(0)) }}</td>
-                    <td style="font-weight:600; color:{% if inv.cxpStatus == 'Vencido' %}var(--accent-red){% elif inv.cxpStatus == 'Pagado' %}var(--accent-emerald){% else %}var(--accent-amber){% endif %};">
-                        {{ "{:,.2f}".format(inv.cxpRemainingBalance|default(inv.total|default(0))) }}
-                    </td>
+                    <td style="text-align:right;">{{ "{:,.2f}".format(inv.itbis|default(0)) }}</td>
+                    <td style="font-weight:600;text-align:right;">{{ "{:,.2f}".format(inv.total|default(0)) }}</td>
                     <td>
                         {% set st = inv.cxpStatus|default('Pendiente') %}
                         {% if st == 'Pagado' %}
@@ -133,6 +139,16 @@
                                 <a href="{{ url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=inv.id) }}" class="action-menu-item">
                                     <i class="fa-solid fa-eye"></i> Ver Detalle
                                 </a>
+                                {% if inv.cxpStatus in ('Pendiente', 'Abonado', 'Vencido') %}
+                                <a href="{{ url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=inv.id) }}#payments" class="action-menu-item">
+                                    <i class="fa-solid fa-money-bill-wave"></i> Registrar Pago
+                                </a>
+                                {% endif %}
+                                {% if inv.poNumber %}
+                                <a href="{{ url_for('web_purchase_orders.purchase_order_detail', po_id=inv.poId) }}" class="action-menu-item">
+                                    <i class="fa-solid fa-file-lines"></i> Ver OC {{ inv.poNumber }}
+                                </a>
+                                {% endif %}
                             </div>
                         </div>
                     </td>
@@ -140,9 +156,12 @@
                 {% endfor %}
                 {% else %}
                 <tr>
-                    <td colspan="11" style="text-align:center; padding:40px; color:var(--text-muted);">
-                        <i class="fa-solid fa-file-invoice-dollar" style="font-size:2rem; display:block; margin-bottom:10px; opacity:0.3;"></i>
-                        No hay facturas de proveedor registradas.
+                    <td colspan="10" style="text-align:center; padding:40px; color:var(--text-muted);">
+                        <i class="fa-solid fa-file-invoice" style="font-size:2rem; display:block; margin-bottom:10px; opacity:0.3;"></i>
+                        No hay facturas de compra registradas.<br>
+                        <a href="{{ url_for('web_purchase_orders.new_supplier_invoice_direct') }}" style="color:var(--accent-emerald); font-weight:600; margin-top:8px; display:inline-block;">
+                            <i class="fa-solid fa-plus"></i> Registrar primera factura
+                        </a>
                     </td>
                 </tr>
                 {% endif %}
@@ -158,8 +177,7 @@
 }
 .badge-green  { background:rgba(16,185,129,0.12); color:var(--accent-emerald); border:1px solid rgba(16,185,129,0.25); }
 .badge-amber  { background:rgba(245,158,11,0.1);  color:#f59e0b;              border:1px solid rgba(245,158,11,0.2);  }
-.badge-blue   { background:rgba(59,130,246,0.1);   color:#3b82f6;              border:1px solid rgba(59,130,246,0.2);  }
-.badge-red    { background:rgba(239,68,68,0.1);    color:#ef4444;              border:1px solid rgba(239,68,68,0.2);   }
-.mono { font-family:monospace; font-size:0.82rem; }
+.badge-red    { background:rgba(239,68,68,0.1);    color:var(--accent-red);    border:1px solid rgba(239,68,68,0.2);    }
+.badge-blue   { background:rgba(59,130,246,0.1);   color:var(--accent-blue);   border:1px solid rgba(59,130,246,0.2);   }
 </style>
 {% endblock %}
