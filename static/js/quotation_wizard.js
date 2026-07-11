@@ -13,6 +13,7 @@ class QuotationWizard {
         this._applyInitialData(this._loadInitialData());
 
         this._bindEvents();
+        this._initVoiceRecording();
         this._goToStep(1);
     }
 
@@ -159,12 +160,13 @@ class QuotationWizard {
                 this._closeEditModal();
                 return;
             }
-            const btn = e.target.closest('.wz-nav-next, .wz-nav-prev, .wz-btn-ai-full, .wz-btn-ai-section, .wz-add-item, .wz-remove-item, .wz-add-scope-include, .wz-add-scope-exclude, .wz-remove-scope, .wz-add-deliverable, .wz-remove-deliverable, .wz-add-timeline, .wz-remove-timeline, .wz-add-payment, .wz-remove-payment, #wz-catalog-open-btn, .wz-item-catalog-btn, .wz-catalog-item .btn-select-item');
+            const btn = e.target.closest('.wz-nav-next, .wz-nav-prev, .wz-btn-ai-full, .wz-btn-ai-section, .wz-add-item, .wz-remove-item, .wz-add-scope-include, .wz-add-scope-exclude, .wz-remove-scope, .wz-add-deliverable, .wz-remove-deliverable, .wz-add-timeline, .wz-remove-timeline, .wz-add-payment, .wz-remove-payment, #wz-catalog-open-btn, .wz-item-catalog-btn, .wz-catalog-item .btn-select-item, #wz-voice-btn');
             if (!btn) return;
             if (btn.matches('.wz-nav-next')) this._nextStep();
             else if (btn.matches('.wz-nav-prev')) this._prevStep();
             else if (btn.matches('.wz-btn-ai-full')) this._generateFullWithAI();
             else if (btn.matches('.wz-btn-ai-section')) this._suggestSection(btn.dataset.section);
+            else if (btn.matches('#wz-voice-btn')) this._toggleRecording();
             else if (btn.matches('.wz-add-item')) this._addItem();
             else if (btn.matches('.wz-remove-item')) this._removeItem(btn);
             else if (btn.matches('.wz-add-scope-include')) this._addScopeItem('scopeIncluded');
@@ -894,6 +896,96 @@ class QuotationWizard {
             this._showToast('Error de conexión al guardar', 'error');
         } finally {
             if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar Cotización'; }
+        }
+    }
+
+    _initVoiceRecording() {
+        this._isRecording = false;
+        this._finalTranscript = '';
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            const btn = document.getElementById('wz-voice-btn');
+            if (btn) btn.style.display = 'none';
+            return;
+        }
+
+        this._recognition = new SpeechRecognition();
+        this._recognition.lang = 'es-DO';
+        this._recognition.interimResults = true;
+        this._recognition.continuous = true;
+
+        this._recognition.onresult = (event) => {
+            let interimTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                const transcript = event.results[i][0].transcript;
+                if (event.results[i].isFinal) {
+                    this._finalTranscript += transcript + ' ';
+                } else {
+                    interimTranscript += transcript;
+                }
+            }
+            const textarea = document.getElementById('wz-ai-context');
+            if (textarea) {
+                textarea.value = (this._finalTranscript + interimTranscript).replace(/\s+/g, ' ').trim();
+            }
+        };
+
+        this._recognition.onerror = (event) => {
+            if (event.error === 'no-speech') return;
+            if (event.error === 'aborted') return;
+            this._showToast('Error en el reconocimiento de voz: ' + event.error, 'error');
+            this._stopRecording();
+        };
+
+        this._recognition.onend = () => {
+            this._stopRecording();
+        };
+    }
+
+    _toggleRecording() {
+        if (this._isRecording) {
+            this._stopRecording();
+        } else {
+            this._startRecording();
+        }
+    }
+
+    _startRecording() {
+        if (!this._recognition) {
+            this._showToast('Reconocimiento de voz no soportado en este navegador', 'warning');
+            return;
+        }
+        try {
+            const textarea = document.getElementById('wz-ai-context');
+            this._finalTranscript = textarea?.value?.trim() ? textarea.value.trim() + ' ' : '';
+            this._isRecording = true;
+            this._recognition.start();
+            this._updateRecordingUI(true);
+        } catch (e) {
+            this._showToast('Error al iniciar grabación: ' + e.message, 'error');
+        }
+    }
+
+    _stopRecording() {
+        if (this._recognition) {
+            try { this._recognition.stop(); } catch (e) {}
+        }
+        if (this._isRecording) {
+            this._isRecording = false;
+            this._updateRecordingUI(false);
+        }
+    }
+
+    _updateRecordingUI(isRecording) {
+        const btn = document.getElementById('wz-voice-btn');
+        if (!btn) return;
+        if (isRecording) {
+            btn.classList.add('recording');
+            btn.querySelector('.wz-voice-label') && (btn.querySelector('.wz-voice-label').textContent = 'Grabando...');
+        } else {
+            btn.classList.remove('recording');
+            btn.querySelector('.wz-voice-label') && (btn.querySelector('.wz-voice-label').textContent = 'Dictar proyecto');
         }
     }
 
