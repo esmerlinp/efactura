@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, g
 from app.services.db_service import DatabaseService
 from app.services.recurrence import RecurrenceService
 from app.utils.decorators import check_permission
@@ -22,8 +22,8 @@ def new_contract():
         return render_template('auth/restricted.html', feature_name="Contratos y Facturación Recurrente", required_permission="canManageContracts")
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
-    items = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     return render_template(
         'operations/new_contract.html',
         active_page='contracts',
@@ -42,7 +42,7 @@ def list_contracts():
     if request.method == 'POST':
         contract_id = request.form.get('id') or str(uuid.uuid4())
         client_id   = request.form.get('clientId')
-        clients_all = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+        clients_all = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         client      = next((c for c in clients_all if c['id'] == client_id), None)
 
         if not client:
@@ -126,6 +126,8 @@ def list_contracts():
             "versionHistory":   [],
             "createdAt":        datetime.now(timezone.utc).isoformat(),
             "updatedAt":        datetime.now(timezone.utc).isoformat(),
+            "branchId":         g.get('branch_id', 'default-sucursal-principal'),
+            "projectId":        g.get('project_id'),
         }
 
         DatabaseService.save_contract(owner_uid, contract_id, contract_dict, sandbox=sandbox)
@@ -136,8 +138,8 @@ def list_contracts():
         return redirect(url_for('web_operations.list_contracts'))
 
     contracts = DatabaseService.get_contracts(owner_uid, sandbox=sandbox)
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
-    items = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
 
     # Exportar a CSV si se solicita
     if request.args.get('export') == 'csv':
@@ -323,7 +325,7 @@ def trigger_contract_billing(contract_id):
         contract_item_id = contract.get('itemId')
         selected_item = None
         if contract_item_id:
-            all_items = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+            all_items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
             selected_item = next((it for it in all_items if it['id'] == contract_item_id), None)
 
         itbis_rate   = selected_item.get('itbisRate', 0.18) if selected_item else 0.18
@@ -812,7 +814,7 @@ def contract_detail(contract_id):
     from app.services.audit_service import AuditService
     history_logs = AuditService.get_entity_logs(owner_uid, contract_id)
 
-    clients_all = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+    clients_all = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     client = next((c for c in clients_all if c['id'] == contract.get('clientId')), None)
     client_email = (client.get('email') or '').strip() if client else ''
 

@@ -2,7 +2,7 @@
 import uuid
 import html
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, g
 from app.services.db_service import DatabaseService
 from app.services.mailer import Mailer
 from app.services.dgii import DGIIService
@@ -20,8 +20,8 @@ def list_clients():
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     
     # Integrar sumas por cliente
     for client in clients:
@@ -152,7 +152,8 @@ def new_client():
             "responsibleId": request.form.get('responsibleId', ''),
             "imageUrl": image_url,
             "accessPin": access_pin,
-            "priceListId": request.form.get('priceListId', '')
+            "priceListId": request.form.get('priceListId', ''),
+            "projectId": request.form.get('projectId') or None
         }
         
         DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
@@ -172,8 +173,9 @@ def new_client():
         return redirect(url_for('web_clients.list_clients'))
         
     collaborators = DatabaseService.get_team_members(owner_uid) or []
-    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox)
-    return render_template('clients/form.html', active_page='clients', client=None, collaborators=collaborators, price_lists=price_lists)
+    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    projects = DatabaseService.get_projects(owner_uid, branch_id=g.get('branch_id'), sandbox=sandbox) if g.get('branch_id') else DatabaseService.get_projects(owner_uid, sandbox=sandbox)
+    return render_template('clients/form.html', active_page='clients', client=None, collaborators=collaborators, price_lists=price_lists, projects=projects)
 
 @web_clients_bp.route('/clients/ajax_create', methods=['POST'])
 def ajax_create_client():
@@ -207,7 +209,8 @@ def ajax_create_client():
         "nextContactDate": "",
         "pipelineStage": "Cliente Activo",
         "createdAt": datetime.now(timezone.utc).isoformat(),
-        "accessPin": access_pin
+        "accessPin": access_pin,
+        "projectId": (data.get('projectId') or '').strip() or None
     }
     
     DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
@@ -234,6 +237,7 @@ def ajax_create_client():
             "email": client_dict["email"],
             "telefono": client_dict["telefono"],
             "direccion": client_dict["direccion"],
+            "projectId": client_dict.get("projectId") or ""
         }
     })
 
@@ -245,7 +249,7 @@ def edit_client(client_id):
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     client = next((c for c in clients if c['id'] == client_id), None)
     
     if not client:
@@ -291,7 +295,8 @@ def edit_client(client_id):
             "responsibleId": request.form.get('responsibleId', ''),
             "imageUrl": image_url,
             "accessPin": access_pin,
-            "priceListId": request.form.get('priceListId', '')
+            "priceListId": request.form.get('priceListId', ''),
+            "projectId": request.form.get('projectId') or None
         }
         DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
         
@@ -311,8 +316,9 @@ def edit_client(client_id):
         return redirect(url_for('web_clients.list_clients'))
         
     collaborators = DatabaseService.get_team_members(owner_uid) or []
-    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox)
-    return render_template('clients/form.html', active_page='clients', client=client, collaborators=collaborators, price_lists=price_lists)
+    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    projects = DatabaseService.get_projects(owner_uid, branch_id=g.get('branch_id'), sandbox=sandbox) if g.get('branch_id') else DatabaseService.get_projects(owner_uid, sandbox=sandbox)
+    return render_template('clients/form.html', active_page='clients', client=client, collaborators=collaborators, price_lists=price_lists, projects=projects)
 
 @web_clients_bp.route('/clients/<client_id>/delete', methods=['POST'])
 def delete_client_route(client_id):
@@ -324,7 +330,7 @@ def delete_client_route(client_id):
     
     before_client = {}
     try:
-        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         before_client = next((c for c in clients if c['id'] == client_id), {})
     except Exception:
         pass
@@ -374,7 +380,7 @@ def toggle_client_reminders(client_id):
     data = request.json or {}
     disable_reminders = data.get('disableAutoReminders') is True
     
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     client = next((c for c in clients if c['id'] == client_id), None)
     if not client:
         return jsonify({"success": False, "error": "Cliente no encontrado."}), 404
@@ -397,7 +403,7 @@ def send_portal_credentials(client_id):
     data = request.json or {}
     recipient_email = data.get('email', '').strip()
 
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     client = next((c for c in clients if c['id'] == client_id), None)
     if not client:
         return jsonify({"success": False, "error": "Cliente no encontrado."}), 404
@@ -530,7 +536,7 @@ def client_detail(client_id):
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     client = next((c for c in clients if c['id'] == client_id), None)
     
     if not client:
@@ -538,7 +544,7 @@ def client_detail(client_id):
         return redirect(url_for('web_clients.list_clients'))
         
     # Obtener facturas y cotizaciones del cliente
-    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     client_invoices = [inv for inv in all_invoices if inv['clientId'] == client_id and not inv.get('isQuotation')]
     client_quotations = [inv for inv in all_invoices if inv['clientId'] == client_id and inv.get('isQuotation')]
     
@@ -649,13 +655,13 @@ def client_insights(client_id):
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
 
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     client = next((c for c in clients if c['id'] == client_id), None)
     if not client:
         flash('Cliente no encontrado.', 'error')
         return redirect(url_for('web_clients.list_clients'))
 
-    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     client_invoices = [inv for inv in all_invoices if inv['clientId'] == client_id and not inv.get('isQuotation')]
 
     total_invoiced = sum(inv['total'] for inv in client_invoices if inv.get('status') not in ('Anulada', 'Borrador'))
@@ -749,7 +755,7 @@ def add_client_interaction(client_id):
     
     # Si agregamos un seguimiento y tiene fecha de contacto próxima, actualizar también al cliente
     if next_contact_date:
-        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         client = next((c for c in clients if c['id'] == client_id), None)
         if client:
             client['nextContactDate'] = next_contact_date
@@ -798,7 +804,7 @@ def complete_client_interaction_task(client_id, interaction_id):
         DatabaseService.save_client_interaction(owner_uid, client_id, interaction_id, interaction, sandbox=sandbox)
         
         # Limpiar también la fecha de próximo contacto de la ficha principal del cliente
-        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         client = next((c for c in clients if c['id'] == client_id), None)
         if client and client.get('nextContactDate') == interaction.get('nextContactDate'):
             client['nextContactDate'] = None
@@ -839,7 +845,7 @@ def add_quick_note(client_id):
     DatabaseService.save_client_interaction(owner_uid, client_id, interaction_id, interaction_dict, sandbox=sandbox)
     
     if complete_task:
-        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         client = next((c for c in clients if c['id'] == client_id), None)
         if client:
             client['nextContactDate'] = None
@@ -863,7 +869,7 @@ def api_clients_list():
         return jsonify({"success": False, "error": "No autorizado"}), 401
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     result = []
     for c in clients:
         name = c.get('name') or c.get('tradeName') or c.get('companyName') or c.get('razonSocial') or c.get('businessName') or ''

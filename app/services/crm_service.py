@@ -148,13 +148,15 @@ class CRMService:
             if doc.exists:
                 data = doc.to_dict() or {}
                 data["id"] = doc.id
+                data["branchId"] = data.get("branchId", "default-sucursal-principal")
+                data["projectId"] = data.get("projectId")
                 return cls._normalize_opportunity(data)
         except Exception as e:
             print(f"⚠️ Error al obtener oportunidad CRM {opportunity_id}: {e}")
         return None
 
     @classmethod
-    def get_opportunities(cls, owner_uid, sandbox=True, include_closed=True, contact_id=None):
+    def get_opportunities(cls, owner_uid, sandbox=True, include_closed=True, contact_id=None, branch_id=None, project_id=None):
         opportunities = []
         if firebase_initialized:
             try:
@@ -162,6 +164,8 @@ class CRMService:
                 for doc in docs:
                     data = doc.to_dict() or {}
                     data["id"] = doc.id
+                    data["branchId"] = data.get("branchId", "default-sucursal-principal")
+                    data["projectId"] = data.get("projectId")
                     opportunity = cls._normalize_opportunity(data)
                     if contact_id and opportunity.get("contactId") != contact_id:
                         continue
@@ -176,6 +180,12 @@ class CRMService:
             _date_key(o.get("expectedCloseDate")) or "9999-12-31",
             o.get("contactName", "").lower(),
         ))
+        if branch_id:
+            opportunities = [o for o in opportunities if o.get("branchId") == branch_id]
+        if project_id == '__no_project__':
+            opportunities = [o for o in opportunities if not o.get("projectId")]
+        elif project_id:
+            opportunities = [o for o in opportunities if o.get("projectId") == project_id]
         return opportunities
 
     @classmethod
@@ -208,6 +218,8 @@ class CRMService:
             **opportunity_dict,
             "id": opportunity_id,
             "ownerUID": owner_uid,
+            "branchId": opportunity_dict.get("branchId", existing.get("branchId", "default-sucursal-principal")),
+            "projectId": opportunity_dict.get("projectId", existing.get("projectId")),
             "contactId": contact_id,
             "contactName": contact_name,
             "title": (opportunity_dict.get("title") or existing.get("title") or f"Oportunidad con {contact_name or 'prospecto'}").strip(),
@@ -332,13 +344,15 @@ class CRMService:
             if doc.exists:
                 data = doc.to_dict() or {}
                 data["id"] = doc.id
+                data["branchId"] = data.get("branchId", "default-sucursal-principal")
+                data["projectId"] = data.get("projectId")
                 return _annotate_activity(cls._normalize_activity(data))
         except Exception as e:
             print(f"⚠️ Error al obtener actividad CRM {activity_id}: {e}")
         return None
 
     @classmethod
-    def get_activities(cls, owner_uid, sandbox=True, include_completed=True, contact_id=None, opportunity_id=None):
+    def get_activities(cls, owner_uid, sandbox=True, include_completed=True, contact_id=None, opportunity_id=None, branch_id=None, project_id=None):
         activities = []
         if firebase_initialized:
             try:
@@ -346,6 +360,8 @@ class CRMService:
                 for doc in docs:
                     data = doc.to_dict() or {}
                     data["id"] = doc.id
+                    data["branchId"] = data.get("branchId", "default-sucursal-principal")
+                    data["projectId"] = data.get("projectId")
                     activity = _annotate_activity(cls._normalize_activity(data))
                     if contact_id and activity.get("contactId") != contact_id:
                         continue
@@ -363,6 +379,12 @@ class CRMService:
             _date_key(a.get("dueDate")) or "9999-12-31",
             a.get("priority", "media"),
         ))
+        if branch_id:
+            activities = [a for a in activities if a.get("branchId") == branch_id]
+        if project_id == '__no_project__':
+            activities = [a for a in activities if not a.get("projectId")]
+        elif project_id:
+            activities = [a for a in activities if a.get("projectId") == project_id]
         return activities
 
     @classmethod
@@ -396,6 +418,8 @@ class CRMService:
             **activity_dict,
             "id": activity_id,
             "ownerUID": owner_uid,
+            "branchId": activity_dict.get("branchId", existing.get("branchId", "default-sucursal-principal")),
+            "projectId": activity_dict.get("projectId", existing.get("projectId")),
             "contactId": contact_id,
             "contactName": contact_name,
             "opportunityId": opportunity_id,

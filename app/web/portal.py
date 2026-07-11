@@ -1,7 +1,7 @@
 import uuid
 import html
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, session, make_response
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, session, make_response, g
 from firebase_admin import firestore
 from app.services.db_service import db_firestore, DatabaseService
 from app.services.azul_service import AzulService
@@ -1247,7 +1247,7 @@ def portal_admin():
     sandbox = session.get('is_sandbox_mode', True)
     company = DatabaseService.get_company_profile(owner_uid) or {}
 
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     portal_clients = []
     for c in clients:
         if c.get('accessPin'):

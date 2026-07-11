@@ -44,7 +44,7 @@ CURRENCIES = ["DOP", "USD", "EUR"]
 class PurchaseOrderService:
 
     @classmethod
-    def get_purchase_orders(cls, owner_uid, sandbox=True):
+    def get_purchase_orders(cls, owner_uid, sandbox=True, branch_id=None, project_id=None):
         if not firebase_initialized or db_firestore is None:
             return []
         orders = []
@@ -54,10 +54,18 @@ class PurchaseOrderService:
             for doc in docs:
                 data = doc.to_dict()
                 data["id"] = doc.id
+                data["branchId"] = data.get("branchId", "default-sucursal-principal")
+                data["projectId"] = data.get("projectId")
                 orders.append(data)
             orders.sort(key=lambda x: x.get("poNumber", ""), reverse=True)
         except Exception as e:
             print(f"⚠️ Error al obtener órdenes de compra: {e}")
+        if branch_id:
+            orders = [o for o in orders if o.get("branchId") == branch_id]
+        if project_id == '__no_project__':
+            orders = [o for o in orders if not o.get("projectId")]
+        elif project_id:
+            orders = [o for o in orders if o.get("projectId") == project_id]
         return orders
 
     @classmethod
@@ -79,6 +87,8 @@ class PurchaseOrderService:
     def save_purchase_order(cls, owner_uid, po_id, po_dict, sandbox=True):
         po_dict["id"] = po_id
         po_dict["ownerUID"] = owner_uid
+        po_dict["branchId"] = po_dict.get("branchId", "default-sucursal-principal")
+        po_dict["projectId"] = po_dict.get("projectId", None)
         if "createdAt" not in po_dict or not po_dict["createdAt"]:
             po_dict["createdAt"] = serialize_field(datetime.now(timezone.utc))
         po_dict["updatedAt"] = serialize_field(datetime.now(timezone.utc))

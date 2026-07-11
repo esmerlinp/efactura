@@ -4,6 +4,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 
 from app.services.budget_service import BudgetService
 from app.utils.decorators import check_permission
+from flask import g
 
 
 web_budgets_bp = Blueprint("web_budgets", __name__)
@@ -70,7 +71,7 @@ def save_budget():
     BudgetService.save_budget(
         session["user"]["ownerUID"],
         year,
-        {"months": months, "updatedBy": session["user"].get("email", "")},
+        {"months": months, "updatedBy": session["user"].get("email", ""), "branchId": g.get("branch_id", "default-sucursal-principal"), "projectId": g.get("project_id")},
     )
     flash("Presupuesto guardado correctamente.", "success")
     return redirect(url_for("web_budgets.dashboard", year=year, month=request.form.get("focus_month", 1)))

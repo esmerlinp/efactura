@@ -167,6 +167,19 @@
             </div>
 
             <div class="inp-row" style="margin-bottom:12px;">
+                <div class="inp-group wide">
+                    <label for="projectId">Proyecto</label>
+                    <select id="projectId" name="projectId" class="form-select" style="width:100%;">
+                        <option value="" {% if not active_project_id %}selected{% endif %}>Sin proyecto</option>
+                        {% for p in projects %}
+                        <option value="{{ p.id }}" {% if p.id == active_project_id %}selected{% endif %}>{{ p.name }} ({{ p.code }})</option>
+                        {% endfor %}
+                    </select>
+                    <small style="color:var(--text-muted); display:block; font-size:0.72rem; margin-top:4px;">Asocia este gasto a un proyecto específico (opcional).</small>
+                </div>
+            </div>
+
+            <div class="inp-row" style="margin-bottom:12px;">
                 <div class="inp-group" style="max-width:200px;">
                     <label for="paymentMethod">Forma de pago <span style="color:var(--accent-red);">*</span></label>
                     <select id="paymentMethod" name="paymentMethod" class="form-select" required>

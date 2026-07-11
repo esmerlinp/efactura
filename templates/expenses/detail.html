@@ -203,6 +203,16 @@
                 {% endif %}
             </span>
         </div>
+        {% if expense.isrWithheld is defined and expense.isrWithheld and expense.isrWithheld > 0 %}
+        <div class="field-row" style="margin-top:6px; padding-top:8px; border-top:1px dashed var(--border-color);">
+            <span class="field-label" style="color:#d97706;">
+                <i class="fa-solid fa-hand-holding-dollar"></i> Retención ISR ({{ "%.2f"|format(expense.retainedISR * 100) }}%)
+            </span>
+            <span class="field-value" style="color:#d97706; font-weight:700; font-family:monospace;">
+                - RD$ {{ "{:,.2f}".format(expense.isrWithheld) }}
+            </span>
+        </div>
+        {% endif %}
         {% if expense.associatedInvoiceId %}
         <div class="field-row">
             <span class="field-label">Proyecto / Factura</span>

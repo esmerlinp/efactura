@@ -1,6 +1,6 @@
 """Blueprint web del módulo CRM."""
 
-from flask import Blueprint, jsonify, redirect, render_template, request, session, flash, url_for
+from flask import Blueprint, jsonify, redirect, render_template, request, session, flash, url_for, g
 
 from app.models.crm import CRM_ACTIVITY_PRIORITIES, CRM_ACTIVITY_TYPES, CRM_OPPORTUNITY_STAGES, CRM_STAGE_PROBABILITY
 from app.services.audit_service import ACTION_CREATE, ACTION_DELETE, ACTION_UPDATE, MODULE_CRM, AuditService
@@ -85,6 +85,8 @@ def _opportunity_from_form():
         "invoiceId": request.form.get("invoiceId", "").strip(),
         "notes": request.form.get("notes", "").strip(),
         "createdBy": session.get("user", {}).get("email", ""),
+        "branchId": g.get("branch_id", "default-sucursal-principal"),
+        "projectId": g.get("project_id"),
     }
 
 
@@ -100,6 +102,8 @@ def _activity_from_form():
         "assignedTo": request.form.get("assignedTo", "").strip(),
         "status": request.form.get("status", "pendiente").strip(),
         "createdBy": session.get("user", {}).get("email", ""),
+        "branchId": g.get("branch_id", "default-sucursal-principal"),
+        "projectId": g.get("project_id"),
     }
 
 
@@ -157,6 +161,8 @@ def opportunity_new():
                     "dueDate": followup_date,
                     "priority": "media",
                     "createdBy": session.get("user", {}).get("email", ""),
+                    "branchId": g.get("branch_id", "default-sucursal-principal"),
+                    "projectId": g.get("project_id"),
                 }, sandbox=sandbox)
             flash("Oportunidad creada correctamente.", "success")
             return redirect(url_for("web_crm.pipeline"))

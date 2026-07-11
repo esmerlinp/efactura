@@ -1,7 +1,7 @@
 # app/web/suppliers.py
 import uuid
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, g
 from app.services.db_service import DatabaseService
 from app.services.supplier_service import SupplierService
 from app.utils.decorators import check_permission
@@ -17,7 +17,7 @@ def list_suppliers():
     sandbox = session.get('is_sandbox_mode', True)
 
     suppliers = SupplierService.get_suppliers(owner_uid, sandbox=sandbox)
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
 
     for s in suppliers:
         sid = s['id']
@@ -191,7 +191,7 @@ def supplier_detail(supplier_id):
         flash('Proveedor no encontrado.', 'error')
         return redirect(url_for('web_suppliers.list_suppliers'))
 
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     linked_expenses = [e for e in expenses if e.get('supplierId') == supplier_id]
     linked_expenses.sort(key=lambda x: x.get('date', ''), reverse=True)
 

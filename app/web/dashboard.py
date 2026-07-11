@@ -1,6 +1,6 @@
 # app/web/dashboard.py
 from datetime import datetime, timedelta, timezone
-from flask import Blueprint, render_template, redirect, url_for, session, request
+from flask import Blueprint, render_template, redirect, url_for, session, request, g
 from app.services.db_service import DatabaseService
 from app.services.recurrence import RecurrenceService
 from app.services.cache_service import CacheService
@@ -65,8 +65,8 @@ def dashboard():
         prev_month_year = selected_year
         
     # Obtener facturas y gastos
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     sequences = DatabaseService.get_sequences(owner_uid, sandbox=sandbox)
     profile = DatabaseService.get_company_profile(owner_uid)
     
@@ -322,7 +322,7 @@ def dashboard():
     
     # Agenda CRM del día
     today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     
     for c in clients:
         c_id = c['id']
@@ -386,7 +386,7 @@ def dashboard():
     current_month_name = months_full[selected_month - 1]
 
     # 4. Onboarding y Configuración Inicial
-    items = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     has_company_configured = bool(profile.get('companyRNC')) and profile.get('companyRNC') != "132109122" # Default dummy RNC
     has_products = len(items) > 0
     has_clients = len(clients) > 0

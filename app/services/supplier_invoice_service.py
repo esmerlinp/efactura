@@ -199,6 +199,20 @@ class SupplierInvoiceService:
         data.setdefault("items", [])
         data.setdefault("paymentMethod", "")
         data.setdefault("paymentReference", "")
+        data.setdefault("supplierType", "formal")
+        data.setdefault("ecfType", "E31")
+        data.setdefault("cne", "")
+        data.setdefault("paymentTerms", "contado")
+        data.setdefault("bankAccountId", "")
+        data.setdefault("retainedISR", 0.0)
+        data.setdefault("retainedITBIS", 0.0)
+        data.setdefault("category", "Otros Gastos")
+        data.setdefault("tipoGastoDGII", "02")
+        data.setdefault("poId", "")
+        data.setdefault("poNumber", "")
+        data.setdefault("branchId", "")
+        data.setdefault("projectId", None)
+        data.setdefault("comentario", "")
 
         if firebase_initialized and db_firestore is not None:
             try:

@@ -2,7 +2,7 @@ import io
 import csv
 from datetime import datetime, timezone
 from collections import defaultdict
-from flask import Blueprint, render_template, request, redirect, url_for, session, send_file
+from flask import Blueprint, render_template, request, redirect, url_for, session, send_file, g
 from app.services.db_service import DatabaseService
 from app.utils.decorators import check_permission
 
@@ -26,6 +26,9 @@ ECF_TYPE_LABELS_608 = {
     "E32": "E-32 (Consumo)",
     "E33": "E-33 (Nota de Débito)",
     "E34": "E-34 (Nota de Crédito)",
+    "E41": "E-41 (Comprobante de Compras)",
+    "E43": "E-43 (Gastos Menores)",
+    "Gasto": "Gasto",
 }
 
 
@@ -37,12 +40,14 @@ def _parse_int(val, default=0):
 
 
 def _get_invoices_with_retentions(owner_uid, sandbox, year, month):
+    prefix = f"{year:04d}-{month:02d}"
+    filtered = []
+
+    # Retenciones de facturas de venta (nos retuvieron a nosotros)
     invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
     real = [inv for inv in invoices
             if not inv.get('isQuotation')
             and inv.get('status') not in ('Anulada', 'Borrador', 'Consolidada')]
-    prefix = f"{year:04d}-{month:02d}"
-    filtered = []
     for inv in real:
         d = (inv.get("date") or inv.get("createdAt") or "")[:7]
         if d != prefix:
@@ -59,6 +64,36 @@ def _get_invoices_with_retentions(owner_uid, sandbox, year, month):
             inv_copy["_retencion_tipo"] = "ITBIS"
             inv_copy["_retencion_monto"] = ret_itbis
             filtered.append(inv_copy)
+
+    # Retenciones de gastos (nosotros retuvimos al proveedor)
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    for exp in expenses:
+        if exp.get('status') in ('Anulada', 'Borrador'):
+            continue
+        d = (exp.get("date") or exp.get("createdAt") or "")[:7]
+        if d != prefix:
+            continue
+        isr_withheld = float(exp.get("isrWithheld", 0))
+        itbis_withheld = float(exp.get("itbisWithheld", 0))
+        if isr_withheld > 0:
+            exp_copy = dict(exp)
+            exp_copy["_retencion_tipo"] = "ISR"
+            exp_copy["_retencion_monto"] = isr_withheld
+            exp_copy["clientRNC"] = exp.get("rncEmisor", "")
+            exp_copy["clientName"] = exp.get("providerName", "")
+            exp_copy["subtotal"] = exp.get("amount", 0)
+            exp_copy["invoiceNumber"] = exp.get("ncf", "")
+            filtered.append(exp_copy)
+        if itbis_withheld > 0:
+            exp_copy = dict(exp)
+            exp_copy["_retencion_tipo"] = "ITBIS"
+            exp_copy["_retencion_monto"] = itbis_withheld
+            exp_copy["clientRNC"] = exp.get("rncEmisor", "")
+            exp_copy["clientName"] = exp.get("providerName", "")
+            exp_copy["subtotal"] = exp.get("amount", 0)
+            exp_copy["invoiceNumber"] = exp.get("ncf", "")
+            filtered.append(exp_copy)
+
     return filtered
 
 

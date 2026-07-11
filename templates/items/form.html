@@ -262,10 +262,12 @@
                                         <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="18% tasa general para la mayoría de bienes y servicios. 16% tasa reducida para ciertos productos (ej: algunos alimentos básicos). 0% exento para actividades exentas por ley. La tasa incorrecta puede generar reparos DGII."></i>
                                     </label>
                                     <select id="itbis_rate" name="itbisRate" class="form-select" required>
-                                        <option value="0.18" {% if item and item.itbisRate==0.18 %}selected{% endif %}>
+<option value="0.18" {% if item and item.itbisRate==0.18 %}selected{% endif %}>
                                             Gravado con ITBIS General (18%)</option>
                                         <option value="0.16" {% if item and item.itbisRate==0.16 %}selected{% endif %}>
                                             Gravado con ITBIS Reducido (16%)</option>
+                                        <option value="0.0108" {% if item and item.itbisRate==0.0108 %}selected{% endif %}>
+                                            Construcción Norma 07-07 (1.08%)</option>
                                         <option value="0.0" {% if item and item.itbisRate==0.0 %}selected{% endif %}>
                                             Exento de ITBIS (0%)</option>
                                     </select>

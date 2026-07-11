@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
+from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, g
 from app.services.db_service import DatabaseService
 from app.utils.decorators import require_permission, check_permission
 from datetime import datetime, timezone
@@ -216,7 +216,7 @@ def search_entities():
                     break
 
     elif entity_type == 'client' and q:
-        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         for c in clients:
             label = (c.get('razonSocial', '') or '') + ' - ' + (c.get('rnc', '') or '')
             if q in label.lower():
@@ -229,7 +229,7 @@ def search_entities():
                     break
 
     elif entity_type == 'expense' and q:
-        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         for exp in expenses:
             label = (exp.get('concept', '') or '') + ' - ' + (exp.get('providerName', '') or '')
             if q in label.lower():

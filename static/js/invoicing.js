@@ -76,6 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalClientFilter = document.getElementById('modal-client-filter');
     const modalClientListBody = document.getElementById('modal-client-list-body');
     const clientIdHidden = document.getElementById('client-id-hidden');
+    const projectIdHidden = document.getElementById('project-id-hidden');
 
     const renderClients = (filterText = '') => {
         const query = filterText.toLowerCase().trim();
@@ -129,6 +130,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Establecer la lista de precios activa según el cliente seleccionado
                 const client = crmClients.find(c => c.id === id);
                 activePriceListId = (client && client.priceListId) || defaultPriceListId;
+
+                // Heredar proyecto del cliente si tiene uno asignado
+                if (projectIdHidden && client && client.projectId) {
+                    projectIdHidden.value = client.projectId;
+                }
 
                 closeClientModal();
                 validateTaxConstraints();
@@ -226,7 +232,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const response = await fetch('/clients/ajax_create', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rnc, razonSocial, email, telefono, direccion })
+                    body: JSON.stringify({ rnc, razonSocial, email, telefono, direccion, projectId: projectIdHidden ? projectIdHidden.value : '' })
                 });
 
                 const result = await response.json();
@@ -242,7 +248,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         email: newClient.email,
                         telefono: newClient.telefono,
                         direccion: newClient.direccion,
-                        phone: newClient.telefono
+                        phone: newClient.telefono,
+                        projectId: newClient.projectId || ''
                     });
 
                     // Autoseleccionar en el formulario de factura
@@ -452,6 +459,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (clientRncInput) clientRncInput.value = rnc || '';
         activePriceListId = (client && client.priceListId) || defaultPriceListId;
+        if (projectIdHidden && client && client.projectId) {
+            projectIdHidden.value = client.projectId;
+        }
         const dropdown = getOrCreateClientDropdown();
         dropdown.style.display = 'none';
         if (typeof validateTaxConstraints === 'function') validateTaxConstraints();
@@ -708,7 +718,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td style="text-align:center;"><input type="number" class="form-input item-qty-input" name="items[${rowIndex}][quantity]" min="1" value="1" style="width:60px;text-align:center;" required></td>
                 <td style="text-align:right;"><input type="number" class="form-input item-price-input" name="items[${rowIndex}][price]" step="0.01" value="0.00" style="width:110px;" required></td>
                 <td style="text-align:right;"><input type="number" class="form-input item-discount-input" name="items[${rowIndex}][discountRate]" step="0.01" min="0" max="1" value="0.00" style="width:75px;"></td>
-                <td style="text-align:center;"><select class="form-select item-itbis-select" name="items[${rowIndex}][itbisRate]" style="width:75px;"><option value="0.18" selected>18%</option><option value="0.16">16%</option><option value="0.0">0%</option></select></td>
+<td style="text-align:center;"><select class="form-select item-itbis-select" name="items[${rowIndex}][itbisRate]" style="width:75px;"><option value="0.18" selected>18%</option><option value="0.16">16%</option><option value="0.0108">1.08%</option><option value="0.0">0%</option></select></td>
                 <td style="text-align:right;font-weight:600;"><span class="item-total-label">RD$ 0.00</span></td>
                 <td>
                   <div style="position:relative;">

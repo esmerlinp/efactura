@@ -110,6 +110,17 @@
                 </select>
                 <small style="color: var(--text-muted); display: block; font-size: 0.75rem; margin-top: 4px;">Al facturar a este cliente se usarán los precios de la lista seleccionada.</small>
             </div>
+
+            <div class="form-group">
+                <label for="projectId">Proyecto Asociado</label>
+                <select id="projectId" name="projectId" class="form-input" style="width: 100%; height: auto; padding: 10px; background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); outline: none;">
+                    <option value="" {% if not client or not client.projectId %}selected{% endif %}>Sin proyecto asignado</option>
+                    {% for proj in projects %}
+                    <option value="{{ proj.id }}" {% if client and client.projectId == proj.id %}selected{% endif %}>{{ proj.name }} ({{ proj.code }})</option>
+                    {% endfor %}
+                </select>
+                <small style="color: var(--text-muted); display: block; font-size: 0.75rem; margin-top: 4px;">Todas las operaciones de este cliente se asociarán automáticamente al proyecto seleccionado.</small>
+            </div>
         </div>
 
         <h3

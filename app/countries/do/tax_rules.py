@@ -1,5 +1,6 @@
 ITBIS_RATE_GENERAL = 0.18
 ITBIS_RATE_REDUCED = 0.16
+ITBIS_RATE_CONSTRUCTION = 0.0108
 
 ISR_CORPORATE_RATE = 0.27
 ISR_LARGE_TAXPAYER_RATE = 0.30
@@ -40,6 +41,7 @@ DEFAULT_TAX_RULES = {
     "itbis": {
         "general": ITBIS_RATE_GENERAL,
         "reduced": ITBIS_RATE_REDUCED,
+        "construction": ITBIS_RATE_CONSTRUCTION,
     },
     "isc": {
         "codigo_001_propina_legal": 0.10,

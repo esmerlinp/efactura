@@ -2,7 +2,7 @@
 import uuid
 import html
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, g
 from app.services.db_service import DatabaseService
 from app.services.contingency_sync_service import ContingencySyncService
 from app.services.ecf_emission import EcfEmissionService
@@ -607,7 +607,7 @@ def pos_terminal():
     sandbox = session.get('is_sandbox_mode', True)
     
     # Obtener catálogo de productos para la venta rápida
-    items = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     
     # Filtrar solo bienes físicos o servicios del catálogo activos
     active_items = [it for it in items if it.get('price', 0.0) > 0 and it.get('isActive', True)]
@@ -720,6 +720,12 @@ def create_pos_sale():
     items_list = data.get('items', [])
     ecf_type = data.get('ecfType', 'Factura de Consumo (E32)')
 
+    client_project_id = None
+    if client_id and client_id != 'default':
+        client = DatabaseService.get_client(owner_uid, client_id, sandbox=sandbox)
+        if client:
+            client_project_id = client.get('projectId')
+
     if ecf_type not in ['Factura de Consumo (E32)', 'Factura de Crédito Fiscal (E31)']:
         return jsonify({"success": False, "error": f"El Punto de Venta solo permite emitir Factura de Consumo (E32) o Crédito Fiscal (E31). El tipo '{ecf_type}' está restringido."}), 400
 
@@ -785,7 +791,9 @@ def create_pos_sale():
         "items": calcs["items"],
         "stockReduced": False,  # DatabaseService lo reducirá al guardar
         "posShiftId": open_shift['id'],  # Necesario para consultas de consolidación
-        "isSyncedWithDGII": False
+        "isSyncedWithDGII": False,
+        "branchId": session.get('selected_branch_id') or 'default-sucursal-principal',
+        "projectId": client_project_id or session.get('selected_project_id') or None
     }
     
     if usd_amount > 0:
