@@ -815,7 +815,7 @@ body.sandbox-mode .environment-indicator {
     border-radius: var(--radius-md);
     padding: 24px 0;
     box-shadow: var(--shadow-sm);
-    overflow: hidden;
+    overflow: visible;
 }
 
 /* Aplicar padding horizontal solo a los elementos que no son la tabla */

@@ -52,6 +52,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let activePriceListId = '';
+    const defaultPriceListEl = document.getElementById('default-price-list-id');
+    const defaultPriceListId = defaultPriceListEl ? defaultPriceListEl.textContent.trim() : '';
+    if (defaultPriceListId) {
+        activePriceListId = defaultPriceListId;
+        const priceListSelectSide = document.getElementById('price-list-select-side');
+        if (priceListSelectSide) {
+            priceListSelectSide.value = defaultPriceListId;
+            priceListSelectSide.addEventListener('change', function() {
+                activePriceListId = this.value;
+            });
+        }
+    }
 
     // =========================================================================
     // GESTIÓN DEL MODAL DE CLIENTES
@@ -116,7 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Establecer la lista de precios activa según el cliente seleccionado
                 const client = crmClients.find(c => c.id === id);
-                activePriceListId = (client && client.priceListId) || '';
+                activePriceListId = (client && client.priceListId) || defaultPriceListId;
 
                 closeClientModal();
                 validateTaxConstraints();
@@ -439,7 +451,7 @@ document.addEventListener('DOMContentLoaded', () => {
             clientSearchInput.value = rnc ? `${name} (${rnc})` : name;
         }
         if (clientRncInput) clientRncInput.value = rnc || '';
-        activePriceListId = (client && client.priceListId) || '';
+        activePriceListId = (client && client.priceListId) || defaultPriceListId;
         const dropdown = getOrCreateClientDropdown();
         dropdown.style.display = 'none';
         if (typeof validateTaxConstraints === 'function') validateTaxConstraints();

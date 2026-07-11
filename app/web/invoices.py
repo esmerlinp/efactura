@@ -1705,6 +1705,9 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                     }
     price_list_prices_json = json.dumps(price_list_prices)
 
+    default_price_list = next((pl for pl in active_price_lists if pl.get('isDefault')), None)
+    default_price_list_id = default_price_list['id'] if default_price_list else ''
+
     # Cargar centros de costo para el formulario de documento
     cost_centers = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox)
     active_cost_centers = [cc for cc in cost_centers if cc.get('isActive', True)]
@@ -1723,6 +1726,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         invoice=existing_invoice,
         price_list_prices_json=price_list_prices_json,
         price_lists=active_price_lists,
+        default_price_list_id=default_price_list_id,
         cost_centers=active_cost_centers,
     )
 

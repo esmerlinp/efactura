@@ -840,7 +840,7 @@ body.sandbox-mode .environment-indicator {
     padding: 24px 0;
     /* Sin padding horizontal para que la tabla sea edge-to-edge */
     box-shadow: none;
-    overflow: hidden;
+    overflow: visible;
 }
 
 /* Aplicar padding horizontal solo a los elementos que no son la tabla */

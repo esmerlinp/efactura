@@ -375,7 +375,7 @@
                     <select name="priceListId" class="form-select" style="width:100%;">
                         <option value="">Sin asignar...</option>
                         {% for p in price_lists %}
-                        <option value="{{ p.id }}">{{ p.name }}</option>
+                        <option value="{{ p.id }}" {% if ref_invoice and ref_invoice.priceListId == p.id %}selected{% elif not ref_invoice and p.id == default_price_list_id %}selected{% endif %}>{{ p.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
