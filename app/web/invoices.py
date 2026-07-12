@@ -4246,18 +4246,43 @@ def void_invoice_route(invoice_id):
         
     company = DatabaseService.get_company_profile(owner_uid)
     
+    cancellation_type = request.form.get("cancellation_type", "04").strip()
+    cancellation_reason = request.form.get("cancellation_reason", "").strip()
+
+    CANCELLATION_TYPE_LABELS = {
+        "01": "Deterioro de Factura Pre-Impresa",
+        "02": "Errores de Impresión (Factura Pre-Impresa)",
+        "03": "Impresión Defectuosa",
+        "04": "Corrección de la Información",
+        "05": "Cambio de Productos",
+        "06": "Devolución de Productos",
+        "07": "Omisión de Productos",
+        "08": "Errores en Secuencias de NCF",
+        "09": "Por Cese de Operaciones",
+        "10": "Pérdida O Hurto De Talonario(S)",
+    }
+    if cancellation_type not in CANCELLATION_TYPE_LABELS:
+        cancellation_type = "04"
+    cancellation_label = CANCELLATION_TYPE_LABELS.get(cancellation_type, "Corrección de la Información")
+
+    if not cancellation_reason:
+        cancellation_reason = cancellation_label
+
     # Intentar enviar anulación a DGII
     if invoice.get("encf"):
         canc_dict = {
             "series": invoice["encf"][:3],
             "startSequence": int(invoice["encf"][3:]),
             "endSequence": int(invoice["encf"][3:]),
-            "reason": "Anulación de comprobante por solicitud del cliente / error de digitación"
+            "reason": cancellation_reason
         }
         res = EcfEmissionService.emit_cancellation(company, canc_dict, sandbox=sandbox)
         if res.get("success"):
             before_invoice = invoice.copy()
             invoice["status"] = "Anulada"
+            invoice["cancellationType"] = cancellation_type
+            invoice["cancellationReason"] = cancellation_reason
+            invoice["cancelledAt"] = datetime.now(timezone.utc).isoformat()
             DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
 
             # Generar asiento contable reverso automático
@@ -4310,6 +4335,9 @@ def void_invoice_route(invoice_id):
     else:
         before_invoice = invoice.copy()
         invoice["status"] = "Anulada"
+        invoice["cancellationType"] = cancellation_type
+        invoice["cancellationReason"] = cancellation_reason
+        invoice["cancelledAt"] = datetime.now(timezone.utc).isoformat()
         DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
 
         # Generar asiento contable reverso para borradores si fueron emitidos previamente
@@ -7468,7 +7496,7 @@ def get_report_categories():
                  "desc": "Ventas del período para tu declaración DGII."},
                 {"title": "Reporte 608", "url": "web_reports_608.reporte_608",
                  "enabled": True,
-                 "desc": "Reporte de compras de bienes y servicios para tu declaración DGII."},
+                 "desc": "Reporte de NCF anulados del período para tu declaración DGII."},
                 {"title": "Reporte 623", "url": "web_reports_623.reporte_623",
                  "enabled": True,
                  "desc": "Reporte de compras de servicios transfronterizos para tu declaración DGII."},
@@ -8033,53 +8061,6 @@ def report_607_export():
     output.seek(0)
     filename = f"reporte_607_{year:04d}{month:02d}_{datetime.now(timezone.utc).strftime('%Y%m%d')}.xlsx"
     return send_file(output, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", as_attachment=True, download_name=filename)
-
-
-@web_invoices_bp.route('/reports/608/export')
-def report_608_export():
-    if 'user' not in session:
-        return redirect(url_for('web_auth.login'))
-    if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Reporte 608", required_permission="canInvoice")
-
-    owner_uid = session['user']['ownerUID']
-    sandbox = session.get('is_sandbox_mode', True)
-    year, month = _parse_period_args()
-
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), quotations_only=False)
-    anuladas = [inv for inv in invoices if inv.get('status') == 'Anulada']
-    filtered = _filter_docs_by_period(anuladas, year, month)
-
-    company = DatabaseService.get_company_profile(owner_uid) or {}
-    owner_rnc = (company.get('companyRNC') or '').replace('-', '')
-
-    output = io.StringIO()
-    writer = csv.writer(output, quoting=csv.QUOTE_ALL)
-    writer.writerow([
-        "RNC Emisor",
-        "Periodo",
-        "NCF/e-CF",
-        "Fecha Anulación",
-        "Tipo Anulación",
-        "Motivo"
-    ])
-    period = f"{year:04d}{month:02d}"
-    for inv in filtered:
-        writer.writerow([
-            owner_rnc,
-            period,
-            inv.get('encf', ''),
-            (inv.get('updatedAt') or inv.get('date') or '')[:10],
-            "01",
-            (inv.get('comentario') or inv.get('notes') or "")[:150]
-        ])
-
-    dest = io.BytesIO()
-    dest.write(b"\xef\xbb\xbf")
-    dest.write(output.getvalue().encode('utf-8'))
-    dest.seek(0)
-    filename = f"reporte_608_{year:04d}{month:02d}_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"
-    return send_file(dest, mimetype="text/csv", as_attachment=True, download_name=filename)
 
 
 @web_invoices_bp.route('/reports/609/export')

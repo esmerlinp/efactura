@@ -114,6 +114,9 @@ class Invoice(BaseModel):
     signatureInfo: Optional[Any] = None
     isDeleted: bool = False
     deletedAt: Optional[str] = None
+    cancellationType: str = ""
+    cancellationReason: str = ""
+    cancelledAt: str = ""
     createdAt: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updatedAt: Optional[Any] = None
 

@@ -563,6 +563,36 @@ endblock %}
                                 class="fa-solid fa-circle-xmark"></i> El número no coincide.</span>
                     </div>
 
+                    <div>
+                        <label for="void-cancellation-type"
+                            style="display: block; font-size: 0.85rem; font-weight: 500; color: var(--text-primary); margin-bottom: 8px;">
+                            Tipo de Anulación (DGII):
+                        </label>
+                        <select id="void-cancellation-type" name="cancellation_type" class="form-control"
+                            style="width: 100%; height: 40px; padding: 0 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); font-size: 0.85rem;">
+                            <option value="01">01 - Deterioro de Factura Pre-Impresa</option>
+                            <option value="02">02 - Errores de Impresión (Factura Pre-Impresa)</option>
+                            <option value="03">03 - Impresión Defectuosa</option>
+                            <option value="04" selected>04 - Corrección de la Información</option>
+                            <option value="05">05 - Cambio de Productos</option>
+                            <option value="06">06 - Devolución de Productos</option>
+                            <option value="07">07 - Omisión de Productos</option>
+                            <option value="08">08 - Errores en Secuencias de NCF</option>
+                            <option value="09">09 - Por Cese de Operaciones</option>
+                            <option value="10">10 - Pérdida O Hurto De Talonario(S)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="void-cancellation-reason"
+                            style="display: block; font-size: 0.85rem; font-weight: 500; color: var(--text-primary); margin-bottom: 8px;">
+                            Motivo de anulación (opcional):
+                        </label>
+                        <textarea id="void-cancellation-reason" name="cancellation_reason" class="form-control"
+                            rows="2" placeholder="Describa el motivo de la anulación..."
+                            style="width: 100%; padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); font-size: 0.85rem; resize: vertical;"></textarea>
+                    </div>
+
                     <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 10px;">
                         <button type="button" class="btn btn-secondary" onclick="closeVoidModal()"
                             style="padding: 10px 16px;">Cancelar</button>
