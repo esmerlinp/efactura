@@ -1,0 +1,183 @@
+<!-- Modal rápido para registrar proveedor (componente reutilizable) -->
+<div class="search-modal" id="supplier-create-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;align-items:center;justify-content:center;z-index:1050;">
+    <div class="modal-content" style="max-width:560px;position:relative;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
+        <div class="modal-header" style="padding:20px 24px;border-bottom:1px solid var(--border-color);"><h3 style="font-size:0.95rem;"><i class="fa-solid fa-truck" style="color:var(--accent-emerald);margin-right:8px;"></i>Registrar Nuevo Proveedor</h3><button type="button" class="btn-close-modal" id="btn-close-supplier-modal"><i class="fa-solid fa-xmark"></i></button></div>
+        <div class="modal-body" style="padding:22px 24px;">
+            <div id="create-supplier-alert" style="display:none;padding:10px 16px;border-radius:6px;margin-bottom:16px;font-size:0.85rem;"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div class="inp-group"><label>RNC / Cédula</label><input type="text" id="new-supplier-rnc" class="form-input" placeholder="Ej: 101234567" style="font-family:monospace;"><small id="rnc-lookup-status" style="display:none;font-size:0.7rem;margin-top:2px;"><span id="rnc-lookup-spinner" style="display:none;"><i class="fa-solid fa-circle-notch fa-spin" style="margin-right:4px;"></i></span><span id="rnc-lookup-text"></span></small></div>
+                <div class="inp-group"><label>Razón Social / Nombre <span style="color:var(--accent-red);">*</span></label><input type="text" id="new-supplier-name" class="form-input" placeholder="Nombre completo o empresa"></div>
+                <div class="inp-group"><label>Correo Electrónico</label><input type="email" id="new-supplier-email" class="form-input" placeholder="proveedor@empresa.com"></div>
+                <div class="inp-group"><label>Teléfono</label><input type="tel" id="new-supplier-phone" class="form-input" placeholder="809-000-0000"></div>
+                <div class="inp-group" style="grid-column:1/-1;"><label>Dirección</label><input type="text" id="new-supplier-address" class="form-input" placeholder="Calle, sector, ciudad, provincia"></div>
+            </div>
+        </div>
+        <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:10px;padding:16px 24px;border-top:1px solid var(--border-color);"><button type="button" id="btn-cancel-supplier" class="btn btn-secondary">Cancelar</button><button type="button" id="btn-save-new-supplier" class="btn btn-primary">Guardar Proveedor</button></div>
+    </div>
+</div>
+
+<script>
+(function() {
+    function initSupplierModal() {
+        var supplierModal = document.getElementById('supplier-create-modal');
+        var btnOpen = document.getElementById('btn-create-supplier-modal');
+        var btnClose = document.getElementById('btn-close-supplier-modal');
+        var btnCancel = document.getElementById('btn-cancel-supplier');
+        var btnSave = document.getElementById('btn-save-new-supplier');
+        var alertEl = document.getElementById('create-supplier-alert');
+        if (!supplierModal) return;
+
+        var closeModal = function() {
+            supplierModal.style.display = 'none';
+        };
+        var showAlert = function(msg, isError) {
+            if (!alertEl) return;
+            alertEl.textContent = msg;
+            alertEl.style.display = 'block';
+            alertEl.style.background = isError ? 'rgba(239,68,68,0.12)' : 'rgba(16,185,129,0.12)';
+            alertEl.style.color = isError ? '#dc2626' : '#059669';
+            alertEl.style.border = isError ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(16,185,129,0.3)';
+        };
+
+        if (btnOpen) {
+            btnOpen.addEventListener('click', function() {
+                document.getElementById('new-supplier-rnc').value = '';
+                document.getElementById('new-supplier-name').value = '';
+                document.getElementById('new-supplier-email').value = '';
+                document.getElementById('new-supplier-phone').value = '';
+                document.getElementById('new-supplier-address').value = '';
+                if (alertEl) { alertEl.style.display = 'none'; alertEl.textContent = ''; }
+                if (btnSave) { btnSave.disabled = false; btnSave.textContent = 'Guardar Proveedor'; }
+                supplierModal.style.display = 'flex';
+                document.getElementById('new-supplier-rnc').focus();
+            });
+        }
+
+        if (btnClose) btnClose.addEventListener('click', closeModal);
+        if (btnCancel) btnCancel.addEventListener('click', closeModal);
+
+        supplierModal.addEventListener('click', function(e) {
+            if (e.target === supplierModal) closeModal();
+        });
+
+        var rncInput = document.getElementById('new-supplier-rnc');
+        function doRncLookup() {
+                var rncVal = rncInput.value.trim().replace(/-/g, '');
+                var statusEl = document.getElementById('rnc-lookup-status');
+                var spinnerEl = document.getElementById('rnc-lookup-spinner');
+                var textEl = document.getElementById('rnc-lookup-text');
+                if (!rncVal || rncVal.length < 3) {
+                    if (statusEl) statusEl.style.display = 'none';
+                    return;
+                }
+                if (statusEl) {
+                    statusEl.style.display = 'block';
+                    statusEl.style.color = 'var(--text-muted)';
+                }
+                if (spinnerEl) spinnerEl.style.display = 'inline';
+                if (textEl) textEl.textContent = 'Localizando proveedor...';
+                fetch('/api/clients/lookup_by_rnc?rnc=' + encodeURIComponent(rncVal))
+                    .then(function(res) { return res.json(); })
+                    .then(function(result) {
+                        if (result.success && result.found) {
+                            var c = result.client;
+                            var nameInput = document.getElementById('new-supplier-name');
+                            var emailInput = document.getElementById('new-supplier-email');
+                            var phoneInput = document.getElementById('new-supplier-phone');
+                            var addressInput = document.getElementById('new-supplier-address');
+                            if (nameInput && !nameInput.value) nameInput.value = c.name || '';
+                            if (emailInput && !emailInput.value) emailInput.value = c.email || '';
+                            if (phoneInput && !phoneInput.value) phoneInput.value = c.phone || '';
+                            if (addressInput && !addressInput.value) addressInput.value = c.address || '';
+                            if (spinnerEl) spinnerEl.style.display = 'none';
+                            if (statusEl) {
+                                statusEl.style.color = 'var(--accent-emerald)';
+                            }
+                            if (textEl) textEl.textContent = '\u2713 Cliente encontrado \u2014 datos cargados';
+                        } else {
+                            if (spinnerEl) spinnerEl.style.display = 'none';
+                            if (statusEl) {
+                                statusEl.style.color = 'var(--text-muted)';
+                            }
+                            if (textEl) textEl.textContent = 'No encontrado en clientes locales';
+                        }
+                    })
+                    .catch(function() {
+                        if (spinnerEl) spinnerEl.style.display = 'none';
+                        if (statusEl) {
+                            statusEl.style.color = 'var(--accent-red)';
+                        }
+                        if (textEl) textEl.textContent = 'Error al consultar';
+                        if (statusEl) {
+                            statusEl.style.display = 'block';
+                            setTimeout(function() { statusEl.style.display = 'none'; }, 3000);
+                        }
+                    });
+            }
+        if (rncInput) {
+            rncInput.addEventListener('blur', doRncLookup);
+            rncInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    doRncLookup();
+                }
+            });
+        }
+
+        if (btnSave) {
+            btnSave.addEventListener('click', function() {
+                var rnc = (document.getElementById('new-supplier-rnc')?.value || '').trim();
+                var name = (document.getElementById('new-supplier-name')?.value || '').trim();
+
+                if (!name) {
+                    showAlert('La Raz\u00f3n Social / Nombre es obligatorio.', true);
+                    document.getElementById('new-supplier-name')?.focus();
+                    return;
+                }
+
+                btnSave.disabled = true;
+                btnSave.textContent = 'Guardando...';
+                if (alertEl) alertEl.style.display = 'none';
+
+                fetch('/suppliers/ajax_create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        rnc: rnc,
+                        name: name,
+                        email: (document.getElementById('new-supplier-email')?.value || '').trim(),
+                        phone: (document.getElementById('new-supplier-phone')?.value || '').trim(),
+                        address: (document.getElementById('new-supplier-address')?.value || '').trim()
+                    })
+                })
+                .then(function(res) { return res.json(); })
+                .then(function(result) {
+                    if (result.success) {
+                        var s = result.supplier;
+                        if (window.selectSupplier) {
+                            window.selectSupplier({ id: s.id, rnc: s.rnc, name: s.name });
+                        }
+                        showAlert('Proveedor "' + s.name + '" registrado y seleccionado.', false);
+                        setTimeout(function() { closeModal(); }, 1200);
+                    } else {
+                        showAlert(result.error || 'Error al registrar el proveedor.', true);
+                        btnSave.disabled = false;
+                        btnSave.textContent = 'Guardar Proveedor';
+                    }
+                })
+                .catch(function() {
+                    showAlert('Error de conexi\u00f3n. Verifique su red e intente de nuevo.', true);
+                    btnSave.disabled = false;
+                    btnSave.textContent = 'Guardar Proveedor';
+                });
+            });
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initSupplierModal);
+    } else {
+        initSupplierModal();
+    }
+})();
+</script>

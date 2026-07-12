@@ -5126,6 +5126,9 @@ def new_expense_route():
             except Exception as e:
                 print("Error enviando notificacion de gasto: ", e)
 
+        if request.form.get('save_action') == 'save_and_new':
+            flash('Pago guardado correctamente. Puedes crear otro.', 'success')
+            return redirect(url_for('web_invoices.payments_new_route'))
         return redirect(url_for('web_invoices.list_expenses'))
 
 
@@ -5347,6 +5350,19 @@ def payments_new_route():
             AccountingService.auto_generate_expense_entry(owner_uid, expense_dict, sandbox=sandbox)
         except Exception as acc_err:
             print(f"Error al generar asiento contable del gasto: {acc_err}")
+
+        rnc_emisor = request.form.get('rncEmisor', '').strip()
+        provider_name = request.form.get('providerName', '').strip()
+        if rnc_emisor and provider_name:
+            try:
+                from app.services.supplier_service import SupplierService
+                supplier_id, created = SupplierService.get_or_create_supplier(
+                    owner_uid, rnc_emisor, provider_name, sandbox=sandbox
+                )
+                if created:
+                    flash('Proveedor registrado automáticamente en el catálogo.', 'info')
+            except Exception as supp_err:
+                print(f"Error al auto-crear proveedor: {supp_err}")
 
         flash('Pago registrado exitosamente.', 'success')
         return redirect(url_for('web_invoices.payments_list'))
@@ -5570,6 +5586,9 @@ def minor_new_route():
             except Exception as e:
                 print(f"Error al actualizar saldo: {e}")
 
+        if request.form.get('save_action') == 'save_and_new':
+            flash('Gasto menor guardado correctamente. Puedes crear otro.', 'success')
+            return redirect(url_for('web_invoices.minor_new_route'))
         return redirect(url_for('web_invoices.minor_list'))
 
     today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
@@ -6742,7 +6761,7 @@ def company_settings():
     # Obtener sucursales
     branches = DatabaseService.get_branches(owner_uid, sandbox=session.get('is_sandbox_mode', True))
     # Obtener proyectos
-    projects = DatabaseService.get_projects(owner_uid, sandbox=session.get('is_sandbox_mode', True))
+    projects = DatabaseService.get_projects(owner_uid, sandbox=session.get('is_sandbox_mode', True), status_filter=None)
     for p in projects:
         p['branchName'] = next((b['name'] for b in branches if b['id'] == p.get('branchId')), '')
 
@@ -7043,17 +7062,58 @@ def save_project_route():
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
+    is_new = not request.form.get('project_id')
     project_id = request.form.get('project_id') or str(uuid.uuid4())
+    start_date = request.form.get('startDate', '').strip()
+    
+    # Fecha de inicio obligatoria solo para proyectos nuevos
+    if is_new and not start_date:
+        flash('La fecha de inicio del proyecto es obligatoria.', 'error')
+        return redirect(url_for('web_invoices.company_settings'))
+    
     project_dict = {
         "name": request.form.get('name', ''),
         "code": request.form.get('code', ''),
         "description": request.form.get('description', ''),
         "branchId": request.form.get('branchId', ''),
-        "isDefault": request.form.get('isDefault') == 'true'
+        "isDefault": request.form.get('isDefault') == 'true',
+        "status": 'open',
+        "startDate": start_date,
+        "endDate": request.form.get('endDate', '').strip()
     }
+    
+    # Si es un proyecto existente, preservar el estado actual (no se cambia desde el formulario)
+    if not is_new:
+        existing = DatabaseService.get_project(owner_uid, project_id, sandbox=sandbox)
+        if existing:
+            project_dict['status'] = existing.get('status', 'open')
     
     DatabaseService.save_project(owner_uid, project_id, project_dict, sandbox=sandbox)
     flash(f"Proyecto '{project_dict['name']}' guardado correctamente.", 'success')
+    return redirect(url_for('web_invoices.company_settings'))
+
+
+@web_invoices_bp.route('/settings/projects/<project_id>/toggle-status', methods=['POST'])
+def toggle_project_status(project_id):
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canModifySettings'):
+        flash('No tienes permisos.', 'error')
+        return redirect(url_for('web_invoices.company_settings'))
+    
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    project = DatabaseService.get_project(owner_uid, project_id, sandbox=sandbox)
+    if not project:
+        flash('Proyecto no encontrado.', 'error')
+        return redirect(url_for('web_invoices.company_settings'))
+    
+    new_status = 'closed' if project.get('status', 'open') == 'open' else 'open'
+    project['status'] = new_status
+    DatabaseService.save_project(owner_uid, project_id, project, sandbox=sandbox)
+    
+    msg = f"Proyecto '{project['name']}' {'cerrado' if new_status == 'closed' else 'reabierto'} correctamente."
+    flash(msg, 'success')
     return redirect(url_for('web_invoices.company_settings'))
 
 @web_invoices_bp.route('/settings/projects/<project_id>/delete', methods=['POST'])

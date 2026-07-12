@@ -1423,8 +1423,40 @@ class DatabaseService:
     # =========================================================================
 
     @classmethod
-    def get_projects(cls, owner_uid, branch_id=None, sandbox=True):
-        """Retorna la lista de proyectos, opcionalmente filtrados por sucursal."""
+    def get_project(cls, owner_uid, project_id, sandbox=True):
+        """Retorna un proyecto individual por su ID."""
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_projects" if sandbox else "projects"
+                doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(project_id).get()
+                if doc.exists:
+                    data = doc.to_dict()
+                    return {
+                        "id": doc.id,
+                        "branchId": data.get("branchId", ""),
+                        "name": data.get("name", ""),
+                        "code": data.get("code", ""),
+                        "description": data.get("description", ""),
+                        "isDefault": bool(data.get("isDefault", False)),
+                        "status": data.get("status", "open"),
+                        "startDate": data.get("startDate", ""),
+                        "endDate": data.get("endDate", ""),
+                        "createdAt": serialize_field(data.get("createdAt"))
+                    }
+            except Exception as e:
+                print(f"Error al obtener proyecto desde Firestore: {e}")
+        return None
+
+    @classmethod
+    def get_projects(cls, owner_uid, branch_id=None, sandbox=True, status_filter="open"):
+        """Retorna la lista de proyectos, opcionalmente filtrados por sucursal y estado.
+        
+        Args:
+            owner_uid: ID del propietario
+            branch_id: Filtrar por sucursal (opcional)
+            sandbox: Modo sandbox
+            status_filter: "open" (default, solo abiertos), "closed" (solo cerrados), None (todos)
+        """
         projects = []
         if firebase_initialized:
             try:
@@ -1435,6 +1467,9 @@ class DatabaseService:
                     p_branch_id = data.get("branchId", "")
                     if branch_id and p_branch_id != branch_id:
                         continue
+                    p_status = data.get("status", "open")
+                    if status_filter is not None and p_status != status_filter:
+                        continue
                     projects.append({
                         "id": doc.id,
                         "branchId": p_branch_id,
@@ -1442,6 +1477,9 @@ class DatabaseService:
                         "code": data.get("code", ""),
                         "description": data.get("description", ""),
                         "isDefault": bool(data.get("isDefault", False)),
+                        "status": p_status,
+                        "startDate": data.get("startDate", ""),
+                        "endDate": data.get("endDate", ""),
                         "createdAt": serialize_field(data.get("createdAt"))
                     })
                 projects.sort(key=lambda x: x["name"].lower())
@@ -1460,7 +1498,7 @@ class DatabaseService:
 
         if project_dict.get("isDefault") and update_defaults:
             branch_id = project_dict.get("branchId")
-            projects = cls.get_projects(owner_uid, branch_id=branch_id, sandbox=sandbox)
+            projects = cls.get_projects(owner_uid, branch_id=branch_id, sandbox=sandbox, status_filter=None)
             for p in projects:
                 if p["id"] != project_id and p.get("isDefault"):
                     p["isDefault"] = False
