@@ -353,11 +353,15 @@
                     <th style="text-align:right;">Comisiones</th>
                     <th style="text-align:right;">Bonificación</th>
                     <th style="text-align:right;">Otros Ingresos</th>
+                    {% for col in period.get('recurringAdditionsColumns', []) %}
+                    <th style="text-align:right;">{{ col }}</th>
+                    {% endfor %}
                     <th style="text-align:right;">Total Ingresos</th>
                 </tr>
             </thead>
             <tbody>
                 {% for l in period.lines %}
+                {% set amap = l.get('recurringAdditionsMap', {}) %}
                 <tr data-search="{{ (l.employeeName or '')|lower }} {{ (l.cedula or '')|lower }}">
                     <td style="white-space:nowrap;"><a href="{{ url_for('web_rrhh.employee_view', employee_id=l.employeeId) }}" class="emp-link">{{ l.employeeName }}</a></td>
                     <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.get('grossSalary', l.get('baseSalary', 0))|float) }}</td>
@@ -370,6 +374,9 @@
                     <td style="text-align:right; white-space:nowrap;">{% if l.commission and l.commission|float > 0 %}{{ "RD$ {:,.2f}".format(l.commission|float) }}{% else %}—{% endif %}</td>
                     <td style="text-align:right; white-space:nowrap;">{% if l.bonus and l.bonus|float > 0 %}{{ "RD$ {:,.2f}".format(l.bonus|float) }}{% else %}—{% endif %}</td>
                     <td style="text-align:right; white-space:nowrap;">{% if l.otherIncome and l.otherIncome|float > 0 %}{{ "RD$ {:,.2f}".format(l.otherIncome|float) }}{% else %}—{% endif %}</td>
+                    {% for col in period.get('recurringAdditionsColumns', []) %}
+                    <td style="text-align:right; white-space:nowrap;">{% set amt = amap.get(col, 0) %}{% if amt > 0 %}RD$ {{ "{:,.2f}".format(amt) }}{% else %}—{% endif %}</td>
+                    {% endfor %}
                     <td style="text-align:right; white-space:nowrap; font-weight:600;">{{ "RD$ {:,.2f}".format(l.totalIncome|float) }}</td>
                 </tr>
                 {% endfor %}
@@ -467,6 +474,9 @@
                     <th style="text-align:right;">Comisiones</th>
                     <th style="text-align:right;">Bonificación</th>
                     <th style="text-align:right;">Otros Ingresos</th>
+                    {% for col in period.get('recurringAdditionsColumns', []) %}
+                    <th style="text-align:right;">{{ col }}</th>
+                    {% endfor %}
                     <th style="text-align:right;">Total Ingresos</th>
                     <th style="text-align:right;">AFP</th>
                     <th style="text-align:right;">SFS</th>
@@ -482,6 +492,7 @@
             </thead>
             <tbody>
                 {% for l in period.lines %}
+                {% set amap = l.get('recurringAdditionsMap', {}) %}
                 <tr data-search="{{ (l.employeeName or '')|lower }} {{ (l.cedula or '')|lower }}">
                     <td style="white-space:nowrap;"><a href="{{ url_for('web_rrhh.employee_view', employee_id=l.employeeId) }}" class="emp-link">{{ l.employeeName }}</a></td>
                     <td style="white-space:nowrap;">{{ l.cedula }}</td>
@@ -496,6 +507,9 @@
                     <td style="text-align:right; white-space:nowrap;">{% if l.commission and l.commission|float > 0 %}{{ "RD$ {:,.2f}".format(l.commission|float) }}{% else %}—{% endif %}</td>
                     <td style="text-align:right; white-space:nowrap;">{% if l.bonus and l.bonus|float > 0 %}{{ "RD$ {:,.2f}".format(l.bonus|float) }}{% else %}—{% endif %}</td>
                     <td style="text-align:right; white-space:nowrap;">{% if l.otherIncome and l.otherIncome|float > 0 %}{{ "RD$ {:,.2f}".format(l.otherIncome|float) }}{% else %}—{% endif %}</td>
+                    {% for col in period.get('recurringAdditionsColumns', []) %}
+                    <td style="text-align:right; white-space:nowrap;">{% set amt = amap.get(col, 0) %}{% if amt > 0 %}RD$ {{ "{:,.2f}".format(amt) }}{% else %}—{% endif %}</td>
+                    {% endfor %}
                     <td style="text-align:right; white-space:nowrap; font-weight:600;">{{ "RD$ {:,.2f}".format(l.totalIncome|float) }}</td>
                     <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.afpEmployee|float) }}</td>
                     <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.sfsEmployee|float) }}</td>
@@ -519,6 +533,9 @@
                     <td style="text-align:right;">—</td>
                     <td style="text-align:right;">—</td>
                     <td style="text-align:right;">—</td>
+                    {% for col in period.get('recurringAdditionsColumns', []) %}
+                    <td style="text-align:right;">—</td>
+                    {% endfor %}
                     <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(period.totalGross|float) }}</td>
                     <td style="text-align:right;">—</td>
                     <td style="text-align:right;">—</td>
