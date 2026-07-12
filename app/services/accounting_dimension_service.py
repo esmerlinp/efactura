@@ -47,7 +47,8 @@ class AccountingDimensionService:
 
         employees = employees or {}
         plines = PayrollService.get_period_lines(payroll_period, owner_uid=owner_uid, sandbox=sandbox)
-        snapshot = payroll_period.get("taxRatesSnapshot", {})
+        from app.services.hr_data_service import get_tax_rates_snapshot
+        snapshot = get_tax_rates_snapshot(payroll_period)
         effective_rates = snapshot if snapshot else tax_rates
         r = PayrollService.get_rates(effective_rates)
         period_label = payroll_period.get("periodKey", "")

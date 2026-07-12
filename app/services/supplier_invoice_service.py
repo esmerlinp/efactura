@@ -397,6 +397,11 @@ class SupplierInvoiceService:
                                 path = path[1:]
                             blob = firebase_storage_bucket.blob(path)
                             blob.delete()
+                            # Invalidar cache de storage para el owner
+                            from app.services.db_service import _invalidate_storage_cache
+                            parts = path.split("/")
+                            if len(parts) > 2 and parts[0] == "users":
+                                _invalidate_storage_cache(parts[1])
                         except Exception as e:
                             print(f"⚠️ Error al eliminar archivo de storage: {e}")
                 payments = doc_ref.collection("cxp_payments").get()

@@ -168,6 +168,93 @@
     </div>
     {% endif %}
 
+    {% set total_errors = incidencias.get('errors', [])|length if incidencias else 0 %}
+    {% set total_warnings = incidencias.get('warnings', [])|length if incidencias else 0 %}
+    {% set total_incidencias = total_errors + total_warnings %}
+    {% if total_incidencias > 0 %}
+    <div class="card-table-wrapper" style="margin-bottom:16px; border:2px solid {{ 'var(--danger)' if total_errors > 0 else 'var(--accent-orange)' }};">
+        <div style="padding:0;">
+            <div onclick="toggleIncidencias()" style="cursor:pointer; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; user-select:none;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="width:38px; height:38px; border-radius:50%; background:{{ 'rgba(239,68,68,0.12)' if total_errors > 0 else 'rgba(249,115,22,0.12)' }}; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                        <i class="fa-solid fa-triangle-exclamation" style="color:{{ 'var(--danger)' if total_errors > 0 else 'var(--accent-orange)' }}; font-size:1.1rem;"></i>
+                    </div>
+                    <div>
+                        <div style="font-weight:700; font-size:0.95rem; color:var(--text-primary);">
+                            Incidencias detectadas
+                        </div>
+                        <div style="display:flex; gap:8px; margin-top:4px; flex-wrap:wrap;">
+                            {% if total_errors > 0 %}
+                            <span style="font-size:0.78rem; color:var(--danger); font-weight:600;">
+                                <i class="fa-solid fa-circle"></i> {{ total_errors }} {{ 'error' if total_errors == 1 else 'errores' }}
+                            </span>
+                            {% endif %}
+                            {% if total_warnings > 0 %}
+                            <span style="font-size:0.78rem; color:var(--accent-orange); font-weight:600;">
+                                <i class="fa-solid fa-circle"></i> {{ total_warnings }} {{ 'advertencia' if total_warnings == 1 else 'advertencias' }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:0.75rem; color:var(--text-muted);">Corrige antes de procesar</span>
+                    <i id="incidenciasToggleIcon" class="fa-solid fa-chevron-up" style="color:var(--text-muted); font-size:0.85rem; transition:transform 0.2s;"></i>
+                </div>
+            </div>
+            <div id="incidenciasGrid" style="overflow:hidden; transition:max-height 0.3s ease;">
+                <div style="border-top:1px solid var(--border-color);">
+                    <table class="table-premium" style="font-size:0.85rem; min-width:500px; margin:0;">
+                        <thead>
+                            <tr>
+                                <th style="width:35%;">Empleado</th>
+                                <th style="width:12%;">Tipo</th>
+                                <th>Descripción</th>
+                                <th style="width:10%;">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for err in incidencias.get('errors', []) %}
+                            <tr>
+                                <td><strong>{{ err.employeeName }}</strong></td>
+                                <td><span class="badge badge-danger" style="font-size:0.7rem;">Error</span></td>
+                                <td style="color:var(--text-secondary);">{{ err.issue }}</td>
+                                <td><a href="{{ url_for('web_rrhh.employee_edit', employee_id=err.employeeId) }}" class="btn btn-sm btn-ghost" target="_blank"><i class="fa-solid fa-pencil"></i></a></td>
+                            </tr>
+                            {% endfor %}
+                            {% for warn in incidencias.get('warnings', []) %}
+                            <tr>
+                                <td><strong>{{ warn.employeeName }}</strong></td>
+                                <td><span class="badge" style="background:rgba(249,115,22,0.15); color:var(--accent-orange); font-size:0.7rem;">Advertencia</span></td>
+                                <td style="color:var(--text-secondary);">{{ warn.issue }}</td>
+                                <td><a href="{{ url_for('web_rrhh.employee_edit', employee_id=warn.employeeId) }}" class="btn btn-sm btn-ghost" target="_blank"><i class="fa-solid fa-pencil"></i></a></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+    function toggleIncidencias() {
+        var grid = document.getElementById('incidenciasGrid');
+        var icon = document.getElementById('incidenciasToggleIcon');
+        if (grid.style.maxHeight && grid.style.maxHeight !== '0px') {
+            grid.style.maxHeight = '0px';
+            icon.style.transform = 'rotate(180deg)';
+        } else {
+            grid.style.maxHeight = grid.scrollHeight + 'px';
+            icon.style.transform = 'rotate(0deg)';
+        }
+    }
+    (function() {
+        var grid = document.getElementById('incidenciasGrid');
+        if (grid) grid.style.maxHeight = grid.scrollHeight + 'px';
+    })();
+    </script>
+    {% endif %}
+
     <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
         <button type="submit" class="btn btn-primary"
                 onclick="return startPayrollProcessing()" {{ 'disabled' if no_groups }}>

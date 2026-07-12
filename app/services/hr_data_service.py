@@ -84,15 +84,61 @@ def _get_one(owner_uid: str, collection: str, doc_id: str, sandbox: bool = True)
         return None
 
 
-def _save(owner_uid: str, collection: str, doc_id: str, data: dict, sandbox: bool = True):
-    """Guarda (crea o actualiza) un documento."""
+def _sanitize_for_firestore(obj, _path=""):
+    """Convierte tipos no compatibles con Firestore: inf/nan/Decimal etc."""
+    import math
+    from decimal import Decimal
+    if isinstance(obj, float):
+        if math.isinf(obj) and obj > 0:
+            return 999999999.0
+        if math.isinf(obj) and obj < 0:
+            return -999999999.0
+        if math.isnan(obj):
+            return 0.0
+        return obj
+    if isinstance(obj, Decimal):
+        return float(obj)
+    if isinstance(obj, (set, frozenset)):
+        return list(obj)
+    if isinstance(obj, dict):
+        return {k: _sanitize_for_firestore(v, f"{_path}.{k}") for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_sanitize_for_firestore(item, f"{_path}[{i}]") for i, item in enumerate(obj)]
+    if type(obj) not in (type(None), bool, int, str, bytes):
+        print(f"  ⚠️ _sanitize: unexpected type at {_path}: {type(obj).__name__} = {obj!r:.200}")
+    return obj
+
+
+def get_tax_rates_snapshot(payroll_period: dict) -> dict:
+    """Retorna taxRatesSnapshot como dict, compatible con guardado como JSON string."""
+    import json
+    trs = payroll_period.get("taxRatesSnapshot", {})
+    if isinstance(trs, str):
+        return json.loads(trs)
+    return trs if isinstance(trs, dict) else {}
+
+
+def _save(owner_uid: str, collection: str, doc_id: str, data: dict, sandbox: bool = True) -> bool:
+    """Guarda (crea o actualiza) un documento.
+    Retorna True si se guardó correctamente, False si falló.
+    """
     if not firebase_initialized or db_firestore is None:
-        return
+        print(f"⚠️ HRDataService._save({collection}): Firebase no inicializado o db_firestore es None")
+        return False
     try:
         coll_path = _hr_collection(owner_uid, collection, sandbox)
-        db_firestore.collection(coll_path).document(doc_id).set(data)
+        import json
+        safe = _sanitize_for_firestore(data)
+        ref = db_firestore.collection(coll_path).document(doc_id)
+        # Salva todo excepto taxRatesSnapshot (guarda como JSON string)
+        trs = safe.pop("taxRatesSnapshot", None) if "taxRatesSnapshot" in safe else None
+        if trs is not None:
+            safe["taxRatesSnapshot"] = json.dumps(trs)
+        ref.set(safe)
+        return True
     except Exception as e:
         print(f"⚠️ HRDataService._save({collection}): {e}")
+        return False
 
 
 def _delete(owner_uid: str, collection: str, doc_id: str, sandbox: bool = True):
@@ -246,8 +292,8 @@ def get_payroll_periods(owner_uid: str, sandbox: bool = True) -> list:
 def get_payroll_period(owner_uid: str, period_id: str, sandbox: bool = True) -> dict | None:
     return _get_one(owner_uid, "payroll", period_id, sandbox)
 
-def save_payroll_period(owner_uid: str, period_id: str, data: dict, sandbox: bool = True):
-    _save(owner_uid, "payroll", period_id, data, sandbox)
+def save_payroll_period(owner_uid: str, period_id: str, data: dict, sandbox: bool = True) -> bool:
+    return _save(owner_uid, "payroll", period_id, data, sandbox)
 
 def delete_payroll_period(owner_uid: str, period_id: str, sandbox: bool = True):
     _delete(owner_uid, "payroll", period_id, sandbox)

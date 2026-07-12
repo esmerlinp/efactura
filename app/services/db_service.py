@@ -765,14 +765,26 @@ def _sanitize_for_firestore(obj):
 
 def _restore_inf_values(obj):
     """Restaura maps de brackets a tuplas y 999999999.0 a float('inf')."""
+    if isinstance(obj, float) and obj >= 999999999.0:
+        return float("inf")
     if isinstance(obj, dict):
         if set(obj.keys()) == {"l", "r", "f"}:
             limit = obj["l"] if obj["l"] < 999999999.0 else float("inf")
             return [limit, float(obj["r"]), float(obj["f"])]
         return {k: _restore_inf_values(v) for k, v in obj.items()}
-    elif isinstance(obj, (list, tuple)):
+    if isinstance(obj, (list, tuple)):
         return [_restore_inf_values(item) for item in obj]
     return obj
+
+
+# Cache de uso de almacenamiento (1h TTL) para evitar listar blobs repetidamente
+_storage_usage_cache = {}
+_storage_cache_ttl = 3600  # 1 hora
+
+
+def _invalidate_storage_cache(owner_uid):
+    """Invalida el cache de storage para un owner después de upload/delete."""
+    _storage_usage_cache.pop(owner_uid, None)
 
 
 class DatabaseService:
@@ -3313,20 +3325,27 @@ class DatabaseService:
     # GESTIÓN DE ARCHIVOS EN FIREBASE STORAGE
     # =========================================================================
 
+
     @classmethod
     def get_storage_usage_mb(cls, owner_uid):
-        """Calcula el espacio consumido por la empresa en Firebase Storage en MB."""
+        """Calcula el espacio consumido por la empresa en Firebase Storage en MB.
+        Cacheado por 1 hora para reducir costos de list_blobs()."""
+        import time
+        cached = _storage_usage_cache.get(owner_uid)
+        if cached and (time.time() - cached["ts"]) < _storage_cache_ttl:
+            return cached["value"]
+
         if not firebase_initialized or not firebase_storage_bucket:
-            # Simulación local o cálculo de static/uploads
-            return 15.4 # Valor simulado por defecto para desarrollo local
-        
+            return 15.4
+
         try:
             total_bytes = 0
-            # Listar todos los blobs con el prefijo users/{owner_uid}/
             blobs = firebase_storage_bucket.list_blobs(prefix=f"users/{owner_uid}/")
             for blob in blobs:
                 total_bytes += blob.size or 0
-            return round(total_bytes / (1024 * 1024), 2)
+            result = round(total_bytes / (1024 * 1024), 2)
+            _storage_usage_cache[owner_uid] = {"ts": time.time(), "value": result}
+            return result
         except Exception as e:
             print(f"⚠️ Error al calcular uso de almacenamiento para {owner_uid}: {e}")
             return 0.0
@@ -3371,6 +3390,8 @@ class DatabaseService:
             blob = firebase_storage_bucket.blob(destination_path)
             blob.upload_from_string(file_data, content_type=mime_type)
             blob.make_public()
+            if owner_uid:
+                _invalidate_storage_cache(owner_uid)
             return blob.public_url
         except Exception as e:
             print(f"❌ Error al subir archivo a Firebase Storage: {e}")

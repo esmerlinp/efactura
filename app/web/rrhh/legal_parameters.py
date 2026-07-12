@@ -225,7 +225,7 @@ def _parse_isr_table(form) -> list:
         tasa = float(form.get(f"isr_rate_{i}", 0) or 0) / 100.0
         deduction = float(form.get(f"isr_fixed_{i}", 0) or 0)
         if hasta_raw in ("999999999", "inf", ""):
-            hasta = float("inf")
+            hasta = 999999999.0
         else:
             hasta = float(hasta_raw or 0)
         table.append([desde, hasta, tasa, deduction])

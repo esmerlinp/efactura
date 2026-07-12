@@ -2370,7 +2370,14 @@
             }
 
             checkNotifications();
-            setInterval(checkNotifications, 15000);
+
+            // Revisar notificaciones solo cuando el usuario vuelve a la pestaña
+            // (se eliminó el polling continuo de 15s para reducir reads Firestore)
+            document.addEventListener('visibilitychange', function () {
+                if (!document.hidden) {
+                    checkNotifications();
+                }
+            });
             {% endif %}
         });
     </script>

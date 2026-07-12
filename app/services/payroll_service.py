@@ -363,6 +363,51 @@ class PayrollService:
 
         return {"warnings": warnings, "errors": errors}
 
+    @classmethod
+    def validate_employees_before_payroll(cls, employees: list) -> dict:
+        """Pre-validación de empleados antes de calcular nómina.
+        Detecta errores y advertencias que impedirían o afectarían el cálculo.
+
+        Returns:
+            Dict con {errors: [...], warnings: [...]}
+            Cada item: {"employeeId": id, "employeeName": name, "issue": str, "field": str}
+        """
+        errors = []
+        warnings = []
+
+        for emp in employees:
+            emp_id = emp.get("id", "")
+            emp_name = emp.get("fullName") or f"{emp.get('firstName', '')} {emp.get('firstLastName', emp.get('lastName', ''))}".strip()
+            if not emp_name:
+                emp_name = emp_id
+
+            if not emp.get("afpProvider"):
+                errors.append({
+                    "employeeId": emp_id,
+                    "employeeName": emp_name,
+                    "issue": "No tiene AFP asignada. La nómina no puede calcularse sin AFP.",
+                    "field": "afpProvider",
+                })
+
+            base = float(emp.get("baseSalary") or emp.get("salary", 0) or 0)
+            if base <= 0:
+                errors.append({
+                    "employeeId": emp_id,
+                    "employeeName": emp_name,
+                    "issue": "Salario base en cero o no definido.",
+                    "field": "baseSalary",
+                })
+
+            if not emp.get("cedula"):
+                warnings.append({
+                    "employeeId": emp_id,
+                    "employeeName": emp_name,
+                    "issue": "Sin cédula registrada. Requerida para reportes TSS y DGT-3.",
+                    "field": "cedula",
+                })
+
+        return {"errors": errors, "warnings": warnings}
+
     # ═══════════════════════════════════════════════════════════════════════
     # CÁLCULO DE NÓMINA INDIVIDUAL
     # ═══════════════════════════════════════════════════════════════════════
@@ -993,7 +1038,8 @@ class PayrollService:
         period_label = payroll_period.get("periodKey", "")
         plines = cls.get_period_lines(payroll_period, owner_uid=owner_uid, sandbox=sandbox)
         employees = employees or {}
-        snapshot = payroll_period.get("taxRatesSnapshot", {})
+        from app.services.hr_data_service import get_tax_rates_snapshot
+        snapshot = get_tax_rates_snapshot(payroll_period)
         effective_rates = snapshot if snapshot else tax_rates
         r = cls.get_rates(effective_rates)
 
