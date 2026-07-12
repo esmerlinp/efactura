@@ -237,6 +237,18 @@ def delete_applications_by_period(owner_uid: str, period_id: str,
 # ═══════════════════════════════════════════════════════════════════════
 
 
+def _normalize_movement_type(mv_type: str) -> str:
+    """Normaliza cualquier tipo de movimiento a los 3 estándares: earning, deduction, employer_contrib.
+    
+    "loan", "garnishment", "other_deduction", etc. → "deduction"
+    """
+    if mv_type == "earning":
+        return "earning"
+    if mv_type == "employer_contrib":
+        return "employer_contrib"
+    return "deduction"
+
+
 def is_applicable(movement: dict, period_start: str, period_end: str) -> bool:
     """Determina si un movimiento recurrente aplica en un período."""
     status = movement.get("status", "")
@@ -355,6 +367,7 @@ def apply_recurring_for_employee(owner_uid: str, employee_id: str,
         transaction_id = str(uuid.uuid4())
 
         # Crear PayrollTransaction
+        mv_type = _normalize_movement_type(mv.get("movementType", "deduction"))
         tx = PayrollTransaction(
             id=transaction_id,
             periodId=period_id,
@@ -364,7 +377,7 @@ def apply_recurring_for_employee(owner_uid: str, employee_id: str,
             legalEntityId=legal_entity_id,
             groupId=group_id,
             conceptCode=concept_code,
-            type=mv.get("movementType", "deduction"),
+            type=mv_type,
             amount=amount,
             source=f"recurring:{mv_id}",
             sourceId=mv_id,
@@ -375,10 +388,10 @@ def apply_recurring_for_employee(owner_uid: str, employee_id: str,
             conceptSnapshot={
                 "code": concept_code,
                 "name": mv.get("description", concept_code),
-                "type": mv.get("movementType", "deduction"),
-                "affectsISR": mv.get("movementType") == "earning",
-                "affectsTSS": mv.get("movementType") == "earning",
-                "affectsNet": mv.get("movementType") == "deduction",
+                "type": mv_type,
+                "affectsISR": mv_type == "earning",
+                "affectsTSS": mv_type == "earning",
+                "affectsNet": mv_type == "deduction",
                 "accountDebit": "",
                 "accountCredit": "",
                 "conceptVersion": 1,

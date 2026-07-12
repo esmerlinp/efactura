@@ -639,6 +639,7 @@ def payroll_simulate():
         # ── PASO 4: Cargar movimientos recurrentes activos (filtrados por grupo) ──
         from app.services.recurring_service import (
             get_recurring_movements, is_applicable, resolve_amount, get_exception,
+            _normalize_movement_type,
         )
         active_movements = []
 
@@ -810,7 +811,7 @@ def payroll_simulate():
                 if amount <= 0:
                     continue
 
-                mv_type = mv.get("movementType", "deduction")
+                mv_type = _normalize_movement_type(mv.get("movementType", "deduction"))
                 from app.models.transaction import PayrollTransaction
                 tx = PayrollTransaction(
                     id=str(uuid.uuid4()),
@@ -932,6 +933,14 @@ def payroll_simulate():
                 float(t.get("amount", 0)) for t in employee_transactions
                 if t.get("isRecurring") and t.get("type") == "earning"
             )
+            recurring_additions_details = [
+                {
+                    "description": concept_map.get(t.get("conceptCode", ""), {}).get("name", t.get("conceptSnapshot", {}).get("name", t.get("conceptCode", ""))),
+                    "amount": float(t.get("amount", 0)),
+                }
+                for t in employee_transactions
+                if t.get("isRecurring") and t.get("type") == "earning"
+            ]
             recurring_deductions_details = [
                 {
                     "description": concept_map.get(t.get("conceptCode", ""), {}).get("name", t.get("conceptSnapshot", {}).get("name", t.get("conceptCode", ""))),
@@ -961,6 +970,7 @@ def payroll_simulate():
                 "isrRetention": sum_by_concept(employee_transactions, "ISR_RETENCION"),
                 "otherDeductions": round(sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("conceptCode") in ("OTRAS_DEDUCCIONES",) and not t.get("isRecurring")), 2),
                 "recurringDeductionsBreakdown": recurring_deductions_details,
+                "recurringAdditionsBreakdown": recurring_additions_details,
             }
 
             lines.append(line)
@@ -970,6 +980,7 @@ def payroll_simulate():
             total_costo += line["totalIncome"] + line["totalEmployerContrib"]
 
         all_recurring_descs = []
+        all_recurring_additions_descs = []
         for line in lines:
             for d in line.get("recurringDeductionsBreakdown", []):
                 if d["description"] not in all_recurring_descs:
@@ -977,6 +988,13 @@ def payroll_simulate():
             line["recurringDeductionsMap"] = {
                 d["description"]: d["amount"]
                 for d in line.get("recurringDeductionsBreakdown", [])
+            }
+            for d in line.get("recurringAdditionsBreakdown", []):
+                if d["description"] not in all_recurring_additions_descs:
+                    all_recurring_additions_descs.append(d["description"])
+            line["recurringAdditionsMap"] = {
+                d["description"]: d["amount"]
+                for d in line.get("recurringAdditionsBreakdown", [])
             }
 
         simulation = {
@@ -989,6 +1007,7 @@ def payroll_simulate():
             "total_employer": round(total_employer, 2),
             "total_costo": round(total_costo, 2),
             "recurringDeductionColumns": all_recurring_descs,
+            "recurringAdditionsColumns": all_recurring_additions_descs,
             "lines": lines,
         }
 

@@ -118,7 +118,7 @@ def payroll_tss_autodeterminacion(period_id):
     import io
     content = resultado["content"]
     if isinstance(content, str):
-        content = content.encode("utf-8-sig")
+        content = content.encode("utf-8")
     buffer = io.BytesIO(content)
     return send_file(buffer, mimetype=mimetype, as_attachment=True,
                      download_name=resultado["filename"])

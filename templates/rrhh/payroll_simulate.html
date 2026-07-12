@@ -191,6 +191,9 @@
                     <th style="text-align:right;">Comisiones</th>
                     <th style="text-align:right;">Bonificación</th>
                     <th style="text-align:right;">Otros Ingresos</th>
+                    {% for col in simulation.get('recurringAdditionsColumns', []) %}
+                    <th style="text-align:right;">{{ col }}</th>
+                    {% endfor %}
                     <th style="text-align:right;">Total Ingresos</th>
                 </tr></thead>
                 <tbody id="simResTbody1">
@@ -207,6 +210,9 @@
                         <td style="text-align:right;">{% if l.commission and l.commission|float > 0 %}RD$ {{ "{:,.2f}".format(l.commission) }}{% else %}—{% endif %}</td>
                         <td style="text-align:right;">{% if l.bonus and l.bonus|float > 0 %}RD$ {{ "{:,.2f}".format(l.bonus) }}{% else %}—{% endif %}</td>
                         <td style="text-align:right;">{% if l.otherIncome and l.otherIncome|float > 0 %}RD$ {{ "{:,.2f}".format(l.otherIncome) }}{% else %}—{% endif %}</td>
+                        {% for col in simulation.get('recurringAdditionsColumns', []) %}
+                        <td style="text-align:right;">{% set amt = l.recurringAdditionsMap.get(col, 0) %}{% if amt > 0 %}RD$ {{ "{:,.2f}".format(amt) }}{% else %}—{% endif %}</td>
+                        {% endfor %}
                         <td style="text-align:right; font-weight:600;">RD$ {{ "{:,.2f}".format(l.totalIncome) }}</td>
                     </tr>
                     {% endfor %}
@@ -264,6 +270,9 @@
                     <th style="text-align:right;">Comisiones</th>
                     <th style="text-align:right;">Bonificación</th>
                     <th style="text-align:right;">Otros Ingresos</th>
+                    {% for col in simulation.get('recurringAdditionsColumns', []) %}
+                    <th style="text-align:right;">{{ col }}</th>
+                    {% endfor %}
                     <th style="text-align:right;">Total Ingresos</th>
                     <th style="text-align:right;">AFP</th>
                     <th style="text-align:right;">SFS</th>
@@ -290,6 +299,9 @@
                         <td style="text-align:right;">{% if l.commission and l.commission|float > 0 %}RD$ {{ "{:,.2f}".format(l.commission) }}{% else %}—{% endif %}</td>
                         <td style="text-align:right;">{% if l.bonus and l.bonus|float > 0 %}RD$ {{ "{:,.2f}".format(l.bonus) }}{% else %}—{% endif %}</td>
                         <td style="text-align:right;">{% if l.otherIncome and l.otherIncome|float > 0 %}RD$ {{ "{:,.2f}".format(l.otherIncome) }}{% else %}—{% endif %}</td>
+                        {% for col in simulation.get('recurringAdditionsColumns', []) %}
+                        <td style="text-align:right;">{% set amt = l.recurringAdditionsMap.get(col, 0) %}{% if amt > 0 %}RD$ {{ "{:,.2f}".format(amt) }}{% else %}—{% endif %}</td>
+                        {% endfor %}
                         <td style="text-align:right; font-weight:600;">RD$ {{ "{:,.2f}".format(l.totalIncome) }}</td>
                         <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.afpEmployee) }}</td>
                         <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.sfsEmployee) }}</td>

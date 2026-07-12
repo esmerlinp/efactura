@@ -11,6 +11,7 @@ Basado en:
 import calendar
 from datetime import date, datetime, timedelta
 from typing import Optional
+import unicodedata
 
 from app.countries.do.payroll_rules import (
     AFP_EMPLOYEE_RATE, AFP_EMPLOYER_RATE,
@@ -1532,12 +1533,16 @@ class PayrollService:
     # AUTODETERMINACIÓN TSS — Formato oficial Tesorería de la Seguridad Social
     # ═══════════════════════════════════════════════════════════════════════
 
-    # Mapeo de tipos de identificación a códigos TSS
-    _TIPO_DOC_MAP = {"cedula": "1", "rnc": "2", "pasaporte": "3", "": "1"}
 
     # Meses en español para el período
     _MESES = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
               "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+
+    @staticmethod
+    def _ascii_upper(s: str) -> str:
+        """Convierte a uppercase ASCII: elimina tildes, ñ→n, etc."""
+        nfkd = unicodedata.normalize("NFKD", s)
+        return nfkd.encode("ascii", "ignore").decode("ascii").upper()
 
     @classmethod
     def generate_tss_autodeterminacion(cls, payroll_period: dict, employees: list,
@@ -1585,6 +1590,7 @@ class PayrollService:
         # Pos: 1(1) E, 2-3(2) AM, 4-14(11) RNC, 15-20(6) MMAAAA
         # ═══════════════════════════════════════════════════════════════
         header = f"EAM{rnc[-11:].rjust(11)}{periodo_mmaaaa}"
+        assert len(header) == 20, f"Encabezado: {len(header)} chars, deben ser 20"
         output_lines.append(header)
 
         empleados_contados = 0
@@ -1610,21 +1616,21 @@ class PayrollService:
             doc = "".join(c for c in (emp.get("cedula", "") or emp.get("idNumber", "") or "") if c.isalnum())
             documento = doc.ljust(25)[:25]
 
-            # Nombres (50, justificado izquierda)
+            # Nombres (50, justificado izquierda) — ASCII uppercase sin tildes
             nombres_raw = f"{emp.get('firstName', '')} {emp.get('middleName', '')}".strip()
-            nombres = nombres_raw.ljust(50)[:50]
+            nombres = cls._ascii_upper(nombres_raw).ljust(50)[:50]
 
-            # 1er Apellido (40)
+            # 1er Apellido (40) — ASCII uppercase sin tildes
             apellido1 = (emp.get("firstLastName", "") or emp.get("lastName", "") or "").strip()
-            apellido1 = apellido1.ljust(40)[:40]
+            apellido1 = cls._ascii_upper(apellido1).ljust(40)[:40]
 
-            # 2do Apellido (40)
+            # 2do Apellido (40) — ASCII uppercase sin tildes
             apellido2 = (emp.get("secondLastName", "") or "").strip()
-            apellido2 = apellido2.ljust(40)[:40]
+            apellido2 = cls._ascii_upper(apellido2).ljust(40)[:40]
 
             # Sexo (1)
             gender = (emp.get("gender", "") or "").lower()
-            sexo = "M" if gender in ("masculino", "male", "m") else ("F" if gender else " ")
+            sexo = "M" if gender in ("masculino", "male", "m") else "F"
 
             # Fecha nacimiento (8, DDMMAAAA)
             birth = (emp.get("birthDate", "") or "").strip()
@@ -1650,8 +1656,8 @@ class PayrollService:
             # Aporte voluntario (16, ceros)
             aporte_vol = "0000000000000.00"
 
-            # Salario_ISR (16): en ceros, es igual a Salario_SS (todo tributa salvo exentos)
-            salario_isr_str = "0000000000000.00"
+            # Salario_ISR (16): igual a Salario_SS (todo tributa salvo exentos)
+            salario_isr_str = salario_ss_str
 
             # Otras remuneraciones (16): 0, todo va dentro de Salario_SS
             otras_rem_str = "0000000000000.00"
@@ -1662,14 +1668,14 @@ class PayrollService:
             # Remun. otros empleadores (16, ceros)
             rem_otros = "0000000000000.00"
 
-            # Ingresos exentos ISR (16) — siempre en ceros (se desglosan abajo)
+            # Ingresos exentos ISR (16): siempre en cero (se desglosan en 01/02/03)
             ingresos_exentos = "0000000000000.00"
 
             # Saldo a favor (16, ceros)
             saldo_favor = "0000000000000.00"
 
-            # Salario INFOTEP (16): en ceros, es igual a Salario_SS
-            salario_infotep_str = "0000000000000.00"
+            # Salario INFOTEP (16): igual a Salario_SS
+            salario_infotep_str = salario_ss_str
 
             # Tipo ingreso (4): default 0001 (Normal)
             tipo_ingreso = "0001"
@@ -1697,8 +1703,7 @@ class PayrollService:
                 ingresos_exentos + saldo_favor + salario_infotep_str +
                 tipo_ingreso + regalia_str + pc_str + pension_str
             )
-            # Verificar longitud exacta
-            detalle = detalle.ljust(366)[:366]
+            assert len(detalle) == 366, f"Detalle: {len(detalle)} chars, deben ser 366"
             output_lines.append(detalle)
 
         # ═══════════════════════════════════════════════════════════════
@@ -1709,7 +1714,7 @@ class PayrollService:
         trailer = f"S{total_registros:06d}"
         output_lines.append(trailer)
 
-        content = "\n".join(output_lines)
+        content = "\n".join(output_lines) + "\n"
 
         # Clean RNC for filename (just numbers, no spaces)
         rnc_clean = "".join(c for c in (employer_rnc or "000000000") if c.isdigit())
