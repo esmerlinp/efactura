@@ -45,11 +45,11 @@
                     <i class="fa-solid fa-download"></i> Exportar ▾
                 </button>
                 <div style="display:none; position:absolute; right:0; top:100%; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:var(--shadow-lg); z-index:100; min-width:200px; margin-top:4px;">
-                    <a href="{{ url_for('web_reports_606.reporte_606_export', year=year, month=month, supplier_id=supplier_id, tipo_gasto=tipo_gasto, ecf_type=ecf_type, search=search, format='simple') }}" style="display:block; padding:10px 16px; text-decoration:none; color:var(--text-primary); font-size:0.85rem; border-bottom:1px solid var(--border-color);">
-                        <i class="fa-solid fa-file-csv" style="margin-right:8px;"></i> CSV Simple
+                    <a href="{{ url_for('web_reports_606.reporte_606_export', year=year, month=month, supplier_id=supplier_id, tipo_gasto=tipo_gasto, ecf_type=ecf_type, search=search, format='dgii-xlsx') }}" style="display:block; padding:10px 16px; text-decoration:none; color:var(--text-primary); font-size:0.85rem; border-bottom:1px solid var(--border-color);">
+                        <i class="fa-solid fa-file-excel" style="margin-right:8px; color:#10b981;"></i> Excel DGII 606 (.xlsx)
                     </a>
-                    <a href="{{ url_for('web_reports_606.reporte_606_export', year=year, month=month, supplier_id=supplier_id, tipo_gasto=tipo_gasto, ecf_type=ecf_type, search=search, format='dgii') }}" style="display:block; padding:10px 16px; text-decoration:none; color:var(--text-primary); font-size:0.85rem;">
-                        <i class="fa-solid fa-file-export" style="margin-right:8px;"></i> CSV Formato DGII 606
+                    <a href="{{ url_for('web_reports_606.reporte_606_export', year=year, month=month, supplier_id=supplier_id, tipo_gasto=tipo_gasto, ecf_type=ecf_type, search=search, format='dgii-txt') }}" style="display:block; padding:10px 16px; text-decoration:none; color:var(--text-primary); font-size:0.85rem;">
+                        <i class="fa-solid fa-file-lines" style="margin-right:8px; color:#f59e0b;"></i> TXT Oficina Virtual (.txt)
                     </a>
                 </div>
             </div>
