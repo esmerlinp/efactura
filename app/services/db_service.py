@@ -691,6 +691,10 @@ def _invalidate_invoices(owner_uid):
         print(f"⚠️ Error al invalidar caché de facturas para {owner_uid}: {e}")
 
 
+def _invalidate_client_advances(owner_uid):
+    pass
+
+
 def clear_db_cache(pattern=None):
     """Limpia la caché de consultas Firestore. Útil tras operaciones de escritura."""
     cache.clear()
@@ -2857,6 +2861,147 @@ class DatabaseService:
         except Exception as e:
             print(f"❌ Error al registrar abono en Firestore: {e}")
             raise e
+
+    # =========================================================================
+    # GESTIÓN DE ANTICIPOS DE CLIENTES (CLIENT ADVANCES)
+    # =========================================================================
+
+    @classmethod
+    def save_client_advance(cls, owner_uid, advance_id, advance_dict, sandbox=True):
+        if not firebase_initialized:
+            return None
+        try:
+            coll_name = "sandbox_client_advances" if sandbox else "client_advances"
+            advance_dict["id"] = advance_id
+            advance_dict["ownerUID"] = owner_uid
+            advance_dict["amount"] = float(advance_dict.get("amount", 0.0))
+            advance_dict["appliedAmount"] = float(advance_dict.get("appliedAmount", 0.0))
+            if "createdAt" not in advance_dict or not advance_dict.get("createdAt"):
+                advance_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
+            advance_dict["createdAt"] = serialize_field(advance_dict["createdAt"])
+            advance_dict["updatedAt"] = serialize_field(datetime.now(timezone.utc).isoformat())
+            advance_dict["projectId"] = advance_dict.get("projectId")
+            db_firestore.collection("users").document(owner_uid).collection(coll_name).document(advance_id).set(advance_dict)
+            _invalidate_client_advances(owner_uid)
+            return advance_dict
+        except Exception as e:
+            print(f"❌ Error al guardar anticipo de cliente en Firestore: {e}")
+            raise e
+
+    @classmethod
+    def get_client_advances(cls, owner_uid, sandbox=True, client_id=None, status=None, project_id=None, quotation_id=None):
+        advances = []
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_client_advances" if sandbox else "client_advances"
+                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    if data.get("isDeleted"):
+                        continue
+                    data["id"] = doc.id
+                    data["amount"] = float(data.get("amount", 0.0))
+                    data["appliedAmount"] = float(data.get("appliedAmount", 0.0))
+                    advances.append(data)
+            except Exception as e:
+                print(f"Error al obtener anticipos de clientes: {e}")
+        if client_id:
+            advances = [a for a in advances if a.get("clientId") == client_id]
+        if status:
+            advances = [a for a in advances if a.get("status") == status]
+        if project_id == '__no_project__':
+            advances = [a for a in advances if not a.get("projectId")]
+        elif project_id:
+            advances = [a for a in advances if a.get("projectId") == project_id]
+        if quotation_id:
+            advances = [a for a in advances if a.get("quotationId") == quotation_id]
+        advances.sort(key=lambda x: x.get("createdAt", ""), reverse=True)
+        return advances
+
+    @classmethod
+    def get_client_advance(cls, owner_uid, advance_id, sandbox=True):
+        if not firebase_initialized:
+            return None
+        try:
+            coll_name = "sandbox_client_advances" if sandbox else "client_advances"
+            doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(advance_id).get()
+            if doc.exists:
+                data = doc.to_dict()
+                data["id"] = doc.id
+                data["amount"] = float(data.get("amount", 0.0))
+                data["appliedAmount"] = float(data.get("appliedAmount", 0.0))
+                return data
+        except Exception as e:
+            print(f"Error al obtener anticipo de cliente: {e}")
+        return None
+
+    @classmethod
+    def delete_client_advance(cls, owner_uid, advance_id, sandbox=True):
+        if not firebase_initialized:
+            return None
+        try:
+            coll_name = "sandbox_client_advances" if sandbox else "client_advances"
+            advance = cls.get_client_advance(owner_uid, advance_id, sandbox=sandbox)
+            if not advance:
+                return None
+            advance["isDeleted"] = True
+            advance["status"] = "Anulado"
+            advance["updatedAt"] = serialize_field(datetime.now(timezone.utc).isoformat())
+            if advance.get("bankAccountId"):
+                try:
+                    bank_acc = cls.get_bank_account(owner_uid, advance["bankAccountId"], sandbox=sandbox)
+                    if bank_acc:
+                        new_balance = bank_acc["currentBalance"] - advance["amount"]
+                        cls.save_bank_account(owner_uid, advance["bankAccountId"], {
+                            **bank_acc,
+                            "currentBalance": max(0.0, new_balance)
+                        }, sandbox=sandbox)
+                except Exception as bank_err:
+                    print(f"⚠️ Error al revertir saldo de cuenta bancaria: {bank_err}")
+            db_firestore.collection("users").document(owner_uid).collection(coll_name).document(advance_id).set(advance)
+            _invalidate_client_advances(owner_uid)
+            return advance
+        except Exception as e:
+            print(f"❌ Error al eliminar anticipo de cliente: {e}")
+            raise e
+
+    @classmethod
+    def get_client_advance_balance(cls, owner_uid, client_id, sandbox=True, project_id=None):
+        advances = cls.get_client_advances(owner_uid, sandbox=sandbox, client_id=client_id, status="Activo", project_id=project_id)
+        return sum(a.get("amount", 0.0) for a in advances)
+
+    @classmethod
+    def apply_client_advances_to_invoice(cls, owner_uid, invoice_id, advance_ids, sandbox=True):
+        invoice = cls.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+        if not invoice:
+            raise ValueError("Factura no encontrada.")
+        applied_total = 0.0
+        applied_list = []
+        for aid in advance_ids:
+            advance = cls.get_client_advance(owner_uid, aid, sandbox=sandbox)
+            if not advance or advance.get("status") != "Activo":
+                continue
+            amt = advance["amount"]
+            advance["status"] = "Aplicado"
+            advance["appliedToInvoiceId"] = invoice_id
+            advance["appliedToInvoiceNumber"] = invoice.get("invoiceNumber", "")
+            advance["appliedAmount"] = amt
+            advance["appliedAt"] = datetime.now(timezone.utc).isoformat()
+            advance["updatedAt"] = serialize_field(datetime.now(timezone.utc).isoformat())
+            cls.save_client_advance(owner_uid, aid, advance, sandbox=sandbox)
+            applied_total += amt
+            applied_list.append({"advanceId": aid, "amount": amt, "clientId": advance.get("clientId", ""), "clientName": advance.get("clientName", "")})
+        net_payable = float(invoice.get("netPayable", float(invoice.get("total", 0))))
+        existing_applied = invoice.get("appliedAdvances", [])
+        net_payable = max(0.0, net_payable - applied_total)
+        inv_ref = db_firestore.collection("users").document(owner_uid).collection("sandbox_invoices" if sandbox else "invoices").document(invoice_id)
+        inv_ref.update({
+            "appliedAdvances": existing_applied + applied_list,
+            "netPayable": net_payable,
+            "totalPaid": applied_total,
+            "remainingBalance": net_payable
+        })
+        return {"appliedAdvances": applied_list, "totalApplied": applied_total, "netPayable": net_payable}
 
     # =========================================================================
     # GESTIÓN DE GASTOS Y EGRESOS (EXPENSES)
@@ -5094,7 +5239,8 @@ class DatabaseService:
                         "attachmentUrl": data.get("attachmentUrl", ""),
                         "attachmentName": data.get("attachmentName", ""),
                         "edited": bool(data.get("edited", False)),
-                        "editedAt": serialize_field(data.get("editedAt"))
+                        "editedAt": serialize_field(data.get("editedAt")),
+                        "visibleToClient": bool(data.get("visibleToClient", False))
                     })
                 comments.sort(key=lambda x: x["createdAt"] or "", reverse=True)
             except Exception as e:
@@ -5236,7 +5382,8 @@ class DatabaseService:
                         "attachmentName": data.get("attachmentName", ""),
                         "edited": bool(data.get("edited", False)),
                         "editedAt": serialize_field(data.get("editedAt")),
-                        "reactions": data.get("reactions", {})
+                        "reactions": data.get("reactions", {}),
+                        "visibleToClient": bool(data.get("visibleToClient", False))
                     })
                 comments.sort(key=lambda x: x["createdAt"] or "", reverse=True)
             except Exception as e:

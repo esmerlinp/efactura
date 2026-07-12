@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from flask import Blueprint, render_template, request, redirect, url_for, session
+from flask import Blueprint, render_template, request, redirect, url_for, session, g
 
 from app.services.bi_drilldown_service import BIDrilldownService, DRILLDOWN_METRICS
 from app.utils.decorators import check_permission
@@ -32,6 +32,8 @@ def drilldown(metric):
         year=year,
         month=month,
         sandbox=session.get("is_sandbox_mode", True),
+        branch_id=g.get("branch_id"),
+        project_id=g.get("project_id"),
     )
     for row in data["rows"]:
         link = row.get("link")

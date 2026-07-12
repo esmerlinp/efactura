@@ -35,7 +35,7 @@ class BIDrilldownService:
         return False
 
     @classmethod
-    def get_drilldown(cls, owner_uid: str, metric: str, year: int = None, month: int = 0, sandbox: bool = True) -> dict:
+    def get_drilldown(cls, owner_uid: str, metric: str, year: int = None, month: int = 0, sandbox: bool = True, branch_id: str = None, project_id: str = None) -> dict:
         from app.services.db_service import DatabaseService
 
         now = datetime.now(timezone.utc)
@@ -43,8 +43,8 @@ class BIDrilldownService:
         month = int(month or 0)
         metric = metric if metric in DRILLDOWN_METRICS else "sales"
 
-        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
-        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=branch_id, project_id=project_id)
+        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=branch_id, project_id=project_id)
         real_invoices = [
             inv for inv in invoices
             if not inv.get("isQuotation") and inv.get("status") not in ("Anulada", "Borrador", "Consolidada")

@@ -1993,8 +1993,9 @@ def invoice_detail(invoice_id):
         })
         
     bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
+    projects = DatabaseService.get_projects(owner_uid, branch_id=invoice.get('branchId'), sandbox=sandbox) if invoice.get('branchId') else DatabaseService.get_projects(owner_uid, sandbox=sandbox)
 
-    return render_template('invoices/detail.html', active_page='quotations' if invoice.get('isQuotation') else 'invoices', invoice=invoice, company=company, branch=branch, payments=payments, client_email=_get_client_email(owner_uid, invoice, sandbox), comments=comments, taggable_users=taggable_users, format_mentions=format_mentions, history_logs=history_logs, bank_accounts=bank_accounts)
+    return render_template('invoices/detail.html', active_page='quotations' if invoice.get('isQuotation') else 'invoices', invoice=invoice, company=company, branch=branch, payments=payments, client_email=_get_client_email(owner_uid, invoice, sandbox), comments=comments, taggable_users=taggable_users, format_mentions=format_mentions, history_logs=history_logs, bank_accounts=bank_accounts, projects=projects)
 
 @web_invoices_bp.route('/invoices/<invoice_id>/comments/new', methods=['POST'])
 def add_invoice_comment(invoice_id):
@@ -2027,6 +2028,8 @@ def add_invoice_comment(invoice_id):
         except Exception as e:
             flash(f"Advertencia: No se pudo cargar el archivo adjunto: {html.escape(str(e))}", 'warning')
             
+    visible_to_client = request.form.get('visible_to_client') == 'on'
+
     comment_id = str(uuid.uuid4())
     comment_dict = {
         "content": content,
@@ -2036,7 +2039,8 @@ def add_invoice_comment(invoice_id):
         "createdAt": datetime.now(timezone.utc).isoformat(),
         "attachmentUrl": attachment_url,
         "attachmentName": attachment_name,
-        "edited": False
+        "edited": False,
+        "visibleToClient": visible_to_client
     }
     
     DatabaseService.save_invoice_comment(owner_uid, invoice_id, comment_id, comment_dict, sandbox=sandbox)
@@ -2080,6 +2084,7 @@ def edit_invoice_comment(invoice_id, comment_id):
     comment['content'] = content
     comment['edited'] = True
     comment['editedAt'] = datetime.now(timezone.utc).isoformat()
+    comment['visibleToClient'] = request.form.get('visible_to_client_edit') == 'on'
     
     file = request.files.get('attachment')
     if file and file.filename:
@@ -2153,6 +2158,29 @@ def ai_polish_comment():
         return jsonify({"success": True, "text": res["text"]})
     else:
         return jsonify({"success": False, "message": res.get("message", "Error al procesar con IA")})
+
+
+
+@web_invoices_bp.route('/invoices/<invoice_id>/update-project', methods=['POST'])
+def update_invoice_project(invoice_id):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    project_id = request.form.get('projectId', None)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice:
+        flash('Documento no encontrado.', 'error')
+        return redirect(url_for('web_invoices.list_invoices'))
+    if project_id == '__none__':
+        invoice['projectId'] = None
+    elif project_id:
+        invoice['projectId'] = project_id
+    else:
+        invoice['projectId'] = None
+    DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+    flash('Proyecto actualizado.', 'success')
+    return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
 
 
@@ -2932,19 +2960,21 @@ def reject_payment_proof(invoice_id):
         
         # Si se especificó un motivo de rechazo, registrarlo como comentario interno
         if rejection_reason:
+            visible_to_client = False
             comment_id = str(uuid.uuid4())
             comment_dict = {
-                "content": f"❌ [PAGO RECHAZADO] Se rechazó el comprobante de pago reportado. Motivo: {rejection_reason}",
+                "content": rejection_reason,
                 "createdBy": session['user']['email'],
                 "createdByName": session['user'].get('name', session['user']['email']),
                 "createdByUid": session['user']['uid'],
                 "createdAt": datetime.now(timezone.utc).isoformat(),
                 "attachmentUrl": "",
                 "attachmentName": "",
-                "edited": False
+                "edited": False,
+                "visibleToClient": False
             }
             DatabaseService.save_invoice_comment(owner_uid, invoice_id, comment_id, comment_dict, sandbox=sandbox)
-            
+
         # Notificar al cliente por email e in-app
         try:
             client_email = invoice.get('clientEmail', '')
@@ -3193,7 +3223,31 @@ def convert_quotation_route(invoice_id):
     except Exception as ae:
         print(f"⚠️ Error al registrar auditoría de creación de factura convertida: {ae}")
 
-    flash(f'¡Cotización convertida exitosamente a {target_ecf_type}! El número de documento es {new_invoice["invoiceNumber"]}. Procede a firmar digitalmente el comprobante.', 'success')
+    # 4. Aplicar anticipos activos del cliente automáticamente
+    client_id = new_invoice.get('clientId', '')
+    applied_msg = ""
+    if client_id:
+        try:
+            active_advances = DatabaseService.get_client_advances(
+                owner_uid, sandbox=sandbox, client_id=client_id, status="Activo",
+                project_id=g.get('project_id')
+            )
+            if active_advances:
+                apply_ids = [a["id"] for a in active_advances]
+                result = DatabaseService.apply_client_advances_to_invoice(
+                    owner_uid, new_invoice_id, apply_ids, sandbox=sandbox
+                )
+                updated_invoice = DatabaseService.get_invoice(owner_uid, new_invoice_id, sandbox=sandbox)
+                if updated_invoice:
+                    from app.services.accounting_service import AccountingService
+                    AccountingService.auto_generate_advance_application_entry(
+                        owner_uid, updated_invoice, result["appliedAdvances"], sandbox=sandbox
+                    )
+                applied_msg = f" Se aplicaron {len(result['appliedAdvances'])} anticipos por RD$ {result['totalApplied']:,.2f}."
+        except Exception as ae_adv:
+            print(f"⚠️ Error al aplicar anticipos en conversión: {ae_adv}")
+
+    flash(f'¡Cotización convertida exitosamente a {target_ecf_type}! El número de documento es {new_invoice["invoiceNumber"]}.{applied_msg} Procede a firmar digitalmente el comprobante.', 'success')
     return redirect(url_for('web_invoices.invoice_detail', invoice_id=new_invoice_id))
 
 
@@ -8623,6 +8677,319 @@ def cxc_write_off(invoice_id):
     invoice['writeOffDate'] = datetime.now(timezone.utc).isoformat()
     DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
     return jsonify({"success": True, "message": "Factura castigada"})
+
+
+# =========================================================================
+# ANTICIPOS DE CLIENTES (CLIENT ADVANCES)
+# =========================================================================
+
+@web_invoices_bp.route('/cxc/advances')
+def cxc_advances_list():
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canManageCXC'):
+        return render_template('auth/restricted.html', feature_name="Anticipos de Clientes", required_permission="canManageCXC")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    project_id = g.get('project_id')
+    advances = DatabaseService.get_client_advances(owner_uid, sandbox=sandbox, project_id=project_id)
+    total_activos = sum(a.get("amount", 0.0) for a in advances if a.get("status") == "Activo")
+    total_aplicados = sum(a.get("appliedAmount", 0.0) for a in advances if a.get("status") == "Aplicado")
+    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=project_id)
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
+    client_map = {c.get('id'): c.get('razonSocial', '') for c in clients}
+    bank_map = {b.get('id'): b.get('name', '') for b in bank_accounts}
+    all_quotations = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=project_id, quotations_only=True)
+    quot_map = {q.get('id'): q for q in all_quotations}
+    for a in advances:
+        if not a.get('clientName'):
+            if a.get('clientId') and a['clientId'] in client_map:
+                a['clientName'] = client_map[a['clientId']]
+            elif a.get('quotationId') and a['quotationId'] in quot_map:
+                qt = quot_map[a['quotationId']]
+                qt_client_id = qt.get('clientId', '')
+                if qt_client_id and qt_client_id in client_map:
+                    a['clientName'] = client_map[qt_client_id]
+                    a['clientId'] = qt_client_id
+        if not a.get('bank') and a.get('bankAccountId') and a['bankAccountId'] in bank_map:
+            a['bank'] = bank_map[a['bankAccountId']]
+    active_quotations = [q for q in all_quotations if q.get("status") in ("Borrador", "Pendiente Aut. Cliente", "Aprobada") and not q.get("convertedToInvoiceId")]
+    company = DatabaseService.get_company_profile(owner_uid) or {}
+    return render_template(
+        'cxc/advances_list.html',
+        active_page='cxc_advances',
+        advances=advances,
+        total_activos=total_activos,
+        total_aplicados=total_aplicados,
+        clients=clients,
+        bank_accounts=bank_accounts,
+        quotations=active_quotations,
+        company=company,
+        now=datetime.now(timezone.utc).isoformat()
+    )
+
+
+@web_invoices_bp.route('/cxc/advances/new', methods=['GET', 'POST'])
+def cxc_advances_new():
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canManageCXC'):
+        return render_template('auth/restricted.html', feature_name="Anticipos de Clientes", required_permission="canManageCXC")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    project_id = g.get('project_id')
+    if request.method == 'POST':
+        advance_id = str(uuid.uuid4())
+        amount = float(request.form.get('amount', 0))
+        if amount <= 0:
+            flash('El monto del anticipo debe ser mayor a cero.', 'error')
+            return redirect(url_for('web_invoices.cxc_advances_new'))
+        payment_method = request.form.get('paymentMethod', 'Efectivo')
+        bank_account_id = request.form.get('bankAccountId', '')
+        bank_name = request.form.get('bank', '')
+        if not bank_name and bank_account_id:
+            try:
+                bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox)
+                if bank_acc:
+                    bank_name = bank_acc.get('name', '')
+            except Exception:
+                pass
+        client_name = request.form.get('clientName', '')
+        client_id = request.form.get('clientId', '')
+        if not client_name and client_id:
+            try:
+                client = DatabaseService.get_client(owner_uid, client_id, sandbox=sandbox)
+                if client:
+                    client_name = client.get('razonSocial', '')
+            except Exception:
+                pass
+        advance_dict = {
+            "id": advance_id,
+            "clientId": client_id,
+            "clientName": client_name,
+            "clientRNC": request.form.get('clientRNC', ''),
+            "amount": amount,
+            "paymentMethod": payment_method,
+            "bank": bank_name,
+            "bankAccountId": request.form.get('bankAccountId', ''),
+            "referenceNumber": request.form.get('referenceNumber', ''),
+            "paymentDate": request.form.get('paymentDate', datetime.now(timezone.utc).isoformat()),
+            "registeredBy": session['user'].get('email', ''),
+            "notes": request.form.get('notes', ''),
+            "quotationId": request.form.get('quotationId', ''),
+            "quotationNumber": request.form.get('quotationNumber', ''),
+            "status": "Activo",
+            "branchId": session.get('selected_branch_id', 'default-sucursal-principal'),
+            "projectId": request.form.get('projectId') or session.get('selected_project_id') or None,
+        }
+        try:
+            if advance_dict["clientName"]:
+                clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=project_id)
+                matched = [c for c in clients if c.get("razonSocial", "").strip().lower() == advance_dict["clientName"].strip().lower()]
+                if matched:
+                    advance_dict["clientId"] = matched[0].get("id", advance_dict["clientId"])
+                    advance_dict["clientRNC"] = matched[0].get("rnc", advance_dict.get("clientRNC", ""))
+            DatabaseService.save_client_advance(owner_uid, advance_id, advance_dict, sandbox=sandbox)
+            from app.services.accounting_service import AccountingService
+            AccountingService.auto_generate_client_advance_entry(owner_uid, advance_dict, sandbox=sandbox)
+            bank_account_id = advance_dict.get("bankAccountId")
+            if bank_account_id:
+                try:
+                    bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox)
+                    if bank_acc:
+                        DatabaseService.save_bank_account(owner_uid, bank_account_id, {
+                            **bank_acc,
+                            "currentBalance": bank_acc["currentBalance"] + amount
+                        }, sandbox=sandbox)
+                except Exception as bank_err:
+                    print(f"⚠️ Error al actualizar saldo bancario: {bank_err}")
+            flash(f'¡Anticipo de RD$ {amount:,.2f} registrado con éxito!', 'success')
+        except Exception as e:
+            flash(f'Error al registrar el anticipo: {str(e)}', 'error')
+        return redirect(url_for('web_invoices.cxc_advances_list'))
+    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=project_id)
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
+    quotations = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=project_id, quotations_only=True)
+    active_quotations = [q for q in quotations if q.get("status") in ("Borrador", "Pendiente Aut. Cliente", "Aprobada") and not q.get("convertedToInvoiceId")]
+    company = DatabaseService.get_company_profile(owner_uid) or {}
+    return render_template(
+        'cxc/advances_form.html',
+        active_page='cxc_advances_new',
+        advance=None,
+        clients=clients,
+        bank_accounts=bank_accounts,
+        quotations=active_quotations,
+        company=company
+    )
+
+
+@web_invoices_bp.route('/cxc/advances/<advance_id>/edit', methods=['GET', 'POST'])
+def cxc_advances_edit(advance_id):
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canManageCXC'):
+        return render_template('auth/restricted.html', feature_name="Anticipos de Clientes", required_permission="canManageCXC")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    project_id = g.get('project_id')
+    advance = DatabaseService.get_client_advance(owner_uid, advance_id, sandbox=sandbox)
+    if not advance:
+        flash('Anticipo no encontrado.', 'error')
+        return redirect(url_for('web_invoices.cxc_advances_list'))
+    if advance.get("status") != "Activo":
+        flash('Solo se pueden editar anticipos en estado Activo.', 'error')
+        return redirect(url_for('web_invoices.cxc_advances_list'))
+    if not advance.get("clientName") and advance.get("clientId"):
+        try:
+            client = DatabaseService.get_client(owner_uid, advance["clientId"], sandbox=sandbox)
+            if client:
+                advance["clientName"] = client.get('razonSocial', '')
+        except Exception:
+            pass
+    if not advance.get("bank") and advance.get("bankAccountId"):
+        try:
+            bank_acc = DatabaseService.get_bank_account(owner_uid, advance["bankAccountId"], sandbox=sandbox)
+            if bank_acc:
+                advance["bank"] = bank_acc.get('name', '')
+        except Exception:
+            pass
+    if request.method == 'POST':
+        amount = float(request.form.get('amount', 0))
+        if amount <= 0:
+            flash('El monto del anticipo debe ser mayor a cero.', 'error')
+            return redirect(url_for('web_invoices.cxc_advances_edit', advance_id=advance_id))
+        old_bank_account_id = advance.get("bankAccountId")
+        old_amount = float(advance.get("amount", 0))
+        client_id = request.form.get('clientId', advance.get("clientId", ""))
+        client_name = request.form.get('clientName', advance.get("clientName", ""))
+        if not client_name and client_id:
+            try:
+                client = DatabaseService.get_client(owner_uid, client_id, sandbox=sandbox)
+                if client:
+                    client_name = client.get('razonSocial', '')
+            except Exception:
+                pass
+        bank_account_id = request.form.get('bankAccountId', advance.get("bankAccountId", ""))
+        bank_name = request.form.get('bank', advance.get("bank", ""))
+        if not bank_name and bank_account_id:
+            try:
+                bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox)
+                if bank_acc:
+                    bank_name = bank_acc.get('name', '')
+            except Exception:
+                pass
+        advance["clientId"] = client_id
+        advance["clientName"] = client_name
+        advance["clientRNC"] = request.form.get('clientRNC', advance.get("clientRNC", ""))
+        advance["amount"] = amount
+        advance["paymentMethod"] = request.form.get('paymentMethod', advance.get("paymentMethod", "Efectivo"))
+        advance["bank"] = bank_name
+        advance["bankAccountId"] = bank_account_id
+        advance["referenceNumber"] = request.form.get('referenceNumber', advance.get("referenceNumber", ""))
+        advance["paymentDate"] = request.form.get('paymentDate', advance.get("paymentDate", ""))
+        advance["notes"] = request.form.get('notes', advance.get("notes", ""))
+        advance["quotationId"] = request.form.get('quotationId', advance.get("quotationId", ""))
+        advance["quotationNumber"] = request.form.get('quotationNumber', advance.get("quotationNumber", ""))
+        advance["projectId"] = request.form.get('projectId') or session.get('selected_project_id') or advance.get("projectId")
+        try:
+            if old_bank_account_id and old_bank_account_id != advance.get("bankAccountId"):
+                try:
+                    old_bank = DatabaseService.get_bank_account(owner_uid, old_bank_account_id, sandbox=sandbox)
+                    if old_bank:
+                        DatabaseService.save_bank_account(owner_uid, old_bank_account_id, {
+                            **old_bank,
+                            "currentBalance": max(0.0, old_bank["currentBalance"] - old_amount)
+                        }, sandbox=sandbox)
+                except Exception:
+                    pass
+            DatabaseService.save_client_advance(owner_uid, advance_id, advance, sandbox=sandbox)
+            new_bank_account_id = advance.get("bankAccountId")
+            if new_bank_account_id and new_bank_account_id != old_bank_account_id:
+                try:
+                    new_bank = DatabaseService.get_bank_account(owner_uid, new_bank_account_id, sandbox=sandbox)
+                    if new_bank:
+                        DatabaseService.save_bank_account(owner_uid, new_bank_account_id, {
+                            **new_bank,
+                            "currentBalance": new_bank["currentBalance"] + amount
+                        }, sandbox=sandbox)
+                except Exception:
+                    pass
+            elif new_bank_account_id and new_bank_account_id == old_bank_account_id and amount != old_amount:
+                try:
+                    bank_acc = DatabaseService.get_bank_account(owner_uid, new_bank_account_id, sandbox=sandbox)
+                    if bank_acc:
+                        DatabaseService.save_bank_account(owner_uid, new_bank_account_id, {
+                            **bank_acc,
+                            "currentBalance": bank_acc["currentBalance"] - old_amount + amount
+                        }, sandbox=sandbox)
+                except Exception:
+                    pass
+            flash('¡Anticipo actualizado con éxito!', 'success')
+        except Exception as e:
+            flash(f'Error al actualizar el anticipo: {str(e)}', 'error')
+        return redirect(url_for('web_invoices.cxc_advances_list'))
+    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=project_id)
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
+    quotations = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=project_id, quotations_only=True)
+    active_quotations = [q for q in quotations if q.get("status") in ("Borrador", "Pendiente Aut. Cliente", "Aprobada") and not q.get("convertedToInvoiceId")]
+    company = DatabaseService.get_company_profile(owner_uid) or {}
+    return render_template(
+        'cxc/advances_form.html',
+        active_page='cxc_advances_edit',
+        advance=advance,
+        clients=clients,
+        bank_accounts=bank_accounts,
+        quotations=active_quotations,
+        company=company
+    )
+
+
+@web_invoices_bp.route('/cxc/advances/<advance_id>/delete', methods=['POST'])
+def cxc_advances_delete(advance_id):
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canManageCXC'):
+        flash('No tienes permiso para anular anticipos.', 'error')
+        return redirect(url_for('web_invoices.cxc_advances_list'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    advance = DatabaseService.get_client_advance(owner_uid, advance_id, sandbox=sandbox)
+    if not advance:
+        flash('Anticipo no encontrado.', 'error')
+        return redirect(url_for('web_invoices.cxc_advances_list'))
+    if advance.get("status") == "Aplicado":
+        flash('No se puede anular un anticipo que ya fue aplicado a una factura.', 'error')
+        return redirect(url_for('web_invoices.cxc_advances_list'))
+    try:
+        DatabaseService.delete_client_advance(owner_uid, advance_id, sandbox=sandbox)
+        flash('Anticipo anulado correctamente. El saldo bancario fue revertido.', 'success')
+    except Exception as e:
+        flash(f'Error al anular el anticipo: {str(e)}', 'error')
+    return redirect(url_for('web_invoices.cxc_advances_list'))
+
+
+@web_invoices_bp.route('/cxc/advances/apply', methods=['POST'])
+def cxc_advances_apply():
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canManageCXC'):
+        flash('No tienes permiso para aplicar anticipos.', 'error')
+        return redirect(url_for('web_invoices.cxc_advances_list'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    invoice_id = request.form.get('invoiceId', '')
+    advance_ids = request.form.getlist('advanceIds')
+    if not invoice_id:
+        flash('Debe seleccionar una factura.', 'error')
+        return redirect(url_for('web_invoices.cxc_advances_list'))
+    if not advance_ids:
+        flash('Debe seleccionar al menos un anticipo.', 'error')
+        return redirect(url_for('web_invoices.cxc_advances_list'))
+    try:
+        result = DatabaseService.apply_client_advances_to_invoice(owner_uid, invoice_id, advance_ids, sandbox=sandbox)
+        invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+        if invoice:
+            from app.services.accounting_service import AccountingService
+            AccountingService.auto_generate_advance_application_entry(owner_uid, invoice, result["appliedAdvances"], sandbox=sandbox)
+        flash(f'¡{len(result["appliedAdvances"])} anticipos aplicados por RD$ {result["totalApplied"]:,.2f}! Nuevo saldo pendiente: RD$ {result["netPayable"]:,.2f}.', 'success')
+    except Exception as e:
+        flash(f'Error al aplicar anticipos: {str(e)}', 'error')
+    return redirect(url_for('web_invoices.cxc_advances_list'))
 
 
 @web_invoices_bp.route('/expenses/cxp/batch-pay', methods=['POST'])

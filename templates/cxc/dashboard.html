@@ -172,6 +172,14 @@
     </div>
 </div>
 
+<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px; padding: 10px 16px; background: rgba(16,185,129,0.04); border: 1px solid rgba(16,185,129,0.15); border-radius: var(--radius-sm); font-size: 0.8rem; color: var(--text-secondary);">
+    <i class="fa-solid fa-hand-holding-dollar" style="color: var(--accent-emerald); font-size: 1rem;"></i>
+    <span>¿Recibes abonos de clientes antes de facturar? Usa el módulo de <strong>Anticipos de Clientes</strong> para registrarlos como pasivo y aplicarlos automáticamente al emitir la factura final.</span>
+    <a href="{{ url_for('web_invoices.cxc_advances_list') }}" style="margin-left: auto; padding: 6px 14px; font-size: 0.75rem; font-weight: 600; border-radius: var(--radius-sm); text-decoration: none; background: var(--accent-emerald); color: #fff; white-space: nowrap;">
+        Ir a Anticipos <i class="fa-solid fa-arrow-right" style="font-size: 0.65rem;"></i>
+    </a>
+</div>
+
 <!-- KPIs SUPERIORES (Estilo OpenAI Dashboard) -->
 {% set total_outstanding_val = total_outstanding | float %}
 {% if total_outstanding_val > 0 %}

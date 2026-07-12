@@ -598,6 +598,131 @@ class AccountingService:
             return None
 
     @classmethod
+    def auto_generate_client_advance_entry(cls, owner_uid, advance, sandbox=True, country="DO"):
+        advance_id = advance.get("id", "")
+        if _accounting_entry_exists(owner_uid, "client_advance", advance_id):
+            return None
+        accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+        if not accounts:
+            cls.seed_default_accounts(owner_uid, country=country)
+            accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+        anticipo_acc = _find_account_by_usage(accounts, "anticipos_recibidos")
+        if not anticipo_acc:
+            return None
+        payment_method = advance.get("paymentMethod", "Efectivo")
+        if payment_method in ("Transferencia", "Tarjeta de Crédito", "Tarjeta de Débito"):
+            debit_acc = _find_account_by_usages(accounts, ["banco", "transferencias_bancarias"])
+        else:
+            debit_acc = _find_account_by_usages(accounts, ["efectivo", "banco"])
+        if not debit_acc:
+            return None
+        amount = float(advance.get("amount", 0))
+        client_name = advance.get("clientName", "")
+        branch_id = advance.get("branchId", "")
+        project_id = advance.get("projectId")
+        lines = [{
+            "accountId": debit_acc["id"],
+            "accountCode": debit_acc.get("code", ""),
+            "accountName": debit_acc.get("name", ""),
+            "debit": round(amount, 2),
+            "credit": 0.00,
+            "description": f"Anticipo recibido de {client_name}",
+            "contactId": advance.get("clientId", ""),
+            "contactName": client_name,
+            "branchId": branch_id,
+            "costCenterId": "",
+            "currency": "DOP",
+            "projectId": project_id
+        }, {
+            "accountId": anticipo_acc["id"],
+            "accountCode": anticipo_acc.get("code", ""),
+            "accountName": anticipo_acc.get("name", ""),
+            "debit": 0.00,
+            "credit": round(amount, 2),
+            "description": f"Anticipo de {client_name}",
+            "contactId": advance.get("clientId", ""),
+            "contactName": client_name,
+            "branchId": branch_id,
+            "costCenterId": "",
+            "currency": "DOP",
+            "projectId": project_id
+        }]
+        try:
+            entry = cls.generate_entry(owner_uid, {
+                "entryType": "client_advance",
+                "date": str(advance.get("paymentDate", ""))[:10],
+                "concept": f"Anticipo de cliente {client_name} - RD$ {amount:,.2f}",
+                "referenceType": "client_advance",
+                "referenceId": advance_id,
+                "referenceNumber": advance.get("referenceNumber", ""),
+                "lines": lines,
+                "createdBy": advance.get("registeredBy", "system"),
+                "prefix": "A",
+            }, sandbox=sandbox)
+            return entry
+        except ValueError:
+            return None
+
+    @classmethod
+    def auto_generate_advance_application_entry(cls, owner_uid, invoice, advances, sandbox=True, country="DO"):
+        invoice_id = invoice.get("id", "")
+        accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+        if not accounts:
+            cls.seed_default_accounts(owner_uid, country=country)
+            accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+        anticipo_acc = _find_account_by_usage(accounts, "anticipos_recibidos")
+        if not anticipo_acc:
+            return None
+        payment_type = invoice.get("paymentType", "Contado")
+        if payment_type == "Contado":
+            debit_acc = _find_account_by_usages(accounts, ["efectivo", "banco"])
+        else:
+            debit_acc = _find_account_by_usages(accounts, ["cxc", "banco", "efectivo"])
+        if not debit_acc:
+            return None
+        total_applied = sum(float(a.get("amount", 0)) for a in advances)
+        if total_applied <= 0:
+            return None
+        lines = [{
+            "accountId": anticipo_acc["id"],
+            "accountCode": anticipo_acc.get("code", ""),
+            "accountName": anticipo_acc.get("name", ""),
+            "debit": round(total_applied, 2),
+            "credit": 0.00,
+            "description": f"Aplicación de anticipos a factura {invoice.get('invoiceNumber', '')}",
+            "branchId": invoice.get("branchId", ""),
+            "costCenterId": invoice.get("costCenterId", ""),
+            "currency": invoice.get("currency", "DOP"),
+            "projectId": invoice.get("projectId")
+        }, {
+            "accountId": debit_acc["id"],
+            "accountCode": debit_acc.get("code", ""),
+            "accountName": debit_acc.get("name", ""),
+            "debit": 0.00,
+            "credit": round(total_applied, 2),
+            "description": f"Anticipos aplicados - Factura {invoice.get('invoiceNumber', '')}",
+            "branchId": invoice.get("branchId", ""),
+            "costCenterId": invoice.get("costCenterId", ""),
+            "currency": invoice.get("currency", "DOP"),
+            "projectId": invoice.get("projectId")
+        }]
+        try:
+            entry = cls.generate_entry(owner_uid, {
+                "entryType": "advance_application",
+                "date": str(invoice.get("date", ""))[:10],
+                "concept": f"Aplicación de anticipos a factura {invoice.get('invoiceNumber', '')} - RD$ {total_applied:,.2f}",
+                "referenceType": "advance_application",
+                "referenceId": invoice_id,
+                "referenceNumber": invoice.get("invoiceNumber", ""),
+                "lines": lines,
+                "createdBy": "system",
+                "prefix": "A",
+            }, sandbox=sandbox)
+            return entry
+        except ValueError:
+            return None
+
+    @classmethod
     def _build_inventory_adjustment_lines(cls, operation_type, items, accounts, reference_id=""):
         """
         Genera líneas contables para operaciones de inventario:

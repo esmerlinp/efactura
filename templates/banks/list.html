@@ -107,7 +107,9 @@
                 {% for acc in accounts %}
                 <tr>
                     <td>
-                        <strong>{{ acc.name }}</strong>
+                        <a href="{{ url_for('web_banks.bank_detail', account_id=acc.id) }}" style="color: var(--accent-blue); text-decoration: none; font-weight: 600;">
+                            {{ acc.name }}
+                        </a>
                     </td>
                     <td>
                         <span class="badge-type badge-{{ acc.type }}">
@@ -120,7 +122,7 @@
                     </td>
                     <td>
                         <div class="action-menu">
-                            <button class="action-menu-trigger" onclick="toggleActionMenu(this)">
+                            <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
                                 <i class="fa-solid fa-ellipsis-vertical"></i>
                             </button>
                             <div class="action-menu-dropdown">

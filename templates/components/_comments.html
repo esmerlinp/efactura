@@ -38,16 +38,24 @@ Variables esperadas:
         </div>
 
         <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
-            <div class="form-group" style="margin-bottom: 0; display: flex; align-items: center; gap: 8px;">
-                <label for="comment-attachment"
-                    style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1.5px dashed var(--border-color); border-radius: var(--radius-sm); font-size: 0.78rem; color: var(--text-secondary); background: rgba(255,255,255,0.01); transition: all 0.2s;">
-                    <i class="fa-solid fa-paperclip" style="color: var(--accent-purple);"></i>
-                    <span>Adjuntar</span>
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <div class="form-group" style="margin-bottom: 0; display: flex; align-items: center; gap: 8px;">
+                    <label for="comment-attachment"
+                        style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1.5px dashed var(--border-color); border-radius: var(--radius-sm); font-size: 0.78rem; color: var(--text-secondary); background: rgba(255,255,255,0.01); transition: all 0.2s;">
+                        <i class="fa-solid fa-paperclip" style="color: var(--accent-purple);"></i>
+                        <span>Adjuntar</span>
+                    </label>
+                    <input type="file" id="comment-attachment" name="attachment" style="display: none;"
+                        onchange="updateAttachmentLabel(this)">
+                    <span id="attachment-filename"
+                        style="font-size: 0.74rem; color: var(--accent-emerald); display: none;"></span>
+                </div>
+
+                <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--text-secondary); cursor: pointer; white-space: nowrap;">
+                    <input type="checkbox" name="visible_to_client"
+                        style="accent-color: var(--accent-purple); cursor: pointer;">
+                    <span>Visible para el cliente</span>
                 </label>
-                <input type="file" id="comment-attachment" name="attachment" style="display: none;"
-                    onchange="updateAttachmentLabel(this)">
-                <span id="attachment-filename"
-                    style="font-size: 0.74rem; color: var(--accent-emerald); display: none;"></span>
             </div>
 
             <button type="submit" class="btn btn-primary"
@@ -84,6 +92,11 @@ Variables esperadas:
                     {% if c.edited %}
                     <span style="color: #3b82f6; font-weight: 600; margin-left: 4px;">(editado)</span>
                     {% endif %}
+                    {% if c.visibleToClient %}
+                    <span style="color: var(--accent-emerald); margin-left: 4px;" title="Visible para el cliente en su portal">
+                        <i class="fa-solid fa-eye"></i>
+                    </span>
+                    {% endif %}
                 </div>
 
                 <!-- Texto del comentario -->
@@ -109,16 +122,24 @@ Variables esperadas:
 
                     <div
                         style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <label for="edit-attachment-{{ c.id }}"
-                                style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1.5px dashed var(--border-color); border-radius: var(--radius-sm); font-size: 0.74rem; color: var(--text-secondary);">
-                                <i class="fa-solid fa-paperclip"></i>
-                                <span>Adjunto</span>
+                        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <label for="edit-attachment-{{ c.id }}"
+                                    style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1.5px dashed var(--border-color); border-radius: var(--radius-sm); font-size: 0.74rem; color: var(--text-secondary);">
+                                    <i class="fa-solid fa-paperclip"></i>
+                                    <span>Adjunto</span>
+                                </label>
+                                <input type="file" id="edit-attachment-{{ c.id }}" name="attachment" style="display: none;"
+                                    onchange="updateEditAttachmentLabel('{{ c.id }}', this)">
+                                <span id="edit-attachment-filename-{{ c.id }}"
+                                    style="font-size: 0.72rem; color: var(--accent-emerald); display: none;"></span>
+                            </div>
+
+                            <label style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.74rem; color: var(--text-secondary); cursor: pointer; white-space: nowrap;">
+                                <input type="checkbox" name="visible_to_client_edit" {% if c.visibleToClient %}checked{% endif %}
+                                    style="accent-color: var(--accent-purple); cursor: pointer;">
+                                <span>Visible para el cliente</span>
                             </label>
-                            <input type="file" id="edit-attachment-{{ c.id }}" name="attachment" style="display: none;"
-                                onchange="updateEditAttachmentLabel('{{ c.id }}', this)">
-                            <span id="edit-attachment-filename-{{ c.id }}"
-                                style="font-size: 0.72rem; color: var(--accent-emerald); display: none;"></span>
                         </div>
 
                         <div style="display: flex; gap: 6px;">
