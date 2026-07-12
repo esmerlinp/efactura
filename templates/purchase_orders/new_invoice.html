@@ -46,6 +46,30 @@
 
     .form-inner-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .form-inner-grid .span-full { grid-column: 1 / -1; }
+
+    .ret-badge {
+        display:inline-flex; align-items:center; gap:4px;
+        padding:3px 10px; border-radius:12px; font-size:0.72rem; font-weight:600;
+        background:rgba(245,158,11,0.1); color:#d97706;
+        border:1px solid rgba(245,158,11,0.25); cursor:pointer;
+        text-decoration:none; user-select:none;
+    }
+    .ret-badge.has-values {
+        background:rgba(16,185,129,0.1); color:var(--accent-emerald);
+        border-color:rgba(16,185,129,0.25);
+    }
+
+    .search-modal { display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.55); z-index:1050; justify-content:center; align-items:center; }
+    .search-modal .modal-content { background:var(--bg-card); border-radius:var(--radius-md); box-shadow:var(--shadow-xl); width:100%; overflow:hidden; }
+    .search-modal .modal-header { display:flex; justify-content:space-between; align-items:center; padding:18px 24px; border-bottom:1px solid var(--border-color); }
+    .search-modal .modal-header h3 { margin:0; font-size:1.05rem; font-weight:700; font-family:var(--font-heading); display:flex; align-items:center; gap:8px; }
+    .search-modal .modal-body { padding:22px 24px; }
+    .search-modal .modal-footer { display:flex; justify-content:flex-end; gap:12px; padding:16px 24px; border-top:1px solid var(--border-color); }
+    .btn-close-modal { background:none; border:none; color:var(--text-muted); font-size:1.2rem; cursor:pointer; padding:4px; border-radius:4px; }
+    .btn-close-modal:hover { color:var(--text-primary); background:var(--bg-nav-hover); }
+
+    #sec-partidas.active { overflow: visible !important; }
+    #sec-partidas.active .accordion-content { overflow: visible !important; }
 </style>
 
 <div style="max-width:850px; margin:0 auto 50px auto; width:100%;">
@@ -185,26 +209,26 @@
 
             <!-- SECCIÓN 3: PARTIDAS (TABLA DINÁMICA) -->
             <div class="accordion-item active" id="sec-partidas">
-                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                <button type="button" class="accordion-header" onclick="toggleAccordionPartidas(this)">
                     <div class="accordion-title">
                         <i class="fa-solid fa-box" style="color:var(--accent-emerald);"></i>
                         <span>3. Partidas</span>
                     </div>
                     <i class="fa-solid fa-chevron-down accordion-chevron"></i>
                 </button>
-                <div class="accordion-content" style="max-height:none;">
+                <div class="accordion-content" style="max-height:none;" id="partidas-content">
                     <div class="accordion-body" style="overflow:visible;">
                         <div style="overflow:visible;">
                             <table class="items-table" id="items-table">
                                 <thead>
                                     <tr>
-                                        <th style="width:22%;">Descripción *</th>
+                                        <th style="width:17%;">Descripción *</th>
                                         <th style="width:7%;text-align:center;">Cant.</th>
-                                        <th style="width:10%;text-align:right;">Precio U.</th>
-                                        <th style="width:8%;text-align:center;">ITBIS</th>
-                                        <th style="width:7%;text-align:right;">Desc%</th>
+                                        <th style="width:9%;text-align:right;">Precio U.</th>
+                                        <th style="width:9%;text-align:center;">ITBIS</th>
+                                        <th style="width:6%;text-align:right;">Desc%</th>
                                         <th style="width:18%;">Cuenta Contable</th>
-                                        <th style="width:12%;text-align:right;">Total</th>
+                                        <th style="width:10%;text-align:right;">Total</th>
                                         <th style="width:4%;"></th>
                                     </tr>
                                 </thead>
@@ -220,17 +244,17 @@
                                             <input type="number" class="form-input item-price" name="items[0][unitPrice]" value="0.00" step="0.01" min="0" required style="width:110px;text-align:right;" oninput="recalculateTotals()">
                                         </td>
                                         <td style="text-align:center;">
-                                            <select class="form-select item-itbis" name="items[0][itbisRate]" onchange="recalculateTotals()" style="width:100%;">
+                                            <select class="form-select item-itbis" name="items[0][itbisRate]" onchange="recalculateTotals()" style="width:100%;font-size:0.8rem;padding:6px 24px 6px 6px;background-position:right 6px center;">
                                                 <option value="{{ itbis_general }}">{{ "%.0f"|format(itbis_general * 100) }}%</option>
                                                 <option value="{{ itbis_reduced }}">{{ "%.0f"|format(itbis_reduced * 100) }}%</option>
-                                                <option value="0.0">0% (Exento)</option>
+                                                <option value="0.0">0%</option>
                                             </select>
                                         </td>
                                         <td style="text-align:right;">
                                             <input type="number" class="form-input item-discount" name="items[0][discount]" value="0" step="0.01" min="0" max="100" style="width:70px;text-align:right;" oninput="recalculateTotals()">
                                         </td>
                                         <td class="account-cell">
-                                            <input type="text" class="form-input item-account-display" value="" placeholder="Buscar cuenta..." autocomplete="off" onfocus="openAccountDropdown(this)" oninput="filterAccountDropdown(this)" style="width:100%;">
+                                            <input type="text" class="form-input item-account-display" value="" placeholder="Buscar cuenta..." autocomplete="off" onfocus="openAccountDropdown(this)" oninput="filterAccountDropdown(this)" style="width:100%;font-size:0.78rem;">
                                             <input type="hidden" class="item-account-id" name="items[0][accountingAccountId]" value="">
                                             <div class="acco-dropdown"></div>
                                         </td>
@@ -250,8 +274,11 @@
                             <div class="tl-row"><span>ITBIS</span><span id="sum-itbis">RD$ 0.00</span></div>
                             <div class="tl-row total"><span>Total</span><span id="sum-total">RD$ 0.00</span></div>
                         </div>
-                        <div style="margin-top:12px;">
+                        <div style="margin-top:12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
                             <button type="button" id="btn-add-item" class="btn btn-sm btn-secondary"><i class="fa-solid fa-plus"></i> Añadir Partida</button>
+                            <span id="ret-badge" class="ret-badge" onclick="openRetencionesModal()" title="Agregar retenciones">
+                                <i class="fa-solid fa-percent"></i> Retenciones
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -327,46 +354,12 @@
                 </div>
             </div>
 
-            <!-- SECCIÓN 5: RETENCIONES -->
-            <div class="accordion-item" id="sec-retenciones">
-                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
-                    <div class="accordion-title">
-                        <i class="fa-solid fa-percent" style="color:var(--accent-red);"></i>
-                        <span>5. Retenciones</span>
-                    </div>
-                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
-                </button>
-                <div class="accordion-content">
-                    <div class="accordion-body">
-                        <div class="form-inner-grid">
-                            <div class="form-group">
-                                <label for="retainedISRRate">Retención ISR</label>
-                                <select id="retainedISRRate" name="retainedISRRate" class="form-select" style="width:100%;">
-                                    <option value="0.0" selected>Sin retención (0%)</option>
-                                    <option value="0.02">2% — Bienes y servicios</option>
-                                    <option value="0.10">10% — Honorarios / Alquiler</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="retainedITBISRate">Retención ITBIS</label>
-                                <select id="retainedITBISRate" name="retainedITBISRate" class="form-select" style="width:100%;">
-                                    <option value="0.0" selected>Sin retención (0%)</option>
-                                    <option value="0.30">30% — Bienes corporativos</option>
-                                    <option value="0.75">75% — Servicios jurídicos</option>
-                                    <option value="1.00">100% — Profesionales independientes</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- SECCIÓN 6: ADJUNTOS Y NOTAS -->
+            <!-- SECCIÓN 5: ADJUNTOS Y NOTAS -->
             <div class="accordion-item" id="sec-adjuntos">
                 <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
                     <div class="accordion-title">
                         <i class="fa-solid fa-paperclip" style="color:var(--text-muted);"></i>
-                        <span>6. Adjuntos y Notas</span>
+                        <span>5. Adjuntos y Notas</span>
                     </div>
                     <i class="fa-solid fa-chevron-down accordion-chevron"></i>
                 </button>
@@ -402,11 +395,47 @@
 
         </div>
 
+        <!-- Hidden fields for retenciones (synced from modal) -->
+        <input type="hidden" name="retainedISRRate" value="0.0">
+        <input type="hidden" name="retainedITBISRate" value="0.0">
+
         <div class="actions-bar">
             <a href="{{ url_for('web_purchase_orders.list_purchase_cxp') }}" class="btn btn-secondary">Cancelar</a>
             <button type="submit" class="btn btn-primary" style="background:var(--accent-emerald);border-color:var(--accent-emerald);">
                 <i class="fa-solid fa-floppy-disk"></i> Registrar Factura de Compra
             </button>
+        </div>
+
+        <!-- MODAL: Retenciones -->
+        <div class="search-modal" id="ret-modal" style="display:none;">
+            <div class="modal-content" style="max-width:460px;">
+                <div class="modal-header">
+                    <h3><i class="fa-solid fa-percent"></i> Retenciones</h3>
+                    <button type="button" class="btn-close-modal" onclick="closeRetencionesModal()"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group" style="margin-bottom:14px;">
+                        <label>Retención ISR</label>
+                        <select id="isr-rate-modal" class="form-select" style="width:100%;" onchange="syncRetenciones()">
+                            <option value="0.0">Sin retención (0%)</option>
+                            <option value="0.02">2% — Bienes y servicios</option>
+                            <option value="0.10">10% — Honorarios / Alquiler</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Retención ITBIS</label>
+                        <select id="itbis-rate-modal" class="form-select" style="width:100%;" onchange="syncRetenciones()">
+                            <option value="0.0">Sin retención (0%)</option>
+                            <option value="0.30">30% — Bienes corporativos</option>
+                            <option value="0.75">75% — Servicios jurídicos</option>
+                            <option value="1.00">100% — Profesionales independientes</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" onclick="closeRetencionesModal()">Listo</button>
+                </div>
+            </div>
         </div>
     </form>
 </div>
@@ -425,10 +454,10 @@
     }
 
     function buildItbisSelect(idx) {
-        return `<select class="form-select item-itbis" name="items[${idx}][itbisRate]" onchange="recalculateTotals()" style="width:100%;">
+        return `<select class="form-select item-itbis" name="items[${idx}][itbisRate]" onchange="recalculateTotals()" style="width:100%;font-size:0.8rem;padding:6px 24px 6px 6px;background-position:right 6px center;">
             <option value="${itbisGeneral}">${(itbisGeneral * 100).toFixed(0)}%</option>
             <option value="${itbisReduced}">${(itbisReduced * 100).toFixed(0)}%</option>
-            <option value="0.0">0% (Exento)</option>
+            <option value="0.0">0%</option>
         </select>`;
     }
 
@@ -454,7 +483,7 @@
                 <input type="number" class="form-input item-discount" name="items[${idx}][discount]" value="0" step="0.01" min="0" max="100" style="width:70px;text-align:right;" oninput="recalculateTotals()">
             </td>
             <td class="account-cell">
-                <input type="text" class="form-input item-account-display" value="" placeholder="Buscar cuenta..." autocomplete="off" onfocus="openAccountDropdown(this)" oninput="filterAccountDropdown(this)" style="width:100%;">
+                <input type="text" class="form-input item-account-display" value="" placeholder="Buscar cuenta..." autocomplete="off" onfocus="openAccountDropdown(this)" oninput="filterAccountDropdown(this)" style="width:100%;font-size:0.78rem;">
                 <input type="hidden" class="item-account-id" name="items[${idx}][accountingAccountId]" value="">
                 <div class="acco-dropdown"></div>
             </td>
@@ -535,6 +564,19 @@
         } else {
             bankReq.style.display = 'none';
             bankSelect.required = false;
+        }
+    }
+
+    function toggleAccordionPartidas(header) {
+        const item = header.parentElement;
+        const content = item.querySelector('.accordion-content');
+        const isActive = item.classList.contains('active');
+        if (isActive) {
+            item.classList.remove('active');
+            content.style.maxHeight = null;
+        } else {
+            item.classList.add('active');
+            content.style.maxHeight = 'none';
         }
     }
 
@@ -648,7 +690,7 @@
     }
 
     function filterAccountDropdown(inputEl) {
-        const dropdown = inputEl.closest('.acco-dropdown') || openDropdownCell.querySelector('.acco-dropdown');
+        const dropdown = inputEl.closest('.acco-dropdown') || (openDropdownCell ? openDropdownCell.querySelector('.acco-dropdown') : null);
         if (!dropdown) return;
         const filter = inputEl.value.toLowerCase();
         const items = dropdown.querySelectorAll('.acco-tree-item');
@@ -737,7 +779,39 @@
         }
     });
 
+    // ===== MODAL: RETENCIONES =====
+    function openRetencionesModal() {
+        var m = document.getElementById('ret-modal');
+        if (!m) return;
+        document.getElementById('isr-rate-modal').value = document.querySelector('[name=retainedISRRate]').value;
+        document.getElementById('itbis-rate-modal').value = document.querySelector('[name=retainedITBISRate]').value;
+        m.style.display = 'flex';
+    }
+    function closeRetencionesModal() {
+        var m = document.getElementById('ret-modal');
+        if (m) m.style.display = 'none';
+    }
+    function syncRetenciones() {
+        document.querySelector('[name=retainedISRRate]').value = document.getElementById('isr-rate-modal').value;
+        document.querySelector('[name=retainedITBISRate]').value = document.getElementById('itbis-rate-modal').value;
+        recalculateRetBadge();
+    }
+    function recalculateRetBadge() {
+        var isr = document.querySelector('[name=retainedISRRate]').value;
+        var itbis = document.querySelector('[name=retainedITBISRate]').value;
+        var badge = document.getElementById('ret-badge');
+        if (badge) {
+            var has = isr !== '0.0' || itbis !== '0.0';
+            badge.classList.toggle('has-values', has);
+            badge.innerHTML = has ? '<i class="fa-solid fa-percent"></i> Retenciones \u2713' : '<i class="fa-solid fa-percent"></i> Retenciones';
+        }
+    }
+    document.getElementById('ret-modal')?.addEventListener('click', function(e) {
+        if (e.target === this) closeRetencionesModal();
+    });
+
     handleCurrencyChange();
     togglePaymentFields();
+    recalculateRetBadge();
 </script>
 {% endblock %}

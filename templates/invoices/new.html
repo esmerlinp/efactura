@@ -52,38 +52,6 @@
     .ret-badge.has-values { background:rgba(16,185,129,0.1); color:var(--accent-emerald); border-color:rgba(16,185,129,0.25); }
 </style>
 
-<div class="guide-banner" id="guide-new-invoice">
-    <button class="guide-banner-close" onclick="closeGuide('guide-new-invoice')" title="Cerrar guía" aria-label="Cerrar guía">
-        <i class="fa-solid fa-xmark"></i>
-    </button>
-    <div class="guide-banner-icon">
-        <i class="fa-solid fa-lightbulb"></i>
-    </div>
-    <div class="guide-banner-content">
-        {% if active_page == 'quotations' %}
-        <h4>Guía de Uso: Crear Cotización</h4>
-        <p>
-            Crea presupuestos y proformas comerciales para tus clientes. Las cotizaciones no se envían a la DGII y pueden convertirse en facturas cuando el cliente las apruebe.
-        </p>
-        <ul>
-            <li><strong>Datos del Cliente:</strong> Selecciona el cliente, la sucursal y la fecha de la cotización.</li>
-            <li><strong>Productos y Servicios:</strong> Agrega los bienes o servicios a cotizar con cantidades, precios e impuestos.</li>
-            <li><strong>Convertir a Factura:</strong> Una vez aprobada por el cliente, puedes convertir la cotización en factura electrónica con un solo clic.</li>
-        </ul>
-        {% else %}
-        <h4>Guía de Uso: Crear Documento</h4>
-        <p>
-            Emite facturas electrónicas (e-CF), notas de crédito, notas de débito y otros comprobantes fiscales para su envío a la DGII.
-        </p>
-        <ul>
-            <li><strong>Datos del Cliente:</strong> Selecciona el cliente, la sucursal y la fecha de la transacción.</li>
-            <li><strong>Productos y Servicios:</strong> Agrega los bienes o servicios a facturar, configura cantidades, precios e impuestos.</li>
-            <li><strong>Envío a DGII:</strong> Al guardar y emitir, el comprobante se envía automáticamente a la DGII para su validación fiscal.</li>
-        </ul>
-        {% endif %}
-    </div>
-</div>
-
 <div id="catalog-data-json" style="display:none;">{{ catalog_json }}</div>
 <div id="clients-data-json" style="display:none;">{{ clients_json }}</div>
 <div id="price-list-prices-json" style="display:none;">{{ price_list_prices_json }}</div>
