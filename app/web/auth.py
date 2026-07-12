@@ -18,6 +18,21 @@ from app.brand import get_product_name
 
 web_auth_bp = Blueprint('web_auth', __name__)
 
+def _safe_redirect_fallback(default_endpoint='web_dashboard.dashboard'):
+    """Redirect to `next` URL if safe (same-origin), else fallback to default."""
+    from urllib.parse import urlparse
+    next_url = request.form.get('next') or request.args.get('next')
+    if next_url:
+        parsed = urlparse(next_url)
+        if not parsed.netloc and not parsed.scheme:
+            return redirect(next_url)
+        if parsed.netloc == request.host:
+            target = parsed.path
+            if parsed.query:
+                target += '?' + parsed.query
+            return redirect(target)
+    return redirect(url_for(default_endpoint))
+
 @web_auth_bp.route('/')
 def home():
     is_logged_in = 'user' in session
@@ -496,7 +511,7 @@ def select_company():
             )
             
             flash('Empresa seleccionada con éxito.', 'success')
-            return redirect(url_for('web_dashboard.dashboard'))
+            return _safe_redirect_fallback()
         else:
             flash('Selección de empresa inválida o no autorizada.', 'error')
             
@@ -531,7 +546,7 @@ def select_branch():
             flash('Selección de sucursal inválida.', 'error')
         if is_ajax:
             return jsonify({"success": True})
-        return redirect(url_for('web_dashboard.dashboard'))
+        return _safe_redirect_fallback()
     
     return render_template('auth/select_branch.html', branches=branches)
 
@@ -566,7 +581,7 @@ def select_project():
             flash('Selección de proyecto inválida.', 'error')
         if is_ajax:
             return jsonify({"success": True})
-        return redirect(url_for('web_dashboard.dashboard'))
+        return _safe_redirect_fallback()
     
     return render_template('auth/select_project.html', projects=projects)
 

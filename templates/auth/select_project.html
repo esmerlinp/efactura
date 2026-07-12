@@ -227,6 +227,7 @@
         <form action="{{ url_for('web_auth.select_project') }}" method="POST" id="select-project-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="project_id" id="selected-project-id">
+            <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
 
             <div class="project-card-grid">
                 <div class="project-card-all" onclick="selectProject('__all__')">

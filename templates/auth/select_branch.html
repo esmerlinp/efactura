@@ -193,6 +193,7 @@
         <form action="{{ url_for('web_auth.select_branch') }}" method="POST" id="select-branch-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="branch_id" id="selected-branch-id">
+            <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
 
             <div class="branch-card-grid">
                 <div class="branch-card-all" onclick="selectBranch('__all__')">

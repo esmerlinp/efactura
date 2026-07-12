@@ -142,7 +142,6 @@
     position: fixed;
     inset: 0;
     z-index: var(--z-overlay, 40);
-    display: none;
     align-items: center;
     justify-content: center;
     padding: 20px;

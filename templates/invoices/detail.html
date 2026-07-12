@@ -1481,260 +1481,172 @@ function closeDraftPaymentModal() {
 <!-- =========================================================================
      MODAL PARA REGISTRAR PAGO A UN DOCUMENTO BORRADOR (NUEVO PAGO)
      ========================================================================= -->
-<div class="search-modal" id="draft-payment-modal"
-    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1100; align-items: center; justify-content: center;">
-    <div class="modal-backdrop" onclick="closeDraftPaymentModal()"
-        style="position: absolute; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px);">
+<div class="search-modal" id="draft-payment-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;align-items:center;justify-content:center;z-index:1100;">
+  <div class="modal-content" style="max-width:520px;position:relative;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
+    <div class="modal-header" style="padding:20px 24px;border-bottom:1px solid var(--border-color);">
+      <h3 style="font-size:0.95rem;margin:0;display:flex;align-items:center;gap:8px;">
+        <i class="fa-solid fa-money-bill-wave" style="color:var(--accent-emerald);"></i>Nuevo pago
+      </h3>
+      <button type="button" onclick="closeDraftPaymentModal()" class="btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <div class="modal-content"
-        style="max-width: 500px; background: var(--bg-card); backdrop-filter: blur(20px); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 30px; position: relative; z-index: 2; box-shadow: var(--shadow-lg); animation: floatIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards; color: var(--text-primary); text-align: left; width: calc(100% - 32px);">
-        <div class="modal-header"
-            style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 16px; margin-bottom: 20px;">
-            <h3
-                style="font-size: 1.25rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px; color: var(--text-primary); font-weight: 800; margin: 0;">
-                <i class="fa-solid fa-money-bill-wave" style="color: var(--accent-emerald);"></i>
-                <span>Nuevo pago</span>
-            </h3>
-            <button type="button" onclick="closeDraftPaymentModal()" class="btn-close-modal"
-                style="cursor: pointer; font-size: 1.25rem; opacity: 0.7; background: transparent; border: none; color: var(--text-primary);"><i
-                    class="fa-solid fa-xmark"></i></button>
+    <div class="modal-body" style="padding:22px 24px;">
+      <form action="/invoices/{{ invoice.id }}/pay" method="POST" id="draft-pay-form" style="display:flex;flex-direction:column;gap:12px;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;padding:10px 14px;background:rgba(0,0,0,0.02);border-radius:8px;border:1px solid var(--border-color);font-size:0.75rem;">
+          <div>
+            <span style="font-size:0.62rem;color:var(--text-secondary);display:block;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;">Contacto</span>
+            <strong style="font-size:0.8rem;color:var(--text-primary);word-break:break-word;">{{ invoice.clientName or 'Consumidor Final' }}</strong>
+          </div>
+          <div>
+            <span style="font-size:0.62rem;color:var(--text-secondary);display:block;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;">Nº Venta</span>
+            <strong style="font-size:0.8rem;color:var(--text-primary);">{{ invoice.invoiceNumber or 'N/A' }}</strong>
+          </div>
+          <div style="text-align:right;">
+            <span style="font-size:0.62rem;color:var(--text-secondary);display:block;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;">Por cobrar</span>
+            <strong style="font-size:0.8rem;color:var(--accent-red);white-space:nowrap;">RD$ {{ "{:,.2f}".format(invoice.remainingBalance) }}</strong>
+          </div>
         </div>
-        <div class="modal-body">
-            <form action="/invoices/{{ invoice.id }}/pay" method="POST" id="draft-pay-form"
-                style="display: flex; flex-direction: column; gap: 14px;">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-                <div style="display: grid; grid-template-columns: 1fr; gap: 12px; background: rgba(0,0,0,0.02); padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);">
-                    <div>
-                        <span style="font-size: 0.7rem; color: var(--text-secondary); display: block; font-weight: 700; text-transform: uppercase;">Contacto:</span>
-                        <strong style="font-size: 0.85rem; color: var(--text-primary);">{{ invoice.clientName or 'Consumidor Final' }}</strong>
-                    </div>
-                    <div>
-                        <span style="font-size: 0.7rem; color: var(--text-secondary); display: block; font-weight: 700; text-transform: uppercase;">Número de venta:</span>
-                        <strong style="font-size: 0.85rem; color: var(--text-primary);">{{ invoice.invoiceNumber or 'N/A' }}</strong>
-                    </div>
-                    <div>
-                        <span style="font-size: 0.7rem; color: var(--text-secondary); display: block; font-weight: 700; text-transform: uppercase;">Valor por cobrar:</span>
-                        <strong style="font-size: 0.85rem; color: var(--accent-red);">RD$ {{ "{:,.2f}".format(invoice.remainingBalance) }}</strong>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="draft-payment-date" style="font-size: 0.8rem; font-weight: 500; margin-bottom: 6px; display: block; color: var(--text-secondary); font-weight: 600;">Fecha</label>
-                    <input type="date" id="draft-payment-date" name="paymentDate" class="form-input" required style="width: 100%; padding: 10px 12px; font-size: 0.9rem; height: 44px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary);">
-                </div>
-
-                <div class="form-group">
-                    <label for="draft-bank-account" style="font-size: 0.8rem; font-weight: 500; margin-bottom: 6px; display: block; color: var(--text-secondary); font-weight: 600;">Cuenta bancaria *</label>
-                    <select id="draft-bank-account" name="bankAccountId" class="form-select" required style="width: 100%; padding: 10px 12px; font-size: 0.9rem; height: 44px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary);">
-                        <option value="">Seleccionar cuenta</option>
-                        {% for acc in bank_accounts %}
-                        <option value="{{ acc.id }}">{{ acc.name }} — RD$ {{ "{:,.2f}".format(acc.currentBalance) }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="draft-amount-input" style="font-size: 0.8rem; font-weight: 500; margin-bottom: 6px; display: block; color: var(--text-secondary); font-weight: 600;">Valor (RD$)</label>
-                    <input type="number" id="draft-amount-input" name="amount" class="form-input" min="0.01" max="{{ invoice.remainingBalance }}" step="0.01" value="{{ invoice.remainingBalance }}" required style="width: 100%; padding: 10px 12px; font-size: 0.9rem; height: 44px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary);">
-                </div>
-
-                <div class="form-group">
-                    <label for="draft-payment-method" style="font-size: 0.8rem; font-weight: 500; margin-bottom: 6px; display: block; color: var(--text-secondary); font-weight: 600;">Método de pago</label>
-                    <select id="draft-payment-method" name="paymentMethod" class="form-select" required style="width: 100%; padding: 10px 12px; font-size: 0.9rem; height: 44px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary);">
-                        <option value="Cheque / Transferencia">Cheque / Transferencia Bancaria</option>
-                        <option value="Efectivo">Efectivo</option>
-                        <option value="Tarjeta de Crédito / Débito">Tarjeta de Crédito / Débito</option>
-                    </select>
-                </div>
-
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 0.82rem;">
-                    <a href="/invoices/{{ invoice.id }}/pay/advanced" id="draft-advanced-link" style="color: var(--accent-purple); font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 4px;">
-                        <i class="fa-solid fa-up-right-from-square"></i> Ir al formulario avanzado
-                    </a>
-                </div>
-
-                <button type="submit" class="btn"
-                    style="width: 100%; font-size: 0.92rem; padding: 12px 20px; margin-top: 10px; background: linear-gradient(135deg, #059669, #10b981); border: none; color: white; font-weight: 700; cursor: pointer; border-radius: var(--radius-sm);">
-                    <i class="fa-solid fa-square-check"></i>
-                    <span>Agregar pago</span>
-                </button>
-            </form>
+        <div style="display:flex;gap:12px;">
+          <div class="inp-group" style="flex:1;margin-bottom:0;">
+            <label for="draft-payment-date" style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:3px;color:var(--text-secondary);">Fecha</label>
+            <input type="date" id="draft-payment-date" name="paymentDate" class="form-input" required style="width:100%;padding:9px 12px;font-size:0.85rem;height:40px;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:var(--bg-input);color:var(--text-primary);">
+          </div>
+          <div class="inp-group" style="flex:1;margin-bottom:0;">
+            <label for="draft-amount-input" style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:3px;color:var(--text-secondary);">Valor (RD$)</label>
+            <input type="number" id="draft-amount-input" name="amount" class="form-input" min="0.01" max="{{ invoice.remainingBalance }}" step="0.01" value="{{ invoice.remainingBalance }}" required style="width:100%;padding:9px 12px;font-size:0.85rem;height:40px;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:var(--bg-input);color:var(--text-primary);">
+          </div>
         </div>
+
+        <div class="inp-group" style="margin-bottom:0;">
+          <label for="draft-bank-account" style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:3px;color:var(--text-secondary);">Cuenta bancaria *</label>
+          <select id="draft-bank-account" name="bankAccountId" class="form-select" required style="width:100%;padding:9px 12px;font-size:0.85rem;height:40px;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:var(--bg-input);color:var(--text-primary);">
+            <option value="">Seleccionar cuenta</option>
+            {% for acc in bank_accounts %}
+            <option value="{{ acc.id }}">{{ acc.name }} — RD$ {{ "{:,.2f}".format(acc.currentBalance) }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="inp-group" style="margin-bottom:0;">
+          <label for="draft-payment-method" style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:3px;color:var(--text-secondary);">Método de pago</label>
+          <select id="draft-payment-method" name="paymentMethod" class="form-select" required style="width:100%;padding:9px 12px;font-size:0.85rem;height:40px;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:var(--bg-input);color:var(--text-primary);">
+            <option value="Cheque / Transferencia">Cheque / Transferencia Bancaria</option>
+            <option value="Efectivo">Efectivo</option>
+            <option value="Tarjeta de Crédito / Débito">Tarjeta de Crédito / Débito</option>
+          </select>
+        </div>
+      </form>
     </div>
+    <div class="modal-footer" style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-top:1px solid var(--border-color);">
+      <a href="/invoices/{{ invoice.id }}/pay/advanced" id="draft-advanced-link" style="font-size:0.78rem;color:var(--accent-purple);text-decoration:none;display:flex;align-items:center;gap:4px;font-weight:600;">
+        <i class="fa-solid fa-up-right-from-square"></i>Formulario avanzado
+      </a>
+      <button type="submit" form="draft-pay-form" class="btn btn-primary" style="padding:10px 20px;font-size:0.85rem;font-weight:600;">
+        <i class="fa-solid fa-square-check" style="margin-right:6px;"></i>Agregar pago
+      </button>
+    </div>
+  </div>
 </div>
 
 
 <!-- =========================================================================
      MODAL PREMIUM PARA REGISTRAR COBRO / ABONO EN CASCADA
      ========================================================================= -->
-<div class="search-modal" id="payment-modal"
-    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1100; align-items: center; justify-content: center;">
-    <div class="modal-backdrop" onclick="closePaymentModal()"
-        style="position: absolute; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px);">
+<div class="search-modal" id="payment-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;align-items:center;justify-content:center;z-index:1100;">
+  <div class="modal-content" style="max-width:540px;position:relative;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
+    <div class="modal-header" style="padding:20px 24px;border-bottom:1px solid var(--border-color);">
+      <h3 style="font-size:0.95rem;margin:0;display:flex;align-items:center;gap:8px;">
+        <i class="fa-solid fa-money-bill-transfer" style="color:var(--accent-emerald);"></i>Registrar Cobro / Abono<span id="modal-cuota-number"></span>
+      </h3>
+      <button type="button" onclick="closePaymentModal()" class="btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <div class="modal-content"
-        style="max-width: 500px; background: var(--bg-card); backdrop-filter: blur(20px); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 30px; position: relative; z-index: 2; box-shadow: var(--shadow-lg); animation: floatIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards; color: var(--text-primary); text-align: left;">
-        <div class="modal-header"
-            style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 16px; margin-bottom: 20px;">
-            <h3
-                style="font-size: 1.25rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px; color: var(--text-primary); font-weight: 800; margin: 0;">
-                <i class="fa-solid fa-money-bill-transfer" style="color: var(--accent-emerald);"></i>
-                <span>Registrar Cobro / Abono<span id="modal-cuota-number"></span></span>
-            </h3>
-            <button type="button" onclick="closePaymentModal()" class="btn-close-modal"
-                style="cursor: pointer; font-size: 1.25rem; opacity: 0.7; background: transparent; border: none; color: var(--text-primary);"><i
-                    class="fa-solid fa-xmark"></i></button>
+    <div class="modal-body" style="padding:22px 24px;">
+      <form action="/invoices/{{ invoice.id }}/pay" method="POST" id="pay-invoice-form" style="display:flex;flex-direction:column;gap:12px;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" id="mora-action-input" name="moraAction" value="perdonar">
+        <input type="hidden" id="mora-amount-input" name="moraAmount" value="0">
+
+        <div style="padding:8px 12px;background:rgba(30,58,138,0.04);border-left:3px solid var(--accent-purple);border-radius:4px;font-size:0.73rem;line-height:1.4;color:var(--text-secondary);">
+          <strong>Distribución en Cascada:</strong> El abono se aplicará saldando las cuotas pendientes más antiguas cronológicamente.
         </div>
-        <div class="modal-body">
-            <form action="/invoices/{{ invoice.id }}/pay" method="POST" id="pay-invoice-form"
-                style="display: flex; flex-direction: column; gap: 14px;">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-                <!-- Hidden mora fields -->
-                <input type="hidden" id="mora-action-input" name="moraAction" value="perdonar">
-                <input type="hidden" id="mora-amount-input" name="moraAmount" value="0">
-
-                <div
-                    style="background-color: rgba(30, 58, 138, 0.05); border-left: 3px solid var(--accent-purple); padding: 12px; border-radius: 4px; font-size: 0.78rem; line-height: 1.45; color: var(--text-secondary);">
-                    <strong>💡 Distribución en Cascada:</strong><br>
-                    El abono se aplicará en cascada saldando las cuotas pendientes más antiguas cronológicamente.
-                </div>
-
-                <!-- ═══════════════════════════════════════════
-                     PANEL DE MORA — Solo visible cuando hay mora
-                     ═══════════════════════════════════════════ -->
-                <div id="mora-panel"
-                    style="display: none; border: 1.5px solid #f97316; border-radius: var(--radius-sm); overflow: hidden;">
-                    <!-- Mora Header -->
-                    <div
-                        style="background: linear-gradient(135deg, rgba(249,115,22,0.12), rgba(239,68,68,0.08)); padding: 12px 14px; border-bottom: 1px solid rgba(249,115,22,0.2);">
-                        <div style="display: flex; align-items: center; justify-content: space-between;">
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <i class="fa-solid fa-triangle-exclamation"
-                                    style="color: #f97316; font-size: 0.9rem;"></i>
-                                <span
-                                    style="font-size: 0.8rem; font-weight: 700; color: #c2410c; text-transform: uppercase; letter-spacing: 0.04em;">Mora
-                                    Acumulada Detectada</span>
-                            </div>
-                            <strong id="mora-display-amount"
-                                style="font-size: 1rem; color: #dc2626; font-family: monospace;"></strong>
-                        </div>
-                        <p style="font-size: 0.73rem; color: #92400e; margin: 6px 0 0; line-height: 1.4;">Esta factura
-                            tiene recargos por pago tardío. Selecciona cómo tratar la mora en este cobro:</p>
-                    </div>
-
-                    <!-- Toggle Perdonar / Cobrar -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0; background: var(--bg-card);">
-                        <button type="button" id="btn-perdonar-mora" onclick="setMoraAction('perdonar')"
-                            style="padding: 12px 8px; border: none; border-right: 1px solid rgba(249,115,22,0.2); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; transition: background 0.2s; background: rgba(59,130,246,0.08);">
-                            <i class="fa-solid fa-handshake" style="font-size: 1.1rem; color: #2563eb;"></i>
-                            <span style="font-size: 0.75rem; font-weight: 700; color: #1d4ed8;">Perdonar Mora</span>
-                            <span style="font-size: 0.65rem; color: #64748b; text-align: center; line-height: 1.3;">Solo
-                                se cobra el capital pendiente</span>
-                        </button>
-                        <button type="button" id="btn-cobrar-mora" onclick="setMoraAction('cobrar')"
-                            style="padding: 12px 8px; border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; transition: background 0.2s; background: transparent;">
-                            <i class="fa-solid fa-coins" style="font-size: 1.1rem; color: #64748b;"></i>
-                            <span style="font-size: 0.75rem; font-weight: 700; color: #64748b;">Cobrar Mora</span>
-                            <span style="font-size: 0.65rem; color: #64748b; text-align: center; line-height: 1.3;">Se
-                                reporta como ingreso separado</span>
-                        </button>
-                    </div>
-
-                    <!-- Perdonar: motivo opcional -->
-                    <div id="mora-forgive-section"
-                        style="padding: 10px 14px; background: rgba(59,130,246,0.04); border-top: 1px solid rgba(59,130,246,0.1);">
-                        <label
-                            style="font-size: 0.74rem; font-weight: 500; color: #1d4ed8; display: block; margin-bottom: 4px;">Motivo
-                            del Perdón (opcional)</label>
-                        <input type="text" name="moraNote" class="form-input"
-                            placeholder="Ej: Acuerdo comercial, cliente frecuente..."
-                            style="width: 100%; padding: 8px 10px; font-size: 0.8rem; height: 36px;">
-                    </div>
-
-                    <!-- Cobrar: desglose capital vs mora -->
-                    <div id="mora-charge-section"
-                        style="display: none; padding: 10px 14px; background: rgba(249,115,22,0.04); border-top: 1px solid rgba(249,115,22,0.15);">
-                        <div
-                            style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 5px;">
-                            <span style="color: var(--text-secondary);">Capital (factura original):</span>
-                            <strong id="mora-capital-display"
-                                style="color: var(--text-primary); font-family: monospace;"></strong>
-                        </div>
-                        <div
-                            style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 5px;">
-                            <span style="color: #c2410c;">Recargo por mora:</span>
-                            <strong id="mora-fee-display" style="color: #dc2626; font-family: monospace;"></strong>
-                        </div>
-                        <div
-                            style="display: flex; justify-content: space-between; font-size: 0.82rem; font-weight: 700; border-top: 1px solid rgba(249,115,22,0.2); padding-top: 5px;">
-                            <span>Total a recibir:</span>
-                            <strong id="mora-total-display"
-                                style="color: var(--accent-emerald); font-family: monospace;"></strong>
-                        </div>
-                        <div
-                            style="margin-top: 8px; padding: 8px 10px; background: rgba(245,158,11,0.08); border-left: 3px solid #f59e0b; border-radius: 3px; font-size: 0.7rem; color: #92400e; line-height: 1.4;">
-                            <i class="fa-solid fa-circle-info"></i> <strong>Nota DGII:</strong> Al cobrar mora, deberá
-                            emitirse un e-CF (E32/B02) adicional por RD$ <span id="mora-ecf-note"></span> como ingreso
-                            por recargo financiero.
-                        </div>
-                    </div>
-                </div>
-
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label for="amount-input"
-                        style="font-size: 0.8rem; font-weight: 500; margin-bottom: 6px; display: block; color: var(--text-secondary);">Monto
-                        a Cobrar / Abonar (RD$)</label>
-                    <input type="number" id="amount-input" name="amount" class="form-input" min="0.01"
-                        max="{{ invoice.remainingBalance }}" step="0.01" value=""
-                        style="width: 100%; padding: 10px 12px; font-size: 0.9rem; height: 44px;" required
-                        oninput="updateMoraDesglose()">
-                </div>
-
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label for="payment-method-select-pay"
-                        style="font-size: 0.8rem; font-weight: 500; margin-bottom: 6px; display: block; color: var(--text-secondary);">Forma
-                        de Pago Real</label>
-                    <select id="payment-method-select-pay" name="paymentMethod" class="form-select"
-                        style="width: 100%; padding: 10px 12px; font-size: 0.9rem; height: 44px;" required>
-                        <option value="Cheque / Transferencia">Cheque / Transferencia Bancaria</option>
-                        <option value="Efectivo">Efectivo</option>
-                        <option value="Tarjeta de Crédito / Débito">Tarjeta de Crédito / Débito</option>
-                    </select>
-                </div>
-
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label for="bank-account-select"
-                        style="font-size: 0.8rem; font-weight: 500; margin-bottom: 6px; display: block; color: var(--text-secondary);">Cuenta bancaria <span style="color:var(--accent-red);">*</span></label>
-                    <select id="bank-account-select" name="bankAccountId" class="form-select"
-                        style="width: 100%; padding: 10px 12px; font-size: 0.9rem; height: 44px;" required>
-                        <option value="">Seleccionar cuenta</option>
-                        {% for acc in bank_accounts %}
-                        <option value="{{ acc.id }}">{{ acc.name }} — RD$ {{ "{:,.2f}".format(acc.currentBalance) }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div id="bank-transfer-fields" style="display: flex; flex-direction: column; gap: 16px;">
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label for="ref-input"
-                            style="font-size: 0.8rem; font-weight: 500; margin-bottom: 6px; display: block; color: var(--text-secondary);">Referencia
-                            / Depósito</label>
-                        <input type="text" id="ref-input" name="referenceNumber" class="form-input"
-                            placeholder="Ej: REF-BPD-12345"
-                            style="width: 100%; padding: 10px 12px; font-size: 0.9rem; height: 44px;">
-                    </div>
-                </div>
-
-                <button type="submit" class="btn"
-                    style="width: 100%; font-size: 0.92rem; padding: 12px 20px; margin-top: 4px; background: linear-gradient(135deg, #059669, #10b981); border: none; color: white; font-weight: 500; cursor: pointer;">
-                    <i class="fa-solid fa-square-check"></i>
-                    <span>Confirmar Cobro</span>
-                </button>
-            </form>
+        <div id="mora-panel" style="display:none;border:1.5px solid #f97316;border-radius:var(--radius-sm);overflow:hidden;">
+          <div style="background:linear-gradient(135deg,rgba(249,115,22,0.1),rgba(239,68,68,0.06));padding:10px 14px;border-bottom:1px solid rgba(249,115,22,0.2);">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <i class="fa-solid fa-triangle-exclamation" style="color:#f97316;font-size:0.85rem;"></i>
+                <span style="font-size:0.75rem;font-weight:700;color:#c2410c;text-transform:uppercase;letter-spacing:0.03em;">Mora Acumulada</span>
+              </div>
+              <strong id="mora-display-amount" style="font-size:0.95rem;color:#dc2626;font-family:monospace;"></strong>
+            </div>
+            <p style="font-size:0.7rem;color:#92400e;margin:4px 0 0;line-height:1.3;">Esta factura tiene recargos por pago tardío:</p>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;background:var(--bg-card);">
+            <button type="button" id="btn-perdonar-mora" onclick="setMoraAction('perdonar')" style="padding:8px;border:none;border-right:1px solid rgba(249,115,22,0.2);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;transition:background 0.2s;background:rgba(59,130,246,0.08);">
+              <i class="fa-solid fa-handshake" style="font-size:1rem;color:#2563eb;"></i>
+              <span style="font-size:0.7rem;font-weight:700;color:#1d4ed8;">Perdonar Mora</span>
+              <span style="font-size:0.6rem;color:#64748b;text-align:center;line-height:1.2;">Solo se cobra el capital</span>
+            </button>
+            <button type="button" id="btn-cobrar-mora" onclick="setMoraAction('cobrar')" style="padding:8px;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;transition:background 0.2s;background:transparent;">
+              <i class="fa-solid fa-coins" style="font-size:1rem;color:#64748b;"></i>
+              <span style="font-size:0.7rem;font-weight:700;color:#64748b;">Cobrar Mora</span>
+              <span style="font-size:0.6rem;color:#64748b;text-align:center;line-height:1.2;">Se reporta como ingreso</span>
+            </button>
+          </div>
+          <div id="mora-forgive-section" style="padding:8px 14px;background:rgba(59,130,246,0.04);border-top:1px solid rgba(59,130,246,0.1);">
+            <label style="font-size:0.7rem;font-weight:500;color:#1d4ed8;display:block;margin-bottom:3px;">Motivo del Perdón (opcional)</label>
+            <input type="text" name="moraNote" class="form-input" placeholder="Ej: Acuerdo comercial, cliente frecuente..." style="width:100%;padding:7px 10px;font-size:0.78rem;height:34px;">
+          </div>
+          <div id="mora-charge-section" style="display:none;padding:8px 14px;background:rgba(249,115,22,0.04);border-top:1px solid rgba(249,115,22,0.15);">
+            <div style="display:flex;justify-content:space-between;font-size:0.73rem;margin-bottom:3px;"><span style="color:var(--text-secondary);">Capital (factura original):</span><strong id="mora-capital-display" style="color:var(--text-primary);font-family:monospace;"></strong></div>
+            <div style="display:flex;justify-content:space-between;font-size:0.73rem;margin-bottom:3px;"><span style="color:#c2410c;">Recargo por mora:</span><strong id="mora-fee-display" style="color:#dc2626;font-family:monospace;"></strong></div>
+            <div style="display:flex;justify-content:space-between;font-size:0.78rem;font-weight:700;border-top:1px solid rgba(249,115,22,0.2);padding-top:4px;"><span>Total a recibir:</span><strong id="mora-total-display" style="color:var(--accent-emerald);font-family:monospace;"></strong></div>
+            <div style="margin-top:6px;padding:6px 8px;background:rgba(245,158,11,0.06);border-left:3px solid #f59e0b;border-radius:3px;font-size:0.67rem;color:#92400e;line-height:1.3;">
+              <i class="fa-solid fa-circle-info"></i> <strong>Nota DGII:</strong> Al cobrar mora, debe emitirse un e-CF (E32/B02) adicional por RD$ <span id="mora-ecf-note"></span> como ingreso financiero.
+            </div>
+          </div>
         </div>
+
+        <div style="display:flex;gap:12px;">
+          <div class="inp-group" style="flex:1;margin-bottom:0;">
+            <label for="amount-input" style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:3px;color:var(--text-secondary);">Monto a Cobrar (RD$)</label>
+            <input type="number" id="amount-input" name="amount" class="form-input" min="0.01" max="{{ invoice.remainingBalance }}" step="0.01" value="" required oninput="updateMoraDesglose()" style="width:100%;padding:9px 12px;font-size:0.85rem;height:40px;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:var(--bg-input);color:var(--text-primary);">
+          </div>
+          <div class="inp-group" style="flex:1;margin-bottom:0;">
+            <label for="payment-method-select-pay" style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:3px;color:var(--text-secondary);">Forma de Pago</label>
+            <select id="payment-method-select-pay" name="paymentMethod" class="form-select" required style="width:100%;padding:9px 12px;font-size:0.85rem;height:40px;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:var(--bg-input);color:var(--text-primary);">
+              <option value="Cheque / Transferencia">Cheque / Transferencia Bancaria</option>
+              <option value="Efectivo">Efectivo</option>
+              <option value="Tarjeta de Crédito / Débito">Tarjeta de Crédito / Débito</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;">
+          <div class="inp-group" style="flex:1;margin-bottom:0;">
+            <label for="bank-account-select" style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:3px;color:var(--text-secondary);">Cuenta bancaria <span style="color:var(--accent-red);">*</span></label>
+            <select id="bank-account-select" name="bankAccountId" class="form-select" required style="width:100%;padding:9px 12px;font-size:0.85rem;height:40px;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:var(--bg-input);color:var(--text-primary);">
+              <option value="">Seleccionar cuenta</option>
+              {% for acc in bank_accounts %}
+              <option value="{{ acc.id }}">{{ acc.name }} — RD$ {{ "{:,.2f}".format(acc.currentBalance) }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div id="bank-transfer-fields" class="inp-group" style="flex:1;margin-bottom:0;">
+            <label for="ref-input" style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:3px;color:var(--text-secondary);">Referencia / Depósito</label>
+            <input type="text" id="ref-input" name="referenceNumber" class="form-input" placeholder="Ej: REF-BPD-12345" style="width:100%;padding:9px 12px;font-size:0.85rem;height:40px;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:var(--bg-input);color:var(--text-primary);">
+          </div>
+        </div>
+      </form>
     </div>
+    <div class="modal-footer" style="display:flex;justify-content:flex-end;padding:16px 24px;border-top:1px solid var(--border-color);">
+      <button type="submit" form="pay-invoice-form" class="btn btn-primary" style="padding:10px 24px;font-size:0.85rem;font-weight:600;">
+        <i class="fa-solid fa-square-check" style="margin-right:6px;"></i>Confirmar Cobro
+      </button>
+    </div>
+  </div>
 </div>
 <!-- =========================================================================
      MODAL PARA ENVIAR RECIBO POR EMAIL
@@ -1972,10 +1884,9 @@ function closeDraftPaymentModal() {
         </div>
 
         <!-- Generic Premium Confirmation Modal -->
-        <div id="premium-confirm-modal" class="search-modal" style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 3000;">
-            <div class="modal-backdrop" onclick="closePremiumConfirm()" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(8px);"></div>
-            <div class="modal-content" style="max-width: 450px; width: 90%; padding: 24px; border-radius: var(--radius-md); position: relative; z-index: 3001; background: var(--bg-card, #ffffff); border: 1px solid var(--border-color); box-shadow: var(--shadow-lg);">
-                <h3 style="margin-top: 0; margin-bottom: 16px; font-family: var(--font-heading); color: var(--text-primary); font-weight: 800; display: flex; align-items: center; gap: 8px;">
+        <div id="premium-confirm-modal" class="search-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;align-items:center;justify-content:center;z-index:3000;background:rgba(15,23,42,0.4);backdrop-filter:blur(8px);">
+            <div class="modal-content" style="max-width:450px;position:relative;background:var(--bg-card,#ffffff);border:1px solid var(--border-color);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);overflow:hidden;padding:24px;">
+                <h3 style="margin-top:0;margin-bottom:16px;font-family:var(--font-heading);color:var(--text-primary);font-weight:800;display:flex;align-items:center;gap:8px;">
                     <i id="confirm-icon" class="fa-solid fa-circle-question" style="color: var(--accent-purple);"></i>
                     <span id="confirm-header-text">Confirmar Acción</span>
                 </h3>
@@ -2635,11 +2546,14 @@ function closeDraftPaymentModal() {
             
             onConfirmCallback = options.onConfirm;
             
+            document.body.style.overflow = 'hidden';
+            window.scrollTo({ top: 0, behavior: 'auto' });
             document.getElementById('premium-confirm-modal').style.display = 'flex';
         }
 
         function closePremiumConfirm() {
             document.getElementById('premium-confirm-modal').style.display = 'none';
+            document.body.style.overflow = '';
             onConfirmCallback = null;
         }
 
@@ -2648,6 +2562,10 @@ function closeDraftPaymentModal() {
                 onConfirmCallback();
             }
             closePremiumConfirm();
+        });
+
+        document.getElementById('premium-confirm-modal')?.addEventListener('click', function(e) {
+            if (e.target === this) closePremiumConfirm();
         });
 
         function confirmManualApprove() {

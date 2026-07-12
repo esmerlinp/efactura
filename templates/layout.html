@@ -1664,7 +1664,7 @@
                     {% endif %}
 
                     {% if user_has_multiple_companies %}
-                    <a href="{{ url_for('web_auth.select_company') }}" class="utility-item" title="Cambiar de Empresa">
+                    <a href="{{ url_for('web_auth.select_company', next=request.url) }}" class="utility-item" title="Cambiar de Empresa">
                         <i class="fa-solid fa-building-circle-arrow-right"></i>
                     </a>
                     {% endif %}
@@ -2071,6 +2071,10 @@
                 branchInput.name = 'branch_id';
                 branchInput.value = branchId;
                 form.appendChild(branchInput);
+                const nextInput = document.createElement('input');
+                nextInput.name = 'next';
+                nextInput.value = window.location.pathname + window.location.search;
+                form.appendChild(nextInput);
                 document.body.appendChild(form);
                 form.submit();
             };
@@ -2088,6 +2092,10 @@
                 projectInput.name = 'project_id';
                 projectInput.value = projectId;
                 form.appendChild(projectInput);
+                const nextInput = document.createElement('input');
+                nextInput.name = 'next';
+                nextInput.value = window.location.pathname + window.location.search;
+                form.appendChild(nextInput);
                 document.body.appendChild(form);
                 form.submit();
             };
