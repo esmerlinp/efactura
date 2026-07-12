@@ -227,11 +227,10 @@
         <a href="{{ url_for('web_rrhh.payroll_new') }}" class="btn btn-primary btn-sm">
             <i class="fa-solid fa-calculator"></i> Procesar Nómina
         </a>
-        <form method="POST" action="{{ url_for('web_rrhh.payroll_delete', period_id=period.id) }}" style="margin:0;"
-              onsubmit="document.getElementById('deleteConfirmField').value = prompt('⚠️ ¿Eliminar este período definitivamente?\\n\\nEsta acción NO se puede deshacer.\\n\\nEscribe ELIMINAR para confirmar:'); return document.getElementById('deleteConfirmField').value === 'ELIMINAR';">
+        <form method="POST" id="deletePayrollForm" action="{{ url_for('web_rrhh.payroll_delete', period_id=period.id) }}" style="margin:0;">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="confirm" id="deleteConfirmField" value="">
-            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--danger); border-color:var(--danger);">
+            <button type="button" class="btn btn-ghost btn-sm" style="color:var(--danger); border-color:var(--danger);" onclick="openDeleteModal()">
                 <i class="fa-solid fa-trash-can"></i> Eliminar período
             </button>
         </form>
@@ -700,5 +699,69 @@ function dismissPayslipBanner() {
     if (_payslipPollTimer) { clearInterval(_payslipPollTimer); _payslipPollTimer = null; }
     _payslipJobId = null;
 }
+
+function openDeleteModal() {
+    var modal = document.getElementById('deletePayrollModal');
+    var input = document.getElementById('deleteConfirmInput');
+    modal.classList.add('active');
+    input.value = '';
+    input.focus();
+    document.getElementById('deleteSubmitBtn').disabled = true;
+}
+
+function closeDeleteModal() {
+    document.getElementById('deletePayrollModal').classList.remove('active');
+    document.getElementById('deleteConfirmInput').value = '';
+}
+
+function validateDeleteConfirm() {
+    var val = document.getElementById('deleteConfirmInput').value;
+    document.getElementById('deleteSubmitBtn').disabled = (val !== 'ELIMINAR');
+}
+
+function submitDeleteForm() {
+    var val = document.getElementById('deleteConfirmInput').value;
+    if (val !== 'ELIMINAR') return;
+    document.getElementById('deleteConfirmField').value = 'ELIMINAR';
+    document.getElementById('deletePayrollForm').submit();
+}
 </script>
+
+<div class="modal-overlay" id="deletePayrollModal">
+    <div class="modal-backdrop" onclick="closeDeleteModal()"></div>
+    <div class="modal-card modal-card--sm">
+        <div class="modal-header">
+            <h3 class="modal-title" style="color:var(--danger);">
+                <i class="fa-solid fa-triangle-exclamation"></i> Eliminar período
+            </h3>
+            <button type="button" class="modal-close" onclick="closeDeleteModal()">&times;</button>
+        </div>
+        <div class="modal-body" style="display:flex; flex-direction:column; gap:16px;">
+            <div>
+                <p style="font-weight:600; margin:0 0 6px 0; color:var(--text-primary);">
+                    ¿Eliminar este período definitivamente?
+                </p>
+                <p style="margin:0; font-size:0.85rem; color:var(--text-secondary);">
+                    Esta acción NO se puede deshacer.
+                </p>
+            </div>
+            <div>
+                <label style="font-size:0.8rem; font-weight:500; color:var(--text-secondary); display:block; margin-bottom:6px;">
+                    Escribe <strong style="color:var(--danger);">ELIMINAR</strong> para confirmar:
+                </label>
+                <input type="text" id="deleteConfirmInput" class="form-input"
+                       placeholder="ELIMINAR"
+                       oninput="validateDeleteConfirm()"
+                       onkeydown="if(event.key==='Enter')submitDeleteForm()"
+                       style="width:100%; box-sizing:border-box;" autocomplete="off">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Cancelar</button>
+            <button type="button" id="deleteSubmitBtn" class="btn btn-danger" disabled onclick="submitDeleteForm()">
+                <i class="fa-solid fa-trash-can"></i> Eliminar
+            </button>
+        </div>
+    </div>
+</div>
 {% endblock %}

@@ -436,6 +436,57 @@ class ChatbotService:
             history = []
 
         profile = DatabaseService.get_company_profile(owner_uid)
+
+        # FAQ cache: preguntas frecuentes respondidas sin llamar a OpenAI
+        faq_answers = {
+            "contingencia": (
+                "**Contingencia DGII (Ley 32-23, Art. 40-43)**\n\n"
+                "• **Emisión Offline:** Si no hay conexión a internet, puedes emitir e-CF en modo FALLBACK. "
+                "Tienes **72 horas** para sincronizarlos con la DGII una vez restablecida la conexión.\n"
+                "• **Fallo Técnico del DGII:** Hasta **15 días** con secuencias físicas. Regularización en **30 días**.\n"
+                "• Los comprobantes llevan la leyenda \"e-CF emitido en modalidad de contingencia\".\n"
+                "• En esta plataforma puedes sincronizar manualmente desde el **Dashboard** o **Panel de Contingencia** "
+                "en la sección POS → Contingencia."
+            ),
+            "rst": (
+                "**Régimen Simplificado de Tributación (RST)**\n\n"
+                "• Beneficio DGII para profesionales independientes y microempresas.\n"
+                "• Los e-CF se reportan en tiempo real, simplificando declaraciones.\n"
+                "• Exime de liquidación mensual de ITBIS (IT-1).\n"
+                "• Declaración anual simplificada en febrero/marzo.\n"
+                "• **Límite 2026:** RD$ 12,068,181.09. Excederlo traslada al Régimen General con penalidades.\n"
+                "• Actívalo en **Configuración de Empresa** para ver la barra de control del límite anual."
+            ),
+            "itbis": (
+                "**ITBIS (Impuesto sobre Transferencias de Bienes Industrializados y Servicios)**\n\n"
+                "• Tasa general: **18%** sobre el valor neto.\n"
+                "• Se declara mensualmente (formato IT-1) antes del día 20 del mes siguiente.\n"
+                "• **Retención de ITBIS:** Si eres profesional independiente, tu cliente retiene el 100% del ITBIS "
+                "y tú solo recibes el subtotal.\n"
+                "• **Gastos deducibles:** El ITBIS de tus compras de insumos se acredita contra el ITBIS cobrado."
+            ),
+            "isr": (
+                "**ISR (Impuesto Sobre la Renta)**\n\n"
+                "• Personas físicas: escala progresiva según ingresos anuales.\n"
+                "• Personas jurídicas: **27%** sobre renta neta imponible.\n"
+                "• **Retención ISR a profesionales independientes:** 10% del subtotal.\n"
+                "• Declaración jurada anual (IR-1/IR-2) antes de abril.\n"
+            ),
+            "gastos deducibles": (
+                "**Gastos Deducibles (Art. 287 Código Tributario)**\n\n"
+                "Son deducibles si son **necesarios para obtener y conservar ingresos gravados**:\n"
+                "• Laptops de trabajo, internet comercial, software, suscripciones.\n"
+                "• Alquiler de oficina, servicios profesionales, publicidad.\n"
+                "• Gastos de transporte y representación (con límites).\n\n"
+                "**No deducibles:** Compras de supermercado familiar, ropa personal, entretenimiento.\n"
+                "En la plataforma usa el switch **Deducible** al registrar un gasto."
+            ),
+        }
+        msg_lower = message.lower().strip()
+        for keyword, answer in faq_answers.items():
+            if keyword in msg_lower:
+                return {"success": True, "message": answer, "source": "cache"}
+
         api_key = profile.get("openaiApiKey", "").strip()
 
         using_global_key = False
@@ -502,7 +553,7 @@ EMPRESA ACTUAL:
             "Authorization": f"Bearer {api_key}"
         }
 
-        MAX_TOOL_ROUNDS = 5
+        MAX_TOOL_ROUNDS = 3
         current_round = 0
 
         while current_round < MAX_TOOL_ROUNDS:

@@ -12,16 +12,44 @@ _scheduler = None
 _flask_app = None   # Referencia a la instancia Flask para contexto en el job
 
 
+def _get_all_owner_uids():
+    """Obtiene todos los owner UIDs con perfil configurado (RNC + regimenFiscal).
+    Cache compartido por los jobs del scheduler para evitar lecturas repetitivas de users."""
+    from app.services.db_service import db_firestore, firebase_initialized
+    uids = set()
+    if not firebase_initialized or not db_firestore:
+        return uids
+    try:
+        docs = db_firestore.collection("users").limit(1000).stream()
+        for doc in docs:
+            profile_ref = doc.reference.collection("config").document("profile")
+            profile_doc = profile_ref.get()
+            if profile_doc.exists:
+                profile = profile_doc.to_dict()
+                if profile.get("companyRNC"):
+                    uids.add(doc.id)
+    except Exception as e:
+        logger.error(f"Error obteniendo owner UIDs: {e}")
+    return uids
+
+
 def run_daily_contract_billing():
     """
-    Job diario (6:00 AM hora RD): recorre todos los contratos Activos
+    Job diario (6:00 AM hora RD): recorre todos los usuarios con contratos Activos
     cuya nextBillingDate <= hoy y genera las facturas correspondientes.
     Respeta el flag sandbox de cada contrato.
+    Optimización GCP: lee la colección users primero (más pequeña) y luego
+    busca contratos por ownerUID en vez de escanear toda la colección contracts.
     """
     from app.services.db_service import db_firestore
     from app.services.recurrence import RecurrenceService
 
     logger.info("⏰ APScheduler — Iniciando facturación diaria de contratos recurrentes...")
+
+    owner_uids = _get_all_owner_uids()
+    if not owner_uids:
+        logger.info("ℹ️ No se encontraron usuarios para facturación de contratos.")
+        return
 
     collections = [
         ("contracts",         False),
@@ -29,40 +57,30 @@ def run_daily_contract_billing():
     ]
 
     for collection_name, is_sandbox in collections:
-        try:
-            # Obtener todos los owner UIDs únicos con contratos Activos
-            docs = db_firestore.collection(collection_name) \
-                .where("status", "==", "Activo").stream()
+        for owner_uid in owner_uids:
+            try:
+                contracts = db_firestore.collection(collection_name) \
+                    .where("ownerUID", "==", owner_uid) \
+                    .where("status", "==", "Activo").stream()
+                has_active = any(True for _ in contracts)
+                if not has_active:
+                    continue
 
-            owner_uids_seen = set()
-            for doc in docs:
-                data = doc.to_dict()
-                uid = data.get("ownerUID") or data.get("owner_uid", "")
-                if uid:
-                    owner_uids_seen.add(uid)
-
-            for owner_uid in owner_uids_seen:
-                try:
-                    count = RecurrenceService.process_pending_contracts(
-                        owner_uid,
-                        sandbox=is_sandbox,
-                        app_instance=_flask_app,
+                count = RecurrenceService.process_pending_contracts(
+                    owner_uid,
+                    sandbox=is_sandbox,
+                    app_instance=_flask_app,
+                )
+                if count > 0:
+                    logger.info(
+                        f"✅ {count} contrato(s) facturado(s) para owner "
+                        f"{owner_uid} (sandbox={is_sandbox})"
                     )
-                    if count > 0:
-                        logger.info(
-                            f"✅ {count} contrato(s) facturado(s) para owner "
-                            f"{owner_uid} (sandbox={is_sandbox})"
-                        )
-                except Exception as exc:
-                    logger.error(
-                        f"❌ Error procesando contratos de {owner_uid} "
-                        f"(sandbox={is_sandbox}): {exc}"
-                    )
-
-        except Exception as exc:
-            logger.error(
-                f"❌ Error accediendo a colección '{collection_name}': {exc}"
-            )
+            except Exception as exc:
+                logger.error(
+                    f"❌ Error procesando contratos de {owner_uid} "
+                    f"(sandbox={is_sandbox}): {exc}"
+                )
 
     logger.info("✅ APScheduler — Facturación diaria finalizada.")
 
@@ -70,11 +88,17 @@ def run_daily_contract_billing():
 
 def run_daily_depreciation():
     """Job diario (2:00 AM RD): recorre todos los dueños con activos fijos
-    y ejecuta depreciación automática para los activos cuya nextDepreciationDate <= hoy."""
+    y ejecuta depreciación automática para los activos cuya nextDepreciationDate <= hoy.
+    Optimización GCP: evita collection_group (costoso), itera por usuario."""
     from app.services.db_service import db_firestore
     from app.services.fixed_asset_service import FixedAssetService
 
     logger.info("⏰ APScheduler — Iniciando depreciación automática de activos fijos...")
+
+    owner_uids = _get_all_owner_uids()
+    if not owner_uids:
+        logger.info("ℹ️ No se encontraron usuarios para depreciación de activos.")
+        return
 
     collections = [
         ("sandbox_fixed_assets", True),
@@ -82,33 +106,26 @@ def run_daily_depreciation():
     ]
 
     for coll_name, is_sandbox in collections:
-        try:
-            docs = db_firestore.collection_group(coll_name).stream()
-            owner_uids_seen = set()
-            for doc in docs:
-                parent_path = doc.reference.parent.parent.parent.path
-                uid = parent_path.split("/")[1] if "/" in parent_path else ""
-                if uid:
-                    owner_uids_seen.add(uid)
+        for owner_uid in owner_uids:
+            try:
+                assets_coll = db_firestore.collection("users").document(owner_uid).collection(coll_name)
+                docs = assets_coll.where("status", "==", "active").stream()
+                has_active = any(True for _ in docs)
+                if not has_active:
+                    continue
 
-            for owner_uid in owner_uids_seen:
-                try:
-                    results = FixedAssetService.run_auto_depreciation(owner_uid, sandbox=is_sandbox)
-                    success_count = sum(1 for r in results if r["success"])
-                    if success_count > 0:
-                        logger.info(
-                            f"✅ {success_count} activo(s) depreciado(s) para owner "
-                            f"{owner_uid} (sandbox={is_sandbox})"
-                        )
-                except Exception as exc:
-                    logger.error(
-                        f"❌ Error depreciando activos de {owner_uid} "
-                        f"(sandbox={is_sandbox}): {exc}"
+                results = FixedAssetService.run_auto_depreciation(owner_uid, sandbox=is_sandbox)
+                success_count = sum(1 for r in results if r["success"])
+                if success_count > 0:
+                    logger.info(
+                        f"✅ {success_count} activo(s) depreciado(s) para owner "
+                        f"{owner_uid} (sandbox={is_sandbox})"
                     )
-        except Exception as exc:
-            logger.error(
-                f"❌ Error accediendo a colección '{coll_name}': {exc}"
-            )
+            except Exception as exc:
+                logger.error(
+                    f"❌ Error depreciando activos de {owner_uid} "
+                    f"(sandbox={is_sandbox}): {exc}"
+                )
 
     logger.info("✅ APScheduler — Depreciación automática finalizada.")
 
@@ -217,13 +234,10 @@ def init_scheduler(app):
         replace_existing=True,
     )
 
-    _scheduler.add_job(
-        func=monitored_contingency_sync,
-        trigger=CronTrigger(minute="*/30"),      # Cada 30 minutos
-        id="contingency_sync",
-        name="Sincronización Automática de Contingencia DGII",
-        replace_existing=True,
-    )
+    # NOTA: La sincronización de contingencia se ejecuta manualmente
+    # desde /admin/jobs (panel de administración) o desde el Dashboard.
+    # El job automático cada 30 min fue deshabilitado para reducir
+    # costos de Firestore — ver plan de optimización GCP Jul 2026.
 
     _scheduler.add_job(
         func=monitored_daily_depreciation,

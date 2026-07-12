@@ -208,7 +208,8 @@ def payroll_post(period_id):
     try:
         from app.services.accounting_service import AccountingService
         from app.services.db_service import DatabaseService
-        snapshot = period.get("taxRatesSnapshot", {})
+        from app.services.hr_data_service import get_tax_rates_snapshot
+        snapshot = get_tax_rates_snapshot(period)
         tax_rates_data = snapshot if snapshot else hr.get_tax_rates(owner_uid, sandbox=sandbox)
         now_str = date.today().isoformat()
         employees_list = hr.get_employees(owner_uid, sandbox=sandbox)

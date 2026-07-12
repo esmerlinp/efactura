@@ -61,6 +61,9 @@ def payroll_new():
     else:
         employees = active_employees
 
+    # Pre-validación de incidencias
+    incidencias = PayrollService.validate_employees_before_payroll(employees) if employees else {"errors": [], "warnings": []}
+
     now = date.today()
     available_periods = _generate_periods(group_frequency, now.year)
 
@@ -77,22 +80,24 @@ def payroll_new():
                 flash(f"Ya existe una nómina para el período «{period_key}» en el grupo «{selected_group.get('name', '')}».", "warning")
                 return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll",
                employees=employees, now=now,
-                       available_periods=available_periods, frequency=group_frequency,
-                       show_christmas_bonus=(now.month >= 11),
-                       payroll_groups=payroll_groups,
-                       selected_group_id=selected_group_id,
-                       existing_period=existing)
+                        available_periods=available_periods, frequency=group_frequency,
+                        show_christmas_bonus=(now.month >= 11),
+                        payroll_groups=payroll_groups,
+                        selected_group_id=selected_group_id,
+                        existing_period=existing,
+                        incidencias=incidencias)
         else:
             existing = hr.get_payroll_period_by_key(owner_uid, period_key, sandbox=sandbox)
             if existing:
                 flash(f"Ya existe una nómina para el período «{period_key}».", "warning")
                 return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll",
-                                       employees=employees, now=now,
-                                       available_periods=available_periods, frequency=group_frequency,
-                                       show_christmas_bonus=(now.month >= 11),
-                                       payroll_groups=payroll_groups,
-                                       selected_group_id=selected_group_id,
-                                       existing_period=existing)
+                                        employees=employees, now=now,
+                                        available_periods=available_periods, frequency=group_frequency,
+                                        show_christmas_bonus=(now.month >= 11),
+                                        payroll_groups=payroll_groups,
+                                        selected_group_id=selected_group_id,
+                                        existing_period=existing,
+                                        incidencias=incidencias)
 
         # Parse period key
         parts = period_key.split("-")
@@ -108,6 +113,20 @@ def payroll_new():
         period_employees, excluded = _filter_employees_by_period(employees, period_key)
         period_id = str(uuid.uuid4())
         lines = []
+
+        # Pre-validación: bloquear si hay errores antes de calcular
+        period_incidencias = PayrollService.validate_employees_before_payroll(period_employees)
+        if period_incidencias.get("errors"):
+            for err in period_incidencias["errors"]:
+                flash(f"{err['employeeName']}: {err['issue']}", "error")
+            flash("Corrige los errores antes de procesar la nómina.", "error")
+            return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll",
+                                   employees=employees, now=now,
+                                   available_periods=available_periods, frequency=group_frequency,
+                                   show_christmas_bonus=(now.month >= 11),
+                                   payroll_groups=payroll_groups,
+                                   selected_group_id=selected_group_id,
+                                   incidencias=period_incidencias)
         all_transactions = []
         all_applications = []
 
@@ -362,11 +381,12 @@ def payroll_new():
 
             # ── Construir PayrollLine con resumen ──
             recurring_details = []
+            recurring_additions_details = []
             tx_summary = []
             for tx in employee_transactions:
                 if isinstance(tx, dict):
                     ccode = tx.get("conceptCode", "")
-                    cname = tx.get("conceptSnapshot", {}).get("name", ccode)
+                    cname = concept_map.get(ccode, {}).get("name", tx.get("conceptSnapshot", {}).get("name", ccode))
                     is_rec = tx.get("isRecurring", False)
                     tx_summary.append({
                         "conceptCode": ccode,
@@ -377,6 +397,8 @@ def payroll_new():
                     })
                     if is_rec and tx.get("type") == "deduction":
                         recurring_details.append({"description": cname, "amount": float(tx.get("amount", 0))})
+                    if is_rec and tx.get("type") == "earning":
+                        recurring_additions_details.append({"description": cname, "amount": float(tx.get("amount", 0))})
                 else:
                     tx_summary.append({
                         "conceptCode": getattr(tx, "conceptCode", ""),
@@ -389,6 +411,10 @@ def payroll_new():
             deduct = sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("type") == "deduction")
             employer = sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("type") == "employer_contrib")
             net = max(0, earn - deduct)
+            recurring_earnings = sum(
+                float(t.get("amount", 0)) for t in employee_transactions
+                if t.get("isRecurring") and t.get("type") == "earning"
+            )
 
             line = {
                 "employeeId": emp_id,
@@ -402,7 +428,7 @@ def payroll_new():
                 "overtimeHours": float(request.form.get(f"overtime_{emp_id}", 0) or 0),
                 "commission": commission,
                 "bonus": bonus,
-                "otherIncome": other_income_manual,
+                "otherIncome": round(other_income_manual + recurring_earnings, 2),
                 "periodType": emp_period_type,
                 "transactionSummary": tx_summary,
                 "totalIncome": round(earn, 2),
@@ -421,6 +447,7 @@ def payroll_new():
                 "infotepEmployer": sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("conceptCode") == "INFOTEP_EMPLEADOR"),
                 "otherDeductions": round(sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("conceptCode") in ("OTRAS_DEDUCCIONES",) and not t.get("isRecurring")), 2),
                 "recurringDeductionsBreakdown": recurring_details,
+                "recurringAdditionsBreakdown": recurring_additions_details,
             }
 
             lines.append(line)
@@ -438,6 +465,7 @@ def payroll_new():
                 print(f"⚠️ YTD accumulation error for employee {emp_id}: {e}")
 
         all_recurring_descs = []
+        all_recurring_additions_descs = []
         for line in lines:
             for d in line.get("recurringDeductionsBreakdown", []):
                 if d["description"] not in all_recurring_descs:
@@ -445,6 +473,13 @@ def payroll_new():
             line["recurringDeductionsMap"] = {
                 d["description"]: d["amount"]
                 for d in line.get("recurringDeductionsBreakdown", [])
+            }
+            for d in line.get("recurringAdditionsBreakdown", []):
+                if d["description"] not in all_recurring_additions_descs:
+                    all_recurring_additions_descs.append(d["description"])
+            line["recurringAdditionsMap"] = {
+                d["description"]: d["amount"]
+                for d in line.get("recurringAdditionsBreakdown", [])
             }
 
         period_data = {
@@ -473,6 +508,7 @@ def payroll_new():
             "parameterVersions": {},
             "lineCount": len(lines),
             "recurringDeductionColumns": all_recurring_descs,
+            "recurringAdditionsColumns": all_recurring_additions_descs,
             "statusHistory": [{
                 "from": "borrador",
                 "to": "calculada",
@@ -481,7 +517,17 @@ def payroll_new():
                 "comment": "Nómina calculada",
             }],
         }
-        hr.save_payroll_period(owner_uid, period_id, period_data, sandbox=sandbox)
+        saved = hr.save_payroll_period(owner_uid, period_id, period_data, sandbox=sandbox)
+        if not saved:
+            flash("Error al guardar el período en la base de datos. Intenta nuevamente.", "error")
+            return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll",
+                                   employees=employees, now=now,
+                                   available_periods=available_periods, frequency=group_frequency,
+                                   show_christmas_bonus=(now.month >= 11),
+                                   payroll_groups=payroll_groups,
+                                   selected_group_id=selected_group_id,
+                                   incidencias=incidencias)
+
         hr.save_payroll_lines_batch(owner_uid, period_id, lines, sandbox=sandbox)
         hr.save_payroll_transactions_batch(owner_uid, all_transactions, sandbox=sandbox)
         from app.services.recurring_service import save_applications_batch
@@ -506,7 +552,8 @@ def payroll_new():
                            available_periods=available_periods, frequency=group_frequency,
                            show_christmas_bonus=(now.month >= 11),
                            payroll_groups=payroll_groups,
-                           selected_group_id=selected_group_id)
+                           selected_group_id=selected_group_id,
+                           incidencias=incidencias)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -785,7 +832,7 @@ def payroll_simulate():
                     status="applied",
                     conceptSnapshot={
                         "code": concept_code,
-                        "name": mv.get("description", concept_code),
+                        "name": concept_map.get(concept_code, {}).get("name", mv.get("description", concept_code)),
                         "type": mv_type,
                         "affectsISR": mv_type == "earning",
                         "affectsTSS": mv_type == "earning",
@@ -887,7 +934,7 @@ def payroll_simulate():
             )
             recurring_deductions_details = [
                 {
-                    "description": t.get("conceptSnapshot", {}).get("name", t.get("conceptCode", "")),
+                    "description": concept_map.get(t.get("conceptCode", ""), {}).get("name", t.get("conceptSnapshot", {}).get("name", t.get("conceptCode", ""))),
                     "amount": float(t.get("amount", 0)),
                 }
                 for t in employee_transactions
@@ -912,10 +959,7 @@ def payroll_simulate():
                 "afpEmployee": sum_by_concept(employee_transactions, "AFP_EMPLEADO"),
                 "sfsEmployee": sum_by_concept(employee_transactions, "SFS_EMPLEADO"),
                 "isrRetention": sum_by_concept(employee_transactions, "ISR_RETENCION"),
-                "otherDeductions": round(sum_by_concept(
-                    employee_transactions, "OTRAS_DEDUCCIONES", "PRESTAMO", "COOPERATIVA",
-                    "EMBARGO", "FONDO_AHORRO", "SEGURO"
-                ), 2),
+                "otherDeductions": round(sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("conceptCode") in ("OTRAS_DEDUCCIONES",) and not t.get("isRecurring")), 2),
                 "recurringDeductionsBreakdown": recurring_deductions_details,
             }
 

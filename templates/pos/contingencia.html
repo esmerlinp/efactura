@@ -231,15 +231,16 @@
         </div>
     </div>
 
-    <!-- Info de Sincronización Automática -->
+    <!-- Info de Sincronización Manual -->
     <div class="card-table-wrapper" style="background-color: rgba(25, 118, 210, 0.04); border-left: 4px solid var(--accent-blue);">
         <div style="display: flex; align-items: flex-start; gap: 14px;">
-            <i class="fa-solid fa-robot" style="font-size: 1.8rem; color: var(--accent-blue); opacity: 0.7; margin-top: 2px;"></i>
+            <i class="fa-solid fa-hand-pointer" style="font-size: 1.8rem; color: var(--accent-blue); opacity: 0.7; margin-top: 2px;"></i>
             <div>
-                <h4 style="font-family: var(--font-heading); margin: 0 0 6px 0; font-size: 1rem;">Sincronización Automática</h4>
+                <h4 style="font-family: var(--font-heading); margin: 0 0 6px 0; font-size: 1rem;">Sincronización Manual</h4>
                 <p style="color: var(--text-secondary); font-size: 0.88rem; margin: 0; line-height: 1.5;">
-                    El sistema intenta sincronizar los comprobantes en contingencia cada 30 minutos con un backoff progresivo:
-                    <strong>1 min</strong> → <strong>5 min</strong> → <strong>15 min</strong> → <strong>1 h</strong> → <strong>6 h</strong> → <strong>24 h</strong>.
+                    La sincronización de comprobantes en contingencia debe ejecutarse manualmente desde esta página
+                    o desde el <strong>Dashboard</strong>. Los administradores también pueden dispararla desde
+                    <strong>Admin → Jobs y Procesos</strong> para sincronizar todas las empresas.
                     Si han transcurrido más de <strong>48 horas</strong>, se envía una notificación a los administradores.
                     El límite máximo de la DGII para la sincronización post-contingencia es de <strong>72 horas</strong>.
                 </p>
@@ -276,7 +277,11 @@
                 }).catch(function() {});
         }
         checkContingencyStatus();
-        setInterval(checkContingencyStatus, 15000);
+        document.addEventListener('visibilitychange', function () {
+            if (!document.hidden) {
+                checkContingencyStatus();
+            }
+        });
         {% endif %}
     });
 

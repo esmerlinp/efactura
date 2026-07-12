@@ -69,7 +69,7 @@
                     <td><strong>{{ i + 1 }}</strong></td>
                     <td><input type="number" step="0.01" name="isr_from_{{ i }}" class="form-input" value="{{ "%.2f" % r_from }}" style="width:140px;"></td>
                     <td>
-                        {% if r_to == INFINITY %}
+                        {% if r_to == INFINITY or r_to >= 999999999.0 %}
                         <input type="text" class="form-input" value="inf" disabled style="width:140px; background:var(--bg-nav-hover);">
                         <input type="hidden" name="isr_to_{{ i }}" value="999999999">
                         {% else %}

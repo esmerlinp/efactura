@@ -294,7 +294,7 @@ class DgiiDirectService:
                 }
 
             company_rnc = str(company_profile.get("companyRNC", "")).replace("-", "").strip()
-client_rnc = str(invoice_data.get("clientRNC", "000000000")).replace("-", "").strip() or "000000000"
+            client_rnc = str(invoice_data.get("clientRNC", "000000000")).replace("-", "").strip() or "000000000"
             encf = invoice_data.get("encf", "E310000000001")
 
             payload = {

@@ -53,6 +53,7 @@
                     <th>Nombre</th>
                     <th>Próxima ejecución</th>
                     <th>Trigger</th>
+                    <th style="width: 120px;">Acción</th>
                 </tr>
             </thead>
             <tbody>
@@ -62,9 +63,17 @@
                     <td><strong>{{ job.name }}</strong></td>
                     <td>{{ job.next_run_time or '—' }}</td>
                     <td><span class="badge badge-info">{{ job.trigger }}</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-primary btn-trigger-job"
+                                data-job-id="{{ job.id }}"
+                                onclick="triggerJob('{{ job.id }}', this)"
+                                style="font-size:0.78rem; padding:4px 12px;">
+                            <i class="fa-solid fa-play"></i> Ejecutar
+                        </button>
+                    </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:32px;">
+                <tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:32px;">
                     <i class="fa-solid fa-circle-info" style="font-size:1.2rem; display:block; margin-bottom:8px; opacity:0.4;"></i>
                     Planificador no inicializado o sin jobs activos.</td></tr>
                 {% endfor %}
@@ -127,4 +136,39 @@
     </a>
 </div>
 {% endif %}
+
+<script>
+function triggerJob(jobId, btn) {
+    if (btn.disabled) return;
+    var originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+    fetch('/admin/jobs/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'job_id=' + encodeURIComponent(jobId)
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.success) {
+            btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> OK';
+            btn.style.background = 'var(--accent-emerald)';
+            setTimeout(function() { btn.innerHTML = originalHtml; btn.style.background = ''; }, 2000);
+            setTimeout(function() { location.reload(); }, 2500);
+        } else {
+            btn.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Error';
+            btn.style.background = 'var(--accent-red)';
+            setTimeout(function() { btn.innerHTML = originalHtml; btn.style.background = ''; btn.disabled = false; }, 3000);
+            console.error('Job error:', data.error);
+        }
+    })
+    .catch(function(err) {
+        btn.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Error';
+        btn.style.background = 'var(--accent-red)';
+        setTimeout(function() { btn.innerHTML = originalHtml; btn.style.background = ''; btn.disabled = false; }, 3000);
+        console.error('Network error:', err);
+    });
+}
+</script>
 {% endblock %}
