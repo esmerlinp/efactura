@@ -106,7 +106,7 @@ def sample_invoice_dict(sample_company_profile, sample_invoice_items):
     calcs = DGIIService.calculate_invoice_totals(sample_invoice_items)
     return {
         "ecfType": "Factura de Consumo (E32)",
-        "clientRNC": "999999999",
+        "clientRNC": "000000000",
         "clientName": "Consumidor Final",
         "currency": "DOP",
         "paymentMethod": "Efectivo",

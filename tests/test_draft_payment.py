@@ -158,7 +158,7 @@ def test_sign_invoice_with_payment(client):
         "dueDate": "2026-07-05",
         "total": 15000.00,
         "ecfType": "Factura de Consumo (E32)",
-        "clientRNC": "999999999",
+        "clientRNC": "000000000",
         "currency": "DOP",
         "paymentMethod": "Efectivo",
         "items": []
@@ -208,7 +208,7 @@ def test_invoice_preview_success(client):
         post_data = {
             "ecfType": "Factura de Consumo (E32)",
             "clientId": "",
-            "clientRNC": "999999999",
+            "clientRNC": "000000000",
             "currency": "DOP",
             "paymentMethod": "Efectivo",
             "dueDate": "2026-07-05",
@@ -232,7 +232,7 @@ def test_invoice_preview_no_items(client):
         post_data = {
             "ecfType": "Factura de Consumo (E32)",
             "clientId": "",
-            "clientRNC": "999999999",
+            "clientRNC": "000000000",
             "currency": "DOP",
             "paymentMethod": "Efectivo",
             "dueDate": "2026-07-05"

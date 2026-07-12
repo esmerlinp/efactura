@@ -201,8 +201,8 @@ Events are published via the Event Bus and automatically trigger handlers:
 When working with Dominican e-CF (Comprobantes Fiscales Electrónicos):
 
 - **E31 (Crédito Fiscal)**: Requires valid client RNC (9 digits). Cannot use generic RNC
-  `999999999`. Validates that client RNC exists.
-- **E32 (Consumo)**: For final consumers. Can use generic RNC `999999999`.
+  `000000000`. Validates that client RNC exists.
+- **E32 (Consumo)**: For final consumers. Can use generic RNC `000000000`.
 - **E41 (Gasto Menor)**: For minor expenses under RD$250,000. Simpler XML.
 - **E43 (Comprobante Especial)**: For government entities and special regimes.
 - **ITBIS**: Default 18%. Invoice must validate cuadratura (subtotal × rate ≈ ITBIS amount).

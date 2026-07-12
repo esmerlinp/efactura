@@ -30,7 +30,7 @@ El contador debe probar los siguientes módulos y validar su correcto funcionami
 | # | Prueba | Resultado esperado |
 |---|--------|--------------------|
 | 1 | Emitir factura E31 (Crédito Fiscal) con RNC de cliente válido de 9 dígitos | La factura se emite, el XML se genera, se firma digitalmente y se envía a DGII con TrackID de respuesta |
-| 2 | Emitir factura E32 (Consumo) para consumidor final | La factura se emite sin exigir RNC, permite RNC genérico 999999999 |
+| 2 | Emitir factura E32 (Consumo) para consumidor final | La factura se emite sin exigir RNC, permite RNC genérico 000000000 |
 | 3 | Emitir factura con productos grabados al 18% ITBIS | El cálculo de ITBIS (subtotal × 0.18) es correcto, el total neto refleja subtotal + ITBIS |
 | 4 | Emitir factura con productos al 16% ITBIS (tasa reducida) | El ITBIS se calcula al 16%, el XML especifica código de impuesto correcto |
 | 5 | Emitir factura con productos exentos de ITBIS | ITBIS = 0, el XML refleja la exención correctamente |

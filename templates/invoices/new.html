@@ -443,7 +443,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function inferEcfTypeFromRNC(rncValue) {
         if (!ecfTypeSelect || ecfTypeSelect.hasAttribute('data-manual-override')) return;
         const val = ecfTypeSelect.value; if (val === 'Nota de Débito (E33)' || val === 'Nota de Crédito (E34)') return;
-        ecfTypeSelect.value = (!rncValue || rncValue === '999999999' || rncValue === 'Consumidor Final') ? 'Factura de Consumo (E32)' : 'Factura de Crédito Fiscal (E31)'; handleEcfTypeChange();
+        ecfTypeSelect.value = (!rncValue || rncValue === '000000000' || rncValue === 'Consumidor Final') ? 'Factura de Consumo (E32)' : 'Factura de Crédito Fiscal (E31)'; handleEcfTypeChange();
     }
     const clientRncInput = document.getElementById('client-rnc-input');
     if (clientRncInput && ecfTypeSelect) { const obs = new MutationObserver(() => { inferEcfTypeFromRNC(clientRncInput.value); }); obs.observe(clientRncInput, { attributes: true, attributeFilter: ['value'] }); clientRncInput.addEventListener('input', () => { inferEcfTypeFromRNC(clientRncInput.value); }); ecfTypeSelect.addEventListener('change', () => { ecfTypeSelect.setAttribute('data-manual-override','true'); }); }
