@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 
 {% block title %}Reporte 608 — {{ year }}-{{ '%02d'|format(month) }}{% endblock %}
-{% block page_header %}Reporte DGII 608 — Retenciones{% endblock %}
+{% block page_header %}Reporte DGII 608 — Comprobantes Fiscales Anulados{% endblock %}
 
 {% block content %}
 <style>
@@ -9,18 +9,20 @@
     .breadcrumb a { color: var(--text-muted); text-decoration: none; font-weight: 500; }
     .breadcrumb a:hover { color: var(--accent-emerald); }
     .breadcrumb .sep { color: #cbd5e1; }
+    .badge-anul { display:inline-block; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:600; font-family:monospace; background:rgba(239,68,68,0.1); color:#ef4444; }
+    .mono { font-family:monospace; font-size:0.82rem; }
 </style>
 <div class="breadcrumb">
     <span>Reportes</span> <span class="sep">/</span> <span>Fiscales</span> <span class="sep">/</span> <span>Reporte 608</span>
 </div>
 <div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
     <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
-        <i class="fa-solid fa-hand-holding-dollar" style="color:var(--accent-amber); margin-right:10px;"></i>
-        Reporte 608 — Retenciones Efectuadas
+        <i class="fa-solid fa-ban" style="color:var(--accent-red); margin-right:10px;"></i>
+        Reporte 608 — Comprobantes Fiscales Anulados
     </h1>
     <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
-        Período: <strong>{{ year }}-{{ '%02d'|format(month) }}</strong> · {{ filtered|length }} registros
-        · ISR Retenido RD$ {{ "{:,.2f}".format(total_isr) }} · ITBIS Retenido RD$ {{ "{:,.2f}".format(total_itbis) }}
+        Período: <strong>{{ year }}-{{ '%02d'|format(month) }}</strong> · {{ filtered|length }} comprobantes anulados
+        · RNC: <strong>{{ owner_rnc }}</strong>
     </p>
 </div>
 
@@ -33,11 +35,14 @@
                     <i class="fa-solid fa-download"></i> Exportar ▾
                 </button>
                 <div style="display:none; position:absolute; right:0; top:100%; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:var(--shadow-lg); z-index:100; min-width:200px; margin-top:4px;">
-                    <a href="{{ url_for('web_reports_608.reporte_608_export', year=year, month=month, retention_type=retention_type, ecf_type=ecf_type, search=search, format='simple') }}" style="display:block; padding:10px 16px; text-decoration:none; color:var(--text-primary); font-size:0.85rem; border-bottom:1px solid var(--border-color);">
+                    <a href="{{ url_for('web_reports_608.reporte_608_export', year=year, month=month, cancellation_type=cancellation_type, search=search, format='simple') }}" style="display:block; padding:10px 16px; text-decoration:none; color:var(--text-primary); font-size:0.85rem; border-bottom:1px solid var(--border-color);">
                         <i class="fa-solid fa-file-csv" style="margin-right:8px;"></i> CSV Simple
                     </a>
-                    <a href="{{ url_for('web_reports_608.reporte_608_export', year=year, month=month, retention_type=retention_type, ecf_type=ecf_type, search=search, format='dgii') }}" style="display:block; padding:10px 16px; text-decoration:none; color:var(--text-primary); font-size:0.85rem;">
+                    <a href="{{ url_for('web_reports_608.reporte_608_export', year=year, month=month, cancellation_type=cancellation_type, search=search, format='dgii') }}" style="display:block; padding:10px 16px; text-decoration:none; color:var(--text-primary); font-size:0.85rem; border-bottom:1px solid var(--border-color);">
                         <i class="fa-solid fa-file-export" style="margin-right:8px;"></i> CSV Formato DGII 608
+                    </a>
+                    <a href="{{ url_for('web_reports_608.reporte_608_export', year=year, month=month, cancellation_type=cancellation_type, search=search, format='xlsx') }}" style="display:block; padding:10px 16px; text-decoration:none; color:var(--text-primary); font-size:0.85rem;">
+                        <i class="fa-solid fa-file-excel" style="margin-right:8px;"></i> XLSX Formato DGII 608
                     </a>
                 </div>
             </div>
@@ -67,25 +72,16 @@
                 <input type="text" name="search" class="form-input" placeholder="Cliente, RNC, NCF..." value="{{ search }}" style="width:100%; font-size:0.78rem; height:36px;">
             </div>
             <div class="form-group" style="margin-bottom:0;">
-                <label style="font-size:0.72rem; color:var(--text-secondary);">Tipo Retención</label>
-                <select name="retention_type" class="form-select" style="width:100%; font-size:0.78rem; height:36px;">
-                    <option value="">Todas</option>
-                    {% for k, v in retention_labels.items() %}
-                    <option value="{{ k }}" {% if retention_type == k %}selected{% endif %}>{{ v }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="form-group" style="margin-bottom:0;">
-                <label style="font-size:0.72rem; color:var(--text-secondary);">e-CF Type</label>
-                <select name="ecf_type" class="form-select" style="width:100%; font-size:0.78rem; height:36px;">
+                <label style="font-size:0.72rem; color:var(--text-secondary);">Tipo Anulación</label>
+                <select name="cancellation_type" class="form-select" style="width:100%; font-size:0.78rem; height:36px;">
                     <option value="">Todos</option>
-                    {% for k, v in ecf_labels.items() %}
-                    <option value="{{ k }}" {% if ecf_type == k %}selected{% endif %}>{{ k }}</option>
+                    {% for k, v in cancellation_labels.items() %}
+                    <option value="{{ k }}" {% if cancellation_type == k %}selected{% endif %}>{{ k }} - {{ v }}</option>
                     {% endfor %}
                 </select>
             </div>
             <div style="display:flex; gap:6px;">
-                <button type="submit" class="btn btn-secondary" style="height:36px; font-size:0.78rem; border-color:var(--accent-amber); color:var(--accent-amber);">
+                <button type="submit" class="btn btn-secondary" style="height:36px; font-size:0.78rem; border-color:var(--accent-red); color:var(--accent-red);">
                     <i class="fa-solid fa-filter"></i> Filtrar
                 </button>
                 <a href="{{ url_for('web_reports_608.reporte_608') }}" class="btn btn-secondary" style="height:36px; font-size:0.78rem; padding:0 10px; border-color:var(--border-color); color:var(--text-muted);">
@@ -96,64 +92,64 @@
     </form>
 
     <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:12px; margin:0 20px 20px;">
+        <div style="padding:12px; background:rgba(239,68,68,0.06); border-radius:8px; text-align:center; border:1px solid rgba(239,68,68,0.12);">
+            <div style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase;">Total Anulados</div>
+            <div style="font-size:1.1rem; font-weight:700; color:#ef4444;">{{ filtered|length }}</div>
+        </div>
+        {% for ct, count in by_type.items() %}
         <div style="padding:12px; background:rgba(245,158,11,0.06); border-radius:8px; text-align:center; border:1px solid rgba(245,158,11,0.12);">
-            <div style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase;">ISR Retenido</div>
-            <div style="font-size:1.1rem; font-weight:700; color:#f59e0b;">RD$ {{ "{:,.2f}".format(total_isr) }}</div>
+            <div style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase;">{{ ct }} - {{ cancellation_labels.get(ct, '')[:20] }}</div>
+            <div style="font-size:1.1rem; font-weight:700; color:#f59e0b;">{{ count }}</div>
         </div>
-        <div style="padding:12px; background:rgba(139,92,246,0.06); border-radius:8px; text-align:center; border:1px solid rgba(139,92,246,0.12);">
-            <div style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase;">ITBIS Retenido</div>
-            <div style="font-size:1.1rem; font-weight:700; color:var(--accent-purple);">RD$ {{ "{:,.2f}".format(total_itbis) }}</div>
-        </div>
-        <div style="padding:12px; background:rgba(59,130,246,0.06); border-radius:8px; text-align:center; border:1px solid rgba(59,130,246,0.12);">
-            <div style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase;">Registros</div>
-            <div style="font-size:1.1rem; font-weight:700; color:var(--accent-blue);">{{ filtered|length }}</div>
-        </div>
+        {% endfor %}
     </div>
 
     <div class="table-responsive">
         <table class="table-premium" style="min-width:900px;">
             <thead>
                 <tr>
-                    <th>Fecha</th>
-                    <th>RNC</th>
-                    <th>Retenido</th>
-                    <th>Tipo</th>
-                    <th>e-CF</th>
+                    <th>Fecha Anulación</th>
                     <th>NCF/e-CF</th>
-                    <th style="text-align:right;">Base RD$</th>
-                    <th style="text-align:right;">Monto Ret. RD$</th>
+                    <th>Cliente</th>
+                    <th>RNC</th>
+                    <th>Tipo Anulación</th>
+                    <th>Estatus</th>
                 </tr>
             </thead>
             <tbody>
                 {% if filtered %}
                 {% for e in filtered %}
                 <tr>
-                    <td style="font-size:0.82rem;">{{ (e.date or e.createdAt or '')[:10] }}</td>
-                    <td><span class="mono">{{ e.clientRNC or '—' }}</span></td>
+                    <td style="font-size:0.82rem;">{{ (e.cancelledAt or e.updatedAt or e.date or e.createdAt or '')[:10] }}</td>
+                    <td><span class="mono">{{ e.encf or e.invoiceNumber or '—' }}</span></td>
                     <td style="font-weight:600;">{{ e.clientName or '—' }}</td>
+                    <td><span class="mono">{{ e.clientRNC or '—' }}</span></td>
                     <td>
-                        {% if e._retencion_tipo == 'ISR' %}
-                        <span class="badge-ecf" style="background:#fef3c7; color:#92400e;">ISR</span>
-                        {% else %}
-                        <span class="badge-ecf" style="background:#ede9fe; color:#5b21b6;">ITBIS</span>
-                        {% endif %}
+                        {% set ct = e.cancellationType or '04' %}
+                        <span class="badge-anul">{{ ct }} - {{ cancellation_labels.get(ct, 'Sin clasificar')[:25] }}</span>
                     </td>
-                    <td><span class="badge-ecf">{{ e.ecfType or '—' }}</span></td>
-                    <td><span class="mono" style="font-size:0.75rem;">{{ e.encf or e.invoiceNumber or '—' }}</span></td>
-                    <td style="text-align:right;">{{ "{:,.2f}".format(e.subtotal|default(0)) }}</td>
-                    <td style="text-align:right; font-weight:600;">{{ "{:,.2f}".format(e._retencion_monto|default(0)) }}</td>
+                    <td><span class="badge-anul">Anulado</span></td>
                 </tr>
                 {% endfor %}
                 {% else %}
                 <tr>
-                    <td colspan="8" style="text-align:center; padding:40px; color:var(--text-muted);">
-                        <i class="fa-solid fa-hand-holding-dollar" style="font-size:2rem; display:block; margin-bottom:10px; opacity:0.3;"></i>
-                        No hay retenciones registradas en este período.
+                    <td colspan="6" style="text-align:center; padding:40px; color:var(--text-muted);">
+                        <i class="fa-solid fa-circle-check" style="font-size:2rem; display:block; margin-bottom:10px; opacity:0.3;"></i>
+                        No hay comprobantes anulados en este período.
                     </td>
                 </tr>
                 {% endif %}
             </tbody>
         </table>
+    </div>
+</div>
+
+<div style="margin: 0 20px 20px; padding: 12px; background: rgba(239,68,68,0.04); border-radius: 8px; border: 1px solid rgba(239,68,68,0.1);">
+    <h4 style="font-size:0.8rem; font-weight:600; color:var(--text-primary); margin:0 0 6px;">Códigos de Anulación DGII</h4>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:2px;">
+        {% for k, v in cancellation_labels.items() %}
+        <div style="font-size:0.7rem; color:var(--text-secondary);"><strong>{{ k }}</strong> - {{ v }}</div>
+        {% endfor %}
     </div>
 </div>
 
@@ -164,13 +160,4 @@ document.addEventListener('click', function(e) {
     }
 });
 </script>
-
-<style>
-.badge-ecf {
-    display:inline-block; padding:2px 6px; border-radius:4px;
-    font-size:0.7rem; font-weight:600; font-family:monospace;
-    background:rgba(59,130,246,0.1); color:#3b82f6;
-}
-.mono { font-family:monospace; font-size:0.82rem; }
-</style>
 {% endblock %}

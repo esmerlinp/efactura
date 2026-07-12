@@ -2199,8 +2199,8 @@ class DatabaseService:
                         "startSequence": int(data.get("startSequence", 0)),
                         "endSequence": int(data.get("endSequence", 0)),
                         "reason": data.get("reason", ""),
-                        "status": status,
-                        "date": serialize_field(data.get("date")),
+                    "status": data.get("status", ""),
+                    "date": serialize_field(data.get("date")),
                         "responseMessage": data.get("responseMessage", ""),
                         "cancellationCode": data.get("cancellationCode", "")
                     })
