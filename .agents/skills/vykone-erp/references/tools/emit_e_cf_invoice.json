@@ -135,7 +135,7 @@
     }
   },
   "validation_rules": [
-    "Si ecf_type contiene 'E31' o 'Crédito Fiscal', clientRNC debe tener 9 u 11 dígitos y no ser '999999999'",
+    "Si ecf_type contiene 'E31' o 'Crédito Fiscal', clientRNC debe tener 9 u 11 dígitos y no ser '000000000'",
     "Todo ítem debe tener price > 0 y quantity > 0",
     "La suma de subtotales × (1 + itbisRate) debe aproximar el total (tolerancia de cuadratura)",
     "El certificado digital P12 debe ser válido y no expirado",

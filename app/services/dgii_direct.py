@@ -239,7 +239,7 @@ class DgiiDirectService:
         encf = invoice_data.get("encf", "E310000000001")
         track_id = f"dgii_tr_{uuid.uuid4().hex[:12]}"
         company_rnc = str(company_profile.get("companyRNC", "")).replace("-", "").strip()
-        client_rnc = str(invoice_data.get("clientRNC", "999999999")).replace("-", "").strip() or "999999999"
+        client_rnc = str(invoice_data.get("clientRNC", "000000000")).replace("-", "").strip() or "000000000"
         qr_url = cls._build_qr_url(company_rnc, client_rnc, encf, invoice_data.get("total", 0.0))
         return {
             "success": True,
@@ -294,7 +294,7 @@ class DgiiDirectService:
                 }
 
             company_rnc = str(company_profile.get("companyRNC", "")).replace("-", "").strip()
-            client_rnc = str(invoice_data.get("clientRNC", "999999999")).replace("-", "").strip() or "999999999"
+client_rnc = str(invoice_data.get("clientRNC", "000000000")).replace("-", "").strip() or "000000000"
             encf = invoice_data.get("encf", "E310000000001")
 
             payload = {

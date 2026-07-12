@@ -23,7 +23,7 @@
                 <div onclick="openClientLookupModal()" style="cursor: pointer; flex-grow: 1;">
                     <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">Cliente (RNC / Cédula)</div>
                     <strong id="client-display-name" style="font-size: 0.88rem; color: var(--text-primary);">Consumidor Final</strong>
-                    <div id="client-rnc-label" style="font-size: 0.7rem; color: var(--text-muted); font-family: monospace;">RNC: 999999999</div>
+                    <div id="client-rnc-label" style="font-size: 0.7rem; color: var(--text-muted); font-family: monospace;">RNC: 000000000</div>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-end;">
                     <select id="client-type-select" onchange="updateEcfTypeFromSelect(this.value)" disabled
@@ -431,7 +431,7 @@
     let cart = [];
     let currentClientId = 'default';
     let currentClientName = 'Consumidor Final';
-    let currentClientRNC = '999999999';
+    let currentClientRNC = '000000000';
     let currentEcfType = 'Factura de Consumo (E32)';
     let successInvoiceId = null;
     let usdExchangeRate = 58.50;
@@ -1070,7 +1070,7 @@
 
         const typeSelect = document.getElementById('client-type-select');
 
-        if (client.rnc === '999999999' || !client.rnc) {
+        if (client.rnc === '000000000' || !client.rnc) {
             currentEcfType = 'Factura de Consumo (E32)';
             typeSelect.value = 'Factura de Consumo (E32)';
             typeSelect.disabled = true;
@@ -1086,11 +1086,11 @@
     function clearPOSClient() {
         currentClientId = 'default';
         currentClientName = 'Consumidor Final';
-        currentClientRNC = '999999999';
+        currentClientRNC = '000000000';
         currentEcfType = 'Factura de Consumo (E32)';
 
         document.getElementById('client-display-name').textContent = 'Consumidor Final';
-        document.getElementById('client-rnc-label').textContent = 'RNC: 999999999';
+        document.getElementById('client-rnc-label').textContent = 'RNC: 000000000';
 
         const typeSelect = document.getElementById('client-type-select');
         typeSelect.value = 'Factura de Consumo (E32)';

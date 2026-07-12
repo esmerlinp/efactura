@@ -300,7 +300,7 @@ class DgiiXmlBuilder:
             # Para E41/E43 el receptor es la misma empresa (comprador del gasto)
             company_rnc = company_profile.get("companyRNC", "").replace("-", "").strip()
             company_name = company_profile.get("companyName", "Mi Empresa SRL")
-            ET.SubElement(receptor, "RNCReceptor").text = company_rnc or "999999999"
+            ET.SubElement(receptor, "RNCReceptor").text = company_rnc or "000000000"
             ET.SubElement(receptor, "RazonSocialReceptor").text = company_name
             mun_comp = cls.map_province_or_municipality(company_profile.get("municipality", "Santo Domingo de Guzmán"), is_province=False)
             prov_comp = cls.map_province_or_municipality(company_profile.get("province", "Santo Domingo"), is_province=True)
@@ -330,7 +330,7 @@ class DgiiXmlBuilder:
                     ET.SubElement(receptor, "ProvinciaComprador").text = prov_comp
             else:
                 # En otros casos, forzar los datos obligatorios
-                ET.SubElement(receptor, "RNCReceptor").text = client_rnc if client_rnc else "999999999"
+                ET.SubElement(receptor, "RNCReceptor").text = client_rnc if client_rnc else "000000000"
                 ET.SubElement(receptor, "RazonSocialReceptor").text = razon_social_rec if razon_social_rec else "Consumidor Final"
                 
                 mun_comp = cls.map_province_or_municipality(invoice_data.get("clientMunicipality", "Santo Domingo de Guzmán"), is_province=False)

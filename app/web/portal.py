@@ -1252,7 +1252,7 @@ def portal_document_pdf(invoice_id):
         codigo_seg = invoice.get("xmlSignature", "")[:6]
         rnc_emisor = company.get("companyRNC", "").replace("-", "").strip()
         rnc_comprador = invoice.get("clientRNC", "").replace("-", "").strip()
-        if not rnc_comprador: rnc_comprador = "999999999"
+        if not rnc_comprador: rnc_comprador = "000000000"
         monto_total = f"{invoice.get('total', 0.0):.2f}"
         
         is_consumo = 'Consumo' in invoice.get("ecfType", "")

@@ -290,7 +290,7 @@ def _emit_consolidated_ecf(owner_uid, shift_id, pending_invoices, sandbox):
         "dueDate": datetime.now(timezone.utc).isoformat(),
         "clientId": "default",
         "clientName": "Consumidor Final",
-        "clientRNC": "999999999",
+        "clientRNC": "000000000",
         "status": "Cobrada",
         "ecfType": "Factura de Consumo (E32)",
         "currency": "DOP",
@@ -715,7 +715,7 @@ def create_pos_sale():
 
     client_id = data.get('clientId', '')
     client_name = data.get('clientName', 'Consumidor Final')
-    client_rnc = data.get('clientRNC', '999999999')
+    client_rnc = data.get('clientRNC', '000000000')
     payment_method = data.get('paymentMethod', 'Efectivo')
     items_list = data.get('items', [])
     ecf_type = data.get('ecfType', 'Factura de Consumo (E32)')
@@ -751,11 +751,11 @@ def create_pos_sale():
     invoice_number = f"POS-{datetime.now(timezone.utc).strftime('%y%m%d%H%M%S')}"
 
     # --- Determinar si aplica modo consolidado ---
-    # Condiciones DGII: E32, Consumidor Final (RNC 999999999), total < monto configurable de la empresa
+    # Condiciones DGII: E32, Consumidor Final (RNC 000000000), total < monto configurable de la empresa
     company = DatabaseService.get_company_profile(owner_uid)
     consolidation_enabled = company.get('consolidationEnabled', False)
     consolidation_threshold = float(company.get('consolidationThreshold') or 250000.0)
-    is_consumer_final = (client_id == 'default' or client_rnc == '999999999')
+    is_consumer_final = (client_id == 'default' or client_rnc == '000000000')
     qualifies_for_consolidation = (
         consolidation_enabled
         and ecf_type == 'Factura de Consumo (E32)'
@@ -1010,7 +1010,7 @@ def print_receipt(invoice_id):
         codigo_seg = invoice.get("xmlSignature", "")[:6]
         rnc_emisor = company.get("companyRNC", "").replace("-", "").strip()
         rnc_comprador = invoice.get("clientRNC", "").replace("-", "").strip()
-        if not rnc_comprador: rnc_comprador = "999999999"
+        if not rnc_comprador: rnc_comprador = "000000000"
         monto_total = f"{invoice.get('total', 0.0):.2f}"
         
         is_consumo = 'Consumo' in invoice.get("ecfType", "")

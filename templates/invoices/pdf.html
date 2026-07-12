@@ -614,14 +614,14 @@
         <!-- Emisor / Receptor -->
         {% set is_consumo = 'Consumo' in (invoice.ecfType or '') %}
         {% set is_minor = (invoice.total or 0) < 250000 %} {% set hide_client=is_consumo and is_minor and (not
-            invoice.clientRNC or invoice.clientRNC=='999999999' or not invoice.clientName) %} {% if not hide_client %}
+            invoice.clientRNC or invoice.clientRNC=='000000000' or not invoice.clientName) %} {% if not hide_client %}
             <div
              style="margin: 16px 20px 24px; padding: 18px 0; border-top: 2px solid {{ current_light_color }}; border-bottom: 2px solid {{ current_light_color }}; line-height: 1.7; overflow-wrap: break-word; word-break: break-word;">
             <div style="font-size: 12px; color: #111827; margin-bottom: 6px;">
                 <strong>Razón Social Cliente:</strong> {{ invoice.clientName or 'Consumidor Final' }}
             </div>
             <div style="font-size: 12px; color: #111827;">
-                <strong>RNC Cliente:</strong> {{ invoice.clientRNC or '999999999' }}
+                <strong>RNC Cliente:</strong> {{ invoice.clientRNC or '000000000' }}
             </div>
             {% if invoice.clientContact or invoice.clientEmail or invoice.clientPhone %}
             <div style="font-size: 11px; color: #475569; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #e2e8f0;">

@@ -39,7 +39,7 @@ def invoice_dict():
     calcs = DGIIService.calculate_invoice_totals(items)
     return {
         "ecfType": "Factura de Consumo (E32)",
-        "clientRNC": "999999999",
+        "clientRNC": "000000000",
         "clientName": "Consumidor Final",
         "currency": "DOP",
         "paymentMethod": "Efectivo",

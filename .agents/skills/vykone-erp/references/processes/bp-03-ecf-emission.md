@@ -23,8 +23,8 @@ Crear factura → Validar RNC cliente → Validar cuadratura ITBIS
 
 | Type | Client RNC | ITBIS | Use case |
 |------|-----------|-------|----------|
-| E31 | Required, 9 digits, not `999999999` | 18% (configurable) | B2B with tax credit |
-| E32 | Any, `999999999` allowed | 18% | B2C final consumer |
+| E31 | Required, 9 digits, not `000000000` | 18% (configurable) | B2B with tax credit |
+| E32 | Any, `000000000` allowed | 18% | B2C final consumer |
 | E41 | Any | 18% | Minor expenses <$250K |
 | E43 | Any | Varies | Government, special regimes |
 
@@ -53,7 +53,7 @@ Each emission consumes one sequence. The system tracks consumed sequences in `se
 - `emit_e_cf_invoice`: high risk — fiscal document, requires confirmation
 - `cancel_e_cf_invoice`: critical — fiscal cancellation with DGII, requires double confirmation
 - ALWAYS validate RNC for E31 before emission
-- NEVER emit E31 with generic RNC 999999999
+- NEVER emit E31 with generic RNC 000000000
 
 ## Related Files
 - `app/services/ecf_emission.py` — orchestration
