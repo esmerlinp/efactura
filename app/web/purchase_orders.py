@@ -157,6 +157,9 @@ def new_purchase_order():
         )
 
         flash(f'✅ Orden de compra {po_number} creada exitosamente.', 'success')
+        if request.form.get('save_action') == 'save_and_new':
+            flash('Orden de compra guardada. Puedes crear otra.', 'success')
+            return redirect(url_for('web_purchase_orders.new_purchase_order'))
         return redirect(url_for('web_purchase_orders.list_purchase_orders'))
 
     po_number = PurchaseOrderService.get_next_po_number(owner_uid, sandbox=sandbox)
@@ -1098,6 +1101,9 @@ def new_supplier_invoice_direct():
         if file_upload_error:
             msg += ' El archivo no pudo subirse. Puede adjuntarlo después desde el detalle.'
         flash(msg, 'success')
+        if request.form.get('save_action') == 'save_and_new':
+            flash('Factura de compra guardada. Puedes crear otra.', 'success')
+            return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct'))
         return redirect(url_for('web_purchase_orders.list_purchase_cxp'))
 
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')

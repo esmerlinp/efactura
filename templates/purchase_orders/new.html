@@ -229,7 +229,10 @@
         <a href="{{ url_for('web_purchase_orders.list_purchase_orders') }}" class="btn btn-secondary">
             <span>Cancelar</span>
         </a>
-        <button type="submit" class="btn btn-primary" style="padding:14px 28px;">
+        <button type="submit" name="save_action" value="save_and_new" class="btn btn-secondary" style="padding:14px 28px;">
+            <i class="fa-solid fa-plus"></i> Guardar y Nuevo
+        </button>
+        <button type="submit" name="save_action" value="save" class="btn btn-primary" style="padding:14px 28px;">
             <i class="fa-solid fa-floppy-disk"></i> Guardar Orden de Compra
         </button>
     </div>

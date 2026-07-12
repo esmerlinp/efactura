@@ -918,12 +918,20 @@
             style="display: flex; flex-direction: column; gap: 14px; max-height: 380px; overflow-y: auto; padding-right: 5px;">
             {% if projects_list %}
             {% for proj in projects_list %}
+            {% set is_closed = proj.status == 'closed' %}
             <div
-                style="background-color: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;">
+                style="background-color: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;{% if is_closed %} opacity:0.7;{% endif %}">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                     <div>
                         <strong style="font-size: 0.9rem; display: block; color: var(--text-primary);">
                             {{ proj.name }} ({{ proj.code }})
+                            {% if is_closed %}
+                            <span class="badge"
+                                style="background: rgba(107,114,128,0.12); color: var(--text-muted); font-size: 0.65rem; padding: 1px 8px; border-radius: 10px; margin-left: 6px;">Cerrado</span>
+                            {% else %}
+                            <span class="badge"
+                                style="background: rgba(16,185,129,0.1); color: var(--accent-emerald); font-size: 0.65rem; padding: 1px 8px; border-radius: 10px; margin-left: 6px;">Abierto</span>
+                            {% endif %}
                             {% if proj.isDefault %}
                             <span class="badge"
                                 style="background: rgba(124,58,237,0.1); color: var(--accent-purple); font-size: 0.65rem; padding: 1px 8px; border-radius: 10px; margin-left: 6px;">Predeterminado</span>
@@ -935,14 +943,44 @@
                         {% endif %}
                         <span
                             style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-top: 2px;">Sucursal: {{ proj.branchName or '—' }}</span>
+                        <span
+                            style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-top: 2px;">
+                            Inicio: {{ proj.startDate[:10] if proj.startDate else '—' }}
+                            {% if proj.endDate %} | Fin: {{ proj.endDate[:10] }}{% endif %}
+                        </span>
                     </div>
                     <div style="display: flex; gap: 6px;">
+                        {% if is_closed %}
+                        <form action="/settings/projects/{{ proj.id }}/toggle-status" method="POST"
+                            onsubmit="return confirm('¿Reabrir el proyecto {{ proj.name|e }}?');"
+                            style="display: inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-primary"
+                                style="padding: 6px 8px; font-size: 0.75rem;" title="Reabrir Proyecto">
+                                <i class="fa-solid fa-unlock"></i>
+                            </button>
+                        </form>
+                        {% else %}
+                        <form action="/settings/projects/{{ proj.id }}/toggle-status" method="POST"
+                            onsubmit="return confirm('¿Cerrar el proyecto {{ proj.name|e }}?');"
+                            style="display: inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-secondary"
+                                style="padding: 6px 8px; font-size: 0.75rem; color:var(--accent-red);" title="Cerrar Proyecto">
+                                <i class="fa-solid fa-lock"></i>
+                            </button>
+                        </form>
+                        {% endif %}
                         <button type="button" class="btn btn-secondary btn-edit-project"
                             style="padding: 6px 8px; font-size: 0.75rem;" data-id="{{ proj.id }}"
                             data-name="{{ proj.name }}" data-code="{{ proj.code }}"
                             data-description="{{ proj.description or '' }}"
                             data-branchid="{{ proj.branchId }}"
-                            data-isdefault="{{ 'true' if proj.isDefault else 'false' }}" title="Editar Proyecto">
+                            data-isdefault="{{ 'true' if proj.isDefault else 'false' }}"
+                            data-startdate="{{ proj.startDate[:10] if proj.startDate else '' }}"
+                            data-enddate="{{ proj.endDate[:10] if proj.endDate else '' }}"
+                            data-status="{{ proj.status }}"
+                            title="Editar Proyecto">
                             <i class="fa-solid fa-pen-to-square"></i>
                         </button>
                         <form action="/settings/projects/{{ proj.id }}/delete" method="POST"
@@ -997,6 +1035,17 @@
                         <label for="project-description">Descripción</label>
                         <textarea id="project-description" name="description" class="form-input" rows="2"
                             placeholder="Descripción opcional del proyecto"></textarea>
+                    </div>
+
+                    <div style="display:flex;gap:14px;">
+                        <div class="form-group" style="margin-bottom:0;flex:1;">
+                            <label for="project-start-date">Fecha de inicio <span style="color:var(--accent-red);">*</span></label>
+                            <input type="date" id="project-start-date" name="startDate" class="form-input" required>
+                        </div>
+                        <div class="form-group" style="margin-bottom:0;flex:1;">
+                            <label for="project-end-date">Fecha de fin</label>
+                            <input type="date" id="project-end-date" name="endDate" class="form-input">
+                        </div>
                     </div>
 
                     <div class="form-group" style="margin-bottom: 0;">
@@ -1605,6 +1654,8 @@
                         document.getElementById('project-description').value = this.dataset.description;
                         document.getElementById('project-branch').value = this.dataset.branchid;
                         document.getElementById('project-is-default').checked = this.dataset.isdefault === 'true';
+                        document.getElementById('project-start-date').value = this.dataset.startdate || '';
+                        document.getElementById('project-end-date').value = this.dataset.enddate || '';
                         projectModal.style.display = 'flex';
                     });
                 });

@@ -432,7 +432,10 @@
 
         <div class="actions-bar">
             <a href="{{ url_for('web_purchase_orders.list_purchase_cxp') }}" class="btn btn-secondary">Cancelar</a>
-            <button type="submit" class="btn btn-primary" style="background:var(--accent-emerald);border-color:var(--accent-emerald);">
+            <button type="submit" name="save_action" value="save_and_new" class="btn btn-secondary" style="background:var(--accent-yellow);border-color:var(--accent-yellow);">
+                <i class="fa-solid fa-plus"></i> Guardar y Nuevo
+            </button>
+            <button type="submit" name="save_action" value="save" class="btn btn-primary" style="background:var(--accent-purple);border-color:var(--accent-purple);color:#fff;">
                 <i class="fa-solid fa-floppy-disk"></i> Registrar Factura de Compra
             </button>
         </div>
@@ -471,23 +474,7 @@
     </form>
 </div>
 
-<!-- Modal rápido para registrar proveedor -->
-<div class="search-modal" id="supplier-create-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;align-items:center;justify-content:center;z-index:1050;">
-    <div class="modal-content" style="max-width:560px;position:relative;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
-        <div class="modal-header" style="padding:20px 24px;border-bottom:1px solid var(--border-color);"><h3 style="font-size:0.95rem;"><i class="fa-solid fa-truck" style="color:var(--accent-emerald);margin-right:8px;"></i>Registrar Nuevo Proveedor</h3><button type="button" class="btn-close-modal" id="btn-close-supplier-modal"><i class="fa-solid fa-xmark"></i></button></div>
-        <div class="modal-body" style="padding:22px 24px;">
-            <div id="create-supplier-alert" style="display:none;padding:10px 16px;border-radius:6px;margin-bottom:16px;font-size:0.85rem;"></div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-                <div class="form-group"><label>RNC / Cédula</label><input type="text" id="new-supplier-rnc" class="form-input" placeholder="Ej: 101234567" style="font-family:monospace;"><small id="rnc-lookup-status" style="display:none;font-size:0.7rem;margin-top:2px;"></small></div>
-                <div class="form-group"><label>Razón Social / Nombre <span style="color:var(--accent-red);">*</span></label><input type="text" id="new-supplier-name" class="form-input" placeholder="Nombre completo o empresa"></div>
-                <div class="form-group"><label>Correo Electrónico</label><input type="email" id="new-supplier-email" class="form-input" placeholder="proveedor@empresa.com"></div>
-                <div class="form-group"><label>Teléfono</label><input type="tel" id="new-supplier-phone" class="form-input" placeholder="809-000-0000"></div>
-                <div class="form-group" style="grid-column:1/-1;"><label>Dirección</label><input type="text" id="new-supplier-address" class="form-input" placeholder="Calle, sector, ciudad, provincia"></div>
-            </div>
-        </div>
-        <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:10px;padding:16px 24px;border-top:1px solid var(--border-color);"><button type="button" id="btn-cancel-supplier" class="btn btn-secondary">Cancelar</button><button type="button" id="btn-save-new-supplier" class="btn btn-primary">Guardar Proveedor</button></div>
-    </div>
-</div>
+
 
 <script>
     const accountingAccounts = {{ accounting_accounts | tojson | safe }};
@@ -808,7 +795,7 @@
         const matchedIds = new Set();
         matches.slice(0, 8).forEach(function(s) {
             matchedIds.add(s.id);
-            html += '<div style="padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border-color); transition:background 0.15s;" onmouseover="this.style.background=\'rgba(16,185,129,0.06)\'" onmouseout="this.style.background=\'\'" onclick="selectSupplier(\'' + (s.id || '') + '\', \'' + (s.name || '').replace(/'/g, "\\'") + '\', \'' + (s.rnc || '').replace(/'/g, "\\'") + '\')">';
+            html += '<div style="padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border-color); transition:background 0.15s;" onmouseover="this.style.background=\'rgba(16,185,129,0.06)\'" onmouseout="this.style.background=\'\'" onclick="selectSupplier({id:\'' + (s.id || '').replace(/'/g, "\\'") + '\', name:\'' + (s.name || '').replace(/'/g, "\\'") + '\', rnc:\'' + (s.rnc || '').replace(/'/g, "\\'") + '\'})">';
             html += '<div style="font-weight:600;font-size:0.85rem;">' + (s.name || '') + '</div>';
             html += '<div style="font-size:0.72rem;color:var(--text-muted);">RNC: ' + (s.rnc || '—') + '</div>';
             html += '</div>';
@@ -861,12 +848,15 @@
         }
     });
 
-    function selectSupplier(id, name, rnc) {
-        document.getElementById('supplierId').value = id;
-        document.getElementById('supplierName').value = name;
-        document.getElementById('supplierRnc').value = rnc;
-        searchInput.value = name;
+    function selectSupplier(s) {
+        document.getElementById('supplierId').value = s.id || '';
+        document.getElementById('supplierName').value = s.name || '';
+        document.getElementById('supplierRnc').value = s.rnc || '';
+        searchInput.value = s.name || '';
         searchResults.style.display = 'none';
+        if (s.id && !suppliers.some(function(sp) { return sp.id === s.id; })) {
+            suppliers.push({ id: s.id, rnc: s.rnc, name: s.name });
+        }
     }
 
     function selectClientAsSupplier(name, rnc) {
@@ -925,137 +915,6 @@
     handleCurrencyChange();
     togglePaymentFields();
     recalculateRetBadge();
-
-    // Modal rápido para registrar proveedor
-    (function() {
-        const supplierModal = document.getElementById('supplier-create-modal');
-        const btnOpenSupplierModal = document.getElementById('btn-create-supplier-modal');
-        const btnCloseSupplierModal = document.getElementById('btn-close-supplier-modal');
-        const btnCancelSupplier = document.getElementById('btn-cancel-supplier');
-        const btnSaveSupplier = document.getElementById('btn-save-new-supplier');
-        const supplierAlert = document.getElementById('create-supplier-alert');
-
-        const closeSupplierModal = () => {
-            if (supplierModal) supplierModal.style.display = 'none';
-        };
-
-        const showSupplierAlert = (msg, isError) => {
-            if (!supplierAlert) return;
-            supplierAlert.textContent = msg;
-            supplierAlert.style.display = 'block';
-            supplierAlert.style.background = isError ? 'rgba(239,68,68,0.12)' : 'rgba(16,185,129,0.12)';
-            supplierAlert.style.color = isError ? '#dc2626' : '#059669';
-            supplierAlert.style.border = isError ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(16,185,129,0.3)';
-        };
-
-        if (btnOpenSupplierModal) {
-            btnOpenSupplierModal.addEventListener('click', () => {
-                document.getElementById('new-supplier-rnc').value = '';
-                document.getElementById('new-supplier-name').value = '';
-                document.getElementById('new-supplier-email').value = '';
-                document.getElementById('new-supplier-phone').value = '';
-                document.getElementById('new-supplier-address').value = '';
-                if (supplierAlert) { supplierAlert.style.display = 'none'; supplierAlert.textContent = ''; }
-                if (btnSaveSupplier) { btnSaveSupplier.disabled = false; btnSaveSupplier.textContent = 'Guardar Proveedor'; }
-                if (supplierModal) supplierModal.style.display = 'flex';
-                document.getElementById('new-supplier-rnc').focus();
-            });
-        }
-
-        if (btnCloseSupplierModal) btnCloseSupplierModal.addEventListener('click', closeSupplierModal);
-        if (btnCancelSupplier) btnCancelSupplier.addEventListener('click', closeSupplierModal);
-
-        if (supplierModal) {
-            supplierModal.addEventListener('click', (e) => {
-                if (e.target === supplierModal) closeSupplierModal();
-            });
-        }
-
-        const rncInput = document.getElementById('new-supplier-rnc');
-        if (rncInput) {
-            rncInput.addEventListener('blur', async () => {
-                const rncVal = rncInput.value.trim().replace(/-/g, '');
-                const statusEl = document.getElementById('rnc-lookup-status');
-                if (!rncVal || rncVal.length < 3) {
-                    if (statusEl) statusEl.style.display = 'none';
-                    return;
-                }
-                try {
-                    const response = await fetch('/api/clients/lookup_by_rnc?rnc=' + encodeURIComponent(rncVal));
-                    const result = await response.json();
-                    if (result.success && result.found) {
-                        const c = result.client;
-                        const nameInput = document.getElementById('new-supplier-name');
-                        const emailInput = document.getElementById('new-supplier-email');
-                        const phoneInput = document.getElementById('new-supplier-phone');
-                        const addressInput = document.getElementById('new-supplier-address');
-                        if (nameInput && !nameInput.value) nameInput.value = c.name || '';
-                        if (emailInput && !emailInput.value) emailInput.value = c.email || '';
-                        if (phoneInput && !phoneInput.value) phoneInput.value = c.phone || '';
-                        if (addressInput && !addressInput.value) addressInput.value = c.address || '';
-                        if (statusEl) {
-                            statusEl.textContent = '\u2713 Cliente encontrado — datos cargados';
-                            statusEl.style.color = 'var(--accent-emerald)';
-                            statusEl.style.display = 'block';
-                        }
-                    } else {
-                        if (statusEl) statusEl.style.display = 'none';
-                    }
-                } catch (err) {
-                    if (statusEl) statusEl.style.display = 'none';
-                }
-            });
-        }
-
-        if (btnSaveSupplier) {
-            btnSaveSupplier.addEventListener('click', async () => {
-                const rnc = (document.getElementById('new-supplier-rnc')?.value || '').trim();
-                const name = (document.getElementById('new-supplier-name')?.value || '').trim();
-
-                if (!name) {
-                    showSupplierAlert('La Razón Social / Nombre es obligatorio.', true);
-                    document.getElementById('new-supplier-name')?.focus();
-                    return;
-                }
-
-                btnSaveSupplier.disabled = true;
-                btnSaveSupplier.textContent = 'Guardando...';
-                if (supplierAlert) supplierAlert.style.display = 'none';
-
-                try {
-                    const response = await fetch('/suppliers/ajax_create', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            rnc: rnc,
-                            name: name,
-                            email: (document.getElementById('new-supplier-email')?.value || '').trim(),
-                            phone: (document.getElementById('new-supplier-phone')?.value || '').trim(),
-                            address: (document.getElementById('new-supplier-address')?.value || '').trim()
-                        })
-                    });
-
-                    const result = await response.json();
-
-                    if (result.success) {
-                        const s = result.supplier;
-                        suppliers.push({ id: s.id, rnc: s.rnc, name: s.name });
-                        selectSupplier(s.id, s.name, s.rnc);
-                        showSupplierAlert('Proveedor "' + s.name + '" registrado y seleccionado.', false);
-                        setTimeout(() => closeSupplierModal(), 1200);
-                    } else {
-                        showSupplierAlert(result.error || 'Error al registrar el proveedor.', true);
-                        btnSaveSupplier.disabled = false;
-                        btnSaveSupplier.textContent = 'Guardar Proveedor';
-                    }
-                } catch (err) {
-                    showSupplierAlert('Error de conexión. Verifique su red e intente de nuevo.', true);
-                    btnSaveSupplier.disabled = false;
-                    btnSaveSupplier.textContent = 'Guardar Proveedor';
-                }
-            });
-        }
-    })();
 
     // ── Creacion desde Archivo/Imagen (OCR) ────────────────────────────
     let pendingOcrSupplierData = null;
@@ -1292,5 +1151,7 @@
         </div>
     </div>
 </div>
+
+{% include 'components/_supplier_create_modal.html' %}
 
 {% endblock %}
