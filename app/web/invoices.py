@@ -6,6 +6,9 @@ import uuid
 import html
 from datetime import datetime, timedelta, timezone
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_file, make_response, g
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+from openpyxl.utils import get_column_letter
 import qrcode
 try:
     from weasyprint import HTML as WeasyprintHTML
@@ -2836,7 +2839,7 @@ def approve_payment_proof(invoice_id):
         "registeredBy": session['user']['email'],
         "bankAccountId": bank_account_id
     }
-    
+
     try:
         # Registrar el pago oficial y recalcular balances
         DatabaseService.register_invoice_payment(owner_uid, invoice_id, payment_dict, sandbox=sandbox)
@@ -5281,6 +5284,17 @@ def payments_new_route():
             "branchId": request.form.get('branchId') or session.get('selected_branch_id') or 'default-sucursal-principal',
             "projectId": request.form.get('projectId') or session.get('selected_project_id') or None
         }
+
+        ocr_attachment_url = request.form.get('ocr_attachment_url', '').strip()
+        ocr_attachment_json_str = request.form.get('ocr_attachment_json', '').strip()
+        if ocr_attachment_url:
+            import json as json_mod
+            try:
+                ocr_attachment = json_mod.loads(ocr_attachment_json_str) if ocr_attachment_json_str else {"url": ocr_attachment_url, "type": "factura", "name": "documento_ocr"}
+            except Exception:
+                ocr_attachment = {"url": ocr_attachment_url, "type": "factura", "name": "documento_ocr"}
+            expense_dict['firebaseAttachmentURLs'] = [ocr_attachment_url]
+            expense_dict['attachments'] = [ocr_attachment]
 
         try:
             DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
@@ -7781,47 +7795,198 @@ def report_607_export():
     company = DatabaseService.get_company_profile(owner_uid) or {}
     owner_rnc = (company.get('companyRNC') or '').replace('-', '')
 
-    output = io.StringIO()
-    writer = csv.writer(output, quoting=csv.QUOTE_ALL)
+    output = io.BytesIO()
+
+    company = DatabaseService.get_company_profile(owner_uid) or {}
+    owner_rnc = (company.get('companyRNC') or '').replace('-', '')
+
+    wb = Workbook()
 
     if fmt == 'dgii':
-        writer.writerow([
-            "RNC Emisor",
-            "Periodo",
-            "RNC/Cédula Receptor",
+        ws = wb.active
+        ws.title = "Herramienta Formato 607"
+
+        header_font = Font(name="Calibri", bold=True, size=11)
+        header_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
+        thin_border = Border(
+            left=Side(style="thin"),
+            right=Side(style="thin"),
+            top=Side(style="thin"),
+            bottom=Side(style="thin"),
+        )
+        money_fmt = '#,##0.00'
+
+        period = f"{year:04d}{month:02d}"
+
+        ws.merge_cells("A1:Y1")
+        ws["A1"] = "Formato de Envío de Ventas de Bienes y Servicios"
+        ws["A1"].font = Font(name="Calibri", bold=True, size=12)
+
+        ws.merge_cells("A2:Y2")
+        ws["A2"] = "Herramienta de Distribución Gratuita — Derechos Reservados DGII 2023"
+        ws["A2"].font = Font(name="Calibri", size=9, italic=True)
+
+        ws["A4"] = "RNC o Cédula"
+        ws["B4"] = owner_rnc
+        ws["A5"] = "Periodo"
+        ws["B5"] = period
+        ws["A6"] = "Cantidad Registros"
+        ws["B6"] = len(filtered)
+
+        dgii_headers = [
+            "No.",
+            "RNC/Cédula o Pasaporte",
             "Tipo Identificación",
-            "NCF/e-CF",
-            "NCF Modificado",
-            "Tipo Ingreso",
+            "Número Comprobante Fiscal",
+            "Número Comprobante Fiscal Modificado",
+            "Tipo de Ingreso",
             "Fecha Comprobante",
+            "Fecha de Retención",
             "Monto Facturado",
             "ITBIS Facturado",
-            "ITBIS Retenido",
-            "ISR Retenido",
-        ])
-        period = f"{year:04d}{month:02d}"
-        for inv in filtered:
+            "ITBIS Retenido por Terceros",
+            "ITBIS Percibido",
+            "Retención Renta por Terceros",
+            "ISR Percibido",
+            "Impuesto Selectivo al Consumo",
+            "Otros Impuestos/Tasas",
+            "Monto Propina Legal",
+            "Efectivo",
+            "Cheque/ Transferencia/ Depósito",
+            "Tarjeta Débito/Crédito",
+            "Venta a Crédito",
+            "Bonos o Certificados de Regalo",
+            "Permuta",
+            "Otras Formas de Ventas",
+            "Estatus",
+        ]
+
+        numbering_row = 10
+        numbering_font = Font(name="Calibri", size=9)
+        for num, col_idx in enumerate(range(2, 25), 1):
+            cell = ws.cell(row=numbering_row, column=col_idx, value=num)
+            cell.font = numbering_font
+            cell.alignment = Alignment(horizontal="center")
+            cell.border = thin_border
+
+        header_row = 11
+        for col_idx, h in enumerate(dgii_headers, 1):
+            cell = ws.cell(row=header_row, column=col_idx, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.border = thin_border
+            cell.alignment = Alignment(horizontal="center", wrap_text=True)
+
+        data_start_row = header_row + 1
+        for i, inv in enumerate(filtered):
+            row = data_start_row + i
+            seq = i + 1
+
             rnc_rec = (inv.get('clientRNC') or '').replace('-', '')
-            tipo_id = "1" if len(rnc_rec) == 9 else ("2" if len(rnc_rec) == 11 else "3")
+            tipo_id = 1 if len(rnc_rec) == 9 else (2 if len(rnc_rec) == 11 else (3 if rnc_rec else ""))
+
             income_type = (inv.get('incomeType', '01') or '01')
             income_code = income_type.split('-')[0].strip() if isinstance(income_type, str) else str(income_type)
             income_code = income_code.zfill(2)[:2]
-            writer.writerow([
-                owner_rnc,
-                period,
+
+            date_str = (inv.get('date') or '')[:10].replace('-', '')
+
+            retention_date = (inv.get('retentionDate') or '').replace('-', '')
+            if not retention_date:
+                has_retention = float(inv.get('retainedISR', 0)) > 0 or float(inv.get('retainedITBIS', 0)) > 0
+                if has_retention:
+                    retention_date = date_str
+
+            subtotal = float(inv.get('subtotal', 0))
+            total_itbis = float(inv.get('totalITBIS', 0))
+            itbis_retenido = float(inv.get('retainedITBIS', 0))
+            isr_retenido = float(inv.get('retainedISR', 0))
+            isc = float(inv.get('totalISCEspecifico', 0)) + float(inv.get('totalISCAdValorem', 0))
+            otros_impuestos = float(inv.get('totalOtrosImpuestos', 0) or 0)
+            propina = float(inv.get('propinaLegal', 0))
+            total_factura = float(inv.get('total', 0))
+            if total_factura == 0:
+                total_factura = subtotal + total_itbis + isc + otros_impuestos + propina
+
+            pm = inv.get('paymentMethod', '').lower() if inv.get('paymentMethod') else ''
+            efectivo = total_factura if 'efectivo' in pm else 0.00
+            transferencia_val = total_factura if pm in ('transferencia', 'cheque', 'deposito') or any(k in pm for k in ('transfer', 'cheque', 'deposito')) else 0.00
+            tarjeta = total_factura if 'tarjeta' in pm else 0.00
+            credito_val = total_factura if 'credito' in pm else 0.00
+
+            row_data = [
+                seq,
                 rnc_rec,
                 tipo_id,
                 inv.get('encf', ''),
                 inv.get('ncfModified', ''),
                 income_code,
-                (inv.get('date') or '')[:10],
-                f"{float(inv.get('total', 0.0)):.2f}",
-                f"{float(inv.get('totalITBIS', 0.0)):.2f}",
-                f"{float(inv.get('retainedITBIS', 0.0)):.2f}",
-                f"{float(inv.get('retainedISR', 0.0)):.2f}",
-            ])
+                date_str,
+                retention_date,
+                subtotal,
+                total_itbis,
+                itbis_retenido,
+                0.00,
+                isr_retenido,
+                0.00,
+                isc,
+                otros_impuestos,
+                propina,
+                efectivo,
+                transferencia_val,
+                tarjeta,
+                credito_val,
+                0.00,
+                0.00,
+                0.00,
+                "",
+            ]
+
+            for col_idx, val in enumerate(row_data, 1):
+                cell = ws.cell(row=row, column=col_idx, value=val)
+                cell.border = thin_border
+                if col_idx in (9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24):
+                    cell.number_format = money_fmt
+                    cell.alignment = Alignment(horizontal="right")
+                elif col_idx in (2, 4, 5, 7, 8):
+                    cell.alignment = Alignment(horizontal="left")
+                elif col_idx in (3, 6):
+                    cell.alignment = Alignment(horizontal="center")
+
+        col_widths = {
+            1: 6, 2: 24, 3: 14, 4: 20, 5: 20, 6: 14,
+            7: 15, 8: 15, 9: 15, 10: 15, 11: 15, 12: 15,
+            13: 15, 14: 15, 15: 15, 16: 15, 17: 15,
+            18: 15, 19: 15, 20: 15, 21: 15, 22: 15,
+            23: 15, 24: 15, 25: 15,
+        }
+        for col, width in col_widths.items():
+            ws.column_dimensions[get_column_letter(col)].width = width
+
     else:
-        writer.writerow([
+        ws = wb.active
+        ws.title = "Reporte 607"
+
+        header_font = Font(name="Calibri", bold=True, size=11)
+        header_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
+        thin_border = Border(
+            left=Side(style="thin"),
+            right=Side(style="thin"),
+            top=Side(style="thin"),
+            bottom=Side(style="thin"),
+        )
+        money_fmt = '#,##0.00'
+
+        ws["A1"] = f"Reporte 607 — {year:04d}-{month:02d}"
+        ws["A1"].font = Font(name="Calibri", bold=True, size=12)
+        ws["A3"] = "RNC Emisor"
+        ws["B3"] = owner_rnc
+        ws["A4"] = "Periodo"
+        ws["B4"] = f"{year:04d}{month:02d}"
+        ws["A5"] = "Registros"
+        ws["B5"] = len(filtered)
+
+        simple_headers = [
             "Fecha",
             "Cliente",
             "RNC",
@@ -7832,27 +7997,42 @@ def report_607_export():
             "Ret. ITBIS",
             "Ret. ISR",
             "Estatus",
-        ])
-        for inv in filtered:
-            writer.writerow([
+        ]
+
+        header_row = 7
+        for col_idx, h in enumerate(simple_headers, 1):
+            cell = ws.cell(row=header_row, column=col_idx, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.border = thin_border
+            cell.alignment = Alignment(horizontal="center")
+
+        data_start_row = header_row + 1
+        for i, inv in enumerate(filtered):
+            row = data_start_row + i
+            row_data = [
                 (inv.get('date') or '')[:10],
                 inv.get('clientName', ''),
-                inv.get('clientRNC', ''),
+                (inv.get('clientRNC') or '').replace('-', ''),
                 inv.get('encf', ''),
                 inv.get('ecfType', ''),
-                f"{float(inv.get('total', 0.0)):.2f}",
-                f"{float(inv.get('totalITBIS', 0.0)):.2f}",
-                f"{float(inv.get('retainedITBIS', 0.0)):.2f}",
-                f"{float(inv.get('retainedISR', 0.0)):.2f}",
+                float(inv.get('total', 0.0)),
+                float(inv.get('totalITBIS', 0.0)),
+                float(inv.get('retainedITBIS', 0.0)),
+                float(inv.get('retainedISR', 0.0)),
                 inv.get('status', ''),
-            ])
+            ]
+            for col_idx, val in enumerate(row_data, 1):
+                cell = ws.cell(row=row, column=col_idx, value=val)
+                cell.border = thin_border
+                if col_idx in (6, 7, 8, 9):
+                    cell.number_format = money_fmt
+                    cell.alignment = Alignment(horizontal="right")
 
-    dest = io.BytesIO()
-    dest.write(b"\xef\xbb\xbf")
-    dest.write(output.getvalue().encode('utf-8'))
-    dest.seek(0)
-    filename = f"reporte_607_{year:04d}{month:02d}_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"
-    return send_file(dest, mimetype="text/csv", as_attachment=True, download_name=filename)
+    wb.save(output)
+    output.seek(0)
+    filename = f"reporte_607_{year:04d}{month:02d}_{datetime.now(timezone.utc).strftime('%Y%m%d')}.xlsx"
+    return send_file(output, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", as_attachment=True, download_name=filename)
 
 
 @web_invoices_bp.route('/reports/608/export')
@@ -9422,6 +9602,83 @@ def api_ai_receipt_ocr():
     from app.services.ai_service import AIService
     res = AIService.analyze_receipt_ocr(owner_uid, file_bytes, mime_type)
     return jsonify(res)
+
+
+@web_invoices_bp.route('/api/expenses/ocr-with-items', methods=['POST'])
+def api_expenses_ocr_with_items():
+    if 'user' not in session:
+        return jsonify({"success": False, "error": "No autorizado"}), 401
+
+    file = request.files.get('file')
+    if not file:
+        return jsonify({"success": False, "error": "No se recibio ningun archivo"}), 400
+
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    file_bytes = file.read()
+
+    if len(file_bytes) > 6 * 1024 * 1024:
+        return jsonify({"success": False, "error": "El archivo excede el tamano maximo de 6MB"}), 400
+
+    mime_type = file.mimetype or "image/jpeg"
+    filename = file.filename or ""
+    if filename.lower().endswith(('.heic', '.heif')):
+        mime_type = "image/heic"
+
+    from app.services.ai_service import AIService
+    res = AIService.analyze_receipt_ocr(owner_uid, file_bytes, mime_type)
+
+    if not res.get("success"):
+        return jsonify(res)
+
+    extracted = res["data"]
+
+    supplier_info = {"exists": False, "rnc": "", "razon_social": "", "supplier": None}
+    rnc_emisor = extracted.get("rncEmisor", "")
+    if rnc_emisor and len(rnc_emisor) in [9, 11]:
+        from app.services.supplier_service import SupplierService
+        existing_supplier = SupplierService.get_supplier_by_rnc(owner_uid, rnc_emisor, sandbox=sandbox)
+        if existing_supplier:
+            supplier_info["exists"] = True
+            cr_fields = {"id": existing_supplier.get("id"), "rnc": existing_supplier.get("rnc"),
+                         "name": existing_supplier.get("name"), "supplierType": existing_supplier.get("supplierType"),
+                         "ecfTypeEmits": existing_supplier.get("ecfTypeEmits"), "creditDays": existing_supplier.get("creditDays")}
+            supplier_info["supplier"] = {k: v for k, v in cr_fields.items() if v}
+            supplier_info["rnc"] = rnc_emisor
+            supplier_info["razon_social"] = existing_supplier.get("name", "")
+        else:
+            from app.services.dgii import DGIIService
+            dgii_res = DGIIService.validate_and_fetch_rnc(rnc_emisor)
+            supplier_info["rnc"] = rnc_emisor
+            if not dgii_res.get("error"):
+                supplier_info["razon_social"] = dgii_res.get("razon_social", "")
+
+    supplier_name = extracted.get("supplierName", "")
+    if not supplier_info.get("razon_social") and supplier_name:
+        supplier_info["razon_social"] = supplier_name
+    elif supplier_name and supplier_info.get("razon_social"):
+        pass
+
+    attachment_url = None
+    attachment_info = None
+    try:
+        temp_id = str(uuid.uuid4())
+        safe_name = filename.replace(' ', '_') if filename else 'documento_ocr'
+        dest_path = f"users/{owner_uid}/expenses/ocr_temp/{temp_id}/{safe_name}"
+        upload_mime = mime_type if mime_type != "image/heic" else "image/jpeg"
+        public_url = DatabaseService.upload_file_to_storage(file_bytes, dest_path, upload_mime)
+        attachment_url = public_url
+        attachment_info = {"url": public_url, "type": "factura", "name": safe_name}
+    except Exception as e:
+        print(f"Error al subir adjunto OCR: {e}")
+
+    return jsonify({
+        "success": True,
+        "data": extracted,
+        "supplier": supplier_info,
+        "attachment_url": attachment_url,
+        "attachment": attachment_info
+    })
 
 
 @web_invoices_bp.route('/api/ai/classify-expense', methods=['POST', 'GET'])
