@@ -1,0 +1,418 @@
+{% extends "layout.html" %}
+
+{% block title %}{% if advance %}Editar{% else %}Nuevo{% endif %} Anticipo de Cliente{% endblock %}
+
+{% block page_header %}{% if advance %}Editar{% else %}Nuevo{% endif %} Anticipo de Cliente{% endblock %}
+
+{% block content %}
+<div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
+    <h1 class="page-title"
+        style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+        {% if advance %}Editar{% else %}Nuevo{% endif %} Anticipo de Cliente
+    </h1>
+</div>
+
+<style>
+    .advance-form-wrapper { max-width: 760px; margin: 0 auto; }
+    .help-banner {
+        background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.15);
+        border-radius: var(--radius-sm); padding: 14px 18px; font-size: 0.78rem;
+        color: var(--text-secondary); line-height: 1.5; margin-bottom: 20px;
+    }
+    .help-banner i { color: var(--accent-emerald); margin-right: 6px; }
+
+    .form-input-adv {
+        width: 100%; padding: 9px 12px; border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm); font-size: 0.85rem; height: 38px;
+        background: var(--bg-input); color: var(--text-primary);
+        box-sizing: border-box;
+    }
+    .form-select-adv {
+        width: 100%; padding: 9px 30px 9px 12px; border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm); font-size: 0.85rem; height: 38px;
+        background: var(--bg-input); color: var(--text-primary);
+        box-sizing: border-box; -webkit-appearance: none; appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat; background-position: right 10px center;
+    }
+    .form-input-adv:focus, .form-select-adv:focus {
+        outline: none; border-color: var(--accent-emerald);
+        box-shadow: 0 0 0 3px rgba(16,185,129,0.1);
+    }
+    [type="date"].form-input-adv { color-scheme: dark; }
+
+    .search-wrapper { position: relative; }
+    .search-dropdown {
+        display: none; position: absolute; top: 100%; left: 0; right: 0;
+        max-height: 260px; overflow-y: auto;
+        background: var(--bg-card); border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.25); z-index: 200; margin-top: 3px;
+    }
+    .search-dropdown.open { display: block; }
+    .search-dropdown-item {
+        padding: 10px 14px; cursor: pointer; font-size: 0.84rem;
+        border-bottom: 1px solid var(--border-color);
+        display: flex; justify-content: space-between; align-items: center;
+        transition: background 0.12s;
+        color: inherit;
+    }
+    .search-dropdown-item:last-child { border-bottom: none; }
+    .search-dropdown-item:hover,
+    .search-dropdown-item.active {
+        background: var(--bg-nav-hover);
+    }
+    .search-dropdown-item .item-name {
+        color: var(--text-primary); font-weight: 500;
+    }
+    .search-dropdown-item .item-meta {
+        font-size: 0.73rem; color: var(--text-muted);
+        font-family: monospace; flex-shrink: 0; margin-left: 12px;
+    }
+    .search-dropdown-empty {
+        padding: 16px 14px; text-align: center;
+        color: var(--text-muted); font-size: 0.82rem;
+    }
+
+    .field-hint {
+        font-size: 0.7rem; color: var(--text-muted);
+        margin-top: 3px; font-style: italic;
+    }
+</style>
+
+<div class="advance-form-wrapper">
+    <div class="help-banner">
+        <i class="fa-solid fa-circle-info"></i>
+        <strong>Importante:</strong> Este anticipo se registra como <strong>pasivo (2.1.1.2.01)</strong>, no como ingreso. El ITBIS solo se genera al emitir la factura fiscal final. El saldo de la cuenta bancaria se incrementa automáticamente. Al convertir la cotización a factura, el anticipo se descuenta automáticamente.
+    </div>
+
+    <div class="card-table-wrapper" style="padding: 24px 28px;">
+        <form method="POST"
+            action="{% if advance %}{{ url_for('web_invoices.cxc_advances_edit', advance_id=advance.id) }}{% else %}{{ url_for('web_invoices.cxc_advances_new') }}{% endif %}"
+            id="advanceForm">
+
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-primary); margin-bottom: 5px;">
+                    Cliente <span style="color: var(--accent-red);">*</span>
+                </label>
+                <div class="search-wrapper" id="clientSearchWrapper">
+                    <input type="text" id="clientSearchInput" class="form-input-adv"
+                        value="{{ advance.get('clientName', '') if advance else '' }}"
+                        placeholder="Haz clic y escribe para buscar..."
+                        autocomplete="off" required>
+                    <div class="search-dropdown" id="clientDropdown"></div>
+                </div>
+                <div class="field-hint">Selecciona el cliente que realizó el abono.</div>
+                <input type="hidden" name="clientId" id="clientIdHidden" value="{{ advance.get('clientId', '') if advance else '' }}">
+                <input type="hidden" name="clientName" id="clientNameHidden" value="{{ advance.get('clientName', '') if advance else '' }}">
+                <input type="hidden" name="clientRNC" id="clientRNCHidden" value="{{ advance.get('clientRNC', '') if advance else '' }}">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                <div>
+                    <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-primary); margin-bottom: 5px;">
+                        Monto (RD$) <span style="color: var(--accent-red);">*</span>
+                    </label>
+                    <input type="number" name="amount" class="form-input-adv" required min="0.01" step="0.01"
+                        value="{{ "{:.2f}".format(advance.get('amount', 0)) if advance else '' }}"
+                        placeholder="0.00">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-primary); margin-bottom: 5px;">
+                        Fecha del pago
+                    </label>
+                    <input type="date" name="paymentDate" id="paymentDateInput" class="form-input-adv"
+                        value="{{ (advance.get('paymentDate', '') if advance else '')[:10] }}">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                <div>
+                    <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-primary); margin-bottom: 5px;">
+                        Método de pago
+                    </label>
+                    <select name="paymentMethod" class="form-select-adv" id="paymentMethodSelect">
+                        {% set pm = advance.get('paymentMethod', 'Efectivo') if advance else 'Efectivo' %}
+                        <option value="Efectivo" {% if pm == 'Efectivo' %}selected{% endif %}>Efectivo</option>
+                        <option value="Transferencia" {% if pm == 'Transferencia' %}selected{% endif %}>Transferencia</option>
+                        <option value="Tarjeta de Crédito" {% if pm == 'Tarjeta de Crédito' %}selected{% endif %}>Tarjeta de Crédito</option>
+                        <option value="Tarjeta de Débito" {% if pm == 'Tarjeta de Débito' %}selected{% endif %}>Tarjeta de Débito</option>
+                        <option value="Cheque" {% if pm == 'Cheque' %}selected{% endif %}>Cheque</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-primary); margin-bottom: 5px;">
+                        Cuenta bancaria donde se acredita
+                    </label>
+                    <select name="bankAccountId" class="form-select-adv">
+                        <option value="">— Sin cuenta bancaria —</option>
+                        {% for ba in bank_accounts %}
+                        {% set baid = advance.get('bankAccountId', '') if advance else '' %}
+                        <option value="{{ ba.get('id', '') }}" {% if baid == ba.get('id', '') %}selected{% endif %}>
+                            {{ ba.get('name', '') }} — {{ ba.get('accountNumber', '') }} (RD$ {{ "{:,.2f}".format(ba.get('currentBalance', 0)) }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="field-hint">El saldo de esta cuenta se incrementará automáticamente con el monto del anticipo.</div>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 16px;" id="referenceGroup">
+                <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-primary); margin-bottom: 5px;">
+                    Nº de referencia / cheque
+                </label>
+                <input type="text" name="referenceNumber" class="form-input-adv"
+                    value="{{ advance.get('referenceNumber', '') if advance else '' }}"
+                    placeholder="Ej. #5421 (cheque) o nº de transferencia">
+                <div class="field-hint">Opcional. Número de cheque, comprobante de transferencia u otro identificador del pago.</div>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-primary); margin-bottom: 5px;">
+                    Cotización vinculada (opcional)
+                </label>
+                <div class="search-wrapper" id="quotationSearchWrapper">
+                    <input type="text" id="quotationSearchInput" class="form-input-adv"
+                        value="{{ advance.get('quotationNumber', '') if advance else '' }}"
+                        placeholder="Buscar cotización por código o cliente..."
+                        autocomplete="off">
+                    <div class="search-dropdown" id="quotationDropdown"></div>
+                </div>
+                <div class="field-hint">Vincula este anticipo a una cotización. Al convertirla a factura, el anticipo se aplicará automáticamente.</div>
+                <input type="hidden" name="quotationId" id="quotationIdHidden" value="{{ advance.get('quotationId', '') if advance else '' }}">
+                <input type="hidden" name="quotationNumber" id="quotationNumberHidden" value="{{ advance.get('quotationNumber', '') if advance else '' }}">
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-primary); margin-bottom: 5px;">
+                    Notas
+                </label>
+                <textarea name="notes" rows="3" class="form-input-adv" style="height: auto; resize: vertical;"
+                    placeholder="Notas adicionales sobre este anticipo...">{{ advance.get('notes', '') if advance else '' }}</textarea>
+            </div>
+
+            <hr style="border: none; border-top: 1px solid var(--border-color); margin: 20px 0;">
+
+            <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                <a href="{{ url_for('web_invoices.cxc_advances_list') }}" class="btn"
+                    style="padding: 9px 20px; font-size: 0.82rem; font-weight: 600; border-radius: var(--radius-sm); text-decoration: none; background: var(--bg-nav-hover); color: var(--text-primary); border: 1px solid var(--border-color);">
+                    Cancelar
+                </a>
+                <button type="submit" class="btn btn-primary"
+                    style="padding: 9px 24px; font-size: 0.82rem; font-weight: 600; border-radius: var(--radius-sm);">
+                    <i class="fa-solid fa-save"></i>
+                    {% if advance %}Guardar cambios{% else %}Registrar anticipo{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+(function() {
+    var clients = {{ clients | tojson | safe }};
+    var quotations = {{ quotations | tojson | safe }};
+
+    // Default date to today if empty
+    var dateInput = document.getElementById('paymentDateInput');
+    if (dateInput && !dateInput.value) {
+        dateInput.value = new Date().toISOString().slice(0, 10);
+    }
+
+    function esc(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ===== CLIENTE SEARCH =====
+    var clientWrapper = document.getElementById('clientSearchWrapper');
+    var clientInput = document.getElementById('clientSearchInput');
+    var clientDropdown = document.getElementById('clientDropdown');
+    var clientIdH = document.getElementById('clientIdHidden');
+    var clientNameH = document.getElementById('clientNameHidden');
+    var clientRNCH = document.getElementById('clientRNCHidden');
+    var clientActiveIdx = -1;
+
+    function filterClients(q) {
+        q = (q || '').toLowerCase().trim();
+        if (!q) return clients.slice(0, 50);
+        return clients.filter(function(c) {
+            var n = (c.razonSocial || '').toLowerCase();
+            var r = (c.rnc || '').toLowerCase();
+            var e = (c.email || '').toLowerCase();
+            var t = (c.telefono || '').toLowerCase();
+            return n.indexOf(q) > -1 || r.indexOf(q) > -1 || e.indexOf(q) > -1 || t.indexOf(q) > -1;
+        }).slice(0, 30);
+    }
+
+    function renderClientDropdown(results) {
+        clientDropdown.innerHTML = '';
+        clientActiveIdx = -1;
+        if (results.length === 0) {
+            clientDropdown.innerHTML = '<div class="search-dropdown-empty">No se encontraron clientes.</div>';
+        } else {
+            results.forEach(function(c, i) {
+                var nm = c.razonSocial || 'Sin nombre';
+                var rn = c.rnc || '';
+                var d = document.createElement('div');
+                d.className = 'search-dropdown-item';
+                d.setAttribute('data-id', c.id || '');
+                d.setAttribute('data-name', nm);
+                d.setAttribute('data-rnc', rn);
+                d.innerHTML = '<span class="item-name">' + esc(nm) + '</span><span class="item-meta">' + (rn ? 'RNC: ' + esc(rn) : 'Sin RNC') + '</span>';
+                d.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                    selectClient(c.id, nm, rn);
+                });
+                clientDropdown.appendChild(d);
+            });
+        }
+    }
+
+    function selectClient(id, name, rnc) {
+        clientInput.value = name;
+        clientIdH.value = id || '';
+        clientNameH.value = name || '';
+        clientRNCH.value = rnc || '';
+        clientDropdown.classList.remove('open');
+    }
+
+    clientInput.addEventListener('input', function() {
+        renderClientDropdown(filterClients(clientInput.value));
+        clientDropdown.classList.add('open');
+    });
+    clientInput.addEventListener('focus', function() {
+        renderClientDropdown(filterClients(clientInput.value));
+        clientDropdown.classList.add('open');
+    });
+    clientInput.addEventListener('keydown', function(e) {
+        var items = clientDropdown.querySelectorAll('.search-dropdown-item');
+        if (!clientDropdown.classList.contains('open') && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+            renderClientDropdown(filterClients(clientInput.value));
+            clientDropdown.classList.add('open');
+            return;
+        }
+        if (e.key === 'ArrowDown') { e.preventDefault(); clientActiveIdx = Math.min(clientActiveIdx + 1, items.length - 1); updateClientActive(); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); clientActiveIdx = Math.max(clientActiveIdx - 1, 0); updateClientActive(); }
+        else if (e.key === 'Enter') { e.preventDefault(); selectByClientIndex(clientActiveIdx); }
+        else if (e.key === 'Escape') { clientDropdown.classList.remove('open'); clientActiveIdx = -1; }
+    });
+    function updateClientActive() {
+        clientDropdown.querySelectorAll('.search-dropdown-item').forEach(function(it, i) {
+            it.classList.toggle('active', i === clientActiveIdx);
+            if (i === clientActiveIdx) it.scrollIntoView({block:'nearest'});
+        });
+    }
+    function selectByClientIndex(idx) {
+        var items = clientDropdown.querySelectorAll('.search-dropdown-item');
+        if (idx >= 0 && idx < items.length) {
+            selectClient(items[idx].getAttribute('data-id'), items[idx].getAttribute('data-name'), items[idx].getAttribute('data-rnc'));
+        }
+    }
+
+    // ===== QUOTATION SEARCH =====
+    var quotWrapper = document.getElementById('quotationSearchWrapper');
+    var quotInput = document.getElementById('quotationSearchInput');
+    var quotDropdown = document.getElementById('quotationDropdown');
+    var quotIdH = document.getElementById('quotationIdHidden');
+    var quotNumH = document.getElementById('quotationNumberHidden');
+    var quotActiveIdx = -1;
+
+    function filterQuotations(q) {
+        q = (q || '').toLowerCase().trim();
+        if (!q) return quotations.slice(0, 50);
+        return quotations.filter(function(qt) {
+            var code = (qt.invoiceNumber || '').toLowerCase();
+            var cli = (qt.clientName || '').toLowerCase();
+            return code.indexOf(q) > -1 || cli.indexOf(q) > -1;
+        }).slice(0, 30);
+    }
+
+    function renderQuotDropdown(results) {
+        quotDropdown.innerHTML = '';
+        quotActiveIdx = -1;
+        if (results.length === 0) {
+            quotDropdown.innerHTML = '<div class="search-dropdown-empty">No se encontraron cotizaciones.</div>';
+        } else {
+            results.forEach(function(q, i) {
+                var d = document.createElement('div');
+                d.className = 'search-dropdown-item';
+                d.setAttribute('data-id', q.id || '');
+                d.setAttribute('data-number', q.invoiceNumber || '');
+                d.innerHTML = '<span class="item-name">' + esc(q.invoiceNumber || '') + ' — ' + esc(q.clientName || '') + '</span><span class="item-meta">RD$ ' + Number(q.total || 0).toLocaleString('en-US', {minimumFractionDigits:2}) + '</span>';
+                d.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                    selectQuotation(q.id, q.invoiceNumber || '');
+                });
+                quotDropdown.appendChild(d);
+            });
+        }
+    }
+
+    function selectQuotation(id, num) {
+        quotInput.value = num;
+        quotIdH.value = id || '';
+        quotNumH.value = num || '';
+        quotDropdown.classList.remove('open');
+    }
+
+    quotInput.addEventListener('input', function() {
+        renderQuotDropdown(filterQuotations(quotInput.value));
+        quotDropdown.classList.add('open');
+    });
+    quotInput.addEventListener('focus', function() {
+        renderQuotDropdown(filterQuotations(quotInput.value));
+        quotDropdown.classList.add('open');
+    });
+    quotInput.addEventListener('keydown', function(e) {
+        var items = quotDropdown.querySelectorAll('.search-dropdown-item');
+        if (!quotDropdown.classList.contains('open') && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+            renderQuotDropdown(filterQuotations(quotInput.value));
+            quotDropdown.classList.add('open');
+            return;
+        }
+        if (e.key === 'ArrowDown') { e.preventDefault(); quotActiveIdx = Math.min(quotActiveIdx + 1, items.length - 1); updateQuotActive(); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); quotActiveIdx = Math.max(quotActiveIdx - 1, 0); updateQuotActive(); }
+        else if (e.key === 'Enter') { e.preventDefault(); selectByQuotIndex(quotActiveIdx); }
+        else if (e.key === 'Escape') { quotDropdown.classList.remove('open'); quotActiveIdx = -1; }
+    });
+    function updateQuotActive() {
+        quotDropdown.querySelectorAll('.search-dropdown-item').forEach(function(it, i) {
+            it.classList.toggle('active', i === quotActiveIdx);
+            if (i === quotActiveIdx) it.scrollIntoView({block:'nearest'});
+        });
+    }
+    function selectByQuotIndex(idx) {
+        var items = quotDropdown.querySelectorAll('.search-dropdown-item');
+        if (idx >= 0 && idx < items.length) {
+            selectQuotation(items[idx].getAttribute('data-id'), items[idx].getAttribute('data-number'));
+        }
+    }
+
+    document.addEventListener('click', function(e) {
+        if (!clientWrapper.contains(e.target)) { clientDropdown.classList.remove('open'); clientActiveIdx = -1; }
+        if (!quotWrapper.contains(e.target)) { quotDropdown.classList.remove('open'); quotActiveIdx = -1; }
+    });
+
+    document.getElementById('advanceForm').addEventListener('submit', function(e) {
+        if (!clientIdH.value) {
+            e.preventDefault(); alert('Debe seleccionar un cliente de la lista. Escriba y elija una opción del desplegable.'); clientInput.focus();
+            return;
+        }
+        if (!clientNameH.value && clientInput.value.trim()) {
+            clientNameH.value = clientInput.value.trim();
+        }
+    });
+
+    var pmSelect = document.getElementById('paymentMethodSelect');
+    var refGroup = document.getElementById('referenceGroup');
+    if (pmSelect && refGroup) {
+        pmSelect.addEventListener('change', function() {
+            refGroup.style.display = (this.value === 'Efectivo') ? 'none' : '';
+        });
+        if (pmSelect.value === 'Efectivo') refGroup.style.display = 'none';
+    }
+})();
+</script>
+{% endblock %}

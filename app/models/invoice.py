@@ -76,6 +76,7 @@ class Invoice(BaseModel):
     total: float = 0.0
     isQuotation: bool = False
     isConvertedToInvoice: bool = False
+    appliedAdvances: list[dict] = Field(default_factory=list)
     notes: str = ""
     comentario: str = ""
     footer: str = ""
@@ -115,3 +116,30 @@ class Invoice(BaseModel):
     deletedAt: Optional[str] = None
     createdAt: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updatedAt: Optional[Any] = None
+
+
+class ClientAdvance(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    clientId: str = ""
+    clientName: str = ""
+    clientRNC: str = ""
+    amount: float = 0.0
+    paymentMethod: str = "Efectivo"
+    bank: str = ""
+    bankAccountId: str = ""
+    referenceNumber: str = ""
+    paymentDate: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    registeredBy: str = ""
+    notes: str = ""
+    quotationId: str = ""
+    quotationNumber: str = ""
+    status: str = "Activo"
+    appliedToInvoiceId: str = ""
+    appliedToInvoiceNumber: str = ""
+    appliedAmount: float = 0.0
+    appliedAt: str = ""
+    branchId: str = "default-sucursal-principal"
+    projectId: Optional[str] = None
+    createdAt: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    updatedAt: Optional[str] = None
+    isDeleted: bool = False

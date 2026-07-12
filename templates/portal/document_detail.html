@@ -679,6 +679,111 @@
                 padding: 0;
             }
         }
+
+        /* ---- Portal Comments Section ---- */
+        .portal-comments {
+            margin-top: 30px;
+            border-top: 2px solid var(--border-color);
+            padding-top: 20px;
+        }
+        .portal-comments h4 {
+            font-size: 1rem;
+            font-weight: 700;
+            margin: 0 0 16px 0;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .portal-comment-card {
+            display: flex;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f5f9;
+            margin-bottom: 8px;
+        }
+        .portal-comment-avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: white;
+            font-size: 0.68rem;
+            flex-shrink: 0;
+            background: var(--primary);
+        }
+        .portal-comment-body {
+            flex: 1;
+            min-width: 0;
+        }
+        .portal-comment-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 2px;
+        }
+        .portal-comment-author {
+            font-weight: 700;
+            font-size: 0.85rem;
+            color: var(--text-primary);
+        }
+        .portal-comment-date {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+        .portal-comment-text {
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            white-space: pre-wrap;
+            line-height: 1.4;
+        }
+        .portal-comment-attachment {
+            margin-top: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #f1f5f9;
+            border: 1px solid var(--border-color);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.76rem;
+        }
+        .portal-comment-attachment a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .portal-comment-form {
+            margin-top: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .portal-comment-form textarea {
+            width: 100%;
+            min-height: 60px;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-family: var(--font-main);
+            font-size: 0.82rem;
+            resize: vertical;
+        }
+        .portal-comment-form textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+        }
+        .portal-comment-empty {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-muted);
+            font-size: 0.82rem;
+        }
     </style>
 </head>
 
@@ -891,6 +996,51 @@
                 {{ invoice.comentario or invoice.notes }}
             </div>
             {% endif %}
+
+            <!-- Portal Comments Section -->
+            <div class="portal-comments">
+                <h4><i class="fa-solid fa-comments"></i> Comunicación</h4>
+
+                {% if comments %}
+                <div id="portal-comments-list">
+                    {% for c in comments %}
+                    {% set c_initials = (c.createdByName or c.createdBy or 'C').split(' ') %}
+                    {% set c_av = c_initials[0][0].upper() + (c_initials[1][0].upper() if c_initials|length > 1 else '') %}
+                    <div class="portal-comment-card">
+                        <div class="portal-comment-avatar">{{ c_av }}</div>
+                        <div class="portal-comment-body">
+                            <div class="portal-comment-header">
+                                <span class="portal-comment-author">{{ c.createdByName or c.createdBy }}</span>
+                                <span class="portal-comment-date">{{ c.createdAt[:16] | replace('T', ' ') if c.createdAt else '' }}</span>
+                            </div>
+                            <div class="portal-comment-text">{{ c.content }}</div>
+                            {% if c.attachmentUrl %}
+                            <div class="portal-comment-attachment">
+                                <i class="fa-solid fa-paperclip"></i>
+                                <span>{{ c.attachmentName }}</span>
+                                <a href="{{ c.attachmentUrl }}" target="_blank">Descargar</a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div id="portal-comments-list" class="portal-comment-empty">
+                    <i class="fa-regular fa-message" style="font-size: 1.2rem; opacity: 0.3; display: block; margin-bottom: 6px;"></i>
+                    No hay mensajes aún sobre este documento.
+                </div>
+                {% endif %}
+
+                <div class="portal-comment-form" id="portal-comment-form">
+                    <textarea id="portal-comment-textarea" placeholder="Escribe un mensaje sobre este documento..."></textarea>
+                    <div style="display: flex; justify-content: flex-end;">
+                        <button type="button" class="btn btn-primary" onclick="submitClientComment()" id="portal-comment-btn">
+                            <i class="fa-solid fa-paper-plane"></i> Enviar
+                        </button>
+                    </div>
+                </div>
+            </div>
 
             <!-- Professional Quotation Sections -->
             {% set pd = invoice.get('professionalData', {}) %}
@@ -1240,6 +1390,63 @@
                 submitBtn.innerHTML = originalBtnText;
                 console.error(err);
                 alert('Error de red al intentar reportar el pago.');
+            });
+        }
+
+        function submitClientComment() {
+            const textarea = document.getElementById('portal-comment-textarea');
+            const content = textarea.value.trim();
+            if (!content) {
+                alert('El comentario no puede estar vacío.');
+                return;
+            }
+
+            const btn = document.getElementById('portal-comment-btn');
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enviando...';
+
+            const formData = new FormData();
+            formData.append('content', content);
+
+            fetch(`/portal/documento/${invoiceId}/comentario`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+                if (data.success) {
+                    textarea.value = '';
+                    const list = document.getElementById('portal-comments-list');
+                    if (list.classList.contains('portal-comment-empty')) {
+                        list.classList.remove('portal-comment-empty');
+                        list.innerHTML = '';
+                    }
+                    const dateStr = data.comment.createdAt ? data.comment.createdAt.substring(0, 16).replace('T', ' ') : '';
+                    const card = document.createElement('div');
+                    card.className = 'portal-comment-card';
+                    card.innerHTML = `
+                        <div class="portal-comment-avatar">CL</div>
+                        <div class="portal-comment-body">
+                            <div class="portal-comment-header">
+                                <span class="portal-comment-author">Cliente</span>
+                                <span class="portal-comment-date">${dateStr}</span>
+                            </div>
+                            <div class="portal-comment-text">${data.comment.content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+                        </div>
+                    `;
+                    list.appendChild(card);
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(err => {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+                console.error(err);
+                alert('Error de red al enviar el comentario.');
             });
         }
     </script>

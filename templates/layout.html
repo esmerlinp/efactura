@@ -1089,6 +1089,12 @@
                                 <span>Pagos Recibidos</span>
                             </a>
                         </li>
+                        <li class="nav-item {% if active_page == 'cxc_advances' or active_page == 'cxc_advances_new' or active_page == 'cxc_advances_edit' %}active{% endif %}"
+                            data-tooltip="Anticipos de Clientes">
+                            <a href="{{ url_for('web_invoices.cxc_advances_list') }}">
+                                <span>Anticipos de Clientes</span>
+                            </a>
+                        </li>
                         {% endif %}
                         {% if session.get('user', {}).get('role') == 'owner' or
                         session.get('user', {}).get('permissions', {}).get('canInvoice', True) %}

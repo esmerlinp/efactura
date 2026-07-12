@@ -132,6 +132,41 @@ class PortalDbService:
             print(f"Error en PortalDbService.save_invoice: {e}")
         return False
 
+    @classmethod
+    def get_invoice_comments(cls, owner_uid, invoice_id, sandbox=True):
+        """Retorna los comentarios visibles para el cliente de una factura/cotización."""
+        comments = []
+        try:
+            coll_name = "sandbox_invoices" if sandbox else "invoices"
+            docs = db_firestore.collection('users').document(owner_uid).collection(coll_name).document(invoice_id).collection("comments").get()
+            for doc in docs:
+                data = doc.to_dict()
+                if data.get("visibleToClient", False):
+                    comments.append({
+                        "id": doc.id,
+                        "content": data.get("content", ""),
+                        "createdBy": data.get("createdBy", ""),
+                        "createdByName": data.get("createdByName", ""),
+                        "createdAt": data.get("createdAt", ""),
+                        "attachmentUrl": data.get("attachmentUrl", ""),
+                        "attachmentName": data.get("attachmentName", ""),
+                    })
+            comments.sort(key=lambda x: x.get("createdAt", ""))
+        except Exception as e:
+            print(f"Error en PortalDbService.get_invoice_comments: {e}")
+        return comments
+
+    @classmethod
+    def save_invoice_comment(cls, owner_uid, invoice_id, comment_id, comment_dict, sandbox=True):
+        """Guarda un comentario del cliente en la factura."""
+        try:
+            coll_name = "sandbox_invoices" if sandbox else "invoices"
+            db_firestore.collection('users').document(owner_uid).collection(coll_name).document(invoice_id).collection("comments").document(comment_id).set(comment_dict)
+            return True
+        except Exception as e:
+            print(f"Error en PortalDbService.save_invoice_comment: {e}")
+        return False
+
 @portal_bp.route('/portal/p/<token>')
 def portal_entry(token):
     from app.utils.security import decode_portal_token
@@ -1098,6 +1133,8 @@ def portal_document_detail(invoice_id):
         branch = branches[0]
         
     today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    comments = PortalDbService.get_invoice_comments(owner_uid, invoice_id, sandbox=sandbox)
         
     return render_template(
         'portal/document_detail.html',
@@ -1107,8 +1144,53 @@ def portal_document_detail(invoice_id):
         branch=branch,
         today_str=today_str,
         owner_uid=owner_uid,
-        sandbox=sandbox
+        sandbox=sandbox,
+        comments=comments
     )
+
+
+@portal_bp.route('/portal/documento/<invoice_id>/comentario', methods=['POST'])
+def portal_add_comment(invoice_id):
+    owner_uid = session.get('portal_owner_uid')
+    client_id = session.get('portal_client_id')
+    sandbox = session.get('portal_sandbox', True)
+
+    if not owner_uid or not client_id:
+        return jsonify({"success": False, "error": "Sesión de autogestión no válida o expirada."}), 403
+
+    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice or invoice.get('clientId') != client_id:
+        return jsonify({"success": False, "error": "Documento no encontrado o acceso denegado."}), 404
+
+    content = request.form.get('content', '').strip()
+    if not content:
+        return jsonify({"success": False, "error": "El comentario no puede estar vacío."}), 400
+
+    comment_id = str(uuid.uuid4())
+    comment_dict = {
+        "id": comment_id,
+        "content": content,
+        "createdBy": "Cliente",
+        "createdByName": "Cliente",
+        "createdByUid": "cliente",
+        "createdAt": datetime.now(timezone.utc).isoformat(),
+        "attachmentUrl": "",
+        "attachmentName": "",
+        "edited": False,
+        "visibleToClient": True
+    }
+
+    PortalDbService.save_invoice_comment(owner_uid, invoice_id, comment_id, comment_dict, sandbox=sandbox)
+
+    return jsonify({
+        "success": True,
+        "message": "Comentario agregado exitosamente.",
+        "comment": {
+            "content": content,
+            "createdByName": "Cliente",
+            "createdAt": comment_dict["createdAt"]
+        }
+    })
 
 
 @portal_bp.route('/portal/documento/<invoice_id>/pdf')
