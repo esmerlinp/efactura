@@ -26,9 +26,22 @@
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
     <h2 style="font-size: 0.95rem; font-weight: 500; color: var(--text-secondary); margin: 0;">Comprobantes de Egreso</h2>
     <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-        <a href="{{ url_for('web_invoices.payments_new_route') }}" class="btn btn-primary" style="height: 32px; font-size: 0.78rem; padding: 0 12px; display: inline-flex; align-items: center; gap: 4px;">
-            <i class="fa-solid fa-plus"></i> Nuevo Pago
-        </a>
+        <div style="position: relative; display: inline-flex;">
+            <a href="{{ url_for('web_invoices.payments_new_route') }}" class="btn btn-primary" style="height: 32px; font-size: 0.78rem; padding: 0 12px 0 12px; display: inline-flex; align-items: center; gap: 4px; border-top-right-radius: 0; border-bottom-right-radius: 0;">
+                <i class="fa-solid fa-plus"></i> Nuevo Pago
+            </a>
+            <button type="button" class="btn btn-primary" onclick="toggleNewExpenseDropdown()" style="height: 32px; font-size: 0.78rem; padding: 0 8px; display: inline-flex; align-items: center; border-left: 1px solid rgba(255,255,255,0.25); border-top-left-radius: 0; border-bottom-left-radius: 0;">
+                <i class="fa-solid fa-chevron-down" style="font-size:0.65rem;"></i>
+            </button>
+            <div id="new-expense-dropdown" style="display:none; position:absolute; top:100%; right:0; margin-top:4px; min-width:220px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-md); box-shadow:var(--shadow-lg); z-index:999; overflow:hidden;">
+                <a href="{{ url_for('web_invoices.payments_new_route') }}" style="display:flex; align-items:center; gap:8px; padding:10px 14px; font-size:0.78rem; color:var(--text-primary); text-decoration:none; border-bottom:1px solid var(--border-color); transition:background 0.15s;">
+                    <i class="fa-solid fa-keyboard" style="color:var(--accent-blue); font-size:0.8rem;"></i> Crear manualmente
+                </a>
+                <a href="{{ url_for('web_invoices.payments_new_route') }}?mode=ocr" style="display:flex; align-items:center; gap:8px; padding:10px 14px; font-size:0.78rem; color:var(--text-primary); text-decoration:none; transition:background 0.15s;">
+                    <i class="fa-solid fa-wand-magic-sparkles" style="color:var(--accent-emerald); font-size:0.8rem;"></i> Crear desde archivo/imagen
+                </a>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -179,5 +192,17 @@
             window.location.href = '{{ url_for("web_invoices.payments_list") }}' + (qs ? '?' + qs : '');
         }, 400);
     }
+
+    function toggleNewExpenseDropdown() {
+        const dd = document.getElementById('new-expense-dropdown');
+        dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+    }
+
+    document.addEventListener('click', function(e) {
+        const dd = document.getElementById('new-expense-dropdown');
+        if (dd && dd.style.display === 'block' && !e.target.closest('#new-expense-dropdown') && !e.target.closest('.btn-primary')) {
+            dd.style.display = 'none';
+        }
+    });
 </script>
 {% endblock %}

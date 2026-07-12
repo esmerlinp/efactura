@@ -154,12 +154,16 @@
             <span class="field-value">
                 {% if expense.tipoGastoDGII %}{{ expense.tipoGastoDGII }} –
                     {% if expense.tipoGastoDGII == '01' %}Gastos de Personal
-                    {% elif expense.tipoGastoDGII == '02' %}Trabajos, Suministros y Servicios
+                    {% elif expense.tipoGastoDGII == '02' %}Gastos por Trabajos, Suministros y Servicios
                     {% elif expense.tipoGastoDGII == '03' %}Arrendamientos
                     {% elif expense.tipoGastoDGII == '04' %}Gastos de Activos Fijos
                     {% elif expense.tipoGastoDGII == '05' %}Gastos de Representación
                     {% elif expense.tipoGastoDGII == '06' %}Otras Deducciones Admitidas
                     {% elif expense.tipoGastoDGII == '07' %}Gastos Financieros
+                    {% elif expense.tipoGastoDGII == '08' %}Gastos Extraordinarios
+                    {% elif expense.tipoGastoDGII == '09' %}Compras y Gastos que Formarán Parte del Costo de Venta
+                    {% elif expense.tipoGastoDGII == '10' %}Adquisiciones de Activos
+                    {% elif expense.tipoGastoDGII == '11' %}Gastos de Seguros
                     {% else %}{{ expense.tipoGastoDGII }}{% endif %}
                 {% else %}—{% endif %}
             </span>

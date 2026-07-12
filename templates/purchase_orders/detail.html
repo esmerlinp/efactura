@@ -4,349 +4,448 @@
 {% block page_header %}Detalle de Orden de Compra{% endblock %}
 
 {% block content %}
-<div class="page-title-container" style="margin-bottom:24px; padding-left:4px; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
-    <div>
-        <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
-            <i class="fa-solid fa-cart-shopping" style="color:var(--accent-purple); margin-right:10px;"></i>
-            {{ order.poNumber }}
-        </h1>
-        <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
-            {{ order.supplierName or 'Sin proveedor' }} · Creada {{ order.createdAt[:10] if order.createdAt else '' }}
-        </p>
-    </div>
-    <div style="display:flex; gap:8px; flex-wrap:wrap;">
-        {% if order.status in ('borrador', 'pendiente_aprobacion') %}
-        <a href="{{ url_for('web_purchase_orders.edit_purchase_order', po_id=order.id) }}" class="btn btn-secondary">
-            <i class="fa-solid fa-pen-to-square"></i> Editar
-        </a>
-        <button type="button" class="btn btn-primary" onclick="approvePO()">
-            <i class="fa-solid fa-check"></i> Aprobar
-        </button>
-        {% endif %}
-        {% if order.status == 'aprobada' or order.status == 'recibida_parcial' %}
-        <a href="{{ url_for('web_purchase_orders.new_receipt', po_id=order.id) }}" class="btn btn-primary">
-            <i class="fa-solid fa-truck-loading"></i> Recibir Mercancía
-        </a>
-        {% endif %}
-        {% if order.status in ('recibida_parcial', 'recibida_completa') %}
-        <a href="{{ url_for('web_purchase_orders.register_supplier_invoice', po_id=order.id) }}" class="btn btn-primary" style="background:var(--accent-purple); border-color:var(--accent-purple);">
-            <i class="fa-solid fa-file-invoice"></i> Registrar Factura Proveedor
-        </a>
-        {% endif %}
-        {% if order.status not in ('cancelada', 'recibida_completa') %}
-        <button type="button" class="btn btn-danger" onclick="cancelPO()">
-            <i class="fa-solid fa-ban"></i> Cancelar
-        </button>
-        {% endif %}
-        <form action="{{ url_for('web_purchase_orders.delete_purchase_order', po_id=order.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar permanentemente esta orden?');">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-danger">
-                <i class="fa-solid fa-trash-can"></i> Eliminar
+<style>
+    .doc-main-col { max-width:960px; margin:0 auto; display:flex; flex-direction:column; gap:24px; }
+    .section-card { background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:28px 32px; }
+    .section-card h3 { font-size:0.95rem; font-weight:700; color:var(--text-primary); margin:0 0 18px 0; display:flex; align-items:center; gap:10px; }
+    .section-card h3 i { font-size:0.95rem; }
+
+    .field-row {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        padding: 7px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+        font-size: 0.82rem;
+    }
+    .field-row:last-child { border-bottom: none; }
+
+    .field-label {
+        color: var(--text-muted);
+        flex-shrink: 0;
+        min-width: 180px;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+
+    .field-value {
+        color: var(--text-primary);
+        font-weight: 500;
+        flex: 1;
+        word-break: break-all;
+    }
+    .field-value.mono { font-family: monospace; font-size: 0.85rem; }
+
+    .badge-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 10px;
+        border-radius: 99px;
+        font-size: 0.72rem;
+        font-weight: 600;
+    }
+    .badge-green  { background: rgba(16,185,129,0.12); color: var(--accent-emerald); border: 1px solid rgba(16,185,129,0.25); }
+    .badge-red    { background: rgba(239,68,68,0.1);   color: #ef4444;               border: 1px solid rgba(239,68,68,0.2);   }
+    .badge-blue   { background: rgba(59,130,246,0.1);  color: #3b82f6;               border: 1px solid rgba(59,130,246,0.2);  }
+    .badge-purple { background: rgba(139,92,246,0.1);  color: #8b5cf6;               border: 1px solid rgba(139,92,246,0.2);  }
+    .badge-amber  { background: rgba(245,158,11,0.1);  color: #f59e0b;               border: 1px solid rgba(245,158,11,0.2);  }
+    .badge-gray   { background: rgba(107,114,128,0.1); color: #6b7280;               border: 1px solid rgba(107,114,128,0.2); }
+
+    .actions-bar { display:flex; justify-content:flex-end; align-items:center; gap:12px; padding-top:8px; }
+    .actions-bar .btn { padding:10px 24px; font-size:0.85rem; }
+    .panel-btn { display:inline-flex; align-items:center; gap:6px; }
+</style>
+
+<div class="doc-main-col">
+
+    <!-- TOP ACTIONS BAR -->
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span class="badge-pill badge-purple"><i class="fa-solid fa-cart-shopping"></i> OC {{ order.poNumber }}</span>
+
+            {% set status = order.status|default('borrador') %}
+            {% if status == 'borrador' %}
+            <span class="badge-pill badge-gray"><i class="fa-solid fa-pencil"></i> Borrador</span>
+            {% elif status == 'pendiente_aprobacion' %}
+            <span class="badge-pill badge-amber"><i class="fa-solid fa-clock"></i> Pendiente Aprobación</span>
+            {% elif status == 'aprobada' %}
+            <span class="badge-pill badge-green"><i class="fa-solid fa-check"></i> Aprobada</span>
+            {% elif status == 'recibida_parcial' %}
+            <span class="badge-pill badge-blue"><i class="fa-solid fa-truck-fast"></i> Recibida Parcial</span>
+            {% elif status == 'recibida_completa' %}
+            <span class="badge-pill badge-purple"><i class="fa-solid fa-circle-check"></i> Recibida Completa</span>
+            {% elif status == 'cancelada' %}
+            <span class="badge-pill badge-red"><i class="fa-solid fa-ban"></i> Cancelada</span>
+            {% elif status == 'rechazada' %}
+            <span class="badge-pill badge-red"><i class="fa-solid fa-xmark"></i> Rechazada</span>
+            {% endif %}
+        </div>
+
+        <div style="display:flex; gap:10px; align-items:center;">
+            {% set total_docs = (order.attachments|length if order.attachments else 0) or (order.firebaseAttachmentURLs|length if order.firebaseAttachmentURLs else 0) %}
+            <button type="button" class="btn btn-secondary panel-btn" onclick="openAttachmentPanelFromDetail()" style="font-size:0.78rem;padding:9px 16px;">
+                <i class="fa-solid fa-paperclip"></i> Adjuntos{% if total_docs > 0 %} ({{ total_docs }}){% endif %}
             </button>
-        </form>
+            <a href="{{ url_for('web_purchase_orders.list_purchase_orders') }}" class="btn btn-secondary">
+                <i class="fa-solid fa-arrow-left"></i> Volver
+            </a>
+            {% if order.status in ('borrador', 'pendiente_aprobacion') %}
+            <a href="{{ url_for('web_purchase_orders.edit_purchase_order', po_id=order.id) }}" class="btn btn-primary">
+                <i class="fa-solid fa-pen-to-square"></i> Editar
+            </a>
+            <button type="button" class="btn btn-primary" onclick="approvePO()">
+                <i class="fa-solid fa-check"></i> Aprobar
+            </button>
+            {% endif %}
+            {% if order.status == 'aprobada' or order.status == 'recibida_parcial' %}
+            <a href="{{ url_for('web_inventory.new_receipt', po_id=order.id) }}" class="btn btn-primary">
+                <i class="fa-solid fa-truck-loading"></i> Recibir Mercancía
+            </a>
+            {% endif %}
+            {% if order.status in ('recibida_parcial', 'recibida_completa') %}
+            <a href="{{ url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=order.id) }}" class="btn btn-primary" style="background:var(--accent-purple); border-color:var(--accent-purple);">
+                <i class="fa-solid fa-file-invoice"></i> Registrar Factura Proveedor
+            </a>
+            {% endif %}
+            {% if order.status not in ('cancelada', 'recibida_completa') %}
+            <button type="button" class="btn btn-danger" onclick="cancelPO()">
+                <i class="fa-solid fa-ban"></i> Cancelar
+            </button>
+            {% endif %}
+            <form action="{{ url_for('web_purchase_orders.delete_purchase_order', po_id=order.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar permanentemente esta orden?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-danger">
+                    <i class="fa-solid fa-trash-can"></i> Eliminar
+                </button>
+            </form>
+        </div>
     </div>
-</div>
 
-<div class="card-dashboard" style="display:grid; grid-template-columns:2fr 1fr; gap:24px; margin-bottom:24px;">
-    <div class="card-form-body" style="padding:20px;">
-        <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
-            <i class="fa-solid fa-info-circle" style="margin-right:6px;"></i> Información General
-        </h4>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:0.88rem;">
-            <div><span style="color:var(--text-muted);">Proveedor:</span></div>
-            <div style="font-weight:600;">{{ order.supplierName or '—' }}</div>
-            <div><span style="color:var(--text-muted);">RNC:</span></div>
-            <div class="mono">{{ order.supplierRnc or '—' }}</div>
-            <div><span style="color:var(--text-muted);">Fecha de Orden:</span></div>
-            <div>{{ order.orderDate or '—' }}</div>
-            <div><span style="color:var(--text-muted);">Fecha Esperada:</span></div>
-            <div>{{ order.expectedDate or '—' }}</div>
-            <div><span style="color:var(--text-muted);">Estado:</span></div>
-            <div>
-                {% set status = order.status|default('borrador') %}
-                {% if status == 'borrador' %}<span class="badge badge-gray">Borrador</span>
-                {% elif status == 'pendiente_aprobacion' %}<span class="badge badge-amber">Pendiente</span>
-                {% elif status == 'aprobada' %}<span class="badge badge-green">Aprobada</span>
-                {% elif status == 'recibida_parcial' %}<span class="badge badge-blue">Rec. Parcial</span>
-                {% elif status == 'recibida_completa' %}<span class="badge badge-purple">Recibida</span>
-                {% elif status == 'cancelada' %}<span class="badge badge-red">Cancelada</span>
-                {% elif status == 'rechazada' %}<span class="badge badge-red">Rechazada</span>
+    <!-- ① INFORMACION GENERAL -->
+    <div class="section-card">
+        <h3><i class="fa-solid fa-info-circle" style="color:var(--accent-blue);"></i> Información General</h3>
+
+        <div class="field-row">
+            <span class="field-label">Proveedor</span>
+            <span class="field-value" style="font-weight:600;">{{ order.supplierName or '—' }}</span>
+        </div>
+        <div class="field-row">
+            <span class="field-label">RNC</span>
+            <span class="field-value mono">{{ order.supplierRnc or '—' }}</span>
+        </div>
+        <div class="field-row">
+            <span class="field-label">Fecha de Orden</span>
+            <span class="field-value">{{ order.orderDate or '—' }}</span>
+        </div>
+        <div class="field-row">
+            <span class="field-label">Fecha Esperada</span>
+            <span class="field-value">{{ order.expectedDate or '—' }}</span>
+        </div>
+        <div class="field-row">
+            <span class="field-label">Términos de Pago</span>
+            <span class="field-value">{{ order.paymentTerms|replace('_', ' ')|title if order.paymentTerms else 'Contado' }}</span>
+        </div>
+        <div class="field-row">
+            <span class="field-label">Moneda</span>
+            <span class="field-value">
+                {{ order.currency or 'DOP' }}
+                {% if order.currency and order.currency != 'DOP' and order.exchangeRate %}
+                <span style="font-size:0.72rem; color:var(--text-muted);">
+                    &nbsp;(Tasa: {{ "%.2f"|format(order.exchangeRate) }} × DOP)
+                </span>
                 {% endif %}
-            </div>
-            <div><span style="color:var(--text-muted);">Términos de Pago:</span></div>
-            <div>{{ order.paymentTerms|replace('_', ' ')|title if order.paymentTerms else 'Contado' }}</div>
-            <div><span style="color:var(--text-muted);">Moneda:</span></div>
-            <div>{{ order.currency or 'DOP' }}</div>
-            <div><span style="color:var(--text-muted);">Dirección Entrega:</span></div>
-            <div>{{ order.deliveryAddress or '—' }}</div>
+            </span>
         </div>
+        {% if order.deliveryAddress %}
+        <div class="field-row">
+            <span class="field-label">Dirección de Entrega</span>
+            <span class="field-value">{{ order.deliveryAddress }}</span>
+        </div>
+        {% endif %}
     </div>
 
-    <div class="card-form-body" style="padding:20px; display:flex; flex-direction:column; gap:16px;">
-        <div style="text-align:center; padding:16px; background:rgba(139,92,246,0.06); border-radius:12px; border:1px solid rgba(139,92,246,0.12);">
-            <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.03em;">Total</div>
-            <div style="font-size:1.6rem; font-weight:800; font-family:var(--font-heading); color:var(--accent-purple);">
-                {% if order.currency and order.currency != 'DOP' %}{{ order.currency }} {% endif %}
-                RD$ {{ "{:,.2f}".format(order.total|default(0)) }}
-            </div>
+    <!-- ② TOTALES -->
+    <div class="section-card">
+        <h3><i class="fa-solid fa-calculator" style="color:var(--accent-purple);"></i> Totales</h3>
+
+        <div class="field-row">
+            <span class="field-label">Total</span>
+            <span class="field-value" style="font-size:1.15rem; font-weight:700; font-family:monospace; color:var(--accent-purple);">
+                {% if order.currency and order.currency != 'DOP' %}{{ order.currency }} {% else %}RD$ {% endif %}
+                {{ "{:,.2f}".format(order.total|default(0)) }}
+            </span>
         </div>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-            <div style="text-align:center; padding:10px; background:rgba(0,0,0,0.02); border-radius:8px;">
-                <div style="font-size:0.7rem; color:var(--text-muted);">Subtotal</div>
-                <div style="font-weight:700;">RD$ {{ "{:,.2f}".format(order.subtotal|default(0)) }}</div>
-            </div>
-            <div style="text-align:center; padding:10px; background:rgba(0,0,0,0.02); border-radius:8px;">
-                <div style="font-size:0.7rem; color:var(--text-muted);">ITBIS</div>
-                <div style="font-weight:700;">RD$ {{ "{:,.2f}".format(order.itbis|default(0)) }}</div>
-            </div>
+        <div class="field-row">
+            <span class="field-label">Subtotal</span>
+            <span class="field-value">RD$ {{ "{:,.2f}".format(order.subtotal|default(0)) }}</span>
         </div>
+        <div class="field-row">
+            <span class="field-label">ITBIS</span>
+            <span class="field-value" style="color:var(--accent-blue);">RD$ {{ "{:,.2f}".format(order.itbis|default(0)) }}</span>
+        </div>
+        {% if order.discount and order.discount > 0 %}
+        <div class="field-row">
+            <span class="field-label">Descuento</span>
+            <span class="field-value" style="color:#d97706;">RD$ {{ "{:,.2f}".format(order.discount) }}</span>
+        </div>
+        {% endif %}
         {% if order.approvedBy %}
-        <div style="font-size:0.78rem; color:var(--text-muted); padding-top:8px; border-top:1px solid var(--border-color);">
-            Aprobado por: <strong>{{ order.approvedBy }}</strong>
-            {% if order.approvedAt %} · {{ order.approvedAt[:10] }}{% endif %}
+        <div class="field-row" style="margin-top:8px; padding-top:12px; border-top:1px dashed var(--border-color);">
+            <span class="field-label">Aprobado por</span>
+            <span class="field-value">{{ order.approvedBy }}{% if order.approvedAt %} · {{ order.approvedAt[:10] }}{% endif %}</span>
         </div>
         {% endif %}
         {% if order.receivedBy %}
-        <div style="font-size:0.78rem; color:var(--text-muted);">
-            Recibido por: <strong>{{ order.receivedBy }}</strong>
-            {% if order.receivedAt %} · {{ order.receivedAt[:10] }}{% endif %}
+        <div class="field-row">
+            <span class="field-label">Recibido por</span>
+            <span class="field-value">{{ order.receivedBy }}{% if order.receivedAt %} · {{ order.receivedAt[:10] }}{% endif %}</span>
         </div>
         {% endif %}
     </div>
-</div>
 
-<div class="card-form-body" style="padding:20px; margin-bottom:24px;">
-    <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
-        <i class="fa-solid fa-box" style="margin-right:6px;"></i> Partidas ({{ order['items']|length if order['items'] else 0 }})
-    </h4>
-    <div class="table-responsive">
-        <table class="table-premium">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Descripción</th>
-                    <th>Cant.</th>
-                    <th>Unidad</th>
-                    <th style="text-align:right;">Precio Unit.</th>
-                    <th style="text-align:right;">ITBIS</th>
-                    <th style="text-align:right;">Desc. %</th>
-                    <th style="text-align:right;">Subtotal</th>
-                    <th style="text-align:right;">Total</th>
-                    <th style="text-align:center;">Recibido</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% if order['items'] %}
-                {% for item in order['items'] %}
-                <tr>
-                    <td>{{ loop.index }}</td>
-                    <td style="font-weight:600;">{{ item.name or '—' }}</td>
-                    <td style="text-align:center;">{{ item.quantity|default(0) }}</td>
-                    <td>{{ item.unit|default('Unidad') }}</td>
-                    <td style="text-align:right;">{{ "{:,.2f}".format(item.unitPrice|default(0)) }}</td>
-                    <td style="text-align:right;">{{ "%.0f%%"|format((item.itbisRate|default(0))*100) if item.itbisRate else '0%' }}</td>
-                    <td style="text-align:right;">{{ item.discount|default(0) }}%</td>
-                    <td style="text-align:right;">{{ "{:,.2f}".format(item.subtotal|default(0)) }}</td>
-                    <td style="text-align:right; font-weight:600;">{{ "{:,.2f}".format(item.total|default(0)) }}</td>
-                    <td style="text-align:center;">
-                        {% set rqty = item.receivedQuantity|default(0) %}
-                        {% set oqty = item.quantity|default(0) %}
-                        {% if rqty >= oqty %}
-                        <span style="color:var(--accent-emerald); font-weight:600;">{{ rqty }}</span>
-                        {% elif rqty > 0 %}
-                        <span style="color:var(--accent-amber); font-weight:600;">{{ rqty }}</span>
-                        {% else %}
-                        <span style="color:var(--text-muted);">—</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-                {% else %}
-                <tr>
-                    <td colspan="10" style="text-align:center; padding:20px; color:var(--text-muted);">Sin partidas registradas.</td>
-                </tr>
-                {% endif %}
-            </tbody>
-        </table>
+    <!-- ③ PARTIDAS -->
+    <div class="section-card">
+        <h3><i class="fa-solid fa-box" style="color:var(--accent-amber);"></i> Partidas ({{ order['items']|length if order['items'] else 0 }})</h3>
+        <div class="table-responsive">
+            <table class="table-premium">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Descripción</th>
+                        <th style="text-align:center;">Cant.</th>
+                        <th>Unidad</th>
+                        <th style="text-align:right;">Precio Unit.</th>
+                        <th style="text-align:right;">ITBIS</th>
+                        <th style="text-align:right;">Desc. %</th>
+                        <th style="text-align:right;">Subtotal</th>
+                        <th style="text-align:right;">Total</th>
+                        <th style="text-align:center;">Recibido</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if order['items'] %}
+                    {% for item in order['items'] %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td style="font-weight:600;">{{ item.name or '—' }}</td>
+                        <td style="text-align:center;">{{ item.quantity|default(0) }}</td>
+                        <td>{{ item.unit|default('Unidad') }}</td>
+                        <td style="text-align:right;">{{ "{:,.2f}".format(item.unitPrice|default(0)) }}</td>
+                        <td style="text-align:right;">{{ "%.0f%%"|format((item.itbisRate|default(0))*100) if item.itbisRate else '0%' }}</td>
+                        <td style="text-align:right;">{{ item.discount|default(0) }}%</td>
+                        <td style="text-align:right;">{{ "{:,.2f}".format(item.subtotal|default(0)) }}</td>
+                        <td style="text-align:right; font-weight:600;">{{ "{:,.2f}".format(item.total|default(0)) }}</td>
+                        <td style="text-align:center;">
+                            {% set rqty = item.receivedQuantity|default(0) %}
+                            {% set oqty = item.quantity|default(0) %}
+                            {% if rqty >= oqty %}
+                            <span class="badge-pill badge-green">{{ rqty }}</span>
+                            {% elif rqty > 0 %}
+                            <span class="badge-pill badge-amber">{{ rqty }}</span>
+                            {% else %}
+                            <span style="color:var(--text-muted);">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="10" style="text-align:center; padding:20px; color:var(--text-muted);">Sin partidas registradas.</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
     </div>
-</div>
 
-<div class="card-form-body" style="padding:20px; margin-bottom:24px;">
-    <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
-        <i class="fa-solid fa-truck-loading" style="margin-right:6px;"></i> Recepciones
-    </h4>
-    {% if order.receipts and order.receipts|length > 0 %}
-    <div class="table-responsive">
-        <table class="table-premium">
-            <thead>
-                <tr>
-                    <th>Recepción #</th>
-                    <th>Fecha</th>
-                    <th>Almacén</th>
-                    <th>Partidas</th>
-                    <th style="text-align:center;">Items Catálogo</th>
-                    <th style="text-align:right; width: 50px;"></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for r in order.receipts %}
-                <tr>
-                    <td><span class="mono" style="font-weight:600; color:var(--accent-blue);">{{ r.receiptNumber }}</span></td>
-                    <td style="font-size:0.82rem;">{{ r.receiptDate or r.createdAt[:10] if r.createdAt else '—' }}</td>
-                    <td>{{ r.warehouseName or '—' }}</td>
-                    <td style="text-align:center;">{{ r['items']|length if r['items'] else 0 }}</td>
-                    <td style="text-align:center;">
-                        {% set cat_count = r['items']|selectattr('itemId')|list|length if r['items'] else 0 %}
-                        {% if cat_count > 0 %}
-                        <span style="color:var(--accent-emerald); font-weight:600;">{{ cat_count }}</span>
-                        {% else %}
-                        <span style="color:var(--text-muted);">—</span>
-                        {% endif %}
-                    </td>
-                    <td style="text-align:right;">
-                        <div class="action-menu">
-                            <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
-                                <i class="fa-solid fa-ellipsis-vertical"></i>
-                            </button>
-                            <div class="action-menu-dropdown">
-                                <a href="{{ url_for('web_purchase_orders.receipt_detail', receipt_id=r.id) }}" class="action-menu-item">
-                                    <i class="fa-solid fa-eye"></i> Ver Detalle
-                                </a>
+    <!-- ④ RECEPCIONES -->
+    <div class="section-card">
+        <h3><i class="fa-solid fa-truck-loading" style="color:var(--accent-emerald);"></i> Recepciones</h3>
+        {% if order.receipts and order.receipts|length > 0 %}
+        <div class="table-responsive">
+            <table class="table-premium">
+                <thead>
+                    <tr>
+                        <th>Recepción #</th>
+                        <th>Fecha</th>
+                        <th>Almacén</th>
+                        <th style="text-align:center;">Partidas</th>
+                        <th style="text-align:center;">Items Catálogo</th>
+                        <th style="text-align:right; width: 50px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in order.receipts %}
+                    <tr>
+                        <td><span class="mono" style="font-weight:600; color:var(--accent-blue);">{{ r.receiptNumber }}</span></td>
+                        <td style="font-size:0.82rem;">{{ r.receiptDate or (r.createdAt[:10] if r.createdAt else '') or '—' }}</td>
+                        <td>{{ r.warehouseName or '—' }}</td>
+                        <td style="text-align:center;">{{ r['items']|length if r['items'] else 0 }}</td>
+                        <td style="text-align:center;">
+                            {% set cat_count = r['items']|selectattr('itemId')|list|length if r['items'] else 0 %}
+                            {% if cat_count > 0 %}
+                            <span class="badge-pill badge-green">{{ cat_count }}</span>
+                            {% else %}
+                            <span style="color:var(--text-muted);">—</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align:right;">
+                            <div class="action-menu">
+                                <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </button>
+                                <div class="action-menu-dropdown">
+                                    <a href="{{ url_for('web_inventory.receipt_detail', receipt_id=r.id) }}" class="action-menu-item">
+                                        <i class="fa-solid fa-eye"></i> Ver Detalle
+                                    </a>
+                                </div>
                             </div>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p style="color:var(--text-muted); font-size:0.85rem;">No hay recepciones registradas para esta orden.</p>
+        {% endif %}
     </div>
-    {% else %}
-    <p style="color:var(--text-muted); font-size:0.85rem;">No hay recepciones registradas para esta orden.</p>
-    {% endif %}
-</div>
 
-<div class="card-form-body" style="padding:20px; margin-bottom:24px;">
-    <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
-        <i class="fa-solid fa-file-invoice" style="margin-right:6px;"></i> Facturas de Proveedor
-    </h4>
-    {% if order.supplier_invoices and order.supplier_invoices|length > 0 %}
-    <div class="table-responsive">
-        <table class="table-premium">
-            <thead>
-                <tr>
-                    <th>Factura#</th>
-                    <th>Factura Prov.</th>
-                    <th>NCF</th>
-                    <th>Fecha</th>
-                    <th>Vence</th>
-                    <th>Total (RD$)</th>
-                    <th>Balance (RD$)</th>
-                    <th>Estado CxP</th>
-                    <th style="text-align:right; width: 50px;"></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for inv in order.supplier_invoices %}
-                <tr>
-                    <td><span class="mono" style="font-weight:600; color:var(--accent-blue);">{{ inv.invoiceNumber }}</span></td>
-                    <td>{{ inv.supplierInvoiceNumber or '—' }}</td>
-                    <td class="mono">{{ inv.ncf or '—' }}</td>
-                    <td style="font-size:0.82rem;">{{ (inv.date or '')[:10] }}</td>
-                    <td style="font-size:0.82rem;">{{ (inv.dueDate or '')[:10] }}</td>
-                    <td style="font-weight:600;">{{ "{:,.2f}".format(inv.total|default(0)) }}</td>
-                    <td style="font-weight:600; color:{% if inv.cxpStatus == 'Vencido' %}var(--accent-red){% elif inv.cxpStatus == 'Pagado' %}var(--accent-emerald){% else %}var(--accent-amber){% endif %}">
-                        {{ "{:,.2f}".format(inv.cxpRemainingBalance|default(inv.total|default(0))) }}
-                    </td>
-                    <td>
-                        {% set st = inv.cxpStatus|default('Pendiente') %}
-                        {% if st == 'Pagado' %}<span class="badge badge-green">Pagado</span>
-                        {% elif st == 'Abonado' %}<span class="badge badge-blue">Abonado</span>
-                        {% elif st == 'Vencido' %}<span class="badge badge-red">Vencido</span>
-                        {% else %}<span class="badge badge-amber">Pendiente</span>{% endif %}
-                    </td>
-                    <td style="text-align:right;">
-                        <div class="action-menu">
-                            <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
-                                <i class="fa-solid fa-ellipsis-vertical"></i>
-                            </button>
-                            <div class="action-menu-dropdown">
-                                <a href="{{ url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=inv.id) }}" class="action-menu-item">
-                                    <i class="fa-solid fa-eye"></i> Ver Detalle
-                                </a>
+    <!-- ⑤ FACTURAS DE PROVEEDOR -->
+    <div class="section-card">
+        <h3><i class="fa-solid fa-file-invoice" style="color:var(--accent-purple);"></i> Facturas de Proveedor</h3>
+        {% if order.supplier_invoices and order.supplier_invoices|length > 0 %}
+        <div class="table-responsive">
+            <table class="table-premium">
+                <thead>
+                    <tr>
+                        <th>Factura#</th>
+                        <th>Factura Prov.</th>
+                        <th>NCF</th>
+                        <th>Fecha</th>
+                        <th>Vence</th>
+                        <th style="text-align:right;">Total (RD$)</th>
+                        <th style="text-align:right;">Balance (RD$)</th>
+                        <th>Estado CxP</th>
+                        <th style="text-align:right; width: 50px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inv in order.supplier_invoices %}
+                    <tr>
+                        <td><span class="mono" style="font-weight:600; color:var(--accent-blue);">{{ inv.invoiceNumber }}</span></td>
+                        <td>{{ inv.supplierInvoiceNumber or '—' }}</td>
+                        <td class="mono">{{ inv.ncf or '—' }}</td>
+                        <td style="font-size:0.82rem;">{{ (inv.date or '')[:10] }}</td>
+                        <td style="font-size:0.82rem;">{{ (inv.dueDate or '')[:10] }}</td>
+                        <td style="font-weight:600;">{{ "{:,.2f}".format(inv.total|default(0)) }}</td>
+                        <td style="font-weight:600; color:{% if inv.cxpStatus == 'Vencido' %}var(--accent-red){% elif inv.cxpStatus == 'Pagado' %}var(--accent-emerald){% else %}var(--accent-amber){% endif %}">
+                            {{ "{:,.2f}".format(inv.cxpRemainingBalance|default(inv.total|default(0))) }}
+                        </td>
+                        <td>
+                            {% set st = inv.cxpStatus|default('Pendiente') %}
+                            {% if st == 'Pagado' %}<span class="badge-pill badge-green">Pagado</span>
+                            {% elif st == 'Abonado' %}<span class="badge-pill badge-blue">Abonado</span>
+                            {% elif st == 'Vencido' %}<span class="badge-pill badge-red">Vencido</span>
+                            {% else %}<span class="badge-pill badge-amber">Pendiente</span>{% endif %}
+                        </td>
+                        <td style="text-align:right;">
+                            <div class="action-menu">
+                                <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </button>
+                                <div class="action-menu-dropdown">
+                                    <a href="{{ url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=inv.id) }}" class="action-menu-item">
+                                        <i class="fa-solid fa-eye"></i> Ver Detalle
+                                    </a>
+                                </div>
                             </div>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p style="color:var(--text-muted); font-size:0.85rem;">No hay facturas de proveedor registradas para esta orden.</p>
+        {% endif %}
     </div>
-    {% else %}
-    <p style="color:var(--text-muted); font-size:0.85rem;">No hay facturas de proveedor registradas para esta orden.</p>
-    {% endif %}
-</div>
 
-{% if order.notes or order.internalNotes %}
-<div class="card-form-body" style="padding:20px; margin-bottom:24px;">
-    <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
-        <i class="fa-solid fa-note-sticky" style="margin-right:6px;"></i> Notas
-    </h4>
-    {% if order.notes %}
-    <div style="margin-bottom:10px;">
-        <strong style="font-size:0.78rem; color:var(--text-muted);">Notas:</strong>
-        <p style="margin:4px 0; white-space:pre-wrap;">{{ order.notes }}</p>
+    <!-- ⑥ NOTAS -->
+    {% if order.notes or order.internalNotes %}
+    <div class="section-card">
+        <h3><i class="fa-solid fa-note-sticky" style="color:var(--accent-amber);"></i> Notas</h3>
+        {% if order.notes %}
+        <div class="field-row">
+            <span class="field-label">Notas</span>
+            <span class="field-value" style="white-space:pre-wrap;">{{ order.notes }}</span>
+        </div>
+        {% endif %}
+        {% if order.internalNotes %}
+        <div class="field-row">
+            <span class="field-label">Notas Internas</span>
+            <span class="field-value" style="white-space:pre-wrap; color:var(--text-muted);">{{ order.internalNotes }}</span>
+        </div>
+        {% endif %}
     </div>
     {% endif %}
-    {% if order.internalNotes %}
-    <div>
-        <strong style="font-size:0.78rem; color:var(--text-muted);">Notas Internas:</strong>
-        <p style="margin:4px 0; white-space:pre-wrap; color:var(--text-muted);">{{ order.internalNotes }}</p>
-    </div>
-    {% endif %}
-</div>
-{% endif %}
 
-{% if order.createdBy %}
-<div style="font-size:0.78rem; color:var(--text-muted); text-align:right; padding-bottom:20px;">
-    Creada por: {{ order.createdBy }} · {{ order.createdAt[:19] if order.createdAt else '' }}
+    <!-- ─── COMENTARIOS ──────────────────────────────────────────────────── -->
+    {% set submit_url   = "/purchase-orders/" ~ order.id ~ "/comments/new" %}
+    {% set edit_url_prefix   = "/purchase-orders/" ~ order.id ~ "/comments" %}
+    {% set delete_url_prefix = "/purchase-orders/" ~ order.id ~ "/comments" %}
+    {% include 'components/_comments.html' %}
+
+    <!-- FOOTER -->
+    {% if order.createdBy %}
+    <div style="font-size:0.78rem; color:var(--text-muted); text-align:right;">
+        Creada por: {{ order.createdBy }} · {{ order.createdAt[:19] if order.createdAt else '' }}
+    </div>
+    {% endif %}
+
 </div>
-{% endif %}
 
 <script>
-function approvePO() {
-    if (!confirm('¿Aprobar esta orden de compra?')) return;
-    fetch("{{ url_for('web_purchase_orders.approve_purchase_order', po_id=order.id) }}", { method: 'POST' })
-        .then(r => r.json())
-        .then(d => {
-            if (d.success) { location.reload(); }
-            else { alert('Error: ' + (d.error || 'Desconocido')); }
-        })
-        .catch(() => alert('Error de red'));
-}
+    {% set atts = order.attachments or [] %}
+    {% if not atts and order.firebaseAttachmentURLs %}
+        {% set atts = [] %}
+        {% for url in order.firebaseAttachmentURLs %}
+            {% set _ = atts.append({'url': url, 'type': 'otro', 'name': url.split('/')[-1].split('?')[0]}) %}
+        {% endfor %}
+    {% endif %}
+    const detailEntityId = '{{ order.id }}';
+    const detailAttachments = {{ atts|tojson|safe }};
+    window.ATT_PANEL_BASE_URL = '/purchase-orders';
 
-function cancelPO() {
-    if (!confirm('¿Cancelar esta orden de compra?')) return;
-    fetch("{{ url_for('web_purchase_orders.cancel_purchase_order', po_id=order.id) }}", { method: 'POST' })
-        .then(r => r.json())
-        .then(d => {
-            if (d.success) { location.reload(); }
-            else { alert('Error: ' + (d.error || 'Desconocido')); }
-        })
-        .catch(() => alert('Error de red'));
-}
+    function openAttachmentPanelFromDetail() {
+        openAttachmentPanel(detailEntityId, detailAttachments);
+    }
+
+    function approvePO() {
+        if (!confirm('¿Aprobar esta orden de compra?')) return;
+        fetch("{{ url_for('web_purchase_orders.approve_purchase_order', po_id=order.id) }}", { method: 'POST' })
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) { location.reload(); }
+                else { alert('Error: ' + (d.error || 'Desconocido')); }
+            })
+            .catch(() => alert('Error de red'));
+    }
+
+    function cancelPO() {
+        if (!confirm('¿Cancelar esta orden de compra?')) return;
+        fetch("{{ url_for('web_purchase_orders.cancel_purchase_order', po_id=order.id) }}", { method: 'POST' })
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) { location.reload(); }
+                else { alert('Error: ' + (d.error || 'Desconocido')); }
+            })
+            .catch(() => alert('Error de red'));
+    }
 </script>
 
-<style>
-.badge {
-    display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:99px;
-    font-size:0.75rem; font-weight:600;
-}
-.badge-green  { background:rgba(16,185,129,0.12); color:var(--accent-emerald); border:1px solid rgba(16,185,129,0.25); }
-.badge-amber  { background:rgba(245,158,11,0.1);  color:#f59e0b;              border:1px solid rgba(245,158,11,0.2);  }
-.badge-blue   { background:rgba(59,130,246,0.1);   color:#3b82f6;              border:1px solid rgba(59,130,246,0.2);  }
-.badge-purple { background:rgba(139,92,246,0.1);   color:#8b5cf6;              border:1px solid rgba(139,92,246,0.2);  }
-.badge-gray   { background:rgba(107,114,128,0.1);  color:#6b7280;              border:1px solid rgba(107,114,128,0.2); }
-.badge-red    { background:rgba(239,68,68,0.1);    color:#ef4444;              border:1px solid rgba(239,68,68,0.2);   }
-.mono { font-family:monospace; font-size:0.82rem; }
-</style>
+{% include 'components/_attachment_panel.html' %}
+
 {% endblock %}

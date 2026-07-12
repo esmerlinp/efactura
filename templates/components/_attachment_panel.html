@@ -66,9 +66,9 @@
 let attExpenseId = '';
 let attUploadUrl = '';
 
-function openAttachmentPanel(expenseId, existingAttachments) {
-    attExpenseId = expenseId;
-    attUploadUrl = '/expenses/' + expenseId + '/attach';
+function openAttachmentPanel(entityId, existingAttachments) {
+    attExpenseId = entityId;
+    attUploadUrl = (window.ATT_PANEL_BASE_URL || '/expenses') + '/' + entityId + '/attach';
     renderAttachments(existingAttachments || []);
     document.getElementById('att-panel-overlay').classList.add('open');
     document.getElementById('att-panel').classList.add('open');

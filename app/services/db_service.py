@@ -225,6 +225,7 @@ def _cached_expenses(owner_uid, sandbox):
                     "amount": float(data.get("amount", 0.0)),
                     "date": serialize_field(data.get("date")),
                     "rncEmisor": data.get("rncEmisor", ""),
+                    "providerName": data.get("providerName", ""),
                     "ncf": data.get("ncf", ""),
                     "isMinorExpense": bool(data.get("isMinorExpense", False)),
                     "isSyncedWithDGII": bool(data.get("isSyncedWithDGII", False)),
@@ -237,6 +238,9 @@ def _cached_expenses(owner_uid, sandbox):
                     "recurrenceEndDate": serialize_field(data.get("recurrenceEndDate")),
                     "associatedInvoiceId": data.get("associatedInvoiceId", ""),
                     "itbisAmount": float(data.get("itbisAmount", 0.0)),
+                    "currency": data.get("currency", "DOP"),
+                    "exchangeRate": float(data.get("exchangeRate", 1.0)),
+                    "amountOriginal": float(data.get("amountOriginal", 0.0)),
                     "isITBISDeductible": bool(data.get("isITBISDeductible", True)),
                     "isDeductible": bool(data.get("isDeductible", True)),
                     "firebaseAttachmentURLs": data.get("firebaseAttachmentURLs", []),
@@ -246,6 +250,7 @@ def _cached_expenses(owner_uid, sandbox):
                     "cne": data.get("cne", ""),
                     "tipoGastoDGII": data.get("tipoGastoDGII", ""),
                     "paymentType": data.get("paymentType", "Contado"),
+                    "paymentMethod": data.get("paymentMethod", ""),
                     "cxpStatus": data.get("cxpStatus", "Pagado"),
                     "cxpRemainingBalance": float(data.get("cxpRemainingBalance", 0.0)),
                     "approvalStatus": data.get("approvalStatus", "Aprobado"),
@@ -257,7 +262,28 @@ def _cached_expenses(owner_uid, sandbox):
                     "trackId": data.get("trackId", ""),
                     "xmlContent": data.get("xmlContent", ""),
                     "supplierId": data.get("supplierId", ""),
-                    "dgiiStatus": dgii_status
+                    "supplierType": data.get("supplierType", ""),
+                    "dgiiStatus": dgii_status,
+                    "comentario": data.get("comentario", ""),
+                    "bankAccountId": data.get("bankAccountId", ""),
+                    "retainedISR": float(data.get("retainedISR", 0.0)),
+                    "retainedITBIS": float(data.get("retainedITBIS", 0.0)),
+                    "isrWithheld": float(data.get("isrWithheld", 0.0)),
+                    "itbisWithheld": float(data.get("itbisWithheld", 0.0)),
+                    "ncfModificado": data.get("ncfModificado", ""),
+                    "montoServicios": float(data.get("montoServicios", 0.0)),
+                    "montoBienes": float(data.get("montoBienes", float(data.get("amount", 0.0)))),
+                    "itbisLlevadoCosto": float(data.get("itbisLlevadoCosto", 0.0)),
+                    "itbisProporcionalidad": float(data.get("itbisProporcionalidad", 0.0)),
+                    "tipoRetencionISR": data.get("tipoRetencionISR", ""),
+                    "iscMonto": float(data.get("iscMonto", 0.0)),
+                    "otrosImpuestos": float(data.get("otrosImpuestos", 0.0)),
+                    "propinaLegal": float(data.get("propinaLegal", 0.0)),
+                    "formaPago": data.get("formaPago", "02"),
+                    "attachments": data.get("attachments", []),
+                    "contactName": data.get("contactName", ""),
+                    "accountItems": data.get("accountItems", []),
+                    "expense_type": data.get("expense_type", ""),
                 })
             expenses.sort(key=lambda x: x["date"] or "", reverse=True)
         except Exception as e:
@@ -3145,7 +3171,7 @@ class DatabaseService:
         exp_dict["ecfType"] = exp_dict.get("ecfType", "")
         exp_dict["ecfNumber"] = exp_dict.get("ecfNumber", "")
         exp_dict["cne"] = exp_dict.get("cne", "")
-        exp_dict["tipoGastoDGII"] = exp_dict.get("tipoGastoDGII", "")
+        exp_dict["tipoGastoDGII"] = exp_dict.get("tipoGastoDGII", "02")
         exp_dict["paymentType"] = exp_dict.get("paymentType", "Contado")
         exp_dict["cxpStatus"] = exp_dict.get("cxpStatus", "Pagado")
         exp_dict["cxpRemainingBalance"] = float(exp_dict.get("cxpRemainingBalance", 0.0 if exp_dict["paymentType"] == "Contado" else exp_dict["amount"]))
@@ -3158,6 +3184,17 @@ class DatabaseService:
         exp_dict["trackId"] = exp_dict.get("trackId", "")
         exp_dict["xmlContent"] = exp_dict.get("xmlContent", "")
         exp_dict["supplierId"] = exp_dict.get("supplierId", "")
+        # Campos DGII 606
+        exp_dict["ncfModificado"] = exp_dict.get("ncfModificado", "")
+        exp_dict["montoServicios"] = float(exp_dict.get("montoServicios", 0.0))
+        exp_dict["montoBienes"] = float(exp_dict.get("montoBienes", exp_dict["amount"]))
+        exp_dict["itbisLlevadoCosto"] = float(exp_dict.get("itbisLlevadoCosto", 0.0))
+        exp_dict["itbisProporcionalidad"] = float(exp_dict.get("itbisProporcionalidad", 0.0))
+        exp_dict["tipoRetencionISR"] = exp_dict.get("tipoRetencionISR", "")
+        exp_dict["iscMonto"] = float(exp_dict.get("iscMonto", 0.0))
+        exp_dict["otrosImpuestos"] = float(exp_dict.get("otrosImpuestos", 0.0))
+        exp_dict["propinaLegal"] = float(exp_dict.get("propinaLegal", 0.0))
+        exp_dict["formaPago"] = exp_dict.get("formaPago", "02")
         if not exp_dict.get("dgiiStatus"):
             if exp_dict.get("emisionMode") == "FALLBACK":
                 exp_dict["dgiiStatus"] = "CONTINGENCY"
@@ -5362,7 +5399,8 @@ class DatabaseService:
                     "invoices": "sandbox_invoices" if sandbox else "invoices",
                     "shifts": "sandbox_cash_shifts" if sandbox else "cash_shifts",
                     "expenses": "sandbox_expenses" if sandbox else "expenses",
-                    "contracts": "sandbox_contracts" if sandbox else "contracts"
+                    "contracts": "sandbox_contracts" if sandbox else "contracts",
+                    "purchase_orders": "sandbox_purchase_orders" if sandbox else "purchase_orders"
                 }
                 coll_name = coll_map.get(resource_type)
                 if not coll_name:
@@ -5407,7 +5445,8 @@ class DatabaseService:
                     "invoices": "sandbox_invoices" if sandbox else "invoices",
                     "shifts": "sandbox_cash_shifts" if sandbox else "cash_shifts",
                     "expenses": "sandbox_expenses" if sandbox else "expenses",
-                    "contracts": "sandbox_contracts" if sandbox else "contracts"
+                    "contracts": "sandbox_contracts" if sandbox else "contracts",
+                    "purchase_orders": "sandbox_purchase_orders" if sandbox else "purchase_orders"
                 }
                 coll_name = coll_map.get(resource_type)
                 if coll_name:
@@ -5425,7 +5464,8 @@ class DatabaseService:
                     "invoices": "sandbox_invoices" if sandbox else "invoices",
                     "shifts": "sandbox_cash_shifts" if sandbox else "cash_shifts",
                     "expenses": "sandbox_expenses" if sandbox else "expenses",
-                    "contracts": "sandbox_contracts" if sandbox else "contracts"
+                    "contracts": "sandbox_contracts" if sandbox else "contracts",
+                    "purchase_orders": "sandbox_purchase_orders" if sandbox else "purchase_orders"
                 }
                 coll_name = coll_map.get(resource_type)
                 if coll_name:
@@ -5464,7 +5504,8 @@ class DatabaseService:
                     "invoices": "sandbox_invoices" if sandbox else "invoices",
                     "shifts": "sandbox_cash_shifts" if sandbox else "cash_shifts",
                     "expenses": "sandbox_expenses" if sandbox else "expenses",
-                    "contracts": "sandbox_contracts" if sandbox else "contracts"
+                    "contracts": "sandbox_contracts" if sandbox else "contracts",
+                    "purchase_orders": "sandbox_purchase_orders" if sandbox else "purchase_orders"
                 }
                 coll_name = coll_map.get(resource_type)
                 if coll_name:

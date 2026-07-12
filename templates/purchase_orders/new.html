@@ -4,6 +4,10 @@
 {% block page_header %}Nueva Orden de Compra{% endblock %}
 
 {% block content %}
+<style>
+    .doc-main-col { max-width:960px; margin:0 auto; display:flex; flex-direction:column; gap:24px; }
+</style>
+<div class="doc-main-col">
 <div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
     <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
         <i class="fa-solid fa-cart-plus" style="color:var(--accent-purple); margin-right:10px;"></i>
@@ -354,4 +358,5 @@ document.getElementById('btn-add-item').addEventListener('click', function() {
 document.querySelectorAll('.item-row').forEach(row => bindRowEvents(row));
 recalcTotals();
 </script>
+</div>
 {% endblock %}

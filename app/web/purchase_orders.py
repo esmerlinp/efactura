@@ -1,8 +1,9 @@
 import uuid
 import json
+import html
 from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, g
-from app.services.db_service import DatabaseService
+from app.services.db_service import DatabaseService, db_firestore, firebase_initialized
 from app.services.purchase_order_service import PurchaseOrderService
 from app.services.supplier_service import SupplierService
 from app.services.goods_receipt_service import GoodsReceiptService
@@ -10,6 +11,7 @@ from app.services.supplier_invoice_service import SupplierInvoiceService, ALLOWE
 from app.services.purchase_credit_note_service import PurchaseCreditNoteService
 from app.utils.decorators import check_permission
 from app.services.audit_service import AuditService, ACTION_CREATE, ACTION_UPDATE, ACTION_DELETE
+from app.web.invoices import format_mentions, _get_taggable_users, process_resource_comment_mentions
 
 web_purchase_orders_bp = Blueprint('web_purchase_orders', __name__)
 
@@ -188,9 +190,241 @@ def purchase_order_detail(po_id):
     order['receipts'] = receipts
     supplier_invoices = SupplierInvoiceService.get_by_po(owner_uid, po_id, sandbox=sandbox)
     order['supplier_invoices'] = supplier_invoices
+    comments = DatabaseService.get_resource_comments(owner_uid, "purchase_orders", po_id, sandbox=sandbox)
+    taggable_users = _get_taggable_users(owner_uid)
     return render_template('purchase_orders/detail.html',
                            order=order,
+                           comments=comments,
+                           taggable_users=taggable_users,
+                           format_mentions=format_mentions,
                            active_page='purchase_orders')
+
+
+@web_purchase_orders_bp.route('/purchase-orders/<po_id>/comments/new', methods=['POST'])
+def add_po_comment(po_id):
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    content = request.form.get('content', '').strip()
+    if not content:
+        flash('El comentario no puede estar vacío.', 'error')
+        return redirect(url_for('web_purchase_orders.purchase_order_detail', po_id=po_id))
+
+    attachment_url = ""
+    attachment_name = ""
+    file = request.files.get('attachment')
+    if file and file.filename:
+        try:
+            file_data = file.read()
+            mime_type = file.mimetype or "application/octet-stream"
+            filename = f"comment_po_{po_id}_{str(uuid.uuid4())[:8]}_{file.filename}"
+            destination_path = f"users/{owner_uid}/comments/{filename}"
+            attachment_url = DatabaseService.upload_file_to_storage(file_data, destination_path, mime_type)
+            attachment_name = file.filename
+        except Exception as e:
+            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {html.escape(str(e))}", 'warning')
+
+    comment_id = str(uuid.uuid4())
+    comment_dict = {
+        "content": content,
+        "createdBy": session['user']['email'],
+        "createdByName": session['user'].get('name', session['user']['email']),
+        "createdByUid": session['user']['uid'],
+        "createdAt": datetime.now(timezone.utc).isoformat(),
+        "attachmentUrl": attachment_url,
+        "attachmentName": attachment_name,
+        "edited": False
+    }
+
+    DatabaseService.save_resource_comment(owner_uid, "purchase_orders", po_id, comment_id, comment_dict, sandbox=sandbox)
+
+    try:
+        order = PurchaseOrderService.get_purchase_order(owner_uid, po_id, sandbox=sandbox) or {}
+        label = order.get('poNumber', 'OC')
+        process_resource_comment_mentions(owner_uid, content, "purchase_orders", po_id, label, sandbox)
+    except Exception as ex:
+        print(f"⚠️ Error al procesar menciones en add_po_comment: {ex}")
+
+    flash('Comentario agregado exitosamente.', 'success')
+    return redirect(url_for('web_purchase_orders.purchase_order_detail', po_id=po_id))
+
+
+@web_purchase_orders_bp.route('/purchase-orders/<po_id>/comments/<comment_id>/edit', methods=['POST'])
+def edit_po_comment(po_id, comment_id):
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    comments = DatabaseService.get_resource_comments(owner_uid, "purchase_orders", po_id, sandbox=sandbox)
+    comment = next((c for c in comments if c['id'] == comment_id), None)
+    if not comment:
+        flash('Comentario no encontrado.', 'error')
+        return redirect(url_for('web_purchase_orders.purchase_order_detail', po_id=po_id))
+
+    is_owner = session['user'].get('role') == 'owner'
+    is_author = session['user']['uid'] == comment.get('createdByUid')
+    if not (is_owner or is_author):
+        flash('No tienes permiso para editar este comentario.', 'error')
+        return redirect(url_for('web_purchase_orders.purchase_order_detail', po_id=po_id))
+
+    content = request.form.get('content', '').strip()
+    if not content:
+        flash('El comentario no puede estar vacío.', 'error')
+        return redirect(url_for('web_purchase_orders.purchase_order_detail', po_id=po_id))
+
+    comment['content'] = content
+    comment['edited'] = True
+    comment['editedAt'] = datetime.now(timezone.utc).isoformat()
+
+    file = request.files.get('attachment')
+    if file and file.filename:
+        try:
+            file_data = file.read()
+            mime_type = file.mimetype or "application/octet-stream"
+            filename = f"comment_po_{po_id}_{str(uuid.uuid4())[:8]}_{file.filename}"
+            destination_path = f"users/{owner_uid}/comments/{filename}"
+            attachment_url = DatabaseService.upload_file_to_storage(file_data, destination_path, mime_type)
+            comment['attachmentUrl'] = attachment_url
+            comment['attachmentName'] = file.filename
+        except Exception as e:
+            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {html.escape(str(e))}", 'warning')
+
+    DatabaseService.save_resource_comment(owner_uid, "purchase_orders", po_id, comment_id, comment, sandbox=sandbox)
+
+    try:
+        order = PurchaseOrderService.get_purchase_order(owner_uid, po_id, sandbox=sandbox) or {}
+        label = order.get('poNumber', 'OC')
+        process_resource_comment_mentions(owner_uid, content, "purchase_orders", po_id, label, sandbox)
+    except Exception as ex:
+        print(f"⚠️ Error al procesar menciones en edit_po_comment: {ex}")
+
+    flash('Comentario modificado.', 'success')
+    return redirect(url_for('web_purchase_orders.purchase_order_detail', po_id=po_id))
+
+
+@web_purchase_orders_bp.route('/purchase-orders/<po_id>/comments/<comment_id>/delete', methods=['POST'])
+def delete_po_comment(po_id, comment_id):
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    comments = DatabaseService.get_resource_comments(owner_uid, "purchase_orders", po_id, sandbox=sandbox)
+    comment = next((c for c in comments if c['id'] == comment_id), None)
+    if not comment:
+        flash('Comentario no encontrado.', 'error')
+        return redirect(url_for('web_purchase_orders.purchase_order_detail', po_id=po_id))
+
+    is_owner = session['user'].get('role') == 'owner'
+    is_author = session['user']['uid'] == comment.get('createdByUid')
+    if not (is_owner or is_author):
+        flash('No tienes permiso para eliminar este comentario.', 'error')
+        return redirect(url_for('web_purchase_orders.purchase_order_detail', po_id=po_id))
+
+    DatabaseService.delete_resource_comment(owner_uid, "purchase_orders", po_id, comment_id, sandbox=sandbox)
+    flash('Comentario eliminado.', 'success')
+    return redirect(url_for('web_purchase_orders.purchase_order_detail', po_id=po_id))
+
+
+@web_purchase_orders_bp.route('/purchase-orders/<po_id>/attach', methods=['POST'])
+def attach_po_document(po_id):
+    if 'user' not in session:
+        return jsonify({"success": False, "error": "No autorizado"}), 401
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    order = PurchaseOrderService.get_purchase_order(owner_uid, po_id, sandbox=sandbox)
+    if not order:
+        return jsonify({"success": False, "error": "Orden de compra no encontrada."}), 404
+
+    attachment_files = request.files.getlist('attachments[]')
+    attachment_types = request.form.getlist('attachmentTypes[]')
+
+    existing_attachments = order.get('attachments', [])
+    existing_urls = order.get('firebaseAttachmentURLs', [])
+
+    if not existing_attachments and existing_urls:
+        existing_attachments = [{'url': u, 'type': 'otro', 'name': u.split('/')[-1].split('?')[0]} for u in existing_urls]
+
+    new_attachments = list(existing_attachments)
+    new_urls = list(existing_urls)
+    uploaded_count = 0
+    errors = []
+
+    for i, att_file in enumerate(attachment_files):
+        if att_file and att_file.filename:
+            try:
+                file_data = att_file.read()
+                mime_type = att_file.content_type or "application/octet-stream"
+                safe_name = att_file.filename.replace(' ', '_')
+                dest_path = f"users/{owner_uid}/purchase_orders/{po_id}/{safe_name}"
+                public_url = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type)
+                att_type = attachment_types[i] if i < len(attachment_types) else 'otro'
+                new_urls.append(public_url)
+                new_attachments.append({'url': public_url, 'type': att_type, 'name': att_file.filename})
+                uploaded_count += 1
+            except Exception as e:
+                errors.append(str(e))
+
+    if uploaded_count > 0:
+        if firebase_initialized:
+            coll_name = "sandbox_purchase_orders" if sandbox else "purchase_orders"
+            db_firestore.collection("users").document(owner_uid).collection(coll_name).document(po_id).update({
+                "attachments": new_attachments,
+                "firebaseAttachmentURLs": new_urls
+            })
+
+    wants_json = request.headers.get('Accept', '').find('application/json') != -1 or request.args.get('format') == 'json'
+    if wants_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({
+            "success": uploaded_count > 0,
+            "uploaded": uploaded_count,
+            "errors": errors,
+            "attachments": new_attachments,
+        })
+
+    if uploaded_count > 0:
+        flash(f'{uploaded_count} documento(s) adjuntado(s) exitosamente.', 'success')
+    else:
+        flash('No se seleccionó ningún archivo válido.', 'warning')
+    return redirect(url_for('web_purchase_orders.purchase_order_detail', po_id=po_id))
+
+
+@web_purchase_orders_bp.route('/purchase-orders/<po_id>/attach/<int:att_index>', methods=['POST'])
+def detach_po_document(po_id, att_index):
+    if 'user' not in session:
+        return jsonify({"success": False, "error": "No autorizado"}), 401
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    order = PurchaseOrderService.get_purchase_order(owner_uid, po_id, sandbox=sandbox)
+    if not order:
+        return jsonify({"success": False, "error": "Orden de compra no encontrada."}), 404
+
+    existing_attachments = order.get('attachments', [])
+    existing_urls = order.get('firebaseAttachmentURLs', [])
+
+    if not existing_attachments and existing_urls:
+        existing_attachments = [{'url': u, 'type': 'otro', 'name': u.split('/')[-1].split('?')[0]} for u in existing_urls]
+
+    if att_index < 0 or att_index >= len(existing_attachments):
+        return jsonify({"success": False, "error": "Índice de adjunto inválido."}), 400
+
+    removed = existing_attachments.pop(att_index)
+    new_urls = [a['url'] for a in existing_attachments]
+
+    if firebase_initialized:
+        coll_name = "sandbox_purchase_orders" if sandbox else "purchase_orders"
+        db_firestore.collection("users").document(owner_uid).collection(coll_name).document(po_id).update({
+            "attachments": existing_attachments,
+            "firebaseAttachmentURLs": new_urls
+        })
+
+    return jsonify({
+        "success": True,
+        "removed": removed.get('name', 'Documento'),
+        "attachments": existing_attachments,
+    })
 
 
 @web_purchase_orders_bp.route('/purchase-orders/<po_id>/edit', methods=['GET', 'POST'])
@@ -438,165 +672,6 @@ def api_supplier_items():
 
 
 # ═════════════════════════════════════════════════════════════════════
-# GOODS RECEIPT (Recepción de Mercancía)
-# ═════════════════════════════════════════════════════════════════════
-
-MODULE_RECEIPT = "Recepción de Mercancía"
-
-
-@web_purchase_orders_bp.route('/purchase-orders/receipts')
-def list_receipts():
-    if 'user' not in session:
-        return redirect(url_for('web_auth.login'))
-    if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', active_page='receipts')
-    owner_uid = session['user']['ownerUID']
-    sandbox = session.get('is_sandbox_mode', True)
-    receipts = GoodsReceiptService.get_receipts(owner_uid, sandbox=sandbox)
-    return render_template('purchase_orders/receipts_list.html',
-                           receipts=receipts, active_page='receipts')
-
-
-@web_purchase_orders_bp.route('/purchase-orders/<po_id>/receive-goods', methods=['GET', 'POST'])
-def new_receipt(po_id):
-    if 'user' not in session:
-        return redirect(url_for('web_auth.login'))
-    if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', active_page='receipts')
-    owner_uid = session['user']['ownerUID']
-    sandbox = session.get('is_sandbox_mode', True)
-
-    po = PurchaseOrderService.get_purchase_order(owner_uid, po_id, sandbox=sandbox)
-    if not po:
-        flash('❌ Orden de compra no encontrada.', 'error')
-        return redirect(url_for('web_purchase_orders.list_purchase_orders'))
-    if po.get('status') not in ('aprobada', 'recibida_parcial'):
-        flash('❌ Solo se pueden recibir órdenes aprobadas o con recepción parcial.', 'error')
-        return redirect(url_for('web_purchase_orders.purchase_order_detail', po_id=po_id))
-
-    if request.method == 'POST':
-        receipt_id = str(uuid.uuid4())
-        receipt_number = GoodsReceiptService.get_next_receipt_number(owner_uid, sandbox=sandbox)
-        warehouse_id = request.form.get('warehouseId', '')
-        warehouse_name = request.form.get('warehouseName', '')
-
-        po_items = po.get('items', [])
-        receipt_items = []
-        for item in po_items:
-            item_id = item.get('id', '')
-            rqty_str = request.form.get(f'received_qty_{item_id}', '0')
-            cat_item_id = request.form.get(f'catalog_item_{item_id}', '')
-            rqty = float(rqty_str) if rqty_str else 0
-            if rqty <= 0:
-                continue
-            receipt_items.append({
-                "poItemId": item_id,
-                "itemId": cat_item_id,
-                "poItemName": item.get("name", ""),
-                "itemName": request.form.get(f'catalog_name_{item_id}', item.get("name", "")),
-                "orderedQuantity": float(item.get("quantity", 0)),
-                "receivedQuantity": rqty,
-                "unit": item.get("unit", "Unidad"),
-                "unitPrice": float(item.get("unitPrice", 0)),
-            })
-
-        if not receipt_items:
-            flash('❌ Debes indicar al menos una partida con cantidad > 0.', 'error')
-            return redirect(url_for('web_purchase_orders.new_receipt', po_id=po_id))
-
-        user = session['user'].get('displayName', 'Usuario')
-
-        receipt_data = {
-            "receiptNumber": receipt_number,
-            "poId": po_id,
-            "poNumber": po.get("poNumber", ""),
-            "supplierId": po.get("supplierId", ""),
-            "supplierName": po.get("supplierName", ""),
-            "supplierRnc": po.get("supplierRnc", ""),
-            "warehouseId": warehouse_id,
-            "warehouseName": warehouse_name,
-            "receiptDate": request.form.get('receiptDate', datetime.now(timezone.utc).strftime('%Y-%m-%d')),
-            "items": receipt_items,
-            "status": "completada",
-            "notes": request.form.get('notes', ''),
-            "createdBy": user,
-            "createdAt": datetime.now(timezone.utc).isoformat(),
-        }
-
-        GoodsReceiptService.create_receipt(owner_uid, receipt_data, sandbox=sandbox)
-
-        # Register inventory ENTRADA transactions for catalog-linked items
-        GoodsReceiptService.register_receipt_inventory(owner_uid, receipt_data, sandbox=sandbox)
-
-        # Update PO received quantities and status
-        po_items_map = {item['poItemId']: item for item in receipt_items}
-        total_ordered = 0
-        total_received = 0
-        for item in po.get('items', []):
-            item_id = item.get('id', '')
-            received_here = po_items_map.get(item_id, {}).get('receivedQuantity', 0)
-            item['receivedQuantity'] = float(item.get('receivedQuantity', 0)) + received_here
-            total_ordered += float(item.get('quantity', 0))
-            total_received += item['receivedQuantity']
-
-        all_complete = all(
-            float(it.get('receivedQuantity', 0)) >= float(it.get('quantity', 0))
-            for it in po.get('items', [])
-        )
-        po['status'] = 'recibida_completa' if all_complete else 'recibida_parcial'
-        po['receivedBy'] = user
-        po['receivedAt'] = datetime.now(timezone.utc).isoformat()
-        po['updatedAt'] = datetime.now(timezone.utc).isoformat()
-        PurchaseOrderService.save_purchase_order(owner_uid, po_id, po, sandbox=sandbox)
-
-        AuditService.log_from_request(
-            owner_uid=owner_uid,
-            action=ACTION_CREATE,
-            module=MODULE_RECEIPT,
-            entity_id=receipt_id,
-            entity_label=receipt_number,
-            after=receipt_data,
-        )
-        AuditService.log_from_request(
-            owner_uid=owner_uid,
-            action=ACTION_UPDATE,
-            module=MODULE_PO,
-            entity_id=po_id,
-            entity_label=po.get('poNumber', ''),
-            after=po,
-        )
-
-        flash(f'✅ Recepción {receipt_number} registrada exitosamente.', 'success')
-        return redirect(url_for('web_purchase_orders.purchase_order_detail', po_id=po_id))
-
-    receipt_number = GoodsReceiptService.get_next_receipt_number(owner_uid, sandbox=sandbox)
-    today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-    warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox)
-    catalog_items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
-    catalog_items = [i for i in catalog_items if i.get('isActive', True)]
-    return render_template('purchase_orders/new_receipt.html',
-                           order=po, receipt_number=receipt_number, today=today,
-                           warehouses=warehouses, catalog_items=catalog_items,
-                           active_page='receipts')
-
-
-@web_purchase_orders_bp.route('/purchase-orders/receipts/<receipt_id>')
-def receipt_detail(receipt_id):
-    if 'user' not in session:
-        return redirect(url_for('web_auth.login'))
-    if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html')
-    owner_uid = session['user']['ownerUID']
-    sandbox = session.get('is_sandbox_mode', True)
-    receipt = GoodsReceiptService.get_receipt(owner_uid, receipt_id, sandbox=sandbox)
-    if not receipt:
-        flash('❌ Recepción no encontrada.', 'error')
-        return redirect(url_for('web_purchase_orders.list_receipts'))
-    return render_template('purchase_orders/receipt_detail.html',
-                           receipt=receipt, active_page='receipts')
-
-
-# ═════════════════════════════════════════════════════════════════════
 # SUPPLIER INVOICES (Facturas de Proveedor + CxP Compras)
 # ═════════════════════════════════════════════════════════════════════
 
@@ -804,15 +879,33 @@ def new_supplier_invoice_direct():
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
 
+    po_id = request.args.get('po_id', '') or request.form.get('po_id', '')
+    po = None
+    po_supplier_name = ''
+    po_supplier_rnc = ''
+    po_supplier_id = ''
+    po_currency = 'DOP'
+    po_exchange_rate = 1.0
+    po_payment_terms = 'contado'
+    if po_id:
+        po = PurchaseOrderService.get_purchase_order(owner_uid, po_id, sandbox=sandbox)
+        if po:
+            po_supplier_name = po.get('supplierName', '')
+            po_supplier_rnc = po.get('supplierRnc', '')
+            po_supplier_id = po.get('supplierId', '')
+            po_currency = po.get('currency', 'DOP')
+            po_exchange_rate = float(po.get('exchangeRate', 1.0))
+            po_payment_terms = po.get('paymentTerms', 'contado')
+
     if request.method == 'POST':
         invoice_number = request.form.get('invoiceNumber', '').strip()
         if not invoice_number:
             flash('El número de factura del proveedor es obligatorio.', 'error')
-            return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct'))
+            return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=po_id))
 
         if not SupplierInvoiceService._check_ncf_unique(owner_uid, invoice_number, sandbox=sandbox):
             flash('El número de factura del proveedor ya existe. Verifique los datos.', 'error')
-            return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct'))
+            return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=po_id))
 
         ncf = request.form.get('ncf', '').strip()
         inv_date = request.form.get('date', datetime.now(timezone.utc).strftime('%Y-%m-%d'))
@@ -822,14 +915,14 @@ def new_supplier_invoice_direct():
         today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
         if inv_date > today_str:
             flash('La fecha de emisión no puede ser futura.', 'error')
-            return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct'))
+            return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=po_id))
         if due_date and due_date < inv_date:
             flash('La fecha de vencimiento no puede ser anterior a la fecha de emisión.', 'error')
-            return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct'))
+            return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=po_id))
 
         if ncf and not SupplierInvoiceService._check_ncf_unique(owner_uid, ncf, sandbox=sandbox):
             flash('El NCF ya está registrado en otra factura.', 'error')
-            return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct'))
+            return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=po_id))
 
         payment_type = request.form.get('paymentType', 'Contado')
         currency = request.form.get('currency', 'DOP')
@@ -838,7 +931,7 @@ def new_supplier_invoice_direct():
         bank_account_id = request.form.get('bankAccountId', '')
         if payment_type == 'Contado' and not bank_account_id:
             flash('Debe seleccionar una cuenta bancaria para pagos al contado.', 'error')
-            return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct'))
+            return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=po_id))
 
         items = []
         subtotal = 0.0
@@ -885,7 +978,7 @@ def new_supplier_invoice_direct():
 
         if not items:
             flash('Debe agregar al menos una partida.', 'error')
-            return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct'))
+            return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=po_id))
 
         total = subtotal - total_discount + total_itbis
         cxp_status = "Pagado" if payment_type == 'Contado' else "Pendiente"
@@ -898,11 +991,11 @@ def new_supplier_invoice_direct():
             file_data = attachment_file.read()
             if len(file_data) > MAX_FILE_SIZE:
                 flash('El archivo excede el límite de 10 MB.', 'error')
-                return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct'))
+                return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=po_id))
             mime_type = attachment_file.content_type or "application/octet-stream"
             if mime_type not in ALLOWED_MIME_TYPES:
                 flash('Tipo de archivo no permitido. Solo PDF, JPG y PNG.', 'error')
-                return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct'))
+                return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=po_id))
             try:
                 safe_name = attachment_file.filename.replace(' ', '_')
                 dest_path = f"users/{owner_uid}/supplier_invoices/{uuid.uuid4().hex}/{safe_name}"
@@ -912,15 +1005,44 @@ def new_supplier_invoice_direct():
                 file_upload_error = str(e)
                 print(f"Error al subir archivo factura proveedor: {e}")
 
+        ocr_attachment_url = request.form.get('ocr_attachment_url', '').strip()
+        if ocr_attachment_url:
+            attachment_urls.append(ocr_attachment_url)
+
         sinv_number = SupplierInvoiceService.get_next_invoice_number(owner_uid, sandbox=sandbox)
+
+        supplier_id = request.form.get('supplierId', '')
+        supplier_name = request.form.get('supplierName', '')
+        supplier_rnc = request.form.get('supplierRnc', '')
+
+        if not supplier_id and supplier_rnc:
+            from app.services.contact_service import ContactService
+            contact = ContactService.get_contact_by_rnc(owner_uid, supplier_rnc, sandbox=sandbox)
+            if contact:
+                supplier_id = contact["id"]
+                types = list(contact.get("types", []))
+                if "proveedor" not in types:
+                    types.append("proveedor")
+                    contact_dict = dict(contact)
+                    contact_dict["types"] = types
+                    ContactService.save_contact(owner_uid, contact["id"], contact_dict, sandbox=sandbox)
+            elif supplier_name:
+                supplier_id = str(uuid.uuid4())
+                ContactService.save_contact(owner_uid, supplier_id, {
+                    "rnc": supplier_rnc,
+                    "razonSocial": supplier_name,
+                    "types": ["proveedor"],
+                }, sandbox=sandbox)
 
         inv_data = {
             "invoiceNumber": sinv_number,
             "supplierInvoiceNumber": invoice_number,
             "ncf": ncf,
-            "supplierId": request.form.get('supplierId', ''),
-            "supplierName": request.form.get('supplierName', ''),
-            "supplierRnc": request.form.get('supplierRnc', ''),
+            "poId": po_id or '',
+            "poNumber": (po.get("poNumber", "") if po else ""),
+            "supplierId": supplier_id,
+            "supplierName": supplier_name,
+            "supplierRnc": supplier_rnc,
             "supplierType": request.form.get('supplierType', 'formal'),
             "ecfType": ecf_type,
             "cne": request.form.get('cne', ''),
@@ -997,6 +1119,14 @@ def new_supplier_invoice_direct():
                            itbis_reduced=itbis_reduced,
                            projects=projects,
                            active_project_id=active_project_id,
+                           po=po,
+                           po_id=po_id,
+                           po_supplier_name=po_supplier_name,
+                           po_supplier_rnc=po_supplier_rnc,
+                           po_supplier_id=po_supplier_id,
+                           po_currency=po_currency,
+                           po_exchange_rate=po_exchange_rate,
+                           po_payment_terms=po_payment_terms,
                            active_page='purchase_cxp')
 
 

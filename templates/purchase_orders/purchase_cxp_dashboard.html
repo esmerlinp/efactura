@@ -13,10 +13,21 @@
             Registra las compras que realizas a tus proveedores y actualiza tu inventario automáticamente.
         </p>
     </div>
-    <div>
-        <a href="{{ url_for('web_purchase_orders.new_supplier_invoice_direct') }}" class="btn btn-primary" style="background:var(--accent-emerald);border-color:var(--accent-emerald); padding:10px 20px; font-size:0.88rem;">
+    <div style="position: relative; display: inline-flex;">
+        <a href="{{ url_for('web_purchase_orders.new_supplier_invoice_direct') }}" class="btn btn-primary" style="background:var(--accent-emerald);border-color:var(--accent-emerald); padding:10px 20px; font-size:0.88rem; border-top-right-radius:0; border-bottom-right-radius:0;">
             <i class="fa-solid fa-plus"></i> Nueva Factura de Compra
         </a>
+        <button type="button" class="btn btn-primary" onclick="toggleNewPurchaseDropdown()" style="background:var(--accent-emerald);border-color:var(--accent-emerald); padding:10px 10px; font-size:0.88rem; border-left:1px solid rgba(255,255,255,0.25); border-top-left-radius:0; border-bottom-left-radius:0;">
+            <i class="fa-solid fa-chevron-down" style="font-size:0.7rem;"></i>
+        </button>
+        <div id="new-purchase-dropdown" style="display:none; position:absolute; top:100%; right:0; margin-top:4px; min-width:220px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-md); box-shadow:var(--shadow-lg); z-index:999; overflow:hidden;">
+            <a href="{{ url_for('web_purchase_orders.new_supplier_invoice_direct') }}" style="display:flex; align-items:center; gap:8px; padding:10px 14px; font-size:0.78rem; color:var(--text-primary); text-decoration:none; border-bottom:1px solid var(--border-color); transition:background 0.15s;">
+                <i class="fa-solid fa-keyboard" style="color:var(--accent-blue); font-size:0.8rem;"></i> Crear manualmente
+            </a>
+            <a href="{{ url_for('web_purchase_orders.new_supplier_invoice_direct') }}?mode=ocr" style="display:flex; align-items:center; gap:8px; padding:10px 14px; font-size:0.78rem; color:var(--text-primary); text-decoration:none; transition:background 0.15s;">
+                <i class="fa-solid fa-wand-magic-sparkles" style="color:var(--accent-emerald); font-size:0.8rem;"></i> Crear desde archivo/imagen
+            </a>
+        </div>
     </div>
 </div>
 
@@ -159,9 +170,14 @@
                     <td colspan="10" style="text-align:center; padding:40px; color:var(--text-muted);">
                         <i class="fa-solid fa-file-invoice" style="font-size:2rem; display:block; margin-bottom:10px; opacity:0.3;"></i>
                         No hay facturas de compra registradas.<br>
-                        <a href="{{ url_for('web_purchase_orders.new_supplier_invoice_direct') }}" style="color:var(--accent-emerald); font-weight:600; margin-top:8px; display:inline-block;">
-                            <i class="fa-solid fa-plus"></i> Registrar primera factura
-                        </a>
+                        <div style="margin-top:12px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+                            <a href="{{ url_for('web_purchase_orders.new_supplier_invoice_direct') }}" style="color:var(--accent-blue); font-weight:600; text-decoration:none;">
+                                <i class="fa-solid fa-keyboard"></i> Crear manualmente
+                            </a>
+                            <a href="{{ url_for('web_purchase_orders.new_supplier_invoice_direct') }}?mode=ocr" style="color:var(--accent-emerald); font-weight:600; text-decoration:none;">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> Crear desde archivo/imagen
+                            </a>
+                        </div>
                     </td>
                 </tr>
                 {% endif %}
@@ -180,4 +196,18 @@
 .badge-red    { background:rgba(239,68,68,0.1);    color:var(--accent-red);    border:1px solid rgba(239,68,68,0.2);    }
 .badge-blue   { background:rgba(59,130,246,0.1);   color:var(--accent-blue);   border:1px solid rgba(59,130,246,0.2);   }
 </style>
+
+<script>
+    function toggleNewPurchaseDropdown() {
+        const dd = document.getElementById('new-purchase-dropdown');
+        dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+    }
+
+    document.addEventListener('click', function(e) {
+        const dd = document.getElementById('new-purchase-dropdown');
+        if (dd && dd.style.display === 'block' && !e.target.closest('#new-purchase-dropdown') && !e.target.closest('.btn-primary')) {
+            dd.style.display = 'none';
+        }
+    });
+</script>
 {% endblock %}
