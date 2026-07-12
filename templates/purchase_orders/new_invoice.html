@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 
-{% block title %}Nueva Factura de Compra Directa{% endblock %}
-{% block page_header %}Nueva Factura de Compra Directa{% endblock %}
+{% block title %}{% if po %}Facturar OC {{ po.poNumber }}{% else %}Nueva Factura de Compra Directa{% endif %}{% endblock %}
+{% block page_header %}{% if po %}Facturar Orden de Compra {{ po.poNumber }}{% else %}Nueva Factura de Compra Directa{% endif %}{% endblock %}
 
 {% block content %}
 <style>
@@ -70,18 +70,44 @@
 
     #sec-partidas.active { overflow: visible !important; }
     #sec-partidas.active .accordion-content { overflow: visible !important; }
+
+    .ocr-modal-content { max-width:520px; width:95%; }
+    .ocr-drop-zone { border:2px dashed var(--border-color); border-radius:var(--radius-md); padding:48px 24px; text-align:center; background:rgba(0,0,0,0.01); cursor:pointer; transition:all 0.25s ease; }
+    .ocr-drop-zone:hover, .ocr-drop-zone.dragover { border-color:var(--accent-emerald); background:rgba(16,185,129,0.04); }
+    .ocr-drop-zone i.fa-cloud-arrow-up { font-size:3rem; color:var(--text-muted); margin-bottom:16px; display:block; }
+    .ocr-drop-zone .drop-title { font-size:0.95rem; font-weight:600; color:var(--text-primary); margin:0 0 6px; }
+    .ocr-drop-zone .drop-formats { font-size:0.75rem; color:var(--text-muted); margin:0 0 20px; }
+    .ocr-drop-zone .btn-select-file { display:inline-block; padding:10px 24px; background:var(--accent-emerald); color:#fff; border:none; border-radius:var(--radius-sm); font-size:0.82rem; font-weight:600; cursor:pointer; transition:background 0.2s; }
+    .ocr-drop-zone .btn-select-file:hover { background:#059669; }
+    .ocr-file-error { color:var(--accent-red); font-size:0.78rem; text-align:center; margin-top:12px; display:none; }
+    .ocr-loading { text-align:center; padding:40px 20px; }
+    .ocr-loading i { font-size:2.5rem; color:var(--accent-emerald); margin-bottom:16px; display:block; }
+    .ocr-loading span { font-size:0.88rem; color:var(--text-muted); }
 </style>
 
 <div style="max-width:850px; margin:0 auto 50px auto; width:100%;">
 
+    {% if po %}
+    <div class="help-banner" style="background:rgba(139,92,246,0.06); border-color:rgba(139,92,246,0.2);">
+        <i class="fa-solid fa-cart-shopping" style="color:var(--accent-purple);"></i>
+        Registrando factura para <strong>OC {{ po.poNumber }}</strong> · {{ po.supplierName or 'Sin proveedor' }}
+        <a href="{{ url_for('web_purchase_orders.purchase_order_detail', po_id=po.id) }}" style="color:var(--accent-blue); margin-left:8px; font-size:0.75rem; text-decoration:none;">
+            <i class="fa-solid fa-arrow-left"></i> Volver a OC
+        </a>
+    </div>
+    {% else %}
     <div class="help-banner">
         <i class="fa-solid fa-circle-info"></i>
         Registra una factura de compra directamente, sin necesidad de crear una orden de compra previa.
         Completa los datos del proveedor, comprobante fiscal y partidas para llevar el control de CxP.
     </div>
+    {% endif %}
 
-    <form method="POST" id="invoice-form" action="{{ url_for('web_purchase_orders.new_supplier_invoice_direct') }}" enctype="multipart/form-data">
+    <form method="POST" id="invoice-form" action="{{ url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=po_id) if po_id else url_for('web_purchase_orders.new_supplier_invoice_direct') }}" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" id="ocr-attachment-url" name="ocr_attachment_url" value="">
+        <input type="hidden" id="ocr-attachment-json" name="ocr_attachment_json" value="">
+        {% if po_id %}<input type="hidden" name="po_id" value="{{ po_id }}">{% endif %}
 
         <div class="settings-accordion">
 
@@ -99,9 +125,10 @@
                         <div class="form-inner-grid">
                             <div class="form-group span-full" style="position:relative;">
                                 <label for="supplier-search">Buscar Proveedor del Catálogo <span style="font-size:0.7rem; color:var(--text-muted);">(opcional — autocompleta RNC y datos)</span></label>
+                                <button type="button" id="btn-create-supplier-modal" style="position:absolute;top:0;right:0;background:none;border:none;color:var(--accent-emerald);font-size:0.72rem;font-weight:600;cursor:pointer;padding:0;">+ Nuevo</button>
                                 <input type="text" id="supplier-search" class="form-input" placeholder="Escribe el nombre o RNC del proveedor..." autocomplete="off" style="width:100%;">
                                 <div id="supplier-search-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:var(--shadow-lg); z-index:999; max-height:250px; overflow-y:auto; margin-top:4px;"></div>
-                                <input type="hidden" id="supplierId" name="supplierId" value="">
+                                <input type="hidden" id="supplierId" name="supplierId" value="{{ po_supplier_id if po else '' }}">
                             </div>
 
                             <div class="form-group">
@@ -115,12 +142,12 @@
 
                             <div class="form-group">
                                 <label for="supplierName">Razón Social *</label>
-                                <input type="text" id="supplierName" name="supplierName" class="form-input" placeholder="Nombre del proveedor" required style="width:100%;">
+                                <input type="text" id="supplierName" name="supplierName" class="form-input" placeholder="Nombre del proveedor" required style="width:100%;" value="{{ po_supplier_name if po else '' }}">
                             </div>
 
                             <div class="form-group">
                                 <label for="supplierRnc">RNC</label>
-                                <input type="text" id="supplierRnc" name="supplierRnc" class="form-input" placeholder="101001011" style="width:100%; font-family:monospace;">
+                                <input type="text" id="supplierRnc" name="supplierRnc" class="form-input" placeholder="101001011" style="width:100%; font-family:monospace;" value="{{ po_supplier_rnc if po else '' }}">
                             </div>
 
                             <div class="form-group">
@@ -141,12 +168,16 @@
                                 <label for="tipoGastoDGII">Tipo Gasto Deducible DGII</label>
                                 <select id="tipoGastoDGII" name="tipoGastoDGII" class="form-select" style="width:100%;">
                                     <option value="01">01 - Gastos de Personal</option>
-                                    <option value="02" selected>02 - Trabajos, Suministros y Servicios</option>
+                                    <option value="02" selected>02 - Gastos por Trabajos, Suministros y Servicios</option>
                                     <option value="03">03 - Arrendamientos</option>
                                     <option value="04">04 - Gastos de Activos Fijos</option>
                                     <option value="05">05 - Gastos de Representación</option>
-                                    <option value="06">06 - Otras Deducciones</option>
+                                    <option value="06">06 - Otras Deducciones Admitidas</option>
                                     <option value="07">07 - Gastos Financieros</option>
+                                    <option value="08">08 - Gastos Extraordinarios</option>
+                                    <option value="09">09 - Compras y Gastos del Costo de Venta</option>
+                                    <option value="10">10 - Adquisiciones de Activos</option>
+                                    <option value="11">11 - Gastos de Seguros</option>
                                 </select>
                             </div>
                         </div>
@@ -329,15 +360,15 @@
                             <div class="form-group">
                                 <label for="currency">Moneda</label>
                                 <select id="currency" name="currency" class="form-select" style="width:100%;" onchange="handleCurrencyChange()">
-                                    <option value="DOP" selected>DOP - Peso Dominicano</option>
-                                    <option value="USD">USD - Dólar</option>
-                                    <option value="EUR">EUR - Euro</option>
+                                    <option value="DOP" {% if not po or po_currency == 'DOP' %}selected{% endif %}>DOP - Peso Dominicano</option>
+                                    <option value="USD" {% if po and po_currency == 'USD' %}selected{% endif %}>USD - Dólar</option>
+                                    <option value="EUR" {% if po and po_currency == 'EUR' %}selected{% endif %}>EUR - Euro</option>
                                 </select>
                             </div>
 
                             <div class="form-group" id="exchange-rate-container">
                                 <label for="exchangeRate">Tasa de Cambio</label>
-                                <input type="number" id="exchangeRate" name="exchangeRate" class="form-input" value="1.00" step="0.01" min="0.01" style="width:100%;">
+                                <input type="number" id="exchangeRate" name="exchangeRate" class="form-input" value="{{ "%.2f"|format(po_exchange_rate) if po else "1.00" }}" step="0.01" min="0.01" style="width:100%;">
                             </div>
 
                             <div class="form-group">
@@ -438,6 +469,24 @@
             </div>
         </div>
     </form>
+</div>
+
+<!-- Modal rápido para registrar proveedor -->
+<div class="search-modal" id="supplier-create-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;align-items:center;justify-content:center;z-index:1050;">
+    <div class="modal-content" style="max-width:560px;position:relative;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
+        <div class="modal-header" style="padding:20px 24px;border-bottom:1px solid var(--border-color);"><h3 style="font-size:0.95rem;"><i class="fa-solid fa-truck" style="color:var(--accent-emerald);margin-right:8px;"></i>Registrar Nuevo Proveedor</h3><button type="button" class="btn-close-modal" id="btn-close-supplier-modal"><i class="fa-solid fa-xmark"></i></button></div>
+        <div class="modal-body" style="padding:22px 24px;">
+            <div id="create-supplier-alert" style="display:none;padding:10px 16px;border-radius:6px;margin-bottom:16px;font-size:0.85rem;"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div class="form-group"><label>RNC / Cédula</label><input type="text" id="new-supplier-rnc" class="form-input" placeholder="Ej: 101234567" style="font-family:monospace;"><small id="rnc-lookup-status" style="display:none;font-size:0.7rem;margin-top:2px;"></small></div>
+                <div class="form-group"><label>Razón Social / Nombre <span style="color:var(--accent-red);">*</span></label><input type="text" id="new-supplier-name" class="form-input" placeholder="Nombre completo o empresa"></div>
+                <div class="form-group"><label>Correo Electrónico</label><input type="email" id="new-supplier-email" class="form-input" placeholder="proveedor@empresa.com"></div>
+                <div class="form-group"><label>Teléfono</label><input type="tel" id="new-supplier-phone" class="form-input" placeholder="809-000-0000"></div>
+                <div class="form-group" style="grid-column:1/-1;"><label>Dirección</label><input type="text" id="new-supplier-address" class="form-input" placeholder="Calle, sector, ciudad, provincia"></div>
+            </div>
+        </div>
+        <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:10px;padding:16px 24px;border-top:1px solid var(--border-color);"><button type="button" id="btn-cancel-supplier" class="btn btn-secondary">Cancelar</button><button type="button" id="btn-save-new-supplier" class="btn btn-primary">Guardar Proveedor</button></div>
+    </div>
 </div>
 
 <script>
@@ -746,6 +795,7 @@
     const suppliers = {{ suppliers | tojson | safe }};
     const searchInput = document.getElementById('supplier-search');
     const searchResults = document.getElementById('supplier-search-results');
+    let clientLookupTimeout = null;
 
     searchInput.addEventListener('input', function() {
         const q = this.value.toLowerCase().trim();
@@ -753,20 +803,82 @@
         const matches = suppliers.filter(function(s) {
             return (s.name || '').toLowerCase().indexOf(q) !== -1 || (s.rnc || '').indexOf(q) !== -1;
         });
-        if (matches.length === 0) { searchResults.style.display = 'none'; return; }
+
         let html = '';
+        const matchedIds = new Set();
         matches.slice(0, 8).forEach(function(s) {
+            matchedIds.add(s.id);
             html += '<div style="padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border-color); transition:background 0.15s;" onmouseover="this.style.background=\'rgba(16,185,129,0.06)\'" onmouseout="this.style.background=\'\'" onclick="selectSupplier(\'' + (s.id || '') + '\', \'' + (s.name || '').replace(/'/g, "\\'") + '\', \'' + (s.rnc || '').replace(/'/g, "\\'") + '\')">';
             html += '<div style="font-weight:600;font-size:0.85rem;">' + (s.name || '') + '</div>';
             html += '<div style="font-size:0.72rem;color:var(--text-muted);">RNC: ' + (s.rnc || '—') + '</div>';
             html += '</div>';
         });
-        searchResults.innerHTML = html;
-        searchResults.style.display = 'block';
+
+        const renderResults = function(extraHtml) {
+            var finalHtml = html + (extraHtml || '');
+            if (!finalHtml) { searchResults.style.display = 'none'; return; }
+            searchResults.innerHTML = finalHtml;
+            searchResults.style.display = 'block';
+        };
+
+        renderResults('');
+
+        // Check API for clients matching this RNC, then DGII fallback
+        var rncDigits = q.replace(/\D/g, '');
+        if (rncDigits.length >= 3 && matchedIds.size < suppliers.length) {
+            clearTimeout(clientLookupTimeout);
+            clientLookupTimeout = setTimeout(function() {
+                fetch('/api/clients/lookup_by_rnc?rnc=' + encodeURIComponent(rncDigits))
+                    .then(function(res) { return res.json(); })
+                    .then(function(result) {
+                        if (result.success && result.found && !matchedIds.has(result.client.id)) {
+                            var c = result.client;
+                            var extraHtml = '<div style="padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border-color); transition:background 0.15s; background:rgba(59,130,246,0.04);" onmouseover="this.style.background=\'rgba(59,130,246,0.1)\'" onmouseout="this.style.background=\'rgba(59,130,246,0.04)\'" onclick="selectClientAsSupplier(\'' + (c.name || '').replace(/'/g, "\\'") + '\', \'' + (c.rnc || '').replace(/'/g, "\\'") + '\')">';
+                            extraHtml += '<div style="font-weight:600;font-size:0.85rem;">' + (c.name || '') + ' <span style="font-size:0.65rem;color:var(--accent-blue);font-weight:500;">(Cliente)</span></div>';
+                            extraHtml += '<div style="font-size:0.72rem;color:var(--text-muted);">RNC: ' + (c.rnc || '—') + ' · Clic para usar como proveedor</div>';
+                            extraHtml += '</div>';
+                            renderResults(extraHtml);
+                            return;
+                        }
+                        // Fallback: DGII lookup
+                        return fetch('/api/rnc-lookup?rnc=' + encodeURIComponent(rncDigits));
+                    })
+                    .then(function(res) {
+                        if (!res) return;
+                        return res.json();
+                    })
+                    .then(function(dgiiResult) {
+                        if (dgiiResult && !dgiiResult.error && dgiiResult.razon_social) {
+                            var extraHtml = '<div style="padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border-color); transition:background 0.15s; background:rgba(139,92,246,0.04);" onmouseover="this.style.background=\'rgba(139,92,246,0.1)\'" onmouseout="this.style.background=\'rgba(139,92,246,0.04)\'" onclick="selectDgiiAsSupplier(\'' + (dgiiResult.razon_social || '').replace(/'/g, "\\'") + '\', \'' + (dgiiResult.rnc || '').replace(/'/g, "\\'") + '\')">';
+                            extraHtml += '<div style="font-weight:600;font-size:0.85rem;">' + (dgiiResult.razon_social || '') + ' <span style="font-size:0.65rem;color:var(--accent-purple);font-weight:500;">(DGII)</span></div>';
+                            extraHtml += '<div style="font-size:0.72rem;color:var(--text-muted);">RNC: ' + (dgiiResult.rnc || '—') + ' · Datos obtenidos de la DGII</div>';
+                            extraHtml += '</div>';
+                            renderResults(extraHtml);
+                        }
+                    })
+                    .catch(function() {});
+            }, 350);
+        }
     });
 
     function selectSupplier(id, name, rnc) {
         document.getElementById('supplierId').value = id;
+        document.getElementById('supplierName').value = name;
+        document.getElementById('supplierRnc').value = rnc;
+        searchInput.value = name;
+        searchResults.style.display = 'none';
+    }
+
+    function selectClientAsSupplier(name, rnc) {
+        document.getElementById('supplierId').value = '';
+        document.getElementById('supplierName').value = name;
+        document.getElementById('supplierRnc').value = rnc;
+        searchInput.value = name;
+        searchResults.style.display = 'none';
+    }
+
+    function selectDgiiAsSupplier(name, rnc) {
+        document.getElementById('supplierId').value = '';
         document.getElementById('supplierName').value = name;
         document.getElementById('supplierRnc').value = rnc;
         searchInput.value = name;
@@ -813,5 +925,372 @@
     handleCurrencyChange();
     togglePaymentFields();
     recalculateRetBadge();
+
+    // Modal rápido para registrar proveedor
+    (function() {
+        const supplierModal = document.getElementById('supplier-create-modal');
+        const btnOpenSupplierModal = document.getElementById('btn-create-supplier-modal');
+        const btnCloseSupplierModal = document.getElementById('btn-close-supplier-modal');
+        const btnCancelSupplier = document.getElementById('btn-cancel-supplier');
+        const btnSaveSupplier = document.getElementById('btn-save-new-supplier');
+        const supplierAlert = document.getElementById('create-supplier-alert');
+
+        const closeSupplierModal = () => {
+            if (supplierModal) supplierModal.style.display = 'none';
+        };
+
+        const showSupplierAlert = (msg, isError) => {
+            if (!supplierAlert) return;
+            supplierAlert.textContent = msg;
+            supplierAlert.style.display = 'block';
+            supplierAlert.style.background = isError ? 'rgba(239,68,68,0.12)' : 'rgba(16,185,129,0.12)';
+            supplierAlert.style.color = isError ? '#dc2626' : '#059669';
+            supplierAlert.style.border = isError ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(16,185,129,0.3)';
+        };
+
+        if (btnOpenSupplierModal) {
+            btnOpenSupplierModal.addEventListener('click', () => {
+                document.getElementById('new-supplier-rnc').value = '';
+                document.getElementById('new-supplier-name').value = '';
+                document.getElementById('new-supplier-email').value = '';
+                document.getElementById('new-supplier-phone').value = '';
+                document.getElementById('new-supplier-address').value = '';
+                if (supplierAlert) { supplierAlert.style.display = 'none'; supplierAlert.textContent = ''; }
+                if (btnSaveSupplier) { btnSaveSupplier.disabled = false; btnSaveSupplier.textContent = 'Guardar Proveedor'; }
+                if (supplierModal) supplierModal.style.display = 'flex';
+                document.getElementById('new-supplier-rnc').focus();
+            });
+        }
+
+        if (btnCloseSupplierModal) btnCloseSupplierModal.addEventListener('click', closeSupplierModal);
+        if (btnCancelSupplier) btnCancelSupplier.addEventListener('click', closeSupplierModal);
+
+        if (supplierModal) {
+            supplierModal.addEventListener('click', (e) => {
+                if (e.target === supplierModal) closeSupplierModal();
+            });
+        }
+
+        const rncInput = document.getElementById('new-supplier-rnc');
+        if (rncInput) {
+            rncInput.addEventListener('blur', async () => {
+                const rncVal = rncInput.value.trim().replace(/-/g, '');
+                const statusEl = document.getElementById('rnc-lookup-status');
+                if (!rncVal || rncVal.length < 3) {
+                    if (statusEl) statusEl.style.display = 'none';
+                    return;
+                }
+                try {
+                    const response = await fetch('/api/clients/lookup_by_rnc?rnc=' + encodeURIComponent(rncVal));
+                    const result = await response.json();
+                    if (result.success && result.found) {
+                        const c = result.client;
+                        const nameInput = document.getElementById('new-supplier-name');
+                        const emailInput = document.getElementById('new-supplier-email');
+                        const phoneInput = document.getElementById('new-supplier-phone');
+                        const addressInput = document.getElementById('new-supplier-address');
+                        if (nameInput && !nameInput.value) nameInput.value = c.name || '';
+                        if (emailInput && !emailInput.value) emailInput.value = c.email || '';
+                        if (phoneInput && !phoneInput.value) phoneInput.value = c.phone || '';
+                        if (addressInput && !addressInput.value) addressInput.value = c.address || '';
+                        if (statusEl) {
+                            statusEl.textContent = '\u2713 Cliente encontrado — datos cargados';
+                            statusEl.style.color = 'var(--accent-emerald)';
+                            statusEl.style.display = 'block';
+                        }
+                    } else {
+                        if (statusEl) statusEl.style.display = 'none';
+                    }
+                } catch (err) {
+                    if (statusEl) statusEl.style.display = 'none';
+                }
+            });
+        }
+
+        if (btnSaveSupplier) {
+            btnSaveSupplier.addEventListener('click', async () => {
+                const rnc = (document.getElementById('new-supplier-rnc')?.value || '').trim();
+                const name = (document.getElementById('new-supplier-name')?.value || '').trim();
+
+                if (!name) {
+                    showSupplierAlert('La Razón Social / Nombre es obligatorio.', true);
+                    document.getElementById('new-supplier-name')?.focus();
+                    return;
+                }
+
+                btnSaveSupplier.disabled = true;
+                btnSaveSupplier.textContent = 'Guardando...';
+                if (supplierAlert) supplierAlert.style.display = 'none';
+
+                try {
+                    const response = await fetch('/suppliers/ajax_create', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            rnc: rnc,
+                            name: name,
+                            email: (document.getElementById('new-supplier-email')?.value || '').trim(),
+                            phone: (document.getElementById('new-supplier-phone')?.value || '').trim(),
+                            address: (document.getElementById('new-supplier-address')?.value || '').trim()
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        const s = result.supplier;
+                        suppliers.push({ id: s.id, rnc: s.rnc, name: s.name });
+                        selectSupplier(s.id, s.name, s.rnc);
+                        showSupplierAlert('Proveedor "' + s.name + '" registrado y seleccionado.', false);
+                        setTimeout(() => closeSupplierModal(), 1200);
+                    } else {
+                        showSupplierAlert(result.error || 'Error al registrar el proveedor.', true);
+                        btnSaveSupplier.disabled = false;
+                        btnSaveSupplier.textContent = 'Guardar Proveedor';
+                    }
+                } catch (err) {
+                    showSupplierAlert('Error de conexión. Verifique su red e intente de nuevo.', true);
+                    btnSaveSupplier.disabled = false;
+                    btnSaveSupplier.textContent = 'Guardar Proveedor';
+                }
+            });
+        }
+    })();
+
+    // ── Creacion desde Archivo/Imagen (OCR) ────────────────────────────
+    let pendingOcrSupplierData = null;
+
+    (function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('mode') === 'ocr' && !urlParams.get('po_id')) {
+            function openOcrModal() {
+                var modal = document.getElementById('ocr-upload-modal');
+                if (modal) modal.style.display = 'flex';
+            }
+            if (document.readyState === 'complete' || document.readyState === 'interactive') {
+                openOcrModal();
+            } else {
+                document.addEventListener('DOMContentLoaded', openOcrModal);
+            }
+            var newUrl = window.location.pathname + window.location.search.replace(/[?&]mode=ocr/, '').replace(/^&/, '?');
+            if (newUrl === window.location.pathname) {
+                window.history.replaceState({}, '', window.location.pathname);
+            } else {
+                window.history.replaceState({}, '', newUrl);
+            }
+        }
+    })();
+
+    function closeOcrModal() {
+        document.getElementById('ocr-upload-modal').style.display = 'none';
+        document.getElementById('ocr-file-input').value = '';
+        document.getElementById('ocr-file-error').style.display = 'none';
+        document.getElementById('ocr-loading-po').style.display = 'none';
+        document.getElementById('ocr-drop-area-po').style.display = 'block';
+    }
+
+    (function() {
+        const ocrDropZone = document.getElementById('ocr-drop-zone-po');
+        if (ocrDropZone) {
+            ['dragenter', 'dragover'].forEach(ev => {
+                ocrDropZone.addEventListener(ev, (e) => { e.preventDefault(); ocrDropZone.classList.add('dragover'); }, false);
+            });
+            ['dragleave', 'drop'].forEach(ev => {
+                ocrDropZone.addEventListener(ev, (e) => { e.preventDefault(); ocrDropZone.classList.remove('dragover'); }, false);
+            });
+            ocrDropZone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                if (dt.files.length) handleOcrFile(dt.files);
+            });
+        }
+    })();
+
+    function handleOcrFile(fileList) {
+        if (!fileList || fileList.length === 0) return;
+        const file = fileList[0];
+
+        const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'application/pdf', 'image/heic', 'image/heif'];
+        const ext = file.name.split('.').pop().toLowerCase();
+        const isAllowed = allowedTypes.includes(file.type) || ['pdf', 'png', 'jpg', 'jpeg', 'heic', 'heif'].includes(ext);
+        if (!isAllowed) {
+            showOcrError('Formato no permitido. Usa PDF, PNG, JPG o JPEG.');
+            return;
+        }
+
+        if (file.size > 6 * 1024 * 1024) {
+            showOcrError('El archivo excede el tamano maximo de 6MB.');
+            return;
+        }
+
+        document.getElementById('ocr-file-error').style.display = 'none';
+        document.getElementById('ocr-drop-area-po').style.display = 'none';
+        document.getElementById('ocr-loading-po').style.display = 'block';
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        fetch('/api/expenses/ocr-with-items', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(resp => {
+            document.getElementById('ocr-loading-po').style.display = 'none';
+            document.getElementById('ocr-upload-modal').style.display = 'none';
+            document.getElementById('ocr-file-input').value = '';
+            document.getElementById('ocr-drop-area-po').style.display = 'block';
+
+            if (!resp.success) {
+                alert('Error al procesar la factura: ' + (resp.error || resp.message || 'Error desconocido'));
+                return;
+            }
+
+            const d = resp.data;
+            const supplier = resp.supplier || {};
+
+            if (d.date) document.getElementById('date').value = d.date;
+            if (d.ncf) document.getElementById('ncf').value = d.ncf;
+            if (d.invoiceNumber) document.getElementById('invoiceNumber').value = d.invoiceNumber;
+            if (d.concept) {
+                const notesEl = document.getElementById('notes');
+                if (notesEl) notesEl.value = d.concept;
+            }
+
+            if (supplier.exists && supplier.supplier) {
+                selectSupplier(supplier.supplier.id, supplier.razon_social, supplier.rnc);
+            } else if (supplier.rnc) {
+                pendingOcrSupplierData = supplier;
+                document.getElementById('supplierName').value = supplier.razon_social || '';
+                document.getElementById('supplierRnc').value = supplier.rnc;
+                setTimeout(() => openSupplierModalWithData(supplier.rnc, supplier.razon_social), 800);
+            }
+
+            if (d.items && d.items.length > 0) {
+                populateItems(d.items);
+            }
+
+            if (resp.attachment_url) {
+                document.getElementById('ocr-attachment-url').value = resp.attachment_url;
+                if (resp.attachment) {
+                    document.getElementById('ocr-attachment-json').value = JSON.stringify(resp.attachment);
+                }
+            }
+        })
+        .catch(err => {
+            document.getElementById('ocr-loading-po').style.display = 'none';
+            document.getElementById('ocr-drop-area-po').style.display = 'block';
+            showOcrError('Error de conexion. Intenta de nuevo.');
+        });
+    }
+
+    function showOcrError(msg) {
+        const errEl = document.getElementById('ocr-file-error');
+        errEl.textContent = msg;
+        errEl.style.display = 'block';
+        setTimeout(() => { errEl.style.display = 'none'; }, 4000);
+    }
+
+    function openSupplierModalWithData(rnc, name) {
+        const modal = document.getElementById('supplier-create-modal');
+        if (!modal) return;
+        document.getElementById('new-supplier-rnc').value = rnc || '';
+        document.getElementById('new-supplier-name').value = name || '';
+        document.getElementById('new-supplier-email').value = '';
+        document.getElementById('new-supplier-phone').value = '';
+        document.getElementById('new-supplier-address').value = '';
+        const alertEl = document.getElementById('create-supplier-alert');
+        if (alertEl) { alertEl.style.display = 'none'; alertEl.textContent = ''; }
+        const btnSave = document.getElementById('btn-save-new-supplier');
+        if (btnSave) { btnSave.disabled = false; btnSave.textContent = 'Guardar Proveedor'; }
+        modal.style.display = 'flex';
+    }
+
+    function populateItems(items) {
+        if (!items || items.length === 0) return;
+        const tbody = document.getElementById('items-body');
+
+        items.forEach((item, i) => {
+            if (i === 0) {
+                const firstRow = tbody.querySelector('.item-row');
+                setItemRowFields(firstRow, item);
+            } else {
+                document.getElementById('btn-add-item').click();
+                const rows = tbody.querySelectorAll('.item-row');
+                const newRow = rows[rows.length - 1];
+                setItemRowFields(newRow, item);
+            }
+        });
+
+        recalculateTotals();
+    }
+
+    function setItemRowFields(row, item) {
+        const nameInput = row.querySelector('.item-name');
+        const qtyInput = row.querySelector('.item-qty');
+        const priceInput = row.querySelector('.item-price');
+        const itbisSelect = row.querySelector('.item-itbis');
+        const discountInput = row.querySelector('.item-discount');
+
+        if (nameInput && item.concept) nameInput.value = item.concept;
+        if (qtyInput && item.quantity) qtyInput.value = item.quantity;
+        if (priceInput && item.value) priceInput.value = item.value;
+        if (itbisSelect) {
+            let taxVal = item.tax;
+            if (taxVal === 'exento' || String(taxVal).toLowerCase() === 'exento') {
+                itbisSelect.value = '0.0';
+            } else {
+                taxVal = parseFloat(taxVal) || 0;
+                const options = Array.from(itbisSelect.options);
+                for (const opt of options) {
+                    if (Math.abs(parseFloat(opt.value || 0) - taxVal) < 0.001) {
+                        itbisSelect.value = opt.value;
+                        break;
+                    }
+                }
+            }
+        }
+        if (discountInput) discountInput.value = 0;
+    }
+
+    // Interceptar guardado del proveedor desde OCR para seleccionarlo
+    (function() {
+        const origSaveSupplier = document.getElementById('btn-save-new-supplier');
+        if (origSaveSupplier) {
+            origSaveSupplier.addEventListener('click', function(e) {
+                const rnc = (document.getElementById('new-supplier-rnc')?.value || '').trim();
+                const name = (document.getElementById('new-supplier-name')?.value || '').trim();
+                if (pendingOcrSupplierData && rnc === pendingOcrSupplierData.rnc) {
+                    document.getElementById('supplierName').value = name || pendingOcrSupplierData.razon_social || '';
+                    document.getElementById('supplierRnc').value = rnc;
+                }
+            });
+        }
+    })();
 </script>
+
+<div class="search-modal" id="ocr-upload-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;align-items:center;justify-content:center;z-index:1100;" onclick="if(event.target===this)closeOcrModal()">
+    <div class="modal-content ocr-modal-content" style="position:relative;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
+        <div class="modal-header" style="padding:20px 24px;border-bottom:1px solid var(--border-color);">
+            <h3 style="font-size:0.95rem;margin:0;"><i class="fa-solid fa-wand-magic-sparkles" style="color:var(--accent-emerald);margin-right:8px;"></i>Crear factura a partir de una imagen</h3>
+            <button type="button" class="btn-close-modal" onclick="closeOcrModal()" style="position:absolute;right:20px;top:18px;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--text-muted);"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body" style="padding:24px;">
+            <div id="ocr-drop-area-po">
+                <div class="ocr-drop-zone" id="ocr-drop-zone-po" onclick="document.getElementById('ocr-file-input').click()">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <p class="drop-title">Arrastra un nuevo archivo o imagen</p>
+                    <p class="drop-formats">El formato puede ser pdf, png, jpg, jpeg, heic (max. 6MB)</p>
+                    <button type="button" class="btn-select-file" onclick="event.stopPropagation();document.getElementById('ocr-file-input').click()">Seleccionar archivo</button>
+                    <input type="file" id="ocr-file-input" name="ocr-file" accept=".pdf,.png,.jpg,.jpeg,.heic,.heif,image/png,image/jpeg,image/heic,image/heif,application/pdf" style="display:none" onchange="handleOcrFile(this.files)">
+                </div>
+                <div class="ocr-file-error" id="ocr-file-error"></div>
+            </div>
+            <div class="ocr-loading" id="ocr-loading-po" style="display:none;">
+                <i class="fa-solid fa-spinner fa-spin"></i>
+                <span>Procesando factura con IA...</span>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

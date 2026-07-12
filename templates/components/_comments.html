@@ -641,6 +641,7 @@ Variables esperadas:
         if (deleteUrlPrefix.includes('/expenses/')) resourceType = 'expenses';
         else if (deleteUrlPrefix.includes('/contracts/')) resourceType = 'contracts';
         else if (deleteUrlPrefix.includes('/pos/')) resourceType = 'shifts';
+        else if (deleteUrlPrefix.includes('/purchase-orders/')) resourceType = 'purchase_orders';
         
         // Obtener el ID
         // Ejemplo: /expenses/123/comments -> 123

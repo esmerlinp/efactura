@@ -1084,9 +1084,9 @@
                         {% if module_enabled('cxc') and (session.get('user', {}).get('role') == 'owner' or
                         session.get('user', {}).get('permissions', {}).get('canManageCXC', True)) %}
                         <li class="nav-item {% if active_page == 'cxc' %}active{% endif %}"
-                            data-tooltip="Pagos Recibidos">
+                            data-tooltip="Cuentas por Cobrar">
                             <a href="{{ url_for('web_invoices.cxc_dashboard') }}">
-                                <span>Pagos Recibidos</span>
+                                <span>Cuentas por Cobrar</span>
                             </a>
                         </li>
                         <li class="nav-item {% if active_page == 'cxc_advances' or active_page == 'cxc_advances_new' or active_page == 'cxc_advances_edit' %}active{% endif %}"
@@ -1145,7 +1145,7 @@
                         <li class="nav-item {% if active_page == 'expenses_payments' %}active{% endif %}"
                             data-tooltip="Registra tus comprobantes de egreso y controla las salidas de dinero de tu negocio.">
                             <a href="{{ url_for('web_invoices.payments_list') }}">
-                                <span>Pagos</span>
+                                <span>Pagos / Gastos</span>
                             </a>
                         </li>
                         <li class="nav-item {% if active_page == 'expenses_minor' %}active{% endif %}"
@@ -1176,12 +1176,6 @@
                             data-tooltip="Crea órdenes de compra para solicitar a tus proveedores mercancías o servicios. Este documento es de control y no genera movimientos en tu inventario.">
                             <a href="{{ url_for('web_purchase_orders.list_purchase_orders') }}">
                                 <span>Órdenes de compra</span>
-                            </a>
-                        </li>
-                        <li class="nav-item {% if active_page == 'receipts' %}active{% endif %}"
-                            data-tooltip="Recibe automáticamente los e-CF emitidos por tus proveedores. Acéptalos o recházalos.">
-                            <a href="{{ url_for('web_purchase_orders.list_receipts') }}">
-                                <span>Recepción de comprobantes electrónicos</span>
                             </a>
                         </li>
                         {% endif %}
@@ -1258,6 +1252,12 @@
                             data-tooltip="Alertas">
                             <a href="{{ url_for('web_inventory.alert_dashboard') }}">
                                 <span>Alertas</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'inventory_receipts' %}active{% endif %}"
+                            data-tooltip="Registra la entrada de mercancía de tus órdenes de compra para actualizar el inventario automáticamente.">
+                            <a href="{{ url_for('web_inventory.list_receipts') }}">
+                                <span>Recepciones de Mercancía</span>
                             </a>
                         </li>
                     </ul>

@@ -65,12 +65,23 @@ Debes retornar ÚNICAMENTE un objeto JSON estructurado con la siguiente informac
 {
   "rncEmisor": "RNC del proveedor (solo números, sin guiones, de 9 u 11 dígitos)",
   "ncf": "NCF o e-CF completo (ej: B01... o E31...)",
+  "supplierName": "Razón Social o nombre comercial del proveedor que emite la factura",
   "amount": 0.00, (monto total incluyendo impuestos, número flotante)
   "itbisAmount": 0.00, (monto del ITBIS extraído o calculado, número flotante)
   "concept": "Concepto o descripción corta de la compra (ej: Materiales de oficina, Almuerzo de negocios, etc.)",
-  "date": "YYYY-MM-DD" (fecha de emisión de la factura)
+  "date": "YYYY-MM-DD" (fecha de emisión de la factura),
+  "items": [
+    {
+      "concept": "Nombre del producto o servicio individual",
+      "value": 100.00, (precio unitario sin impuestos)
+      "quantity": 1, (cantidad, entero)
+      "tax": 0.18, (tasa de ITBIS como decimal, ej: 0.18 para 18%, o 0 si exento, o "exento" si aplica)
+      "total": 118.00 (total de la línea, precio * cantidad + impuesto)
+    }
+  ]
 }
-Si no encuentras algún dato, usa string vacío "" o 0.0 para montos. No agregues explicaciones, markdown o texto extra. Solo el JSON puro."""
+IMPORTANTE: Si la factura tiene un desglose de items, extrae cada línea individual en el array items. Si no hay desglose visible, devuelve un solo item con el total de la factura como total y sin impuesto en value.
+Si no encuentras algún dato, usa string vacío "" o 0.0 para montos, y array vacío [] para items. No agregues explicaciones, markdown o texto extra. Solo el JSON puro."""
 
         if is_pdf:
             try:
@@ -169,6 +180,44 @@ Si no encuentras algún dato, usa string vacío "" o 0.0 para montos. No agregue
                 # Sanear NCF (alfanumérico y mayúsculas, sin espacios ni guiones)
                 if data.get("ncf"):
                     data["ncf"] = "".join(filter(str.isalnum, str(data["ncf"]))).upper()
+                # Sanear supplierName
+                if data.get("supplierName"):
+                    data["supplierName"] = str(data["supplierName"]).strip()
+                else:
+                    data["supplierName"] = ""
+                # Sanear items: asegurar que sea lista y cada item tenga los campos requeridos
+                items = data.get("items", [])
+                if not isinstance(items, list):
+                    items = []
+                sanitized_items = []
+                for item in items:
+                    if not isinstance(item, dict):
+                        continue
+                    si = {}
+                    si["concept"] = str(item.get("concept", "")).strip()
+                    try:
+                        si["value"] = float(item.get("value", 0) or 0)
+                    except (ValueError, TypeError):
+                        si["value"] = 0.0
+                    try:
+                        si["quantity"] = int(item.get("quantity", 1) or 1)
+                    except (ValueError, TypeError):
+                        si["quantity"] = 1
+                    tax_raw = item.get("tax")
+                    if tax_raw == "exento" or str(tax_raw).lower() == "exento":
+                        si["tax"] = "exento"
+                    else:
+                        try:
+                            si["tax"] = float(tax_raw or 0)
+                        except (ValueError, TypeError):
+                            si["tax"] = 0.0
+                    try:
+                        si["total"] = float(item.get("total", 0) or 0)
+                    except (ValueError, TypeError):
+                        si["total"] = 0.0
+                    if si["concept"] or si["total"] > 0:
+                        sanitized_items.append(si)
+                data["items"] = sanitized_items
                     
                 return {"success": True, "data": data}
             else:

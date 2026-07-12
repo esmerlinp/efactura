@@ -200,6 +200,10 @@
                                     <option value="05">05 - Gastos de Representación</option>
                                     <option value="06">06 - Otras Deducciones Admitidas</option>
                                     <option value="07">07 - Gastos Financieros</option>
+                                    <option value="08">08 - Gastos Extraordinarios</option>
+                                    <option value="09">09 - Compras y Gastos que Formarán Parte del Costo de Venta</option>
+                                    <option value="10">10 - Adquisiciones de Activos</option>
+                                    <option value="11">11 - Gastos de Seguros</option>
                                 </select>
                             </div>
 
@@ -304,6 +308,13 @@
                                 <label for="date">Fecha del Comprobante</label>
                                 <input type="date" id="date" name="date" class="form-input" required value="{{ today_str }}" style="width: 100%;">
                             </div>
+
+                            <div class="form-group">
+                                <label for="ncfModificado">NCF / Documento Modificado (DGII)
+                                    <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Número completo del comprobante fiscal afectado por una nota de débito o crédito. Solo llenar si este gasto es una nota de crédito/débito que modifica un NCF anterior. Campo 5 del formato 606."></i>
+                                </label>
+                                <input type="text" id="ncfModificado" name="ncfModificado" class="form-input" placeholder="Solo para notas de crédito/débito" style="width: 100%; font-family: monospace;">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -353,6 +364,79 @@
                                 </label>
                                 <input type="number" id="itbisAmount" name="itbisAmount" class="form-input" placeholder="0.00" step="0.01" style="width: 100%;">
                             </div>
+
+                            <div class="form-group span-full" style="border-top: 1px dashed var(--border-color); padding-top: 15px; margin-top: 5px;">
+                                <label style="font-weight:700; color:var(--accent-purple); font-size:0.82rem; text-transform:uppercase; letter-spacing:0.03em;">
+                                    <i class="fa-solid fa-file-invoice" style="margin-right:6px;"></i> Desglose DGII 606
+                                </label>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="montoServicios">Monto Facturado en Servicios (DGII)
+                                    <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Proporción del monto del NCF que corresponde a servicios, sin incluir impuestos. Campo 8 del formato 606."></i>
+                                </label>
+                                <input type="number" step="0.01" min="0" id="montoServicios" name="montoServicios" class="form-input" placeholder="0.00">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="montoBienes">Monto Facturado en Bienes (DGII)
+                                    <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Proporción del monto del NCF que corresponde a bienes, sin incluir impuestos. Si no se especifica, se asume que el total va a bienes. Campo 9 del formato 606."></i>
+                                </label>
+                                <input type="number" step="0.01" min="0" id="montoBienes" name="montoBienes" class="form-input" placeholder="0.00">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="itbisLlevadoCosto">ITBIS Llevado al Costo (DGII)
+                                    <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Valor del ITBIS que es llevado directamente al costo y NO se deduce como adelanto en la Declaración Jurada de ITBIS. Se usará como costo en la Declaración Jurada de ISR. Campo 14 del formato 606."></i>
+                                </label>
+                                <input type="number" step="0.01" min="0" id="itbisLlevadoCosto" name="itbisLlevadoCosto" class="form-input" placeholder="0.00">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="itbisProporcionalidad">ITBIS Proporcionalidad Art. 349 (DGII)
+                                    <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Valor del ITBIS que estará sujeto al cálculo de la proporcionalidad según el Art. 349 de la Ley 11-92. La sumatoria de esta columna se distribuye en el Anexo A del Formulario de ITBIS. Campo 13 del formato 606."></i>
+                                </label>
+                                <input type="number" step="0.01" min="0" id="itbisProporcionalidad" name="itbisProporcionalidad" class="form-input" placeholder="0.00">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="tipoRetencionISR">Tipo de Retención en ISR (DGII)
+                                    <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Código del tipo de retención de ISR aplicada. Siempre que se llene este campo debe existir fecha de pago. Campo 17 del formato 606."></i>
+                                </label>
+                                <select id="tipoRetencionISR" name="tipoRetencionISR" class="form-select" style="width: 100%;">
+                                    <option value="">No aplica</option>
+                                    <option value="01">01 - Alquileres</option>
+                                    <option value="02">02 - Honorarios por Servicios</option>
+                                    <option value="03">03 - Otras Rentas</option>
+                                    <option value="04">04 - Otras Rentas (Rentas Presuntas)</option>
+                                    <option value="05">05 - Intereses Pagados a Personas Jurídicas Residentes</option>
+                                    <option value="06">06 - Intereses Pagados a Personas Físicas Residentes</option>
+                                    <option value="07">07 - Retención por Proveedores del Estado</option>
+                                    <option value="08">08 - Juegos Telefónicos</option>
+                                    <option value="09">09 - Retenciones Subsector de Ganadería de Carne Bovina</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="iscMonto">Impuesto Selectivo al Consumo (ISC) (DGII)
+                                    <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Monto del Impuesto Selectivo al Consumo producto de una compra gravada con este impuesto. Campo 20 del formato 606."></i>
+                                </label>
+                                <input type="number" step="0.01" min="0" id="iscMonto" name="iscMonto" class="form-input" placeholder="0.00">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="otrosImpuestos">Otros Impuestos / Tasas (DGII)
+                                    <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Cualquier otro impuesto o tasa no especificado en el formato que forme parte del valor del comprobante fiscal. Campo 21 del formato 606."></i>
+                                </label>
+                                <input type="number" step="0.01" min="0" id="otrosImpuestos" name="otrosImpuestos" class="form-input" placeholder="0.00">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="propinaLegal">Monto Propina Legal (DGII)
+                                    <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Monto de la propina establecida por la Ley No. 54-32 (10%). Campo 22 del formato 606."></i>
+                                </label>
+                                <input type="number" step="0.01" min="0" id="propinaLegal" name="propinaLegal" class="form-input" placeholder="0.00">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -387,6 +471,21 @@
                                     {% endfor %}
                                 </select>
                                 <small style="color: var(--text-muted); font-size: 0.72rem;">Selecciona la cuenta desde la cual se realizó o realizará el pago. El saldo se descontará automáticamente.</small>
+                            </div>
+
+                            <div class="form-group span-full">
+                                <label for="formaPago">Forma de Pago (DGII 606)
+                                    <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Método de pago según clasificación DGII. Campo 23 del formato 606."></i>
+                                </label>
+                                <select id="formaPago" name="formaPago" class="form-select" style="width: 100%;">
+                                    <option value="01">01 - Efectivo</option>
+                                    <option value="02" selected>02 - Cheques / Transferencias / Depósito</option>
+                                    <option value="03">03 - Tarjeta Crédito / Débito</option>
+                                    <option value="04">04 - Compra a Crédito</option>
+                                    <option value="05">05 - Permuta</option>
+                                    <option value="06">06 - Notas de Crédito</option>
+                                    <option value="07">07 - Mixto</option>
+                                </select>
                             </div>
 
                             <div class="span-full">

@@ -302,9 +302,14 @@
     <i class="fa-solid fa-magnifying-glass" style="font-size: 3rem; opacity: 0.3; margin-bottom: 16px; display: block;"></i>
     <h3>¡No hay registros que cumplan con los filtros especificados!</h3>
     <p>Registra facturas recibidas de tus proveedores para poblar esta sección.</p>
-    <a href="{{ url_for('web_purchase_orders.list_purchase_orders') }}" class="btn-new">
-        <i class="fa-solid fa-plus"></i> Nueva factura de compra
-    </a>
+    <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:8px;">
+        <a href="{{ url_for('web_purchase_orders.new_supplier_invoice_direct') }}" class="btn-new" style="display:inline-flex; align-items:center; gap:4px;">
+            <i class="fa-solid fa-keyboard"></i> Crear manualmente
+        </a>
+        <a href="{{ url_for('web_purchase_orders.new_supplier_invoice_direct') }}?mode=ocr" class="btn-new" style="display:inline-flex; align-items:center; gap:4px;">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Crear desde archivo/imagen
+        </a>
+    </div>
 </div>
 <div class="pur-pagination" style="justify-content: flex-end;">
     <div class="per-page">

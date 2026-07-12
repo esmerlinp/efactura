@@ -863,6 +863,50 @@ def rnc_lookup():
     res = DGIIService.validate_and_fetch_rnc(rnc)
     return jsonify(res)
 
+@web_clients_bp.route('/api/clients/lookup_by_rnc')
+def api_clients_lookup_by_rnc():
+    if 'user' not in session:
+        return jsonify({"success": False, "error": "No autorizado"}), 401
+    rnc = request.args.get('rnc', '').strip()
+    if not rnc:
+        return jsonify({"success": False, "error": "RNC requerido"}), 400
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    from app.services.contact_service import ContactService
+    contact = ContactService.get_contact_by_rnc(owner_uid, rnc, sandbox=sandbox)
+    if not contact:
+        client = DatabaseService.get_client_by_rnc(owner_uid, rnc, sandbox=sandbox)
+        if client:
+            return jsonify({
+                "success": True,
+                "found": True,
+                "isClient": True,
+                "client": {
+                    "id": client.get("id", ""),
+                    "rnc": client.get("rnc", ""),
+                    "name": client.get("razonSocial", ""),
+                    "email": client.get("email", ""),
+                    "phone": client.get("telefono", ""),
+                    "address": client.get("direccion", ""),
+                }
+            })
+        return jsonify({"success": True, "found": False})
+    types = contact.get("types", [])
+    return jsonify({
+        "success": True,
+        "found": True,
+        "isClient": "cliente" in types,
+        "isSupplier": "proveedor" in types,
+        "client": {
+            "id": contact.get("id", ""),
+            "rnc": contact.get("rnc", ""),
+            "name": contact.get("razonSocial", ""),
+            "email": contact.get("email", ""),
+            "phone": contact.get("telefono", ""),
+            "address": contact.get("direccion", ""),
+        }
+    })
+
 @web_clients_bp.route('/api/clients/list')
 def api_clients_list():
     if 'user' not in session:

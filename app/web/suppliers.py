@@ -178,6 +178,79 @@ def new_supplier():
     return render_template('suppliers/new.html', active_page='suppliers')
 
 
+@web_suppliers_bp.route('/suppliers/ajax_create', methods=['POST'])
+def ajax_create_supplier():
+    if 'user' not in session:
+        return jsonify({"success": False, "error": "No autenticado."}), 401
+    if not check_permission('canExpenses'):
+        return jsonify({"success": False, "error": "Sin permiso para registrar proveedores."}), 403
+
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    data = request.json or request.form
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({"success": False, "error": "El Nombre / Razón Social es obligatorio."}), 400
+
+    rnc = "".join(filter(str.isdigit, (data.get('rnc') or '')))
+
+    from app.services.contact_service import ContactService
+    existing = ContactService.get_contact_by_rnc(owner_uid, rnc, sandbox=sandbox) if rnc else None
+
+    if existing:
+        supplier_id = existing["id"]
+        types = list(existing.get("types", []))
+        if "proveedor" not in types:
+            types.append("proveedor")
+        contact_dict = dict(existing)
+        contact_dict["types"] = types
+        contact_dict["rnc"] = rnc
+        contact_dict["razonSocial"] = name or existing.get("razonSocial", "")
+        contact_dict["email"] = (data.get('email') or '').strip() or existing.get("email", "")
+        contact_dict["telefono"] = (data.get('phone') or '').strip() or existing.get("telefono", "")
+        contact_dict["direccion"] = (data.get('address') or '').strip() or existing.get("direccion", "")
+        ContactService.save_contact(owner_uid, supplier_id, contact_dict, sandbox=sandbox)
+        was_client = "cliente" in existing.get("types", [])
+    else:
+        supplier_id = str(uuid.uuid4())
+        contact_dict = {
+            "rnc": rnc,
+            "razonSocial": name,
+            "email": (data.get('email') or '').strip(),
+            "telefono": (data.get('phone') or '').strip(),
+            "direccion": (data.get('address') or '').strip(),
+            "types": ["proveedor"],
+        }
+        ContactService.save_contact(owner_uid, supplier_id, contact_dict, sandbox=sandbox)
+        was_client = False
+
+    from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_CXP
+    AuditService.log_from_request(
+        owner_uid=owner_uid,
+        action=ACTION_CREATE,
+        module=MODULE_CXP,
+        entity_id=supplier_id,
+        entity_label=f"Proveedor registrado (Rápido): {name} (RNC: {rnc}){' — vinculado a cliente existente' if was_client else ''}",
+        user_session=session.get('user', {}),
+        after={"name": name, "rnc": rnc, "wasClient": was_client},
+        sandbox=sandbox
+    )
+
+    return jsonify({
+        "success": True,
+        "message": "Proveedor registrado exitosamente." if not was_client else "Cliente vinculado como proveedor exitosamente.",
+        "supplier": {
+            "id": supplier_id,
+            "rnc": rnc,
+            "name": name,
+            "email": (data.get('email') or '').strip(),
+            "phone": (data.get('phone') or '').strip(),
+            "address": (data.get('address') or '').strip(),
+        }
+    })
+
+
 @web_suppliers_bp.route('/suppliers/<supplier_id>')
 def supplier_detail(supplier_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))

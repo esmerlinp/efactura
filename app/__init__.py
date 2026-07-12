@@ -247,6 +247,7 @@ def create_app():
                         restricted_ops = [
                             'web_invoices.new_invoice_route', 'web_invoices.new_quotation_route',
                             'web_invoices.new_expense_route', 'web_clients.ajax_create_client',
+                            'web_suppliers.ajax_create_supplier',
                             'web_contacts.ajax_create_contact', 'web_contacts.new_contact',
                             'web_crm.opportunity_new', 'web_crm.opportunity_edit', 'web_crm.opportunity_stage',
                             'web_crm.opportunity_close', 'web_crm.opportunity_delete',
@@ -272,7 +273,7 @@ def create_app():
 
                 # Bloqueo por Suspensión de Cuenta (Módulo Portal Administrativo)
                 if company_profile.get('status') == 'Suspendido':
-                    restricted_endpoints = ['web_invoices.new_invoice_route', 'web_invoices.new_quotation_route', 'web_invoices.new_expense_route', 'web_clients.ajax_create_client', 'web_invoices.delete_expense_route', 'web_invoices.delete_multiple_expenses_route']
+                    restricted_endpoints = ['web_invoices.new_invoice_route', 'web_invoices.new_quotation_route', 'web_invoices.new_expense_route', 'web_clients.ajax_create_client', 'web_suppliers.ajax_create_supplier', 'web_invoices.delete_expense_route', 'web_invoices.delete_multiple_expenses_route']
                     if request.endpoint in restricted_endpoints:
                         if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
                             return jsonify({"success": False, "error": "Tu cuenta está suspendida por falta de pago."}), 403

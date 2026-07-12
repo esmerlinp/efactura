@@ -1,0 +1,171 @@
+{% extends "layout.html" %}
+
+{% block title %}Recibir {{ order.poNumber }}{% endblock %}
+{% block page_header %}Recepción de Mercancía{% endblock %}
+
+{% block content %}
+<div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
+    <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+        <i class="fa-solid fa-truck-loading" style="color:var(--accent-purple); margin-right:10px;"></i>
+        Recibir {{ order.poNumber }}
+    </h1>
+    <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
+        {{ order.supplierName or 'Sin proveedor' }}
+    </p>
+</div>
+
+<form method="POST" action="{{ url_for('web_inventory.new_receipt', po_id=order.id) }}" id="receipt-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="card-form-body" style="padding:24px; margin-bottom:24px;">
+        <h4 style="font-size:1rem; font-weight:700; font-family:var(--font-heading); margin-bottom:16px;">
+            <i class="fa-solid fa-receipt" style="margin-right:8px; color:var(--accent-purple);"></i> Datos de la Recepción
+        </h4>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+            <div class="form-group">
+                <label>Recepción # <span style="color:var(--text-muted); font-size:0.72rem;">(auto-generado)</span></label>
+                <input type="text" class="form-input" value="{{ receipt_number }}" readonly style="font-family:monospace; font-weight:700; background:rgba(0,0,0,0.03);">
+            </div>
+            <div class="form-group">
+                <label for="receiptDate">Fecha de Recepción *</label>
+                <input type="date" id="receiptDate" name="receiptDate" class="form-input" value="{{ today }}" required>
+            </div>
+            <div class="form-group span-full">
+                <label for="warehouseId">Almacén de Destino *</label>
+                <select id="warehouseId" name="warehouseId" class="form-select" required onchange="document.getElementById('warehouseName').value = this.options[this.selectedIndex]?.text || '';">
+                    <option value="">Seleccionar almacén...</option>
+                    {% for w in warehouses %}
+                    <option value="{{ w.id }}">{{ w.name }}</option>
+                    {% endfor %}
+                </select>
+                <input type="hidden" id="warehouseName" name="warehouseName" value="">
+            </div>
+        </div>
+    </div>
+
+    <div class="card-form-body" style="padding:24px; margin-bottom:24px;">
+        <h4 style="font-size:1rem; font-weight:700; font-family:var(--font-heading); margin-bottom:16px;">
+            <i class="fa-solid fa-box" style="margin-right:8px; color:var(--accent-purple);"></i> Partidas a Recibir
+        </h4>
+        <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:16px;">
+            Indica la cantidad recibida para cada partida y, opcionalmente, vincúlala a un ítem del catálogo
+            para que el inventario se actualice automáticamente.
+        </p>
+        <div class="table-responsive">
+            <table class="table-premium" style="min-width:900px;">
+                <thead>
+                    <tr>
+                        <th style="width:25%;">Partida (OC)</th>
+                        <th style="width:8%; text-align:center;">Ordenado</th>
+                        <th style="width:8%; text-align:center;">Recibido Prev.</th>
+                        <th style="width:10%; text-align:center;">Recibir Ahora *</th>
+                        <th style="width:8%;">Unidad</th>
+                        <th style="width:15%; text-align:right;">Precio</th>
+                        <th style="width:26%;">Ítem del Catálogo <span style="font-weight:400; font-size:0.7rem; color:var(--text-muted);">(opcional)</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in order.get('items', []) %}
+                    {% set prev = item.get('receivedQuantity', 0)|float %}
+                    {% set ordered = item.get('quantity', 0)|float %}
+                    {% set remaining = (ordered - prev)|round(2) %}
+                    <tr>
+                        <td style="font-weight:600;">{{ item.name or '—' }}</td>
+                        <td style="text-align:center;">{{ ordered }}</td>
+                        <td style="text-align:center;">
+                            {% if prev > 0 %}
+                            <span style="color:var(--accent-emerald);">{{ prev }}</span>
+                            {% else %}
+                            <span style="color:var(--text-muted);">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <input type="number" class="form-input" name="received_qty_{{ item.id }}" value="{{ remaining }}" min="0" step="0.01" style="text-align:center; width:100%;">
+                        </td>
+                        <td>{{ item.unit|default('Unidad') }}</td>
+                        <td style="text-align:right;">{{ "{:,.2f}".format(item.unitPrice|default(0)) }}</td>
+                        <td>
+                            <div style="position:relative;">
+                                <input type="text" class="form-input catalog-search" data-item-id="{{ item.id }}" placeholder="Buscar en catálogo..." autocomplete="off" style="width:100%; font-size:0.78rem;">
+                                <input type="hidden" name="catalog_item_{{ item.id }}" class="catalog-item-id" value="">
+                                <input type="hidden" name="catalog_name_{{ item.id }}" class="catalog-item-name" value="{{ item.name }}">
+                                <div class="catalog-search-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:var(--shadow-lg); z-index:999; max-height:200px; overflow-y:auto; margin-top:2px;"></div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card-form-body" style="padding:24px; margin-bottom:24px;">
+        <div class="form-group">
+            <label for="notes">Notas de la Recepción</label>
+            <textarea id="notes" name="notes" class="form-input" rows="2" placeholder="Observaciones sobre la recepción..."></textarea>
+        </div>
+    </div>
+
+    <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:24px; padding:16px 0;">
+        <a href="{{ url_for('web_purchase_orders.purchase_order_detail', po_id=order.id) }}" class="btn btn-secondary">
+            <i class="fa-solid fa-xmark"></i> Cancelar
+        </a>
+        <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-check"></i> Confirmar Recepción
+        </button>
+    </div>
+</form>
+
+<script>
+// ── Catalog Item Search per Row ────────────────────────────────────
+const catalogItems = {{ catalog_items|tojson|safe if catalog_items else '[]' }};
+
+document.querySelectorAll('.catalog-search').forEach(input => {
+    const resultsDiv = input.nextElementSibling.nextElementSibling;
+    let timeout = null;
+
+    input.addEventListener('input', function() {
+        clearTimeout(timeout);
+        const q = this.value.toLowerCase().trim();
+        if (q.length < 1) { resultsDiv.style.display = 'none'; return; }
+        timeout = setTimeout(() => {
+            const matches = catalogItems.filter(i =>
+                (i.name || '').toLowerCase().includes(q) ||
+                (i.code || '').toLowerCase().includes(q) ||
+                (i.barcode || '').toLowerCase().includes(q)
+            );
+            resultsDiv.innerHTML = '';
+            if (matches.length) {
+                matches.slice(0, 10).forEach(item => {
+                    const d = document.createElement('div');
+                    d.style.cssText = 'padding:8px 12px; cursor:pointer; border-bottom:1px solid var(--border-color); font-size:0.8rem; display:flex; justify-content:space-between;';
+                    d.onmouseenter = function() { this.style.background = 'rgba(255,255,255,0.04)'; };
+                    d.onmouseleave = function() { this.style.background = 'transparent'; };
+                    d.onclick = function() {
+                        const itemId = input.dataset.itemId;
+                        input.value = item.name + (item.code ? ' [' + item.code + ']' : '');
+                        document.querySelector('input[name="catalog_item_' + itemId + '"]').value = item.id;
+                        document.querySelector('input[name="catalog_name_' + itemId + '"]').value = item.name;
+                        resultsDiv.style.display = 'none';
+                    };
+                    d.innerHTML = '<span>' + item.name + '</span><span style="color:var(--text-muted); font-size:0.7rem;">' + (item.code || '') + ' | Stock: ' + (item.totalStock||0) + '</span>';
+                    resultsDiv.appendChild(d);
+                });
+                resultsDiv.style.display = 'block';
+            } else {
+                resultsDiv.style.display = 'none';
+            }
+        }, 250);
+    });
+
+    input.addEventListener('blur', function() {
+        setTimeout(() => { resultsDiv.style.display = 'none'; }, 200);
+    });
+});
+
+// ── Warehouse auto-fill name ──────────────────────────────────────
+document.getElementById('warehouseId').addEventListener('change', function() {
+    const sel = this.options[this.selectedIndex];
+    document.getElementById('warehouseName').value = sel ? sel.text : '';
+});
+</script>
+{% endblock %}

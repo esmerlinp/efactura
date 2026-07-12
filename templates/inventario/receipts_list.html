@@ -1,0 +1,119 @@
+{% extends "layout.html" %}
+
+{% block title %}Recepciones de Mercancía{% endblock %}
+{% block page_header %}Recepciones{% endblock %}
+
+{% block content %}
+<div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
+    <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+        <i class="fa-solid fa-truck-loading" style="color:var(--accent-purple); margin-right:10px;"></i>
+        Recepciones de Mercancía
+    </h1>
+</div>
+
+<div class="guide-banner" id="guide-receipts">
+    <button class="guide-banner-close" onclick="closeGuide('guide-receipts')" title="Cerrar guía" aria-label="Cerrar guía">
+        <i class="fa-solid fa-xmark"></i>
+    </button>
+    <div class="guide-banner-icon">
+        <i class="fa-solid fa-lightbulb"></i>
+    </div>
+    <div class="guide-banner-content">
+        <h4>Guía de Uso: Recepciones de Mercancía</h4>
+        <p>
+            Registra la entrada de mercancía de tus órdenes de compra para actualizar el inventario automáticamente.
+        </p>
+        <ul>
+            <li><strong>Desde Orden de Compra:</strong> Crea recepciones a partir de órdenes de compra aprobadas.</li>
+            <li><strong>Control de Cantidades:</strong> Puedes recibir parcial o totalmente los artículos de una orden.</li>
+            <li><strong>Actualización de Inventario:</strong> Al confirmar la recepción, el stock se actualiza en tiempo real en tu almacén.</li>
+        </ul>
+    </div>
+</div>
+
+<div class="card-table-wrapper" style="margin-bottom:30px;">
+    <div class="table-header-row">
+        <div>
+            <h3 style="font-size:1.25rem; font-family:var(--font-heading); margin-bottom:6px;">Historial de Recepciones</h3>
+            <p style="color:var(--text-secondary); font-size:0.88rem;">Registro de entradas de mercancía por órdenes de compra.</p>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th>Recepción #</th>
+                    <th>OC #</th>
+                    <th>Proveedor</th>
+                    <th>Almacén</th>
+                    <th>Fecha</th>
+                    <th>Partidas</th>
+                    <th>Items Catálogo</th>
+                    <th>Estado</th>
+                    <th style="text-align:right; width: 50px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if receipts %}
+                {% for r in receipts %}
+                <tr>
+                    <td><span class="mono" style="font-weight:600; color:var(--accent-blue);">{{ r.receiptNumber or '—' }}</span></td>
+                    <td><span class="mono">{{ r.poNumber or '—' }}</span></td>
+                    <td>{{ r.supplierName or '—' }}</td>
+                    <td>{{ r.warehouseName or '—' }}</td>
+                    <td style="font-size:0.82rem;">{{ r.receiptDate or r.createdAt[:10] if r.createdAt else '—' }}</td>
+                    <td style="text-align:center;">{{ r['items']|length if r['items'] else 0 }}</td>
+                    <td style="text-align:center;">
+                        {% set catalog_count = r['items']|selectattr('itemId')|list|length if r['items'] else 0 %}
+                        {% if catalog_count > 0 %}
+                        <span style="color:var(--accent-emerald); font-weight:600;">{{ catalog_count }}</span>
+                        {% else %}
+                        <span style="color:var(--text-muted);">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if r.status == 'completada' %}
+                        <span class="badge-pill badge-green">Completada</span>
+                        {% else %}
+                        <span class="badge-pill badge-amber">{{ r.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:right;">
+                        <div class="action-menu">
+                            <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                            </button>
+                            <div class="action-menu-dropdown">
+                                <a href="{{ url_for('web_inventory.receipt_detail', receipt_id=r.id) }}" class="action-menu-item">
+                                    <i class="fa-solid fa-eye"></i> Ver Detalle
+                                </a>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="9" style="text-align:center; padding:40px; color:var(--text-muted);">
+                        <i class="fa-solid fa-truck-loading" style="font-size:2rem; display:block; margin-bottom:10px; opacity:0.3;"></i>
+                        No hay recepciones registradas.
+                        <div style="margin-top:10px; font-size:0.85rem;">Las recepciones se crean al recibir una orden de compra aprobada.</div>
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+.badge-pill {
+    display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:99px;
+    font-size:0.7rem; font-weight:600;
+}
+.badge-green  { background:rgba(16,185,129,0.12); color:var(--accent-emerald); border:1px solid rgba(16,185,129,0.25); }
+.badge-amber  { background:rgba(245,158,11,0.1);  color:#f59e0b;              border:1px solid rgba(245,158,11,0.2);  }
+.mono { font-family:monospace; font-size:0.82rem; }
+</style>
+{% endblock %}
