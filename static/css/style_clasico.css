@@ -1424,6 +1424,10 @@ body.sandbox-mode .segment-header-icon.emerald {
     display: none !important;
 }
 
+.app-container.sidebar-collapsed .sidebar-company-name {
+    display: none !important;
+}
+
 .app-container.sidebar-collapsed .sidebar-toggle-wrapper {
     justify-content: center;
     padding: 6px 0 4px;

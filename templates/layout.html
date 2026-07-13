@@ -242,46 +242,48 @@
             padding: 0;
         }
 
-        /* En modo colapsado, los headers de secciones regulares se muestran como íconos */
+        /* En modo colapsado, los headers mantienen el mismo layout que expandido (solo se oculta el texto) */
         .sidebar-collapsed .sidebar-section:not(.sidebar-section-flyout) > .sidebar-section-header {
             display: flex !important;
             opacity: 1 !important;
-            width: 44px !important;
-            height: 44px !important;
-            border-radius: 50% !important;
-            padding: 0 !important;
-            justify-content: center !important;
             align-items: center !important;
-            margin: 6px auto !important;
+            justify-content: space-between !important;
+            padding: 3px 12px !important;
+            margin: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+            border-radius: var(--radius-sm) !important;
             overflow: visible !important;
             border-top: none !important;
             background: transparent;
             text-decoration: none !important;
-            color: var(--text-muted);
-            transition: background 0.15s, color 0.15s;
+            cursor: pointer !important;
         }
         .sidebar-collapsed .sidebar-section:not(.sidebar-section-flyout) > .sidebar-section-header:hover {
-            background: var(--bg-nav-hover);
+            background-color: var(--bg-nav-hover);
             color: var(--text-primary);
         }
         .sidebar-collapsed .sidebar-section:not(.sidebar-section-flyout) > .sidebar-section-header span,
         .sidebar-collapsed .sidebar-section:not(.sidebar-section-flyout) > .sidebar-section-header .section-toggle-icon {
             display: none !important;
         }
-        .sidebar-collapsed .sidebar-section:not(.sidebar-section-flyout) > .sidebar-section-header .header-left {
-            justify-content: center !important;
-            align-items: center !important;
-            width: 100% !important;
-            display: flex !important;
-            gap: 0 !important;
-        }
         .sidebar-collapsed .sidebar-section:not(.sidebar-section-flyout) > .sidebar-section-header .header-left .section-icon {
-            font-size: 1.15rem;
+            font-size: 1.05rem !important;
+            color: transparent !important;
+            -webkit-text-stroke: 0.6px #64748b !important;
             margin: 0 !important;
-            width: auto !important;
+            width: 18px;
+            flex-shrink: 0;
         }
         .sidebar-collapsed .sidebar-section:not(.sidebar-section-flyout) .sidebar-section-content {
             display: none !important;
+        }
+
+        /* Anular padding/margin/borde que los temas agregan a .sidebar-section en colapsado (no existen en expandido) */
+        .sidebar-collapsed .sidebar-section {
+            padding-bottom: 0 !important;
+            margin-bottom: 0 !important;
+            border-bottom: none !important;
         }
 
         .sidebar-section-content {
@@ -461,17 +463,17 @@
                 pointer-events: auto !important;
             }
 
-            /* Mantener cabeceras visibles como iconos cuando la barra lateral está contraída */
+            /* En modo colapsado, los flyouts mantienen el mismo layout que expandido */
             .sidebar-collapsed .sidebar-section-flyout .sidebar-section-header {
                 display: flex !important;
                 opacity: 1 !important;
-                width: 44px !important;
-                height: 44px !important;
-                border-radius: 50% !important;
-                padding: 0 !important;
-                justify-content: center !important;
                 align-items: center !important;
-                margin: 4px auto !important;
+                justify-content: space-between !important;
+                padding: 3px 12px !important;
+                margin: 0 !important;
+                width: 100% !important;
+                height: auto !important;
+                border-radius: var(--radius-sm) !important;
                 overflow: visible !important;
                 border-top: none !important;
                 background: transparent;
@@ -482,18 +484,13 @@
                 display: none !important;
             }
 
-            .sidebar-collapsed .sidebar-section-flyout .sidebar-section-header .header-left {
-                justify-content: center !important;
-                align-items: center !important;
-                width: 100% !important;
-                display: flex !important;
-                gap: 0 !important;
-            }
-
             .sidebar-collapsed .sidebar-section-flyout .sidebar-section-header .header-left .section-icon {
-                font-size: 1.15rem;
+                font-size: 1.05rem !important;
+                color: transparent !important;
+                -webkit-text-stroke: 0.6px #64748b !important;
                 margin: 0 !important;
-                width: auto !important;
+                width: 18px;
+                flex-shrink: 0;
             }
 
             /* Resaltado del item padre activo si el submenú contiene la página activa */
@@ -691,8 +688,18 @@
             flex-shrink: 0;
         }
 
-        .sidebar-collapsed .sidebar-discover-group {
-            display: none;
+        .sidebar-collapsed .sidebar-discover-title {
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .sidebar-collapsed .sidebar-discover-item {
+            padding: 5px 12px !important;
+            margin-bottom: 1px !important;
+        }
+
+        .sidebar-collapsed .sidebar-discover-item span {
+            display: none !important;
         }
 
         /* Ocultar buscador cuando el sidebar está colapsado */
@@ -1587,7 +1594,7 @@
             <div class="sidebar-footer" style="flex-direction: column; gap: 0; padding-top: 0;">
                 <!-- Active Company Name -->
                 {% if active_company_name %}
-                <a href="{{ url_for('web_invoices.company_settings') }}" style="text-decoration: none; display: block;">
+                <a href="{{ url_for('web_invoices.company_settings') }}" class="sidebar-company-name" style="text-decoration: none; display: block;">
                     <div style="font-size: 0.78rem; font-weight: 500; color: var(--text-secondary); padding: 8px 14px; border-top: 1px solid var(--border-color); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; border-bottom: 1px solid var(--border-color); cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='var(--hover-bg)';" onmouseout="this.style.background='transparent';">
                         <i class="fa-solid fa-building" style="margin-right: 6px; color: var(--accent-emerald);"></i>{{ active_company_name }}
                     </div>
