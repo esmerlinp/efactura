@@ -1,0 +1,692 @@
+{% extends "layout.html" %}
+
+{% block title %}Factura de Ventas - {{ product_name }}{% endblock %}
+
+{% block page_header %}Guía de Facturación de Ventas (e-CF){% endblock %}
+
+{% block extra_head %}
+<style>
+    .docs-layout {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        gap: 40px;
+        max-width: 100%;
+        margin: 0 auto;
+        align-items: start;
+    }
+
+    .docs-layout strong { font-weight: 500; }
+
+    .docs-sidebar {
+        position: sticky;
+        top: 80px;
+        max-height: calc(100vh - 120px);
+        overflow-y: auto;
+        padding-right: 15px;
+    }
+
+    .docs-sidebar::-webkit-scrollbar { width: 4px; }
+
+    .docs-sidebar-group { margin-bottom: 24px; }
+
+    .docs-sidebar-group-title {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        letter-spacing: 0.08em;
+        margin-bottom: 10px;
+        padding-left: 8px;
+    }
+
+    .docs-sidebar-menu {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .docs-sidebar-item a {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        font-size: 0.88rem;
+        color: var(--text-secondary);
+        border-radius: var(--radius-sm);
+        transition: all var(--transition-fast);
+        line-height: 1.4;
+    }
+
+    .docs-sidebar-item a:hover {
+        color: var(--text-primary);
+        background-color: var(--bg-nav-hover);
+    }
+
+    .docs-sidebar-item.active a {
+        color: var(--accent-emerald);
+        background-color: var(--bg-brand-translucent);
+        font-weight: 500;
+    }
+
+    .docs-sidebar-footer-info {
+        background-color: var(--bg-brand-translucent);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        padding: 14px;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        line-height: 1.4;
+        margin-top: 30px;
+        display: flex;
+        gap: 10px;
+    }
+
+    .docs-sidebar-footer-info i { color: var(--accent-emerald); font-size: 1rem; margin-top: 2px; }
+
+    .docs-content { min-width: 0; }
+
+    .docs-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 20px;
+        border-bottom: 1px solid var(--border-color);
+        margin-bottom: 30px;
+        gap: 20px;
+    }
+
+    .docs-header h2 { font-size: 1.6rem; font-weight: 800; color: var(--text-primary); margin-bottom: 4px; }
+    .docs-header p { color: var(--text-secondary); font-size: 0.92rem; }
+
+    .docs-search-wrapper { position: relative; width: 320px; }
+
+    .docs-search-input {
+        width: 100%; height: 38px; padding: 0 16px 0 38px;
+        background-color: var(--bg-input); border: 1px solid var(--border-color);
+        border-radius: 20px; color: var(--text-primary); font-size: 0.85rem;
+        transition: all var(--transition-fast);
+    }
+
+    .docs-search-input:focus { border-color: var(--accent-emerald); box-shadow: var(--shadow-glow); }
+
+    .docs-search-wrapper .search-icon {
+        position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+        color: var(--text-muted); font-size: 0.9rem;
+    }
+
+    .docs-section { margin-bottom: 45px; scroll-margin-top: 80px; }
+
+    .docs-section-title {
+        font-size: 1.35rem; font-weight: 800; color: var(--text-primary);
+        padding-bottom: 8px; border-bottom: 1px solid var(--border-color);
+        margin-bottom: 20px; display: flex; align-items: center; gap: 10px;
+    }
+
+    .docs-article {
+        background-color: var(--bg-card); border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm); padding: 24px; margin-bottom: 20px;
+        transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    }
+
+    .docs-article:hover { border-color: var(--border-glow); box-shadow: var(--shadow-sm); }
+
+    .docs-article-title {
+        font-size: 1.1rem; font-weight: 700; color: var(--text-primary);
+        margin-bottom: 14px; display: flex; align-items: center;
+        justify-content: space-between; gap: 12px;
+    }
+
+    .docs-article-title-text { display: flex; align-items: center; gap: 10px; }
+    .docs-article-title-icon { font-size: 0.95rem; color: var(--accent-emerald); opacity: 0.8; }
+
+    .docs-article-body {
+        font-size: 0.92rem; color: var(--text-secondary); line-height: 1.6;
+    }
+
+    .docs-article-body strong { color: var(--text-primary); font-weight: 500; }
+
+    .docs-article-body code {
+        background-color: var(--bg-input); padding: 2px 6px; border-radius: 4px;
+        font-family: monospace; font-size: 0.82rem; color: var(--accent-purple);
+        border: 1px solid var(--border-color);
+    }
+
+    .docs-article-body ul { margin: 12px 0; padding-left: 20px; }
+    .docs-article-body li { margin-bottom: 6px; }
+
+    .glossary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 16px; margin-bottom: 24px;
+    }
+
+    .glossary-card {
+        background-color: var(--bg-card); border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm); padding: 16px;
+        transition: all var(--transition-fast);
+    }
+
+    .glossary-card:hover {
+        transform: translateY(-2px); box-shadow: var(--shadow-sm);
+        border-color: var(--accent-emerald);
+    }
+
+    .glossary-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .glossary-card-icon { font-size: 1.1rem; color: var(--accent-emerald); }
+    .glossary-card-title { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); }
+    .glossary-card-text { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.45; }
+
+    .fiscal-alert-box {
+        background-color: var(--bg-brand-translucent); border-left: 4px solid var(--accent-emerald);
+        border-radius: 4px; padding: 14px 16px; margin-top: 16px; display: flex; gap: 12px; align-items: flex-start;
+    }
+
+    .fiscal-alert-box.alert-warning { border-left-color: var(--accent-yellow); background-color: rgba(245, 158, 11, 0.05); }
+    .fiscal-alert-box.alert-danger { border-left-color: var(--accent-red); background-color: rgba(220, 38, 38, 0.05); }
+    .fiscal-alert-box.alert-success { border-left-color: var(--accent-success); background-color: rgba(22, 163, 74, 0.05); }
+
+    .fiscal-alert-box i { font-size: 1.05rem; margin-top: 2px; }
+    .fiscal-alert-box.alert-warning i { color: var(--accent-yellow); }
+    .fiscal-alert-box.alert-danger i { color: var(--accent-red); }
+    .fiscal-alert-box.alert-success i { color: var(--accent-success); }
+
+    .fiscal-alert-text { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; }
+
+    .no-results-state {
+        text-align: center; padding: 40px; background-color: var(--bg-card);
+        border: 1px solid var(--border-color); border-radius: var(--radius-sm); display: none;
+    }
+
+    .no-results-state i { font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; }
+    .no-results-state h4 { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; color: var(--text-primary); }
+    .no-results-state p { color: var(--text-secondary); font-size: 0.88rem; }
+
+    .docs-footer-banner {
+        background-color: var(--bg-card); border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm); padding: 24px; display: flex;
+        align-items: center; justify-content: space-between; gap: 20px;
+        margin-top: 40px; margin-bottom: 40px;
+    }
+
+    .docs-footer-banner h4 { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; color: var(--text-primary); }
+    .docs-footer-banner p { color: var(--text-secondary); font-size: 0.85rem; margin: 0; line-height: 1.4; }
+
+    .step-badge {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 28px; height: 28px; border-radius: 50%;
+        background-color: var(--accent-emerald); color: #fff;
+        font-size: 0.8rem; font-weight: 700; flex-shrink: 0;
+    }
+
+    @media (max-width: 1024px) {
+        .docs-layout { grid-template-columns: 1fr; gap: 24px; }
+        .docs-sidebar { position: static; max-height: none; overflow-y: visible; padding-right: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 20px; }
+        .docs-header { flex-direction: column; align-items: flex-start; gap: 16px; }
+        .docs-search-wrapper { width: 100%; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="docs-layout">
+
+    <aside class="docs-sidebar">
+        <div class="docs-sidebar-group">
+            <div class="docs-sidebar-group-title">En esta guía</div>
+            <ul class="docs-sidebar-menu">
+                <li class="docs-sidebar-item active" data-target="clientes">
+                    <a href="#clientes"><i class="fa-solid fa-address-book"></i><span>Catálogo de Clientes</span></a>
+                </li>
+                <li class="docs-sidebar-item" data-target="productos">
+                    <a href="#productos"><i class="fa-solid fa-box"></i><span>Productos e Ítems</span></a>
+                </li>
+                <li class="docs-sidebar-item" data-target="secuencias">
+                    <a href="#secuencias"><i class="fa-solid fa-barcode"></i><span>Secuencias Fiscales</span></a>
+                </li>
+                <li class="docs-sidebar-item" data-target="crear-factura">
+                    <a href="#crear-factura"><i class="fa-solid fa-pen-to-square"></i><span>Crear Factura</span></a>
+                </li>
+                <li class="docs-sidebar-item" data-target="emision">
+                    <a href="#emision"><i class="fa-solid fa-check-double"></i><span>Emisión y Firma</span></a>
+                </li>
+                <li class="docs-sidebar-item" data-target="contingencia">
+                    <a href="#contingencia"><i class="fa-solid fa-triangle-exclamation"></i><span>Contingencia</span></a>
+                </li>
+                <li class="docs-sidebar-item" data-target="cobros">
+                    <a href="#cobros"><i class="fa-solid fa-hand-holding-dollar"></i><span>Registro de Cobro</span></a>
+                </li>
+                <li class="docs-sidebar-item" data-target="notas">
+                    <a href="#notas"><i class="fa-solid fa-ban"></i><span>Notas de Crédito/Débito</span></a>
+                </li>
+            </ul>
+        </div>
+        <div class="docs-sidebar-group">
+            <div class="docs-sidebar-group-title">Volver</div>
+            <ul class="docs-sidebar-menu">
+                <li class="docs-sidebar-item"><a href="{{ url_for('web_invoices.help_center') }}"><i class="fa-solid fa-arrow-left"></i><span>Portal de Ayuda</span></a></li>
+            </ul>
+        </div>
+        <div class="docs-sidebar-footer-info">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>{{ product_name }} cumple con la Ley 32-23 de Facturación Electrónica en República Dominicana.</span>
+        </div>
+    </aside>
+
+    <main class="docs-content">
+
+        <div class="docs-header">
+            <div class="docs-header-left">
+                <h2>Facturación de Ventas (e-CF)</h2>
+                <p>Guía completa para emitir comprobantes fiscales electrónicos: desde el catálogo hasta el cobro.</p>
+            </div>
+            <div class="docs-search-wrapper">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" id="faq-search" class="docs-search-input"
+                    placeholder="Buscar en esta guía...">
+            </div>
+        </div>
+
+        <!-- Catálogo de Clientes -->
+        <section id="clientes" class="docs-section" data-search-content="clientes catalogo registro rnc 9 11 digitos">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-address-book" style="color: var(--accent-emerald);"></i>
+                <span>Catálogo de Clientes</span>
+            </div>
+
+            <div class="docs-article" data-search-content="registro cliente nuevo rnc cedula correo electronico">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text"><i class="fa-solid fa-user-plus docs-article-title-icon"></i>Registro de Clientes</span>
+                </h3>
+                <div class="docs-article-body">
+                    Para emitir facturas electrónicas debes registrar a tus clientes en el sistema. Accede a <code>/clients</code> y haz clic en <strong>Nuevo Cliente</strong>.
+                    <br><br>
+                    <ul>
+                        <li><strong>Razón Social:</strong> Nombre completo del cliente (persona física o jurídica).</li>
+                        <li><strong>RNC o Cédula:</strong> Indispensable para emitir facturas con valor de Crédito Fiscal E31. Debe tener exactamente <strong>9 dígitos</strong> para RNC corporativos u <strong>11 dígitos</strong> para personas físicas (cédula). El sistema limpia automáticamente los caracteres no numéricos.</li>
+                        <li><strong>Correo Electrónico:</strong> Para el envío automático de los archivos XML firmados y las representaciones impresas (PDF) de los comprobantes.</li>
+                        <li><strong>Teléfono y Dirección:</strong> Datos de contacto del cliente (opcional pero recomendado).</li>
+                    </ul>
+                    <div class="fiscal-alert-box">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <div class="fiscal-alert-text">
+                            Si tu cliente es <strong>Consumidor Final</strong> (persona natural sin RNC), puedes emitir facturas E32 sin necesidad de registrar RNC. Sin embargo, si el monto supera los RD$ 250,000.00, la DGII exige asociar obligatoriamente la cédula o RNC.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Productos e Ítems -->
+        <section id="productos" class="docs-section" data-search-content="productos items catalogo precio itbis 18 inventario">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-box" style="color: var(--accent-emerald);"></i>
+                <span>Productos e Ítems</span>
+            </div>
+
+            <div class="docs-article" data-search-content="items productos servicio precio itbis exento inventario almacen">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text"><i class="fa-solid fa-cube docs-article-title-icon"></i>Catálogo de Ítems</span>
+                </h3>
+                <div class="docs-article-body">
+                    Registra los productos o servicios que vendes en <code>/items</code>. Selecciona <strong>Nuevo Ítem</strong> y completa:
+                    <br><br>
+                    <ul>
+                        <li><strong>Nombre del Producto/Servicio:</strong> Descripción corta que aparecerá en la factura.</li>
+                        <li><strong>Descripción Detallada:</strong> Información adicional del ítem (opcional).</li>
+                        <li><strong>Precio Unitario (Precio Base):</strong> Valor unitario sin ITBIS.</li>
+                        <li><strong>Tasa de ITBIS:</strong>
+                            <ul>
+                                <li><code>18% (ITBIS Estándar)</code> — Para la mayoría de productos y servicios gravados.</li>
+                                <li><code>Exento</code> — Para servicios profesionales exentos o productos de canasta básica exentos por ley.</li>
+                                <li><code>16% (ITBIS Reducido)</code> — Para ciertos productos con tasa reducida según normativa DGII.</li>
+                            </ul>
+                        </li>
+                        <li><strong>Inventario:</strong> Asigna un <strong>Almacén (Warehouse)</strong> y define el <strong>Stock Mínimo de Alerta</strong> para que el sistema te notifique cuando el inventario esté bajo.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Secuencias Fiscales -->
+        <section id="secuencias" class="docs-section" data-search-content="secuencias fiscales e31 e32 rango tipo comprobante">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-barcode" style="color: var(--accent-emerald);"></i>
+                <span>Secuencias Fiscales</span>
+            </div>
+
+            <div class="docs-article" data-search-content="e31 credito fiscal e32 consumo diferencias registro rango">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text"><i class="fa-solid fa-circle-info docs-article-title-icon"></i>E31 (Crédito Fiscal) vs E32 (Consumo)</span>
+                </h3>
+                <div class="docs-article-body">
+                    Las secuencias fiscales son los rangos de numeración que la DGII te autoriza para emitir comprobantes. En {{ product_name }} debes registrarlos antes de emitir tu primera factura.
+                    <br><br>
+                    <strong>E31 — Factura de Crédito Fiscal Electrónica:</strong>
+                    <ul>
+                        <li>Emítela cuando le vendas a una <strong>empresa registrada</strong> que necesita sustentar costos y deducciones de ISR y adelantos de ITBIS.</li>
+                        <li>Requiere obligatoriamente un <strong>RNC válido</strong> del cliente.</li>
+                        <li>El comprobante inicia con <code>E31</code> seguido de 10 dígitos (ej. E310000000001).</li>
+                    </ul>
+                    <strong>E32 — Factura de Consumo Electrónica:</strong>
+                    <ul>
+                        <li>Emítela para <strong>Consumidores Finales</strong> que no deducen impuestos.</li>
+                        <li>No requiere RNC del cliente a menos que el monto exceda los RD$ 250,000.00.</li>
+                        <li>El comprobante inicia con <code>E32</code> seguido de 10 dígitos (ej. E320000000001).</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="docs-article" data-search-content="registro secuencia rango inicial final consecutivo alerta">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text"><i class="fa-solid fa-pen-to-square docs-article-title-icon"></i>Cómo Registrar una Secuencia</span>
+                </h3>
+                <div class="docs-article-body">
+                    Accede a <code>/sequences</code> y sigue estos pasos:
+                    <br><br>
+                    <ol>
+                        <li>Haz clic en <strong>Nueva Secuencia</strong>.</li>
+                        <li><strong>Tipo de Comprobante:</strong> Selecciona <code>E31 — Crédito Fiscal</code> o <code>E32 — Consumo</code> según el rango autorizado por la DGII.</li>
+                        <li><strong>Rango Inicial y Final:</strong> Ingresa la numeración autorizada (ej. desde 1 hasta 100).</li>
+                        <li><strong>Último Consecutivo Usado:</strong> Si ya has facturado en otros sistemas, ingresa el último número usado. El sistema consumirá el valor siguiente de forma secuencial y automatizada.</li>
+                        <li><strong>Alerta de Mínimo:</strong> Define un número mínimo de comprobantes restantes para recibir una alerta visual (ej. cuando queden 10 comprobantes disponibles).</li>
+                        <li><strong>Fecha de Expiración:</strong> Fecha de vencimiento del rango según la autorización de la DGII.</li>
+                        <li><strong>Número de Autorización:</strong> Dato del oficio de aprobación emitido por la DGII.</li>
+                    </ol>
+                </div>
+            </div>
+        </section>
+
+        <!-- Creación de Factura -->
+        <section id="crear-factura" class="docs-section" data-search-content="crear factura borrador partidas retenciones isr itbis neto">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-pen-to-square" style="color: var(--accent-emerald);"></i>
+                <span>Creación de Factura</span>
+            </div>
+
+            <div class="docs-article" data-search-content="nueva factura cliente partidas item descuento total">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text"><i class="fa-solid fa-file-invoice docs-article-title-icon"></i>Paso a Paso: Crear una Factura</span>
+                </h3>
+                <div class="docs-article-body">
+                    <ol>
+                        <li>Accede a <code>/invoices/new</code> o haz clic en <strong>Nuevo Documento</strong> desde el Dashboard.</li>
+                        <li><strong>Cliente:</strong> Selecciona el cliente registrado o escribe "Consumidor Final" para facturas E32.</li>
+                        <li><strong>Fecha de Vencimiento (<code>dueDate</code>):</strong> Si la fecha es superior al día de hoy, la factura se cataloga como venta a <strong>Crédito</strong>. Si es igual o menor, será al <strong>Contado</strong>.</li>
+                        <li><strong>Agregar Partidas:</strong> Busca productos/servicios del catálogo. Por cada partida ingresa: cantidad, precio unitario y descuento (si aplica). El sistema calcula automáticamente subtotales e ITBIS.</li>
+                        <li><strong>Retenciones Fiscales:</strong> Si eres persona física y facturas servicios profesionales a una empresa, aplica en la sección de tasas:
+                            <ul>
+                                <li><code>10% ISR</code> — Descuenta el 10% del subtotal.</li>
+                                <li><code>100% ITBIS</code> — Retiene el 18% completo de ITBIS (para servicios profesionales).</li>
+                                <li><code>30% ITBIS</code> — Para servicios técnicos o alquileres de bienes muebles.</li>
+                            </ul>
+                        </li>
+                        <li><strong>Neto a Recibir (<code>netPayable</code>):</strong> Visualiza el bloque <strong>verde esmeralda</strong> que calcula exactamente la cantidad de dinero que recibirás en tu banco tras las deducciones de ley.</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="docs-article" data-search-content="ejemplo retencion calculo neto a recibir factura 10000">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text"><i class="fa-solid fa-calculator docs-article-title-icon"></i>Ejemplo Práctico de Retenciones</span>
+                </h3>
+                <div class="docs-article-body">
+                    Factura de servicios profesionales por RD$ 10,000:
+                    <ul>
+                        <li>Subtotal: RD$ 10,000.00</li>
+                        <li>ITBIS (18%): RD$ 1,800.00</li>
+                        <li>Total Bruto Facturado: RD$ 11,800.00</li>
+                        <li>(-) Retención ISR (10% del Subtotal): -RD$ 1,000.00</li>
+                        <li>(-) Retención ITBIS (100% del ITBIS): -RD$ 1,800.00</li>
+                        <li><strong>Neto a Recibir: RD$ 9,000.00</strong></li>
+                    </ul>
+                    <div class="fiscal-alert-box alert-success">
+                        <i class="fa-solid fa-check-circle"></i>
+                        <div class="fiscal-alert-text">
+                            El <strong>Neto a Recibir</strong> es el monto exacto que tu cliente te depositará en el banco. En {{ product_name }} lo destacamos en color verde esmeralda para que sepas con certeza cuánto dinero conciliar.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Emisión y Firma -->
+        <section id="emision" class="docs-section" data-search-content="emision firma xml dgii codigo qr p12 pfx secuencia">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-check-double" style="color: var(--accent-emerald);"></i>
+                <span>Emisión y Firma</span>
+            </div>
+
+            <div class="docs-article" data-search-content="guardar borrador emitir cobrar firma transmision asincrona">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text"><i class="fa-solid fa-arrow-right docs-article-title-icon"></i>Guardar Borrador vs Emitir y Cobrar</span>
+                </h3>
+                <div class="docs-article-body">
+                    <strong>Guardar Borrador:</strong>
+                    <ul>
+                        <li>Guarda la factura en estado <strong>Borrador</strong> sin consumir secuencias fiscales.</li>
+                        <li>Puedes realizar modificaciones posteriores sin restricciones.</li>
+                        <li>La factura no tiene validez fiscal hasta que se emita.</li>
+                    </ul>
+                    <strong>Emitir y Cobrar (Firma y Transmisión):</strong>
+                    <ul>
+                        <li>El sistema <strong>consume la secuencia</strong> correspondiente (E31 o E32) del rango activo.</li>
+                        <li>Envía la estructura de datos a la API homologada de la <strong>DGII</strong> para firmarla con tu certificado digital.</li>
+                        <li>Recibe la validación y aprobación de la DGII en tiempo real.</li>
+                        <li>Genera y estampa en la factura un <strong>Código QR obligatorio</strong> de validación pública.</li>
+                        <li>Almacena de forma segura el archivo oficial XML.</li>
+                        <li>Permite descargar la representación impresa en PDF.</li>
+                    </ul>
+                    <div class="fiscal-alert-box">
+                        <i class="fa-solid fa-qrcode"></i>
+                        <div class="fiscal-alert-text">
+                            El <strong>Código QR</strong> es una exigencia de la DGII. Cualquier persona puede escanearlo con su celular para verificar la validez del comprobante en el portal oficial de la DGII, garantizando la transparencia y autenticidad del documento.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Contingencia -->
+        <section id="contingencia" class="docs-section" data-search-content="contingencia fallback modo offline leyenda 72 horas">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-emerald);"></i>
+                <span>Operación en Contingencia</span>
+            </div>
+
+            <div class="docs-article" data-search-content="modo contingencia fallback sin internet offline regularizar">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text"><i class="fa-solid fa-wifi docs-article-title-icon"></i>Modo Contingencia (Fallback)</span>
+                </h3>
+                <div class="docs-article-body">
+                    Si al emitir una factura la plataforma detecta intermitencias en la conexión o los servidores de la DGII no están disponibles, se activa automáticamente el <strong>Modo Contingencia</strong>:
+                    <br><br>
+                    <ul>
+                        <li>La factura se crea localmente bajo el estado <strong>Emitida</strong>.</li>
+                        <li>Se estampa automáticamente en el PDF la leyenda obligatoria: <code>"e-CF emitido en modalidad de contingencia"</code>.</li>
+                        <li>Se genera un código QR de validación local provisional.</li>
+                        <li>El cliente puede sustentar fiscalmente su compra de inmediato con el comprobante impreso.</li>
+                    </ul>
+                    <strong>Regularización:</strong>
+                    <ul>
+                        <li>Una vez restablecida la conexión, accede al Dashboard o utiliza el botón de sincronización de contingencias.</li>
+                        <li>La plataforma enviará y firmará automáticamente los comprobantes pendientes ante la DGII.</li>
+                        <li>El plazo legal para la regularización es de <strong>72 horas</strong>.</li>
+                    </ul>
+                    <div class="fiscal-alert-box alert-danger">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <div class="fiscal-alert-text">
+                            <strong>Importante:</strong> Exceder el plazo de 72 horas puede resultar en la pérdida de validez fiscal del comprobante y posibles sanciones tributarias. {{ product_name }} monitorea el tiempo transcurrido y te alerta cuando se acerca el límite.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Registro de Cobro -->
+        <section id="cobros" class="docs-section" data-search-content="cobro pago transferencia efectivo cheque tarjeta conciliar">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-hand-holding-dollar" style="color: var(--accent-emerald);"></i>
+                <span>Registro de Cobro</span>
+            </div>
+
+            <div class="docs-article" data-search-content="registrar cobro factura metodos pago conciliacion bancaria">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text"><i class="fa-solid fa-money-bill-wave docs-article-title-icon"></i>Cómo Registrar un Cobro</span>
+                </h3>
+                <div class="docs-article-body">
+                    Una vez emitida la factura, puedes registrar el cobro cuando recibas el pago de tu cliente:
+                    <br><br>
+                    <ol>
+                        <li>Accede al <strong>Detalle de la Factura</strong> (<code>/invoices/&lt;id&gt;</code>).</li>
+                        <li>Haz clic en <strong>Registrar Cobro</strong>.</li>
+                        <li>Selecciona el <strong>Método de Pago</strong>:
+                            <ul>
+                                <li><strong>Transferencia:</strong> Pago electrónico entre cuentas bancarias.</li>
+                                <li><strong>Efectivo:</strong> Pago en efectivo recibido directamente.</li>
+                                <li><strong>Cheque:</strong> Pago mediante cheque bancario.</li>
+                                <li><strong>Tarjeta:</strong> Pago con tarjeta de crédito/débito (puede tener comisión asociada).</li>
+                            </ul>
+                        </li>
+                        <li>Ingresa el <strong>monto</strong> recibido y la <strong>referencia</strong> del depósito o transacción.</li>
+                        <li>Selecciona la <strong>cuenta bancaria de destino</strong> (o caja de efectivo).</li>
+                        <li>Haz clic en <strong>Registrar</strong>. La factura se marcará automáticamente como <strong>Cobrada</strong> con la fecha y hora de conciliación.</li>
+                    </ol>
+                </div>
+            </div>
+        </section>
+
+        <!-- Notas de Crédito/Débito -->
+        <section id="notas" class="docs-section" data-search-content="nota credito debito e35 correccion anulacion 30 dias">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-ban" style="color: var(--accent-emerald);"></i>
+                <span>Notas de Crédito y Débito (E35)</span>
+            </div>
+
+            <div class="docs-article" data-search-content="correccion e35 nota credito debito anulacion error">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text"><i class="fa-solid fa-pen docs-article-title-icon"></i>Correcciones y Anulaciones</span>
+                </h3>
+                <div class="docs-article-body">
+                    Según la normativa de la DGII, las reglas para corregir o anular un e-CF dependen del estado del documento:
+                    <br><br>
+                    <ul>
+                        <li><strong>Factura en estado Borrador:</strong> Puedes cancelarla o editarla directamente sin repercusiones legales.</li>
+                        <li><strong>e-CF Firmado y Enviado a la DGII:</strong> Las correcciones solo pueden realizarse mediante una <strong>Nota de Crédito (E35)</strong> para anular total o parcialmente el comprobante, o una <strong>Nota de Débito</strong> para incrementar el valor.</li>
+                        <li><strong>e-CF Firmado pero NO Enviado:</strong> Puedes iniciar una anulación directa de secuencia sin necesidad de nota de crédito.</li>
+                    </ul>
+                    <div class="fiscal-alert-box alert-warning">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div class="fiscal-alert-text">
+                            <strong>Regla de los 30 días:</strong> Si emites una Nota de Crédito después de <strong>30 días calendario</strong> desde el nacimiento de la obligación tributaria, la devolución de bienes gravados con ITBIS conllevará únicamente la restitución del precio pagado, <strong>sin incluir la devolución del ITBIS</strong>.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Mensaje de No Resultados -->
+        <div id="no-results" class="no-results-state">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <h4>No encontramos resultados</h4>
+            <p>Prueba buscando con palabras clave como "E31", "retención", "contingencia" o "cobro".</p>
+        </div>
+
+        <div class="docs-footer-banner">
+            <div>
+                <h4>¿Ya dominas las ventas?</h4>
+                <p>Ahora puedes explorar la guía de Compras y Cuentas por Pagar para gestionar tus facturas de proveedor.</p>
+            </div>
+            <a href="/help/03-compras" class="btn btn-secondary"
+                style="white-space: nowrap; padding: 10px 20px; font-weight: 500;">
+                <i class="fa-solid fa-arrow-right"></i>
+                <span>Ir a Compras</span>
+            </a>
+        </div>
+
+    </main>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchInput = document.getElementById('faq-search');
+        const sidebarItems = document.querySelectorAll('.docs-sidebar-item');
+        const sections = document.querySelectorAll('.docs-section');
+        const articles = document.querySelectorAll('.docs-article');
+        const noResults = document.getElementById('no-results');
+
+        searchInput.addEventListener('input', function () {
+            const query = this.value.toLowerCase().trim();
+            let hasVisibleArticlesGlobal = false;
+            sections.forEach(section => {
+                const sectionArticles = section.querySelectorAll('.docs-article');
+                const sectionGlossary = section.querySelectorAll('.glossary-card');
+                let hasVisibleArticlesInSection = false;
+                sectionArticles.forEach(article => {
+                    const searchContent = article.getAttribute('data-search-content').toLowerCase();
+                    const titleText = article.querySelector('.docs-article-title').textContent.toLowerCase();
+                    const bodyText = article.querySelector('.docs-article-body').textContent.toLowerCase();
+                    const matches = searchContent.includes(query) || titleText.includes(query) || bodyText.includes(query);
+                    if (matches || query === '') { article.style.display = 'block'; hasVisibleArticlesInSection = true; hasVisibleArticlesGlobal = true; }
+                    else { article.style.display = 'none'; }
+                });
+                sectionGlossary.forEach(card => {
+                    const text = card.textContent.toLowerCase();
+                    const matches = text.includes(query);
+                    if (matches || query === '') { card.style.display = 'block'; hasVisibleArticlesInSection = true; hasVisibleArticlesGlobal = true; }
+                    else { card.style.display = 'none'; }
+                });
+                const glossary = section.querySelector('.glossary-grid');
+                if (glossary) {
+                    const visibleCards = glossary.querySelectorAll('.glossary-card[style*="display: block"], .glossary-card:not([style])');
+                    if (visibleCards.length === 0 && query !== '') glossary.style.display = 'none';
+                    else glossary.style.display = 'grid';
+                }
+                if (hasVisibleArticlesInSection) {
+                    section.style.display = 'block';
+                    const targetId = section.getAttribute('id');
+                    const sidebarLink = document.querySelector(`.docs-sidebar-item[data-target="${targetId}"]`);
+                    if (sidebarLink) sidebarLink.style.display = 'block';
+                } else {
+                    section.style.display = 'none';
+                    const targetId = section.getAttribute('id');
+                    const sidebarLink = document.querySelector(`.docs-sidebar-item[data-target="${targetId}"]`);
+                    if (sidebarLink) sidebarLink.style.display = 'none';
+                }
+            });
+            if (hasVisibleArticlesGlobal) noResults.style.display = 'none';
+            else noResults.style.display = 'block';
+        });
+
+        window.addEventListener('scroll', function () {
+            let currentSectionId = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                if (pageYOffset >= (sectionTop - 120)) currentSectionId = section.getAttribute('id');
+            });
+            if (currentSectionId) {
+                sidebarItems.forEach(item => {
+                    item.classList.remove('active');
+                    if (item.getAttribute('data-target') === currentSectionId) item.classList.add('active');
+                });
+            }
+        });
+
+        sidebarItems.forEach(item => {
+            const link = item.querySelector('a');
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = item.getAttribute('data-target');
+                const targetSection = document.getElementById(targetId);
+                if (targetSection) {
+                    window.scrollTo({ top: targetSection.offsetTop - 90, behavior: 'smooth' });
+                    sidebarItems.forEach(i => i.classList.remove('active'));
+                    item.classList.add('active');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

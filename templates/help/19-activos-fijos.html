@@ -1,0 +1,445 @@
+{% extends "layout.html" %}
+
+{% block title %}Activos Fijos - {{ product_name }}{% endblock %}
+
+{% block page_header %}Activos Fijos{% endblock %}
+
+{% block extra_head %}
+<style>
+    .docs-layout { display: grid; grid-template-columns: 280px 1fr; gap: 40px; max-width: 100%; margin: 0 auto; align-items: start; }
+    .docs-layout strong { font-weight: 500; }
+    .docs-sidebar { position: sticky; top: 80px; max-height: calc(100vh - 120px); overflow-y: auto; padding-right: 15px; }
+    .docs-sidebar::-webkit-scrollbar { width: 4px; }
+    .docs-sidebar-group { margin-bottom: 24px; }
+    .docs-sidebar-group-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.08em; margin-bottom: 10px; padding-left: 8px; }
+    .docs-sidebar-menu { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .docs-sidebar-item a { display: flex; align-items: center; gap: 10px; padding: 8px 12px; font-size: 0.88rem; color: var(--text-secondary); border-radius: var(--radius-sm); transition: all var(--transition-fast); line-height: 1.4; }
+    .docs-sidebar-item a:hover { color: var(--text-primary); background-color: var(--bg-nav-hover); }
+    .docs-sidebar-item.active a { color: var(--accent-emerald); background-color: var(--bg-brand-translucent); font-weight: 500; }
+    .docs-sidebar-footer-info { background-color: var(--bg-brand-translucent); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; margin-top: 30px; display: flex; gap: 10px; }
+    .docs-sidebar-footer-info i { color: var(--accent-emerald); font-size: 1rem; margin-top: 2px; }
+    .docs-content { min-width: 0; }
+    .docs-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 1px solid var(--border-color); margin-bottom: 30px; gap: 20px; }
+    .docs-header h2 { font-size: 1.6rem; font-weight: 800; color: var(--text-primary); margin-bottom: 4px; }
+    .docs-header p { color: var(--text-secondary); font-size: 0.92rem; }
+    .docs-search-wrapper { position: relative; width: 320px; }
+    .docs-search-input { width: 100%; height: 38px; padding: 0 16px 0 38px; background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: 20px; color: var(--text-primary); font-size: 0.85rem; transition: all var(--transition-fast); }
+    .docs-search-input:focus { border-color: var(--accent-emerald); box-shadow: var(--shadow-glow); }
+    .docs-search-wrapper .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.9rem; }
+    .docs-section { margin-bottom: 45px; scroll-margin-top: 80px; }
+    .docs-section-title { font-size: 1.35rem; font-weight: 800; color: var(--text-primary); padding-bottom: 8px; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+    .glossary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .glossary-card { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px; transition: all var(--transition-fast); }
+    .glossary-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); border-color: var(--accent-emerald); }
+    .glossary-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .glossary-card-icon { font-size: 1.1rem; color: var(--accent-emerald); }
+    .glossary-card-title { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); }
+    .glossary-card-text { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.45; }
+    .docs-article { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 24px; margin-bottom: 20px; transition: border-color var(--transition-fast), box-shadow var(--transition-fast); }
+    .docs-article:hover { border-color: var(--border-glow); box-shadow: var(--shadow-sm); }
+    .docs-article-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .docs-article-title-text { display: flex; align-items: center; gap: 10px; }
+    .docs-article-title-icon { font-size: 0.95rem; color: var(--accent-emerald); opacity: 0.8; }
+    .docs-article-body { font-size: 0.92rem; color: var(--text-secondary); line-height: 1.6; }
+    .docs-article-body strong { color: var(--text-primary); font-weight: 500; }
+    .docs-article-body code { background-color: var(--bg-input); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.82rem; color: var(--accent-purple); border: 1px solid var(--border-color); }
+    .docs-article-body ul { margin: 12px 0; padding-left: 20px; }
+    .docs-article-body li { margin-bottom: 6px; }
+    .fiscal-alert-box { background-color: var(--bg-brand-translucent); border-left: 4px solid var(--accent-emerald); border-radius: 4px; padding: 14px 16px; margin-top: 16px; display: flex; gap: 12px; align-items: flex-start; }
+    .fiscal-alert-box.alert-warning { border-left-color: var(--accent-yellow); background-color: rgba(245, 158, 11, 0.05); }
+    .fiscal-alert-box.alert-danger { border-left-color: var(--accent-red); background-color: rgba(220, 38, 38, 0.05); }
+    .fiscal-alert-box.alert-success { border-left-color: var(--accent-success); background-color: rgba(22, 163, 74, 0.05); }
+    .fiscal-alert-box i { font-size: 1.05rem; margin-top: 2px; }
+    .fiscal-alert-box.alert-warning i { color: var(--accent-yellow); }
+    .fiscal-alert-box.alert-danger i { color: var(--accent-red); }
+    .fiscal-alert-box.alert-success i { color: var(--accent-success); }
+    .fiscal-alert-text { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; }
+    .no-results-state { text-align: center; padding: 40px; background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); display: none; }
+    .no-results-state i { font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; }
+    .no-results-state h4 { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; color: var(--text-primary); }
+    .no-results-state p { color: var(--text-secondary); font-size: 0.88rem; }
+    .docs-footer-banner { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 24px; display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 40px; margin-bottom: 40px; }
+    .docs-footer-banner h4 { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; color: var(--text-primary); }
+    .docs-footer-banner p { color: var(--text-secondary); font-size: 0.85rem; margin: 0; line-height: 1.4; }
+    @media (max-width: 1024px) { .docs-layout { grid-template-columns: 1fr; gap: 24px; } .docs-sidebar { position: static; max-height: none; overflow-y: visible; padding-right: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 20px; } .docs-header { flex-direction: column; align-items: flex-start; gap: 16px; } .docs-search-wrapper { width: 100%; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="docs-layout">
+
+    <aside class="docs-sidebar">
+        <div class="docs-sidebar-group">
+            <div class="docs-sidebar-group-title">Activos Fijos</div>
+            <ul class="docs-sidebar-menu">
+                <li class="docs-sidebar-item active" data-target="registro">
+                    <a href="#registro"><i class="fa-solid fa-plus-circle"></i><span>Registro de Activo</span></a>
+                </li>
+                <li class="docs-sidebar-item" data-target="categorias">
+                    <a href="#categorias"><i class="fa-solid fa-layer-group"></i><span>Categorías DGII y Vida Útil</span></a>
+                </li>
+                <li class="docs-sidebar-item" data-target="depreciacion">
+                    <a href="#depreciacion"><i class="fa-solid fa-chart-line"></i><span>Depreciación Mensual</span></a>
+                </li>
+                <li class="docs-sidebar-item" data-target="contable">
+                    <a href="#contable"><i class="fa-solid fa-calculator"></i><span>Valor Neto y Asientos Contables</span></a>
+                </li>
+            </ul>
+        </div>
+        <div class="docs-sidebar-footer-info">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>{{ product_name }} cumple con la Ley 32-23 de Facturación Electrónica en República Dominicana.</span>
+        </div>
+    </aside>
+
+    <main class="docs-content">
+
+        <div class="docs-header">
+            <div class="docs-header-left">
+                <h2>Activos Fijos</h2>
+                <p>Gestiona el registro, depreciación y control contable de los activos fijos de tu empresa conforme a las normativas de la DGII.</p>
+            </div>
+            <div class="docs-search-wrapper">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" id="faq-search" class="docs-search-input" placeholder="Buscar en activos fijos...">
+            </div>
+        </div>
+
+        <!-- 1. Registro de Activo -->
+        <section id="registro" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-plus-circle" style="color: var(--accent-emerald);"></i>
+                <span>Registro de Activo Fijo</span>
+            </div>
+
+            <div class="glossary-grid">
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-building glossary-card-icon"></i>
+                        <h4 class="glossary-card-title">Activo Fijo</h4>
+                    </div>
+                    <p class="glossary-card-text">
+                        Bien tangible de larga duración (más de 1 año) utilizado para la operación del negocio. Ej: edificios, maquinaria, vehículos, equipos de oficina.
+                    </p>
+                </div>
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-clock glossary-card-icon" style="color: var(--accent-purple);"></i>
+                        <h4 class="glossary-card-title">Vida Útil</h4>
+                    </div>
+                    <p class="glossary-card-text">
+                        Período estimado durante el cual el activo generará beneficios económicos. La DGII establece la vida útil mínima por categoría.
+                    </p>
+                </div>
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-percent glossary-card-icon" style="color: var(--accent-yellow);"></i>
+                        <h4 class="glossary-card-title">Valor Residual</h4>
+                    </div>
+                    <p class="glossary-card-text">
+                        Valor estimado del activo al final de su vida útil. Se excluye de la base de depreciación. Generalmente entre 0% y 10% del valor original.
+                    </p>
+                </div>
+            </div>
+
+            <div class="docs-article" data-search-content="registrar activo fijo codigo descripcion valor fecha">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-pen-to-square docs-article-title-icon"></i>
+                        ¿Cómo registrar un nuevo activo fijo?
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    Sigue estos pasos para incorporar un activo fijo al sistema:
+                    <br><br>
+                    <strong>1. Accede al módulo de Activos Fijos</strong>
+                    <ul>
+                        <li>En el menú lateral, navega a <strong>Finanzas → Activos Fijos</strong> o <strong>Contabilidad → Activos</strong>.</li>
+                        <li>Haz clic en <strong>+ Nuevo Activo</strong>.</li>
+                    </ul>
+
+                    <strong>2. Datos generales del activo</strong>
+                    <ul>
+                        <li><strong>Código:</strong> Código interno de identificación (ej. <code>EQ-001</code>, <code>VEH-2026-01</code>). Puede ser generado automáticamente por el sistema.</li>
+                        <li><strong>Descripción:</strong> Nombre detallado del activo, ej. "Laptop Dell Latitude 5440 - Gerencia".</li>
+                        <li><strong>Fecha de Adquisición:</strong> Fecha en que se compró el activo. A partir de esta fecha se calcula la depreciación.</li>
+                        <li><strong>Número de Factura:</strong> NCF o factura de compra asociada a la adquisición (opcional pero recomendado).</li>
+                    </ul>
+
+                    <strong>3. Datos financieros</strong>
+                    <ul>
+                        <li><strong>Valor de Adquisición:</strong> Precio de compra del activo, incluyendo todos los costos necesarios para ponerlo en funcionamiento (instalación, fletes, impuestos no recuperables).</li>
+                        <li><strong>Valor Residual:</strong> Porcentaje del valor que se estima conservará el activo al final de su vida útil (ej. 5% o 10%).</li>
+                        <li><strong>Categoría DGII:</strong> Selecciona la categoría fiscal según el tipo de activo (edificio, maquinaria, vehículo, etc.). La vida útil se asignará automáticamente.</li>
+                        <li><strong>Ubicación:</strong> Dónde se encuentra físicamente el activo (oficina, almacén, sucursal, etc.).</li>
+                    </ul>
+
+                    <strong>4. Guarda el activo</strong>
+                    <ul>
+                        <li>Haz clic en <strong>Guardar</strong>. El sistema calculará automáticamente la depreciación mensual y la depreciación acumulada inicial.</li>
+                        <li>El activo quedará disponible en tu listado de activos fijos y comenzará a depreciarse desde la fecha de adquisición.</li>
+                    </ul>
+
+                    <div class="fiscal-alert-box">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <div class="fiscal-alert-text">
+                            Los activos fijos con valor menor a RD$ 20,000 pueden registrarse como <strong>gasto directo</strong> en lugar de activo, según las normas de la DGII. Consulta con tu contador para determinar el tratamiento correcto.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. Categorías DGII y Vida Útil -->
+        <section id="categorias" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-layer-group" style="color: var(--accent-emerald);"></i>
+                <span>Categorías DGII y Vida Útil</span>
+            </div>
+
+            <div class="docs-article" data-search-content="categorias dgii vida util edificios maquinaria vehiculos equipos">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-table docs-article-title-icon"></i>
+                        Categorías y tasas de depreciación según la DGII
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    La Dirección General de Impuestos Internos (DGII) de la República Dominicana establece las siguientes categorías de activos fijos con sus respectivas vidas útiles y tasas de depreciación anual:
+                    <br><br>
+                    <strong>1. Edificios y Construcciones</strong>
+                    <ul>
+                        <li><strong>Vida Útil:</strong> 20 años</li>
+                        <li><strong>Tasa Anual:</strong> 5%</li>
+                        <li><strong>Ejemplos:</strong> Oficinas, almacenes, locales comerciales, plantas de producción.</li>
+                    </ul>
+
+                    <strong>2. Maquinaria y Equipos de Producción</strong>
+                    <ul>
+                        <li><strong>Vida Útil:</strong> 10 años</li>
+                        <li><strong>Tasa Anual:</strong> 10%</li>
+                        <li><strong>Ejemplos:</strong> Maquinaria industrial, equipos de fabricación, herramientas especializadas.</li>
+                    </ul>
+
+                    <strong>3. Equipos de Oficina</strong>
+                    <ul>
+                        <li><strong>Vida Útil:</strong> 5 años</li>
+                        <li><strong>Tasa Anual:</strong> 20%</li>
+                        <li><strong>Ejemplos:</strong> Fotocopiadoras, aires acondicionados, centrales telefónicas, mobiliario general de oficina.</li>
+                    </ul>
+
+                    <strong>4. Vehículos</strong>
+                    <ul>
+                        <li><strong>Vida Útil:</strong> 5 años</li>
+                        <li><strong>Tasa Anual:</strong> 20%</li>
+                        <li><strong>Ejemplos:</strong> Automóviles, camionetas, motocicletas, camiones de reparto.</li>
+                    </ul>
+
+                    <strong>5. Equipos Informáticos y de Comunicación</strong>
+                    <ul>
+                        <li><strong>Vida Útil:</strong> 3 años</li>
+                        <li><strong>Tasa Anual:</strong> 33.33%</li>
+                        <li><strong>Ejemplos:</strong> Computadoras, laptops, servidores, impresoras, scanners, switches de red.</li>
+                    </ul>
+
+                    <strong>6. Mobiliario</strong>
+                    <ul>
+                        <li><strong>Vida Útil:</strong> 5 años</li>
+                        <li><strong>Tasa Anual:</strong> 20%</li>
+                        <li><strong>Ejemplos:</strong> Escritorios, sillas, estanterías, mesas de reuniones, archivadores.</li>
+                    </ul>
+
+                    <strong>7. Software y Programas Informáticos</strong>
+                    <ul>
+                        <li><strong>Vida Útil:</strong> 3 años</li>
+                        <li><strong>Tasa Anual:</strong> 33.33%</li>
+                        <li><strong>Ejemplos:</strong> Licencias de software, sistemas ERP, programas de diseño.</li>
+                    </ul>
+
+                    <div class="fiscal-alert-box alert-warning">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div class="fiscal-alert-text">
+                            <strong>Importante:</strong> Las vidas útiles aquí indicadas son los <strong>mínimos</strong> permitidos por la DGII. Puedes usar una vida útil mayor si el activo tiene una duración real más larga, pero no una menor. Consulta con tu contador para determinar la vida útil adecuada para cada activo.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Depreciación Mensual -->
+        <section id="depreciacion" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-chart-line" style="color: var(--accent-emerald);"></i>
+                <span>Depreciación Mensual</span>
+            </div>
+
+            <div class="docs-article" data-search-content="depreciacion linea recta mensual calculo formula ejemplo">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-calculator docs-article-title-icon"></i>
+                        ¿Cómo se calcula la depreciación mensual?
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    El sistema utiliza el <strong>método de línea recta</strong> para calcular la depreciación mensual de cada activo:
+                    <br><br>
+                    <strong>1. Fórmula de depreciación</strong>
+                    <ul>
+                        <li><strong>Base de Depreciación = Valor de Adquisición - Valor Residual</strong></li>
+                        <li><strong>Depreciación Mensual = Base de Depreciación / (Vida Útil en Años × 12 meses)</strong></li>
+                    </ul>
+
+                    <strong>2. Ejemplo práctico</strong>
+                    <ul>
+                        <li>Activo: Laptop con valor de RD$ 80,000</li>
+                        <li>Vida Útil: 3 años (equipo informático)</li>
+                        <li>Valor Residual: 10% = RD$ 8,000</li>
+                        <li>Base de Depreciación: RD$ 80,000 - RD$ 8,000 = RD$ 72,000</li>
+                        <li>Depreciación Mensual: RD$ 72,000 / (3 × 12) = RD$ 72,000 / 36 = <strong>RD$ 2,000/mes</strong></li>
+                        <li>Depreciación Anual: RD$ 2,000 × 12 = <strong>RD$ 24,000/año</strong></li>
+                    </ul>
+
+                    <strong>3. Cálculo automático del sistema</strong>
+                    <ul>
+                        <li>Al registrar un activo, el sistema calcula automáticamente la depreciación mensual y la depreciación acumulada desde la fecha de adquisición hasta la fecha actual.</li>
+                        <li>Cada mes, el sistema registra automáticamente la cuota de depreciación mensual en el libro de activos.</li>
+                        <li>Puedes consultar el <strong>reporte de depreciación</strong> en cualquier momento para ver el detalle mes a mes.</li>
+                        <li>El reporte muestra: valor inicial, depreciación del período, depreciación acumulada y valor neto en libros.</li>
+                    </ul>
+
+                    <div class="fiscal-alert-box alert-success">
+                        <i class="fa-solid fa-check-circle"></i>
+                        <div class="fiscal-alert-text">
+                            <strong>Depreciación proporcional:</strong> Si el activo se adquirió a mitad de mes, el sistema calcula la depreciación proporcional a los días restantes del mes, asegurando precisión contable.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. Valor Neto y Asientos Contables -->
+        <section id="contable" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-calculator" style="color: var(--accent-emerald);"></i>
+                <span>Valor Neto y Asientos Contables Automáticos</span>
+            </div>
+
+            <div class="docs-article" data-search-content="valor neto depreciacion acumulada asientos contables automaticos">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-book-open docs-article-title-icon"></i>
+                        Valor en libros y contabilización
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    <strong>1. Valor Neto en Libros</strong>
+                    <ul>
+                        <li><strong>Valor Neto = Valor de Adquisición - Depreciación Acumulada</strong></li>
+                        <li>El valor neto representa el valor contable actual del activo después de descontar la depreciación registrada hasta la fecha.</li>
+                        <li>Ejemplo: Si la laptop de RD$ 80,000 tiene 18 meses de depreciación acumulada (RD$ 2,000 × 18 = RD$ 36,000), su valor neto es RD$ 80,000 - RD$ 36,000 = <strong>RD$ 44,000</strong>.</li>
+                    </ul>
+
+                    <strong>2. Depreciación Acumulada</strong>
+                    <ul>
+                        <li>Es la suma de todas las cuotas de depreciación registradas desde la fecha de adquisición hasta la fecha actual.</li>
+                        <li>Se muestra como una cuenta de <strong>valor negativo</strong> (cuenta de compensación) en el balance general.</li>
+                    </ul>
+
+                    <strong>3. Asientos contables automáticos</strong>
+                    <ul>
+                        <li>Al registrar la depreciación mensual, el sistema genera automáticamente los siguientes asientos contables:
+                            <ul>
+                                <li><strong>Débito:</strong> Cuenta de Gasto por Depreciación (Estado de Resultados).</li>
+                                <li><strong>Crédito:</strong> Cuenta de Depreciación Acumulada (Balance General).</li>
+                            </ul>
+                        </li>
+                        <li>Las cuentas contables se asignan según la categoría del activo y la configuración del plan de cuentas de tu empresa.</li>
+                        <li>Puedes consultar el comprobante contable generado desde el detalle de cada activo.</li>
+                    </ul>
+
+                    <strong>4. Baja de activo</strong>
+                    <ul>
+                        <li>Cuando un activo se vende, se da de baja o se retira, debes registrarlo en el sistema.</li>
+                        <li>El sistema calculará la ganancia o pérdida por la baja (diferencia entre el valor de venta y el valor neto en libros).</li>
+                        <li>Se generarán los asientos contables correspondientes para cancelar el activo y su depreciación acumulada.</li>
+                    </ul>
+
+                    <div class="fiscal-alert-box alert-warning">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div class="fiscal-alert-text">
+                            <strong>Nota fiscal:</strong> La depreciación es un <strong>gasto deducible</strong> para el ISR (Impuesto sobre la Renta). Asegúrate de que los cálculos de depreciación coincidan con los registros presentados en tu declaración anual de ISR.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div id="no-results" class="no-results-state">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <h4>No encontramos resultados</h4>
+            <p>Prueba buscando con palabras clave como "Depreciación", "Vida Útil", "DGII" o "Valor Neto".</p>
+        </div>
+
+        <div class="docs-footer-banner">
+            <div>
+                <h4>¿Necesitas ayuda con la clasificación de un activo?</h4>
+                <p>Si tienes dudas sobre la categoría DGII o la vida útil de un activo, consulta con tu contador de confianza. {{ product_name }} aplica los parámetros estándar de la DGII.</p>
+            </div>
+            <a href="/help" class="btn btn-secondary" style="white-space: nowrap; padding: 10px 20px; font-weight: 500;">
+                <i class="fa-solid fa-book"></i><span>Volver al Centro de Ayuda</span>
+            </a>
+        </div>
+
+    </main>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchInput = document.getElementById('faq-search');
+        const sidebarItems = document.querySelectorAll('.docs-sidebar-item');
+        const sections = document.querySelectorAll('.docs-section');
+        const articles = document.querySelectorAll('.docs-article');
+        const noResults = document.getElementById('no-results');
+
+        searchInput.addEventListener('input', function () {
+            const query = this.value.toLowerCase().trim();
+            let hasVisibleArticlesGlobal = false;
+            sections.forEach(section => {
+                const sectionArticles = section.querySelectorAll('.docs-article');
+                let hasVisibleArticlesInSection = false;
+                sectionArticles.forEach(article => {
+                    const searchContent = article.getAttribute('data-search-content').toLowerCase();
+                    const titleText = article.querySelector('.docs-article-title').textContent.toLowerCase();
+                    const bodyText = article.querySelector('.docs-article-body').textContent.toLowerCase();
+                    const matches = searchContent.includes(query) || titleText.includes(query) || bodyText.includes(query);
+                    if (matches || query === '') { article.style.display = 'block'; hasVisibleArticlesInSection = true; hasVisibleArticlesGlobal = true; }
+                    else { article.style.display = 'none'; }
+                });
+                const glossary = section.querySelector('.glossary-grid');
+                if (glossary) { if (query === '') { glossary.style.display = 'grid'; hasVisibleArticlesInSection = true; } else { glossary.style.display = 'none'; } }
+                if (hasVisibleArticlesInSection) { section.style.display = 'block'; const targetId = section.getAttribute('id'); const sidebarLink = document.querySelector(`.docs-sidebar-item[data-target="${targetId}"]`); if (sidebarLink) sidebarLink.style.display = 'block'; }
+                else { section.style.display = 'none'; const targetId = section.getAttribute('id'); const sidebarLink = document.querySelector(`.docs-sidebar-item[data-target="${targetId}"]`); if (sidebarLink) sidebarLink.style.display = 'none'; }
+            });
+            noResults.style.display = hasVisibleArticlesGlobal ? 'none' : 'block';
+        });
+
+        window.addEventListener('scroll', function () {
+            let currentSectionId = '';
+            sections.forEach(section => { const sectionTop = section.offsetTop; if (pageYOffset >= (sectionTop - 120)) currentSectionId = section.getAttribute('id'); });
+            if (currentSectionId) { sidebarItems.forEach(item => { item.classList.remove('active'); if (item.getAttribute('data-target') === currentSectionId) item.classList.add('active'); }); }
+        });
+
+        sidebarItems.forEach(item => {
+            const link = item.querySelector('a');
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = item.getAttribute('data-target');
+                const targetSection = document.getElementById(targetId);
+                if (targetSection) { window.scrollTo({ top: targetSection.offsetTop - 90, behavior: 'smooth' }); sidebarItems.forEach(i => i.classList.remove('active')); item.classList.add('active'); }
+            });
+        });
+    });
+</script>
+{% endblock %}

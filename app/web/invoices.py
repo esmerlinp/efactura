@@ -8239,6 +8239,17 @@ def help_center():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     return render_template('help.html', active_page='help')
 
+
+@web_invoices_bp.route('/help/<path:module_name>')
+def help_module(module_name):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    # Eliminar extensión .html si viene en la URL (ej. /help/01-onboarding.html)
+    if module_name.endswith('.html'):
+        module_name = module_name[:-5]
+    template = f'help/{module_name}.html'
+    return render_template(template, active_page='help')
+
 @web_invoices_bp.route('/api/chatbot', methods=['POST'])
 @require_module('ia_bi')
 @require_permission('canUseChatbot', 'Asistente IA')

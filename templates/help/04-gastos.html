@@ -1,0 +1,404 @@
+{% extends "layout.html" %}
+
+{% block title %}Gestión de Gastos - {{ product_name }}{% endblock %}
+
+{% block page_header %}Guía de Gastos{% endblock %}
+
+{% block extra_head %}
+<style>
+    .docs-layout { display: grid; grid-template-columns: 280px 1fr; gap: 40px; max-width: 100%; margin: 0 auto; align-items: start; }
+    .docs-layout strong { font-weight: 500; }
+    .docs-sidebar { position: sticky; top: 80px; max-height: calc(100vh - 120px); overflow-y: auto; padding-right: 15px; }
+    .docs-sidebar::-webkit-scrollbar { width: 4px; }
+    .docs-sidebar-group { margin-bottom: 24px; }
+    .docs-sidebar-group-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.08em; margin-bottom: 10px; padding-left: 8px; }
+    .docs-sidebar-menu { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .docs-sidebar-item a { display: flex; align-items: center; gap: 10px; padding: 8px 12px; font-size: 0.88rem; color: var(--text-secondary); border-radius: var(--radius-sm); transition: all var(--transition-fast); line-height: 1.4; }
+    .docs-sidebar-item a:hover { color: var(--text-primary); background-color: var(--bg-nav-hover); }
+    .docs-sidebar-item.active a { color: var(--accent-emerald); background-color: var(--bg-brand-translucent); font-weight: 500; }
+    .docs-sidebar-footer-info { background-color: var(--bg-brand-translucent); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; margin-top: 30px; display: flex; gap: 10px; }
+    .docs-sidebar-footer-info i { color: var(--accent-emerald); font-size: 1rem; margin-top: 2px; }
+    .docs-content { min-width: 0; }
+    .docs-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 1px solid var(--border-color); margin-bottom: 30px; gap: 20px; }
+    .docs-header h2 { font-size: 1.6rem; font-weight: 800; color: var(--text-primary); margin-bottom: 4px; }
+    .docs-header p { color: var(--text-secondary); font-size: 0.92rem; }
+    .docs-search-wrapper { position: relative; width: 320px; }
+    .docs-search-input { width: 100%; height: 38px; padding: 0 16px 0 38px; background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: 20px; color: var(--text-primary); font-size: 0.85rem; transition: all var(--transition-fast); }
+    .docs-search-input:focus { border-color: var(--accent-emerald); box-shadow: var(--shadow-glow); }
+    .docs-search-wrapper .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.9rem; }
+    .docs-section { margin-bottom: 45px; scroll-margin-top: 80px; }
+    .docs-section-title { font-size: 1.35rem; font-weight: 800; color: var(--text-primary); padding-bottom: 8px; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+    .docs-article { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 24px; margin-bottom: 20px; transition: border-color var(--transition-fast), box-shadow var(--transition-fast); }
+    .docs-article:hover { border-color: var(--border-glow); box-shadow: var(--shadow-sm); }
+    .docs-article-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .docs-article-title-text { display: flex; align-items: center; gap: 10px; }
+    .docs-article-title-icon { font-size: 0.95rem; color: var(--accent-emerald); opacity: 0.8; }
+    .docs-article-body { font-size: 0.92rem; color: var(--text-secondary); line-height: 1.6; }
+    .docs-article-body strong { color: var(--text-primary); font-weight: 500; }
+    .docs-article-body code { background-color: var(--bg-input); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.82rem; color: var(--accent-purple); border: 1px solid var(--border-color); }
+    .docs-article-body ul { margin: 12px 0; padding-left: 20px; }
+    .docs-article-body li { margin-bottom: 6px; }
+    .glossary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .glossary-card { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px; transition: all var(--transition-fast); }
+    .glossary-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); border-color: var(--accent-emerald); }
+    .glossary-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .glossary-card-icon { font-size: 1.1rem; color: var(--accent-emerald); }
+    .glossary-card-title { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); }
+    .glossary-card-text { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.45; }
+    .fiscal-alert-box { background-color: var(--bg-brand-translucent); border-left: 4px solid var(--accent-emerald); border-radius: 4px; padding: 14px 16px; margin-top: 16px; display: flex; gap: 12px; align-items: flex-start; }
+    .fiscal-alert-box.alert-warning { border-left-color: var(--accent-yellow); background-color: rgba(245, 158, 11, 0.05); }
+    .fiscal-alert-box.alert-danger { border-left-color: var(--accent-red); background-color: rgba(220, 38, 38, 0.05); }
+    .fiscal-alert-box.alert-success { border-left-color: var(--accent-success); background-color: rgba(22, 163, 74, 0.05); }
+    .fiscal-alert-box i { font-size: 1.05rem; margin-top: 2px; }
+    .fiscal-alert-box.alert-warning i { color: var(--accent-yellow); }
+    .fiscal-alert-box.alert-danger i { color: var(--accent-red); }
+    .fiscal-alert-box.alert-success i { color: var(--accent-success); }
+    .fiscal-alert-text { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; }
+    .no-results-state { text-align: center; padding: 40px; background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); display: none; }
+    .no-results-state i { font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; }
+    .no-results-state h4 { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; color: var(--text-primary); }
+    .no-results-state p { color: var(--text-secondary); font-size: 0.88rem; }
+    .docs-footer-banner { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 24px; display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 40px; margin-bottom: 40px; }
+    .docs-footer-banner h4 { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; color: var(--text-primary); }
+    .docs-footer-banner p { color: var(--text-secondary); font-size: 0.85rem; margin: 0; line-height: 1.4; }
+    @media (max-width: 1024px) { .docs-layout { grid-template-columns: 1fr; gap: 24px; } .docs-sidebar { position: static; max-height: none; overflow-y: visible; padding-right: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 20px; } .docs-header { flex-direction: column; align-items: flex-start; gap: 16px; } .docs-search-wrapper { width: 100%; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="docs-layout">
+
+    <aside class="docs-sidebar">
+        <div class="docs-sidebar-group">
+            <div class="docs-sidebar-group-title">En esta guía</div>
+            <ul class="docs-sidebar-menu">
+                <li class="docs-sidebar-item active" data-target="deducibilidad"><a href="#deducibilidad"><i class="fa-solid fa-circle-check"></i><span>Deducibilidad</span></a></li>
+                <li class="docs-sidebar-item" data-target="switch"><a href="#switch"><i class="fa-solid fa-toggle-on"></i><span>Switch de Deducibilidad</span></a></li>
+                <li class="docs-sidebar-item" data-target="registro"><a href="#registro"><i class="fa-solid fa-pen-to-square"></i><span>Registro de Gasto</span></a></li>
+                <li class="docs-sidebar-item" data-target="aprobacion"><a href="#aprobacion"><i class="fa-solid fa-check-circle"></i><span>Flujo de Aprobación</span></a></li>
+                <li class="docs-sidebar-item" data-target="comprobantes"><a href="#comprobantes"><i class="fa-solid fa-receipt"></i><span>E41 y E43</span></a></li>
+                <li class="docs-sidebar-item" data-target="contabilidad"><a href="#contabilidad"><i class="fa-solid fa-book"></i><span>Integración Contable</span></a></li>
+            </ul>
+        </div>
+        <div class="docs-sidebar-group">
+            <div class="docs-sidebar-group-title">Volver</div>
+            <ul class="docs-sidebar-menu">
+                <li class="docs-sidebar-item"><a href="{{ url_for('web_invoices.help_center') }}"><i class="fa-solid fa-arrow-left"></i><span>Portal de Ayuda</span></a></li>
+            </ul>
+        </div>
+        <div class="docs-sidebar-footer-info">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>{{ product_name }} cumple con la Ley 32-23 de Facturación Electrónica en República Dominicana.</span>
+        </div>
+    </aside>
+
+    <main class="docs-content">
+
+        <div class="docs-header">
+            <div class="docs-header-left">
+                <h2>Gestión de Gastos</h2>
+                <p>Aprende a registrar, clasificar y aprobar gastos, y entiende la diferencia entre gasto deducible y no deducible para tu declaración de impuestos.</p>
+            </div>
+            <div class="docs-search-wrapper">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" id="faq-search" class="docs-search-input" placeholder="Buscar en esta guía...">
+            </div>
+        </div>
+
+        <!-- Deducibilidad -->
+        <section id="deducibilidad" class="docs-section" data-search-content="gasto deducible no deducible diferencia">
+            <div class="docs-section-title"><i class="fa-solid fa-circle-check" style="color: var(--accent-emerald);"></i><span>Gasto Deducible vs No Deducible</span></div>
+
+            <div class="glossary-grid">
+                <div class="glossary-card">
+                    <div class="glossary-card-header"><i class="fa-solid fa-circle-check glossary-card-icon" style="color: var(--accent-success);"></i><h4 class="glossary-card-title">Gasto Deducible</h4></div>
+                    <p class="glossary-card-text">Gasto <strong>necesario</strong> para generar ingresos gravados. Según el artículo 287 del Código Tributario RD, son deducibles los gastos indispensables para obtener, mantener y conservar tus ingresos. Ej: laptop de trabajo, internet corporativo, suscripción a {{ product_name }}, alquiler de oficina.</p>
+                </div>
+                <div class="glossary-card">
+                    <div class="glossary-card-header"><i class="fa-solid fa-circle-xmark glossary-card-icon" style="color: var(--accent-red);"></i><h4 class="glossary-card-title">Gasto No Deducible</h4></div>
+                    <p class="glossary-card-text">Gasto de carácter <strong>personal</strong> que no está relacionado con la actividad comercial. Ej: supermercado familiar, ropa personal, cine, comidas personales, regalos. No pueden restarse de los ingresos gravados.</p>
+                </div>
+            </div>
+
+            <div class="docs-article" data-search-content="deducible no deducible ejemplos practicos codigo tributario">
+                <h3 class="docs-article-title"><span class="docs-article-title-text"><i class="fa-solid fa-scale-balanced docs-article-title-icon"></i>¿Qué hace que un gasto sea Deducible?</span></h3>
+                <div class="docs-article-body">
+                    De acuerdo con el artículo 287 del Código Tributario de la República Dominicana, un gasto es <strong>deducible</strong> únicamente cuando es necesario para obtener, mantener y conservar tus ingresos gravados.
+                    <br><br>
+                    <strong>Ejemplos prácticos:</strong>
+                    <ul>
+                        <li><strong>Gastos de Negocio (Deducibles):</strong> Compra de laptop de trabajo, pago de plan corporativo de internet, suscripciones a software (como {{ product_name }}, AWS, Figma), alquiler de oficina, transporte para visitar a un cliente, papelería de oficina, servicios públicos del local comercial.</li>
+                        <li><strong>Gastos Personales (No Deducibles):</strong> Compra del supermercado familiar, ropa de uso diario, boletos de cine, regalos de cumpleaños, comidas personales del fin de semana, membresía de gimnasio.</li>
+                    </ul>
+                    <div class="fiscal-alert-box">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <div class="fiscal-alert-text">{{ product_name }} te permite registrar AMBOS tipos de gastos para que tengas control financiero completo. El <strong>switch de deducibilidad</strong> filtra automáticamente los no deducibles de los cálculos del IT-1, protegiendo tu cumplimiento legal.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Switch de Deducibilidad -->
+        <section id="switch" class="docs-section" data-search-content="switch deducibilidad toggle itbis deducible no deducible">
+            <div class="docs-section-title"><i class="fa-solid fa-toggle-on" style="color: var(--accent-emerald);"></i><span>Switch de Deducibilidad</span></div>
+
+            <div class="docs-article" data-search-content="switch toggle itbis deducible filtro diagnostico it1">
+                <h3 class="docs-article-title"><span class="docs-article-title-text"><i class="fa-solid fa-toggle-on docs-article-title-icon"></i>Cómo usar el Switch en el Registro de Gastos</span></h3>
+                <div class="docs-article-body">
+                    En el formulario de registro de gastos encontrarás un <strong>Switch/Toggle de Deducibilidad</strong> que controla si el ITBIS del gasto aplica como crédito fiscal en tu declaración IT-1:
+                    <br><br>
+                    <ul>
+                        <li><strong>Switch Activado (Deducible — Sí):</strong> El gasto se incluye en tu diagnóstico IT-1. El ITBIS pagado se suma como <strong>adelanto de ITBIS</strong> (crédito fiscal) que puedes restar del ITBIS facturado en tus ventas. Reduce el impuesto a pagar.</li>
+                        <li><strong>Switch Desactivado (Deducible — No):</strong> El gasto se guarda en tu base de datos para control financiero interno y rentabilidad, pero se <strong>excluye al 100%</strong> del diagnóstico tributario IT-1. El ITBIS pagado no se considera como crédito fiscal.</li>
+                    </ul>
+                    <div class="fiscal-alert-box alert-success">
+                        <i class="fa-solid fa-check-circle"></i>
+                        <div class="fiscal-alert-text"><strong>¿Por qué incluimos este switch?</strong> Sabemos que como freelancer o micro-pyme es difícil separar las finanzas personales de las del negocio. Este switch te permite registrar todo en un solo lugar sin cometer errores fiscales. Los gastos no deducibles se filtran automáticamente al calcular tus impuestos.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Registro de Gasto -->
+        <section id="registro" class="docs-section" data-search-content="registrar gasto categoria tipo dgii monto">
+            <div class="docs-section-title"><i class="fa-solid fa-pen-to-square" style="color: var(--accent-emerald);"></i><span>Registro de Gastos</span></div>
+
+            <div class="docs-article" data-search-content="nuevo gasto formulario categoria tipo gasto dgii monto">
+                <h3 class="docs-article-title"><span class="docs-article-title-text"><i class="fa-solid fa-file-invoice docs-article-title-icon"></i>Cómo Registrar un Gasto</span></h3>
+                <div class="docs-article-body">
+                    Accede al módulo de Gastos (<code>/expenses</code>) y haz clic en <strong>Nuevo Gasto</strong>. Completa los siguientes campos:
+                    <br><br>
+                    <ol>
+                        <li><strong>Proveedor:</strong> Selecciona el proveedor registrado o crea uno nuevo si no existe. Si es un gasto menor sin proveedor formal, selecciona la opción "Gasto Menor".</li>
+                        <li><strong>Categoría de Gasto:</strong> Clasifica el gasto según su naturaleza. Ejemplos: Suministros de Oficina, Servicios Profesionales, Viajes y Transporte, Alquiler, Servicios Públicos, Materia Prima, etc.</li>
+                        <li><strong>Tipo de Gasto DGII:</strong> Selecciona el código de clasificación tributaria para reportes 606/607. Ej: <code>02</code> — Otros Gastos, <code>05</code> — Alquileres, <code>07</code> — Servicios Profesionales.</li>
+                        <li><strong>Descripción:</strong> Detalle del gasto. Sé específico (ej: "Compra de resmas de papel para oficina" en lugar de "materiales").</li>
+                        <li><strong>Monto:</strong> Valor total del gasto sin ITBIS (subtotal).</li>
+                        <li><strong>ITBIS:</strong> Selecciona la tasa aplicable: 0% (exento), 16% (reducido) o 18% (general). El sistema calculará automáticamente el ITBIS del gasto.</li>
+                        <li><strong>Switch de Deducibilidad:</strong> Actívalo si el gasto es deducible para fines del ISR y el ITBIS es recuperable como crédito fiscal.</li>
+                        <li><strong>NCF / Tipo Comprobante:</strong> Si el proveedor te emitió un comprobante fiscal, selecciona el tipo (E31, E41, E43) e ingresa el NCF correspondiente.</li>
+                        <li><strong>Adjuntar Comprobante:</strong> Puedes adjuntar una foto del recibo, PDF o imagen del comprobante original (máximo 10 MB).</li>
+                    </ol>
+                    <div class="fiscal-alert-box alert-warning">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div class="fiscal-alert-text"><strong>Clasificación correcta es clave:</strong> El Tipo de Gasto DGII determina cómo se reporta el gasto en tus declaraciones 606/607. Una clasificación incorrecta puede generar discrepancias con la DGII. Revisa las opciones disponibles en el selector y selecciona la que mejor describa el gasto.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Flujo de Aprobación -->
+        <section id="aprobacion" class="docs-section" data-search-content="flujo aprobacion workflow pendiente aprobado rechazado">
+            <div class="docs-section-title"><i class="fa-solid fa-check-circle" style="color: var(--accent-emerald);"></i><span>Flujo de Aprobación (Workflow)</span></div>
+
+            <div class="docs-article" data-search-content="workflow aprobacion gasto pendiente aprobado rechazado flujo">
+                <h3 class="docs-article-title"><span class="docs-article-title-text"><i class="fa-solid fa-arrow-right docs-article-title-icon"></i>Estados del Gasto</span></h3>
+                <div class="docs-article-body">
+                    Cada gasto registrado pasa por un flujo de aprobación que asegura el control interno y la correcta clasificación contable:
+                    <br><br>
+                    <ul>
+                        <li><strong>Pendiente:</strong> El gasto ha sido registrado y está esperando revisión. Puede ser editado por el usuario que lo creó. No se integra contablemente hasta su aprobación.</li>
+                        <li><strong>Aprobado:</strong> Un usuario con permisos de aprobación (Propietario o con permiso <code>canModifySettings</code>) ha revisado y aprobado el gasto. El gasto se integra al diagnóstico IT-1 (si es deducible) y se registra en la contabilidad.</li>
+                        <li><strong>Rechazado:</strong> El revisor determinó que el gasto no cumple con los criterios de validez o clasificación. El gasto queda registrado pero excluido de todos los cálculos fiscales y contables. Puede ser editado y reenviado para aprobación.</li>
+                    </ul>
+                    <div class="fiscal-alert-box">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <div class="fiscal-alert-text">Los gastos en estado <strong>Pendiente</strong> no se incluyen en el diagnóstico IT-1 ni en los reportes DGII. Solo los gastos <strong>Aprobados</strong> con el switch de deducibilidad activado se consideran para el crédito fiscal de ITBIS y la deducción de ISR.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="docs-article" data-search-content="aprobar rechazar gasto permisos revisor propietario">
+                <h3 class="docs-article-title"><span class="docs-article-title-text"><i class="fa-solid fa-user-check docs-article-title-icon"></i>¿Quién puede aprobar gastos?</span></h3>
+                <div class="docs-article-body">
+                    El flujo de aprobación está controlado por permisos:
+                    <br><br>
+                    <ul>
+                        <li>El <strong>Propietario</strong> de la organización puede aprobar o rechazar cualquier gasto.</li>
+                        <li>Los usuarios con permiso <code>canModifySettings</code> también pueden aprobar gastos.</li>
+                        <li>Los colaboradores con permiso <code>canExpenses</code> pueden <strong>registrar</strong> gastos, pero no aprobarlos a menos que tengan permisos adicionales.</li>
+                    </ul>
+                    Para aprobar o rechazar un gasto:
+                    <ol>
+                        <li>Accede al detalle del gasto desde <code>/expenses</code>.</li>
+                        <li>Revisa la información: categoría, monto, comprobante adjunto, switch de deducibilidad.</li>
+                        <li>Haz clic en <strong>Aprobar</strong> o <strong>Rechazar</strong>.</li>
+                        <li>Si rechazas, puedes agregar un comentario explicando el motivo.</li>
+                    </ol>
+                </div>
+            </div>
+        </section>
+
+        <!-- E41 y E43 -->
+        <section id="comprobantes" class="docs-section" data-search-content="e41 gasto menor e43 comprobante especial registro">
+            <div class="docs-section-title"><i class="fa-solid fa-receipt" style="color: var(--accent-emerald);"></i><span>Comprobantes E41 y E43</span></div>
+
+            <div class="glossary-grid">
+                <div class="glossary-card">
+                    <div class="glossary-card-header"><i class="fa-solid fa-receipt glossary-card-icon" style="color: var(--accent-purple);"></i><h4 class="glossary-card-title">E41 — Gasto Menor</h4></div>
+                    <p class="glossary-card-text">Comprobante para gastos pequeños donde el proveedor NO emite factura formal. Límite sugerido de RD$ 250,000. Ideal para compras informales como reparaciones menores, compras a personas físicas sin RNC.</p>
+                </div>
+                <div class="glossary-card">
+                    <div class="glossary-card-header"><i class="fa-solid fa-file-contract glossary-card-icon" style="color: var(--accent-yellow);"></i><h4 class="glossary-card-title">E43 — Comprobante Especial</h4></div>
+                    <p class="glossary-card-text">Para entidades gubernamentales, instituciones sin fines de lucro o regímenes especiales de tributación. Requiere configuración específica y validación del tipo de comprobante.</p>
+                </div>
+            </div>
+
+            <div class="docs-article" data-search-content="e41 cuando usar gasto menor compra informal proveedor sin rnc">
+                <h3 class="docs-article-title"><span class="docs-article-title-text"><i class="fa-solid fa-circle-question docs-article-title-icon"></i>¿Cuándo usar E41 (Gasto Menor)?</span></h3>
+                <div class="docs-article-body">
+                    El <strong>E41 — Comprobante de Gastos Menores</strong> se utiliza cuando adquieres bienes o servicios de personas físicas que no están registradas en la DGII o que no pueden emitir una factura válida con valor de crédito fiscal.
+                    <br><br>
+                    <strong>Ejemplos de uso:</strong>
+                    <ul>
+                        <li>Contratas a un plomero independiente (sin RNC) para reparar una tubería en la oficina.</li>
+                        <li>Compras frutas y café para el área de trabajo a un vendedor informal.</li>
+                        <li>Pagas un servicio de transporte ocasional sin factura formal.</li>
+                    </ul>
+                    <div class="fiscal-alert-box alert-warning">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div class="fiscal-alert-text"><strong>Límite y control:</strong> La DGII establece límites implícitos para no abusar del E41. Si registras muchos gastos menores o montos elevados, podrías ser observado en una auditoría. Usa el E41 con moderación y siempre que no exista la posibilidad de obtener una factura formal (E31) del proveedor.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Integración Contable -->
+        <section id="contabilidad" class="docs-section" data-search-content="integracion contable asiento debito credito cxp automatizado">
+            <div class="docs-section-title"><i class="fa-solid fa-book" style="color: var(--accent-emerald);"></i><span>Integración Contable Automática</span></div>
+
+            <div class="docs-article" data-search-content="asiento contable automatico debito gasto itbis credito cxp">
+                <h3 class="docs-article-title"><span class="docs-article-title-text"><i class="fa-solid fa-calculator docs-article-title-icon"></i>Asiento Contable Automatizado</span></h3>
+                <div class="docs-article-body">
+                    Cuando un gasto es <strong>aprobado</strong>, el sistema genera automáticamente un asiento contable con la siguiente estructura:
+                    <br><br>
+                    <ul>
+                        <li><strong>Débito:</strong>
+                            <ul>
+                                <li><strong>Cuenta de Gasto:</strong> Por el monto del gasto (subtotal sin ITBIS). La cuenta contable se determina según la <strong>Categoría de Gasto</strong> seleccionada.</li>
+                                <li><strong>ITBIS por Adelantar (Crédito Fiscal):</strong> Por el monto del ITBIS pagado, <strong>solo si</strong> el switch de deducibilidad está activado. Si no es deducible, el ITBIS se capitaliza al gasto.</li>
+                            </ul>
+                        </li>
+                        <li><strong>Crédito:</strong>
+                            <ul>
+                                <li><strong>Cuentas por Pagar (CxP):</strong> Por el total de la factura (subtotal + ITBIS). Si el tipo de pago es Contado, se acredita directamente a la <strong>Cuenta Bancaria</strong> seleccionada.</li>
+                            </ul>
+                        </li>
+                    </ul>
+                    <div class="fiscal-alert-box alert-success">
+                        <i class="fa-solid fa-check-circle"></i>
+                        <div class="fiscal-alert-text"><strong>Automatización total:</strong> No necesitas ser contador para generar los asientos correctos. El sistema aplica las normas contables dominicanas (NIC/NIIF) de forma automática basándose en la categoría, el switch de deducibilidad y el tipo de comprobante que selecciones.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="docs-article" data-search-content="ejemplo asiento gasto deducible itbis 18 cuenta contable">
+                <h3 class="docs-article-title"><span class="docs-article-title-text"><i class="fa-solid fa-file-invoice docs-article-title-icon"></i>Ejemplo de Asiento Contable</span></h3>
+                <div class="docs-article-body">
+                    Gasto de RD$ 10,000 + ITBIS 18% (RD$ 1,800) = Total RD$ 11,800. <strong>Deducible</strong> con <strong>pago a crédito</strong>:
+                    <br><br>
+                    <ul>
+                        <li><strong>Débito:</strong> Gasto (Según categoría) = RD$ 10,000.00</li>
+                        <li><strong>Débito:</strong> ITBIS por Adelantar (Crédito Fiscal) = RD$ 1,800.00</li>
+                        <li><strong>Crédito:</strong> Cuentas por Pagar (CxP) = RD$ 11,800.00</li>
+                    </ul>
+                    <br>
+                    Mismo gasto pero con switch de deducibilidad <strong>desactivado</strong> (No Deducible):
+                    <br><br>
+                    <ul>
+                        <li><strong>Débito:</strong> Gasto No Deducible = RD$ 11,800.00 (monto total, ITBIS incluido y capitalizado)</li>
+                        <li><strong>Crédito:</strong> Cuentas por Pagar (CxP) = RD$ 11,800.00</li>
+                    </ul>
+                    <div class="fiscal-alert-box">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <div class="fiscal-alert-text">Nota la diferencia: cuando el gasto es <strong>No Deducible</strong>, el ITBIS se <strong>capitaliza</strong> al gasto (aumenta el costo total) porque no puedes recuperarlo como crédito fiscal. Cuando es <strong>Deducible</strong>, el ITBIS se registra por separado como un activo (Crédito Fiscal) que puedes compensar con tu ITBIS facturado.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div id="no-results" class="no-results-state">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <h4>No encontramos resultados</h4>
+            <p>Prueba buscando con palabras clave como "deducible", "E41", "aprobación" o "asiento".</p>
+        </div>
+
+        <div class="docs-footer-banner">
+            <div>
+                <h4>¿Dominas los gastos?</h4>
+                <p>Revisa el Portal de Ayuda para explorar otros módulos como facturación, compras y módulos avanzados.</p>
+            </div>
+            <a href="{{ url_for('web_invoices.help_center') }}" class="btn btn-secondary" style="white-space: nowrap; padding: 10px 20px; font-weight: 500;"><i class="fa-solid fa-arrow-left"></i><span>Volver al Portal</span></a>
+        </div>
+
+    </main>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchInput = document.getElementById('faq-search');
+        const sidebarItems = document.querySelectorAll('.docs-sidebar-item');
+        const sections = document.querySelectorAll('.docs-section');
+        const articles = document.querySelectorAll('.docs-article');
+        const noResults = document.getElementById('no-results');
+        searchInput.addEventListener('input', function () {
+            const query = this.value.toLowerCase().trim();
+            let hasVisibleArticlesGlobal = false;
+            sections.forEach(section => {
+                const sectionArticles = section.querySelectorAll('.docs-article');
+                const sectionGlossary = section.querySelectorAll('.glossary-card');
+                let hasVisibleArticlesInSection = false;
+                sectionArticles.forEach(article => {
+                    const searchContent = article.getAttribute('data-search-content').toLowerCase();
+                    const titleText = article.querySelector('.docs-article-title').textContent.toLowerCase();
+                    const bodyText = article.querySelector('.docs-article-body').textContent.toLowerCase();
+                    const matches = searchContent.includes(query) || titleText.includes(query) || bodyText.includes(query);
+                    if (matches || query === '') { article.style.display = 'block'; hasVisibleArticlesInSection = true; hasVisibleArticlesGlobal = true; }
+                    else { article.style.display = 'none'; }
+                });
+                sectionGlossary.forEach(card => {
+                    const text = card.textContent.toLowerCase();
+                    const matches = text.includes(query);
+                    if (matches || query === '') { card.style.display = 'block'; hasVisibleArticlesInSection = true; hasVisibleArticlesGlobal = true; }
+                    else { card.style.display = 'none'; }
+                });
+                const glossary = section.querySelector('.glossary-grid');
+                if (glossary) {
+                    const visibleCards = glossary.querySelectorAll('.glossary-card[style*="display: block"], .glossary-card:not([style])');
+                    if (visibleCards.length === 0 && query !== '') glossary.style.display = 'none';
+                    else glossary.style.display = 'grid';
+                }
+                if (hasVisibleArticlesInSection) {
+                    section.style.display = 'block';
+                    const targetId = section.getAttribute('id');
+                    const sidebarLink = document.querySelector(`.docs-sidebar-item[data-target="${targetId}"]`);
+                    if (sidebarLink) sidebarLink.style.display = 'block';
+                } else {
+                    section.style.display = 'none';
+                    const targetId = section.getAttribute('id');
+                    const sidebarLink = document.querySelector(`.docs-sidebar-item[data-target="${targetId}"]`);
+                    if (sidebarLink) sidebarLink.style.display = 'none';
+                }
+            });
+            if (hasVisibleArticlesGlobal) noResults.style.display = 'none';
+            else noResults.style.display = 'block';
+        });
+        window.addEventListener('scroll', function () {
+            let currentSectionId = '';
+            sections.forEach(section => { const sectionTop = section.offsetTop; if (pageYOffset >= (sectionTop - 120)) currentSectionId = section.getAttribute('id'); });
+            if (currentSectionId) { sidebarItems.forEach(item => { item.classList.remove('active'); if (item.getAttribute('data-target') === currentSectionId) item.classList.add('active'); }); }
+        });
+        sidebarItems.forEach(item => {
+            const link = item.querySelector('a');
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = item.getAttribute('data-target');
+                const targetSection = document.getElementById(targetId);
+                if (targetSection) { window.scrollTo({ top: targetSection.offsetTop - 90, behavior: 'smooth' }); sidebarItems.forEach(i => i.classList.remove('active')); item.classList.add('active'); }
+            });
+        });
+    });
+</script>
+{% endblock %}

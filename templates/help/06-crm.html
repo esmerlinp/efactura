@@ -1,0 +1,347 @@
+{% extends "layout.html" %}
+
+{% block title %}CRM / Prospectos - {{ product_name }}{% endblock %}
+
+{% block page_header %}CRM / Prospectos{% endblock %}
+
+{% block extra_head %}
+<style>
+    .docs-layout { display: grid; grid-template-columns: 280px 1fr; gap: 40px; max-width: 100%; margin: 0 auto; align-items: start; }
+    .docs-layout strong { font-weight: 500; }
+    .docs-sidebar { position: sticky; top: 80px; max-height: calc(100vh - 120px); overflow-y: auto; padding-right: 15px; }
+    .docs-sidebar::-webkit-scrollbar { width: 4px; }
+    .docs-sidebar-group { margin-bottom: 24px; }
+    .docs-sidebar-group-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.08em; margin-bottom: 10px; padding-left: 8px; }
+    .docs-sidebar-menu { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .docs-sidebar-item a { display: flex; align-items: center; gap: 10px; padding: 8px 12px; font-size: 0.88rem; color: var(--text-secondary); border-radius: var(--radius-sm); transition: all var(--transition-fast); line-height: 1.4; }
+    .docs-sidebar-item a:hover { color: var(--text-primary); background-color: var(--bg-nav-hover); }
+    .docs-sidebar-item.active a { color: var(--accent-emerald); background-color: var(--bg-brand-translucent); font-weight: 500; }
+    .docs-sidebar-footer-info { background-color: var(--bg-brand-translucent); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; margin-top: 30px; display: flex; gap: 10px; }
+    .docs-sidebar-footer-info i { color: var(--accent-emerald); font-size: 1rem; margin-top: 2px; }
+    .docs-content { min-width: 0; }
+    .docs-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 1px solid var(--border-color); margin-bottom: 30px; gap: 20px; }
+    .docs-header h2 { font-size: 1.6rem; font-weight: 800; color: var(--text-primary); margin-bottom: 4px; }
+    .docs-header p { color: var(--text-secondary); font-size: 0.92rem; }
+    .docs-search-wrapper { position: relative; width: 320px; }
+    .docs-search-input { width: 100%; height: 38px; padding: 0 16px 0 38px; background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: 20px; color: var(--text-primary); font-size: 0.85rem; transition: all var(--transition-fast); }
+    .docs-search-input:focus { border-color: var(--accent-emerald); box-shadow: var(--shadow-glow); }
+    .docs-search-wrapper .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.9rem; }
+    .docs-section { margin-bottom: 45px; scroll-margin-top: 80px; }
+    .docs-section-title { font-size: 1.35rem; font-weight: 800; color: var(--text-primary); padding-bottom: 8px; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+    .glossary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .glossary-card { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px; transition: all var(--transition-fast); }
+    .glossary-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); border-color: var(--accent-emerald); }
+    .glossary-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .glossary-card-icon { font-size: 1.1rem; color: var(--accent-emerald); }
+    .glossary-card-title { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); }
+    .glossary-card-text { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.45; }
+    .docs-article { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 24px; margin-bottom: 20px; transition: border-color var(--transition-fast), box-shadow var(--transition-fast); }
+    .docs-article:hover { border-color: var(--border-glow); box-shadow: var(--shadow-sm); }
+    .docs-article-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .docs-article-title-text { display: flex; align-items: center; gap: 10px; }
+    .docs-article-title-icon { font-size: 0.95rem; color: var(--accent-emerald); opacity: 0.8; }
+    .docs-article-body { font-size: 0.92rem; color: var(--text-secondary); line-height: 1.6; }
+    .docs-article-body strong { color: var(--text-primary); font-weight: 500; }
+    .docs-article-body code { background-color: var(--bg-input); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.82rem; color: var(--accent-purple); border: 1px solid var(--border-color); }
+    .docs-article-body ul { margin: 12px 0; padding-left: 20px; }
+    .docs-article-body li { margin-bottom: 6px; }
+    .fiscal-alert-box { background-color: var(--bg-brand-translucent); border-left: 4px solid var(--accent-emerald); border-radius: 4px; padding: 14px 16px; margin-top: 16px; display: flex; gap: 12px; align-items: flex-start; }
+    .fiscal-alert-box.alert-warning { border-left-color: var(--accent-yellow); background-color: rgba(245, 158, 11, 0.05); }
+    .fiscal-alert-box.alert-danger { border-left-color: var(--accent-red); background-color: rgba(220, 38, 38, 0.05); }
+    .fiscal-alert-box.alert-success { border-left-color: var(--accent-success); background-color: rgba(22, 163, 74, 0.05); }
+    .fiscal-alert-box i { font-size: 1.05rem; margin-top: 2px; }
+    .fiscal-alert-box.alert-warning i { color: var(--accent-yellow); }
+    .fiscal-alert-box.alert-danger i { color: var(--accent-red); }
+    .fiscal-alert-box.alert-success i { color: var(--accent-success); }
+    .fiscal-alert-text { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; }
+    .no-results-state { text-align: center; padding: 40px; background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); display: none; }
+    .no-results-state i { font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; }
+    .no-results-state h4 { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; color: var(--text-primary); }
+    .no-results-state p { color: var(--text-secondary); font-size: 0.88rem; }
+    .docs-footer-banner { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 24px; display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 40px; margin-bottom: 40px; }
+    .docs-footer-banner h4 { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; color: var(--text-primary); }
+    .docs-footer-banner p { color: var(--text-secondary); font-size: 0.85rem; margin: 0; line-height: 1.4; }
+    @media (max-width: 1024px) { .docs-layout { grid-template-columns: 1fr; gap: 24px; } .docs-sidebar { position: static; max-height: none; overflow-y: visible; padding-right: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 20px; } .docs-header { flex-direction: column; align-items: flex-start; gap: 16px; } .docs-search-wrapper { width: 100%; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="docs-layout">
+
+    <aside class="docs-sidebar">
+        <div class="docs-sidebar-group">
+            <div class="docs-sidebar-group-title">CRM / Prospectos</div>
+            <ul class="docs-sidebar-menu">
+                <li class="docs-sidebar-item active" data-target="pipeline"><a href="#pipeline"><i class="fa-solid fa-chart-simple"></i><span>Pipeline de Ventas</span></a></li>
+                <li class="docs-sidebar-item" data-target="oportunidades"><a href="#oportunidades"><i class="fa-solid fa-bullseye"></i><span>Oportunidades y Actividades</span></a></li>
+                <li class="docs-sidebar-item" data-target="automatizacion"><a href="#automatizacion"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Automatización de Reglas</span></a></li>
+                <li class="docs-sidebar-item" data-target="vinculacion"><a href="#vinculacion"><i class="fa-solid fa-link"></i><span>Vinculación con Facturación</span></a></li>
+            </ul>
+        </div>
+        <div class="docs-sidebar-footer-info">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>{{ product_name }} cumple con la Ley 32-23 de Facturación Electrónica en República Dominicana.</span>
+        </div>
+    </aside>
+
+    <main class="docs-content">
+
+        <div class="docs-header">
+            <div>
+                <h2>CRM / Prospectos</h2>
+                <p>Gestiona tus relaciones comerciales, da seguimiento a oportunidades y automatiza tu ciclo de ventas.</p>
+            </div>
+            <div class="docs-search-wrapper">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" id="faq-search" class="docs-search-input" placeholder="Buscar en CRM...">
+            </div>
+        </div>
+
+        <!-- Pipeline -->
+        <section id="pipeline" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-chart-simple" style="color: var(--accent-emerald);"></i>
+                <span>Pipeline de Ventas</span>
+            </div>
+            <div class="glossary-grid">
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-user-plus glossary-card-icon" style="color: var(--accent-yellow);"></i>
+                        <h4 class="glossary-card-title">Prospecto</h4>
+                    </div>
+                    <p class="glossary-card-text">Persona o empresa identificada como cliente potencial. Aún no ha tenido contacto comercial directo con tu equipo.</p>
+                </div>
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-handshake glossary-card-icon" style="color: var(--accent-purple);"></i>
+                        <h4 class="glossary-card-title">Contacto</h4>
+                    </div>
+                    <p class="glossary-card-text">Prospecto con el que ya has tenido una interacción comercial: llamada, reunión o correo. Está siendo evaluado activamente.</p>
+                </div>
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-file-invoice glossary-card-icon" style="color: var(--accent-emerald);"></i>
+                        <h4 class="glossary-card-title">Cotización</h4>
+                    </div>
+                    <p class="glossary-card-text">Se ha enviado una cotización formal. Estás esperando la decisión de compra. Puede ser Aprobada, Rechazada o Pendiente.</p>
+                </div>
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-trophy glossary-card-icon" style="color: var(--accent-success);"></i>
+                        <h4 class="glossary-card-title">Ganado / Perdido</h4>
+                    </div>
+                    <p class="glossary-card-text">Etapa final. El cliente aceptó la cotización (Ganado) y se convierte en factura, o la rechazó (Perdido) registrando el motivo.</p>
+                </div>
+            </div>
+            <div class="docs-article" data-search-content="pipeline ventas etapas prospecto contacto cotizacion ganado perdido">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-chart-simple docs-article-title-icon"></i>
+                        ¿Cómo funciona el pipeline de ventas?
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    El pipeline de ventas de {{ product_name }} te permite visualizar y gestionar cada etapa del ciclo comercial. Accede desde el menú <strong>CRM → Pipeline</strong> (<code>/crm/pipeline</code>).
+                    <br><br>
+                    Cada oportunidad de negocio se representa como una tarjeta que puedes arrastrar entre columnas para cambiar su etapa. Las etapas estándar son:
+                    <ul>
+                        <li><strong>Prospecto:</strong> Nuevo cliente potencial identificado vía web, referencia, llamada entrante o importación de contactos.</li>
+                        <li><strong>Contacto:</strong> Se ha establecido comunicación. El sistema registra la fecha del primer contacto y puedes asociar notas, archivos o tareas de seguimiento.</li>
+                        <li><strong>Cotización:</strong> Has enviado un presupuesto o cotización. La oportunidad muestra el monto estimado, la fecha de vencimiento de la cotización y los ítems propuestos.</li>
+                        <li><strong>Ganado / Perdido:</strong> Al marcar una cotización como <strong>Ganada</strong>, el CRM te permite crear automáticamente una factura de venta. Al marcarla como <strong>Perdida</strong>, debes registrar el motivo de cierre (precio, competencia, plazo, etc.).</li>
+                    </ul>
+                    <div class="fiscal-alert-box alert-success">
+                        <i class="fa-solid fa-check-circle"></i>
+                        <div class="fiscal-alert-text">
+                            Puedes personalizar las etapas del pipeline desde <strong>Configuración → CRM → Etapas</strong>. Por ejemplo, añadir una etapa intermedia "Demostración Agendada" si tu proceso de ventas lo requiere.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Oportunidades y Actividades -->
+        <section id="oportunidades" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-bullseye" style="color: var(--accent-emerald);"></i>
+                <span>Oportunidades y Actividades</span>
+            </div>
+            <div class="docs-article" data-search-content="oportunidad registro actividad seguimiento tarea crm">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-bullseye docs-article-title-icon"></i>
+                        Registrar oportunidades y dar seguimiento con actividades
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    Cada oportunidad en el CRM puede tener múltiples actividades asociadas. Para crear una nueva oportunidad:
+                    <br><br>
+                    <strong>1. Crear oportunidad (<code>/crm/opportunities/new</code>):</strong>
+                    <ul>
+                        <li>Selecciona el <strong>Cliente</strong> existente o crea uno nuevo si no está registrado.</li>
+                        <li>Asigna un <strong>Nombre Comercial</strong> a la oportunidad (ej. "Venta de software a Empresa XYZ").</li>
+                        <li>Define el <strong>Monto Estimado</strong> y la <strong>Moneda</strong> (DOP, USD, EUR).</li>
+                        <li>Selecciona la <strong>Etapa Inicial</strong> en el pipeline y el <strong>Vendedor</strong> responsable.</li>
+                        <li>Opcionalmente, define una <strong>Fecha de Cierre Estimada</strong> y la <strong>Probabilidad de Éxito (%)</strong>.</li>
+                    </ul>
+                    <strong>2. Registrar actividades de seguimiento:</strong>
+                    <ul>
+                        <li>Desde el detalle de la oportunidad, puedes agregar actividades como llamadas, reuniones, correos o notas.</li>
+                        <li>Cada actividad registra: tipo, fecha, descripción, resultado y un recordatorio opcional.</li>
+                        <li>Las actividades quedan visibles en el timeline de la oportunidad para que todo el equipo conozca el historial de interacciones.</li>
+                    </ul>
+                    <strong>3. Asignación y notificaciones:</strong>
+                    <ul>
+                        <li>Cada oportunidad tiene un usuario responsable. Si el vendedor cambia, puedes reasignarla.</li>
+                        <li>El sistema envía notificaciones cuando una oportunidad cambia de etapa o cuando una actividad vence.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Automatización -->
+        <section id="automatizacion" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-wand-magic-sparkles" style="color: var(--accent-emerald);"></i>
+                <span>Automatización de Reglas CRM</span>
+            </div>
+            <div class="docs-article" data-search-content="automatizacion reglas crm cambio etapa automatico workflow">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-robot docs-article-title-icon" style="color: var(--accent-purple);"></i>
+                        Reglas de automatización para cambios de etapa
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    {{ product_name }} te permite definir reglas de automatización que mueven oportunidades entre etapas sin intervención manual:
+                    <br><br>
+                    <strong>Tipos de reglas disponibles:</strong>
+                    <ul>
+                        <li><strong>Por tiempo sin actividad:</strong> Si una oportunidad permanece en la misma etapa más de X días sin registrar actividades, el sistema la mueve automáticamente a una etapa de "Reactivación" o envía una alerta al vendedor.</li>
+                        <li><strong>Por monto:</strong> Oportunidades con monto superior a un umbral definido pueden escalarse automáticamente a la etapa "Requiere Aprobación Gerencial".</li>
+                        <li><strong>Por fecha de cierre vencida:</strong> Si la fecha de cierre estimada se vence, la oportunidad pasa a etapa "Vencida" automáticamente.</li>
+                    </ul>
+                    <strong>Cómo configurar las reglas:</strong>
+                    <ul>
+                        <li>Accede a <strong>Configuración → CRM → Reglas de Automatización</strong>.</li>
+                        <li>Haz clic en <strong>Nueva Regla</strong>.</li>
+                        <li>Define la <strong>Condición</strong> (ej. "Etapa actual es Cotización" y "Fecha de vencimiento ha pasado").</li>
+                        <li>Define la <strong>Acción</strong> (ej. "Mover a etapa Perdido" y "Enviar notificación al vendedor").</li>
+                        <li>Activa la regla. Las reglas se evalúan diariamente mediante un proceso automatizado.</li>
+                    </ul>
+                    <div class="fiscal-alert-box">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <div class="fiscal-alert-text">
+                            Puedes tener tantas reglas activas como necesites. Las reglas no afectan oportunidades que ya han sido cerradas (Ganado o Perdido).
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Vinculación con Facturación -->
+        <section id="vinculacion" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-link" style="color: var(--accent-emerald);"></i>
+                <span>Vinculación con Facturación</span>
+            </div>
+            <div class="docs-article" data-search-content="vinculacion crm facturacion oportunidad ganada factura">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-arrow-right-to-bracket docs-article-title-icon"></i>
+                        De oportunidad ganada a factura electrónica
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    Una de las funcionalidades más potentes del CRM es la capacidad de convertir una oportunidad ganada directamente en una factura electrónica (e-CF):
+                    <br><br>
+                    <strong>Proceso de conversión:</strong>
+                    <ul>
+                        <li>Cuando marcas una oportunidad como <strong>Ganada</strong>, aparece el botón <strong>Crear Factura</strong> en el detalle de la oportunidad.</li>
+                        <li>El sistema precarga automáticamente los datos del cliente, los ítems de la cotización con sus precios y cantidades, y las condiciones comerciales.</li>
+                        <li>Puedes revisar y ajustar la factura antes de emitirla: agregar descuentos, cambiar cantidades o modificar la tasa de ITBIS por línea.</li>
+                        <li>Al emitir la factura, el CRM registra el vínculo entre la oportunidad y la factura creada, visible en ambos lados.</li>
+                    </ul>
+                    <strong>Beneficios de la vinculación:</strong>
+                    <ul>
+                        <li>Evitas la doble digitación de datos entre el CRM y el módulo de facturación.</li>
+                        <li>Puedes consultar desde la oportunidad qué facturas se generaron a partir de ella.</li>
+                        <li>El reporte de pipeline incluye el valor de las oportunidades ganadas que ya fueron facturadas vs. las pendientes de facturar.</li>
+                    </ul>
+                    <div class="fiscal-alert-box alert-warning">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div class="fiscal-alert-text">
+                            La factura generada desde el CRM sigue todas las reglas fiscales de la DGII: consume una secuencia electrónica (E31 o E32), calcula retenciones si aplican, y se transmite a la DGII en tiempo real.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div id="no-results" class="no-results-state">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <h4>No encontramos resultados</h4>
+            <p>Prueba buscando con palabras clave como "pipeline", "oportunidad", "cotización" o "automatización".</p>
+        </div>
+
+        <div class="docs-footer-banner">
+            <div>
+                <h4>¿Necesitas personalizar tu CRM?</h4>
+                <p>Las etapas del pipeline, las reglas de automatización y los campos de las oportunidades son configurables desde el panel de administración.</p>
+            </div>
+            <a href="https://dgii.gov.do" target="_blank" class="btn btn-secondary" style="white-space: nowrap; padding: 10px 20px; font-weight: 500;">
+                <i class="fa-solid fa-building-columns"></i>
+                <span>Ir a Oficina DGII</span>
+            </a>
+        </div>
+
+    </main>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchInput = document.getElementById('faq-search');
+        const sidebarItems = document.querySelectorAll('.docs-sidebar-item');
+        const sections = document.querySelectorAll('.docs-section');
+        const articles = document.querySelectorAll('.docs-article');
+        const noResults = document.getElementById('no-results');
+        searchInput.addEventListener('input', function () {
+            const query = this.value.toLowerCase().trim();
+            let hasVisibleArticlesGlobal = false;
+            sections.forEach(section => {
+                const sectionArticles = section.querySelectorAll('.docs-article');
+                let hasVisibleArticlesInSection = false;
+                sectionArticles.forEach(article => {
+                    const searchContent = article.getAttribute('data-search-content').toLowerCase();
+                    const titleText = article.querySelector('.docs-article-title').textContent.toLowerCase();
+                    const bodyText = article.querySelector('.docs-article-body').textContent.toLowerCase();
+                    const matches = searchContent.includes(query) || titleText.includes(query) || bodyText.includes(query);
+                    if (matches || query === '') { article.style.display = 'block'; hasVisibleArticlesInSection = true; hasVisibleArticlesGlobal = true; }
+                    else { article.style.display = 'none'; }
+                });
+                const glossary = section.querySelector('.glossary-grid');
+                if (glossary) { if (query === '') { glossary.style.display = 'grid'; hasVisibleArticlesInSection = true; } else { glossary.style.display = 'none'; } }
+                if (hasVisibleArticlesInSection) { section.style.display = 'block'; const targetId = section.getAttribute('id'); const sidebarLink = document.querySelector(`.docs-sidebar-item[data-target="${targetId}"]`); if (sidebarLink) sidebarLink.style.display = 'block'; }
+                else { section.style.display = 'none'; const targetId = section.getAttribute('id'); const sidebarLink = document.querySelector(`.docs-sidebar-item[data-target="${targetId}"]`); if (sidebarLink) sidebarLink.style.display = 'none'; }
+            });
+            noResults.style.display = hasVisibleArticlesGlobal ? 'none' : 'block';
+        });
+        window.addEventListener('scroll', function () {
+            let currentSectionId = '';
+            sections.forEach(section => { const sectionTop = section.offsetTop; if (pageYOffset >= (sectionTop - 120)) { currentSectionId = section.getAttribute('id'); } });
+            if (currentSectionId) { sidebarItems.forEach(item => { item.classList.remove('active'); if (item.getAttribute('data-target') === currentSectionId) { item.classList.add('active'); } }); }
+        });
+        sidebarItems.forEach(item => {
+            const link = item.querySelector('a');
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = item.getAttribute('data-target');
+                const targetSection = document.getElementById(targetId);
+                if (targetSection) { window.scrollTo({ top: targetSection.offsetTop - 90, behavior: 'smooth' }); sidebarItems.forEach(i => i.classList.remove('active')); item.classList.add('active'); }
+            });
+        });
+    });
+</script>
+{% endblock %}

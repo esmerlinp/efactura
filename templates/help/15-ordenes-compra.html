@@ -1,0 +1,977 @@
+{% extends "layout.html" %}
+
+{% block title %}Órdenes de Compra - {{ product_name }}{% endblock %}
+
+{% block page_header %}Órdenes de Compra{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Diseño de Documentación Estilo GitHub */
+    .docs-layout {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        gap: 40px;
+        max-width: 100%;
+        margin: 0 auto;
+        align-items: start;
+    }
+
+    .docs-layout strong {
+        font-weight: 500;
+    }
+
+    /* Sidebar de Navegación */
+    .docs-sidebar {
+        position: sticky;
+        top: 80px;
+        max-height: calc(100vh - 120px);
+        overflow-y: auto;
+        padding-right: 15px;
+    }
+
+    .docs-sidebar::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .docs-sidebar-group {
+        margin-bottom: 24px;
+    }
+
+    .docs-sidebar-group-title {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        letter-spacing: 0.08em;
+        margin-bottom: 10px;
+        padding-left: 8px;
+    }
+
+    .docs-sidebar-menu {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .docs-sidebar-item a {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        font-size: 0.88rem;
+        color: var(--text-secondary);
+        border-radius: var(--radius-sm);
+        transition: all var(--transition-fast);
+        line-height: 1.4;
+    }
+
+    .docs-sidebar-item a:hover {
+        color: var(--text-primary);
+        background-color: var(--bg-nav-hover);
+    }
+
+    .docs-sidebar-item.active a {
+        color: var(--accent-emerald);
+        background-color: var(--bg-brand-translucent);
+        font-weight: 500;
+    }
+
+    .docs-sidebar-footer-info {
+        background-color: var(--bg-brand-translucent);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        padding: 14px;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        line-height: 1.4;
+        margin-top: 30px;
+        display: flex;
+        gap: 10px;
+    }
+
+    .docs-sidebar-footer-info i {
+        color: var(--accent-emerald);
+        font-size: 1rem;
+        margin-top: 2px;
+    }
+
+    /* Área de Contenido de la Documentación */
+    .docs-content {
+        min-width: 0;
+    }
+
+    /* Encabezado Principal */
+    .docs-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 20px;
+        border-bottom: 1px solid var(--border-color);
+        margin-bottom: 30px;
+        gap: 20px;
+    }
+
+    .docs-header h2 {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+    }
+
+    .docs-header p {
+        color: var(--text-secondary);
+        font-size: 0.92rem;
+    }
+
+    .docs-search-wrapper {
+        position: relative;
+        width: 320px;
+    }
+
+    .docs-search-input {
+        width: 100%;
+        height: 38px;
+        padding: 0 16px 0 38px;
+        background-color: var(--bg-input);
+        border: 1px solid var(--border-color);
+        border-radius: 20px;
+        color: var(--text-primary);
+        font-size: 0.85rem;
+        transition: all var(--transition-fast);
+    }
+
+    .docs-search-input:focus {
+        border-color: var(--accent-emerald);
+        box-shadow: var(--shadow-glow);
+    }
+
+    .docs-search-wrapper .search-icon {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+
+    /* Secciones del Documento */
+    .docs-section {
+        margin-bottom: 45px;
+        scroll-margin-top: 80px;
+    }
+
+    .docs-section-title {
+        font-size: 1.35rem;
+        font-weight: 800;
+        color: var(--text-primary);
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border-color);
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    /* Tarjetas de Glosario / Conceptos Rápidos */
+    .glossary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .glossary-card {
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        padding: 16px;
+        transition: all var(--transition-fast);
+    }
+
+    .glossary-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-sm);
+        border-color: var(--accent-emerald);
+    }
+
+    .glossary-card-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+
+    .glossary-card-icon {
+        font-size: 1.1rem;
+        color: var(--accent-emerald);
+    }
+
+    .glossary-card-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .glossary-card-text {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        line-height: 1.45;
+    }
+
+    /* Artículos de Documentación */
+    .docs-article {
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        padding: 24px;
+        margin-bottom: 20px;
+        transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    }
+
+    .docs-article:hover {
+        border-color: var(--border-glow);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .docs-article-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .docs-article-title-text {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .docs-article-title-icon {
+        font-size: 0.95rem;
+        color: var(--accent-emerald);
+        opacity: 0.8;
+    }
+
+    .docs-article-body {
+        font-size: 0.92rem;
+        color: var(--text-secondary);
+        line-height: 1.6;
+    }
+
+    .docs-article-body strong {
+        color: var(--text-primary);
+        font-weight: 500;
+    }
+
+    .docs-article-body code {
+        background-color: var(--bg-input);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 0.82rem;
+        color: var(--accent-purple);
+        border: 1px solid var(--border-color);
+    }
+
+    .docs-article-body ul {
+        margin: 12px 0;
+        padding-left: 20px;
+    }
+
+    .docs-article-body li {
+        margin-bottom: 6px;
+    }
+
+    /* Alertas Estilo GitHub */
+    .fiscal-alert-box {
+        background-color: var(--bg-brand-translucent);
+        border-left: 4px solid var(--accent-emerald);
+        border-radius: 4px;
+        padding: 14px 16px;
+        margin-top: 16px;
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+    }
+
+    .fiscal-alert-box.alert-warning {
+        border-left-color: var(--accent-yellow);
+        background-color: rgba(245, 158, 11, 0.05);
+    }
+
+    .fiscal-alert-box.alert-danger {
+        border-left-color: var(--accent-red);
+        background-color: rgba(220, 38, 38, 0.05);
+    }
+
+    .fiscal-alert-box.alert-success {
+        border-left-color: var(--accent-success);
+        background-color: rgba(22, 163, 74, 0.05);
+    }
+
+    .fiscal-alert-box i {
+        font-size: 1.05rem;
+        margin-top: 2px;
+    }
+
+    .fiscal-alert-box.alert-warning i {
+        color: var(--accent-yellow);
+    }
+
+    .fiscal-alert-box.alert-danger i {
+        color: var(--accent-red);
+    }
+
+    .fiscal-alert-box.alert-success i {
+        color: var(--accent-success);
+    }
+
+    .fiscal-alert-text {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+    }
+
+    /* Estado de no resultados */
+    .no-results-state {
+        text-align: center;
+        padding: 40px;
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        display: none;
+    }
+
+    .no-results-state i {
+        font-size: 2.5rem;
+        color: var(--text-muted);
+        margin-bottom: 12px;
+    }
+
+    .no-results-state h4 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-bottom: 6px;
+        color: var(--text-primary);
+    }
+
+    .no-results-state p {
+        color: var(--text-secondary);
+        font-size: 0.88rem;
+    }
+
+    /* Footer Banner */
+    .docs-footer-banner {
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        padding: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        margin-top: 40px;
+        margin-bottom: 40px;
+    }
+
+    .docs-footer-banner h4 {
+        font-size: 1.05rem;
+        font-weight: 700;
+        margin-bottom: 4px;
+        color: var(--text-primary);
+    }
+
+    .docs-footer-banner p {
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+        margin: 0;
+        line-height: 1.4;
+    }
+
+    /* Responsividad */
+    @media (max-width: 1024px) {
+        .docs-layout {
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+
+        .docs-sidebar {
+            position: static;
+            max-height: none;
+            overflow-y: visible;
+            padding-right: 0;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 20px;
+        }
+
+        .docs-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 16px;
+        }
+
+        .docs-search-wrapper {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="docs-layout">
+
+    <!-- Sidebar Izquierdo de Navegación -->
+    <aside class="docs-sidebar">
+        <div class="docs-sidebar-group">
+            <div class="docs-sidebar-group-title">Órdenes de Compra</div>
+            <ul class="docs-sidebar-menu">
+                <li class="docs-sidebar-item active" data-target="creacion">
+                    <a href="#creacion">
+                        <i class="fa-solid fa-plus-circle"></i>
+                        <span>Creación de OC</span>
+                    </a>
+                </li>
+                <li class="docs-sidebar-item" data-target="estados">
+                    <a href="#estados">
+                        <i class="fa-solid fa-list-check"></i>
+                        <span>Estados y Flujo</span>
+                    </a>
+                </li>
+                <li class="docs-sidebar-item" data-target="aprobacion">
+                    <a href="#aprobacion">
+                        <i class="fa-solid fa-check-double"></i>
+                        <span>Flujo de Aprobación</span>
+                    </a>
+                </li>
+                <li class="docs-sidebar-item" data-target="recepcion">
+                    <a href="#recepcion">
+                        <i class="fa-solid fa-truck-loading"></i>
+                        <span>Recepción de Mercancía</span>
+                    </a>
+                </li>
+                <li class="docs-sidebar-item" data-target="vinculacion">
+                    <a href="#vinculacion">
+                        <i class="fa-solid fa-link"></i>
+                        <span>Vinculación con Factura</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+
+        <div class="docs-sidebar-footer-info">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>{{ product_name }} cumple con la Ley 32-23 de Facturación Electrónica en República Dominicana.</span>
+        </div>
+    </aside>
+
+    <!-- Contenido Principal Derecho -->
+    <main class="docs-content">
+
+        <!-- Docs Header -->
+        <div class="docs-header">
+            <div class="docs-header-left">
+                <h2>Órdenes de Compra</h2>
+                <p>Gestiona el ciclo completo de aprovisionamiento: desde la creación de la orden hasta la recepción y vinculación con la factura del proveedor.</p>
+            </div>
+            <div class="docs-search-wrapper">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" id="faq-search" class="docs-search-input"
+                    placeholder="Buscar en órdenes de compra...">
+            </div>
+        </div>
+
+        <!-- 1. Creación de Orden de Compra -->
+        <section id="creacion" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-plus-circle" style="color: var(--accent-emerald);"></i>
+                <span>Creación de Orden de Compra</span>
+            </div>
+
+            <div class="glossary-grid">
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-file-invoice glossary-card-icon"></i>
+                        <h4 class="glossary-card-title">OC</h4>
+                    </div>
+                    <p class="glossary-card-text">
+                        La <strong>Orden de Compra (OC)</strong> es el documento interno con el que solicitas formalmente
+                        bienes o servicios a un proveedor. Sirve como punto de control entre la solicitud y la recepción.
+                    </p>
+                </div>
+
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-user-tie glossary-card-icon" style="color: var(--accent-purple);"></i>
+                        <h4 class="glossary-card-title">Proveedor</h4>
+                    </div>
+                    <p class="glossary-card-text">
+                        Persona o empresa registrada en tu catálogo de proveedores a la que emites la orden.
+                        Debe contar con RNC válido para facturación formal.
+                    </p>
+                </div>
+
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-boxes glossary-card-icon" style="color: var(--accent-yellow);"></i>
+                        <h4 class="glossary-card-title">Recepción</h4>
+                    </div>
+                    <p class="glossary-card-text">
+                        Proceso de confirmar que los bienes o servicios solicitados han sido recibidos,
+                        ya sea parcial o totalmente, actualizando el inventario automáticamente.
+                    </p>
+                </div>
+            </div>
+
+            <div class="docs-article" data-search-content="crear orden compra proveedor items cantidades fechas">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-pen-to-square docs-article-title-icon"></i>
+                        ¿Cómo crear una nueva Orden de Compra?
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    Sigue estos pasos para emitir una Orden de Compra (OC) a un proveedor:
+                    <br><br>
+                    <strong>1. Accede al módulo de Órdenes de Compra</strong>
+                    <ul>
+                        <li>En el menú lateral, navega a <strong>Compras → Órdenes de Compra</strong> o usa la URL <code>/purchase-orders</code>.</li>
+                        <li>Haz clic en el botón <strong>+ Nueva OC</strong> en la esquina superior derecha.</li>
+                    </ul>
+
+                    <strong>2. Selecciona el proveedor</strong>
+                    <ul>
+                        <li>En el campo <strong>Proveedor</strong>, escribe el nombre o RNC. El sistema buscará automáticamente en tu catálogo de proveedores.</li>
+                        <li>Si el proveedor no existe aún, puedes crearlo directamente desde el formulario ingresando Razón Social, RNC (9 dígitos) y datos de contacto.</li>
+                    </ul>
+
+                    <strong>3. Configura el encabezado de la OC</strong>
+                    <ul>
+                        <li><strong>Fecha de Emisión:</strong> Fecha actual por defecto. Puedes modificarla si la orden fue acordada con anterioridad.</li>
+                        <li><strong>Fecha de Entrega Esperada:</strong> Fecha en la que esperas recibir los bienes o servicios. El sistema usará esta fecha para alertarte sobre retrasos.</li>
+                        <li><strong>Moneda:</strong> DOP (RD$), USD, EUR, etc. Si seleccionas una moneda distinta a DOP, ingresa la tasa de cambio del día.</li>
+                        <li><strong>Condiciones de Pago:</strong> Indica si es al contado, crédito (15, 30, 60 días) u otro acuerdo con el proveedor.</li>
+                        <li><strong>Tipo de OC:</strong>
+                            <ul>
+                                <li><code>Bienes</code> — Productos físicos que requieren recepción en almacén.</li>
+                                <li><code>Servicios</code> — Servicios profesionales o técnicos (no afectan inventario).</li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <strong>4. Agrega las partidas (ítems)</strong>
+                    <ul>
+                        <li>Haz clic en <strong>Agregar Partida</strong> para añadir una línea de detalle.</li>
+                        <li>Por cada partida, ingresa:
+                            <ul>
+                                <li><strong>Ítem:</strong> Busca en tu catálogo de productos o escribe una descripción manual.</li>
+                                <li><strong>Cantidad:</strong> Número de unidades solicitadas.</li>
+                                <li><strong>Precio Unitario:</strong> Valor acordado por unidad.</li>
+                                <li><strong>Descuento (%):</strong> Porcentaje de descuento negociado (opcional).</li>
+                            </ul>
+                        </li>
+                        <li>El sistema calculará automáticamente los subtotales, ITBIS y total general de la OC.</li>
+                    </ul>
+
+                    <strong>5. Guarda la orden</strong>
+                    <ul>
+                        <li>Haz clic en <strong>Guardar Borrador</strong> para mantener la OC en estado borrador y modificarla después.</li>
+                        <li>O haz clic en <strong>Emitir OC</strong> para enviarla al flujo de aprobación correspondiente.</li>
+                        <li>El sistema generará un número interno de OC con el formato <code>OC-{AÑO}-{NÚMERO}</code>.</li>
+                    </ul>
+
+                    <div class="fiscal-alert-box">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <div class="fiscal-alert-text">
+                            Las Órdenes de Compra son <strong>documentos internos</strong> sin validez fiscal por sí mismas.
+                            Su propósito es controlar el aprovisionamiento antes de recibir la factura del proveedor.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. Estados y Flujo -->
+        <section id="estados" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-list-check" style="color: var(--accent-emerald);"></i>
+                <span>Estados y Flujo de la OC</span>
+            </div>
+
+            <div class="docs-article" data-search-content="estados borrador pendiente aprobacion recibida cancelada">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-diagram-project docs-article-title-icon"></i>
+                        Ciclo de vida de una Orden de Compra
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    Cada Orden de Compra atraviesa una secuencia de estados que refleja su progreso en el ciclo de aprovisionamiento:
+                    <br><br>
+                    <strong>1. Borrador</strong>
+                    <ul>
+                        <li>La OC se ha creado pero aún no se ha enviado al flujo de aprobación.</li>
+                        <li>Puedes editarla libremente: agregar o quitar partidas, cambiar cantidades y precios.</li>
+                        <li>No consume ningún recurso ni afecta inventarios.</li>
+                    </ul>
+
+                    <strong>2. Pendiente de Aprobación</strong>
+                    <ul>
+                        <li>La OC ha sido emitida y enviada para revisión de un supervisor o comprador autorizado.</li>
+                        <li>Ya <strong>no se puede editar</strong> directamente mientras está en este estado.</li>
+                        <li>El aprobador recibirá una notificación para revisar y decidir.</li>
+                    </ul>
+
+                    <strong>3. Aprobada</strong>
+                    <ul>
+                        <li>La OC ha sido aprobada y está oficialmente autorizada para ser enviada al proveedor.</li>
+                        <li>Puedes descargar el PDF de la OC para enviarlo al proveedor por correo.</li>
+                        <li>Los ítems solicitados quedan <strong>apartados</strong> en el inventario (si aplica), reduciendo el disponible pero no el físico.</li>
+                    </ul>
+
+                    <strong>4. Recibida (Parcial / Total)</strong>
+                    <ul>
+                        <li>Has registrado la recepción de los bienes. El estado puede ser <code>Recibida Parcial</code> si solo recibiste una parte, o <code>Recibida Total</code> si está completa.</li>
+                        <li>El inventario físico se actualiza automáticamente con las cantidades recibidas.</li>
+                        <li>Si la OC es de servicios, pasa directamente a <code>Completada</code> al confirmar la recepción.</li>
+                    </ul>
+
+                    <strong>5. Cancelada</strong>
+                    <ul>
+                        <li>La OC fue anulada por el comprador o aprobador.</li>
+                        <li>Se libera cualquier reserva de inventario que estuviera activa.</li>
+                        <li>Una OC cancelada no puede reactivarse; debes crear una nueva si es necesario.</li>
+                    </ul>
+
+                    <div class="fiscal-alert-box alert-warning">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div class="fiscal-alert-text">
+                            <strong>Nota:</strong> Solo las OC en estado <strong>Aprobada</strong> pueden recibirse.
+                            Si una OC está en <strong>Pendiente de Aprobación</strong> y el proveedor ya entregó,
+                            contacta al aprobador para agilizar el proceso.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Flujo de Aprobación -->
+        <section id="aprobacion" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-check-double" style="color: var(--accent-emerald);"></i>
+                <span>Flujo de Aprobación</span>
+            </div>
+
+            <div class="docs-article" data-search-content="flujo aprobacion aprobar rechazar supervisor permisos">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-user-check docs-article-title-icon"></i>
+                        ¿Cómo funciona el flujo de aprobación?
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    El flujo de aprobación garantiza que solo las compras autorizadas sean procesadas:
+                    <br><br>
+                    <strong>1. Configuración de aprobadores</strong>
+                    <ul>
+                        <li>En <strong>Configuración → Equipo</strong>, puedes asignar el permiso <code>canApprovePurchaseOrders</code> a los usuarios que actuarán como aprobadores.</li>
+                        <li>Solo los usuarios con este permiso pueden cambiar el estado de una OC de <code>Pendiente de Aprobación</code> a <code>Aprobada</code>.</li>
+                    </ul>
+
+                    <strong>2. Proceso de aprobación</strong>
+                    <ul>
+                        <li>El usuario que crea la OC emite la orden haciendo clic en <strong>Emitir OC</strong>.</li>
+                        <li>La OC pasa a estado <code>Pendiente de Aprobación</code>.</li>
+                        <li>El aprobador ingresa al detalle de la OC, revisa las partidas, cantidades y precios.</li>
+                        <li>El aprobador puede:
+                            <ul>
+                                <li><strong>Aprobar:</strong> La OC pasa a <code>Aprobada</code> y queda lista para enviar al proveedor.</li>
+                                <li><strong>Rechazar:</strong> La OC regresa a <code>Borrador</code> con un comentario del motivo de rechazo para que el creador la corrija.</li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <strong>3. Notificaciones</strong>
+                    <ul>
+                        <li>Cuando una OC requiere aprobación, el aprobador recibe una notificación en su bandeja de entrada del sistema.</li>
+                        <li>Si la OC es rechazada, el creador recibe una notificación con el motivo.</li>
+                    </ul>
+
+                    <div class="fiscal-alert-box">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <div class="fiscal-alert-text">
+                            Si tu empresa no requiere flujo de aprobación, el usuario con permisos de administración
+                            puede emitir la OC y aprobarla directamente en un solo paso desde el botón <strong>Emitir y Aprobar</strong>.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. Recepción de Mercancía -->
+        <section id="recepcion" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-truck-loading" style="color: var(--accent-emerald);"></i>
+                <span>Recepción de Mercancía</span>
+            </div>
+
+            <div class="docs-article" data-search-content="recepcion mercancia parcial total inventario almacen">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-clipboard-check docs-article-title-icon"></i>
+                        ¿Cómo recibir una Orden de Compra?
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    Una vez que el proveedor entrega los bienes, debes registrar la recepción para actualizar el inventario y continuar el flujo:
+                    <br><br>
+                    <strong>1. Recepción total</strong>
+                    <ul>
+                        <li>Accede al detalle de la OC aprobada.</li>
+                        <li>Haz clic en <strong>Recibir OC</strong>.</li>
+                        <li>Confirma que todas las cantidades coinciden con lo solicitado.</li>
+                        <li>El sistema actualizará el inventario sumando las cantidades recibidas al almacén seleccionado.</li>
+                        <li>La OC cambia a estado <code>Recibida Total</code>.</li>
+                    </ul>
+
+                    <strong>2. Recepción parcial</strong>
+                    <ul>
+                        <li>Si el proveedor entrega solo una parte del pedido, puedes registrar una recepción parcial.</li>
+                        <li>En el formulario de recepción, ingresa las cantidades reales recibidas por cada partida.</li>
+                        <li>La OC queda en estado <code>Recibida Parcial</code>.</li>
+                        <li>Las partidas pendientes de recibir quedarán señaladas para una futura recepción.</li>
+                    </ul>
+
+                    <strong>3. Recepción de servicios</strong>
+                    <ul>
+                        <li>Para OC de tipo <code>Servicios</code>, no hay actualización de inventario físico.</li>
+                        <li>Al confirmar la recepción, la OC se marca como <code>Completada</code> directamente.</li>
+                    </ul>
+
+                    <div class="fiscal-alert-box alert-success">
+                        <i class="fa-solid fa-check-circle"></i>
+                        <div class="fiscal-alert-text">
+                            <strong>Actualización de inventario automática:</strong> Al recibir una OC de bienes,
+                            el sistema incrementa el stock del almacén seleccionado en tiempo real.
+                            Si la OC fue creada desde una requisición, también libera la reserva de inventario correspondiente.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 5. Vinculación con Factura de Proveedor -->
+        <section id="vinculacion" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-link" style="color: var(--accent-emerald);"></i>
+                <span>Vinculación OC → Factura de Proveedor</span>
+            </div>
+
+            <div class="docs-article" data-search-content="vincular orden compra factura proveedor cxp oc factura">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-arrow-right-arrow-left docs-article-title-icon"></i>
+                        ¿Cómo vincular una OC con la factura del proveedor?
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    Una vez recibida la mercancía, el proveedor te emitirá una factura. Debes vincularla con la OC para cerrar el ciclo:
+                    <br><br>
+                    <strong>1. Desde la OC recibida</strong>
+                    <ul>
+                        <li>En el detalle de la OC en estado <code>Recibida Total</code> o <code>Recibida Parcial</code>, haz clic en <strong>Crear Factura desde OC</strong>.</li>
+                        <li>El sistema precargará automáticamente los datos del proveedor, las partidas, cantidades recibidas y precios acordados.</li>
+                        <li>Se abrirá el formulario de <strong>CxP Compras</strong> (<code>/purchase-orders/invoices/new</code>) con la información de la OC precargada.</li>
+                    </ul>
+
+                    <strong>2. Verificación de datos</strong>
+                    <ul>
+                        <li><strong>N° Factura del Proveedor:</strong> Ingresa el número que aparece en la factura física o digital que te entregó el proveedor.</li>
+                        <li><strong>NCF / e-CF:</strong> Ingresa el comprobante fiscal del proveedor. El sistema validará que no esté duplicado.</li>
+                        <li><strong>Fechas:</strong> Verifica que la fecha de emisión y vencimiento coincidan con la factura del proveedor.</li>
+                        <li><strong>Partidas:</strong> Revisa que las cantidades y precios coincidan. Puedes ajustar diferencias menores si el proveedor facturó de forma ligeramente distinta.</li>
+                    </ul>
+
+                    <strong>3. Beneficios de la vinculación</strong>
+                    <ul>
+                        <li><strong>Control de precios:</strong> El sistema alerta si el precio facturado difiere del precio acordado en la OC.</li>
+                        <li><strong>Traza completa:</strong> Puedes consultar en cualquier momento qué OC originó cada factura de proveedor y viceversa.</li>
+                        <li><strong>Estado de CxP:</strong> La factura se integra automáticamente a tu panel de Cuentas por Pagar para gestionar su pago.</li>
+                        <li><strong>Reportes:</strong> Los reportes de compras incluyen tanto las OC como las facturas vinculadas para una visión completa del aprovisionamiento.</li>
+                    </ul>
+
+                    <div class="fiscal-alert-box alert-warning">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div class="fiscal-alert-text">
+                            <strong>Importante:</strong> Si los precios en la factura del proveedor difieren de los precios de la OC,
+                            asegúrate de tener la autorización correspondiente antes de registrar la factura.
+                            El sistema registrará la diferencia como una <strong>variación de precio</strong> para control interno.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="docs-article" data-search-content="factura directa sin oc error proveedor no coincide">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-circle-exclamation docs-article-title-icon" style="color: var(--accent-yellow);"></i>
+                        ¿Qué pasa si la factura no tiene OC vinculada?
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    No todas las compras requieren una Orden de Compra previa. Puedes registrar una factura de proveedor
+                    <strong>sin OC</strong> usando el método de <strong>Factura Directa</strong> en el módulo de CxP Compras.
+                    <br><br>
+                    <strong>¿Cuándo usar Factura Directa?</strong>
+                    <ul>
+                        <li>Compras esporádicas o de bajo monto.</li>
+                        <li>Servicios contratados sin orden previa (ej. reparaciones urgentes).</li>
+                        <li>Gastos operativos del día a día (ej. suministros de oficina).</li>
+                    </ul>
+                    <strong>¿Cuándo es obligatorio usar OC?</strong>
+                    <ul>
+                        <li>Compras planificadas de inventario o materia prima.</li>
+                        <li>Compras que requieren aprobación de múltiples niveles.</li>
+                        <li>Contratos de largo plazo con entregas programadas.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Mensaje de No Resultados -->
+        <div id="no-results" class="no-results-state">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <h4>No encontramos resultados</h4>
+            <p>Prueba buscando con palabras clave más cortas como "OC", "Aprobación" o "Recepción".</p>
+        </div>
+
+        <!-- Banner Footer -->
+        <div class="docs-footer-banner">
+            <div>
+                <h4>¿Tienes dudas sobre el proceso de compras?</h4>
+                <p>Las Órdenes de Compra son documentos internos de gestión. Para dudas fiscales sobre facturas de proveedor, consulta el Centro de Ayuda principal.</p>
+            </div>
+            <a href="/help" class="btn btn-secondary"
+                style="white-space: nowrap; padding: 10px 20px; font-weight: 500;">
+                <i class="fa-solid fa-book"></i>
+                <span>Volver al Centro de Ayuda</span>
+            </a>
+        </div>
+
+    </main>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchInput = document.getElementById('faq-search');
+        const sidebarItems = document.querySelectorAll('.docs-sidebar-item');
+        const sections = document.querySelectorAll('.docs-section');
+        const articles = document.querySelectorAll('.docs-article');
+        const noResults = document.getElementById('no-results');
+
+        // 1. Filtrado Reactivo por Búsqueda
+        searchInput.addEventListener('input', function () {
+            const query = this.value.toLowerCase().trim();
+            let hasVisibleArticlesGlobal = false;
+
+            sections.forEach(section => {
+                const sectionArticles = section.querySelectorAll('.docs-article');
+                let hasVisibleArticlesInSection = false;
+
+                sectionArticles.forEach(article => {
+                    const searchContent = article.getAttribute('data-search-content').toLowerCase();
+                    const titleText = article.querySelector('.docs-article-title').textContent.toLowerCase();
+                    const bodyText = article.querySelector('.docs-article-body').textContent.toLowerCase();
+
+                    const matches = searchContent.includes(query) || titleText.includes(query) || bodyText.includes(query);
+                    if (matches || query === '') {
+                        article.style.display = 'block';
+                        hasVisibleArticlesInSection = true;
+                        hasVisibleArticlesGlobal = true;
+                    } else {
+                        article.style.display = 'none';
+                    }
+                });
+
+                // Especial para el glosario inicial en la primera sección
+                const glossary = section.querySelector('.glossary-grid');
+                if (glossary) {
+                    if (query === '') {
+                        glossary.style.display = 'grid';
+                        hasVisibleArticlesInSection = true;
+                    } else {
+                        glossary.style.display = 'none';
+                    }
+                }
+
+                // Mostrar/ocultar sección según tenga artículos visibles
+                if (hasVisibleArticlesInSection) {
+                    section.style.display = 'block';
+                    const targetId = section.getAttribute('id');
+                    const sidebarLink = document.querySelector(`.docs-sidebar-item[data-target="${targetId}"]`);
+                    if (sidebarLink) sidebarLink.style.display = 'block';
+                } else {
+                    section.style.display = 'none';
+                    const targetId = section.getAttribute('id');
+                    const sidebarLink = document.querySelector(`.docs-sidebar-item[data-target="${targetId}"]`);
+                    if (sidebarLink) sidebarLink.style.display = 'none';
+                }
+            });
+
+            if (hasVisibleArticlesGlobal) {
+                noResults.style.display = 'none';
+            } else {
+                noResults.style.display = 'block';
+            }
+        });
+
+        // 2. Scroll-Spy
+        window.addEventListener('scroll', function () {
+            let currentSectionId = '';
+
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                const sectionHeight = section.clientHeight;
+                if (pageYOffset >= (sectionTop - 120)) {
+                    currentSectionId = section.getAttribute('id');
+                }
+            });
+
+            if (currentSectionId) {
+                sidebarItems.forEach(item => {
+                    item.classList.remove('active');
+                    if (item.getAttribute('data-target') === currentSectionId) {
+                        item.classList.add('active');
+                    }
+                });
+            }
+        });
+
+        // 3. Smooth Scroll
+        sidebarItems.forEach(item => {
+            const link = item.querySelector('a');
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = item.getAttribute('data-target');
+                const targetSection = document.getElementById(targetId);
+
+                if (targetSection) {
+                    window.scrollTo({
+                        top: targetSection.offsetTop - 90,
+                        behavior: 'smooth'
+                    });
+
+                    sidebarItems.forEach(i => i.classList.remove('active'));
+                    item.classList.add('active');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

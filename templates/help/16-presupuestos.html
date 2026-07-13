@@ -1,0 +1,467 @@
+{% extends "layout.html" %}
+
+{% block title %}Presupuestos - {{ product_name }}{% endblock %}
+
+{% block page_header %}Presupuestos{% endblock %}
+
+{% block extra_head %}
+<style>
+    .docs-layout { display: grid; grid-template-columns: 280px 1fr; gap: 40px; max-width: 100%; margin: 0 auto; align-items: start; }
+    .docs-layout strong { font-weight: 500; }
+    .docs-sidebar { position: sticky; top: 80px; max-height: calc(100vh - 120px); overflow-y: auto; padding-right: 15px; }
+    .docs-sidebar::-webkit-scrollbar { width: 4px; }
+    .docs-sidebar-group { margin-bottom: 24px; }
+    .docs-sidebar-group-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.08em; margin-bottom: 10px; padding-left: 8px; }
+    .docs-sidebar-menu { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .docs-sidebar-item a { display: flex; align-items: center; gap: 10px; padding: 8px 12px; font-size: 0.88rem; color: var(--text-secondary); border-radius: var(--radius-sm); transition: all var(--transition-fast); line-height: 1.4; }
+    .docs-sidebar-item a:hover { color: var(--text-primary); background-color: var(--bg-nav-hover); }
+    .docs-sidebar-item.active a { color: var(--accent-emerald); background-color: var(--bg-brand-translucent); font-weight: 500; }
+    .docs-sidebar-footer-info { background-color: var(--bg-brand-translucent); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; margin-top: 30px; display: flex; gap: 10px; }
+    .docs-sidebar-footer-info i { color: var(--accent-emerald); font-size: 1rem; margin-top: 2px; }
+    .docs-content { min-width: 0; }
+    .docs-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 1px solid var(--border-color); margin-bottom: 30px; gap: 20px; }
+    .docs-header h2 { font-size: 1.6rem; font-weight: 800; color: var(--text-primary); margin-bottom: 4px; }
+    .docs-header p { color: var(--text-secondary); font-size: 0.92rem; }
+    .docs-search-wrapper { position: relative; width: 320px; }
+    .docs-search-input { width: 100%; height: 38px; padding: 0 16px 0 38px; background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: 20px; color: var(--text-primary); font-size: 0.85rem; transition: all var(--transition-fast); }
+    .docs-search-input:focus { border-color: var(--accent-emerald); box-shadow: var(--shadow-glow); }
+    .docs-search-wrapper .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.9rem; }
+    .docs-section { margin-bottom: 45px; scroll-margin-top: 80px; }
+    .docs-section-title { font-size: 1.35rem; font-weight: 800; color: var(--text-primary); padding-bottom: 8px; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+    .glossary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .glossary-card { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px; transition: all var(--transition-fast); }
+    .glossary-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); border-color: var(--accent-emerald); }
+    .glossary-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .glossary-card-icon { font-size: 1.1rem; color: var(--accent-emerald); }
+    .glossary-card-title { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); }
+    .glossary-card-text { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.45; }
+    .docs-article { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 24px; margin-bottom: 20px; transition: border-color var(--transition-fast), box-shadow var(--transition-fast); }
+    .docs-article:hover { border-color: var(--border-glow); box-shadow: var(--shadow-sm); }
+    .docs-article-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .docs-article-title-text { display: flex; align-items: center; gap: 10px; }
+    .docs-article-title-icon { font-size: 0.95rem; color: var(--accent-emerald); opacity: 0.8; }
+    .docs-article-body { font-size: 0.92rem; color: var(--text-secondary); line-height: 1.6; }
+    .docs-article-body strong { color: var(--text-primary); font-weight: 500; }
+    .docs-article-body code { background-color: var(--bg-input); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.82rem; color: var(--accent-purple); border: 1px solid var(--border-color); }
+    .docs-article-body ul { margin: 12px 0; padding-left: 20px; }
+    .docs-article-body li { margin-bottom: 6px; }
+    .fiscal-alert-box { background-color: var(--bg-brand-translucent); border-left: 4px solid var(--accent-emerald); border-radius: 4px; padding: 14px 16px; margin-top: 16px; display: flex; gap: 12px; align-items: flex-start; }
+    .fiscal-alert-box.alert-warning { border-left-color: var(--accent-yellow); background-color: rgba(245, 158, 11, 0.05); }
+    .fiscal-alert-box.alert-danger { border-left-color: var(--accent-red); background-color: rgba(220, 38, 38, 0.05); }
+    .fiscal-alert-box.alert-success { border-left-color: var(--accent-success); background-color: rgba(22, 163, 74, 0.05); }
+    .fiscal-alert-box i { font-size: 1.05rem; margin-top: 2px; }
+    .fiscal-alert-box.alert-warning i { color: var(--accent-yellow); }
+    .fiscal-alert-box.alert-danger i { color: var(--accent-red); }
+    .fiscal-alert-box.alert-success i { color: var(--accent-success); }
+    .fiscal-alert-text { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; }
+    .no-results-state { text-align: center; padding: 40px; background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); display: none; }
+    .no-results-state i { font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; }
+    .no-results-state h4 { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; color: var(--text-primary); }
+    .no-results-state p { color: var(--text-secondary); font-size: 0.88rem; }
+    .docs-footer-banner { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 24px; display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 40px; margin-bottom: 40px; }
+    .docs-footer-banner h4 { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; color: var(--text-primary); }
+    .docs-footer-banner p { color: var(--text-secondary); font-size: 0.85rem; margin: 0; line-height: 1.4; }
+    @media (max-width: 1024px) { .docs-layout { grid-template-columns: 1fr; gap: 24px; } .docs-sidebar { position: static; max-height: none; overflow-y: visible; padding-right: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 20px; } .docs-header { flex-direction: column; align-items: flex-start; gap: 16px; } .docs-search-wrapper { width: 100%; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="docs-layout">
+
+    <aside class="docs-sidebar">
+        <div class="docs-sidebar-group">
+            <div class="docs-sidebar-group-title">Presupuestos</div>
+            <ul class="docs-sidebar-menu">
+                <li class="docs-sidebar-item active" data-target="creacion">
+                    <a href="#creacion"><i class="fa-solid fa-plus-circle"></i><span>Creación de Presupuesto</span></a>
+                </li>
+                <li class="docs-sidebar-item" data-target="categorias">
+                    <a href="#categorias"><i class="fa-solid fa-layer-group"></i><span>Categorías</span></a>
+                </li>
+                <li class="docs-sidebar-item" data-target="comparativo">
+                    <a href="#comparativo"><i class="fa-solid fa-chart-bar"></i><span>Comparativo Real vs Presupuestado</span></a>
+                </li>
+                <li class="docs-sidebar-item" data-target="proyecciones">
+                    <a href="#proyecciones"><i class="fa-solid fa-chart-line"></i><span>Proyecciones Financieras</span></a>
+                </li>
+            </ul>
+        </div>
+        <div class="docs-sidebar-footer-info">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>{{ product_name }} cumple con la Ley 32-23 de Facturación Electrónica en República Dominicana.</span>
+        </div>
+    </aside>
+
+    <main class="docs-content">
+
+        <div class="docs-header">
+            <div class="docs-header-left">
+                <h2>Presupuestos</h2>
+                <p>Planifica, monitorea y controla las finanzas de tu empresa con presupuestos anuales por categorías.</p>
+            </div>
+            <div class="docs-search-wrapper">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" id="faq-search" class="docs-search-input" placeholder="Buscar en presupuestos...">
+            </div>
+        </div>
+
+        <!-- 1. Creación de Presupuesto -->
+        <section id="creacion" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-plus-circle" style="color: var(--accent-emerald);"></i>
+                <span>Creación de Presupuesto Anual</span>
+            </div>
+
+            <div class="glossary-grid">
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-calendar-year glossary-card-icon"></i>
+                        <h4 class="glossary-card-title">Presupuesto Anual</h4>
+                    </div>
+                    <p class="glossary-card-text">
+                        Plan financiero que establece las metas de ingresos y gastos para un año fiscal. Sirve como guía para la toma de decisiones y el control de gestión.
+                    </p>
+                </div>
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-coins glossary-card-icon" style="color: var(--accent-yellow);"></i>
+                        <h4 class="glossary-card-title">Partida</h4>
+                    </div>
+                    <p class="glossary-card-text">
+                        Cada línea de ingreso o gasto dentro del presupuesto, con un monto asignado para un período específico del año.
+                    </p>
+                </div>
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-scale-balanced glossary-card-icon" style="color: var(--accent-purple);"></i>
+                        <h4 class="glossary-card-title">Variación</h4>
+                    </div>
+                    <p class="glossary-card-text">
+                        Diferencia entre el monto presupuestado y el valor real ejecutado. Puede ser favorable (ingreso mayor o gasto menor) o desfavorable.
+                    </p>
+                </div>
+            </div>
+
+            <div class="docs-article" data-search-content="crear presupuesto anual ingresos gastos metas">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-file-invoice docs-article-title-icon"></i>
+                        ¿Cómo crear un presupuesto anual?
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    Sigue estos pasos para definir el presupuesto de tu empresa para el año fiscal:
+                    <br><br>
+                    <strong>1. Accede al módulo de Presupuestos</strong>
+                    <ul>
+                        <li>En el menú lateral, navega a <strong>Finanzas → Presupuestos</strong> o usa la URL <code>/budgets</code>.</li>
+                        <li>Haz clic en <strong>+ Nuevo Presupuesto</strong>.</li>
+                    </ul>
+
+                    <strong>2. Define el encabezado</strong>
+                    <ul>
+                        <li><strong>Nombre:</strong> Asigna un nombre descriptivo, ej. "Presupuesto 2026 - Operaciones".</li>
+                        <li><strong>Año Fiscal:</strong> Selecciona el año al que corresponde el presupuesto.</li>
+                        <li><strong>Moneda:</strong> DOP, USD, EUR, etc.</li>
+                        <li><strong>Descripción:</strong> Notas adicionales sobre el contexto o supuestos utilizados (opcional).</li>
+                    </ul>
+
+                    <strong>3. Agrega las partidas presupuestarias</strong>
+                    <ul>
+                        <li>Haz clic en <strong>Agregar Partida</strong> por cada línea de ingreso o gasto que desees presupuestar.</li>
+                        <li>Por cada partida, define:
+                            <ul>
+                                <li><strong>Nombre:</strong> Descripción de la partida (ej. "Venta de Productos A", "Alquiler de Oficina").</li>
+                                <li><strong>Categoría:</strong> Ingreso o Gasto (y su subcategoría).</li>
+                                <li><strong>Monto Anual:</strong> Valor total presupuestado para el año.</li>
+                                <li><strong>Distribución Mensual:</strong> El sistema distribuirá el monto anual en 12 meses. Puedes ajustar cada mes manualmente si el ingreso o gasto es estacional.</li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <strong>4. Guarda y activa el presupuesto</strong>
+                    <ul>
+                        <li>Haz clic en <strong>Guardar Borrador</strong> para mantenerlo en edición.</li>
+                        <li>Cuando esté listo, haz clic en <strong>Activar Presupuesto</strong>. Un presupuesto activo es el que se usará para los comparativos del Dashboard.</li>
+                        <li>Solo puede haber un presupuesto activo por año fiscal.</li>
+                    </ul>
+
+                    <div class="fiscal-alert-box">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <div class="fiscal-alert-text">
+                            El presupuesto es una herramienta de <strong>gestión interna</strong>. No tiene efectos fiscales directos, pero es fundamental para la planificación financiera y el control de gastos.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. Categorías -->
+        <section id="categorias" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-layer-group" style="color: var(--accent-emerald);"></i>
+                <span>Categorías Presupuestarias</span>
+            </div>
+
+            <div class="docs-article" data-search-content="categorias ingresos gastos inversiones presupuesto">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-sitemap docs-article-title-icon"></i>
+                        Tipos de categorías disponibles
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    El sistema organiza las partidas presupuestarias en tres grandes categorías:
+                    <br><br>
+                    <strong>1. Ingresos</strong>
+                    <ul>
+                        <li><strong>Ventas de Productos:</strong> Ingresos por venta de bienes físicos o digitales.</li>
+                        <li><strong>Servicios Profesionales:</strong> Honorarios por servicios de consultoría, asesoría, desarrollo, etc.</li>
+                        <li><strong>Ingresos Financieros:</strong> Intereses ganados, rendimientos de inversiones.</li>
+                        <li><strong>Otros Ingresos:</strong> Cualquier otro ingreso no operativo.</li>
+                    </ul>
+
+                    <strong>2. Gastos</strong>
+                    <ul>
+                        <li><strong>Operativos:</strong> Alquiler, servicios públicos, internet, suministros de oficina.</li>
+                        <li><strong>Personal:</strong> Salarios, comisiones, bonificaciones, prestaciones laborales.</li>
+                        <li><strong>Marketing:</strong> Publicidad, campañas digitales, material promocional.</li>
+                        <li><strong>Tecnología:</strong> Suscripciones de software, hosting, equipos informáticos.</li>
+                        <li><strong>Gastos Financieros:</strong> Comisiones bancarias, intereses de préstamos.</li>
+                        <li><strong>Impuestos:</strong> ITBIS, ISR, anticipos fiscales, tasas municipales.</li>
+                    </ul>
+
+                    <strong>3. Inversiones</strong>
+                    <ul>
+                        <li><strong>Activos Fijos:</strong> Compra de maquinaria, vehículos, equipos, mobiliario.</li>
+                        <li><strong>Mejoras de Infraestructura:</strong> Renovaciones de oficina, adecuaciones locales.</li>
+                        <li><strong>Capacitación:</strong> Cursos, certificaciones, entrenamiento del personal.</li>
+                    </ul>
+
+                    <div class="fiscal-alert-box alert-warning">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div class="fiscal-alert-text">
+                            <strong>Consejo:</strong> Sé específico al nombrar tus partidas. En lugar de "Varios", usa nombres como "Suministros de Oficina Q1" o "Campaña Redes Sociales Marzo". Esto facilita el análisis de variaciones.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Comparativo Real vs Presupuestado -->
+        <section id="comparativo" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-chart-bar" style="color: var(--accent-emerald);"></i>
+                <span>Comparativo Real vs Presupuestado</span>
+            </div>
+
+            <div class="docs-article" data-search-content="comparativo real presupuestado variacion dashboard">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-chart-simple docs-article-title-icon"></i>
+                        ¿Cómo se calcula la variación?
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    El sistema compara automáticamente los valores reales de tus facturas (ingresos) y gastos registrados contra el presupuesto activo:
+                    <br><br>
+                    <strong>1. Alimentación de datos reales</strong>
+                    <ul>
+                        <li><strong>Ingresos Reales:</strong> Se toman de las facturas de venta emitidas y cobradas en el período.</li>
+                        <li><strong>Gastos Reales:</strong> Se toman de las facturas de proveedor (CxP) y gastos registrados en el período.</li>
+                        <li>Los datos se agrupan automáticamente por categoría y mes para compararlos con las partidas presupuestadas.</li>
+                    </ul>
+
+                    <strong>2. Indicadores de variación</strong>
+                    <ul>
+                        <li><strong>Variación Absoluta:</strong> Diferencia en valor monetario (Real - Presupuesto).</li>
+                        <li><strong>Variación Porcentual:</strong> ((Real - Presupuesto) / Presupuesto) × 100.</li>
+                        <li><strong>Semáforo de alerta:</strong>
+                            <ul>
+                                <li><span style="color: var(--accent-success);">Verde:</span> Variación dentro del rango esperado (±5%).</li>
+                                <li><span style="color: var(--accent-yellow);">Amarillo:</span> Variación entre 5% y 15% (requiere atención).</li>
+                                <li><span style="color: var(--accent-red);">Rojo:</span> Variación superior al 15% (requiere acción correctiva).</li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <strong>3. Reportes disponibles</strong>
+                    <ul>
+                        <li><strong>Dashboard Ejecutivo:</strong> Vista resumen con los indicadores clave del presupuesto actual.</li>
+                        <li><strong>Reporte Mensual Comparativo:</strong> Detalle mes a mes de cada partida vs lo real.</li>
+                        <li><strong>Reporte Acumulado Anual:</strong> Comparación del acumulado del año vs el presupuesto total.</li>
+                    </ul>
+
+                    <div class="fiscal-alert-box">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <div class="fiscal-alert-text">
+                            Los datos reales se actualizan en tiempo real a medida que registras facturas y gastos. No necesitas hacer nada adicional para mantener actualizado el comparativo.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. Proyecciones Financieras -->
+        <section id="proyecciones" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-chart-line" style="color: var(--accent-emerald);"></i>
+                <span>Proyecciones Financieras</span>
+            </div>
+
+            <div class="docs-article" data-search-content="proyecciones financieras flujo caja escenarios estimacion">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-chart-pie docs-article-title-icon"></i>
+                        Proyecciones basadas en el presupuesto
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    El módulo de presupuestos incluye herramientas de proyección financiera para anticipar el desempeño futuro de tu empresa:
+                    <br><br>
+                    <strong>1. Proyección de Flujo de Caja</strong>
+                    <ul>
+                        <li>Basado en el presupuesto activo y las facturas a crédito pendientes de cobro, el sistema estima el flujo de caja proyectado para los próximos 3 a 6 meses.</li>
+                        <li>Identifica meses con posible déficit de efectivo para que tomes decisiones preventivas.</li>
+                    </ul>
+
+                    <strong>2. Escenarios presupuestarios</strong>
+                    <ul>
+                        <li><strong>Escenario Optimista:</strong> Ingresos un 20% mayores a lo presupuestado.</li>
+                        <li><strong>Escenario Realista:</strong> Coincide con el presupuesto base.</li>
+                        <li><strong>Escenario Pesimista:</strong> Ingresos un 20% menores a lo presupuestado.</li>
+                        <li>Puedes alternar entre escenarios en el Dashboard para visualizar el impacto en tu rentabilidad.</li>
+                    </ul>
+
+                    <strong>3. Estimación de Impuestos Proyectados</strong>
+                    <ul>
+                        <li>Con base en las proyecciones de ingresos, el sistema estima el ITBIS a pagar y el ISR anual esperado.</li>
+                        <li>Te permite planificar con anticipación los pagos de impuestos y evitar sorpresas de liquidez.</li>
+                    </ul>
+
+                    <div class="fiscal-alert-box alert-warning">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div class="fiscal-alert-text">
+                            <strong>Importante:</strong> Las proyecciones son estimaciones basadas en datos históricos y supuestos. No garantizan resultados futuros. Úsalas como guía para la toma de decisiones, no como certezas financieras.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div id="no-results" class="no-results-state">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <h4>No encontramos resultados</h4>
+            <p>Prueba buscando con palabras clave como "Ingresos", "Gastos" o "Presupuesto".</p>
+        </div>
+
+        <div class="docs-footer-banner">
+            <div>
+                <h4>¿Necesitas ajustar el presupuesto activo?</h4>
+                <p>Puedes editar las partidas de un presupuesto activo en cualquier momento. Los cambios se reflejarán automáticamente en los comparativos y proyecciones.</p>
+            </div>
+            <a href="/help" class="btn btn-secondary" style="white-space: nowrap; padding: 10px 20px; font-weight: 500;">
+                <i class="fa-solid fa-book"></i><span>Volver al Centro de Ayuda</span>
+            </a>
+        </div>
+
+    </main>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchInput = document.getElementById('faq-search');
+        const sidebarItems = document.querySelectorAll('.docs-sidebar-item');
+        const sections = document.querySelectorAll('.docs-section');
+        const articles = document.querySelectorAll('.docs-article');
+        const noResults = document.getElementById('no-results');
+
+        searchInput.addEventListener('input', function () {
+            const query = this.value.toLowerCase().trim();
+            let hasVisibleArticlesGlobal = false;
+
+            sections.forEach(section => {
+                const sectionArticles = section.querySelectorAll('.docs-article');
+                let hasVisibleArticlesInSection = false;
+
+                sectionArticles.forEach(article => {
+                    const searchContent = article.getAttribute('data-search-content').toLowerCase();
+                    const titleText = article.querySelector('.docs-article-title').textContent.toLowerCase();
+                    const bodyText = article.querySelector('.docs-article-body').textContent.toLowerCase();
+
+                    const matches = searchContent.includes(query) || titleText.includes(query) || bodyText.includes(query);
+                    if (matches || query === '') {
+                        article.style.display = 'block';
+                        hasVisibleArticlesInSection = true;
+                        hasVisibleArticlesGlobal = true;
+                    } else {
+                        article.style.display = 'none';
+                    }
+                });
+
+                const glossary = section.querySelector('.glossary-grid');
+                if (glossary) {
+                    if (query === '') {
+                        glossary.style.display = 'grid';
+                        hasVisibleArticlesInSection = true;
+                    } else {
+                        glossary.style.display = 'none';
+                    }
+                }
+
+                if (hasVisibleArticlesInSection) {
+                    section.style.display = 'block';
+                    const targetId = section.getAttribute('id');
+                    const sidebarLink = document.querySelector(`.docs-sidebar-item[data-target="${targetId}"]`);
+                    if (sidebarLink) sidebarLink.style.display = 'block';
+                } else {
+                    section.style.display = 'none';
+                    const targetId = section.getAttribute('id');
+                    const sidebarLink = document.querySelector(`.docs-sidebar-item[data-target="${targetId}"]`);
+                    if (sidebarLink) sidebarLink.style.display = 'none';
+                }
+            });
+
+            if (hasVisibleArticlesGlobal) {
+                noResults.style.display = 'none';
+            } else {
+                noResults.style.display = 'block';
+            }
+        });
+
+        window.addEventListener('scroll', function () {
+            let currentSectionId = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                if (pageYOffset >= (sectionTop - 120)) {
+                    currentSectionId = section.getAttribute('id');
+                }
+            });
+            if (currentSectionId) {
+                sidebarItems.forEach(item => {
+                    item.classList.remove('active');
+                    if (item.getAttribute('data-target') === currentSectionId) {
+                        item.classList.add('active');
+                    }
+                });
+            }
+        });
+
+        sidebarItems.forEach(item => {
+            const link = item.querySelector('a');
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = item.getAttribute('data-target');
+                const targetSection = document.getElementById(targetId);
+                if (targetSection) {
+                    window.scrollTo({ top: targetSection.offsetTop - 90, behavior: 'smooth' });
+                    sidebarItems.forEach(i => i.classList.remove('active'));
+                    item.classList.add('active');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

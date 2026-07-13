@@ -1,0 +1,425 @@
+{% extends "layout.html" %}
+
+{% block title %}Cuentas por Cobrar - {{ product_name }}{% endblock %}
+
+{% block page_header %}Cuentas por Cobrar (CxC){% endblock %}
+
+{% block extra_head %}
+<style>
+    .docs-layout { display: grid; grid-template-columns: 280px 1fr; gap: 40px; max-width: 100%; margin: 0 auto; align-items: start; }
+    .docs-layout strong { font-weight: 500; }
+    .docs-sidebar { position: sticky; top: 80px; max-height: calc(100vh - 120px); overflow-y: auto; padding-right: 15px; }
+    .docs-sidebar::-webkit-scrollbar { width: 4px; }
+    .docs-sidebar-group { margin-bottom: 24px; }
+    .docs-sidebar-group-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.08em; margin-bottom: 10px; padding-left: 8px; }
+    .docs-sidebar-menu { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .docs-sidebar-item a { display: flex; align-items: center; gap: 10px; padding: 8px 12px; font-size: 0.88rem; color: var(--text-secondary); border-radius: var(--radius-sm); transition: all var(--transition-fast); line-height: 1.4; }
+    .docs-sidebar-item a:hover { color: var(--text-primary); background-color: var(--bg-nav-hover); }
+    .docs-sidebar-item.active a { color: var(--accent-emerald); background-color: var(--bg-brand-translucent); font-weight: 500; }
+    .docs-sidebar-footer-info { background-color: var(--bg-brand-translucent); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; margin-top: 30px; display: flex; gap: 10px; }
+    .docs-sidebar-footer-info i { color: var(--accent-emerald); font-size: 1rem; margin-top: 2px; }
+    .docs-content { min-width: 0; }
+    .docs-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 1px solid var(--border-color); margin-bottom: 30px; gap: 20px; }
+    .docs-header h2 { font-size: 1.6rem; font-weight: 800; color: var(--text-primary); margin-bottom: 4px; }
+    .docs-header p { color: var(--text-secondary); font-size: 0.92rem; }
+    .docs-search-wrapper { position: relative; width: 320px; }
+    .docs-search-input { width: 100%; height: 38px; padding: 0 16px 0 38px; background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: 20px; color: var(--text-primary); font-size: 0.85rem; transition: all var(--transition-fast); }
+    .docs-search-input:focus { border-color: var(--accent-emerald); box-shadow: var(--shadow-glow); }
+    .docs-search-wrapper .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.9rem; }
+    .docs-section { margin-bottom: 45px; scroll-margin-top: 80px; }
+    .docs-section-title { font-size: 1.35rem; font-weight: 800; color: var(--text-primary); padding-bottom: 8px; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+    .glossary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .glossary-card { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px; transition: all var(--transition-fast); }
+    .glossary-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); border-color: var(--accent-emerald); }
+    .glossary-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .glossary-card-icon { font-size: 1.1rem; color: var(--accent-emerald); }
+    .glossary-card-title { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); }
+    .glossary-card-text { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.45; }
+    .docs-article { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 24px; margin-bottom: 20px; transition: border-color var(--transition-fast), box-shadow var(--transition-fast); }
+    .docs-article:hover { border-color: var(--border-glow); box-shadow: var(--shadow-sm); }
+    .docs-article-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .docs-article-title-text { display: flex; align-items: center; gap: 10px; }
+    .docs-article-title-icon { font-size: 0.95rem; color: var(--accent-emerald); opacity: 0.8; }
+    .docs-article-body { font-size: 0.92rem; color: var(--text-secondary); line-height: 1.6; }
+    .docs-article-body strong { color: var(--text-primary); font-weight: 500; }
+    .docs-article-body code { background-color: var(--bg-input); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.82rem; color: var(--accent-purple); border: 1px solid var(--border-color); }
+    .docs-article-body ul { margin: 12px 0; padding-left: 20px; }
+    .docs-article-body li { margin-bottom: 6px; }
+    .fiscal-alert-box { background-color: var(--bg-brand-translucent); border-left: 4px solid var(--accent-emerald); border-radius: 4px; padding: 14px 16px; margin-top: 16px; display: flex; gap: 12px; align-items: flex-start; }
+    .fiscal-alert-box.alert-warning { border-left-color: var(--accent-yellow); background-color: rgba(245, 158, 11, 0.05); }
+    .fiscal-alert-box.alert-danger { border-left-color: var(--accent-red); background-color: rgba(220, 38, 38, 0.05); }
+    .fiscal-alert-box.alert-success { border-left-color: var(--accent-success); background-color: rgba(22, 163, 74, 0.05); }
+    .fiscal-alert-box i { font-size: 1.05rem; margin-top: 2px; }
+    .fiscal-alert-box.alert-warning i { color: var(--accent-yellow); }
+    .fiscal-alert-box.alert-danger i { color: var(--accent-red); }
+    .fiscal-alert-box.alert-success i { color: var(--accent-success); }
+    .fiscal-alert-text { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; }
+    .no-results-state { text-align: center; padding: 40px; background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); display: none; }
+    .no-results-state i { font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; }
+    .no-results-state h4 { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; color: var(--text-primary); }
+    .no-results-state p { color: var(--text-secondary); font-size: 0.88rem; }
+    .docs-footer-banner { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 24px; display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 40px; margin-bottom: 40px; }
+    .docs-footer-banner h4 { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; color: var(--text-primary); }
+    .docs-footer-banner p { color: var(--text-secondary); font-size: 0.85rem; margin: 0; line-height: 1.4; }
+    @media (max-width: 1024px) { .docs-layout { grid-template-columns: 1fr; gap: 24px; } .docs-sidebar { position: static; max-height: none; overflow-y: visible; padding-right: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 20px; } .docs-header { flex-direction: column; align-items: flex-start; gap: 16px; } .docs-search-wrapper { width: 100%; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="docs-layout">
+
+    <aside class="docs-sidebar">
+        <div class="docs-sidebar-group">
+            <div class="docs-sidebar-group-title">CxC</div>
+            <ul class="docs-sidebar-menu">
+                <li class="docs-sidebar-item active" data-target="cartera"><a href="#cartera"><i class="fa-solid fa-file-invoice"></i><span>Cartera de Crédito</span></a></li>
+                <li class="docs-sidebar-item" data-target="antiguedad"><a href="#antiguedad"><i class="fa-solid fa-calendar"></i><span>Antigüedad de Saldos</span></a></li>
+                <li class="docs-sidebar-item" data-target="promesas"><a href="#promesas"><i class="fa-solid fa-handshake"></i><span>Promesas de Pago</span></a></li>
+                <li class="docs-sidebar-item" data-target="cobranza-ia"><a href="#cobranza-ia"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Cobranza con IA</span></a></li>
+                <li class="docs-sidebar-item" data-target="tonos"><a href="#tonos"><i class="fa-solid fa-volume-high"></i><span>Tonos de Cobro</span></a></li>
+            </ul>
+        </div>
+        <div class="docs-sidebar-footer-info">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>{{ product_name }} cumple con la Ley 32-23 de Facturación Electrónica en República Dominicana.</span>
+        </div>
+    </aside>
+
+    <main class="docs-content">
+
+        <div class="docs-header">
+            <div>
+                <h2>Cuentas por Cobrar (CxC)</h2>
+                <p>Administra tu cartera de crédito, registra promesas de pago y automatiza la cobranza con inteligencia artificial.</p>
+            </div>
+            <div class="docs-search-wrapper">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" id="faq-search" class="docs-search-input" placeholder="Buscar en CxC...">
+            </div>
+        </div>
+
+        <!-- Cartera -->
+        <section id="cartera" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-file-invoice" style="color: var(--accent-emerald);"></i>
+                <span>Cartera de Crédito</span>
+            </div>
+            <div class="glossary-grid">
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-file-circle-check glossary-card-icon"></i>
+                        <h4 class="glossary-card-title">Emitida</h4>
+                    </div>
+                    <p class="glossary-card-text">Factura autorizada por la DGII, enviada al cliente y pendiente de cobro dentro del plazo de crédito acordado.</p>
+                </div>
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-clock glossary-card-icon" style="color: var(--accent-yellow);"></i>
+                        <h4 class="glossary-card-title">Vencida</h4>
+                    </div>
+                    <p class="glossary-card-text">Factura cuya fecha de vencimiento ha pasado y aún no ha sido cobrada. El sistema la reclasifica automáticamente al cumplirse la fecha.</p>
+                </div>
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-circle-check glossary-card-icon" style="color: var(--accent-success);"></i>
+                        <h4 class="glossary-card-title">Cobrada</h4>
+                    </div>
+                    <p class="glossary-card-text">Factura cuyo saldo pendiente ha sido liquidado en su totalidad. El registro de cobro queda asociado a la cuenta bancaria de destino.</p>
+                </div>
+            </div>
+            <div class="docs-article" data-search-content="cartera credito cxc facturas emitida vencida cobrada">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-file-invoice docs-article-title-icon"></i>
+                        ¿Cómo se gestiona la cartera de crédito?
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    El módulo de CxC (<code>/cxc</code>) consolida automáticamente todas tus facturas emitidas a crédito:
+                    <br><br>
+                    <strong>Estados de la cartera:</strong>
+                    <ul>
+                        <li><strong>Emitida:</strong> Factura enviada al cliente, dentro del plazo de vencimiento. Aparece en la cartera con su saldo pendiente.</li>
+                        <li><strong>Vencida:</strong> Una vez que la fecha de vencimiento (<code>dueDate</code>) es superada, el sistema reclasifica la factura como vencida automáticamente. Las facturas vencidas se muestran con prioridad en la parte superior.</li>
+                        <li><strong>Cobrada:</strong> Al registrar el pago total, la factura sale de la cartera activa y pasa al historial de cobros.</li>
+                    </ul>
+                    <strong>Panel de CxC:</strong>
+                    <ul>
+                        <li>Muestra el <strong>total pendiente</strong> (suma de todas las facturas emitidas + vencidas).</li>
+                        <li>Desglosa el saldo por cliente, permitiendo filtrar y buscar por nombre, RNC o NCF.</li>
+                        <li>Cada fila muestra: número de factura, cliente, fecha de emisión, fecha de vencimiento, días de vencido y saldo pendiente.</li>
+                        <li>Puedes acceder al detalle de cada factura para registrar un cobro, ver el historial de pagos o registrar una promesa de pago.</li>
+                    </ul>
+                    <strong>Registrar un cobro:</strong>
+                    <ul>
+                        <li>Desde el detalle de la factura (<code>/invoices/{id}</code>), haz clic en <strong>Registrar Cobro</strong>.</li>
+                        <li>Ingresa el <strong>Monto</strong>, selecciona el <strong>Método de Pago</strong> (Efectivo, Transferencia, Cheque, Tarjeta) y la <strong>Cuenta Bancaria</strong> de destino.</li>
+                        <li>Si el monto del cobro es menor al saldo pendiente, la factura queda como <strong>Abonada</strong> (parcialmente cobrada).</li>
+                        <li>El sistema actualiza el saldo de la cuenta bancaria automáticamente.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Antigüedad -->
+        <section id="antiguedad" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-calendar" style="color: var(--accent-emerald);"></i>
+                <span>Antigüedad de Saldos</span>
+            </div>
+            <div class="docs-article" data-search-content="antiguedad saldos cartera vencida analisis cxc">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-calendar docs-article-title-icon"></i>
+                        Análisis de antigüedad de saldos
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    El reporte de antigüedad de saldos te permite visualizar la cartera vencida clasificada por rangos de tiempo:
+                    <br><br>
+                    <strong>Rangos de antigüedad estándar:</strong>
+                    <ul>
+                        <li><strong>0-30 días:</strong> Facturas recién vencidas. Se recomienda contacto temprano con el cliente.</li>
+                        <li><strong>31-60 días:</strong> Vencimiento intermedio. Requiere seguimiento más activo.</li>
+                        <li><strong>61-90 días:</strong> Vencimiento avanzado. Alto riesgo de incobrabilidad.</li>
+                        <li><strong>Más de 90 días:</strong> Vencimiento crítico. Se recomienda escalar a cobranza judicial o dar de baja.</li>
+                    </ul>
+                    <strong>Cómo acceder:</strong>
+                    <ul>
+                        <li>Desde <strong>CxC → Antigüedad de Saldos</strong> (<code>/cxc/aging</code>).</li>
+                        <li>El reporte muestra una tabla con cada cliente y el desglose de su saldo en cada rango.</li>
+                        <li>Puedes exportar el reporte a PDF o Excel para compartirlo con tu equipo o contador.</li>
+                    </ul>
+                    <div class="fiscal-alert-box alert-danger">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <div class="fiscal-alert-text">
+                            Las facturas con más de 90 días de vencidas tienen una alta probabilidad de incobrabilidad. Se recomienda provisionar el riesgo en tus estados financieros y considerar acciones legales si el monto es significativo.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Promesas de Pago -->
+        <section id="promesas" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-handshake" style="color: var(--accent-emerald);"></i>
+                <span>Promesas de Pago</span>
+            </div>
+            <div class="docs-article" data-search-content="promesa pago registro cumplimiento incumplimiento cxc">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-handshake docs-article-title-icon"></i>
+                        ¿Cómo funcionan las promesas de pago?
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    Las promesas de pago son acuerdos formales que registras con tus clientes para liquidar facturas pendientes en una fecha futura:
+                    <br><br>
+                    <strong>Registrar una promesa de pago:</strong>
+                    <ul>
+                        <li>Desde el detalle de la factura o desde el panel de CxC, selecciona un cliente con facturas pendientes.</li>
+                        <li>Haz clic en <strong>Registrar Promesa de Pago</strong>.</li>
+                        <li>Define la <strong>Fecha Prometida</strong> y el <strong>Monto Prometido</strong> (puede ser parcial o total).</li>
+                        <li>Opcionalmente, agrega una <strong>Nota</strong> con el acuerdo conversado (ej. "El cliente pagará el viernes después de cobrar su quincena").</li>
+                        <li>La promesa queda registrada en estado <strong>Pendiente de Cumplimiento</strong>.</li>
+                    </ul>
+                    <strong>Gestión de promesas:</strong>
+                    <ul>
+                        <li>El Dashboard muestra un contador de promesas por vencer y vencidas.</li>
+                        <li>Cuando la fecha prometida llega, el sistema te notifica para que verifiques el pago.</li>
+                        <li>Puedes marcar la promesa como:
+                            <ul>
+                                <li><strong>Cumplida:</strong> El cliente pagó en la fecha acordada. El sistema te guía para registrar el cobro.</li>
+                                <li><strong>Incumplida:</strong> El cliente no pagó. La promesa se cierra como incumplida y la factura vuelve a la cartera activa con prioridad alta.</li>
+                            </ul>
+                        </li>
+                    </ul>
+                    <div class="fiscal-alert-box alert-warning">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div class="fiscal-alert-text">
+                            Las promesas de pago incumplidas de forma reiterada son un indicador de riesgo crediticio. El sistema puede escalar automáticamente estos casos para revisión gerencial.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Cobranza con IA -->
+        <section id="cobranza-ia" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-wand-magic-sparkles" style="color: var(--accent-emerald);"></i>
+                <span>Cobranza con IA</span>
+            </div>
+            <div class="docs-article" data-search-content="cobranza ia inteligencia artificial mensaje email whatsapp generacion automatica">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-robot docs-article-title-icon" style="color: var(--accent-purple);"></i>
+                        Generación automática de mensajes de cobro con IA
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    {{ product_name }} integra un asistente de inteligencia artificial que redacta automáticamente mensajes de cobro personalizados para tus clientes:
+                    <br><br>
+                    <strong>¿Cómo funciona?</strong>
+                    <ul>
+                        <li>En el panel de CxC, junto a cada cliente con facturas pendientes, aparecen botones de acción para <strong>Email</strong> y <strong>WhatsApp</strong>.</li>
+                        <li>Al hacer clic en cualquiera de ellos, se abre un asistente de IA que analiza la cartera del cliente y redacta un mensaje de cobro profesional.</li>
+                        <li>El mensaje incluye automáticamente:
+                            <ul>
+                                <li>El nombre del cliente y el tuyo.</li>
+                                <li>El detalle de las facturas pendientes (número, monto, fecha de vencimiento).</li>
+                                <li>El saldo total pendiente.</li>
+                                <li>Los datos bancarios para realizar el pago.</li>
+                            </ul>
+                        </li>
+                    </ul>
+                    <strong>Canales disponibles:</strong>
+                    <ul>
+                        <li><strong>Email:</strong> Genera un correo electrónico formal con el mensaje redactado. Puedes revisarlo, editarlo y enviarlo directamente desde la plataforma o copiarlo a tu gestor de correo.</li>
+                        <li><strong>WhatsApp:</strong> Genera un mensaje optimizado para el canal de WhatsApp, más breve y directo. Abre el enlace <code>wa.me</code> con el número del cliente y el mensaje pre-escrito.</li>
+                    </ul>
+                    <div class="fiscal-alert-box">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <div class="fiscal-alert-text">
+                            La IA utiliza la cartera actualizada del cliente en tiempo real. Si registras un cobro o una promesa de pago, el mensaje se ajustará automáticamente para reflejar el nuevo saldo.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tonos de Cobro -->
+        <section id="tonos" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-volume-high" style="color: var(--accent-emerald);"></i>
+                <span>Tonos de Cobro</span>
+            </div>
+            <div class="glossary-grid">
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-face-smile glossary-card-icon" style="color: var(--accent-success);"></i>
+                        <h4 class="glossary-card-title">Amigable</h4>
+                    </div>
+                    <p class="glossary-card-text">Tono cordial y cercano. Ideal para primeros recordatorios o clientes con buen historial de pago. Ej: "¡Hola! Solo un recordatorio amigable de tu factura..."</p>
+                </div>
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-briefcase glossary-card-icon" style="color: var(--accent-purple);"></i>
+                        <h4 class="glossary-card-title">Profesional</h4>
+                    </div>
+                    <p class="glossary-card-text">Tono formal y corporativo. Recomendado para cobros a empresas o clientes institucionales. Incluye referencia a términos y condiciones.</p>
+                </div>
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-exclamation glossary-card-icon" style="color: var(--accent-red);"></i>
+                        <h4 class="glossary-card-title">Urgente</h4>
+                    </div>
+                    <p class="glossary-card-text">Tono firme para cobros de facturas con vencimiento avanzado. Incluye advertencia de acciones adicionales y posible afectación crediticia.</p>
+                </div>
+            </div>
+            <div class="docs-article" data-search-content="tono cobro amigable profesional urgente seleccion ia mensaje">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-volume-high docs-article-title-icon"></i>
+                        ¿Cómo seleccionar el tono adecuado?
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    El asistente de IA te permite elegir entre tres tonos de cobro, adaptando el mensaje según la situación del cliente:
+                    <br><br>
+                    <strong>Amigable:</strong>
+                    <ul>
+                        <li>Usa este tono para clientes con historial de pago puntual que ocasionalmente se han atrasado.</li>
+                        <li>El mensaje suena como un recordatorio cordial, sin presión.</li>
+                        <li>Indicado para facturas con menos de 15 días de vencidas.</li>
+                    </ul>
+                    <strong>Profesional (Formal):</strong>
+                    <ul>
+                        <li>Usa este tono para clientes corporativos o cuando el monto de la deuda es significativo.</li>
+                        <li>El mensaje es formal y estructurado, referenciando términos comerciales.</li>
+                        <li>Indicado para facturas entre 15 y 45 días de vencidas.</li>
+                    </ul>
+                    <strong>Urgente:</strong>
+                    <ul>
+                        <li>Usa este tono cuando la factura tiene más de 45 días de vencida o ha habido promesas de pago incumplidas.</li>
+                        <li>El mensaje es firme y directo, mencionando posibles consecuencias (suspensión de servicios, reporte a centrales de riesgo, acciones legales).</li>
+                        <li>Se recomienda usar con moderación y solo cuando las gestiones amigables y profesionales han sido agotadas.</li>
+                    </ul>
+                    <div class="fiscal-alert-box alert-warning">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div class="fiscal-alert-text">
+                            El tono Urgente puede generar fricción con el cliente. Úsalo estratégicamente y solo cuando sea necesario. El historial de comunicaciones queda registrado en la plataforma.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div id="no-results" class="no-results-state">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <h4>No encontramos resultados</h4>
+            <p>Prueba buscando con palabras clave como "cartera", "antigüedad", "promesa", "cobranza" o "IA".</p>
+        </div>
+
+        <div class="docs-footer-banner">
+            <div>
+                <h4>¿Necesitas optimizar tu cobranza?</h4>
+                <p>La cobranza con IA te ahorra tiempo redactando mensajes profesionales. Combínala con promesas de pago para tener un control completo de tu cartera.</p>
+            </div>
+            <a href="https://dgii.gov.do" target="_blank" class="btn btn-secondary" style="white-space: nowrap; padding: 10px 20px; font-weight: 500;">
+                <i class="fa-solid fa-building-columns"></i>
+                <span>Ir a Oficina DGII</span>
+            </a>
+        </div>
+
+    </main>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchInput = document.getElementById('faq-search');
+        const sidebarItems = document.querySelectorAll('.docs-sidebar-item');
+        const sections = document.querySelectorAll('.docs-section');
+        const articles = document.querySelectorAll('.docs-article');
+        const noResults = document.getElementById('no-results');
+        searchInput.addEventListener('input', function () {
+            const query = this.value.toLowerCase().trim();
+            let hasVisibleArticlesGlobal = false;
+            sections.forEach(section => {
+                const sectionArticles = section.querySelectorAll('.docs-article');
+                let hasVisibleArticlesInSection = false;
+                sectionArticles.forEach(article => {
+                    const searchContent = article.getAttribute('data-search-content').toLowerCase();
+                    const titleText = article.querySelector('.docs-article-title').textContent.toLowerCase();
+                    const bodyText = article.querySelector('.docs-article-body').textContent.toLowerCase();
+                    const matches = searchContent.includes(query) || titleText.includes(query) || bodyText.includes(query);
+                    if (matches || query === '') { article.style.display = 'block'; hasVisibleArticlesInSection = true; hasVisibleArticlesGlobal = true; }
+                    else { article.style.display = 'none'; }
+                });
+                const glossary = section.querySelector('.glossary-grid');
+                if (glossary) { if (query === '') { glossary.style.display = 'grid'; hasVisibleArticlesInSection = true; } else { glossary.style.display = 'none'; } }
+                if (hasVisibleArticlesInSection) { section.style.display = 'block'; const targetId = section.getAttribute('id'); const sidebarLink = document.querySelector(`.docs-sidebar-item[data-target="${targetId}"]`); if (sidebarLink) sidebarLink.style.display = 'block'; }
+                else { section.style.display = 'none'; const targetId = section.getAttribute('id'); const sidebarLink = document.querySelector(`.docs-sidebar-item[data-target="${targetId}"]`); if (sidebarLink) sidebarLink.style.display = 'none'; }
+            });
+            noResults.style.display = hasVisibleArticlesGlobal ? 'none' : 'block';
+        });
+        window.addEventListener('scroll', function () {
+            let currentSectionId = '';
+            sections.forEach(section => { const sectionTop = section.offsetTop; if (pageYOffset >= (sectionTop - 120)) { currentSectionId = section.getAttribute('id'); } });
+            if (currentSectionId) { sidebarItems.forEach(item => { item.classList.remove('active'); if (item.getAttribute('data-target') === currentSectionId) { item.classList.add('active'); } }); }
+        });
+        sidebarItems.forEach(item => {
+            const link = item.querySelector('a');
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = item.getAttribute('data-target');
+                const targetSection = document.getElementById(targetId);
+                if (targetSection) { window.scrollTo({ top: targetSection.offsetTop - 90, behavior: 'smooth' }); sidebarItems.forEach(i => i.classList.remove('active')); item.classList.add('active'); }
+            });
+        });
+    });
+</script>
+{% endblock %}
