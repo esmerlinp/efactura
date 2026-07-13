@@ -1,0 +1,1016 @@
+{% extends "layout.html" %}
+
+{% block title %}Configuración Inicial - {{ product_name }}{% endblock %}
+
+{% block page_header %}Guía de Configuración Inicial{% endblock %}
+
+{% block extra_head %}
+<style>
+    .docs-layout {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        gap: 40px;
+        max-width: 100%;
+        margin: 0 auto;
+        align-items: start;
+    }
+
+    .docs-layout strong {
+        font-weight: 500;
+    }
+
+    .docs-sidebar {
+        position: sticky;
+        top: 80px;
+        max-height: calc(100vh - 120px);
+        overflow-y: auto;
+        padding-right: 15px;
+    }
+
+    .docs-sidebar::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .docs-sidebar-group {
+        margin-bottom: 24px;
+    }
+
+    .docs-sidebar-group-title {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        letter-spacing: 0.08em;
+        margin-bottom: 10px;
+        padding-left: 8px;
+    }
+
+    .docs-sidebar-menu {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .docs-sidebar-item a {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        font-size: 0.88rem;
+        color: var(--text-secondary);
+        border-radius: var(--radius-sm);
+        transition: all var(--transition-fast);
+        line-height: 1.4;
+    }
+
+    .docs-sidebar-item a:hover {
+        color: var(--text-primary);
+        background-color: var(--bg-nav-hover);
+    }
+
+    .docs-sidebar-item.active a {
+        color: var(--accent-emerald);
+        background-color: var(--bg-brand-translucent);
+        font-weight: 500;
+    }
+
+    .docs-sidebar-footer-info {
+        background-color: var(--bg-brand-translucent);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        padding: 14px;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        line-height: 1.4;
+        margin-top: 30px;
+        display: flex;
+        gap: 10px;
+    }
+
+    .docs-sidebar-footer-info i {
+        color: var(--accent-emerald);
+        font-size: 1rem;
+        margin-top: 2px;
+    }
+
+    .docs-content {
+        min-width: 0;
+    }
+
+    .docs-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 20px;
+        border-bottom: 1px solid var(--border-color);
+        margin-bottom: 30px;
+        gap: 20px;
+    }
+
+    .docs-header h2 {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+    }
+
+    .docs-header p {
+        color: var(--text-secondary);
+        font-size: 0.92rem;
+    }
+
+    .docs-search-wrapper {
+        position: relative;
+        width: 320px;
+    }
+
+    .docs-search-input {
+        width: 100%;
+        height: 38px;
+        padding: 0 16px 0 38px;
+        background-color: var(--bg-input);
+        border: 1px solid var(--border-color);
+        border-radius: 20px;
+        color: var(--text-primary);
+        font-size: 0.85rem;
+        transition: all var(--transition-fast);
+    }
+
+    .docs-search-input:focus {
+        border-color: var(--accent-emerald);
+        box-shadow: var(--shadow-glow);
+    }
+
+    .docs-search-wrapper .search-icon {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+
+    .docs-section {
+        margin-bottom: 45px;
+        scroll-margin-top: 80px;
+    }
+
+    .docs-section-title {
+        font-size: 1.35rem;
+        font-weight: 800;
+        color: var(--text-primary);
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border-color);
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .docs-article {
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        padding: 24px;
+        margin-bottom: 20px;
+        transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    }
+
+    .docs-article:hover {
+        border-color: var(--border-glow);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .docs-article-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .docs-article-title-text {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .docs-article-title-icon {
+        font-size: 0.95rem;
+        color: var(--accent-emerald);
+        opacity: 0.8;
+    }
+
+    .docs-article-body {
+        font-size: 0.92rem;
+        color: var(--text-secondary);
+        line-height: 1.6;
+    }
+
+    .docs-article-body strong {
+        color: var(--text-primary);
+        font-weight: 500;
+    }
+
+    .docs-article-body code {
+        background-color: var(--bg-input);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 0.82rem;
+        color: var(--accent-purple);
+        border: 1px solid var(--border-color);
+    }
+
+    .docs-article-body ul {
+        margin: 12px 0;
+        padding-left: 20px;
+    }
+
+    .docs-article-body li {
+        margin-bottom: 6px;
+    }
+
+    .glossary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .glossary-card {
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        padding: 16px;
+        transition: all var(--transition-fast);
+    }
+
+    .glossary-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-sm);
+        border-color: var(--accent-emerald);
+    }
+
+    .glossary-card-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+
+    .glossary-card-icon {
+        font-size: 1.1rem;
+        color: var(--accent-emerald);
+    }
+
+    .glossary-card-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .glossary-card-text {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        line-height: 1.45;
+    }
+
+    .fiscal-alert-box {
+        background-color: var(--bg-brand-translucent);
+        border-left: 4px solid var(--accent-emerald);
+        border-radius: 4px;
+        padding: 14px 16px;
+        margin-top: 16px;
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+    }
+
+    .fiscal-alert-box.alert-warning {
+        border-left-color: var(--accent-yellow);
+        background-color: rgba(245, 158, 11, 0.05);
+    }
+
+    .fiscal-alert-box.alert-danger {
+        border-left-color: var(--accent-red);
+        background-color: rgba(220, 38, 38, 0.05);
+    }
+
+    .fiscal-alert-box.alert-success {
+        border-left-color: var(--accent-success);
+        background-color: rgba(22, 163, 74, 0.05);
+    }
+
+    .fiscal-alert-box i {
+        font-size: 1.05rem;
+        margin-top: 2px;
+    }
+
+    .fiscal-alert-box.alert-warning i {
+        color: var(--accent-yellow);
+    }
+
+    .fiscal-alert-box.alert-danger i {
+        color: var(--accent-red);
+    }
+
+    .fiscal-alert-box.alert-success i {
+        color: var(--accent-success);
+    }
+
+    .fiscal-alert-text {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+    }
+
+    .no-results-state {
+        text-align: center;
+        padding: 40px;
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        display: none;
+    }
+
+    .no-results-state i {
+        font-size: 2.5rem;
+        color: var(--text-muted);
+        margin-bottom: 12px;
+    }
+
+    .no-results-state h4 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-bottom: 6px;
+        color: var(--text-primary);
+    }
+
+    .no-results-state p {
+        color: var(--text-secondary);
+        font-size: 0.88rem;
+    }
+
+    .docs-footer-banner {
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        padding: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        margin-top: 40px;
+        margin-bottom: 40px;
+    }
+
+    .docs-footer-banner h4 {
+        font-size: 1.05rem;
+        font-weight: 700;
+        margin-bottom: 4px;
+        color: var(--text-primary);
+    }
+
+    .docs-footer-banner p {
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+        margin: 0;
+        line-height: 1.4;
+    }
+
+    /* Step badge */
+    .step-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background-color: var(--accent-emerald);
+        color: #fff;
+        font-size: 0.8rem;
+        font-weight: 700;
+        flex-shrink: 0;
+    }
+
+    @media (max-width: 1024px) {
+        .docs-layout {
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+
+        .docs-sidebar {
+            position: static;
+            max-height: none;
+            overflow-y: visible;
+            padding-right: 0;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 20px;
+        }
+
+        .docs-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 16px;
+        }
+
+        .docs-search-wrapper {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="docs-layout">
+
+    <!-- Sidebar Izquierdo -->
+    <aside class="docs-sidebar">
+        <div class="docs-sidebar-group">
+            <div class="docs-sidebar-group-title">En esta guía</div>
+            <ul class="docs-sidebar-menu">
+                <li class="docs-sidebar-item active" data-target="paso-1">
+                    <a href="#paso-1">
+                        <i class="fa-solid fa-1"></i>
+                        <span>Registro de Cuenta</span>
+                    </a>
+                </li>
+                <li class="docs-sidebar-item" data-target="paso-2">
+                    <a href="#paso-2">
+                        <i class="fa-solid fa-2"></i>
+                        <span>Perfil de Empresa</span>
+                    </a>
+                </li>
+                <li class="docs-sidebar-item" data-target="paso-3">
+                    <a href="#paso-3">
+                        <i class="fa-solid fa-3"></i>
+                        <span>Régimen Fiscal</span>
+                    </a>
+                </li>
+                <li class="docs-sidebar-item" data-target="paso-4">
+                    <a href="#paso-4">
+                        <i class="fa-solid fa-4"></i>
+                        <span>Datos Fiscales</span>
+                    </a>
+                </li>
+                <li class="docs-sidebar-item" data-target="paso-5">
+                    <a href="#paso-5">
+                        <i class="fa-solid fa-5"></i>
+                        <span>Firma Digital</span>
+                    </a>
+                </li>
+                <li class="docs-sidebar-item" data-target="paso-6">
+                    <a href="#paso-6">
+                        <i class="fa-solid fa-6"></i>
+                        <span>Sucursales y Equipo</span>
+                    </a>
+                </li>
+                <li class="docs-sidebar-item" data-target="modo-sandbox">
+                    <a href="#modo-sandbox">
+                        <i class="fa-solid fa-flask"></i>
+                        <span>Modo Sandbox</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+
+        <div class="docs-sidebar-group">
+            <div class="docs-sidebar-group-title">Volver</div>
+            <ul class="docs-sidebar-menu">
+                <li class="docs-sidebar-item">
+                    <a href="{{ url_for('web_invoices.help_center') }}">
+                        <i class="fa-solid fa-arrow-left"></i>
+                        <span>Portal de Ayuda</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+
+        <div class="docs-sidebar-footer-info">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>{{ product_name }} cumple con la Ley 32-23 de Facturación Electrónica en República Dominicana.</span>
+        </div>
+    </aside>
+
+    <!-- Contenido Principal -->
+    <main class="docs-content">
+
+        <div class="docs-header">
+            <div class="docs-header-left">
+                <h2>Configuración Inicial (Onboarding)</h2>
+                <p>Sigue estos pasos para poner en marcha tu cuenta y empezar a facturar electrónicamente.</p>
+            </div>
+            <div class="docs-search-wrapper">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" id="faq-search" class="docs-search-input"
+                    placeholder="Buscar en esta guía...">
+            </div>
+        </div>
+
+        <!-- Paso 1: Registro de Cuenta -->
+        <section id="paso-1" class="docs-section" data-search-content="registro cuenta propietario colaborador">
+            <div class="docs-section-title">
+                <span class="step-badge">1</span>
+                <span>Registro de Cuenta</span>
+            </div>
+
+            <div class="docs-article" data-search-content="registro propietario owner colaborador employee uid">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-user-plus docs-article-title-icon"></i>
+                        Propietario vs Colaborador
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    Al registrarte en <strong>{{ product_name }}</strong> tienes dos formas de crear tu cuenta:
+                    <br><br>
+                    <strong>Propietario (Owner):</strong>
+                    <ul>
+                        <li>Selecciona esta opción si eres el dueño del negocio y deseas crear una nueva organización.</li>
+                        <li>Tendrás control total sobre la configuración, permisos, sucursales y datos fiscales.</li>
+                        <li>Al registrarte como propietario, el sistema crea automáticamente tu organización y te asigna el rol de administrador.</li>
+                    </ul>
+                    <strong>Colaborador (Employee):</strong>
+                    <ul>
+                        <li>Selecciona esta opción si tu administrador o empleador ya creó la organización y te ha proporcionado un código UID único.</li>
+                        <li>Una vez registrado, quedarás vinculado a la organización y heredarás los permisos que el propietario te haya asignado.</li>
+                        <li>El código UID lo genera el propietario desde la sección <code>Configuración → Equipo</code> al invitar a un nuevo miembro.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="docs-article" data-search-content="registro paso a paso correo contraseña formulario">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-pen-to-square docs-article-title-icon"></i>
+                        Pasos para registrarte
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    <ol>
+                        <li>Accede a <code>/register</code> desde tu navegador o haz clic en <strong>Crear Cuenta</strong> en la pantalla de inicio de sesión.</li>
+                        <li>Ingresa tu <strong>correo electrónico</strong> (será tu usuario de acceso).</li>
+                        <li>Escribe tu <strong>nombre completo</strong>.</li>
+                        <li>Crea una <strong>contraseña segura</strong> de al menos 6 caracteres, combinando letras, números y símbolos.</li>
+                        <li>Selecciona si eres <strong>Propietario</strong> o <strong>Colaborador</strong>.</li>
+                        <li>Si eres colaborador, ingresa el <strong>código UID</strong> que te proporcionó el propietario.</li>
+                        <li>Haz clic en <strong>Registrarse</strong>. Recibirás un correo de confirmación.</li>
+                        <li>Confirma tu correo haciendo clic en el enlace enviado a tu bandeja de entrada.</li>
+                    </ol>
+                </div>
+            </div>
+        </section>
+
+        <!-- Paso 2: Perfil de Empresa -->
+        <section id="paso-2" class="docs-section" data-search-content="perfil empresa razon social rnc logo color marca">
+            <div class="docs-section-title">
+                <span class="step-badge">2</span>
+                <span>Perfil de Empresa</span>
+            </div>
+
+            <div class="docs-article" data-search-content="ajustes empresa configuracion nombre razon social rnc">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-building docs-article-title-icon"></i>
+                        Configuración del Perfil Comercial
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    Una vez registrado, navega a <strong>Ajustes de Empresa</strong> (<code>/settings/company</code>) para registrar los datos legales de tu negocio:
+                    <br><br>
+                    <ul>
+                        <li><strong>Nombre / Razón Social:</strong> El nombre oficial registrado en ONAPI. Este nombre aparecerá en todas tus facturas electrónicas.</li>
+                        <li><strong>RNC de la Empresa:</strong> Tu Registro Nacional de Contribuyentes. Debe tener exactamente 9 dígitos (personas jurídicas) u 11 dígitos (personas físicas). No incluyas guiones ni espacios.</li>
+                        <li><strong>Correo Comercial:</strong> Dirección de correo que aparecerá en los documentos fiscales para contacto del cliente.</li>
+                        <li><strong>Teléfono Comercial:</strong> Número de contacto para facturación.</li>
+                        <li><strong>Dirección:</strong> Ubicación física del establecimiento principal. Debe coincidir con la registrada ante la DGII.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="docs-article" data-search-content="logo color marca identidad visual gradient degradado">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-palette docs-article-title-icon"></i>
+                        Personalización Visual
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    Dale identidad a tu empresa en {{ product_name }}:
+                    <br><br>
+                    <ul>
+                        <li><strong>Logo de la Empresa:</strong> Sube el logo de tu negocio en formato PNG o JPG. Aparecerá en el encabezado de tus facturas, cotizaciones y documentos oficiales.</li>
+                        <li><strong>Color de Marca:</strong> Selecciona el color principal de tu marca usando el selector de color. Este color se aplicará a los acentos visuales de tu interfaz y documentos.</li>
+                        <li><strong>Degradado Premium:</strong> Activa o desactiva el degradado (gradient) en los encabezados de tus documentos y en la interfaz. Si lo desactivas, se usará el color sólido de marca.</li>
+                    </ul>
+                    <div class="fiscal-alert-box">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <div class="fiscal-alert-text">
+                            El logo y color de marca se incrustan automáticamente en la representación impresa (PDF) de tus comprobantes fiscales electrónicos, dando una imagen profesional y consistente a tus clientes.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Paso 3: Régimen Fiscal -->
+        <section id="paso-3" class="docs-section" data-search-content="regimen fiscal rst ordinario ingresos compras consumidor exento">
+            <div class="docs-section-title">
+                <span class="step-badge">3</span>
+                <span>Régimen Fiscal</span>
+            </div>
+
+            <div class="glossary-grid">
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-building-columns glossary-card-icon"></i>
+                        <h4 class="glossary-card-title">Régimen Ordinario (General)</h4>
+                    </div>
+                    <p class="glossary-card-text">Para empresas constituidas formalmente. Debes presentar declaraciones mensuales IT-1 e IT-2 y declaración anual de ISR.</p>
+                </div>
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-percent glossary-card-icon" style="color: var(--accent-yellow);"></i>
+                        <h4 class="glossary-card-title">RST Ingresos</h4>
+                    </div>
+                    <p class="glossary-card-text">Régimen Simplificado para profesionales independientes y microempresas. Sin IT-1 mensual. Solo declaración anual. Tope: RD$ 12,068,181.09 (2026).</p>
+                </div>
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-cart-shopping glossary-card-icon" style="color: var(--accent-purple);"></i>
+                        <h4 class="glossary-card-title">RST Compras</h4>
+                    </div>
+                    <p class="glossary-card-text">Para pequeños comerciantes que tributan sobre sus compras. Ideal para colmados, bazares y negocios de barrio.</p>
+                </div>
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-user glossary-card-icon" style="color: var(--accent-success);"></i>
+                        <h4 class="glossary-card-title">Consumidor Final</h4>
+                    </div>
+                    <p class="glossary-card-text">Para personas físicas que realizan actividad comercial ocasional. No requieren registro formal de RNC.</p>
+                </div>
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-ban glossary-card-icon" style="color: var(--accent-red);"></i>
+                        <h4 class="glossary-card-title">Exento</h4>
+                    </div>
+                    <p class="glossary-card-text">Para instituciones sin fines de lucro, fundaciones o entidades exentas por ley del pago de impuestos. Requieren calificación DGII.</p>
+                </div>
+            </div>
+
+            <div class="docs-article" data-search-content="rst simplificado ventajas limite tope anual dashboard">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-lightbulb docs-article-title-icon"></i>
+                        ¿Qué régimen me conviene?
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    La selección del régimen fiscal es una decisión importante que afecta tus obligaciones tributarias:
+                    <br><br>
+                    <strong>Elige RST de Ingresos si:</strong>
+                    <ul>
+                        <li>Eres profesional independiente (abogado, diseñador, consultor, desarrollador).</li>
+                        <li>Tus ingresos anuales no superan los RD$ 12,068,181.09.</li>
+                        <li>Deseas evitar la presentación mensual del IT-1.</li>
+                    </ul>
+                    <strong>Elige Régimen General si:</strong>
+                    <ul>
+                        <li>Tienes una empresa formalmente constituida.</li>
+                        <li>Superas el límite del RST.</li>
+                        <li>Necesitas emitir comprobantes E31 (Crédito Fiscal) a tus clientes.</li>
+                    </ul>
+                    <div class="fiscal-alert-box alert-warning">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div class="fiscal-alert-text">
+                            <strong>Importante:</strong> Si seleccionas <strong>RST</strong>, el Dashboard de {{ product_name }} adaptará automáticamente el Semáforo de Salud y ocultará las alertas de reportes mensuales, mostrando una barra visual de control del límite anual. Si superas el tope, la DGII te excluirá del régimen y pasarás automáticamente al Régimen General, lo que puede implicar multas.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Paso 4: Datos Fiscales -->
+        <section id="paso-4" class="docs-section" data-search-content="datos fiscales rnc direccion provincia municipio dgii">
+            <div class="docs-section-title">
+                <span class="step-badge">4</span>
+                <span>Datos Fiscales</span>
+            </div>
+
+            <div class="docs-article" data-search-content="rnc direccion fiscal provincia municipio registro">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-file-invoice docs-article-title-icon"></i>
+                        Registro de Datos Fiscales
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    Los datos fiscales son obligatorios para emitir comprobantes electrónicos válidos ante la DGII. Deben coincidir exactamente con tu registro en la Oficina Virtual:
+                    <br><br>
+                    <ul>
+                        <li><strong>RNC (Registro Nacional de Contribuyentes):</strong> 9 dígitos para empresas, 11 dígitos para personas físicas. El sistema validará el formato automáticamente.</li>
+                        <li><strong>Dirección Fiscal:</strong> La dirección registrada ante la DGII. Debe incluir calle, número, sector y referencia.</li>
+                        <li><strong>Provincia:</strong> Selecciona la provincia de tu domicilio fiscal de la lista desplegable.</li>
+                        <li><strong>Municipio:</strong> Selecciona el municipio correspondiente a tu dirección.</li>
+                    </ul>
+                    <div class="fiscal-alert-box alert-danger">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <div class="fiscal-alert-text">
+                            <strong>Atención:</strong> Los datos fiscales deben coincidir EXACTAMENTE con los registrados en la DGII. Cualquier discrepancia puede causar el rechazo de tus comprobantes electrónicos al momento de la transmisión. Verifica tu información en la Oficina Virtual de la DGII antes de registrarla.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Paso 5: Firma Digital -->
+        <section id="paso-5" class="docs-section" data-search-content="firma digital certificado p12 pfx subir simular">
+            <div class="docs-section-title">
+                <span class="step-badge">5</span>
+                <span>Firma Digital</span>
+            </div>
+
+            <div class="docs-article" data-search-content="certificado digital p12 pfx camara comercio subir archivo">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-file-signature docs-article-title-icon"></i>
+                        Subir Certificado .p12 / .pfx
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    Para firmar digitalmente tus comprobantes electrónicos ante la DGII necesitas un certificado de firma digital emitido por una entidad autorizada (Cámara de Comercio o una Autoridad Certificadora acreditada).
+                    <br><br>
+                    <strong>Pasos para registrar tu firma digital:</strong>
+                    <ol>
+                        <li>Obtén tu certificado digital en la Cámara de Comercio de tu provincia. Solicita el certificado de <strong>Firma Digital</strong> para facturación electrónica.</li>
+                        <li>El certificado se entrega en formato <code>.p12</code> o <code>.pfx</code> e incluye una contraseña de protección.</li>
+                        <li>En {{ product_name }}, navega a <code>Configuración → Firma Digital</code>.</li>
+                        <li>Haz clic en <strong>Subir Certificado</strong> y selecciona el archivo <code>.p12</code> o <code>.pfx</code> desde tu computadora.</li>
+                        <li>Ingresa la <strong>contraseña</strong> del certificado que te proporcionó la entidad emisora.</li>
+                        <li>El sistema validará el certificado y lo almacenará de forma segura para firmar automáticamente cada comprobante que emitas.</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="docs-article" data-search-content="modo simulacion firma digital prueba sandbox">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-flask docs-article-title-icon" style="color: var(--accent-yellow);"></i>
+                        Modo Simulación (Sin Certificado Real)
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    Si aún no tienes tu certificado digital o estás evaluando la plataforma, puedes activar el <strong>Modo Simulación</strong>:
+                    <br><br>
+                    <ul>
+                        <li>El sistema generará una firma simulada para que puedas probar el flujo completo de emisión de comprobantes.</li>
+                        <li>Los comprobantes firmados en modo simulación <strong>NO tienen validez fiscal</strong> ante la DGII.</li>
+                        <li>El PDF y el XML se generan igual que en producción, pero incluyen una marca de agua de "Simulación — Sin Validez Fiscal".</li>
+                        <li>Es ideal para capacitación, pruebas de integración y demostraciones.</li>
+                    </ul>
+                    <div class="fiscal-alert-box alert-success">
+                        <i class="fa-solid fa-check-circle"></i>
+                        <div class="fiscal-alert-text">
+                            <strong>Recomendación:</strong> Usa el Modo Simulación durante tu período de prueba y configuración inicial. Cuando estés listo para operar en producción, simplemente reemplázalo subiendo tu certificado real. Todos los datos de configuración se conservan.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Paso 6: Sucursales y Equipo -->
+        <section id="paso-6" class="docs-section" data-search-content="sucursales equipo colaboradores permisos invitar">
+            <div class="docs-section-title">
+                <span class="step-badge">6</span>
+                <span>Sucursales y Equipo</span>
+            </div>
+
+            <div class="docs-article" data-search-content="sucursales punto venta codigo sucursal registro">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-store docs-article-title-icon"></i>
+                        Registro de Sucursales
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    Si tu negocio tiene múltiples puntos de venta o ubicaciones, puedes registrarlas como sucursales:
+                    <br><br>
+                    <ul>
+                        <li>Navega a <code>Configuración → Empresa → Sucursales</code>.</li>
+                        <li>Haz clic en <strong>Agregar Sucursal</strong>.</li>
+                        <li>Ingresa el <strong>nombre</strong> de la sucursal (ej. "Sucursal Principal", "Sucursal Norte").</li>
+                        <li>Asigna un <strong>código de identificación</strong> único para la sucursal.</li>
+                        <li>Registra la <strong>dirección</strong> específica de esa sucursal.</li>
+                        <li>Las sucursales permiten asociar equipos de trabajo, inventarios y secuencias fiscales de forma independiente.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="docs-article" data-search-content="colaboradores equipo invitar permisos caninvoice granular">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-users-gear docs-article-title-icon"></i>
+                        Gestión del Equipo y Permisos
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    Invita a tus colaboradores y asígnales permisos específicos de forma granular:
+                    <br><br>
+                    <ol>
+                        <li>En <code>Configuración → Empresa → Equipo</code>, haz clic en <strong>Invitar Miembro</strong>.</li>
+                        <li>Ingresa el <strong>correo electrónico</strong> del colaborador.</li>
+                        <li>Selecciona los permisos que deseas otorgar:<br>
+                            <ul>
+                                <li><code>canInvoice</code> — Emitir y firmar facturas electrónicas.</li>
+                                <li><code>canExpenses</code> — Registrar y gestionar gastos.</li>
+                                <li><code>canClients</code> — Administrar el catálogo de clientes.</li>
+                                <li><code>canModifySettings</code> — Acceso a configuración general (administración).</li>
+                                <li><code>canManageInventory</code> — Control de inventario y almacenes.</li>
+                                <li><code>isPosSupervisor</code> — Supervisión de cierre de caja POS.</li>
+                            </ul>
+                        </li>
+                        <li>El sistema generará un <strong>código UID</strong> que deberás compartir con el colaborador para que complete su registro.</li>
+                        <li>Una vez registrado, podrás ver su estado (Activo/Inactivo) y modificar sus permisos en cualquier momento.</li>
+                    </ol>
+                    <div class="fiscal-alert-box">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <div class="fiscal-alert-text">
+                            Los permisos son acumulativos y se pueden modificar en cualquier momento. Un colaborador sin el permiso <code>canInvoice</code> no podrá emitir facturas aunque tenga acceso al módulo de ventas.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Modo Sandbox -->
+        <section id="modo-sandbox" class="docs-section" data-search-content="sandbox pruebas ambiente test dgii simulacion">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-flask" style="color: var(--accent-emerald);"></i>
+                <span>Modo Sandbox (Entorno de Pruebas)</span>
+            </div>
+
+            <div class="docs-article" data-search-content="sandbox pruebas ambiente test dgii produccion activar">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-vial docs-article-title-icon"></i>
+                        Entorno Sandbox vs Producción
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    {{ product_name }} te permite operar en dos entornos:
+                    <br><br>
+                    <ul>
+                        <li><strong>Sandbox (Pruebas):</strong> Conecta con los servicios de prueba de la DGII. Puedes emitir, firmar y enviar comprobantes sin valor fiscal real. Ideal para configurar tu empresa, entrenar a tu equipo y validar que todo funcione correctamente.</li>
+                        <li><strong>Producción:</strong> Conecta con los servicios reales de la DGII. Todos los comprobantes emitidos tienen validez fiscal. Requiere certificado digital real y secuencias fiscales autorizadas.</li>
+                    </ul>
+                    <div class="fiscal-alert-box alert-warning">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div class="fiscal-alert-text">
+                            <strong>¡Recuerda activar Sandbox para tus pruebas!</strong> Mientras configures tu empresa, catálogos y secuencias, mantén el entorno en Sandbox. Cuando estés listo para operar legalmente, cambia a Producción desde <code>Configuración → General → Entorno DGII</code>. Los datos de configuración (clientes, productos, empresa) se comparten entre ambos entornos.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Mensaje de No Resultados -->
+        <div id="no-results" class="no-results-state">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <h4>No encontramos resultados</h4>
+            <p>Prueba buscando con palabras clave como "registro", "RNC", "firma digital" o "sandbox".</p>
+        </div>
+
+        <!-- Banner Footer -->
+        <div class="docs-footer-banner">
+            <div>
+                <h4>¿Completaste la configuración inicial?</h4>
+                <p>Ahora puedes empezar a configurar tus secuencias fiscales y emitir tus primeras facturas. Visita la guía de Facturación de Ventas.</p>
+            </div>
+            <a href="/help/02-ventas" class="btn btn-secondary"
+                style="white-space: nowrap; padding: 10px 20px; font-weight: 500;">
+                <i class="fa-solid fa-arrow-right"></i>
+                <span>Ir a Ventas</span>
+            </a>
+        </div>
+
+    </main>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchInput = document.getElementById('faq-search');
+        const sidebarItems = document.querySelectorAll('.docs-sidebar-item');
+        const sections = document.querySelectorAll('.docs-section');
+        const articles = document.querySelectorAll('.docs-article');
+        const noResults = document.getElementById('no-results');
+
+        searchInput.addEventListener('input', function () {
+            const query = this.value.toLowerCase().trim();
+            let hasVisibleArticlesGlobal = false;
+
+            sections.forEach(section => {
+                const sectionArticles = section.querySelectorAll('.docs-article');
+                const sectionGlossary = section.querySelectorAll('.glossary-card');
+                let hasVisibleArticlesInSection = false;
+
+                sectionArticles.forEach(article => {
+                    const searchContent = article.getAttribute('data-search-content').toLowerCase();
+                    const titleText = article.querySelector('.docs-article-title').textContent.toLowerCase();
+                    const bodyText = article.querySelector('.docs-article-body').textContent.toLowerCase();
+
+                    const matches = searchContent.includes(query) || titleText.includes(query) || bodyText.includes(query);
+                    if (matches || query === '') {
+                        article.style.display = 'block';
+                        hasVisibleArticlesInSection = true;
+                        hasVisibleArticlesGlobal = true;
+                    } else {
+                        article.style.display = 'none';
+                    }
+                });
+
+                sectionGlossary.forEach(card => {
+                    const text = card.textContent.toLowerCase();
+                    const matches = text.includes(query);
+                    if (matches || query === '') {
+                        card.style.display = 'block';
+                        hasVisibleArticlesInSection = true;
+                        hasVisibleArticlesGlobal = true;
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+
+                const glossary = section.querySelector('.glossary-grid');
+                if (glossary) {
+                    const visibleCards = glossary.querySelectorAll('.glossary-card[style*="display: block"], .glossary-card:not([style])');
+                    if (visibleCards.length === 0 && query !== '') {
+                        glossary.style.display = 'none';
+                    } else {
+                        glossary.style.display = 'grid';
+                    }
+                }
+
+                if (hasVisibleArticlesInSection) {
+                    section.style.display = 'block';
+                    const targetId = section.getAttribute('id');
+                    const sidebarLink = document.querySelector(`.docs-sidebar-item[data-target="${targetId}"]`);
+                    if (sidebarLink) sidebarLink.style.display = 'block';
+                } else {
+                    section.style.display = 'none';
+                    const targetId = section.getAttribute('id');
+                    const sidebarLink = document.querySelector(`.docs-sidebar-item[data-target="${targetId}"]`);
+                    if (sidebarLink) sidebarLink.style.display = 'none';
+                }
+            });
+
+            if (hasVisibleArticlesGlobal) {
+                noResults.style.display = 'none';
+            } else {
+                noResults.style.display = 'block';
+            }
+        });
+
+        window.addEventListener('scroll', function () {
+            let currentSectionId = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                if (pageYOffset >= (sectionTop - 120)) {
+                    currentSectionId = section.getAttribute('id');
+                }
+            });
+            if (currentSectionId) {
+                sidebarItems.forEach(item => {
+                    item.classList.remove('active');
+                    if (item.getAttribute('data-target') === currentSectionId) {
+                        item.classList.add('active');
+                    }
+                });
+            }
+        });
+
+        sidebarItems.forEach(item => {
+            const link = item.querySelector('a');
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = item.getAttribute('data-target');
+                const targetSection = document.getElementById(targetId);
+                if (targetSection) {
+                    window.scrollTo({
+                        top: targetSection.offsetTop - 90,
+                        behavior: 'smooth'
+                    });
+                    sidebarItems.forEach(i => i.classList.remove('active'));
+                    item.classList.add('active');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

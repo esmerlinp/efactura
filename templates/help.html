@@ -1,1638 +1,359 @@
 {% extends "layout.html" %}
 
-{% block title %}Centro de Ayuda Fiscal - {{ product_name }}{% endblock %}
+{% block title %}Centro de Ayuda - {{ product_name }}{% endblock %}
 
-{% block page_header %}Centro de Ayuda y Educación Fiscal{% endblock %}
+{% block page_header %}Centro de Ayuda{% endblock %}
 
 {% block extra_head %}
 <style>
-    /* Diseño de Documentación Estilo GitHub */
-    .docs-layout {
-        display: grid;
-        grid-template-columns: 280px 1fr;
-        gap: 40px;
-        max-width: 100%;
+    .help-portal-layout {
+        max-width: 1200px;
         margin: 0 auto;
-        align-items: start;
     }
 
-    .docs-layout strong {
-        font-weight: 500;
+    .help-portal-header {
+        text-align: center;
+        padding: 40px 20px 30px;
     }
 
-    /* Sidebar de Navegación */
-    .docs-sidebar {
-        position: sticky;
-        top: 80px;
-        max-height: calc(100vh - 120px);
-        overflow-y: auto;
-        padding-right: 15px;
-    }
-
-    .docs-sidebar::-webkit-scrollbar {
-        width: 4px;
-    }
-
-    .docs-sidebar-group {
-        margin-bottom: 24px;
-    }
-
-    .docs-sidebar-group-title {
-        font-size: 0.72rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        color: var(--text-muted);
-        letter-spacing: 0.08em;
-        margin-bottom: 10px;
-        padding-left: 8px;
-    }
-
-    .docs-sidebar-menu {
-        list-style: none;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-    }
-
-    .docs-sidebar-item a {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 8px 12px;
-        font-size: 0.88rem;
-        color: var(--text-secondary);
-        border-radius: var(--radius-sm);
-        transition: all var(--transition-fast);
-        line-height: 1.4;
-    }
-
-    .docs-sidebar-item a:hover {
-        color: var(--text-primary);
-        background-color: var(--bg-nav-hover);
-    }
-
-    .docs-sidebar-item.active a {
-        color: var(--accent-emerald);
-        background-color: var(--bg-brand-translucent);
-        font-weight: 500;
-    }
-
-    .docs-sidebar-footer-info {
-        background-color: var(--bg-brand-translucent);
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-sm);
-        padding: 14px;
-        font-size: 0.8rem;
-        color: var(--text-secondary);
-        line-height: 1.4;
-        margin-top: 30px;
-        display: flex;
-        gap: 10px;
-    }
-
-    .docs-sidebar-footer-info i {
-        color: var(--accent-emerald);
-        font-size: 1rem;
-        margin-top: 2px;
-    }
-
-    /* Área de Contenido de la Documentación */
-    .docs-content {
-        min-width: 0;
-    }
-
-    /* Encabezado Principal */
-    .docs-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding-bottom: 20px;
-        border-bottom: 1px solid var(--border-color);
-        margin-bottom: 30px;
-        gap: 20px;
-    }
-
-    .docs-header h2 {
-        font-size: 1.6rem;
+    .help-portal-header h2 {
+        font-size: 1.8rem;
         font-weight: 800;
         color: var(--text-primary);
-        margin-bottom: 4px;
+        margin-bottom: 8px;
     }
 
-    .docs-header p {
+    .help-portal-header p {
         color: var(--text-secondary);
-        font-size: 0.92rem;
+        font-size: 0.95rem;
+        max-width: 600px;
+        margin: 0 auto;
     }
 
-    .docs-search-wrapper {
-        position: relative;
-        width: 320px;
-    }
-
-    .docs-search-input {
-        width: 100%;
-        height: 38px;
-        padding: 0 16px 0 38px;
-        background-color: var(--bg-input);
-        border: 1px solid var(--border-color);
-        border-radius: 20px;
-        color: var(--text-primary);
-        font-size: 0.85rem;
-        transition: all var(--transition-fast);
-    }
-
-    .docs-search-input:focus {
-        border-color: var(--accent-emerald);
-        box-shadow: var(--shadow-glow);
-    }
-
-    .docs-search-wrapper .search-icon {
-        position: absolute;
-        left: 14px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: var(--text-muted);
-        font-size: 0.9rem;
-    }
-
-    /* Secciones del Documento */
-    .docs-section {
-        margin-bottom: 45px;
-        scroll-margin-top: 80px;
-    }
-
-    .docs-section-title {
-        font-size: 1.35rem;
-        font-weight: 800;
-        color: var(--text-primary);
-        padding-bottom: 8px;
-        border-bottom: 1px solid var(--border-color);
-        margin-bottom: 20px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    /* Tarjetas de Glosario / Conceptos Rápidos */
-    .glossary-grid {
+    .module-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 16px;
-        margin-bottom: 24px;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 18px;
+        padding: 10px 0 40px;
     }
 
-    .glossary-card {
+    .module-card {
         background-color: var(--bg-card);
         border: 1px solid var(--border-color);
         border-radius: var(--radius-sm);
-        padding: 16px;
+        padding: 20px;
         transition: all var(--transition-fast);
+        cursor: pointer;
+        text-decoration: none;
+        display: block;
     }
 
-    .glossary-card:hover {
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-sm);
+    .module-card:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-md);
         border-color: var(--accent-emerald);
     }
 
-    .glossary-card-header {
+    .module-card-header {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 12px;
         margin-bottom: 10px;
     }
 
-    .glossary-card-icon {
-        font-size: 1.1rem;
-        color: var(--accent-emerald);
+    .module-card-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        flex-shrink: 0;
     }
 
-    .glossary-card-title {
+    .module-card-title {
         font-size: 0.95rem;
         font-weight: 700;
         color: var(--text-primary);
     }
 
-    .glossary-card-text {
-        font-size: 0.85rem;
+    .module-card-desc {
+        font-size: 0.82rem;
         color: var(--text-secondary);
         line-height: 1.45;
+        margin: 0;
     }
 
-    /* Artículos de Documentación */
-    .docs-article {
-        background-color: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-sm);
-        padding: 24px;
-        margin-bottom: 20px;
-        transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    .module-card-badge {
+        display: inline-block;
+        font-size: 0.68rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 2px 8px;
+        border-radius: 4px;
+        margin-top: 10px;
     }
 
-    .docs-article:hover {
-        border-color: var(--border-glow);
-        box-shadow: var(--shadow-sm);
-    }
+    .badge-core { background: rgba(16,185,129,0.1); color: var(--accent-emerald); }
+    .badge-sales { background: rgba(99,102,241,0.1); color: #6366f1; }
+    .badge-finance { background: rgba(245,158,11,0.1); color: var(--accent-yellow); }
+    .badge-hr { background: rgba(236,72,153,0.1); color: #ec4899; }
+    .badge-compliance { background: rgba(239,68,68,0.1); color: var(--accent-red); }
+    .badge-ops { background: rgba(168,85,247,0.1); color: #a855f7; }
+    .badge-ref { background: rgba(107,114,128,0.1); color: var(--text-muted); }
 
-    .docs-article-title {
+    .category-title {
         font-size: 1.1rem;
         font-weight: 700;
         color: var(--text-primary);
-        margin-bottom: 14px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-    }
-
-    .docs-article-title-text {
+        padding: 30px 0 10px;
+        border-bottom: 1px solid var(--border-color);
+        margin-bottom: 18px;
         display: flex;
         align-items: center;
         gap: 10px;
-    }
-
-    .docs-article-title-icon {
-        font-size: 0.95rem;
-        color: var(--accent-emerald);
-        opacity: 0.8;
-    }
-
-    .docs-article-body {
-        font-size: 0.92rem;
-        color: var(--text-secondary);
-        line-height: 1.6;
-    }
-
-    .docs-article-body strong {
-        color: var(--text-primary);
-        font-weight: 500;
-    }
-
-    .docs-article-body code {
-        background-color: var(--bg-input);
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-family: monospace;
-        font-size: 0.82rem;
-        color: var(--accent-purple);
-        border: 1px solid var(--border-color);
-    }
-
-    .docs-article-body ul {
-        margin: 12px 0;
-        padding-left: 20px;
-    }
-
-    .docs-article-body li {
-        margin-bottom: 6px;
-    }
-
-    /* Alertas Estilo GitHub */
-    .fiscal-alert-box {
-        background-color: var(--bg-brand-translucent);
-        border-left: 4px solid var(--accent-emerald);
-        border-radius: 4px;
-        padding: 14px 16px;
-        margin-top: 16px;
-        display: flex;
-        gap: 12px;
-        align-items: flex-start;
-    }
-
-    .fiscal-alert-box.alert-warning {
-        border-left-color: var(--accent-yellow);
-        background-color: rgba(245, 158, 11, 0.05);
-    }
-
-    .fiscal-alert-box.alert-danger {
-        border-left-color: var(--accent-red);
-        background-color: rgba(220, 38, 38, 0.05);
-    }
-
-    .fiscal-alert-box.alert-success {
-        border-left-color: var(--accent-success);
-        background-color: rgba(22, 163, 74, 0.05);
-    }
-
-    .fiscal-alert-box i {
-        font-size: 1.05rem;
-        margin-top: 2px;
-    }
-
-    .fiscal-alert-box.alert-warning i {
-        color: var(--accent-yellow);
-    }
-
-    .fiscal-alert-box.alert-danger i {
-        color: var(--accent-red);
-    }
-
-    .fiscal-alert-box.alert-success i {
-        color: var(--accent-success);
-    }
-
-    .fiscal-alert-text {
-        font-size: 0.85rem;
-        color: var(--text-secondary);
-        line-height: 1.5;
-    }
-
-    /* Estado de no resultados */
-    .no-results-state {
-        text-align: center;
-        padding: 40px;
-        background-color: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-sm);
-        display: none;
-    }
-
-    .no-results-state i {
-        font-size: 2.5rem;
-        color: var(--text-muted);
-        margin-bottom: 12px;
-    }
-
-    .no-results-state h4 {
-        font-size: 1.1rem;
-        font-weight: 700;
-        margin-bottom: 6px;
-        color: var(--text-primary);
-    }
-
-    .no-results-state p {
-        color: var(--text-secondary);
-        font-size: 0.88rem;
-    }
-
-    /* Footer Banner */
-    .docs-footer-banner {
-        background-color: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-sm);
-        padding: 24px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 20px;
-        margin-top: 40px;
-        margin-bottom: 40px;
-    }
-
-    .docs-footer-banner h4 {
-        font-size: 1.05rem;
-        font-weight: 700;
-        margin-bottom: 4px;
-        color: var(--text-primary);
-    }
-
-    .docs-footer-banner p {
-        color: var(--text-secondary);
-        font-size: 0.85rem;
-        margin: 0;
-        line-height: 1.4;
-    }
-
-    /* Responsividad */
-    @media (max-width: 1024px) {
-        .docs-layout {
-            grid-template-columns: 1fr;
-            gap: 24px;
-        }
-
-        .docs-sidebar {
-            position: static;
-            max-height: none;
-            overflow-y: visible;
-            padding-right: 0;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 20px;
-        }
-
-        .docs-header {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 16px;
-        }
-
-        .docs-search-wrapper {
-            width: 100%;
-        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="docs-layout">
+<div class="help-portal-layout">
 
-    <!-- Sidebar Izquierdo de Navegación -->
-    <aside class="docs-sidebar">
-        <div class="docs-sidebar-group">
-            <div class="docs-sidebar-group-title">Centro de Ayuda</div>
-            <ul class="docs-sidebar-menu">
-                <li class="docs-sidebar-item active" data-target="conceptos">
-                    <a href="#conceptos">
-                        <i class="fa-solid fa-graduation-cap"></i>
-                        <span>Conceptos Básicos</span>
-                    </a>
-                </li>
-                <li class="docs-sidebar-item" data-target="rst">
-                    <a href="#rst">
-                        <i class="fa-solid fa-percent"></i>
-                        <span>Régimen RST</span>
-                    </a>
-                </li>
-                <li class="docs-sidebar-item" data-target="gastos">
-                    <a href="#gastos">
-                        <i class="fa-solid fa-wallet"></i>
-                        <span>Gastos y Deducibilidad</span>
-                    </a>
-                </li>
-                <li class="docs-sidebar-item" data-target="retenciones">
-                    <a href="#retenciones">
-                        <i class="fa-solid fa-hand-holding-dollar"></i>
-                        <span>Retenciones y Pagos</span>
-                    </a>
-                </li>
-                <li class="docs-sidebar-item" data-target="comprobantes">
-                    <a href="#comprobantes">
-                        <i class="fa-solid fa-receipt"></i>
-                        <span>NCF y e-CF Electrónico</span>
-                    </a>
-                </li>
-                <li class="docs-sidebar-item" data-target="contingencia">
-                    <a href="#contingencia">
-                        <i class="fa-solid fa-triangle-exclamation"></i>
-                        <span>Operación en Contingencia</span>
-                    </a>
-                </li>
-                <li class="docs-sidebar-item" data-target="tutorial">
-                    <a href="#tutorial">
-                        <i class="fa-solid fa-book-open"></i>
-                        <span>Flujo de Facturación</span>
-                    </a>
-                </li>
-                <li class="docs-sidebar-item" data-target="operaciones">
-                    <a href="#operaciones">
-                        <i class="fa-solid fa-cubes"></i>
-                        <span>Módulos Avanzados</span>
-                    </a>
-                </li>
-            </ul>
+    <div class="help-portal-header">
+        <h2><i class="fa-solid fa-book" style="color: var(--accent-emerald); margin-right: 8px;"></i> Centro de Ayuda</h2>
+        <p>Selecciona un módulo para acceder a su guía detallada paso a paso.</p>
+    </div>
+
+    <!-- CONFIGURACIÓN INICIAL -->
+    <div class="category-title"><i class="fa-solid fa-rocket" style="color: var(--accent-emerald);"></i> Configuración Inicial</div>
+    <div class="module-grid">
+        <a href="{{ url_for('web_invoices.help_module', module_name='01-onboarding') }}" class="module-card">
+            <div class="module-card-header">
+                <div class="module-card-icon" style="background: rgba(16,185,129,0.1); color: var(--accent-emerald);"><i class="fa-solid fa-rocket"></i></div>
+                <div class="module-card-title">Onboarding — Configuración Inicial</div>
+            </div>
+            <p class="module-card-desc">Registro de cuenta, perfil de empresa, régimen fiscal, firma digital, sucursales y equipo de trabajo.</p>
+            <span class="module-card-badge badge-core">Onboarding</span>
+        </a>
+
+        <a href="{{ url_for('web_invoices.help_module', module_name='21-referencia-fiscal') }}" class="module-card">
+            <div class="module-card-header">
+                <div class="module-card-icon" style="background: rgba(107,114,128,0.1); color: var(--text-muted);"><i class="fa-solid fa-graduation-cap"></i></div>
+                <div class="module-card-title">Conceptos Fiscales (Referencia)</div>
+            </div>
+            <p class="module-card-desc">RST, ITBIS, retenciones ISR, NCF vs e-CF, contingencia DGII, código QR, anulación de comprobantes.</p>
+            <span class="module-card-badge badge-ref">Referencia</span>
+        </a>
+    </div>
+
+    <!-- VENTAS Y CRM -->
+    <div class="category-title"><i class="fa-solid fa-chart-line" style="color: #6366f1;"></i> Ventas y CRM</div>
+    <div class="module-grid">
+        <a href="{{ url_for('web_invoices.help_module', module_name='02-ventas') }}" class="module-card">
+            <div class="module-card-header">
+                <div class="module-card-icon" style="background: rgba(99,102,241,0.1); color: #6366f1;"><i class="fa-solid fa-file-invoice"></i></div>
+                <div class="module-card-title">Factura de Ventas (e-CF)</div>
+            </div>
+            <p class="module-card-desc">Clientes, productos, secuencias E31/E32, emisión, firma DGII, cobros, notas de crédito.</p>
+            <span class="module-card-badge badge-sales">Ventas</span>
+        </a>
+
+        <a href="{{ url_for('web_invoices.help_module', module_name='07-catalogo') }}" class="module-card">
+            <div class="module-card-header">
+                <div class="module-card-icon" style="background: rgba(99,102,241,0.1); color: #6366f1;"><i class="fa-solid fa-box"></i></div>
+                <div class="module-card-title">Catálogo de Productos</div>
+            </div>
+            <p class="module-card-desc">Registro de ítems, tasas ITBIS, categorías, listas de precio, vinculación con inventario.</p>
+            <span class="module-card-badge badge-sales">Ventas</span>
+        </a>
+
+        <a href="{{ url_for('web_invoices.help_module', module_name='06-crm') }}" class="module-card">
+            <div class="module-card-header">
+                <div class="module-card-icon" style="background: rgba(99,102,241,0.1); color: #6366f1;"><i class="fa-solid fa-handshake"></i></div>
+                <div class="module-card-title">CRM / Prospectos</div>
+            </div>
+            <p class="module-card-desc">Pipeline de ventas, oportunidades, actividades, automatización de reglas CRM.</p>
+            <span class="module-card-badge badge-sales">CRM</span>
+        </a>
+
+        <a href="{{ url_for('web_invoices.help_module', module_name='09-cxc') }}" class="module-card">
+            <div class="module-card-header">
+                <div class="module-card-icon" style="background: rgba(99,102,241,0.1); color: #6366f1;"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+                <div class="module-card-title">Cuentas por Cobrar (CxC)</div>
+            </div>
+            <p class="module-card-desc">Cartera de crédito, antigüedad de saldos, promesas de pago, cobranza con IA.</p>
+            <span class="module-card-badge badge-sales">CxC</span>
+        </a>
+    </div>
+
+    <!-- COMPRAS Y GASTOS -->
+    <div class="category-title"><i class="fa-solid fa-wallet" style="color: var(--accent-yellow);"></i> Compras y Gastos</div>
+    <div class="module-grid">
+        <a href="{{ url_for('web_invoices.help_module', module_name='03-compras') }}" class="module-card">
+            <div class="module-card-header">
+                <div class="module-card-icon" style="background: rgba(245,158,11,0.1); color: var(--accent-yellow);"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+                <div class="module-card-title">Compras / CxP</div>
+            </div>
+            <p class="module-card-desc">Proveedores, facturas de compra, estados CxP, pagos, abonos, solución de problemas.</p>
+            <span class="module-card-badge badge-finance">Compras</span>
+        </a>
+
+        <a href="{{ url_for('web_invoices.help_module', module_name='04-gastos') }}" class="module-card">
+            <div class="module-card-header">
+                <div class="module-card-icon" style="background: rgba(245,158,11,0.1); color: var(--accent-yellow);"><i class="fa-solid fa-receipt"></i></div>
+                <div class="module-card-title">Gastos</div>
+            </div>
+            <p class="module-card-desc">Gasto deducible vs no deducible, registro, flujo de aprobación, E41/E43.</p>
+            <span class="module-card-badge badge-finance">Gastos</span>
+        </a>
+
+        <a href="{{ url_for('web_invoices.help_module', module_name='15-ordenes-compra') }}" class="module-card">
+            <div class="module-card-header">
+                <div class="module-card-icon" style="background: rgba(245,158,11,0.1); color: var(--accent-yellow);"><i class="fa-solid fa-cart-plus"></i></div>
+                <div class="module-card-title">Órdenes de Compra</div>
+            </div>
+            <p class="module-card-desc">Creación de OC, estados, aprobación, recepción de mercancía, vinculación con factura.</p>
+            <span class="module-card-badge badge-finance">Compras</span>
+        </a>
+    </div>
+
+    <!-- FINANZAS Y CONTABILIDAD -->
+    <div class="category-title"><i class="fa-solid fa-scale-balanced" style="color: var(--accent-emerald);"></i> Finanzas y Contabilidad</div>
+    <div class="module-grid">
+        <a href="{{ url_for('web_invoices.help_module', module_name='05-dashboard') }}" class="module-card">
+            <div class="module-card-header">
+                <div class="module-card-icon" style="background: rgba(16,185,129,0.1); color: var(--accent-emerald);"><i class="fa-solid fa-gauge-high"></i></div>
+                <div class="module-card-title">Dashboard General</div>
+            </div>
+            <p class="module-card-desc">KPIs, semáforo DGII, barra RST, BI, estimación de impuestos.</p>
+            <span class="module-card-badge badge-core">Dashboard</span>
+        </a>
+
+        <a href="{{ url_for('web_invoices.help_module', module_name='10-conciliacion') }}" class="module-card">
+            <div class="module-card-header">
+                <div class="module-card-icon" style="background: rgba(16,185,129,0.1); color: var(--accent-emerald);"><i class="fa-solid fa-building-columns"></i></div>
+                <div class="module-card-title">Conciliación Bancaria</div>
+            </div>
+            <p class="module-card-desc">Importar extractos, matching automático, ajustes, ITF.</p>
+            <span class="module-card-badge badge-core">Bancos</span>
+        </a>
+
+        <a href="{{ url_for('web_invoices.help_module', module_name='11-contabilidad') }}" class="module-card">
+            <div class="module-card-header">
+                <div class="module-card-icon" style="background: rgba(16,185,129,0.1); color: var(--accent-emerald);"><i class="fa-solid fa-book"></i></div>
+                <div class="module-card-title">Contabilidad</div>
+            </div>
+            <p class="module-card-desc">Catálogo de cuentas, asientos, balance, estados financieros, cierre fiscal.</p>
+            <span class="module-card-badge badge-core">Contabilidad</span>
+        </a>
+
+        <a href="{{ url_for('web_invoices.help_module', module_name='16-presupuestos') }}" class="module-card">
+            <div class="module-card-header">
+                <div class="module-card-icon" style="background: rgba(16,185,129,0.1); color: var(--accent-emerald);"><i class="fa-solid fa-chart-pie"></i></div>
+                <div class="module-card-title">Presupuestos</div>
+            </div>
+            <p class="module-card-desc">Planificación financiera, comparativo real vs presupuestado, proyecciones.</p>
+            <span class="module-card-badge badge-core">Finanzas</span>
+        </a>
+
+        <a href="{{ url_for('web_invoices.help_module', module_name='19-activos-fijos') }}" class="module-card">
+            <div class="module-card-header">
+                <div class="module-card-icon" style="background: rgba(16,185,129,0.1); color: var(--accent-emerald);"><i class="fa-solid fa-building"></i></div>
+                <div class="module-card-title">Activos Fijos</div>
+            </div>
+            <p class="module-card-desc">Registro, depreciación línea recta, categorías DGII, asientos contables.</p>
+            <span class="module-card-badge badge-core">Contabilidad</span>
+        </a>
+    </div>
+
+    <!-- RRHH Y NÓMINA -->
+    <div class="category-title"><i class="fa-solid fa-users" style="color: #ec4899;"></i> RRHH y Nómina</div>
+    <div class="module-grid">
+        <a href="{{ url_for('web_invoices.help_module', module_name='12-nomina') }}" class="module-card">
+            <div class="module-card-header">
+                <div class="module-card-icon" style="background: rgba(236,72,153,0.1); color: #ec4899;"><i class="fa-solid fa-calculator"></i></div>
+                <div class="module-card-title">Nómina / RRHH</div>
+            </div>
+            <p class="module-card-desc">Empleados, grupos de nómina, cálculo TSS/ISR, ciclo completo, DGT-3.</p>
+            <span class="module-card-badge badge-hr">RRHH</span>
+        </a>
+
+        <a href="{{ url_for('web_invoices.help_module', module_name='13-liquidacion') }}" class="module-card">
+            <div class="module-card-header">
+                <div class="module-card-icon" style="background: rgba(236,72,153,0.1); color: #ec4899;"><i class="fa-solid fa-file-contract"></i></div>
+                <div class="module-card-title">Liquidación de Empleados</div>
+            </div>
+            <p class="module-card-desc">Preaviso, cesantía, vacaciones, regalía, SDP, Ley 16-92.</p>
+            <span class="module-card-badge badge-hr">RRHH</span>
+        </a>
+    </div>
+
+    <!-- CUMPLIMIENTO Y REPORTES -->
+    <div class="category-title"><i class="fa-solid fa-shield-halved" style="color: var(--accent-red);"></i> Cumplimiento y Reportes</div>
+    <div class="module-grid">
+        <a href="{{ url_for('web_invoices.help_module', module_name='14-reportes-dgii') }}" class="module-card">
+            <div class="module-card-header">
+                <div class="module-card-icon" style="background: rgba(239,68,68,0.1); color: var(--accent-red);"><i class="fa-solid fa-flag"></i></div>
+                <div class="module-card-title">Reportes DGII</div>
+            </div>
+            <p class="module-card-desc">Reportes 606/607/608/623, IT-1, IR-17, consulta RNC.</p>
+            <span class="module-card-badge badge-compliance">DGII</span>
+        </a>
+
+        <a href="{{ url_for('web_invoices.help_module', module_name='20-auditoria') }}" class="module-card">
+            <div class="module-card-header">
+                <div class="module-card-icon" style="background: rgba(239,68,68,0.1); color: var(--accent-red);"><i class="fa-solid fa-magnifying-glass"></i></div>
+                <div class="module-card-title">Auditoría</div>
+            </div>
+            <p class="module-card-desc">Log de auditoría, checklist de cierre contable.</p>
+            <span class="module-card-badge badge-compliance">Auditoría</span>
+        </a>
+    </div>
+
+    <!-- OPERACIONES -->
+    <div class="category-title"><i class="fa-solid fa-gears" style="color: #a855f7;"></i> Operaciones</div>
+    <div class="module-grid">
+        <a href="{{ url_for('web_invoices.help_module', module_name='08-inventario') }}" class="module-card">
+            <div class="module-card-header">
+                <div class="module-card-icon" style="background: rgba(168,85,247,0.1); color: #a855f7;"><i class="fa-solid fa-warehouse"></i></div>
+                <div class="module-card-title">Inventario y Almacenes</div>
+            </div>
+            <p class="module-card-desc">Stock, alertas, transferencias, conteo físico, métodos de costeo.</p>
+            <span class="module-card-badge badge-ops">Inventario</span>
+        </a>
+
+        <a href="{{ url_for('web_invoices.help_module', module_name='17-contratos') }}" class="module-card">
+            <div class="module-card-header">
+                <div class="module-card-icon" style="background: rgba(168,85,247,0.1); color: #a855f7;"><i class="fa-solid fa-file-signature"></i></div>
+                <div class="module-card-title">Contratos Recurrentes</div>
+            </div>
+            <p class="module-card-desc">Creación, recurrencia, facturación automática, renovaciones.</p>
+            <span class="module-card-badge badge-ops">Operaciones</span>
+        </a>
+
+        <a href="{{ url_for('web_invoices.help_module', module_name='18-portal-cliente') }}" class="module-card">
+            <div class="module-card-header">
+                <div class="module-card-icon" style="background: rgba(168,85,247,0.1); color: #a855f7;"><i class="fa-solid fa-user-lock"></i></div>
+                <div class="module-card-title">Portal del Cliente</div>
+            </div>
+            <p class="module-card-desc">Acceso, consulta de facturas, descarga PDF/XML, estado de cuenta.</p>
+            <span class="module-card-badge badge-ops">Portal</span>
+        </a>
+    </div>
+
+    <!-- Footer Banner -->
+    <div class="docs-footer-banner" style="background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 24px; display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 20px; margin-bottom: 40px;">
+        <div>
+            <h4 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; color: var(--text-primary);">¿Tienes dudas sobre un caso tributario complejo?</h4>
+            <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0; line-height: 1.4;">Recuerda que {{ product_name }} simplifica el uso de la tecnología, pero siempre recomendamos validar tu planeación fiscal con un asesor o contador público autorizado (CPA) certificado en RD.</p>
         </div>
+        <a href="https://dgii.gov.do" target="_blank" class="btn btn-secondary" style="white-space: nowrap; padding: 10px 20px; font-weight: 500;">
+            <i class="fa-solid fa-building-columns"></i>
+            <span>Ir a Oficina DGII</span>
+        </a>
+    </div>
 
-        <div class="docs-sidebar-footer-info">
-            <i class="fa-solid fa-shield-halved"></i>
-            <span>{{ product_name }} cumple con la Ley 32-23 de Facturación Electrónica en República Dominicana.</span>
-        </div>
-    </aside>
-
-    <!-- Contenido Principal Derecho -->
-    <main class="docs-content">
-
-        <!-- Docs Header -->
-        <div class="docs-header">
-            <div class="docs-header-left">
-                <h2>Centro de Ayuda & Documentación</h2>
-                <p>Domina los conceptos financieros de la DGII de manera simple, amigable y estructurada.</p>
-            </div>
-            <div class="docs-search-wrapper">
-                <i class="fa-solid fa-magnifying-glass search-icon"></i>
-                <input type="text" id="faq-search" class="docs-search-input"
-                    placeholder="Buscar conceptos (ej. RST, ITBIS, e-CF)...">
-            </div>
-        </div>
-
-        <!-- 1. Conceptos Básicos en 30 Segundos -->
-        <section id="conceptos" class="docs-section">
-            <div class="docs-section-title">
-                <i class="fa-solid fa-graduation-cap" style="color: var(--accent-emerald);"></i>
-                <span>Conceptos Básicos en 30 Segundos</span>
-            </div>
-
-            <div class="glossary-grid">
-                <div class="glossary-card">
-                    <div class="glossary-card-header">
-                        <i class="fa-solid fa-shield-halved glossary-card-icon"></i>
-                        <h4 class="glossary-card-title">RST</h4>
-                    </div>
-                    <p class="glossary-card-text">
-                        El <strong>Régimen Simplificado (RST)</strong> es un beneficio de la DGII para profesionales y
-                        micro-empresas que simplifica la tarea de declarar tus impuestos mensualmente. ¡Pagas impuestos
-                        basándote sólo en lo que vendes!
-                    </p>
-                </div>
-
-                <div class="glossary-card">
-                    <div class="glossary-card-header">
-                        <i class="fa-solid fa-filter glossary-card-icon" style="color: var(--accent-purple);"></i>
-                        <h4 class="glossary-card-title">Gasto Deducible</h4>
-                    </div>
-                    <p class="glossary-card-text">
-                        Es cualquier compra que realizas <strong>exclusivamente</strong> para hacer funcionar tu negocio
-                        (ej. tu laptop, internet, software, publicidad). Se restan de tus ingresos para que pagues menos
-                        impuestos de forma legal.
-                    </p>
-                </div>
-
-                <div class="glossary-card">
-                    <div class="glossary-card-header">
-                        <i class="fa-solid fa-percent glossary-card-icon" style="color: var(--accent-yellow);"></i>
-                        <h4 class="glossary-card-title">Retenciones</h4>
-                    </div>
-                    <p class="glossary-card-text">
-                        Es dinero que tu cliente (si es empresa) te "descuenta" legalmente de la factura y le entrega
-                        directamente a la DGII a tu nombre. Funciona como un abono adelantado de tus impuestos finales.
-                    </p>
-                </div>
-            </div>
-        </section>
-
-        <!-- 2. Régimen RST -->
-        <section id="rst" class="docs-section">
-            <div class="docs-section-title">
-                <i class="fa-solid fa-percent" style="color: var(--accent-emerald);"></i>
-                <span>Régimen RST</span>
-            </div>
-
-            <div class="docs-article" data-search-content="rst ingresos conviene">
-                <h3 class="docs-article-title">
-                    <span class="docs-article-title-text">
-                        <i class="fa-solid fa-lightbulb docs-article-title-icon"></i>
-                        ¿Qué es exactamente el RST de Ingresos y por qué me conviene?
-                    </span>
-                </h3>
-                <div class="docs-article-body">
-                    El <strong>Régimen Simplificado de Tributación (RST)</strong> basado en ingresos es un beneficio de
-                    salud mental fiscal que ofrece la DGII para profesionales independientes, freelancers y pequeñas
-                    empresas.
-                    <br><br>
-                    <strong>¿Por qué conviene?</strong>
-                    <ul>
-                        <li><strong>Cero reportes mensuales:</strong> Te olvidas por completo del estrés de rellenar
-                            formularios tradicionales todos los meses, ya que los comprobantes electrónicos (e-CF) se
-                            transmiten en tiempo real.</li>
-                        <li><strong>Adiós IT-1 mensual:</strong> No tienes que declarar ni liquidar el ITBIS (IVA) de
-                            forma mensual.</li>
-                        <li><strong>Declaración de un solo paso:</strong> Solo presentas una declaración sumamente
-                            sencilla una vez al año (en febrero/marzo) calculada de manera automática según tu
-                            facturación anual acumulada.</li>
-                    </ul>
-                    <div class="fiscal-alert-box">
-                        <i class="fa-solid fa-circle-info"></i>
-                        <div class="fiscal-alert-text">
-                            En <strong>{{ product_name }}</strong>, si activas el <strong>Régimen RST</strong> en tu
-                            Configuración de Empresa, el Dashboard adaptará automáticamente tu Semáforo de Salud y
-                            ocultará las alertas complejas de los reportes mensuales, mostrándote en su lugar una barra
-                            visual de control del límite anual.
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="docs-article" data-search-content="limite anual rst 2026">
-                <h3 class="docs-article-title">
-                    <span class="docs-article-title-text">
-                        <i class="fa-solid fa-triangle-exclamation docs-article-title-icon"
-                            style="color: var(--accent-yellow);"></i>
-                        ¿Cuál es el límite anual de facturación en el RST para el año 2026?
-                    </span>
-                </h3>
-                <div class="docs-article-body">
-                    Para el ejercicio fiscal <strong>2026</strong>, la DGII ha establecido el tope máximo anual por
-                    inflación para el RST basado en Ingresos en:
-                    <br><br>
-                    <code style="font-size: 1rem; padding: 4px 10px; font-weight: 700;">RD$ 12,068,181.09</code>
-                    <br><br>
-                    <strong>¿Qué pasa si superas este límite?</strong>
-                    Si la suma de tus facturas del año calendario excede este valor exacto por un solo centavo, la DGII
-                    te excluirá de forma automática del régimen simplificado y te transferirá de manera obligatoria al
-                    <strong>Régimen General</strong>.
-                    Esto significa que tendrás que pasar al Régimen General de forma retroactiva, lo cual suele implicar
-                    multas y gastos administrativos elevados.
-                    <br><br>
-                    <strong>¿Cómo te ayuda {{ product_name }}?</strong>
-                    Nuestra barra de progreso en tiempo real lee tus facturas emitidas autorizadas del año fiscal y te
-                    muestra con precisión matemática qué tan cerca estás del límite anual (RD$ 12.06M) y activa alertas
-                    preventivas (amarilla al 70%, roja al 90%) para que no te lleves sorpresas desagradables al cierre
-                    del año.
-                </div>
-            </div>
-        </section>
-
-        <!-- 3. Gastos y Deducibilidad -->
-        <section id="gastos" class="docs-section">
-            <div class="docs-section-title">
-                <i class="fa-solid fa-wallet" style="color: var(--accent-emerald);"></i>
-                <span>Gastos y Deducibilidad</span>
-            </div>
-
-            <div class="docs-article" data-search-content="gasto deducible switch toggle">
-                <h3 class="docs-article-title">
-                    <span class="docs-article-title-text">
-                        <i class="fa-solid fa-circle-question docs-article-title-icon"></i>
-                        ¿Qué hace que un gasto sea "Deducible" y cómo debo usar el Switch en el software?
-                    </span>
-                </h3>
-                <div class="docs-article-body">
-                    De acuerdo con el artículo 287 del Código Tributario de la República Dominicana, un gasto es
-                    <strong>deducible</strong> únicamente cuando es <strong>necesario para obtener, mantener y conservar
-                        tus ingresos gravados</strong>.
-                    <br><br>
-                    <strong>Ejemplos prácticos:</strong>
-                    <ul>
-                        <li><strong>Gastos de Negocio (Deducibles):</strong> Compra de tu laptop de trabajo, pago del
-                            plan corporativo de internet, suscripciones a software (como {{ product_name }}, AWS, Figma),
-                            alquiler de tu oficina, transporte para visitar un cliente, etc.</li>
-                        <li><strong>Gastos Personales (No Deducibles):</strong> Compra del supermercado familiar, ropa
-                            de uso diario, boletos de cine, regalos de cumpleaños o las comidas personales del fin de
-                            semana.</li>
-                    </ul>
-                    <strong>¿Por qué incluimos el Switch/Toggle de deducibilidad en el registro de gastos?</strong>
-                    Sabemos que como freelancer o micro-pyme es muy difícil separar las finanzas personales de las del
-                    negocio.
-                    Por eso, <strong>{{ product_name }}</strong> te permite registrar ambos tipos de gastos:
-                    <ul>
-                        <li>Si marcas <code>Deducible (Sí)</code>: El gasto se incluirá en tu diagnóstico de IT-1 y se
-                            sumará para calcular los impuestos que podrás deducir legalmente.</li>
-                        <li>Si marcas <code>Deducible (No)</code>: El gasto se guardará en tu base de datos para que
-                            tengas un control de presupuesto y rentabilidad real de tus finanzas, pero **se filtrará y
-                            excluirá al 100%** al visualizar el diagnóstico tributario de IT-1. Así proteges tu
-                            cumplimiento legal sin sacrificar tu control financiero interno.</li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="docs-article" data-search-content="ncf compras menores e43 tipo 13">
-                <h3 class="docs-article-title">
-                    <span class="docs-article-title-text">
-                        <i class="fa-solid fa-receipt docs-article-title-icon"></i>
-                        ¿Qué es el NCF de Compras Menores (E43) y cuándo debo utilizarlo?
-                    </span>
-                </h3>
-                <div class="docs-article-body">
-                    El **Comprobante de Compras Menores (E43 / Tipo 13)** es un comprobante fiscal especial emitido por
-                    ti (el comprador) para registrar aquellas transacciones comerciales donde adquieres bienes o
-                    servicios de personas físicas que no están registradas en la DGII o que no te pueden emitir una
-                    factura válida con valor de crédito fiscal.
-                    <br><br>
-                    <strong>¿Cuándo usarlo?</strong>
-                    Por ejemplo, cuando contratas un plomero independiente sin RNC para reparar una tubería de la
-                    oficina, o realizas compras pequeñas e informales que son estrictamente del negocio.
-                    <br><br>
-                    <strong>Importante:</strong>
-                    La DGII establece límites para no abusar de este tipo de comprobante. Al registrar un gasto en
-                    nuestro módulo de control de gastos, puedes asociarle un NCF formal. Si su código inicia con
-                    **E43**, la plataforma lo catalogará automáticamente como *Gasto Menor* y lo estructurará
-                    correctamente en tus reportes.
-                </div>
-            </div>
-        </section>
-
-        <!-- 4. Retenciones y Pagos -->
-        <section id="retenciones" class="docs-section">
-            <div class="docs-section-title">
-                <i class="fa-solid fa-hand-holding-dollar" style="color: var(--accent-emerald);"></i>
-                <span>Retenciones y Pagos</span>
-            </div>
-
-            <div class="docs-article" data-search-content="retenciones isr itbis calculo">
-                <h3 class="docs-article-title">
-                    <span class="docs-article-title-text">
-                        <i class="fa-solid fa-percent docs-article-title-icon"></i>
-                        ¿Por qué mi factura tiene retenciones de ISR e ITBIS y cómo se calculan?
-                    </span>
-                </h3>
-                <div class="docs-article-body">
-                    En la República Dominicana, cuando prestas servicios profesionales independientes (como consultoría,
-                    diseño, software, abogacía) a una **persona jurídica (una empresa)**, la ley obliga a esa empresa a
-                    actuar como "agente de retención".
-                    Esto significa que ellos deben descontar una fracción de tu pago antes de transferirte y reportarlo
-                    a la DGII como un abono adelantado de tus propios impuestos.
-                    <br><br>
-                    <strong>Las retenciones de ley estándar en RD para profesionales independientes son:</strong>
-                    <ul>
-                        <li><strong>Retención del Impuesto sobre la Renta (ISR):</strong> **10%** fijo sobre el subtotal
-                            neto de los servicios prestados.</li>
-                        <li><strong>Retención de ITBIS:</strong>
-                            <ul>
-                                <li><strong>100% del ITBIS facturado:</strong> Si prestas servicios profesionales (como
-                                    consultorías, asesorías, software). La empresa retiene el 18% completo de ITBIS.
-                                </li>
-                                <li><strong>30% del ITBIS facturado:</strong> En ciertos servicios técnicos o de
-                                    alquileres de bienes muebles.</li>
-                            </ul>
-                        </li>
-                    </ul>
-                    <strong>Ejemplo práctico (Factura de Servicios de RD$ 10,000):</strong>
-                    <ul>
-                        <li>Subtotal: RD$ 10,000.00</li>
-                        <li>ITBIS (18%): RD$ 1,800.00</li>
-                        <li>Total Bruto Facturado: RD$ 11,800.00</li>
-                        <li>(-) Retención ISR (10% del Subtotal): -RD$ 1,000.00</li>
-                        <li>(-) Retención ITBIS (100% del ITBIS): -RD$ 1,800.00</li>
-                        <li><strong>Neto a Recibir (Net Payable): RD$ 9,000.00</strong></li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="docs-article" data-search-content="neto a recibir netpayable verde">
-                <h3 class="docs-article-title">
-                    <span class="docs-article-title-text">
-                        <i class="fa-solid fa-scale-balanced docs-article-title-icon"></i>
-                        ¿Qué significa el "Neto a Recibir" o "netPayable" destacado en verde?
-                    </span>
-                </h3>
-                <div class="docs-article-body">
-                    El valor del **Neto a Recibir** (`netPayable`) es el dato más valioso y práctico para un profesional
-                    independiente.
-                    Muchos freelancers cometen el error de esperar en su cuenta bancaria el "Total" bruto de la factura
-                    (que incluye ITBIS) y se confunden o asustan cuando ven un depósito menor en el banco.
-                    <br><br>
-                    El Neto a Recibir calcula con exactitud matemática el total de la factura **menos** todas las
-                    retenciones dominicanas (ISR e ITBIS) aplicables de ley.
-                    **Este es el monto exacto que tu cliente te transferirá por el banco.**
-                    <br><br>
-                    En {{ product_name }} destacamos este valor en un bloque color **verde esmeralda** con la leyenda *"Neto a
-                    Recibir"* en tu vista de detalle de facturas para que sepas con absoluta certeza el monto exacto del
-                    depósito bancario que debes conciliar.
-                </div>
-            </div>
-        </section>
-
-        <!-- 5. NCF y e-CF Electrónico -->
-        <section id="comprobantes" class="docs-section">
-            <div class="docs-section-title">
-                <i class="fa-solid fa-receipt" style="color: var(--accent-emerald);"></i>
-                <span>NCF y e-CF Electrónico</span>
-            </div>
-
-            <div class="docs-article" data-search-content="ncf tradicional ecf electronico xml">
-                <h3 class="docs-article-title">
-                    <span class="docs-article-title-text">
-                        <i class="fa-solid fa-passport docs-article-title-icon"></i>
-                        ¿Qué diferencia hay entre un NCF tradicional y un e-CF Electrónico?
-                    </span>
-                </h3>
-                <div class="docs-article-body">
-                    Ambos sirven para lo mismo ante los ojos de la DGII (darle validez fiscal a tus ventas y compras),
-                    pero la tecnología y el formato cambian radicalmente:
-                    <ul>
-                        <li><strong>NCF Tradicional (Número de Comprobante Fiscal):</strong> Es una secuencia física de
-                            caracteres (ej. B0100000023) que solicitas a la DGII y debes imprimir en papel o PDF plano.
-                            Su validación no es en tiempo real.</li>
-                        <li><strong>e-CF (Comprobante Fiscal Electrónico):</strong> Es un documento tributario en
-                            formato digital (XML) firmado con tu firma digital (certificado de la Cámara de Comercio) y
-                            que **se transmite a la DGII en tiempo real** al momento exacto de la venta. Se identifica
-                            con una secuencia especial que inicia con la letra **E** (ej. E3100000005).</li>
-                    </ul>
-                    <strong>¿Es obligatorio?</strong>
-                    Sí. La **Ley 32-23 de Facturación Electrónica** en la República Dominicana establece un calendario
-                    de obligatoriedad de transición para todos los contribuyentes. Con **{{ product_name }}** ya estás 100%
-                    cubierto y preparado, operando mediante la API homologada de la DGII en Sandbox y Producción.
-                </div>
-            </div>
-
-            <div class="docs-article" data-search-content="codigo qr validacion png escaneo">
-                <h3 class="docs-article-title">
-                    <span class="docs-article-title-text">
-                        <i class="fa-solid fa-qrcode docs-article-title-icon"></i>
-                        ¿Por qué mi comprobante firmado incluye un Código QR y qué hace?
-                    </span>
-                </h3>
-                <div class="docs-article-body">
-                    El Código QR es una exigencia obligatoria establecida por la Norma General de Facturación
-                    Electrónica de la DGII.
-                    <br><br>
-                    Su propósito es la **transparencia y validación inmediata**. Cualquier persona (tu cliente, un
-                    auditor de la DGII o tú mismo) puede escanear ese QR con la cámara de su celular y el sistema lo
-                    redirigirá instantáneamente al portal de consulta de la DGII, donde se mostrará la validez oficial
-                    del XML firmado y archivado en la nube.
-                    <br><br>
-                    En {{ product_name }}, generamos y renderizamos dinámicamente este código QR PNG en el lateral de tus
-                    facturas autorizadas para garantizar el 100% de cumplimiento legal.
-                </div>
-            </div>
-
-            <div class="docs-article" data-search-content="corregir anular ecf nota credito debito e35">
-                <h3 class="docs-article-title">
-                    <span class="docs-article-title-text">
-                        <i class="fa-solid fa-ban docs-article-title-icon"></i>
-                        ¿Cómo corrijo o anulo un e-CF si cometí un error?
-                    </span>
-                </h3>
-                <div class="docs-article-body">
-                    Según la normativa de la DGII, las reglas para corregir o anular un Comprobante Fiscal Electrónico
-                    (e-CF) dependen del estado en el que se encuentre el documento:
-                    <br><br>
-                    <strong>1. Si ya lo enviaste a la DGII y al Receptor:</strong>
-                    Las correcciones <strong>sólo</strong> pueden realizarse mediante la emisión de una <strong>Nota de
-                        Crédito o Débito Electrónica</strong> (según corresponda).
-                    <br>
-                    <div class="fiscal-alert-box alert-warning">
-                        <i class="fa-solid fa-triangle-exclamation"></i>
-                        <div class="fiscal-alert-text">
-                            <strong>⚠️ Regla de los 30 días para Devoluciones:</strong> Si emites la Nota de Crédito
-                            Electrónica después de <strong>treinta (30) días</strong> contados a partir del nacimiento
-                            de la obligación tributaria, la devolución de bienes gravados con ITBIS conllevará
-                            <strong>únicamente la restitución del precio pagado, sin incluir la devolución del
-                                ITBIS</strong>.
-                        </div>
-                    </div>
-                    <br>
-                    <strong>2. Si está firmado digitalmente pero aún NO ha sido enviado:</strong>
-                    Si el e-CF fue firmado pero nunca se transmitió a la DGII o al cliente, puedes anularlo utilizando
-                    el Web Service de Anulación de e-NCF con el formato XML de Anulación (ANECF). Este mismo servicio se
-                    utiliza para anular secuencias en blanco (no usadas).
-                    <br><br>
-                    <strong>3. ¿Qué pasa si el cliente (Receptor) lo rechaza?</strong>
-                    Si el e-CF es rechazado por el receptor en el proceso de "Aprobación Comercial", deberás anular la
-                    factura enviando obligatoriamente una <strong>Nota de Crédito</strong> tanto a Impuestos Internos
-                    como al receptor, indicando el motivo de la anulación.
-                    <br><br>
-                    <strong>4. ¿Qué pasa si el cliente lo aprueba pero la DGII lo rechaza?</strong>
-                    En este escenario crítico, el e-CF <strong>no se considerará válido</strong> (y la aprobación
-                    comercial de tu cliente quedará rechazada de igual forma). Deberás emitir un <strong>nuevo
-                        e-CF</strong> (con una nueva secuencia) y sustituir el documento que le habías entregado al
-                    receptor.
-                </div>
-            </div>
-        </section>
-
-        <!-- 6. Operación en Contingencia -->
-        <section id="contingencia" class="docs-section">
-            <div class="docs-section-title">
-                <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-emerald);"></i>
-                <span>Operación en Contingencia</span>
-            </div>
-
-            <div class="docs-article"
-                data-search-content="contingencia reglamento regulacion fuerza mayor fallo tecnico">
-                <h3 class="docs-article-title">
-                    <span class="docs-article-title-text">
-                        <i class="fa-solid fa-triangle-exclamation docs-article-title-icon"
-                            style="color: var(--accent-red);"></i>
-                        ¿Qué es el Estado de Contingencia según la normativa de la DGII?
-                    </span>
-                </h3>
-                <div class="docs-article-body">
-                    De conformidad con lo establecido en los <strong>artículos 40 al 43 del reglamento aplicable de
-                        Facturación Electrónica</strong>, se considera que un emisor electrónico se encuentra en estado
-                    de contingencia cuando se presentan situaciones de fuerza mayor o fallos técnicos que
-                    <strong>impiden la emisión y/o el envío</strong> de los Comprobantes Fiscales Electrónicos (e-CF) a
-                    la Dirección General de Colecciones (DGII).
-                    <br><br>
-                    Existen dos tipos principales de contingencia del lado del emisor:
-                    <ul>
-                        <li><strong>Contingencia por falta de conectividad:</strong> Tienes capacidad técnica para
-                            generar el e-CF, pero no puedes enviarlo a la DGII por problemas de internet o redes.</li>
-                        <li><strong>Imposibilidad de emisión del e-CF:</strong> Presentas un fallo en tus sistemas
-                            informáticos locales que te impide generar el formato electrónico.</li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="docs-article" data-search-content="contingencia falta conectividad offline fallback">
-                <h3 class="docs-article-title">
-                    <span class="docs-article-title-text">
-                        <i class="fa-solid fa-wifi docs-article-title-icon"></i>
-                        1. Contingencia por falta de conectividad (Emisión Offline)
-                    </span>
-                </h3>
-                <div class="docs-article-body">
-                    Esta situación se configura cuando dispones de la capacidad local para generar los e-CF, pero no
-                    puedes remitirlos a la DGII para su validación en tiempo real debido a interrupciones o
-                    intermitencias en tus servicios de conexión a internet.
-                    <br><br>
-                    En estos casos, debes proceder de la siguiente manera:
-                    <ul>
-                        <li><strong>Generar los e-CF en modalidad offline:</strong> La plataforma firmará localmente el
-                            documento simulando las secuencias del rango correspondiente.</li>
-                        <li><strong>Impresión Obligatoria con Leyenda:</strong> Para la entrega de bienes o prestación
-                            de servicios, es obligatorio emitir la representación impresa del e-CF, la cual incorporará
-                            automáticamente la leyenda: <code
-                                style="color: #b91c1c; font-weight: bold; background: rgba(239, 68, 68, 0.08);">“e-CF emitido en modalidad de contingencia”</code>.
-                            Dicho comprobante podrá ser validado fiscalmente por tu cliente una vez transcurrido el
-                            plazo de regularización.</li>
-                        <li><strong>Plazo de Envío:</strong> Debes remitir estos comprobantes acumulados a la DGII una
-                            vez restablecida la conexión, en un plazo máximo de <strong>setenta y dos (72)
-                                horas</strong>.</li>
-                    </ul>
-                    <div class="fiscal-alert-box alert-danger">
-                        <i class="fa-solid fa-shield-halved"></i>
-                        <div class="fiscal-alert-text">
-                            <strong>🛡️ Lógica automatizada en {{ product_name }}:</strong> Si nuestra API de conexión con la DGII
-                            detecta una interrupción del servicio o red, la plataforma activa de forma reactiva y
-                            automática el <strong>MODO CONTINGENCIA (FALLBACK)</strong>. Genera el código QR de
-                            validación fiscal local y estampa la leyenda obligatoria tanto en la pantalla de detalle
-                            como en el PDF de impresión.
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="docs-article" data-search-content="imposibilidad emision fallo tecnico no electronico 15 dias">
-                <h3 class="docs-article-title">
-                    <span class="docs-article-title-text">
-                        <i class="fa-solid fa-circle-xmark docs-article-title-icon"></i>
-                        2. Cuando no sea posible la emisión del e-CF (Fallo Técnico)
-                    </span>
-                </h3>
-                <div class="docs-article-body">
-                    Esta situación se presenta cuando el emisor electrónico sufre una avería grave de hardware o
-                    software y no cuenta con la capacidad técnica para generar comprobantes en formato XML electrónico.
-                    <br><br>
-                    En estos escenarios extremos:
-                    <ul>
-                        <li><strong>Comprobantes No Electrónicos:</strong> El contribuyente deberá utilizar secuencias
-                            de facturación autorizadas de <strong>Comprobantes Fiscales tradicionales (No
-                                Electrónicos)</strong>.</li>
-                        <li><strong>Plazo Límite:</strong> Este tipo de contingencia por imposibilidad técnica no podrá
-                            exceder un período máximo de <strong>quince (15) días calendario</strong>.</li>
-                        <li><strong>Notificación:</strong> La DGII establecerá los canales correspondientes para
-                            notificar formalmente el inicio y fin de este estado de contingencia.</li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="docs-article" data-search-content="plazo 72 horas ley 32-23 sancion tributaria validez gasto">
-                <h3 class="docs-article-title">
-                    <span class="docs-article-title-text">
-                        <i class="fa-solid fa-hourglass-half docs-article-title-icon"></i>
-                        ¿Qué sucede si un comprobante excede el plazo de las 72 horas exigido por la DGII?
-                    </span>
-                </h3>
-                <div class="docs-article-body">
-                    De conformidad con lo establecido en la **Ley 32-23 de Facturación Electrónica**, el plazo máximo
-                    establecido para remitir a la DGII los Comprobantes Fiscales Electrónicos (e-CF) emitidos en
-                    contingencia es de **setenta y dos (72) horas**. Exceder este plazo genera las siguientes
-                    repercusiones:
-                    <br><br>
-                    <strong>1. Consecuencias Fiscales y Legales (DGII):</strong>
-                    <ul>
-                        <li><strong>Pérdida de Validez del Gasto:</strong> El comprador (tu cliente) podría perder el
-                            derecho a deducir el gasto para el Impuesto Sobre la Renta (ISR) y a adelantar el ITBIS,
-                            dado que el documento no fue registrado y validado formalmente en tiempo y forma en los
-                            servidores de la DGII.</li>
-                        <li><strong>Infracción y Sanción Tributaria:</strong> La DGII cataloga la no transmisión o la
-                            transmisión tardía de los e-CF emitidos en contingencia como un incumplimiento de los
-                            deberes formales del contribuyente, lo que puede acarrear multas y penalizaciones conforme
-                            al Código Tributario dominicano.</li>
-                    </ul>
-                    <strong>2. Comportamiento y mitigación en {{ product_name }}:</strong>
-                    <ul>
-                        <li><strong>Alertas de Regularización Críticas:</strong> La plataforma monitorea el tiempo
-                            transcurrido desde la firma local offline. En tu Dashboard verás un banner informativo que
-                            destacará si a algún comprobante le quedan menos de 12 horas o ya ha superado el plazo de
-                            las 72 horas.</li>
-                        <li><strong>Intentos de Envío Automático:</strong> Cada vez que accedes o recargas la
-                            aplicación, el sistema intentará retransmitir de manera silenciosa y automática los
-                            comprobantes pendientes de sincronización.</li>
-                        <li><strong>Sincronización Manual:</strong> Ahora cuentas con botones rápidos de sincronización
-                            y regularización directamente en la tabla de **Documentos** y en el **Detalle del
-                            Comprobante** para reintentar el envío de forma inmediata en cuanto dispongas de conexión o
-                            actualices tu token fiscal real.</li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="docs-article"
-                data-search-content="regularización posterior contingencia validez fiscal 30 dias">
-                <h3 class="docs-article-title">
-                    <span class="docs-article-title-text">
-                        <i class="fa-solid fa-clock-rotate-left docs-article-title-icon"></i>
-                        3. Regularización posterior a la contingencia y Validez fiscal
-                    </span>
-                </h3>
-                <div class="docs-article-body">
-                    Una vez superado el estado de contingencia (ya sea por imposibilidad de emisión o por falta de
-                    conectividad), el contribuyente asume compromisos clave para regularizar su estatus:
-                    <br><br>
-                    <ul>
-                        <li><strong>Plazo de regularización:</strong> En un plazo máximo de <strong>treinta (30) días
-                                calendario</strong> contados a partir del restablecimiento del servicio, el
-                            contribuyente debe generar y remitir a la DGII los e-CF correspondientes a las operaciones
-                            realizadas.</li>
-                        <li><strong>Referenciación obligatoria:</strong> Estos e-CF deberán referenciar explícitamente
-                            los comprobantes no electrónicos emitidos de forma temporal, siguiendo las especificaciones
-                            técnicas dictadas por la DGII.</li>
-                        <li><strong>Sustento de costos:</strong> Mientras se realiza el envío y validación a la DGII, el
-                            receptor (tu cliente) podrá utilizar de inmediato los comprobantes no electrónicos
-                            entregados durante la contingencia para sustentar sus deducciones de costos, gastos y
-                            crédito fiscal de ITBIS.</li>
-                        <li><strong>Notificación de restablecimiento:</strong> Es responsabilidad del contribuyente
-                            notificar formalmente a la DGII el restablecimiento del servicio regular de facturación
-                            electrónica.</li>
-                    </ul>
-                    <div class="fiscal-alert-box alert-warning">
-                        <i class="fa-solid fa-triangle-exclamation"></i>
-                        <div class="fiscal-alert-text">
-                            <strong>⚠️ Validez de los comprobantes:</strong> Únicamente serán válidos para fines
-                            fiscales aquellos comprobantes no electrónicos emitidos durante un estado de contingencia
-                            debidamente notificado a la DGII, conforme a los canales y disposiciones oficiales.
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="docs-article" data-search-content="contingencia dgii servidor caido oficina virtual 15 dias">
-                <h3 class="docs-article-title">
-                    <span class="docs-article-title-text">
-                        <i class="fa-solid fa-server docs-article-title-icon"></i>
-                        4. Contingencia de la DGII (Indisponibilidad del Servidor Estatal)
-                    </span>
-                </h3>
-                <div class="docs-article-body">
-                    ¿Qué sucede si tus sistemas funcionan perfectamente pero los servidores de la DGII o su oficina
-                    virtual están caídos?
-                    <br><br>
-                    Cuando los sistemas de la DGII no se encuentren disponibles:
-                    <ul>
-                        <li><strong>Almacenamiento Local:</strong> El emisor electrónico deberá generar y almacenar
-                            localmente todos los e-CF.</li>
-                        <li><strong>Envío diferido:</strong> Deberá remitirlos en lote una vez restablecida la
-                            comunicación y disponibilidad por parte de la DGII.</li>
-                        <li><strong>Caída prolongada (+15 días):</strong> En caso de que la caída de los servidores de
-                            la DGII se extienda por más de <strong>quince (15) días hábiles</strong>, se habilitará en
-                            la Oficina Virtual (OFV) del contribuyente la opción de envío de reportes (ventas, compras,
-                            costos, retenciones, etc.), y se permitirá operar temporalmente mediante comprobantes no
-                            electrónicos de contingencia.</li>
-                    </ul>
-                </div>
-            </div>
-        </section>
-
-        <!-- 7. Flujo de Facturación -->
-        <section id="tutorial" class="docs-section">
-            <div class="docs-section-title">
-                <i class="fa-solid fa-book-open" style="color: var(--accent-emerald);"></i>
-                <span>Flujo de Facturación</span>
-            </div>
-
-            <div class="docs-article" data-search-content="paso 1 registro inicio empresa sucursal equipo permisos">
-                <h3 class="docs-article-title">
-                    <span class="docs-article-title-text">
-                        <i class="fa-solid fa-1 docs-article-title-icon"></i>
-                        Guía Paso 1: Registro e Inicio de Empresa en la Plataforma
-                    </span>
-                </h3>
-                <div class="docs-article-body">
-                    Para iniciar en <strong>{{ product_name }}</strong>, debes configurar tu entorno de trabajo básico. Sigue
-                    estos pasos exactos:
-                    <br><br>
-                    <strong>1. Creación de Cuenta y Perfil de Usuario (`/register`):</strong>
-                    <ul>
-                        <li>Regístrate como <strong>Propietario (Owner)</strong> para crear tu organización, o como
-                            <strong>Colaborador (Employee)</strong> si tu administrador te ha provisto de su código UID
-                            único.</li>
-                        <li>Ingresa tu correo, nombre y una contraseña segura de al menos 6 caracteres.</li>
-                    </ul>
-                    <strong>2. Configuración del Perfil Comercial de la Empresa (`/settings/company`):</strong>
-                    <ul>
-                        <li>Navega a **Ajustes de Empresa** y rellena el perfil con los datos legales de tu negocio:
-                            <ul>
-                                <li><strong>Nombre / Razón Social:</strong> El nombre oficial registrado en ONAPI.</li>
-                                <li><strong>RNC de la Empresa:</strong> Tu Registro Nacional de Contribuyentes (9 u 11
-                                    dígitos, sin guiones).</li>
-                                <li><strong>Correo y Teléfono Comercial:</strong> Los datos de contacto para la
-                                    facturación.</li>
-                                <li><strong>Dirección:</strong> La ubicación física del establecimiento.</li>
-                            </ul>
-                        </li>
-                    </ul>
-                    <strong>3. Régimen Fiscal y Configuración Estética (`/settings/company`):</strong>
-                    <ul>
-                        <li>Selecciona tu **Régimen Fiscal** en el formulario: **RST (Régimen Simplificado de
-                            Tributación)** o **General**. Esto adaptará automáticamente los reportes y barras de
-                            progreso del Dashboard de acuerdo al límite anual de ingresos de la DGII (RD$ 12.06M para
-                            RST).</li>
-                        <li>Configura tu identidad de marca cargando el **Logo de la Empresa** y seleccionando tu
-                            **Color de Marca** en la sección de estilo, habilitando o deshabilitando el degradado
-                            premium (gradient) en tus documentos e interfaz.</li>
-                    </ul>
-                    <strong>4. Sucursales y Gestión de Equipo (`/settings/company`):</strong>
-                    <ul>
-                        <li><strong>Sucursales:</strong> Registra tus puntos de venta estableciendo los nombres de
-                            sucursal y códigos de identificación física.</li>
-                        <li><strong>Equipo de Trabajo:</strong> Invita a colaboradores asignándoles permisos específicos
-                            de forma granular:
-                            <ul>
-                                <li><code>canInvoice</code> (Permiso para emitir y firmar facturas).</li>
-                                <li><code>canExpenses</code> (Permiso para registrar gastos).</li>
-                                <li><code>canClients</code> (Permiso para gestionar clientes).</li>
-                                <li><code>canModifySettings</code> (Permiso de administración general).</li>
-                                <li><code>canManageInventory</code> (Permiso de control de almacén).</li>
-                            </ul>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="docs-article" data-search-content="paso 2 preparacion catalogo clientes items rnc itbis exento">
-                <h3 class="docs-article-title">
-                    <span class="docs-article-title-text">
-                        <i class="fa-solid fa-2 docs-article-title-icon"></i>
-                        Guía Paso 2: Preparación del Catálogo (Clientes e Ítems)
-                    </span>
-                </h3>
-                <div class="docs-article-body">
-                    Antes de emitir una factura, debes registrar a quién le vendes y qué estás vendiendo en tus bases de
-                    datos:
-                    <br><br>
-                    <strong>1. Registro de Clientes (`/clients`):</strong>
-                    <ul>
-                        <li>Accede al módulo de Clientes y haz clic en **Nuevo Cliente**.</li>
-                        <li>Introduce la **Razón Social** del cliente.</li>
-                        <li>Introduce su **RNC o Cédula** (indispensable para emitir facturas con valor de Crédito
-                            Fiscal E31. Debe tener exactamente 9 dígitos para RNC corporativos u 11 dígitos para
-                            personas físicas).</li>
-                        <li>Registra su **Correo Electrónico** para permitir el envío automático de los archivos XML
-                            firmados y las representaciones impresas.</li>
-                    </ul>
-                    <strong>2. Catálogo de Ítems / Productos (`/items`):</strong>
-                    <ul>
-                        <li>Ingresa a la sección de Ítems y selecciona **Nuevo Ítem**.</li>
-                        <li>Define el **Nombre del Producto o Servicio**, la descripción y el **Precio Unitario (Precio
-                            Base)**.</li>
-                        <li>Configura la **Tasa de ITBIS** aplicable para este ítem:
-                            <ul>
-                                <li><code>18% (ITBIS Estándar)</code> para la mayoría de servicios y productos gravados.
-                                </li>
-                                <li><code>Exento</code> para servicios profesionales exentos o productos de canasta
-                                    básica exentos de ley.</li>
-                            </ul>
-                        </li>
-                        <li>Configura el inventario inicial asignándole un **Almacén (Warehouse)** y un **Stock Mínimo
-                            de Alerta** si deseas que la aplicación rastree existencias de manera automatizada.</li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="docs-article"
-                data-search-content="paso 3 secuencias fiscales e31 e32 e43 compras menores rango">
-                <h3 class="docs-article-title">
-                    <span class="docs-article-title-text">
-                        <i class="fa-solid fa-3 docs-article-title-icon"></i>
-                        Guía Paso 3: Configuración de Secuencias Fiscales de la DGII
-                    </span>
-                </h3>
-                <div class="docs-article-body">
-                    Para que tus facturas tengan validez legal y fiscal ante la DGII en la República Dominicana, debes
-                    registrar las secuencias numéricas autorizadas:
-                    <br><br>
-                    <strong>1. ¿Qué es un Rango de Comprobante Electrónico (e-CF)?</strong>
-                    <ul>
-                        <li>Es la autorización digital que te otorga la DGII para emitir secuencias de facturas. A
-                            diferencia de las tradicionales que inician con **B**, las electrónicas inician con **E** y
-                            constan de 13 caracteres (ej. E310000000005).</li>
-                    </ul>
-                    <strong>2. Registro de una Secuencia Fiscal (`/sequences`):</strong>
-                    <ul>
-                        <li>Dirígete a la sección de **Secuencias** e ingresa el rango aprobado en tu Oficina Virtual de
-                            la DGII:
-                            <ul>
-                                <li><strong>Tipo de Comprobante:</strong> Selecciona si es `Factura de Crédito Fiscal
-                                    Electrónica (E31)` o `Factura de Consumo Electrónica (E32)`.</li>
-                                <li><strong>Rango Inicial y Final:</strong> La numeración autorizada (ej. desde 1 hasta
-                                    100).</li>
-                                <li><strong>Último Consecutivo Usado:</strong> La numeración anterior si ya has
-                                    facturado en otros sistemas (el sistema consumirá el valor siguiente al indicado de
-                                    forma secuencial y automatizada).</li>
-                                <li><strong>Alerta de Mínimo:</strong> Recibe una alerta visual en el software cuando
-                                    resten pocos comprobantes disponibles.</li>
-                                <li><strong>Fecha de Expiración y Número de Autorización:</strong> Datos obligatorios
-                                    del oficio de aprobación de la DGII.</li>
-                            </ul>
-                        </li>
-                    </ul>
-                    <strong>3. Uso de Comprobantes según el Cliente:</strong>
-                    <ul>
-                        <li><strong>E31 (Crédito Fiscal Electrónico):</strong> Emítelo cuando le vendas a una **Empresa
-                            registrada** que necesita sustentar costos y deducciones del Impuesto sobre la Renta (ISR) y
-                            adelantos de ITBIS. Requiere obligatoriamente un RNC válido del cliente.</li>
-                        <li><strong>E32 (Consumo Electrónico):</strong> Emítelo para **Consumidores Finales** que no
-                            deducen impuestos. Si el monto total excede los **RD$ 250,000.00**, la DGII exige de manera
-                            obligatoria que asocies la Cédula o RNC del cliente en el formulario de la factura.</li>
-                        <li><strong>E43 (Compras Menores):</strong> Úsalo en el módulo de gastos para sustentar pagos
-                            realizados a proveedores informales no registrados.</li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="docs-article"
-                data-search-content="paso 4 creacion borrador firma emision qr pdf fallback">
-                <h3 class="docs-article-title">
-                    <span class="docs-article-title-text">
-                        <i class="fa-solid fa-4 docs-article-title-icon"></i>
-                        Guía Paso 4: Creación, Firma y Emisión de e-CF y Contingencia
-                    </span>
-                </h3>
-                <div class="docs-article-body">
-                    El proceso de facturar y transmitir la información a la DGII ocurre en tiempo real y con precisión
-                    matemática:
-                    <br><br>
-                    <strong>1. Creación del Borrador de Factura (`/invoices/new`):</strong>
-                    <ul>
-                        <li>Haz clic en **Nuevo Documento** en tu barra lateral o Dashboard.</li>
-                        <li><strong>Datos Básicos:</strong> Selecciona el cliente registrado (o escribe Consumidor
-                            Final) y define la fecha de vencimiento (`dueDate`). Si la fecha es superior al día de hoy,
-                            el sistema catalogará la factura automáticamente como venta a *Crédito*, de lo contrario
-                            será al *Contado*.</li>
-                        <li><strong>Agregar Partidas / Ítems:</strong> Selecciona los productos/servicios del buscador
-                            del catálogo. Ingresa la cantidad, precio y descuento aplicable.</li>
-                        <li><strong>Cálculo de Retenciones Fiscales de Ley:</strong> Si eres persona física y le
-                            facturas servicios profesionales a una persona jurídica (empresa), aplica en la sección de
-                            tasas:
-                            <ul>
-                                <li><code>10% de ISR:</code> El sistema descontará el 10% del subtotal en el Neto a
-                                    Recibir.</li>
-                                <li><code>100% de ITBIS:</code> Retiene el 18% completo (o el 30% según aplique
-                                    técnicamente).</li>
-                            </ul>
-                        </li>
-                        <li><strong>Neto a Recibir (`netPayable`):</strong> Observa el bloque **verde esmeralda** que
-                            calcula exactamente la cantidad de dinero que verás depositada en tu banco tras las
-                            deducciones de ley de la DGII.</li>
-                    </ul>
-                    <strong>2. Guardar Borrador vs Emitir y Cobrar:</strong>
-                    <ul>
-                        <li><strong>Guardar Borrador:</strong> Guarda la factura de manera local en estado `Borrador`
-                            sin consumir secuencias fiscales de la DGII y permitiéndote realizar modificaciones
-                            posteriores.</li>
-                        <li><strong>Emitir y Cobrar (Firma y Transmisión Asíncrona):</strong> Si seleccionas esta
-                            opción:
-                            <ul>
-                                <li>El sistema consumirá la secuencia correspondiente (`E31` o `E32`) del rango activo.
-                                </li>
-                                <li>Enviará la estructura de datos a la API homologada de la **DGII** para firmarla con
-                                    tu certificado digital.</li>
-                                <li>Recibirá la validación y aprobación de la DGII en tiempo real.</li>
-                                <li>Generará y estampará en la factura un **Código QR obligatorio** de validación
-                                    pública y un enlace al visor oficial del portal tributario de la DGII.</li>
-                                <li>Almacenará de forma segura el archivo oficial XML y te permitirá descargar la
-                                    representación en PDF.</li>
-                            </ul>
-                        </li>
-                    </ul>
-                    <strong>3. Manejo de Fallas e Internet (Flujo de Contingencia / FALLBACK):</strong>
-                    <ul>
-                        <li>Si al emitir tu factura la plataforma detecta intermitencias en la conexión o servidores de
-                            DGII, activará en milisegundos el **Modo Contingencia (FALLBACK)**.</li>
-                        <li>La factura se creará localmente bajo el estado **Emitida** y se estampará automáticamente en
-                            el PDF la leyenda obligatoria por ley: <code
-                                style="color: #b91c1c; font-weight: bold; background: rgba(239, 68, 68, 0.08);">“e-CF emitido en modalidad de contingencia”</code>
-                            junto a un QR de validación local provisional. El cliente podrá sustentar fiscalmente su
-                            compra de inmediato.</li>
-                        <li><strong>Regularización de Contingencia:</strong> Una vez restablecida la conexión, accede al
-                            Dashboard o utiliza el botón de sincronización de contingencias para llamar al endpoint
-                            `/api/invoices/sync-contingency`. La plataforma enviará y firmará automáticamente los
-                            comprobantes pendientes acumulados ante la DGII en el plazo legal establecido de 72 horas.
-                        </li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="docs-article"
-                data-search-content="paso 5 registro cobros conciliacion pago nota credito e35 it1 reportes">
-                <h3 class="docs-article-title">
-                    <span class="docs-article-title-text">
-                        <i class="fa-solid fa-5 docs-article-title-icon"></i>
-                        Guía Paso 5: Registro de Cobros, Anulación de e-CF y Reportes de Impuestos
-                    </span>
-                </h3>
-                <div class="docs-article-body">
-                    El ciclo de facturación se cierra cuando se recibe el pago y se concilian los impuestos del período
-                    fiscal:
-                    <br><br>
-                    <strong>1. Registrar el Pago / Cobro de una Factura (`/invoices/<id>/pay`):</strong>
-                    <ul>
-                        <li>Si facturaste a crédito o guardaste el documento en estado `Emitida`, al recibir la
-                            transferencia bancaria o efectivo de tu cliente:
-                            <ul>
-                                <li>Ingresa al **Detalle de la Factura** y haz clic en **Registrar Cobro**.</li>
-                                <li>Selecciona el **Destino / Banco** (ej. Cuenta de Banco o Caja de Efectivo) e
-                                    introduce el número de referencia del depósito.</li>
-                                <li>El sistema marcará la factura automáticamente como `Cobrada` y registrará la fecha y
-                                    hora exacta de conciliación.</li>
-                            </ul>
-                        </li>
-                    </ul>
-                    <strong>2. Correcciones y Anulaciones de Comprobantes (`/invoices/<id>/void`):</strong>
-                    <ul>
-                        <li>Si cometiste un error de digitación o el cliente rechaza comercialmente la factura:
-                            <ul>
-                                <li><strong>Factura en Borrador:</strong> Cancélala directamente en el sistema sin
-                                    repercusiones legales.</li>
-                                <li><strong>e-CF Firmado y Enviado:</strong> Deberá ser anulado a través del sistema. Si
-                                    el e-CF fue firmado pero no enviado, puedes iniciar una anulación directa de
-                                    secuencia. Si ya fue transmitido formalmente, emite una **Nota de Crédito
-                                    Electrónica (E35)** en nuestro módulo correspondiente para neutralizar el balance y
-                                    reportarlo a Impuestos Internos.</li>
-                                <li><strong>⚠️ Advertencia de 30 días:</strong> Recuerda emitir tus notas de crédito por
-                                    devoluciones dentro de los 30 días calendario del hecho fiscal. Superado este plazo,
-                                    las devoluciones no restituirán el ITBIS retenido o facturado por ley, solo el valor
-                                    base del precio.</li>
-                            </ul>
-                        </li>
-                    </ul>
-                    <strong>3. Diagnóstico Mensual y Consultas DGII (`/reports`):</strong>
-                    <ul>
-                        <li><strong>Diagnóstico de IT-1 (`/reports/it1`):</strong> Visualiza en tiempo real tu borrador
-                            y simulación del formulario de liquidación del ITBIS. El sistema sumará de forma
-                            automatizada tus subtotales de ventas de facturas emitidas autorizadas (ingresos gravados e
-                            ITBIS facturado) y restará tus gastos operativos deducibles aprobados (adelantos de ITBIS).
-                        </li>
-                        <li><strong>Consultas DGII (`/reports/dgii-tools`):</strong> Consulta el estado en vivo de los
-                            servidores de la DGII y realiza verificaciones del directorio de RNCs homologados para
-                            operar con facturas electrónicas.</li>
-                    </ul>
-                </div>
-            </div>
-        </section>
-
-        <!-- 8. Módulos Avanzados -->
-        <section id="operaciones" class="docs-section">
-            <div class="docs-section-title">
-                <i class="fa-solid fa-cubes" style="color: var(--accent-emerald);"></i>
-                <span>Módulos Avanzados</span>
-            </div>
-
-            <div class="docs-article" data-search-content="pos terminal punto venta conteo ciego supervisor pin">
-                <h3 class="docs-article-title">
-                    <span class="docs-article-title-text">
-                        <i class="fa-solid fa-cash-register docs-article-title-icon"></i>
-                        Punto de Venta (POS) y Cierres Auditados por Supervisor
-                    </span>
-                </h3>
-                <div class="docs-article-body">
-                    El módulo **Punto de Venta (POS)** (`/pos`) está diseñado para el cobro rápido en mostrador.
-                    <br><br>
-                    <strong>1. Operación de Caja Rápida:</strong>
-                    <ul>
-                        <li><strong>Apertura de Turno:</strong> Al iniciar el día, el cajero debe seleccionar su caja
-                            registradora e ingresar el fondo inicial de sencillo.</li>
-                        <li><strong>Terminal de Venta:</strong> Escanea productos por código de barras o agrégalos con
-                            un clic. Presiona <code>F10</code> para cobrar, ingresa el dinero recibido y calcula la
-                            devuelta automáticamente.</li>
-                        <li><strong>Modo Consolidado (Norma 02-2023):</strong> Si la empresa lo tiene activo, las ventas
-                            a Consumidor Final menores a RD$ 250,000 no emiten e-CF individuales, sino que se agrupan en
-                            un único comprobante global <strong>E32</strong> al finalizar el turno, ahorrando secuencias
-                            y costos de emisión.</li>
-                    </ul>
-                    <strong>2. Cierres Auditados (Blind Count / Conteo Ciego):</strong>
-                    <ul>
-                        <li>Cuando un cajero ordinario solicita el cierre de caja (`/pos/shift/close`), debe declarar el
-                            efectivo físico que posee en caja sin saber cuánto calcula el sistema que debería haber.
-                        </li>
-                        <li>El turno cambiará al estado <code>Por Auditar (PENDING_AUDIT)</code>. La caja registradora
-                            se bloquea y no permite nuevas ventas.</li>
-                        <li>Un usuario con rol <strong>Propietario</strong> o permiso <strong>isPosSupervisor</strong>
-                            debe acceder al panel de administración (`/pos/admin`), abrir el turno y realizar el conteo
-                            físico final para auditar diferencias y cerrar formalmente la caja.</li>
-                    </ul>
-                    <strong>3. PIN de Autorización de Supervisor en Terminal:</strong>
-                    <ul>
-                        <li>Para evitar fugas de efectivo o modificaciones malintencionadas de transacciones, cada vez
-                            que un cajero intente eliminar un artículo del carrito o disminuir su cantidad en la
-                            terminal de cobro, el sistema solicitará un <strong>PIN de Supervisor</strong> (Código de
-                            demostración: <code>1234</code>).</li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="docs-article"
-                data-search-content="cxc cxp cuentas cobrar pagar ia inteligencia artificial recordatorio email whatsapp">
-                <h3 class="docs-article-title">
-                    <span class="docs-article-title-text">
-                        <i class="fa-solid fa-wand-magic-sparkles docs-article-title-icon"
-                            style="color: var(--accent-purple);"></i>
-                        Cuentas por Cobrar (CxC), Cuentas por Pagar (CxP) e Inteligencia Artificial
-                    </span>
-                </h3>
-                <div class="docs-article-body">
-                    Mantén tu flujo de efectivo bajo control con las herramientas avanzadas de crédito y cobros:
-                    <br><br>
-                    <strong>1. Cartera de CxC y CxP (`/cxc` y `/expenses/cxp`):</strong>
-                    <ul>
-                        <li>El sistema cataloga de forma automática las facturas en estado <code>Emitida</code> o
-                            <code>Vencida</code> en tu Cartera de Crédito, calculando balances pendientes e
-                            identificando demoras de cobro.</li>
-                        <li>Puedes registrar promesas de pago acordadas con tus clientes, indicando fecha y monto. El
-                            sistema generará recordatorios visuales y te permitirá marcarlas como *Cumplidas* o
-                            *Incumplidas*.</li>
-                    </ul>
-                    <strong>2. Cobranza redactada por Inteligencia Artificial (IA):</strong>
-                    <ul>
-                        <li>Junto a cada cliente con facturas pendientes, verás botones de cobro para
-                            <strong>Email</strong> y <strong>WhatsApp</strong>.</li>
-                        <li>Al hacer clic, se abre un asistente inteligente con IA que redacta de forma automática un
-                            mensaje de cobro personalizado, detallando la factura, balance y vencimiento.</li>
-                        <li>Puedes ajustar el tono del recordatorio entre <code>Amigable</code>,
-                            <code>Profesional (Formal)</code>, o <code>Urgente</code>. El mensaje se genera en segundos
-                            y puedes copiarlo o enviarlo directamente con un clic.</li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="docs-article"
-                data-search-content="bi business intelligence estimacion impuestos itbis isr anticipos rst">
-                <h3 class="docs-article-title">
-                    <span class="docs-article-title-text">
-                        <i class="fa-solid fa-chart-line docs-article-title-icon"></i>
-                        Business Intelligence (BI) y Proyecciones de Impuestos
-                    </span>
-                </h3>
-                <div class="docs-article-body">
-                    El Dashboard de Inteligencia de Negocios y Salud Tributaria te ofrece analíticas de nivel
-                    corporativo para planificar el crecimiento de tu empresa:
-                    <br><br>
-                    <strong>1. Análisis de Rentabilidad Comercial:</strong>
-                    <ul>
-                        <li>Monitorea el margen de rentabilidad bruto, ganancias netas reales del ejercicio fiscal y
-                            proyecciones de flujo de caja para los próximos meses basados en facturas a crédito
-                            pendientes de cobro.</li>
-                        <li>Identifica cuáles son tus productos o servicios más vendidos y cuáles te generan el mayor
-                            margen neto de ganancia.</li>
-                    </ul>
-                    <strong>2. Módulo de Estimación de Impuestos:</strong>
-                    <ul>
-                        <li><strong>ITBIS:</strong> Monitorea en tiempo real el balance de ITBIS facturado (debito)
-                            contra el ITBIS deducible de compras (credito) para predecir tu liquidación del mes.</li>
-                        <li><strong>ISR y Anticipos:</strong> Calcula proyecciones del Impuesto sobre la Renta anual y
-                            te ayuda a estimar los anticipos fiscales mensuales del próximo período para evitar
-                            sorpresas de flujo de efectivo.</li>
-                        <li><strong>RST:</strong> Si perteneces al régimen RST, calcula de manera predictiva la tasa
-                            efectiva de pago al final de tu ciclo.</li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="docs-article"
-                data-search-content="comisiones dinamicas gamificacion metas ventas ranking vendedor">
-                <h3 class="docs-article-title">
-                    <span class="docs-article-title-text">
-                        <i class="fa-solid fa-trophy docs-article-title-icon" style="color: #ec4899;"></i>
-                        Configuración de Comisiones de Ventas y Cumplimiento de Metas
-                    </span>
-                </h3>
-                <div class="docs-article-body">
-                    Motiva a tu equipo de ventas y automatiza el cálculo de compensaciones:
-                    <br><br>
-                    <strong>1. Reglas de Comisión Dinámicas:</strong>
-                    <ul>
-                        <li>Configura comisiones basadas en un porcentaje fijo sobre las ventas.</li>
-                        <li>Puedes definir si la comisión se devenga al momento de la venta (factura emitida) o si se
-                            calcula únicamente cuando la factura está cobrada (efectivo ingresado al banco), asegurando
-                            la salud financiera de tu empresa.</li>
-                    </ul>
-                    <strong>2. Dashboard de Gamificación y Rankings:</strong>
-                    <ul>
-                        <li>Establece una meta de ventas global para el mes y visualiza el porcentaje de avance en una
-                            barra premium.</li>
-                        <li>Consulta un listado en vivo con los vendedores destacados (ranking de ventas) y sus
-                            comisiones acumuladas, incentivando la competencia sana y el cumplimiento de objetivos del
-                            equipo.</li>
-                    </ul>
-                </div>
-            </div>
-        </section>
-
-        <!-- Mensaje de No Resultados -->
-        <div id="no-results" class="no-results-state">
-            <i class="fa-solid fa-triangle-exclamation"></i>
-            <h4>No encontramos resultados</h4>
-            <p>Prueba buscando con palabras clave más cortas o simples como "RST", "ITBIS" o "Contingencia".</p>
-        </div>
-
-        <!-- Banner Footer de Validación -->
-        <div class="docs-footer-banner">
-            <div>
-                <h4>¿Tienes dudas sobre un caso tributario complejo?</h4>
-                <p>Recuerda que {{ product_name }} simplifica el uso de la tecnología, pero siempre recomendamos validar tu
-                    planeación fiscal con un asesor o contador público autorizado (CPA) certificado en RD.</p>
-            </div>
-            <a href="https://dgii.gov.do" target="_blank" class="btn btn-secondary"
-                style="white-space: nowrap; padding: 10px 20px; font-weight: 500;">
-                <i class="fa-solid fa-building-columns"></i>
-                <span>Ir a Oficina DGII</span>
-            </a>
-        </div>
-
-    </main>
 </div>
-{% endblock %}
-
-{% block extra_scripts %}
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const searchInput = document.getElementById('faq-search');
-        const sidebarItems = document.querySelectorAll('.docs-sidebar-item');
-        const sections = document.querySelectorAll('.docs-section');
-        const articles = document.querySelectorAll('.docs-article');
-        const noResults = document.getElementById('no-results');
-
-        // 1. Filtrado Reactivo por Búsqueda
-        searchInput.addEventListener('input', function () {
-            const query = this.value.toLowerCase().trim();
-            let hasVisibleArticlesGlobal = false;
-
-            sections.forEach(section => {
-                const sectionArticles = section.querySelectorAll('.docs-article');
-                let hasVisibleArticlesInSection = false;
-
-                sectionArticles.forEach(article => {
-                    const searchContent = article.getAttribute('data-search-content').toLowerCase();
-                    const titleText = article.querySelector('.docs-article-title').textContent.toLowerCase();
-                    const bodyText = article.querySelector('.docs-article-body').textContent.toLowerCase();
-
-                    const matches = searchContent.includes(query) || titleText.includes(query) || bodyText.includes(query);
-                    if (matches || query === '') {
-                        article.style.display = 'block';
-                        hasVisibleArticlesInSection = true;
-                        hasVisibleArticlesGlobal = true;
-                    } else {
-                        article.style.display = 'none';
-                    }
-                });
-
-                // Especial para el glosario inicial en la primera sección
-                const glossary = section.querySelector('.glossary-grid');
-                if (glossary) {
-                    if (query === '') {
-                        glossary.style.display = 'grid';
-                        hasVisibleArticlesInSection = true;
-                    } else {
-                        glossary.style.display = 'none';
-                    }
-                }
-
-                // Mostrar/ocultar sección según tenga artículos visibles
-                if (hasVisibleArticlesInSection) {
-                    section.style.display = 'block';
-                    // Mostrar link en sidebar
-                    const targetId = section.getAttribute('id');
-                    const sidebarLink = document.querySelector(`.docs-sidebar-item[data-target="${targetId}"]`);
-                    if (sidebarLink) sidebarLink.style.display = 'block';
-                } else {
-                    section.style.display = 'none';
-                    // Ocultar link en sidebar
-                    const targetId = section.getAttribute('id');
-                    const sidebarLink = document.querySelector(`.docs-sidebar-item[data-target="${targetId}"]`);
-                    if (sidebarLink) sidebarLink.style.display = 'none';
-                }
-            });
-
-            // Mostrar u ocultar mensaje de "No resultados"
-            if (hasVisibleArticlesGlobal) {
-                noResults.style.display = 'none';
-            } else {
-                noResults.style.display = 'block';
-            }
-        });
-
-        // 2. Scroll-Spy (Resaltado dinámico al hacer scroll)
-        window.addEventListener('scroll', function () {
-            let currentSectionId = '';
-
-            sections.forEach(section => {
-                const sectionTop = section.offsetTop;
-                const sectionHeight = section.clientHeight;
-                // Detectar si el scroll está en esta sección
-                if (pageYOffset >= (sectionTop - 120)) {
-                    currentSectionId = section.getAttribute('id');
-                }
-            });
-
-            if (currentSectionId) {
-                sidebarItems.forEach(item => {
-                    item.classList.remove('active');
-                    if (item.getAttribute('data-target') === currentSectionId) {
-                        item.classList.add('active');
-                    }
-                });
-            }
-        });
-
-        // 3. Smooth Scroll al hacer click en los enlaces del sidebar
-        sidebarItems.forEach(item => {
-            const link = item.querySelector('a');
-            link.addEventListener('click', function (e) {
-                e.preventDefault();
-                const targetId = item.getAttribute('data-target');
-                const targetSection = document.getElementById(targetId);
-
-                if (targetSection) {
-                    window.scrollTo({
-                        top: targetSection.offsetTop - 90,
-                        behavior: 'smooth'
-                    });
-
-                    // Actualizar estado activo inmediatamente
-                    sidebarItems.forEach(i => i.classList.remove('active'));
-                    item.classList.add('active');
-                }
-            });
-        });
-    });
-</script>
 {% endblock %}

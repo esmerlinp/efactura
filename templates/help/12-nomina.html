@@ -1,0 +1,658 @@
+{% extends "layout.html" %}
+
+{% block title %}Nómina y RRHH - {{ product_name }}{% endblock %}
+
+{% block page_header %}Módulo de Nómina / RRHH{% endblock %}
+
+{% block extra_head %}
+<style>
+    .docs-layout {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        gap: 40px;
+        max-width: 100%;
+        margin: 0 auto;
+        align-items: start;
+    }
+    .docs-layout strong { font-weight: 500; }
+    .docs-sidebar {
+        position: sticky;
+        top: 80px;
+        max-height: calc(100vh - 120px);
+        overflow-y: auto;
+        padding-right: 15px;
+    }
+    .docs-sidebar::-webkit-scrollbar { width: 4px; }
+    .docs-sidebar-group { margin-bottom: 24px; }
+    .docs-sidebar-group-title {
+        font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+        color: var(--text-muted); letter-spacing: 0.08em; margin-bottom: 10px; padding-left: 8px;
+    }
+    .docs-sidebar-menu { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .docs-sidebar-item a {
+        display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+        font-size: 0.88rem; color: var(--text-secondary); border-radius: var(--radius-sm);
+        transition: all var(--transition-fast); line-height: 1.4;
+    }
+    .docs-sidebar-item a:hover { color: var(--text-primary); background-color: var(--bg-nav-hover); }
+    .docs-sidebar-item.active a {
+        color: var(--accent-emerald); background-color: var(--bg-brand-translucent); font-weight: 500;
+    }
+    .docs-sidebar-footer-info {
+        background-color: var(--bg-brand-translucent); border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm); padding: 14px; font-size: 0.8rem;
+        color: var(--text-secondary); line-height: 1.4; margin-top: 30px; display: flex; gap: 10px;
+    }
+    .docs-sidebar-footer-info i { color: var(--accent-emerald); font-size: 1rem; margin-top: 2px; }
+    .docs-content { min-width: 0; }
+    .docs-header {
+        display: flex; justify-content: space-between; align-items: center;
+        padding-bottom: 20px; border-bottom: 1px solid var(--border-color);
+        margin-bottom: 30px; gap: 20px;
+    }
+    .docs-header h2 { font-size: 1.6rem; font-weight: 800; color: var(--text-primary); margin-bottom: 4px; }
+    .docs-header p { color: var(--text-secondary); font-size: 0.92rem; }
+    .docs-search-wrapper { position: relative; width: 320px; }
+    .docs-search-input {
+        width: 100%; height: 38px; padding: 0 16px 0 38px; background-color: var(--bg-input);
+        border: 1px solid var(--border-color); border-radius: 20px; color: var(--text-primary);
+        font-size: 0.85rem; transition: all var(--transition-fast);
+    }
+    .docs-search-input:focus { border-color: var(--accent-emerald); box-shadow: var(--shadow-glow); }
+    .docs-search-wrapper .search-icon {
+        position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+        color: var(--text-muted); font-size: 0.9rem;
+    }
+    .docs-section { margin-bottom: 45px; scroll-margin-top: 80px; }
+    .docs-section-title {
+        font-size: 1.35rem; font-weight: 800; color: var(--text-primary);
+        padding-bottom: 8px; border-bottom: 1px solid var(--border-color);
+        margin-bottom: 20px; display: flex; align-items: center; gap: 10px;
+    }
+    .glossary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .glossary-card {
+        background-color: var(--bg-card); border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm); padding: 16px; transition: all var(--transition-fast);
+    }
+    .glossary-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); border-color: var(--accent-emerald); }
+    .glossary-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .glossary-card-icon { font-size: 1.1rem; color: var(--accent-emerald); }
+    .glossary-card-title { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); }
+    .glossary-card-text { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.45; }
+    .docs-article {
+        background-color: var(--bg-card); border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm); padding: 24px; margin-bottom: 20px;
+        transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    }
+    .docs-article:hover { border-color: var(--border-glow); box-shadow: var(--shadow-sm); }
+    .docs-article-title {
+        font-size: 1.1rem; font-weight: 700; color: var(--text-primary);
+        margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    .docs-article-title-text { display: flex; align-items: center; gap: 10px; }
+    .docs-article-title-icon { font-size: 0.95rem; color: var(--accent-emerald); opacity: 0.8; }
+    .docs-article-body { font-size: 0.92rem; color: var(--text-secondary); line-height: 1.6; }
+    .docs-article-body strong { color: var(--text-primary); font-weight: 500; }
+    .docs-article-body code {
+        background-color: var(--bg-input); padding: 2px 6px; border-radius: 4px;
+        font-family: monospace; font-size: 0.82rem; color: var(--accent-purple); border: 1px solid var(--border-color);
+    }
+    .docs-article-body ul { margin: 12px 0; padding-left: 20px; }
+    .docs-article-body li { margin-bottom: 6px; }
+    .fiscal-alert-box {
+        background-color: var(--bg-brand-translucent); border-left: 4px solid var(--accent-emerald);
+        border-radius: 4px; padding: 14px 16px; margin-top: 16px; display: flex; gap: 12px; align-items: flex-start;
+    }
+    .fiscal-alert-box.alert-warning { border-left-color: var(--accent-yellow); background-color: rgba(245, 158, 11, 0.05); }
+    .fiscal-alert-box.alert-danger { border-left-color: var(--accent-red); background-color: rgba(220, 38, 38, 0.05); }
+    .fiscal-alert-box.alert-success { border-left-color: var(--accent-success); background-color: rgba(22, 163, 74, 0.05); }
+    .fiscal-alert-box i { font-size: 1.05rem; margin-top: 2px; }
+    .fiscal-alert-box.alert-warning i { color: var(--accent-yellow); }
+    .fiscal-alert-box.alert-danger i { color: var(--accent-red); }
+    .fiscal-alert-box.alert-success i { color: var(--accent-success); }
+    .fiscal-alert-text { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; }
+    .no-results-state {
+        text-align: center; padding: 40px; background-color: var(--bg-card);
+        border: 1px solid var(--border-color); border-radius: var(--radius-sm); display: none;
+    }
+    .no-results-state i { font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; }
+    .no-results-state h4 { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; color: var(--text-primary); }
+    .no-results-state p { color: var(--text-secondary); font-size: 0.88rem; }
+    .docs-footer-banner {
+        background-color: var(--bg-card); border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm); padding: 24px; display: flex; align-items: center;
+        justify-content: space-between; gap: 20px; margin-top: 40px; margin-bottom: 40px;
+    }
+    .docs-footer-banner h4 { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; color: var(--text-primary); }
+    .docs-footer-banner p { color: var(--text-secondary); font-size: 0.85rem; margin: 0; line-height: 1.4; }
+    @media (max-width: 1024px) {
+        .docs-layout { grid-template-columns: 1fr; gap: 24px; }
+        .docs-sidebar { position: static; max-height: none; overflow-y: visible; padding-right: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 20px; }
+        .docs-header { flex-direction: column; align-items: flex-start; gap: 16px; }
+        .docs-search-wrapper { width: 100%; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="docs-layout">
+    <aside class="docs-sidebar">
+        <div class="docs-sidebar-group">
+            <div class="docs-sidebar-group-title">Nómina / RRHH</div>
+            <ul class="docs-sidebar-menu">
+                <li class="docs-sidebar-item active" data-target="empleados">
+                    <a href="#empleados"><i class="fa-solid fa-users"></i><span>Registro de Empleados</span></a>
+                </li>
+                <li class="docs-sidebar-item" data-target="contratos">
+                    <a href="#contratos"><i class="fa-solid fa-file-signature"></i><span>Tipos de Contrato</span></a>
+                </li>
+                <li class="docs-sidebar-item" data-target="grupos">
+                    <a href="#grupos"><i class="fa-solid fa-layer-group"></i><span>Grupos de Nómina</span></a>
+                </li>
+                <li class="docs-sidebar-item" data-target="ciclo">
+                    <a href="#ciclo"><i class="fa-solid fa-rotate"></i><span>Ciclo de Nómina</span></a>
+                </li>
+                <li class="docs-sidebar-item" data-target="calculos">
+                    <a href="#calculos"><i class="fa-solid fa-calculator"></i><span>Cálculos Automáticos</span></a>
+                </li>
+                <li class="docs-sidebar-item" data-target="tss">
+                    <a href="#tss"><i class="fa-solid fa-shield-halved"></i><span>Aportes TSS</span></a>
+                </li>
+                <li class="docs-sidebar-item" data-target="dgt3">
+                    <a href="#dgt3"><i class="fa-solid fa-file-export"></i><span>Generación DGT-3</span></a>
+                </li>
+            </ul>
+        </div>
+        <div class="docs-sidebar-footer-info">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>{{ product_name }} cumple con el Código de Trabajo (Ley 16-92) y las disposiciones de la TSS en República Dominicana.</span>
+        </div>
+    </aside>
+
+    <main class="docs-content">
+        <div class="docs-header">
+            <div class="docs-header-left">
+                <h2>Módulo de Nómina / RRHH</h2>
+                <p>Gestiona el ciclo completo de nómina: registro de empleados, cálculo de sueldos, retenciones de ley, aportes patronales y generación de reportes TSS.</p>
+            </div>
+            <div class="docs-search-wrapper">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" id="faq-search" class="docs-search-input" placeholder="Buscar en nómina...">
+            </div>
+        </div>
+
+        <!-- Registro de Empleados -->
+        <section id="empleados" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-users" style="color: var(--accent-emerald);"></i>
+                <span>Registro de Empleados</span>
+            </div>
+            <div class="glossary-grid">
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-id-card glossary-card-icon"></i>
+                        <h4 class="glossary-card-title">Cédula</h4>
+                    </div>
+                    <p class="glossary-card-text">
+                        Número de identificación personal (11 dígitos). {{ product_name }} valida el formato automáticamente y verifica que no esté duplicado.
+                    </p>
+                </div>
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-coins glossary-card-icon" style="color: var(--accent-purple);"></i>
+                        <h4 class="glossary-card-title">Salario</h4>
+                    </div>
+                    <p class="glossary-card-text">
+                        Monto bruto acordado entre empleador y empleado. Puede ser mensual o quincenal según la frecuencia del grupo de nómina.
+                    </p>
+                </div>
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-notes-medical glossary-card-icon" style="color: var(--accent-yellow);"></i>
+                        <h4 class="glossary-card-title">AFP / ARS</h4>
+                    </div>
+                    <p class="glossary-card-text">
+                        El empleado debe estar afiliado a una Administradora de Fondos de Pensiones (AFP) y una Administradora de Riesgos de Salud (ARS) para el cálculo de deducciones TSS.
+                    </p>
+                </div>
+            </div>
+            <div class="docs-article" data-search-content="registro empleado crear cedula salario cargo afp ars departamento">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-user-plus docs-article-title-icon"></i>
+                        ¿Cómo registrar un empleado?
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    Para gestionar la nómina, primero debes registrar a tus empleados en el sistema:
+                    <br><br>
+                    <strong>1. Acceso al módulo</strong>
+                    <ul>
+                        <li>Navega a <strong>RRHH → Empleados</strong> o <code>/hr/employees</code>.</li>
+                        <li>Haz clic en <strong>+ Nuevo Empleado</strong>.</li>
+                    </ul>
+                    <strong>2. Datos personales</strong>
+                    <ul>
+                        <li><strong>Cédula / Pasaporte:</strong> Número de identificación. Para cedula dominicana debe tener 11 dígitos.</li>
+                        <li><strong>Nombres y Apellidos:</strong> Nombre completo del empleado.</li>
+                        <li><strong>Fecha de Nacimiento:</strong> Para calcular edad y elegibilidad de ciertos beneficios.</li>
+                        <li><strong>Nacionalidad:</strong> Dominicana o extranjera.</li>
+                        <li><strong>Sexo:</strong> Masculino / Femenino.</li>
+                        <li><strong>Estado Civil:</strong> Soltero, Casado, Divorciado, Unión Libre.</li>
+                    </ul>
+                    <strong>3. Datos laborales</strong>
+                    <ul>
+                        <li><strong>Fecha de Ingreso:</strong> Fecha de inicio de la relación laboral. Afecta al cálculo de antigüedad para cesantía y regalía pascual.</li>
+                        <li><strong>Cargo / Puesto:</strong> Título del puesto (ej. "Asistente Administrativo", "Desarrollador Senior").</li>
+                        <li><strong>Departamento:</strong> Área de la empresa donde labora.</li>
+                        <li><strong>Tipo de Contrato:</strong> Indefinido, Fijo, Por Obra.</li>
+                        <li><strong>Salario Base:</strong> Monto bruto mensual (o quincenal si aplica).</li>
+                        <li><strong>Forma de Pago:</strong> Transferencia bancaria, cheque o efectivo.</li>
+                        <li><strong>Cuenta Bancaria:</strong> Número de cuenta para depósito de nómina (si aplica).</li>
+                    </ul>
+                    <strong>4. Datos TSS</strong>
+                    <ul>
+                        <li><strong>AFP:</strong> Selecciona la AFP a la que está afiliado (CREES, Popular, Reservas, Siembra, etc.).</li>
+                        <li><strong>ARS:</strong> Selecciona la ARS correspondiente (Humano, Universal, Simag, Monumental, etc.).</li>
+                        <li><strong>TSS Número:</strong> Número de afiliación a la Seguridad Social (si está disponible).</li>
+                    </ul>
+                    <div class="fiscal-alert-box alert-success">
+                        <i class="fa-solid fa-check-circle"></i>
+                        <div class="fiscal-alert-text">
+                            <strong>Tip:</strong> Puedes importar empleados masivamente desde un archivo CSV desde la opción <strong>Importar Empleados</strong>. El sistema validará los datos y te mostrará un resumen antes de guardar.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tipos de Contrato -->
+        <section id="contratos" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-file-signature" style="color: var(--accent-emerald);"></i>
+                <span>Tipos de Contrato</span>
+            </div>
+            <div class="docs-article" data-search-content="contrato indefinido fijo por obra tipo duracion codigo trabajo">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-file-contract docs-article-title-icon"></i>
+                        Tipos de Contrato según el Código de Trabajo (Ley 16-92)
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    El Código de Trabajo dominicano (Ley 16-92) establece los siguientes tipos de contrato:
+                    <br><br>
+                    <strong>1. Contrato por Tiempo Indefinido</strong>
+                    <ul>
+                        <li>Es la regla general. Se entiende celebrado por tiempo indefinido si no se especifica un plazo.</li>
+                        <li>El empleado tiene derecho a todos los beneficios de ley: cesantía, preaviso, regalía pascual, vacaciones.</li>
+                        <li>Aplica para la mayoría de posiciones permanentes en la empresa.</li>
+                    </ul>
+                    <strong>2. Contrato por Tiempo Fijo</strong>
+                    <ul>
+                        <li>Tiene una duración determinada (ej. 6 meses, 1 año).</li>
+                        <li>Debe constar por escrito y especificar la fecha de término.</li>
+                        <li>Al finalizar, el empleado tiene derecho a cesantía si ha trabajado más de 3 meses.</li>
+                        <li>Se puede renovar por períodos adicionales.</li>
+                    </ul>
+                    <strong>3. Contrato por Obra o Servicio Determinado</strong>
+                    <ul>
+                        <li>Se celebra para la realización de una obra o servicio específico.</li>
+                        <li>Termina cuando se completa la obra o servicio contratado.</li>
+                        <li>Ejemplo: "Consultoría para implementación de sistema ERP por 3 meses".</li>
+                        <li>Al finalizar, no aplica preaviso si el contrato especifica claramente la obra.</li>
+                    </ul>
+                    <div class="fiscal-alert-box">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <div class="fiscal-alert-text">
+                            En {{ product_name }}, el tipo de contrato afecta los cálculos de liquidación. Un empleado con contrato indefinido tiene derecho a preaviso y cesantía completos; uno de tiempo fijo tiene derecho proporcional.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Grupos de Nómina -->
+        <section id="grupos" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-layer-group" style="color: var(--accent-emerald);"></i>
+                <span>Grupos de Nómina</span>
+            </div>
+            <div class="docs-article" data-search-content="grupo nomina frecuencia mensual quincenal periodicidad">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-layer-group docs-article-title-icon"></i>
+                        ¿Qué son los grupos de nómina?
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    Los <strong>grupos de nómina</strong> permiten agrupar empleados por frecuencia de pago y facilitan el procesamiento por lotes.
+                    <br><br>
+                    <strong>1. Crear un grupo de nómina</strong>
+                    <ul>
+                        <li>Ve a <strong>RRHH → Grupos de Nómina</strong> o <code>/hr/payroll-groups</code>.</li>
+                        <li>Haz clic en <strong>+ Nuevo Grupo</strong>.</li>
+                        <li><strong>Nombre:</strong> Ej. "Empleados de Planta", "Mensuales", "Quincenales".</li>
+                        <li><strong>Frecuencia:</strong> Selecciona la periodicidad de pago:
+                            <ul>
+                                <li><strong>Mensual:</strong> Pago una vez al mes (generalmente los días 30 o 31).</li>
+                                <li><strong>Quincenal:</strong> Pago dos veces al mes (días 15 y 30 o 15 y último día).</li>
+                            </ul>
+                        </li>
+                        <li><strong>Día de Pago:</strong> Día del mes o quincena en que se realiza el pago.</li>
+                        <li><strong>Cuenta Bancaria:</strong> Cuenta desde la cual se pagan las nóminas de este grupo.</li>
+                    </ul>
+                    <strong>2. Asignar empleados al grupo</strong>
+                    <ul>
+                        <li>Desde el detalle del grupo, haz clic en <strong>Asignar Empleados</strong>.</li>
+                        <li>Selecciona los empleados que pertenecerán a este grupo.</li>
+                        <li>Un empleado solo puede pertenecer a un grupo de nómina a la vez.</li>
+                    </ul>
+                    <div class="fiscal-alert-box alert-success">
+                        <i class="fa-solid fa-check-circle"></i>
+                        <div class="fiscal-alert-text">
+                            Los grupos de nómina facilitan el procesamiento en lote: puedes calcular, validar y aprobar nóminas completas de un grupo en una sola acción.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Ciclo de Nómina -->
+        <section id="ciclo" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-rotate" style="color: var(--accent-emerald);"></i>
+                <span>Ciclo de Nómina</span>
+            </div>
+            <div class="docs-article" data-search-content="ciclo nomina calcular validar aprobar contabilizar pagar cerrar">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-arrows-spin docs-article-title-icon"></i>
+                        El ciclo completo de nómina paso a paso
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    {{ product_name }} implementa un ciclo de nómina estructurado en 6 etapas:
+                    <br><br>
+                    <strong>1. Calcular</strong>
+                    <ul>
+                        <li>Selecciona el grupo de nómina y el período (mes y año).</li>
+                        <li>Haz clic en <strong>Calcular Nómina</strong>.</li>
+                        <li>El sistema procesa automáticamente a todos los empleados del grupo: calcula salario bruto, horas extras (si aplica), deducciones TSS (AFP, SFS), ISR y aportes patronales.</li>
+                        <li>Muestra un resumen ejecutivo del costo total de la nómina.</li>
+                    </ul>
+                    <strong>2. Validar</strong>
+                    <ul>
+                        <li>Revisa los resultados del cálculo. El sistema muestra el detalle por empleado: ingresos, deducciones y neto a pagar.</li>
+                        <li>Puedes hacer ajustes manuales si es necesario (ej. bonos, adelantos, descuentos adicionales).</li>
+                        <li>Si encuentras errores, puedes recalcular.</li>
+                    </ul>
+                    <strong>3. Aprobar</strong>
+                    <ul>
+                        <li>Una vez validada, la nómina pasa a estado <strong>Por Aprobar</strong>.</li>
+                        <li>Un usuario con rol de <strong>Supervisor</strong> o <strong>Propietario</strong> debe aprobar la nómina.</li>
+                        <li>La aprobación confirma que los montos son correctos y autoriza el siguiente paso.</li>
+                    </ul>
+                    <strong>4. Contabilizar</strong>
+                    <ul>
+                        <li>Al contabilizar, el sistema genera automáticamente el asiento contable de la nómina en el módulo de contabilidad.</li>
+                        <li>Se debita <strong>Gasto por Sueldos</strong> y se acreditan las cuentas de <strong>Retenciones por Pagar (AFP, SFS, ISR)</strong>, <strong>Aportes Patronales por Pagar</strong> y <strong>Banco</strong> (neto).</li>
+                    </ul>
+                    <strong>5. Pagar</strong>
+                    <ul>
+                        <li>El sistema genera el archivo de pago (lista de transferencias) o la plantilla de cheques.</li>
+                        <li>Puedes descargar el reporte de pagos para procesar en tu banca en línea.</li>
+                    </ul>
+                    <strong>6. Cerrar</strong>
+                    <ul>
+                        <li>El cierre bloquea la nómina del período para evitar modificaciones posteriores.</li>
+                        <li>La nómina queda disponible para consulta histórica y para generar los reportes TSS (DGT-3).</li>
+                    </ul>
+                    <div class="fiscal-alert-box">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <div class="fiscal-alert-text">
+                            El ciclo completo está disponible en <strong>RRHH → Nóminas</strong> o <code>/hr/payroll</code>. Puedes procesar varias nóminas en paralelo (ej. grupo mensual y grupo quincenal en diferentes períodos).
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Cálculos Automáticos -->
+        <section id="calculos" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-calculator" style="color: var(--accent-emerald);"></i>
+                <span>Cálculos Automáticos</span>
+            </div>
+            <div class="docs-article" data-search-content="salario bruto tss afp sfs isr tabla progresiva retenciones">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-calculator docs-article-title-icon"></i>
+                        ¿Cómo calcula {{ product_name }} la nómina?
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    El motor de nómina de {{ product_name }} aplica las tasas vigentes de la TSS y la DGII. A continuación, los cálculos que se realizan automáticamente:
+                    <br><br>
+                    <strong>1. Salario Bruto</strong>
+                    <ul>
+                        <li>Se calcula en base al salario registrado del empleado y la frecuencia del grupo de nómina.</li>
+                        <li>Si el empleado tiene incidencias (ausencias, permisos no remunerados), el sistema descuenta los días no trabajados proporcionalmente.</li>
+                        <li>Las horas extras se calculan según las tasas establecidas por el Código de Trabajo: 35% extra diurnas, 100% nocturnas, 200% días feriados.</li>
+                    </ul>
+                    <strong>2. Deducciones TSS (Empleado)</strong>
+                    <ul>
+                        <li><strong>AFP (2.87%):</strong> Aporte del empleado al fondo de pensiones. Se descuenta sobre el salario bruto mensual, con tope de 20 salarios mínimos.</li>
+                        <li><strong>SFS (3.04%):</strong> Aporte del empleado al Seguro Familiar de Salud. Se descuenta sobre el salario bruto mensual, con el mismo tope.</li>
+                        <li>La suma de AFP + SFS = 5.91% del salario bruto (con tope).</li>
+                    </ul>
+                    <strong>3. ISR (Impuesto Sobre la Renta)</strong>
+                    <ul>
+                        <li>Se calcula aplicando la <strong>tabla progresiva de ISR</strong> para personas físicas asalariadas, publicada anualmente por la DGII.</li>
+                        <li>El sistema calcula el ISR sobre el <strong>salario bruto anualizado</strong> menos las deducciones TSS y el gasto educativo (si aplica).</li>
+                        <li>Se descuenta la parte proporcional del ISR anual en cada período de pago.</li>
+                    </ul>
+                    <div class="fiscal-alert-box alert-warning">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div class="fiscal-alert-text">
+                            <strong>Actualización de tablas:</strong> Las tasas TSS y la tabla ISR se actualizan automáticamente vía {{ product_name }} cuando la DGII y la TSS publican nuevas disposiciones. Siempre verifica que estés usando la tabla más reciente al inicio de cada año fiscal.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Aportes TSS -->
+        <section id="tss" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-shield-halved" style="color: var(--accent-emerald);"></i>
+                <span>Aportes Patronales TSS</span>
+            </div>
+            <div class="docs-article" data-search-content="aportes patronales afp sfs srl infotep tss empleador">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-building docs-article-title-icon"></i>
+                        Aportes que debe pagar el empleador (patrono)
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    Además de las deducciones al empleado, la empresa debe pagar los siguientes aportes patronales a la TSS:
+                    <br><br>
+                    <strong>Tasas vigentes sobre el salario bruto del empleado:</strong>
+                    <ul>
+                        <li><strong>AFP (7.10%):</strong> Aporte patronal al fondo de pensiones del empleado.</li>
+                        <li><strong>SFS (7.09%):</strong> Aporte patronal al Seguro Familiar de Salud.</li>
+                        <li><strong>SRL (1.20%):</strong> Seguro de Riesgos Laborales (accidentes de trabajo).</li>
+                        <li><strong>INFOTEP (1%):</strong> Aporte al Instituto Nacional de Formación Técnico Profesional.</li>
+                    </ul>
+                    <strong>Total aporte patronal: 16.39%</strong> del salario bruto del empleado (con tope de 20 salarios mínimos).
+                    <br><br>
+                    <strong>Ejemplo práctico (empleado con salario mensual de RD$ 50,000):</strong>
+                    <ul>
+                        <li>Salario Bruto: RD$ 50,000.00</li>
+                        <li>(-) AFP Empleado (2.87%): RD$ 1,435.00</li>
+                        <li>(-) SFS Empleado (3.04%): RD$ 1,520.00</li>
+                        <li>(-) ISR: según tabla progresiva</li>
+                        <li><strong>(=) Neto a Pagar al Empleado:</strong> RD$ 47,045.00 (menos ISR si aplica)</li>
+                    </ul>
+                    <strong>Costo total para la empresa:</strong>
+                    <ul>
+                        <li>Salario Bruto: RD$ 50,000.00</li>
+                        <li>(+) AFP Patronal (7.10%): RD$ 3,550.00</li>
+                        <li>(+) SFS Patronal (7.09%): RD$ 3,545.00</li>
+                        <li>(+) SRL (1.20%): RD$ 600.00</li>
+                        <li>(+) INFOTEP (1%): RD$ 500.00</li>
+                        <li><strong>(=) Costo Total para la Empresa:</strong> RD$ 58,195.00</li>
+                    </ul>
+                    <div class="fiscal-alert-box">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <div class="fiscal-alert-text">
+                            {{ product_name }} calcula automáticamente los aportes patronales y los incluye en el asiento contable de la nómina como <strong>Gasto por Aportes Patronales</strong>. Así tendrás una visión completa del costo real de tu nómina.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Generación DGT-3 -->
+        <section id="dgt3" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-file-export" style="color: var(--accent-emerald);"></i>
+                <span>Generación DGT-3</span>
+            </div>
+            <div class="docs-article" data-search-content="dgt3 ministerio trabajo tss reporte nomina empleados">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-file-export docs-article-title-icon"></i>
+                        Reporte DGT-3 para el Ministerio de Trabajo
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    El <strong>DGT-3</strong> es el formulario oficial que deben presentar las empresas ante el <strong>Ministerio de Trabajo</strong> para reportar las nóminas de sus empleados. Es un requisito obligatorio en República Dominicana.
+                    <br><br>
+                    <strong>¿Qué contiene el DGT-3?</strong>
+                    <ul>
+                        <li>Datos generales de la empresa (RNC, razón social, dirección).</li>
+                        <li>Listado detallado de todos los empleados con su información laboral.</li>
+                        <li>Salarios pagados en el período.</li>
+                        <li>Deducciones de ley (AFP, SFS, ISR).</li>
+                        <li>Aportes patronales pagados a la TSS.</li>
+                        <li>Resumen de días trabajados y pagados.</li>
+                    </ul>
+                    <strong>¿Cómo generar el DGT-3 en {{ product_name }}?</strong>
+                    <ul>
+                        <li>Navega a <strong>RRHH → Reportes → DGT-3</strong> o <code>/hr/reports/dgt3</code>.</li>
+                        <li>Selecciona el <strong>mes</strong> y <strong>año</strong> del reporte.</li>
+                        <li>Selecciona el <strong>grupo de nómina</strong> (o selecciona "Todos" para consolidar).</li>
+                        <li>Haz clic en <strong>Generar DGT-3</strong>.</li>
+                        <li>El sistema compila automáticamente los datos de todas las nóminas cerradas del período.</li>
+                        <li>Puedes descargar el reporte en los siguientes formatos:
+                            <ul>
+                                <li><strong>PDF:</strong> Para presentación impresa o digital.</li>
+                                <li><strong>CSV:</strong> Para carga en el sistema del Ministerio de Trabajo.</li>
+                                <li><strong>Excel (XLSX):</strong> Para edición y análisis.</li>
+                            </ul>
+                        </li>
+                    </ul>
+                    <div class="fiscal-alert-box alert-warning">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div class="fiscal-alert-text">
+                            <strong>Plazo de presentación:</strong> El DGT-3 debe presentarse dentro de los primeros 15 días hábiles del mes siguiente al reportado. El incumplimiento puede generar multas por parte del Ministerio de Trabajo.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div id="no-results" class="no-results-state">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <h4>No encontramos resultados</h4>
+            <p>Prueba buscando con palabras clave como "empleados", "TSS", "AFP", "ISR" o "DGT-3".</p>
+        </div>
+
+        <div class="docs-footer-banner">
+            <div>
+                <h4>¿Cambiaron las tasas TSS o ISR?</h4>
+                <p>{{ product_name }} actualiza automáticamente las tablas cuando la TSS o DGII publican nuevas disposiciones. Verifica la configuración en Ajustes → Nómina.</p>
+            </div>
+            <a href="/hr" class="btn btn-secondary" style="white-space: nowrap; padding: 10px 20px; font-weight: 500;">
+                <i class="fa-solid fa-building-columns"></i>
+                <span>Ir a RRHH</span>
+            </a>
+        </div>
+
+    </main>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchInput = document.getElementById('faq-search');
+        const sidebarItems = document.querySelectorAll('.docs-sidebar-item');
+        const sections = document.querySelectorAll('.docs-section');
+        const articles = document.querySelectorAll('.docs-article');
+        const noResults = document.getElementById('no-results');
+        searchInput.addEventListener('input', function () {
+            const query = this.value.toLowerCase().trim();
+            let hasVisibleArticlesGlobal = false;
+            sections.forEach(section => {
+                const sectionArticles = section.querySelectorAll('.docs-article');
+                let hasVisibleArticlesInSection = false;
+                sectionArticles.forEach(article => {
+                    const searchContent = article.getAttribute('data-search-content').toLowerCase();
+                    const titleText = article.querySelector('.docs-article-title').textContent.toLowerCase();
+                    const bodyText = article.querySelector('.docs-article-body').textContent.toLowerCase();
+                    const matches = searchContent.includes(query) || titleText.includes(query) || bodyText.includes(query);
+                    if (matches || query === '') { article.style.display = 'block'; hasVisibleArticlesInSection = true; hasVisibleArticlesGlobal = true; }
+                    else { article.style.display = 'none'; }
+                });
+                const glossary = section.querySelector('.glossary-grid');
+                if (glossary) {
+                    if (query === '') { glossary.style.display = 'grid'; hasVisibleArticlesInSection = true; }
+                    else { glossary.style.display = 'none'; }
+                }
+                if (hasVisibleArticlesInSection) {
+                    section.style.display = 'block';
+                    const targetId = section.getAttribute('id');
+                    const sidebarLink = document.querySelector(`.docs-sidebar-item[data-target="${targetId}"]`);
+                    if (sidebarLink) sidebarLink.style.display = 'block';
+                } else {
+                    section.style.display = 'none';
+                    const targetId = section.getAttribute('id');
+                    const sidebarLink = document.querySelector(`.docs-sidebar-item[data-target="${targetId}"]`);
+                    if (sidebarLink) sidebarLink.style.display = 'none';
+                }
+            });
+            if (hasVisibleArticlesGlobal) { noResults.style.display = 'none'; }
+            else { noResults.style.display = 'block'; }
+        });
+        window.addEventListener('scroll', function () {
+            let currentSectionId = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                if (pageYOffset >= (sectionTop - 120)) { currentSectionId = section.getAttribute('id'); }
+            });
+            if (currentSectionId) {
+                sidebarItems.forEach(item => {
+                    item.classList.remove('active');
+                    if (item.getAttribute('data-target') === currentSectionId) { item.classList.add('active'); }
+                });
+            }
+        });
+        sidebarItems.forEach(item => {
+            const link = item.querySelector('a');
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = item.getAttribute('data-target');
+                const targetSection = document.getElementById(targetId);
+                if (targetSection) {
+                    window.scrollTo({ top: targetSection.offsetTop - 90, behavior: 'smooth' });
+                    sidebarItems.forEach(i => i.classList.remove('active'));
+                    item.classList.add('active');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

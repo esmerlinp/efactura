@@ -1,0 +1,617 @@
+{% extends "layout.html" %}
+
+{% block title %}Liquidación de Empleados - {{ product_name }}{% endblock %}
+
+{% block page_header %}Liquidación de Empleados (Ley 16-92){% endblock %}
+
+{% block extra_head %}
+<style>
+    .docs-layout {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        gap: 40px;
+        max-width: 100%;
+        margin: 0 auto;
+        align-items: start;
+    }
+    .docs-layout strong { font-weight: 500; }
+    .docs-sidebar {
+        position: sticky;
+        top: 80px;
+        max-height: calc(100vh - 120px);
+        overflow-y: auto;
+        padding-right: 15px;
+    }
+    .docs-sidebar::-webkit-scrollbar { width: 4px; }
+    .docs-sidebar-group { margin-bottom: 24px; }
+    .docs-sidebar-group-title {
+        font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+        color: var(--text-muted); letter-spacing: 0.08em; margin-bottom: 10px; padding-left: 8px;
+    }
+    .docs-sidebar-menu { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .docs-sidebar-item a {
+        display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+        font-size: 0.88rem; color: var(--text-secondary); border-radius: var(--radius-sm);
+        transition: all var(--transition-fast); line-height: 1.4;
+    }
+    .docs-sidebar-item a:hover { color: var(--text-primary); background-color: var(--bg-nav-hover); }
+    .docs-sidebar-item.active a {
+        color: var(--accent-emerald); background-color: var(--bg-brand-translucent); font-weight: 500;
+    }
+    .docs-sidebar-footer-info {
+        background-color: var(--bg-brand-translucent); border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm); padding: 14px; font-size: 0.8rem;
+        color: var(--text-secondary); line-height: 1.4; margin-top: 30px; display: flex; gap: 10px;
+    }
+    .docs-sidebar-footer-info i { color: var(--accent-emerald); font-size: 1rem; margin-top: 2px; }
+    .docs-content { min-width: 0; }
+    .docs-header {
+        display: flex; justify-content: space-between; align-items: center;
+        padding-bottom: 20px; border-bottom: 1px solid var(--border-color);
+        margin-bottom: 30px; gap: 20px;
+    }
+    .docs-header h2 { font-size: 1.6rem; font-weight: 800; color: var(--text-primary); margin-bottom: 4px; }
+    .docs-header p { color: var(--text-secondary); font-size: 0.92rem; }
+    .docs-search-wrapper { position: relative; width: 320px; }
+    .docs-search-input {
+        width: 100%; height: 38px; padding: 0 16px 0 38px; background-color: var(--bg-input);
+        border: 1px solid var(--border-color); border-radius: 20px; color: var(--text-primary);
+        font-size: 0.85rem; transition: all var(--transition-fast);
+    }
+    .docs-search-input:focus { border-color: var(--accent-emerald); box-shadow: var(--shadow-glow); }
+    .docs-search-wrapper .search-icon {
+        position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+        color: var(--text-muted); font-size: 0.9rem;
+    }
+    .docs-section { margin-bottom: 45px; scroll-margin-top: 80px; }
+    .docs-section-title {
+        font-size: 1.35rem; font-weight: 800; color: var(--text-primary);
+        padding-bottom: 8px; border-bottom: 1px solid var(--border-color);
+        margin-bottom: 20px; display: flex; align-items: center; gap: 10px;
+    }
+    .glossary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .glossary-card {
+        background-color: var(--bg-card); border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm); padding: 16px; transition: all var(--transition-fast);
+    }
+    .glossary-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); border-color: var(--accent-emerald); }
+    .glossary-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .glossary-card-icon { font-size: 1.1rem; color: var(--accent-emerald); }
+    .glossary-card-title { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); }
+    .glossary-card-text { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.45; }
+    .docs-article {
+        background-color: var(--bg-card); border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm); padding: 24px; margin-bottom: 20px;
+        transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    }
+    .docs-article:hover { border-color: var(--border-glow); box-shadow: var(--shadow-sm); }
+    .docs-article-title {
+        font-size: 1.1rem; font-weight: 700; color: var(--text-primary);
+        margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    .docs-article-title-text { display: flex; align-items: center; gap: 10px; }
+    .docs-article-title-icon { font-size: 0.95rem; color: var(--accent-emerald); opacity: 0.8; }
+    .docs-article-body { font-size: 0.92rem; color: var(--text-secondary); line-height: 1.6; }
+    .docs-article-body strong { color: var(--text-primary); font-weight: 500; }
+    .docs-article-body code {
+        background-color: var(--bg-input); padding: 2px 6px; border-radius: 4px;
+        font-family: monospace; font-size: 0.82rem; color: var(--accent-purple); border: 1px solid var(--border-color);
+    }
+    .docs-article-body ul { margin: 12px 0; padding-left: 20px; }
+    .docs-article-body li { margin-bottom: 6px; }
+    .fiscal-alert-box {
+        background-color: var(--bg-brand-translucent); border-left: 4px solid var(--accent-emerald);
+        border-radius: 4px; padding: 14px 16px; margin-top: 16px; display: flex; gap: 12px; align-items: flex-start;
+    }
+    .fiscal-alert-box.alert-warning { border-left-color: var(--accent-yellow); background-color: rgba(245, 158, 11, 0.05); }
+    .fiscal-alert-box.alert-danger { border-left-color: var(--accent-red); background-color: rgba(220, 38, 38, 0.05); }
+    .fiscal-alert-box.alert-success { border-left-color: var(--accent-success); background-color: rgba(22, 163, 74, 0.05); }
+    .fiscal-alert-box i { font-size: 1.05rem; margin-top: 2px; }
+    .fiscal-alert-box.alert-warning i { color: var(--accent-yellow); }
+    .fiscal-alert-box.alert-danger i { color: var(--accent-red); }
+    .fiscal-alert-box.alert-success i { color: var(--accent-success); }
+    .fiscal-alert-text { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; }
+    .no-results-state {
+        text-align: center; padding: 40px; background-color: var(--bg-card);
+        border: 1px solid var(--border-color); border-radius: var(--radius-sm); display: none;
+    }
+    .no-results-state i { font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; }
+    .no-results-state h4 { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; color: var(--text-primary); }
+    .no-results-state p { color: var(--text-secondary); font-size: 0.88rem; }
+    .docs-footer-banner {
+        background-color: var(--bg-card); border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm); padding: 24px; display: flex; align-items: center;
+        justify-content: space-between; gap: 20px; margin-top: 40px; margin-bottom: 40px;
+    }
+    .docs-footer-banner h4 { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; color: var(--text-primary); }
+    .docs-footer-banner p { color: var(--text-secondary); font-size: 0.85rem; margin: 0; line-height: 1.4; }
+    @media (max-width: 1024px) {
+        .docs-layout { grid-template-columns: 1fr; gap: 24px; }
+        .docs-sidebar { position: static; max-height: none; overflow-y: visible; padding-right: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 20px; }
+        .docs-header { flex-direction: column; align-items: flex-start; gap: 16px; }
+        .docs-search-wrapper { width: 100%; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="docs-layout">
+    <aside class="docs-sidebar">
+        <div class="docs-sidebar-group">
+            <div class="docs-sidebar-group-title">Liquidación de Empleados</div>
+            <ul class="docs-sidebar-menu">
+                <li class="docs-sidebar-item active" data-target="causas">
+                    <a href="#causas"><i class="fa-solid fa-gavel"></i><span>Causas de Liquidación</span></a>
+                </li>
+                <li class="docs-sidebar-item" data-target="conceptos">
+                    <a href="#conceptos"><i class="fa-solid fa-list"></i><span>Conceptos a Liquidar</span></a>
+                </li>
+                <li class="docs-sidebar-item" data-target="preaviso">
+                    <a href="#preaviso"><i class="fa-solid fa-calendar"></i><span>Preaviso (Art. 76)</span></a>
+                </li>
+                <li class="docs-sidebar-item" data-target="cesantia">
+                    <a href="#cesantia"><i class="fa-solid fa-coins"></i><span>Cesantía (Art. 80)</span></a>
+                </li>
+                <li class="docs-sidebar-item" data-target="sdp">
+                    <a href="#sdp"><i class="fa-solid fa-clock"></i><span>Salarios Dejados de Percibir</span></a>
+                </li>
+                <li class="docs-sidebar-item" data-target="fiscal">
+                    <a href="#fiscal"><i class="fa-solid fa-file-invoice-dollar"></i><span>Tratamiento Fiscal</span></a>
+                </li>
+                <li class="docs-sidebar-item" data-target="ecf">
+                    <a href="#ecf"><i class="fa-solid fa-receipt"></i><span>Emisión e-CF Egreso</span></a>
+                </li>
+            </ul>
+        </div>
+        <div class="docs-sidebar-footer-info">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>Basado en la Ley 16-92 del Código de Trabajo de República Dominicana.</span>
+        </div>
+    </aside>
+
+    <main class="docs-content">
+        <div class="docs-header">
+            <div class="docs-header-left">
+                <h2>Liquidación de Empleados</h2>
+                <p>Cálculo automatizado de prestaciones laborales según el Código de Trabajo dominicano (Ley 16-92).</p>
+            </div>
+            <div class="docs-search-wrapper">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" id="faq-search" class="docs-search-input" placeholder="Buscar en liquidaciones...">
+            </div>
+        </div>
+
+        <!-- Causas de Liquidación -->
+        <section id="causas" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-gavel" style="color: var(--accent-emerald);"></i>
+                <span>Causas de Liquidación</span>
+            </div>
+            <div class="glossary-grid">
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-user-xmark glossary-card-icon"></i>
+                        <h4 class="glossary-card-title">Despido Injustificado</h4>
+                    </div>
+                    <p class="glossary-card-text">
+                        El empleador termina el contrato sin causa justificada. El empleado tiene derecho a preaviso, cesantía completa, vacaciones, regalía pascual y SDP.
+                    </p>
+                </div>
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-gavel glossary-card-icon" style="color: var(--accent-purple);"></i>
+                        <h4 class="glossary-card-title">Despido Justificado</h4>
+                    </div>
+                    <p class="glossary-card-text">
+                        Terminación por falta grave del empleado (Art. 88). El empleador debe pagar solo los derechos adquiridos: vacaciones y regalía pascual proporcional.
+                    </p>
+                </div>
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-door-open glossary-card-icon" style="color: var(--accent-yellow);"></i>
+                        <h4 class="glossary-card-title">Dimisión / Renuncia</h4>
+                    </div>
+                    <p class="glossary-card-text">
+                        El empleado decide terminar la relación laboral. Tiene derecho a cesantía si la dimisión es por causa justificada (Art. 97). Si no, solo a derechos adquiridos.
+                    </p>
+                </div>
+            </div>
+            <div class="docs-article" data-search-content="causas liquidacion despido justificado injustificado renuncia dimision">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-scale-balanced docs-article-title-icon"></i>
+                        Causas de terminación laboral y sus efectos
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    En {{ product_name }}, al iniciar una liquidación debes seleccionar la causa para que el sistema calcule correctamente los montos correspondientes:
+                    <br><br>
+                    <strong>1. Despido Injustificado</strong>
+                    <ul>
+                        <li>El empleador despide al trabajador sin mediar causa justa establecida en el Art. 88 del Código de Trabajo.</li>
+                        <li>El empleado tiene derecho a: <strong>Preaviso</strong> (Art. 76), <strong>Cesantía</strong> (Art. 80), <strong>Vacaciones</strong> no disfrutadas, <strong>Regalía Pascual</strong> proporcional, <strong>Salario de Navidad</strong> proporcional, y <strong>SDP (Salarios Dejados de Percibir)</strong>.</li>
+                        <li>Es la causa que genera el monto de liquidación más alto.</li>
+                    </ul>
+                    <strong>2. Despido Justificado</strong>
+                    <ul>
+                        <li>El empleador termina el contrato por una falta grave del empleado (Art. 88): hurto, violencia, daños graves, indisciplina, etc.</li>
+                        <li>El empleador debe pagar solo los <strong>derechos adquiridos</strong>: vacaciones no disfrutadas y regalía pascual proporcional.</li>
+                        <li>No aplica preaviso, cesantía ni SDP.</li>
+                        <li>La carga de la prueba recae sobre el empleador para demostrar la justa causa.</li>
+                    </ul>
+                    <strong>3. Dimisión (Renuncia) del Empleado</strong>
+                    <ul>
+                        <li>El empleado decide terminar voluntariamente la relación laboral.</li>
+                        <li>Si la dimisión es por causa justificada (Art. 97: falta de pago, maltrato, incumplimiento del empleador), el empleado tiene derecho a <strong>cesantía</strong>, preaviso y SDP.</li>
+                        <li>Si la dimisión es voluntaria sin causa justificada, el empleado solo recibe <strong>derechos adquiridos</strong> (vacaciones y regalía pascual).</li>
+                    </ul>
+                    <strong>4. Renuncia (Mutuo Acuerdo)</strong>
+                    <ul>
+                        <li>Ambas partes acuerdan terminar la relación laboral de común acuerdo.</li>
+                        <li>El empleado recibe los derechos adquiridos más lo que acuerden las partes.</li>
+                    </ul>
+                    <div class="fiscal-alert-box alert-warning">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div class="fiscal-alert-text">
+                            <strong>Recomendación legal:</strong> Siempre documenta por escrito la causa de terminación y asegúrate de que el empleado firme el recibo de liquidación. {{ product_name }} genera un documento formal de liquidación con todos los cálculos detallados.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Conceptos a Liquidar -->
+        <section id="conceptos" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-list" style="color: var(--accent-emerald);"></i>
+                <span>Conceptos a Liquidar</span>
+            </div>
+            <div class="docs-article" data-search-content="dias pendientes vacaciones regalia pascual salario navidad proporcional">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-calculator docs-article-title-icon"></i>
+                        Conceptos que incluye la liquidación
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    {{ product_name }} calcula automáticamente cada uno de estos conceptos según la causa seleccionada y los datos del empleado:
+                    <br><br>
+                    <strong>1. Días Trabajados Pendientes de Pago</strong>
+                    <ul>
+                        <li>Días laborados desde la última quincena o mes hasta la fecha de salida que aún no han sido pagados.</li>
+                        <li>Se calcula como: (Salario Diario × Días trabajados en el período actual no pagados).</li>
+                    </ul>
+                    <strong>2. Vacaciones No Disfrutadas</strong>
+                    <ul>
+                        <li>Todo trabajador tiene derecho a 14 días hábiles de vacaciones después de cada año de servicio (Art. 177).</li>
+                        <li>A la terminación del contrato, el empleador debe pagar las vacaciones no disfrutadas, calculadas de forma proporcional al tiempo trabajado en el último año.</li>
+                        <li>Se calcula como: (Salario Diario × Días de vacaciones pendientes).</li>
+                    </ul>
+                    <strong>3. Regalía Pascual (Aguinaldo)</strong>
+                    <ul>
+                        <li>Es el equivalente a la <strong>duodécima parte</strong> del salario devengado durante el año calendario (Art. 219).</li>
+                        <li>Se paga proporcionalmente a los meses trabajados en el año en curso.</li>
+                        <li>Fórmula: (Salario total devengado en el año ÷ 12) × Meses trabajados en el año.</li>
+                        <li>Si el empleado ya recibió el adelanto de regalía (noviembre), se descuenta del cálculo.</li>
+                    </ul>
+                    <strong>4. Salario de Navidad Proporcional</strong>
+                    <ul>
+                        <li>Si el empleado sale antes de diciembre, tiene derecho a la parte proporcional del salario de navidad.</li>
+                        <li>Se calcula sobre el salario mensual devengado en el mes de diciembre, prorrateado por los días trabajados.</li>
+                    </ul>
+                    <div class="fiscal-alert-box">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <div class="fiscal-alert-text">
+                            En {{ product_name }}, todos estos conceptos se calculan automáticamente al seleccionar un empleado y una causa de liquidación. Solo debes confirmar las fechas y montos propuestos.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Preaviso -->
+        <section id="preaviso" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-calendar" style="color: var(--accent-emerald);"></i>
+                <span>Preaviso (Art. 76)</span>
+            </div>
+            <div class="docs-article" data-search-content="preaviso 7 14 28 dias antiguedad articulo 76">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-calendar-days docs-article-title-icon"></i>
+                        Días de Preaviso según antigüedad
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    El <strong>preaviso</strong> es el derecho del trabajador a recibir un aviso previo antes de ser despedido (Art. 76 del Código de Trabajo), o el pago equivalente en dinero si el empleador no lo otorga.
+                    <br><br>
+                    <strong>Días de preaviso según el tiempo de servicio:</strong>
+                    <ul>
+                        <li><strong>7 días:</strong> Cuando el trabajador tiene entre 3 y 6 meses de servicio ininterrumpido.</li>
+                        <li><strong>14 días:</strong> Cuando el trabajador tiene entre 6 meses y 1 año de servicio.</li>
+                        <li><strong>28 días:</strong> Cuando el trabajador tiene 1 año o más de servicio ininterrumpido.</li>
+                    </ul>
+                    <strong>Cálculo en {{ product_name }}:</strong>
+                    <ul>
+                        <li>El sistema calcula automáticamente la antigüedad del empleado basándose en su fecha de ingreso y la fecha de salida.</li>
+                        <li>El monto del preaviso se calcula como: (Salario Diario Ordinario × Días de preaviso según antigüedad).</li>
+                        <li>El salario diario ordinario incluye el sueldo base más cualquier compensación regular (comisiones, bonos habituales).</li>
+                    </ul>
+                    <strong>¿Cuándo NO aplica preaviso?</strong>
+                    <ul>
+                        <li>Despido justificado (falta grave del empleado).</li>
+                        <li>Renuncia voluntaria del empleado (sin causa justificada).</li>
+                        <li>Contratos inferiores a 3 meses.</li>
+                    </ul>
+                    <div class="fiscal-alert-box">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <div class="fiscal-alert-text">
+                            El preaviso también aplica si el empleado dimite por causa justificada (Art. 97). En ese caso, es el empleador quien debe pagarlo.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Cesantía -->
+        <section id="cesantia" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-coins" style="color: var(--accent-emerald);"></i>
+                <span>Cesantía (Art. 80)</span>
+            </div>
+            <div class="docs-article" data-search-content="cesantia 6 13 21 23 dias por ano articulo 80 antiguedad">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-coins docs-article-title-icon"></i>
+                        Cálculo de Cesantía por antigüedad
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    La <strong>cesantía</strong> o <strong>auxilio de cesantía</strong> es una indemnización que el empleador debe pagar al trabajador cuando la relación laboral termina por causas ajenas a la voluntad del empleado.
+                    <br><br>
+                    <strong>Días de salario por año según antigüedad (Art. 80):</strong>
+                    <ul>
+                        <li><strong>6 días de salario</strong> por cada año de servicio: Para trabajadores con menos de 5 años de antigüedad.</li>
+                        <li><strong>13 días de salario</strong> por cada año de servicio: Para trabajadores con 5 años o más, pero menos de 10 años.</li>
+                        <li><strong>21 días de salario</strong> por cada año de servicio: Para trabajadores con 10 años o más, pero menos de 20 años.</li>
+                        <li><strong>23 días de salario</strong> por cada año de servicio: Para trabajadores con 20 años o más.</li>
+                    </ul>
+                    <strong>Ejemplo práctico:</strong>
+                    <ul>
+                        <li>Empleado con 7 años de servicio y salario diario de RD$ 1,500.00.</li>
+                        <li>Antigüedad: 7 años (entre 5 y 10 años → 13 días por año).</li>
+                        <li>Cálculo: 7 años × 13 días = 91 días de salario.</li>
+                        <li>Cesantía: 91 días × RD$ 1,500.00 = <strong>RD$ 136,500.00</strong>.</li>
+                    </ul>
+                    <strong>¿Cuándo NO aplica cesantía?</strong>
+                    <ul>
+                        <li>Despido justificado.</li>
+                        <li>Renuncia voluntaria sin causa justificada.</li>
+                        <li>Contratos por obra determinada (si la obra concluyó).</li>
+                    </ul>
+                    <div class="fiscal-alert-box alert-success">
+                        <i class="fa-solid fa-check-circle"></i>
+                        <div class="fiscal-alert-text">
+                            {{ product_name }} calcula la cesantía aplicando automáticamente la escala correcta según la antigüedad del empleado. Solo ingresa la fecha de ingreso, fecha de salida y salario diario.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SDP -->
+        <section id="sdp" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-clock" style="color: var(--accent-emerald);"></i>
+                <span>Salarios Dejados de Percibir (SDP)</span>
+            </div>
+            <div class="docs-article" data-search-content="salarios dejados percibir sdp despido injustificado meses">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-clock-rotate-left docs-article-title-icon"></i>
+                        ¿Qué son los Salarios Dejados de Percibir?
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    Los <strong>Salarios Dejados de Percibir (SDP)</strong> son una indemnización adicional que corresponde al trabajador cuando el despido es <strong>injustificado</strong>. Representan los salarios que el trabajador dejó de percibir desde la fecha del despido hasta la fecha de pago de la liquidación.
+                    <br><br>
+                    <strong>¿Cómo se calculan?</strong>
+                    <ul>
+                        <li>El SDP cubre el período desde la fecha del despido hasta la fecha en que el empleador paga la liquidación.</li>
+                        <li>La ley establece un tope <strong>máximo de 6 meses</strong> de salarios ordinarios por concepto de SDP.</li>
+                        <li>Se calcula como: (Salario Diario Ordinario × Días transcurridos desde el despido hasta el pago), sin exceder 6 meses.</li>
+                    </ul>
+                    <strong>Ejemplo:</strong>
+                    <ul>
+                        <li>Despido injustificado el 15 de marzo. Pago de liquidación el 30 de abril.</li>
+                        <li>Días transcurridos: 46 días.</li>
+                        <li>Salario diario: RD$ 1,500.00.</li>
+                        <li>SDP: 46 días × RD$ 1,500.00 = <strong>RD$ 69,000.00</strong>.</li>
+                    </ul>
+                    <div class="fiscal-alert-box alert-warning">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div class="fiscal-alert-text">
+                            <strong>Importante:</strong> Los SDP no aplican en despido justificado, renuncia voluntaria ni dimisión. Tampoco aplican si el empleador pagó la liquidación dentro del plazo de preaviso correspondiente.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tratamiento Fiscal -->
+        <section id="fiscal" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-file-invoice-dollar" style="color: var(--accent-emerald);"></i>
+                <span>Tratamiento Fiscal de la Liquidación</span>
+            </div>
+            <div class="docs-article" data-search-content="tratamiento fiscal cesantia exenta isr vacaciones gravado isr liquidacion">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-percent docs-article-title-icon"></i>
+                        ¿Qué conceptos pagan ISR y cuáles están exentos?
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    Es importante conocer el tratamiento fiscal de cada concepto de la liquidación para hacer los cálculos correctos:
+                    <br><br>
+                    <strong>Conceptos EXENTOS de ISR:</strong>
+                    <ul>
+                        <li><strong>Cesantía (Art. 80):</strong> La indemnización por cesantía está <strong>exenta</strong> del Impuesto Sobre la Renta. No se descuenta ISR sobre este monto.</li>
+                        <li><strong>Preaviso (Art. 76):</strong> El pago del preaviso en dinero también está <strong>exento</strong> de ISR.</li>
+                        <li><strong>SDP (Salarios Dejados de Percibir):</strong> Exento de ISR hasta el tope de 6 meses establecido por ley.</li>
+                    </ul>
+                    <strong>Conceptos GRAVADOS de ISR:</strong>
+                    <ul>
+                        <li><strong>Vacaciones No Disfrutadas:</strong> El pago de vacaciones está <strong>gravado</strong> y debe incluirse en el cálculo del ISR del empleado. Se considera ingreso salarial.</li>
+                        <li><strong>Días Trabajados Pendientes:</strong> Gravados como salario ordinario.</li>
+                        <li><strong>Regalía Pascual Proporcional:</strong> Está gravada por ISR (si supera el monto exento establecido por ley).</li>
+                    </ul>
+                    <strong>¿Cómo maneja {{ product_name }} los impuestos?</strong>
+                    <ul>
+                        <li>El sistema clasifica automáticamente cada concepto en Exento o Gravado según la ley.</li>
+                        <li>Aplica la retención de ISR correspondiente solo sobre los conceptos gravados.</li>
+                        <li>Genera el detalle de la liquidación especificando los montos exentos y gravados para transparencia fiscal.</li>
+                    </ul>
+                    <div class="fiscal-alert-box alert-danger">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <div class="fiscal-alert-text">
+                            <strong>⚠ Importante:</strong> Clasificar incorrectamente los conceptos puede generar discrepancias con la DGII. {{ product_name }} aplica automáticamente la clasificación correcta según el Código Tributario dominicano.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Emisión e-CF Egreso -->
+        <section id="ecf" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-receipt" style="color: var(--accent-emerald);"></i>
+                <span>Emisión de e-CF tipo Egreso</span>
+            </div>
+            <div class="docs-article" data-search-content="ecf egreso factura liquidacion comprobante fiscal egreso nomina">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-file-invoice docs-article-title-icon"></i>
+                        ¿Cómo emitir el comprobante fiscal de la liquidación?
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    Cuando se paga una liquidación de empleado, la empresa debe emitir un <strong>Comprobante Fiscal Electrónico (e-CF) tipo Egreso</strong> para registrar el gasto y cumplir con las obligaciones fiscales.
+                    <br><br>
+                    <strong>¿Qué es un e-CF tipo Egreso?</strong>
+                    <ul>
+                        <li>Es un comprobante fiscal que respalda un pago por concepto de liquidación laboral.</li>
+                        <li>Se emite a nombre del empleado (Receptor) utilizando su cédula como RNC.</li>
+                        <li>Debe detallar los conceptos pagados (exentos y gravados) por separado.</li>
+                    </ul>
+                    <strong>Pasos para emitir el e-CF en {{ product_name }}:</strong>
+                    <ul>
+                        <li>Desde el detalle de la liquidación, haz clic en <strong>Emitir e-CF de Egreso</strong>.</li>
+                        <li>El sistema precargará los datos del empleado (nombre, cédula) y el desglose de montos.</li>
+                        <li>Selecciona el <strong>Tipo de Comprobante</strong> correspondiente a egresos por liquidación.</li>
+                        <li>Verifica que los montos exentos y gravados estén correctamente clasificados.</li>
+                        <li>Haz clic en <strong>Firmar y Enviar</strong> para transmitir el comprobante a la DGII.</li>
+                        <li>El sistema generará el XML firmado y el PDF de representación impresa.</li>
+                    </ul>
+                    <div class="fiscal-alert-box alert-success">
+                        <i class="fa-solid fa-check-circle"></i>
+                        <div class="fiscal-alert-text">
+                            {{ product_name }} integra el cálculo de la liquidación con la emisión del e-CF de egreso, para que puedas completar todo el proceso en un solo flujo sin tener que digitar datos manualmente.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div id="no-results" class="no-results-state">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <h4>No encontramos resultados</h4>
+            <p>Prueba buscando con palabras clave como "cesantía", "preaviso", "SDP" o "e-CF egreso".</p>
+        </div>
+
+        <div class="docs-footer-banner">
+            <div>
+                <h4>¿Necesitas asesoría legal laboral?</h4>
+                <p>{{ product_name }} automatiza los cálculos según la Ley 16-92, pero siempre recomendamos validar liquidaciones complejas con un abogado laboral o contador especializado.</p>
+            </div>
+            <a href="/hr/liquidations" class="btn btn-secondary" style="white-space: nowrap; padding: 10px 20px; font-weight: 500;">
+                <i class="fa-solid fa-building-columns"></i>
+                <span>Ir a Liquidaciones</span>
+            </a>
+        </div>
+
+    </main>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchInput = document.getElementById('faq-search');
+        const sidebarItems = document.querySelectorAll('.docs-sidebar-item');
+        const sections = document.querySelectorAll('.docs-section');
+        const articles = document.querySelectorAll('.docs-article');
+        const noResults = document.getElementById('no-results');
+        searchInput.addEventListener('input', function () {
+            const query = this.value.toLowerCase().trim();
+            let hasVisibleArticlesGlobal = false;
+            sections.forEach(section => {
+                const sectionArticles = section.querySelectorAll('.docs-article');
+                let hasVisibleArticlesInSection = false;
+                sectionArticles.forEach(article => {
+                    const searchContent = article.getAttribute('data-search-content').toLowerCase();
+                    const titleText = article.querySelector('.docs-article-title').textContent.toLowerCase();
+                    const bodyText = article.querySelector('.docs-article-body').textContent.toLowerCase();
+                    const matches = searchContent.includes(query) || titleText.includes(query) || bodyText.includes(query);
+                    if (matches || query === '') { article.style.display = 'block'; hasVisibleArticlesInSection = true; hasVisibleArticlesGlobal = true; }
+                    else { article.style.display = 'none'; }
+                });
+                const glossary = section.querySelector('.glossary-grid');
+                if (glossary) {
+                    if (query === '') { glossary.style.display = 'grid'; hasVisibleArticlesInSection = true; }
+                    else { glossary.style.display = 'none'; }
+                }
+                if (hasVisibleArticlesInSection) {
+                    section.style.display = 'block';
+                    const targetId = section.getAttribute('id');
+                    const sidebarLink = document.querySelector(`.docs-sidebar-item[data-target="${targetId}"]`);
+                    if (sidebarLink) sidebarLink.style.display = 'block';
+                } else {
+                    section.style.display = 'none';
+                    const targetId = section.getAttribute('id');
+                    const sidebarLink = document.querySelector(`.docs-sidebar-item[data-target="${targetId}"]`);
+                    if (sidebarLink) sidebarLink.style.display = 'none';
+                }
+            });
+            if (hasVisibleArticlesGlobal) { noResults.style.display = 'none'; }
+            else { noResults.style.display = 'block'; }
+        });
+        window.addEventListener('scroll', function () {
+            let currentSectionId = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                if (pageYOffset >= (sectionTop - 120)) { currentSectionId = section.getAttribute('id'); }
+            });
+            if (currentSectionId) {
+                sidebarItems.forEach(item => {
+                    item.classList.remove('active');
+                    if (item.getAttribute('data-target') === currentSectionId) { item.classList.add('active'); }
+                });
+            }
+        });
+        sidebarItems.forEach(item => {
+            const link = item.querySelector('a');
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = item.getAttribute('data-target');
+                const targetSection = document.getElementById(targetId);
+                if (targetSection) {
+                    window.scrollTo({ top: targetSection.offsetTop - 90, behavior: 'smooth' });
+                    sidebarItems.forEach(i => i.classList.remove('active'));
+                    item.classList.add('active');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

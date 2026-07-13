@@ -1,0 +1,434 @@
+{% extends "layout.html" %}
+
+{% block title %}Auditoría - {{ product_name }}{% endblock %}
+
+{% block page_header %}Auditoría{% endblock %}
+
+{% block extra_head %}
+<style>
+    .docs-layout { display: grid; grid-template-columns: 280px 1fr; gap: 40px; max-width: 100%; margin: 0 auto; align-items: start; }
+    .docs-layout strong { font-weight: 500; }
+    .docs-sidebar { position: sticky; top: 80px; max-height: calc(100vh - 120px); overflow-y: auto; padding-right: 15px; }
+    .docs-sidebar::-webkit-scrollbar { width: 4px; }
+    .docs-sidebar-group { margin-bottom: 24px; }
+    .docs-sidebar-group-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.08em; margin-bottom: 10px; padding-left: 8px; }
+    .docs-sidebar-menu { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .docs-sidebar-item a { display: flex; align-items: center; gap: 10px; padding: 8px 12px; font-size: 0.88rem; color: var(--text-secondary); border-radius: var(--radius-sm); transition: all var(--transition-fast); line-height: 1.4; }
+    .docs-sidebar-item a:hover { color: var(--text-primary); background-color: var(--bg-nav-hover); }
+    .docs-sidebar-item.active a { color: var(--accent-emerald); background-color: var(--bg-brand-translucent); font-weight: 500; }
+    .docs-sidebar-footer-info { background-color: var(--bg-brand-translucent); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; margin-top: 30px; display: flex; gap: 10px; }
+    .docs-sidebar-footer-info i { color: var(--accent-emerald); font-size: 1rem; margin-top: 2px; }
+    .docs-content { min-width: 0; }
+    .docs-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 1px solid var(--border-color); margin-bottom: 30px; gap: 20px; }
+    .docs-header h2 { font-size: 1.6rem; font-weight: 800; color: var(--text-primary); margin-bottom: 4px; }
+    .docs-header p { color: var(--text-secondary); font-size: 0.92rem; }
+    .docs-search-wrapper { position: relative; width: 320px; }
+    .docs-search-input { width: 100%; height: 38px; padding: 0 16px 0 38px; background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: 20px; color: var(--text-primary); font-size: 0.85rem; transition: all var(--transition-fast); }
+    .docs-search-input:focus { border-color: var(--accent-emerald); box-shadow: var(--shadow-glow); }
+    .docs-search-wrapper .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.9rem; }
+    .docs-section { margin-bottom: 45px; scroll-margin-top: 80px; }
+    .docs-section-title { font-size: 1.35rem; font-weight: 800; color: var(--text-primary); padding-bottom: 8px; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+    .glossary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .glossary-card { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px; transition: all var(--transition-fast); }
+    .glossary-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); border-color: var(--accent-emerald); }
+    .glossary-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .glossary-card-icon { font-size: 1.1rem; color: var(--accent-emerald); }
+    .glossary-card-title { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); }
+    .glossary-card-text { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.45; }
+    .docs-article { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 24px; margin-bottom: 20px; transition: border-color var(--transition-fast), box-shadow var(--transition-fast); }
+    .docs-article:hover { border-color: var(--border-glow); box-shadow: var(--shadow-sm); }
+    .docs-article-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .docs-article-title-text { display: flex; align-items: center; gap: 10px; }
+    .docs-article-title-icon { font-size: 0.95rem; color: var(--accent-emerald); opacity: 0.8; }
+    .docs-article-body { font-size: 0.92rem; color: var(--text-secondary); line-height: 1.6; }
+    .docs-article-body strong { color: var(--text-primary); font-weight: 500; }
+    .docs-article-body code { background-color: var(--bg-input); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.82rem; color: var(--accent-purple); border: 1px solid var(--border-color); }
+    .docs-article-body ul { margin: 12px 0; padding-left: 20px; }
+    .docs-article-body li { margin-bottom: 6px; }
+    .fiscal-alert-box { background-color: var(--bg-brand-translucent); border-left: 4px solid var(--accent-emerald); border-radius: 4px; padding: 14px 16px; margin-top: 16px; display: flex; gap: 12px; align-items: flex-start; }
+    .fiscal-alert-box.alert-warning { border-left-color: var(--accent-yellow); background-color: rgba(245, 158, 11, 0.05); }
+    .fiscal-alert-box.alert-danger { border-left-color: var(--accent-red); background-color: rgba(220, 38, 38, 0.05); }
+    .fiscal-alert-box.alert-success { border-left-color: var(--accent-success); background-color: rgba(22, 163, 74, 0.05); }
+    .fiscal-alert-box i { font-size: 1.05rem; margin-top: 2px; }
+    .fiscal-alert-box.alert-warning i { color: var(--accent-yellow); }
+    .fiscal-alert-box.alert-danger i { color: var(--accent-red); }
+    .fiscal-alert-box.alert-success i { color: var(--accent-success); }
+    .fiscal-alert-text { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; }
+    .no-results-state { text-align: center; padding: 40px; background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); display: none; }
+    .no-results-state i { font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; }
+    .no-results-state h4 { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; color: var(--text-primary); }
+    .no-results-state p { color: var(--text-secondary); font-size: 0.88rem; }
+    .docs-footer-banner { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 24px; display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 40px; margin-bottom: 40px; }
+    .docs-footer-banner h4 { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; color: var(--text-primary); }
+    .docs-footer-banner p { color: var(--text-secondary); font-size: 0.85rem; margin: 0; line-height: 1.4; }
+    @media (max-width: 1024px) { .docs-layout { grid-template-columns: 1fr; gap: 24px; } .docs-sidebar { position: static; max-height: none; overflow-y: visible; padding-right: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 20px; } .docs-header { flex-direction: column; align-items: flex-start; gap: 16px; } .docs-search-wrapper { width: 100%; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="docs-layout">
+
+    <aside class="docs-sidebar">
+        <div class="docs-sidebar-group">
+            <div class="docs-sidebar-group-title">Auditoría</div>
+            <ul class="docs-sidebar-menu">
+                <li class="docs-sidebar-item active" data-target="log">
+                    <a href="#log"><i class="fa-solid fa-list"></i><span>Log de Auditoría</span></a>
+                </li>
+                <li class="docs-sidebar-item" data-target="cierre">
+                    <a href="#cierre"><i class="fa-solid fa-clipboard-check"></i><span>Checklist de Cierre Contable</span></a>
+                </li>
+                <li class="docs-sidebar-item" data-target="documentos">
+                    <a href="#documentos"><i class="fa-solid fa-file-pen"></i><span>Seguimiento de Cambios en Documentos</span></a>
+                </li>
+            </ul>
+        </div>
+        <div class="docs-sidebar-footer-info">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>{{ product_name }} cumple con la Ley 32-23 de Facturación Electrónica en República Dominicana.</span>
+        </div>
+    </aside>
+
+    <main class="docs-content">
+
+        <div class="docs-header">
+            <div class="docs-header-left">
+                <h2>Auditoría</h2>
+                <p>Mantén un registro completo de todas las acciones realizadas en el sistema y asegura el cumplimiento normativo con herramientas de trazabilidad.</p>
+            </div>
+            <div class="docs-search-wrapper">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" id="faq-search" class="docs-search-input" placeholder="Buscar en auditoría...">
+            </div>
+        </div>
+
+        <!-- 1. Log de Auditoría -->
+        <section id="log" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-list" style="color: var(--accent-emerald);"></i>
+                <span>Log de Auditoría</span>
+            </div>
+
+            <div class="glossary-grid">
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-user glossary-card-icon"></i>
+                        <h4 class="glossary-card-title">Quién</h4>
+                    </div>
+                    <p class="glossary-card-text">
+                        Cada acción registrada en el log incluye el usuario que la realizó, con su nombre y rol dentro del sistema.
+                    </p>
+                </div>
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-calendar glossary-card-icon" style="color: var(--accent-purple);"></i>
+                        <h4 class="glossary-card-title">Cuándo</h4>
+                    </div>
+                    <p class="glossary-card-text">
+                        Fecha y hora exacta de la acción, con zona horaria configurada. Imposible de modificar.
+                    </p>
+                </div>
+                <div class="glossary-card">
+                    <div class="glossary-card-header">
+                        <i class="fa-solid fa-info-circle glossary-card-icon" style="color: var(--accent-yellow);"></i>
+                        <h4 class="glossary-card-title">Qué</h4>
+                    </div>
+                    <p class="glossary-card-text">
+                        Descripción detallada de la acción: tipo de operación, entidad afectada y valores anteriores y nuevos.
+                    </p>
+                </div>
+            </div>
+
+            <div class="docs-article" data-search-content="log auditoria quien que cuando historial eventos">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-history docs-article-title-icon"></i>
+                        ¿Qué registra el log de auditoría?
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    El log de auditoría captura automáticamente todas las acciones relevantes realizadas en el sistema:
+                    <br><br>
+                    <strong>1. Acciones registradas</strong>
+                    <ul>
+                        <li><strong>Creación de documentos:</strong> Facturas, notas de crédito, órdenes de compra, contratos, gastos, clientes, proveedores.</li>
+                        <li><strong>Modificaciones:</strong> Cada vez que se edita un registro, el log guarda los valores anteriores y los nuevos valores.</li>
+                        <li><strong>Eliminaciones:</strong> Registro de qué usuario eliminó qué registro y en qué fecha.</li>
+                        <li><strong>Cambios de estado:</strong> Transiciones de estado en facturas (Emitida → Pagada), OC (Borrador → Aprobada), etc.</li>
+                        <li><strong>Inicio de sesión:</strong> Cada acceso al sistema queda registrado con IP, navegador y fecha/hora.</li>
+                        <li><strong>Cambios en configuración:</strong> Modificaciones en ajustes de empresa, secuencias fiscales, usuarios y permisos.</li>
+                    </ul>
+
+                    <strong>2. Cómo consultar el log</strong>
+                    <ul>
+                        <li>Accede a <strong>Configuración → Log de Auditoría</strong> o usa la URL <code>/audit/log</code>.</li>
+                        <li>Puedes filtrar por:
+                            <ul>
+                                <li><strong>Usuario:</strong> Ver acciones de un usuario específico.</li>
+                                <li><strong>Entidad:</strong> Filtrar por tipo de documento (Invoice, PurchaseOrder, Client, etc.).</li>
+                                <li><strong>Acción:</strong> Crear, Actualizar, Eliminar, Cambio de Estado.</li>
+                                <li><strong>Rango de Fechas:</strong> Período específico a consultar.</li>
+                            </ul>
+                        </li>
+                        <li>Los resultados se muestran en orden cronológico descendente (más reciente primero).</li>
+                    </ul>
+
+                    <strong>3. Retención de datos</strong>
+                    <ul>
+                        <li>Los logs de auditoría se conservan por un mínimo de <strong>5 años</strong> según requerimientos fiscales de la DGII.</li>
+                        <li>No es posible eliminar logs de auditoría. Esto garantiza la integridad de la pista de auditoría.</li>
+                    </ul>
+
+                    <div class="fiscal-alert-box alert-danger">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <div class="fiscal-alert-text">
+                            <strong>Inmutabilidad:</strong> El log de auditoría no puede ser modificado ni eliminado por ningún usuario, incluyendo administradores. Esto cumple con los requisitos de integridad de la pista de auditoría establecidos por las normas fiscales.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. Checklist de Cierre Contable -->
+        <section id="cierre" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-clipboard-check" style="color: var(--accent-emerald);"></i>
+                <span>Checklist de Cierre Contable</span>
+            </div>
+
+            <div class="docs-article" data-search-content="checklist cierre contable mensual tareas pendientes">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-tasks docs-article-title-icon"></i>
+                        ¿Cómo usar el checklist de cierre contable?
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    El checklist de cierre contable te guía paso a paso para asegurar que todos los aspectos fiscales y contables del período estén al día:
+                    <br><br>
+                    <strong>1. Tareas del checklist mensual</strong>
+                    <ul>
+                        <li><strong>Facturas emitidas:</strong> Verificar que todas las facturas del período estén firmadas y transmitidas a la DGII.</li>
+                        <li><strong>Facturas de proveedor:</strong> Confirmar que todas las facturas de compra del período estén registradas en CxP.</li>
+                        <li><strong>Conciliación bancaria:</strong> Cotejar los movimientos bancarios del mes contra los registros del sistema.</li>
+                        <li><strong>Depreciación:</strong> Verificar que los activos fijos del mes se hayan depreciado correctamente.</li>
+                        <li><strong>Contratos recurrentes:</strong> Confirmar que todas las facturas automáticas del período se generaron sin errores.</li>
+                        <li><strong>Reporte 606:</strong> Generar y revisar el reporte de compras y gastos del período.</li>
+                        <li><strong>Pagos de nómina:</strong> Verificar que los pagos de nómina estén registrados (si aplica).</li>
+                    </ul>
+
+                    <strong>2. Estado de las tareas</strong>
+                    <ul>
+                        <li>Cada tarea del checklist puede tener los siguientes estados:
+                            <ul>
+                                <li><strong>Pendiente:</strong> Tarea no iniciada.</li>
+                                <li><strong>En Progreso:</strong> Tarea en proceso de revisión.</li>
+                                <li><strong>Completada:</strong> Tarea verificada y aprobada.</li>
+                                <li><strong>No Aplica:</strong> Tarea no aplicable para este período (ej. no hay activos fijos que depreciar).</li>
+                            </ul>
+                        </li>
+                        <li>Puedes agregar comentarios a cada tarea para documentar hallazgos o notas.</li>
+                    </ul>
+
+                    <strong>3. Cierre del período</strong>
+                    <ul>
+                        <li>Una vez que todas las tareas están completadas, puedes ejecutar el <strong>cierre del período</strong>.</li>
+                        <li>El cierre bloquea la creación de nuevos documentos en el período cerrado (a menos que se habilite excepcionalmente).</li>
+                        <li>Queda registrado en el log de auditoría quién realizó el cierre y cuándo.</li>
+                    </ul>
+
+                    <div class="fiscal-alert-box alert-warning">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div class="fiscal-alert-text">
+                            <strong>Consejo:</strong> Realiza el cierre contable dentro de los primeros 5 días hábiles del mes siguiente. Esto asegura que los reportes fiscales (606, IT-1) se generen con datos completos y precisos.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="docs-article" data-search-content="reporte 606 compras gastos dgii envio automatico">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-file-export docs-article-title-icon"></i>
+                        Reporte 606 de Compras y Gastos
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    El Reporte 606 es la declaración informativa de compras, gastos y costos que todo contribuyente debe presentar a la DGII mensualmente:
+                    <br><br>
+                    <strong>1. Generación del reporte</strong>
+                    <ul>
+                        <li>Accede a <strong>Reportes → Reporte 606 (Compras)</strong>.</li>
+                        <li>Selecciona el período (mes y año) que deseas reportar.</li>
+                        <li>El sistema compila automáticamente todas las facturas de proveedor, gastos y compras registradas en el período.</li>
+                    </ul>
+
+                    <strong>2. Contenido del reporte</strong>
+                    <ul>
+                        <li>Incluye: RNC del proveedor, NCF/e-CF, monto de la compra, ITBIS desglosado, tipo de gasto según código DGII.</li>
+                        <li>El sistema agrupa los registros por tipo de comprobante (E31, E41, E43, etc.).</li>
+                    </ul>
+
+                    <strong>3. Envío a la DGII</strong>
+                    <ul>
+                        <li>Puedes descargar el reporte en formato CSV o TXT para subirlo a la Oficina Virtual de la DGII.</li>
+                        <li>El sistema registra la fecha de envío del reporte para control de auditoría interna.</li>
+                    </ul>
+
+                    <div class="fiscal-alert-box">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <div class="fiscal-alert-text">
+                            El Reporte 606 debe presentarse dentro de los primeros 15 días del mes siguiente. La DGII puede imponer multas por presentación tardía o incorrecta.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Seguimiento de Cambios en Documentos -->
+        <section id="documentos" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-file-pen" style="color: var(--accent-emerald);"></i>
+                <span>Seguimiento de Cambios en Documentos Fiscales</span>
+            </div>
+
+            <div class="docs-article" data-search-content="cambios documentos fiscales historial versiones edicion">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-code-compare docs-article-title-icon"></i>
+                        Trazabilidad de modificaciones en documentos fiscales
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    Los documentos fiscales (facturas, notas de crédito) requieren un control especial de cambios debido a su impacto tributario:
+                    <br><br>
+                    <strong>1. Documentos no editables después de emitidos</strong>
+                    <ul>
+                        <li>Una vez que un e-CF (factura electrónica) ha sido firmado y transmitido a la DGII, <strong>no se puede editar</strong>.</li>
+                        <li>Cualquier corrección debe realizarse mediante una <strong>Nota de Crédito (E35)</strong> que anule el comprobante original y, si es necesario, emitiendo un nuevo e-CF corregido.</li>
+                        <li>Esta restricción cumple con la normativa de la Ley 32-23 de Facturación Electrónica.</li>
+                    </ul>
+
+                    <strong>2. Historial de cambios en documentos editables</strong>
+                    <ul>
+                        <li>Los documentos en estado <strong>Borrador</strong> (facturas, OC, contratos) registran cada modificación en el log de auditoría.</li>
+                        <li>Desde el detalle de cada documento, puedes hacer clic en <strong>Ver Historial</strong> para consultar:
+                            <ul>
+                                <li>Quién creó el documento y cuándo.</li>
+                                <li>Quién hizo cada modificación y qué cambió.</li>
+                                <li>Cuándo se emitió, aprobó, recibió o canceló.</li>
+                                <li>En el caso de facturas: cuándo se firmó, transmitió a la DGII y cuándo se registró el pago.</li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <strong>3. Notas de crédito y su vinculación</strong>
+                    <ul>
+                        <li>Cada nota de crédito (<code>E35</code>) queda vinculada al e-CF original que corrige.</li>
+                        <li>Desde el detalle de la factura original, puedes ver todas las notas de crédito asociadas.</li>
+                        <li>Desde la nota de crédito, puedes ver la factura original que está corrigiendo.</li>
+                        <li>Esta trazabilidad bidireccional facilita las auditorías internas y externas.</li>
+                    </ul>
+
+                    <div class="fiscal-alert-box alert-success">
+                        <i class="fa-solid fa-check-circle"></i>
+                        <div class="fiscal-alert-text">
+                            <strong>Buenas prácticas:</strong> Antes de emitir una factura, revisa cuidadosamente los datos del cliente, las partidas y los cálculos. Una vez firmada, cualquier error requerirá una nota de crédito.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="docs-article" data-search-content="exportar auditoria excel csv reporte cumplimiento">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-download docs-article-title-icon"></i>
+                        Exportación de pistas de auditoría
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    Puedes exportar el log de auditoría y los reportes de seguimiento para presentarlos en auditorías externas:
+                    <br><br>
+                    <strong>Formatos disponibles:</strong>
+                    <ul>
+                        <li><strong>Excel (XLSX):</strong> Para análisis y filtrado avanzado en hojas de cálculo.</li>
+                        <li><strong>CSV:</strong> Compatible con la mayoría de sistemas de auditoría y ERPs.</li>
+                        <li><strong>PDF:</strong> Para presentación formal en auditorías.</li>
+                    </ul>
+
+                    <strong>¿Cómo exportar?</strong>
+                    <ul>
+                        <li>En la vista del log de auditoría (<code>/audit/log</code>), aplica los filtros deseados.</li>
+                        <li>Haz clic en el botón <strong>Exportar</strong> y selecciona el formato.</li>
+                        <li>El sistema generará el archivo y lo descargará automáticamente.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <div id="no-results" class="no-results-state">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <h4>No encontramos resultados</h4>
+            <p>Prueba buscando con palabras clave como "Log", "Cierre", "606" o "Checklist".</p>
+        </div>
+
+        <div class="docs-footer-banner">
+            <div>
+                <h4>¿Necesitas asistencia con una auditoría fiscal?</h4>
+                <p>{{ product_name }} provee todas las herramientas de trazabilidad, pero siempre recomendamos contar con un contador público autorizado para auditorías formales.</p>
+            </div>
+            <a href="/help" class="btn btn-secondary" style="white-space: nowrap; padding: 10px 20px; font-weight: 500;">
+                <i class="fa-solid fa-book"></i><span>Volver al Centro de Ayuda</span>
+            </a>
+        </div>
+
+    </main>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchInput = document.getElementById('faq-search');
+        const sidebarItems = document.querySelectorAll('.docs-sidebar-item');
+        const sections = document.querySelectorAll('.docs-section');
+        const articles = document.querySelectorAll('.docs-article');
+        const noResults = document.getElementById('no-results');
+        searchInput.addEventListener('input', function () {
+            const query = this.value.toLowerCase().trim();
+            let hasVisibleArticlesGlobal = false;
+            sections.forEach(section => {
+                const sectionArticles = section.querySelectorAll('.docs-article');
+                let hasVisibleArticlesInSection = false;
+                sectionArticles.forEach(article => {
+                    const searchContent = article.getAttribute('data-search-content').toLowerCase();
+                    const titleText = article.querySelector('.docs-article-title').textContent.toLowerCase();
+                    const bodyText = article.querySelector('.docs-article-body').textContent.toLowerCase();
+                    const matches = searchContent.includes(query) || titleText.includes(query) || bodyText.includes(query);
+                    if (matches || query === '') { article.style.display = 'block'; hasVisibleArticlesInSection = true; hasVisibleArticlesGlobal = true; }
+                    else { article.style.display = 'none'; }
+                });
+                const glossary = section.querySelector('.glossary-grid');
+                if (glossary) { if (query === '') { glossary.style.display = 'grid'; hasVisibleArticlesInSection = true; } else { glossary.style.display = 'none'; } }
+                if (hasVisibleArticlesInSection) { section.style.display = 'block'; const targetId = section.getAttribute('id'); const sidebarLink = document.querySelector(`.docs-sidebar-item[data-target="${targetId}"]`); if (sidebarLink) sidebarLink.style.display = 'block'; }
+                else { section.style.display = 'none'; const targetId = section.getAttribute('id'); const sidebarLink = document.querySelector(`.docs-sidebar-item[data-target="${targetId}"]`); if (sidebarLink) sidebarLink.style.display = 'none'; }
+            });
+            noResults.style.display = hasVisibleArticlesGlobal ? 'none' : 'block';
+        });
+        window.addEventListener('scroll', function () {
+            let currentSectionId = '';
+            sections.forEach(section => { const sectionTop = section.offsetTop; if (pageYOffset >= (sectionTop - 120)) currentSectionId = section.getAttribute('id'); });
+            if (currentSectionId) { sidebarItems.forEach(item => { item.classList.remove('active'); if (item.getAttribute('data-target') === currentSectionId) item.classList.add('active'); }); }
+        });
+        sidebarItems.forEach(item => {
+            const link = item.querySelector('a');
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = item.getAttribute('data-target');
+                const targetSection = document.getElementById(targetId);
+                if (targetSection) { window.scrollTo({ top: targetSection.offsetTop - 90, behavior: 'smooth' }); sidebarItems.forEach(i => i.classList.remove('active')); item.classList.add('active'); }
+            });
+        });
+    });
+</script>
+{% endblock %}

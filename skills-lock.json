@@ -7,6 +7,12 @@
       "skillPath": "skills/accounting/SKILL.md",
       "computedHash": "7b859549069c9462f3789923731ac4cdb75f75f0f5a730b3282d8a942d333cd3"
     },
+    "documentation-writer": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "skillPath": "skills/documentation-writer/SKILL.md",
+      "computedHash": "ee53d65b163cd7eb953a930c95841cfe398cc2c0bd24c06508bbaa07c432be35"
+    },
     "ui-ux-pro-max": {
       "source": "nextlevelbuilder/ui-ux-pro-max-skill",
       "sourceType": "github",
