@@ -1384,6 +1384,10 @@ body.sandbox-mode .segment-header-icon.emerald {
     display: none !important;
 }
 
+.app-container.sidebar-collapsed .sidebar-company-name {
+    display: none !important;
+}
+
 /* Center toggle when collapsed */
 .app-container.sidebar-collapsed .sidebar-toggle-wrapper {
     justify-content: center;
