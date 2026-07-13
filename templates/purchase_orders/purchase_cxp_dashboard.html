@@ -121,7 +121,7 @@
                 {% if invoices %}
                 {% for inv in invoices %}
                 <tr>
-                    <td><span class="mono" style="font-weight:600; color:var(--accent-blue);">{{ inv.invoiceNumber or '—' }}</span></td>
+                    <td><a href="{{ url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=inv.id) }}" class="mono" style="font-weight:600; color:var(--accent-blue); text-decoration:none;">{{ inv.invoiceNumber or '—' }}</a></td>
                     <td>{{ inv.supplierName or '—' }}<br><span style="font-size:0.72rem; color:var(--text-muted);">{{ inv.supplierInvoiceNumber or '' }}</span></td>
                     <td><span class="mono">{{ inv.supplierRnc or '—' }}</span></td>
                     <td><span class="mono">{{ inv.ncf or '—' }}</span></td>

@@ -2,7 +2,7 @@ import uuid
 import json
 import html
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, g
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, g, make_response
 from app.services.db_service import DatabaseService, db_firestore, firebase_initialized
 from app.services.purchase_order_service import PurchaseOrderService
 from app.services.supplier_service import SupplierService
@@ -12,6 +12,13 @@ from app.services.purchase_credit_note_service import PurchaseCreditNoteService
 from app.utils.decorators import check_permission
 from app.services.audit_service import AuditService, ACTION_CREATE, ACTION_UPDATE, ACTION_DELETE
 from app.web.invoices import format_mentions, _get_taggable_users, process_resource_comment_mentions
+
+try:
+    from weasyprint import HTML as WeasyprintHTML
+    WEASYPRINT_AVAILABLE = True
+except ImportError:
+    WeasyprintHTML = None
+    WEASYPRINT_AVAILABLE = False
 
 web_purchase_orders_bp = Blueprint('web_purchase_orders', __name__)
 
@@ -987,31 +994,6 @@ def new_supplier_invoice_direct():
         cxp_status = "Pagado" if payment_type == 'Contado' else "Pendiente"
         cxp_remaining = 0.0 if payment_type == 'Contado' else total
 
-        attachment_urls = []
-        file_upload_error = None
-        attachment_file = request.files.get('attachment')
-        if attachment_file and attachment_file.filename:
-            file_data = attachment_file.read()
-            if len(file_data) > MAX_FILE_SIZE:
-                flash('El archivo excede el límite de 10 MB.', 'error')
-                return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=po_id))
-            mime_type = attachment_file.content_type or "application/octet-stream"
-            if mime_type not in ALLOWED_MIME_TYPES:
-                flash('Tipo de archivo no permitido. Solo PDF, JPG y PNG.', 'error')
-                return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=po_id))
-            try:
-                safe_name = attachment_file.filename.replace(' ', '_')
-                dest_path = f"users/{owner_uid}/supplier_invoices/{uuid.uuid4().hex}/{safe_name}"
-                public_url = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type)
-                attachment_urls.append(public_url)
-            except Exception as e:
-                file_upload_error = str(e)
-                print(f"Error al subir archivo factura proveedor: {e}")
-
-        ocr_attachment_url = request.form.get('ocr_attachment_url', '').strip()
-        if ocr_attachment_url:
-            attachment_urls.append(ocr_attachment_url)
-
         sinv_number = SupplierInvoiceService.get_next_invoice_number(owner_uid, sandbox=sandbox)
 
         supplier_id = request.form.get('supplierId', '')
@@ -1059,10 +1041,9 @@ def new_supplier_invoice_direct():
             "discount": round(total_discount, 2),
             "total": round(total, 2),
             "items": items,
-            "attachmentUrls": attachment_urls,
+            "attachmentUrls": [],
             "notes": request.form.get('notes', ''),
             "comentario": request.form.get('comentario', ''),
-            "category": request.form.get('category', 'Otros Gastos'),
             "tipoGastoDGII": request.form.get('tipoGastoDGII', '02'),
             "cxpStatus": cxp_status,
             "cxpRemainingBalance": round(cxp_remaining, 2),
@@ -1077,6 +1058,37 @@ def new_supplier_invoice_direct():
         }
 
         SupplierInvoiceService.create(owner_uid, inv_data, sandbox=sandbox)
+
+        # ── File upload after save (non-blocking with timeout) ──
+        file_upload_error = None
+        attachment_file = request.files.get('attachment')
+        if attachment_file and attachment_file.filename:
+            file_data = attachment_file.read()
+            if len(file_data) > MAX_FILE_SIZE:
+                file_upload_error = 'El archivo excede el límite de 10 MB.'
+            else:
+                mime_type = attachment_file.content_type or "application/octet-stream"
+                if mime_type not in ALLOWED_MIME_TYPES:
+                    file_upload_error = 'Tipo de archivo no permitido. Solo PDF, JPG y PNG.'
+                else:
+                    try:
+                        public_url = SupplierInvoiceService.add_attachment(
+                            owner_uid, inv_data["id"], file_data,
+                            attachment_file.filename, mime_type, sandbox=sandbox
+                        )
+                        if not public_url:
+                            file_upload_error = 'El archivo no pudo subirse.'
+                    except Exception as e:
+                        file_upload_error = str(e)
+                        print(f"Error al subir archivo factura proveedor: {e}")
+
+        ocr_attachment_url = request.form.get('ocr_attachment_url', '').strip()
+        if ocr_attachment_url:
+            inv = SupplierInvoiceService.get(owner_uid, inv_data["id"], sandbox=sandbox)
+            if inv:
+                urls = inv.get("attachmentUrls", [])
+                urls.append(ocr_attachment_url)
+                SupplierInvoiceService.update(owner_uid, inv_data["id"], {"attachmentUrls": urls}, sandbox=sandbox)
 
         if payment_type == 'Contado' and bank_account_id:
             try:
@@ -1104,7 +1116,7 @@ def new_supplier_invoice_direct():
         if request.form.get('save_action') == 'save_and_new':
             flash('Factura de compra guardada. Puedes crear otra.', 'success')
             return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct'))
-        return redirect(url_for('web_purchase_orders.list_purchase_cxp'))
+        return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=inv_data['id']))
 
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     suppliers = SupplierService.get_suppliers(owner_uid, sandbox=sandbox)
@@ -1188,27 +1200,6 @@ def register_supplier_invoice(po_id):
             flash('❌ El NCF ya está registrado en otra factura.', 'error')
             return render_template('purchase_orders/register_invoice.html', po=po, today=today_str, active_page='purchase_orders')
 
-        attachment_urls = []
-        file_upload_error = None
-        attachment_file = request.files.get('attachment')
-        if attachment_file and attachment_file.filename:
-            file_data = attachment_file.read()
-            if len(file_data) > MAX_FILE_SIZE:
-                flash('❌ El archivo excede el límite de 10 MB.', 'error')
-                return render_template('purchase_orders/register_invoice.html', po=po, today=today_str, active_page='purchase_orders')
-            mime_type = attachment_file.content_type or "application/octet-stream"
-            if mime_type not in ALLOWED_MIME_TYPES:
-                flash('❌ Tipo de archivo no permitido. Solo PDF, JPG y PNG.', 'error')
-                return render_template('purchase_orders/register_invoice.html', po=po, today=today_str, active_page='purchase_orders')
-            try:
-                safe_name = attachment_file.filename.replace(' ', '_')
-                dest_path = f"users/{owner_uid}/supplier_invoices/{uuid.uuid4().hex}/{safe_name}"
-                public_url = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type)
-                attachment_urls.append(public_url)
-            except Exception as e:
-                file_upload_error = str(e)
-                print(f"⚠️ Error al subir PDF factura proveedor: {e}")
-
         items = []
         subtotal = 0.0
         total_itbis = 0.0
@@ -1259,12 +1250,35 @@ def register_supplier_invoice(po_id):
             "discount": round(total_discount, 2),
             "total": round(total, 2),
             "items": items,
-            "attachmentUrls": attachment_urls,
+            "attachmentUrls": [],
             "notes": notes,
             "createdBy": session['user'].get('displayName', 'Usuario'),
         }
 
         SupplierInvoiceService.create(owner_uid, inv_data, sandbox=sandbox)
+
+        # ── File upload after save (non-blocking with timeout) ──
+        file_upload_error = None
+        attachment_file = request.files.get('attachment')
+        if attachment_file and attachment_file.filename:
+            file_data = attachment_file.read()
+            if len(file_data) > MAX_FILE_SIZE:
+                file_upload_error = 'El archivo excede el límite de 10 MB.'
+            else:
+                mime_type = attachment_file.content_type or "application/octet-stream"
+                if mime_type not in ALLOWED_MIME_TYPES:
+                    file_upload_error = 'Tipo de archivo no permitido. Solo PDF, JPG y PNG.'
+                else:
+                    try:
+                        public_url = SupplierInvoiceService.add_attachment(
+                            owner_uid, inv_data["id"], file_data,
+                            attachment_file.filename, mime_type, sandbox=sandbox
+                        )
+                        if not public_url:
+                            file_upload_error = 'El archivo no pudo subirse.'
+                    except Exception as e:
+                        file_upload_error = str(e)
+                        print(f"⚠️ Error al subir PDF factura proveedor: {e}")
 
         AuditService.log_from_request(
             owner_uid=owner_uid, action=ACTION_CREATE, module=MODULE_SINV,
@@ -1277,7 +1291,7 @@ def register_supplier_invoice(po_id):
         if file_upload_error:
             msg += ' ⚠️ El PDF no pudo subirse. Puede adjuntarlo después desde el detalle.'
         flash(msg, 'success')
-        return redirect(url_for('web_purchase_orders.list_purchase_cxp'))
+        return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=inv_data['id']))
 
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     return render_template('purchase_orders/register_invoice.html',
@@ -1306,9 +1320,26 @@ def supplier_invoice_detail(invoice_id):
 
     payments = SupplierInvoiceService.get_payments(owner_uid, invoice_id, sandbox=sandbox)
     bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
+
+    comments = DatabaseService.get_resource_comments(owner_uid, "purchase_orders", invoice_id, sandbox=sandbox)
+    taggable_users = _get_taggable_users(owner_uid)
+
+    is_cxp = invoice.get('paymentType') == 'Crédito'
+
+    linked_entry = None
+    all_entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox)
+    for e in all_entries:
+        if e.get("status") != "voided" and e.get("referenceType") == "supplier_invoice" and e.get("referenceId") == invoice_id:
+            linked_entry = e
+            break
+
     return render_template('purchase_orders/supplier_invoice_detail.html',
                            invoice=invoice, payments=payments,
                            bank_accounts=bank_accounts,
+                           comments=comments, taggable_users=taggable_users,
+                           format_mentions=format_mentions,
+                           is_cxp=is_cxp, cxp_payments=payments,
+                           linked_entry=linked_entry,
                            active_page='purchase_cxp')
 
 
@@ -1658,3 +1689,194 @@ def void_credit_note(note_id):
         )
     flash(message, 'success' if success else 'error')
     return redirect(url_for('web_purchase_orders.list_credit_notes'))
+
+
+@web_purchase_orders_bp.route('/purchase-orders/invoices/<invoice_id>/retention-letter')
+def supplier_retention_letter(invoice_id):
+    if 'user' not in session: return "No autorizado", 401
+    if not check_permission('canManagePurchaseCXP'):
+        return "Acceso denegado: requiere permiso de CxP", 403
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    invoice = SupplierInvoiceService.get(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice:
+        return "Factura no encontrada", 404
+
+    company = DatabaseService.get_company_profile(owner_uid)
+
+    retained_isr_rate = float(invoice.get('retainedISR', 0) or 0)
+    retained_itbis_rate = float(invoice.get('retainedITBIS', 0) or 0)
+    if retained_isr_rate <= 0 and retained_itbis_rate <= 0:
+        return "Esta factura no tiene retenciones aplicadas", 400
+
+    total = float(invoice.get('total', 0) or 0)
+    total_itbis = float(invoice.get('itbis', 0) or 0)
+    retained_isr = round(total * retained_isr_rate, 2)
+    retained_itbis = round(total_itbis * retained_itbis_rate, 2)
+    retention_percent = round((retained_itbis / total_itbis) * 100) if total_itbis > 0 else 0
+    retained_total = retained_isr + retained_itbis
+    net_amount = total - retained_total
+
+    payment_type = invoice.get('paymentType', 'Contado')
+    method_labels = {'Contado': 'Contado / Efectivo', 'Crédito': 'Crédito'}
+    payment_method = method_labels.get(payment_type, payment_type)
+
+    from datetime import datetime
+    now = datetime.now()
+
+    doc_num = invoice.get('ncf') or invoice.get('invoiceNumber', '') or invoice_id
+    inv_num = doc_num.replace('/', '-').replace(' ', '_')
+
+    representative_name = session['user'].get('name', '')
+    representative_id = session['user'].get('cedula', '')
+
+    invoice_wrapper = {
+        'invoiceNumber': doc_num,
+        'clientName': invoice.get('supplierName', 'Proveedor'),
+        'clientRNC': invoice.get('supplierRnc', ''),
+        'total': total,
+        'totalITBIS': total_itbis,
+        'concept': invoice.get('notes', 'Compra de bienes/servicios'),
+        'date': invoice.get('date', ''),
+        'paymentDate': invoice.get('date', ''),
+    }
+
+    action = request.args.get('action', 'download')
+
+    if WEASYPRINT_AVAILABLE and action == 'download':
+        rendered_html = render_template('invoices/retention_letter.html',
+            invoice=invoice_wrapper, company=company, now=now,
+            retained_isr=retained_isr, retained_itbis=retained_itbis,
+            retained_total=retained_total, retention_percent=retention_percent,
+            net_amount=net_amount, payment_method=payment_method,
+            representative_name=representative_name, representative_id=representative_id,
+            auto_print=False)
+        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf()
+        response = make_response(pdf_bytes)
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'attachment; filename="Carta_Retencion_{inv_num}.pdf"'
+        return response
+    else:
+        rendered_html = render_template('invoices/retention_letter.html',
+            invoice=invoice_wrapper, company=company, now=now,
+            retained_isr=retained_isr, retained_itbis=retained_itbis,
+            retained_total=retained_total, retention_percent=retention_percent,
+            net_amount=net_amount, payment_method=payment_method,
+            representative_name=representative_name, representative_id=representative_id,
+            auto_print=True)
+        response = make_response(rendered_html)
+        response.headers['Content-Type'] = 'text/html; charset=utf-8'
+        return response
+
+
+@web_purchase_orders_bp.route('/purchase-orders/invoices/<invoice_id>/retention-letter/email', methods=['POST'])
+def supplier_retention_letter_email(invoice_id):
+    if 'user' not in session: return jsonify(success=False, error="No autorizado"), 401
+    if not check_permission('canManagePurchaseCXP'):
+        return jsonify(success=False, error="Permiso denegado"), 403
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    invoice = SupplierInvoiceService.get(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice:
+        return jsonify(success=False, error="Factura no encontrada"), 404
+
+    company = DatabaseService.get_company_profile(owner_uid)
+
+    retained_isr_rate = float(invoice.get('retainedISR', 0) or 0)
+    retained_itbis_rate = float(invoice.get('retainedITBIS', 0) or 0)
+    if retained_isr_rate <= 0 and retained_itbis_rate <= 0:
+        return jsonify(success=False, error="Esta factura no tiene retenciones aplicadas"), 400
+
+    total = float(invoice.get('total', 0) or 0)
+    total_itbis = float(invoice.get('itbis', 0) or 0)
+    retained_isr = round(total * retained_isr_rate, 2)
+    retained_itbis = round(total_itbis * retained_itbis_rate, 2)
+    retention_percent = round((retained_itbis / total_itbis) * 100) if total_itbis > 0 else 0
+    retained_total = retained_isr + retained_itbis
+    net_amount = total - retained_total
+
+    payment_type = invoice.get('paymentType', 'Contado')
+    method_labels = {'Contado': 'Contado / Efectivo', 'Crédito': 'Crédito'}
+    payment_method = method_labels.get(payment_type, payment_type)
+
+    from datetime import datetime
+    now = datetime.now()
+    representative_name = session['user'].get('name', '')
+    representative_id = session['user'].get('cedula', '')
+
+    doc_num = invoice.get('ncf') or invoice.get('invoiceNumber', '') or invoice_id
+    inv_num = doc_num.replace('/', '-').replace(' ', '_')
+
+    invoice_wrapper = {
+        'invoiceNumber': doc_num,
+        'clientName': invoice.get('supplierName', 'Proveedor'),
+        'clientRNC': invoice.get('supplierRnc', ''),
+        'total': total,
+        'totalITBIS': total_itbis,
+        'concept': invoice.get('notes', 'Compra de bienes/servicios'),
+        'date': invoice.get('date', ''),
+        'paymentDate': invoice.get('date', ''),
+    }
+
+    rendered_html = render_template('invoices/retention_letter.html',
+        invoice=invoice_wrapper, company=company, now=now,
+        retained_isr=retained_isr, retained_itbis=retained_itbis,
+        retained_total=retained_total, retention_percent=retention_percent,
+        net_amount=net_amount, payment_method=payment_method,
+        representative_name=representative_name, representative_id=representative_id,
+        auto_print=False)
+
+    pdf_bytes = None
+    if WEASYPRINT_AVAILABLE:
+        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf()
+    else:
+        import io
+        try:
+            pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf()
+        except:
+            pdf_bytes = rendered_html.encode('utf-8')
+
+    recipient_email = request.form.get('email', '').strip()
+    if not recipient_email:
+        recipient_email = invoice.get('email', '')
+    if not recipient_email:
+        return jsonify(success=False, error="No se encontró correo del proveedor. Especifica un correo electrónico."), 400
+
+    try:
+        from flask import current_app as app
+
+        if not app.config.get("SMTP_USER") or not app.config.get("SMTP_PASSWORD"):
+            return jsonify(success=False, error="Servidor de correo no configurado (SMTP)."), 400
+
+        company_name = company.get('companyName', 'Mi Empresa')
+
+        email_html = f"""
+        <html><body style="font-family:Arial,sans-serif;padding:20px;">
+        <h2 style="color:{company.get('colorMarca', '#10b981')};">Carta de Retención — {company_name}</h2>
+        <p>Estimado(a) <strong>{invoice.get('supplierName', 'Proveedor')}</strong>,</p>
+        <p>Adjunto encontrará la Carta de Retención correspondiente al comprobante <strong>{doc_num}</strong> por un monto retenido de <strong>RD$ {retained_total:,.2f}</strong>.</p>
+        <p>Puede descargar el documento adjunto para sus registros contables.</p>
+        <hr>
+        <p style="font-size:12px;color:#888;">Este mensaje fue generado automáticamente por {company_name}. Favor no responder a este correo.</p>
+        </body></html>
+        """
+
+        from app.services.mailer import Mailer
+        mailer = Mailer()
+        attachments = [("Carta_Retencion_{}.pdf".format(inv_num), pdf_bytes, "application/pdf")] if pdf_bytes else []
+
+        mailer.send(
+            app=app._get_current_object(),
+            to_email=recipient_email,
+            subject=f"Carta de Retención — Comprobante {doc_num} — {company_name}",
+            html_body=email_html,
+            from_name=company_name,
+            category="Retención",
+            attachments=attachments
+        )
+
+        return jsonify(success=True, message="Carta de retención enviada correctamente.")
+    except Exception as e:
+        return jsonify(success=False, error=f"Error al enviar correo: {str(e)}"), 500

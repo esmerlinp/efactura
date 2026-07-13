@@ -102,6 +102,14 @@ def create_app():
                 g.project_id = session.get('selected_project_id')
 
                 session['user'] = fresh_profile
+                
+                # Actualizar marca de actividad de la sesión en Firestore
+                if session.get('session_token'):
+                    try:
+                        from app.services.session_service import SessionService
+                        SessionService.update_activity(session['user']['uid'])
+                    except Exception:
+                        pass
             else:
                 session.pop('user', None)
                 session.pop('is_sandbox_mode', None)

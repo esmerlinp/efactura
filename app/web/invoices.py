@@ -3875,6 +3875,376 @@ def invoice_pdf_download(invoice_id):
         response.headers['Content-Type'] = 'text/html; charset=utf-8'
         return response
 
+
+@web_invoices_bp.route('/invoices/<invoice_id>/retention-letter')
+def invoice_retention_letter(invoice_id):
+    if 'user' not in session: return "No autorizado", 401
+    if not check_permission('canInvoice'):
+        return "Acceso denegado: requiere permiso de facturación", 403
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice:
+        return "Factura no encontrada", 404
+
+    invoice = _enrich_invoice_totals(invoice)
+    company = DatabaseService.get_company_profile(owner_uid)
+
+    retained_isr = float(invoice.get('retainedISR', 0) or 0)
+    retained_itbis = float(invoice.get('retainedITBIS', 0) or 0)
+    if retained_isr <= 0 and retained_itbis <= 0:
+        return "Esta factura no tiene retenciones aplicadas", 400
+
+    total_itbis = float(invoice.get('totalITBIS', 0) or 0)
+    if total_itbis > 0:
+        retention_percent = round((retained_itbis / total_itbis) * 100)
+    else:
+        retention_percent = 0
+
+    retained_total = retained_isr + retained_itbis
+    net_amount = float(invoice.get('total', 0)) - retained_total
+
+    payment_method = invoice.get('paymentMethod', 'transferencia')
+    method_labels = {
+        'transferencia': 'Transferencia Bancaria',
+        'cheque': 'Cheque',
+        'efectivo': 'Efectivo',
+        'tarjeta': 'Tarjeta de Crédito/Débito',
+    }
+    payment_method = method_labels.get(payment_method, payment_method.capitalize())
+
+    from datetime import datetime
+    now = datetime.now()
+
+    action = request.args.get('action', 'download')
+    inv_num = invoice.get('invoiceNumber', invoice_id).replace('/', '-').replace(' ', '_')
+
+    representative_name = session['user'].get('name', '')
+    representative_id = session['user'].get('cedula', '')
+
+    if WEASYPRINT_AVAILABLE and action == 'download':
+        rendered_html = render_template('invoices/retention_letter.html',
+            invoice=invoice, company=company, now=now,
+            retained_isr=retained_isr, retained_itbis=retained_itbis,
+            retained_total=retained_total, retention_percent=retention_percent,
+            net_amount=net_amount, payment_method=payment_method,
+            representative_name=representative_name, representative_id=representative_id,
+            auto_print=False)
+        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf()
+        response = make_response(pdf_bytes)
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'attachment; filename="Carta_Retencion_{inv_num}.pdf"'
+        return response
+    else:
+        rendered_html = render_template('invoices/retention_letter.html',
+            invoice=invoice, company=company, now=now,
+            retained_isr=retained_isr, retained_itbis=retained_itbis,
+            retained_total=retained_total, retention_percent=retention_percent,
+            net_amount=net_amount, payment_method=payment_method,
+            representative_name=representative_name, representative_id=representative_id,
+            auto_print=True)
+        response = make_response(rendered_html)
+        response.headers['Content-Type'] = 'text/html; charset=utf-8'
+        return response
+
+
+@web_invoices_bp.route('/invoices/<invoice_id>/retention-letter/email', methods=['POST'])
+def invoice_retention_letter_email(invoice_id):
+    if 'user' not in session: return jsonify(success=False, error="No autorizado"), 401
+    if not check_permission('canInvoice'):
+        return jsonify(success=False, error="Permiso denegado"), 403
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice:
+        return jsonify(success=False, error="Factura no encontrada"), 404
+
+    invoice = _enrich_invoice_totals(invoice)
+    company = DatabaseService.get_company_profile(owner_uid)
+
+    retained_isr = float(invoice.get('retainedISR', 0) or 0)
+    retained_itbis = float(invoice.get('retainedITBIS', 0) or 0)
+    if retained_isr <= 0 and retained_itbis <= 0:
+        return jsonify(success=False, error="Esta factura no tiene retenciones aplicadas"), 400
+
+    total_itbis = float(invoice.get('totalITBIS', 0) or 0)
+    retention_percent = round((retained_itbis / total_itbis) * 100) if total_itbis > 0 else 0
+    retained_total = retained_isr + retained_itbis
+    net_amount = float(invoice.get('total', 0)) - retained_total
+
+    payment_method_raw = invoice.get('paymentMethod', 'transferencia')
+    method_labels = {
+        'transferencia': 'Transferencia Bancaria',
+        'cheque': 'Cheque',
+        'efectivo': 'Efectivo',
+        'tarjeta': 'Tarjeta de Crédito/Débito',
+    }
+    payment_method = method_labels.get(payment_method_raw, payment_method_raw.capitalize())
+
+    from datetime import datetime
+    now = datetime.now()
+    representative_name = session['user'].get('name', '')
+    representative_id = session['user'].get('cedula', '')
+
+    rendered_html = render_template('invoices/retention_letter.html',
+        invoice=invoice, company=company, now=now,
+        retained_isr=retained_isr, retained_itbis=retained_itbis,
+        retained_total=retained_total, retention_percent=retention_percent,
+        net_amount=net_amount, payment_method=payment_method,
+        representative_name=representative_name, representative_id=representative_id,
+        auto_print=False)
+
+    pdf_bytes = None
+    if WEASYPRINT_AVAILABLE:
+        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf()
+    else:
+        import io
+        import weasyprint as _wp
+        try:
+            pdf_bytes = _wp.HTML(string=rendered_html, base_url=request.host_url).write_pdf()
+        except:
+            pdf_bytes = rendered_html.encode('utf-8')
+
+    recipient_email = request.form.get('email', '').strip()
+    if not recipient_email:
+        recipient_email = _get_client_email(owner_uid, invoice, sandbox)
+    if not recipient_email:
+        return jsonify(success=False, error="No se encontró correo del cliente. Especifica un correo electrónico."), 400
+
+    try:
+        from flask import current_app as app
+
+        if not app.config.get("SMTP_USER") or not app.config.get("SMTP_PASSWORD"):
+            return jsonify(success=False, error="Servidor de correo no configurado (SMTP)."), 400
+
+        inv_num = invoice.get('invoiceNumber', invoice_id).replace('/', '-').replace(' ', '_')
+        company_name = company.get('companyName', 'Mi Empresa')
+
+        email_html = f"""
+        <html><body style="font-family:Arial,sans-serif;padding:20px;">
+        <h2 style="color:{company.get('colorMarca', '#10b981')};">Carta de Retención — {company_name}</h2>
+        <p>Estimado(a) <strong>{invoice.get('clientName', 'Cliente')}</strong>,</p>
+        <p>Adjunto encontrará la Carta de Retención correspondiente a la factura <strong>{invoice.get('invoiceNumber', '')}</strong> por un monto retenido de <strong>RD$ {retained_total:,.2f}</strong>.</p>
+        <p>Puede descargar el documento adjunto para sus registros contables.</p>
+        <hr>
+        <p style="font-size:12px;color:#888;">Este mensaje fue generado automáticamente por {company_name}. Favor no responder a este correo.</p>
+        </body></html>
+        """
+
+        from app.services.mailer import Mailer
+        mailer = Mailer()
+        attachments = [("Carta_Retencion_{}.pdf".format(inv_num), pdf_bytes, "application/pdf")] if pdf_bytes else []
+
+        mailer.send(
+            app=app._get_current_object(),
+            to_email=recipient_email,
+            subject=f"Carta de Retención — Factura {invoice.get('invoiceNumber', '')} — {company_name}",
+            html_body=email_html,
+            from_name=company_name,
+            category="Retención",
+            attachments=attachments
+        )
+
+        return jsonify(success=True, message="Carta de retención enviada correctamente.")
+    except Exception as e:
+        return jsonify(success=False, error=f"Error al enviar correo: {str(e)}"), 500
+
+
+@web_invoices_bp.route('/expenses/<expense_id>/retention-letter')
+def expense_retention_letter(expense_id):
+    if 'user' not in session: return "No autorizado", 401
+    if not check_permission('canExpenses'):
+        return "Acceso denegado: requiere permiso de gastos", 403
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    expense = DatabaseService.get_expense(owner_uid, expense_id, sandbox=sandbox)
+    if not expense:
+        return "Gasto no encontrado", 404
+
+    company = DatabaseService.get_company_profile(owner_uid)
+
+    retained_isr = float(expense.get('isrWithheld', 0) or 0)
+    retained_itbis = float(expense.get('itbisWithheld', 0) or 0)
+    if retained_isr <= 0 and retained_itbis <= 0:
+        return "Este gasto no tiene retenciones aplicadas", 400
+
+    total_itbis = float(expense.get('itbisAmount', 0) or 0)
+    retention_percent = round((retained_itbis / total_itbis) * 100) if total_itbis > 0 else 0
+
+    retained_total = retained_isr + retained_itbis
+    net_amount = float(expense.get('amount', 0)) - retained_total
+
+    payment_type = expense.get('paymentType', 'Contado')
+    method_labels = {
+        'Contado': 'Contado / Efectivo',
+        'Crédito': 'Crédito',
+    }
+    payment_method = method_labels.get(payment_type, payment_type)
+
+    from datetime import datetime
+    now = datetime.now()
+
+    doc_num = expense.get('encf') or expense.get('ncf') or expense_id
+    inv_num = doc_num.replace('/', '-').replace(' ', '_')
+
+    representative_name = session['user'].get('name', '')
+    representative_id = session['user'].get('cedula', '')
+
+    invoice_wrapper = {
+        'invoiceNumber': doc_num,
+        'clientName': expense.get('providerName', 'Proveedor'),
+        'clientRNC': expense.get('rncEmisor', ''),
+        'total': expense.get('amount', 0),
+        'totalITBIS': expense.get('itbisAmount', 0),
+        'concept': expense.get('concept', ''),
+        'date': expense.get('date', ''),
+        'paymentDate': expense.get('date', ''),
+    }
+
+    action = request.args.get('action', 'download')
+
+    if WEASYPRINT_AVAILABLE and action == 'download':
+        rendered_html = render_template('invoices/retention_letter.html',
+            invoice=invoice_wrapper, company=company, now=now,
+            retained_isr=retained_isr, retained_itbis=retained_itbis,
+            retained_total=retained_total, retention_percent=retention_percent,
+            net_amount=net_amount, payment_method=payment_method,
+            representative_name=representative_name, representative_id=representative_id,
+            auto_print=False)
+        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf()
+        response = make_response(pdf_bytes)
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'attachment; filename="Carta_Retencion_{inv_num}.pdf"'
+        return response
+    else:
+        rendered_html = render_template('invoices/retention_letter.html',
+            invoice=invoice_wrapper, company=company, now=now,
+            retained_isr=retained_isr, retained_itbis=retained_itbis,
+            retained_total=retained_total, retention_percent=retention_percent,
+            net_amount=net_amount, payment_method=payment_method,
+            representative_name=representative_name, representative_id=representative_id,
+            auto_print=True)
+        response = make_response(rendered_html)
+        response.headers['Content-Type'] = 'text/html; charset=utf-8'
+        return response
+
+
+@web_invoices_bp.route('/expenses/<expense_id>/retention-letter/email', methods=['POST'])
+def expense_retention_letter_email(expense_id):
+    if 'user' not in session: return jsonify(success=False, error="No autorizado"), 401
+    if not check_permission('canExpenses'):
+        return jsonify(success=False, error="Permiso denegado"), 403
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    expense = DatabaseService.get_expense(owner_uid, expense_id, sandbox=sandbox)
+    if not expense:
+        return jsonify(success=False, error="Gasto no encontrado"), 404
+
+    company = DatabaseService.get_company_profile(owner_uid)
+
+    retained_isr = float(expense.get('isrWithheld', 0) or 0)
+    retained_itbis = float(expense.get('itbisWithheld', 0) or 0)
+    if retained_isr <= 0 and retained_itbis <= 0:
+        return jsonify(success=False, error="Este gasto no tiene retenciones aplicadas"), 400
+
+    total_itbis = float(expense.get('itbisAmount', 0) or 0)
+    retention_percent = round((retained_itbis / total_itbis) * 100) if total_itbis > 0 else 0
+    retained_total = retained_isr + retained_itbis
+    net_amount = float(expense.get('amount', 0)) - retained_total
+
+    payment_type = expense.get('paymentType', 'Contado')
+    method_labels = {
+        'Contado': 'Contado / Efectivo',
+        'Crédito': 'Crédito',
+    }
+    payment_method = method_labels.get(payment_type, payment_type)
+
+    from datetime import datetime
+    now = datetime.now()
+    representative_name = session['user'].get('name', '')
+    representative_id = session['user'].get('cedula', '')
+
+    doc_num = expense.get('encf') or expense.get('ncf') or expense_id
+    inv_num = doc_num.replace('/', '-').replace(' ', '_')
+
+    invoice_wrapper = {
+        'invoiceNumber': doc_num,
+        'clientName': expense.get('providerName', 'Proveedor'),
+        'clientRNC': expense.get('rncEmisor', ''),
+        'total': expense.get('amount', 0),
+        'totalITBIS': expense.get('itbisAmount', 0),
+        'concept': expense.get('concept', ''),
+        'date': expense.get('date', ''),
+        'paymentDate': expense.get('date', ''),
+    }
+
+    rendered_html = render_template('invoices/retention_letter.html',
+        invoice=invoice_wrapper, company=company, now=now,
+        retained_isr=retained_isr, retained_itbis=retained_itbis,
+        retained_total=retained_total, retention_percent=retention_percent,
+        net_amount=net_amount, payment_method=payment_method,
+        representative_name=representative_name, representative_id=representative_id,
+        auto_print=False)
+
+    pdf_bytes = None
+    if WEASYPRINT_AVAILABLE:
+        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf()
+    else:
+        import io
+        import weasyprint as _wp
+        try:
+            pdf_bytes = _wp.HTML(string=rendered_html, base_url=request.host_url).write_pdf()
+        except:
+            pdf_bytes = rendered_html.encode('utf-8')
+
+    recipient_email = request.form.get('email', '').strip()
+    if not recipient_email:
+        recipient_email = expense.get('email', '')  # fallback to expense email if available
+    if not recipient_email:
+        return jsonify(success=False, error="No se encontró correo del proveedor. Especifica un correo electrónico."), 400
+
+    try:
+        from flask import current_app as app
+
+        if not app.config.get("SMTP_USER") or not app.config.get("SMTP_PASSWORD"):
+            return jsonify(success=False, error="Servidor de correo no configurado (SMTP)."), 400
+
+        company_name = company.get('companyName', 'Mi Empresa')
+
+        email_html = f"""
+        <html><body style="font-family:Arial,sans-serif;padding:20px;">
+        <h2 style="color:{company.get('colorMarca', '#10b981')};">Carta de Retención — {company_name}</h2>
+        <p>Estimado(a) <strong>{expense.get('providerName', 'Proveedor')}</strong>,</p>
+        <p>Adjunto encontrará la Carta de Retención correspondiente al comprobante <strong>{doc_num}</strong> por un monto retenido de <strong>RD$ {retained_total:,.2f}</strong>.</p>
+        <p>Puede descargar el documento adjunto para sus registros contables.</p>
+        <hr>
+        <p style="font-size:12px;color:#888;">Este mensaje fue generado automáticamente por {company_name}. Favor no responder a este correo.</p>
+        </body></html>
+        """
+
+        from app.services.mailer import Mailer
+        mailer = Mailer()
+        attachments = [("Carta_Retencion_{}.pdf".format(inv_num), pdf_bytes, "application/pdf")] if pdf_bytes else []
+
+        mailer.send(
+            app=app._get_current_object(),
+            to_email=recipient_email,
+            subject=f"Carta de Retención — Comprobante {doc_num} — {company_name}",
+            html_body=email_html,
+            from_name=company_name,
+            category="Retención",
+            attachments=attachments
+        )
+
+        return jsonify(success=True, message="Carta de retención enviada correctamente.")
+    except Exception as e:
+        return jsonify(success=False, error=f"Error al enviar correo: {str(e)}"), 500
+
+
 @web_invoices_bp.route('/invoices/preview', methods=['POST'])
 def invoice_preview_route():
     if 'user' not in session: return "No autorizado", 401
@@ -5365,7 +5735,7 @@ def payments_new_route():
                 print(f"Error al auto-crear proveedor: {supp_err}")
 
         flash('Pago registrado exitosamente.', 'success')
-        return redirect(url_for('web_invoices.payments_list'))
+        return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
 
     today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
@@ -5515,7 +5885,7 @@ def minor_new_route():
             'isDeductible': True,
             'ecfType': 'E43',
             'cne': '',
-            'tipoGastoDGII': '06',
+            'tipoGastoDGII': request.form.get('tipoGastoDGII', '02'),
             'paymentType': 'Contado',
             'cxpStatus': 'Pagado',
             'cxpRemainingBalance': 0.0,
@@ -5589,7 +5959,7 @@ def minor_new_route():
         if request.form.get('save_action') == 'save_and_new':
             flash('Gasto menor guardado correctamente. Puedes crear otro.', 'success')
             return redirect(url_for('web_invoices.minor_new_route'))
-        return redirect(url_for('web_invoices.minor_list'))
+        return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
 
     today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
@@ -5782,7 +6152,7 @@ def recurring_new_route():
             print(f"Error al generar asiento contable del pago recurrente: {acc_err}")
 
         flash('Pago recurrente programado exitosamente.', 'success')
-        return redirect(url_for('web_invoices.recurring_list'))
+        return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
 
     today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)

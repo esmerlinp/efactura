@@ -666,8 +666,30 @@
         document.querySelectorAll('.contact-option').forEach(o => o.classList.remove('selected'));
         contactDropdown.classList.remove('open');
     }
+
+    document.getElementById('recurring-form').addEventListener('submit', function(e) {
+        const firstConcept = document.querySelector('input[name="concept_items[0][concept]"]');
+        if (!firstConcept || !firstConcept.value.trim()) {
+            e.preventDefault();
+            const firstRow = document.querySelector('.concept-row');
+            if (firstRow) {
+                firstRow.style.boxShadow = 'inset 0 0 0 2px #ef4444';
+                firstRow.querySelector('.item-concept')?.focus();
+                setTimeout(() => firstRow.style.boxShadow = '', 3000);
+            }
+            const existing = document.getElementById('concept-validation-msg');
+            if (!existing) {
+                const msg = document.createElement('div');
+                msg.id = 'concept-validation-msg';
+                msg.style.cssText = 'padding:12px 16px;margin-bottom:16px;border-radius:8px;background:rgba(239,68,68,0.08);color:#ef4444;border:1px solid rgba(239,68,68,0.2);font-size:0.82rem;display:flex;align-items:center;gap:8px;';
+                msg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Debe agregar al menos un concepto en la primera línea.';
+                const form = document.getElementById('recurring-form');
+                form.insertBefore(msg, form.firstChild);
+                setTimeout(() => msg.remove(), 5000);
+            }
+        }
+    });
 </script>
 
 {% include 'components/_attachment_panel.html' %}
-
 {% endblock %}

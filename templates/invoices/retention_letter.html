@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Carta de Retención - {{ invoice.invoiceNumber }}</title>
+    <style>
+        @page {
+            size: letter;
+            margin: 2.5cm 2.5cm 2.5cm 2.5cm;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Arial', 'Helvetica', sans-serif;
+            font-size: 11pt;
+            line-height: 1.6;
+            color: #1a1a1a;
+            padding: 0;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid {{ company.get('colorMarca', '#10b981') }};
+        }
+        .header .company-info {
+            flex: 1;
+        }
+        .header .company-info h1 {
+            font-size: 16pt;
+            font-weight: 800;
+            color: {{ company.get('colorMarca', '#10b981') }};
+            margin-bottom: 4px;
+        }
+        .header .company-info p {
+            font-size: 9pt;
+            color: #555;
+            margin: 2px 0;
+        }
+        .header .logo {
+            max-width: 120px;
+            max-height: 80px;
+            margin-left: 20px;
+        }
+        .header .logo img {
+            max-width: 120px;
+            max-height: 80px;
+        }
+        .date-line {
+            text-align: right;
+            font-size: 10pt;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .recipient {
+            margin-bottom: 30px;
+        }
+        .recipient p {
+            margin: 2px 0;
+            font-size: 10pt;
+        }
+        .subject {
+            text-align: center;
+            font-weight: 700;
+            font-size: 11pt;
+            margin: 30px 0;
+            text-transform: uppercase;
+        }
+        .title {
+            text-align: center;
+            font-weight: 800;
+            font-size: 13pt;
+            margin: 30px 0 40px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: {{ company.get('colorMarca', '#10b981') }};
+        }
+        .body-text {
+            text-align: justify;
+            margin-bottom: 40px;
+        }
+        .body-text p {
+            margin-bottom: 16px;
+            text-indent: 0;
+        }
+        .body-text .highlight {
+            font-weight: 700;
+        }
+        .signature {
+            margin-top: 60px;
+            text-align: center;
+        }
+        .signature .line {
+            width: 250px;
+            border-top: 1px solid #333;
+            margin: 0 auto 10px;
+            padding-top: 40px;
+        }
+        .signature .name {
+            font-weight: 700;
+            font-size: 11pt;
+        }
+        .signature .title {
+            font-size: 10pt;
+            color: #555;
+            margin-top: 2px;
+        }
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 8pt;
+            color: #999;
+            padding: 10px 0;
+            border-top: 1px solid #ddd;
+        }
+        @media print {
+            .no-print { display: none; }
+            body { padding: 0; }
+        }
+        .print-toolbar {
+            text-align: center;
+            padding: 16px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            margin-bottom: 30px;
+        }
+        .print-toolbar button {
+            padding: 10px 24px;
+            font-size: 14px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            background: {{ company.get('colorMarca', '#10b981') }};
+            color: white;
+        }
+        .print-toolbar button:hover {
+            opacity: 0.9;
+        }
+        table.details {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 10pt;
+        }
+        table.details td {
+            padding: 4px 8px;
+            vertical-align: top;
+        }
+        table.details td.label {
+            font-weight: 600;
+            width: 140px;
+            color: #555;
+        }
+        table.details td.value {
+            font-weight: 400;
+        }
+        .amount-highlight {
+            font-weight: 700;
+            color: {{ company.get('colorMarca', '#10b981') }};
+        }
+    </style>
+</head>
+<body>
+
+{% if auto_print %}
+<div class="print-toolbar no-print">
+    <button onclick="window.print()"><i class="fa-solid fa-print"></i> Imprimir / Guardar PDF</button>
+</div>
+{% endif %}
+
+<div class="header">
+    <div class="company-info">
+        <h1>{{ company.get('companyName', 'Mi Empresa SRL') }}</h1>
+        <p>RNC: {{ company.get('companyRNC', '') }}</p>
+        <p>{{ company.get('companyAddress', '') }}</p>
+        <p>Tel: {{ company.get('companyPhone', '') }} | Email: {{ company.get('companyEmail', '') }}</p>
+    </div>
+    {% if company.get('logoBase64') %}
+    <div class="logo">
+        <img src="data:image/png;base64,{{ company.get('logoBase64') }}" alt="Logo">
+    </div>
+    {% elif company.get('logoUrl') %}
+    <div class="logo">
+        <img src="{{ company.get('logoUrl') }}" alt="Logo">
+    </div>
+    {% endif %}
+</div>
+
+{% set months = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'] %}
+{% set d = now.day %}
+{% set m = now.month %}
+{% set y = now.year %}
+
+<div class="date-line">
+    Santo Domingo, R.D.<br>
+    {{ d }} de {{ months[m - 1] }} del {{ y }}
+</div>
+
+<div class="recipient">
+    <p><strong>Señores:</strong></p>
+    <p>Dirección General de Impuestos Internos</p>
+    <p>Ave. México No. 58</p>
+    <p>Ciudad</p>
+</div>
+
+<div class="subject">
+    Asunto: Certificación de Retención del {{ retention_percent }}% de ITBIS
+</div>
+
+<div class="title">
+    Certificación
+</div>
+
+<div class="body-text">
+    <p>
+        <strong>{{ company.get('companyName', '') }}</strong>, sociedad comercial constituida de acuerdo a las leyes de la República Dominicana, con su domicilio social sito en <strong>{{ company.get('companyAddress', '') }}</strong>, con RNC No. <strong>{{ company.get('companyRNC', '') }}</strong>, debidamente representada por su <strong>Presidente Ejecutivo</strong>, el/la señor(a) <strong>{{ representative_name }}</strong>, portador(a) de la cédula no. <strong>{{ representative_id or '__________' }}</strong>,
+    </p>
+    <p>
+        por medio de la presente certifica que mediante <strong>{{ payment_method }}</strong>, de fecha <strong>{{ invoice.get('paymentDate', invoice.get('date', ''))[:10] }}</strong>, por valor de <strong>RD$ {{ "{:,.2f}".format(net_amount) }}</strong>, procedimos a pagar la factura no. <strong>{{ invoice.get('invoiceNumber', '') }}</strong>, de fecha <strong>{{ invoice.get('date', '')[:10] }}</strong>, por un monto de <strong>RD$ {{ "{:,.2f}".format(invoice.get('total', 0)) }}</strong>, más un ITBIS de <strong>RD$ {{ "{:,.2f}".format(invoice.get('totalITBIS', 0)) }}</strong>, emitida por el/la señor(a) <strong>{{ invoice.get('clientName', '') }}</strong>, portador(a) de la cédula/RNC No. <strong>{{ invoice.get('clientRNC', '') }}</strong>, por concepto de <strong>{{ invoice.get('concept', invoice.get('notes', 'Servicios prestados')) }}</strong>,
+    </p>
+    <p>
+        y en tal virtud procedimos a retener la suma de <strong class="amount-highlight">RD$ {{ "{:,.2f}".format(retained_total) }}</strong>, correspondiente al <strong>{{ retention_percent }}%</strong> del ITBIS facturado.
+    </p>
+</div>
+
+<div class="signature">
+    <div class="line"></div>
+    <div class="name">{{ representative_name }}</div>
+    <div class="title">Presidente Ejecutivo</div>
+    <div style="margin-top: 6px; font-size: 9pt; color: #888;">
+        {{ company.get('companyName', '') }}
+    </div>
+</div>
+
+<div class="footer">
+    Documento generado electrónicamente por {{ company.get('companyName', '') }} — RNC {{ company.get('companyRNC', '') }}
+</div>
+
+</body>
+</html>

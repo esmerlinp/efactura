@@ -3426,7 +3426,7 @@ class DatabaseService:
 
         try:
             blob = firebase_storage_bucket.blob(destination_path)
-            blob.upload_from_string(file_data, content_type=mime_type)
+            blob.upload_from_string(file_data, content_type=mime_type, timeout=30)
             blob.make_public()
             if owner_uid:
                 _invalidate_storage_cache(owner_uid)

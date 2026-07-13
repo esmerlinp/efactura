@@ -7,10 +7,12 @@ import qrcode
 import io
 import base64
 import secrets
+import uuid
 from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from config import Config
 from app.services.db_service import DatabaseService
+from app.services.session_service import SessionService
 from app.services.mailer import Mailer
 from app.utils.decorators import check_permission
 from app.extensions import limiter
@@ -175,6 +177,30 @@ def login():
                     session['mfa_pending_profile'] = user_profile
                     return redirect(url_for('web_auth.verify_2fa'))
                     
+                session_token = str(uuid.uuid4())
+                
+                # Verificar si ya hay una sesión activa en otro dispositivo
+                active_session = SessionService.get_active_session(user_profile['uid'])
+                if active_session:
+                    session['pending_login_profile'] = user_profile
+                    session['pending_login_session_token'] = session_token
+                    session['pending_login_email'] = user_profile.get('email')
+                    session['pending_login_conflict_info'] = {
+                        "ip": active_session.get("ip_address", ""),
+                        "agent": active_session.get("user_agent", ""),
+                        "started": active_session.get("started_at", "")
+                    }
+                    return redirect(url_for('web_auth.session_conflict'))
+                
+                # Registrar nueva sesión activa
+                SessionService.register_session(
+                    uid=user_profile['uid'],
+                    session_token=session_token,
+                    ip_address=request.remote_addr or "",
+                    user_agent=request.user_agent.string if request.user_agent else ""
+                )
+                session['session_token'] = session_token
+                
                 session['user'] = user_profile
                 session['is_sandbox_mode'] = False  # Producción por defecto al iniciar
                 
@@ -232,6 +258,104 @@ def login():
             
     return render_template('auth/login.html')
 
+
+@web_auth_bp.route('/login/session-conflict', methods=['GET'])
+def session_conflict():
+    """
+    GET /login/session-conflict
+    Muestra una pantalla informando que el usuario ya tiene una sesión activa
+    en otro dispositivo y pide confirmación para cerrarla.
+    """
+    if 'user' in session:
+        return redirect(url_for('web_dashboard.dashboard'))
+    
+    if 'pending_login_profile' not in session:
+        flash('Sesión expirada o inválida.', 'error')
+        return redirect(url_for('web_auth.login'))
+    
+    info = session.get('pending_login_conflict_info', {})
+    return render_template(
+        'auth/session_conflict.html',
+        email=session.get('pending_login_email', ''),
+        session_ip=info.get('ip', ''),
+        session_agent=info.get('agent', ''),
+        session_started=info.get('started', '')
+    )
+
+
+@web_auth_bp.route('/login/resolve-session-conflict', methods=['POST'])
+@limiter.limit("10/minute;30/hour")
+def resolve_session_conflict():
+    """
+    POST /login/resolve-session-conflict
+    Procesa la decisión del usuario:
+      - force_login: invalida la sesión anterior y registra la nueva.
+      - cancel: redirige al login.
+    """
+    if 'pending_login_profile' not in session:
+        flash('Sesión expirada o inválida.', 'error')
+        return redirect(url_for('web_auth.login'))
+    
+    action = request.form.get('action', '')
+    if action != 'force_login':
+        # El usuario canceló, limpiar datos temporales
+        session.pop('pending_login_profile', None)
+        session.pop('pending_login_session_token', None)
+        session.pop('pending_login_email', None)
+        session.pop('pending_login_conflict_info', None)
+        flash('Inicio de sesión cancelado.', 'info')
+        return redirect(url_for('web_auth.login'))
+    
+    # El usuario quiere forzar el login
+    user_profile = session.pop('pending_login_profile', None)
+    session_token = session.pop('pending_login_session_token', None)
+    session.pop('pending_login_email', None)
+    session.pop('pending_login_conflict_info', None)
+    
+    if not user_profile or not session_token:
+        flash('Error al recuperar datos de sesión. Intenta de nuevo.', 'error')
+        return redirect(url_for('web_auth.login'))
+    
+    # Invalidar sesión anterior y registrar la nueva
+    SessionService.register_session(
+        uid=user_profile['uid'],
+        session_token=session_token,
+        ip_address=request.remote_addr or "",
+        user_agent=request.user_agent.string if request.user_agent else ""
+    )
+    session['session_token'] = session_token
+    
+    session['user'] = user_profile
+    session['is_sandbox_mode'] = False
+    
+    # Cargar empresas asociadas
+    associated = DatabaseService.get_associated_companies(user_profile['uid'])
+    session['associated_companies'] = associated
+    session['user_has_multiple_companies'] = len(associated) > 1
+    
+    if len(associated) > 1:
+        session.pop('selected_owner_uid', None)
+    else:
+        session['selected_owner_uid'] = associated[0]['ownerUID'] if len(associated) == 1 else user_profile.get('ownerUID')
+        session['user']['ownerUID'] = session['selected_owner_uid']
+    
+    from app.services.audit_service import AuditService, ACTION_LOGIN, MODULE_AUTH
+    AuditService.log_from_request(
+        owner_uid=session.get('selected_owner_uid') or user_profile.get('ownerUID'),
+        action=ACTION_LOGIN,
+        module=MODULE_AUTH,
+        entity_id=user_profile['uid'],
+        entity_label=f"Inicio de sesión forzado (sesión anterior cerrada) — {user_profile['email']}",
+        user_session=user_profile,
+        sandbox=False
+    )
+    
+    flash('Sesión anterior cerrada. ¡Bienvenido de nuevo!', 'success')
+    if session.get('user_has_multiple_companies'):
+        return redirect(url_for('web_auth.select_company'))
+    return redirect(url_for('web_dashboard.dashboard'))
+
+
 @web_auth_bp.route('/login/verify-2fa', methods=['GET', 'POST'])
 @limiter.limit("10/minute;30/hour")
 def verify_2fa():
@@ -271,6 +395,34 @@ def verify_2fa():
                 user_profile['backup_codes'] = backup_codes
             
         if is_valid:
+            session_token = str(uuid.uuid4())
+            
+            # Verificar si ya hay una sesión activa en otro dispositivo
+            active_session = SessionService.get_active_session(user_profile['uid'])
+            if active_session:
+                session['pending_login_profile'] = user_profile
+                session['pending_login_session_token'] = session_token
+                session['pending_login_email'] = user_profile.get('email')
+                session['pending_login_conflict_info'] = {
+                    "ip": active_session.get("ip_address", ""),
+                    "agent": active_session.get("user_agent", ""),
+                    "started": active_session.get("started_at", "")
+                }
+                # Limpiar estado temporal de MFA
+                session.pop('mfa_pending_uid', None)
+                session.pop('mfa_pending_email', None)
+                session.pop('mfa_pending_profile', None)
+                return redirect(url_for('web_auth.session_conflict'))
+            
+            # Registrar nueva sesión activa
+            SessionService.register_session(
+                uid=user_profile['uid'],
+                session_token=session_token,
+                ip_address=request.remote_addr or "",
+                user_agent=request.user_agent.string if request.user_agent else ""
+            )
+            session['session_token'] = session_token
+            
             session['user'] = user_profile
             session['is_sandbox_mode'] = False
             
@@ -447,6 +599,9 @@ def register():
 def logout():
     user = session.get('user')
     if user:
+        # Invalidar sesión activa en Firestore
+        SessionService.invalidate_session(user['uid'])
+        
         from app.services.audit_service import AuditService, ACTION_LOGOUT, MODULE_AUTH
         AuditService.log_from_request(
             owner_uid=user['ownerUID'],
@@ -458,6 +613,7 @@ def logout():
             sandbox=session.get('is_sandbox_mode', False)
         )
     session.pop('user', None)
+    session.pop('session_token', None)
     session.pop('is_sandbox_mode', None)
     session.pop('selected_owner_uid', None)
     session.pop('selected_branch_id', None)
@@ -466,6 +622,11 @@ def logout():
     session.pop('available_projects', None)
     session.pop('associated_companies', None)
     session.pop('user_has_multiple_companies', None)
+    # Limpiar datos temporales de login pendiente
+    session.pop('pending_login_profile', None)
+    session.pop('pending_login_session_token', None)
+    session.pop('pending_login_email', None)
+    session.pop('pending_login_conflict_info', None)
     flash('Sesión cerrada correctamente.', 'success')
     return redirect(url_for('web_auth.login'))
 
