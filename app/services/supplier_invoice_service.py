@@ -206,7 +206,6 @@ class SupplierInvoiceService:
         data.setdefault("bankAccountId", "")
         data.setdefault("retainedISR", 0.0)
         data.setdefault("retainedITBIS", 0.0)
-        data.setdefault("category", "Otros Gastos")
         data.setdefault("tipoGastoDGII", "02")
         data.setdefault("poId", "")
         data.setdefault("poNumber", "")

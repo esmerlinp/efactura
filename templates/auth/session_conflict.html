@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="theme-color" content="#7c3aed">
+    <script>
+        (function () {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Sesión Activa - {{ product_name }}</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/efactura_logo.png') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    {% if company_theme == 'moderno' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_moderno.css') }}">
+    {% elif company_theme == 'landing' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_landing.css') }}">
+    {% else %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_clasico.css') }}">
+    {% endif %}
+    <style>
+        .conflict-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: rgba(245, 158, 11, 0.12);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 1.6rem;
+            color: #f59e0b;
+        }
+        .conflict-device-info {
+            background: var(--bg-secondary, rgba(255,255,255,0.04));
+            border: 1px solid var(--border-color, rgba(255,255,255,0.08));
+            border-radius: 12px;
+            padding: 16px;
+            margin: 18px 0;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        .conflict-device-info i {
+            width: 20px;
+            text-align: center;
+            margin-right: 8px;
+            color: var(--text-muted);
+        }
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+        .btn-group .btn {
+            flex: 1;
+            padding: 13px;
+            font-size: 0.92rem;
+            border-radius: var(--radius-sm, 8px);
+            text-align: center;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+        .btn-danger {
+            background: #ef4444;
+            color: #fff;
+            border: none;
+        }
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color, rgba(255,255,255,0.15));
+        }
+        .btn-secondary:hover {
+            background: var(--bg-secondary, rgba(255,255,255,0.04));
+            color: var(--text-primary);
+        }
+    </style>
+</head>
+
+<body class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo {{ product_name }}"
+                style="height: 80px; margin-bottom: 4px; display: inline-block; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15));">
+            <h2>{{ product_name }}</h2>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="badge {% if category == 'error' %}badge-danger{% else %}badge-success{% endif %}"
+            style="width: 100%; padding: 12px; margin-bottom: 20px; border-radius: var(--radius-sm); font-size: 0.85rem; text-transform: none; font-weight: 500; text-align: center;">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <div style="text-align: center;">
+            <div class="conflict-icon">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 700;">Ya tienes una sesión activa</h3>
+            <p style="color: var(--text-secondary); font-size: 0.88rem; line-height: 1.5; margin: 0;">
+                El usuario <strong>{{ email }}</strong> ya tiene una sesión iniciada en otro dispositivo o navegador.
+            </p>
+
+            <div class="conflict-device-info">
+                {% if session_ip %}
+                <div><i class="fa-solid fa-network-wired"></i> IP: {{ session_ip }}</div>
+                {% endif %}
+                {% if session_agent %}
+                <div><i class="fa-solid fa-display"></i> {{ session_agent }}</div>
+                {% endif %}
+                {% if session_started %}
+                <div><i class="fa-solid fa-clock"></i> Iniciada: {{ session_started }}</div>
+                {% endif %}
+            </div>
+
+            <p style="color: var(--text-secondary); font-size: 0.82rem; line-height: 1.5; margin: 0 0 4px;">
+                Para continuar, la sesión anterior será cerrada. Solo una sesión activa por usuario está permitida.
+            </p>
+        </div>
+
+        <form method="POST" action="{{ url_for('web_auth.resolve_session_conflict') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="btn-group">
+                <a href="{{ url_for('web_auth.login') }}" class="btn btn-secondary">
+                    <i class="fa-solid fa-arrow-left"></i> Cancelar
+                </a>
+                <button type="submit" name="action" value="force_login" class="btn btn-danger">
+                    <i class="fa-solid fa-right-to-bracket"></i> Cerrar otra sesión y entrar
+                </button>
+            </div>
+        </form>
+    </div>
+</body>
+
+</html>

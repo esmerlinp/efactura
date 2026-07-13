@@ -170,6 +170,28 @@
                 </div>
             </div>
 
+            <div class="inp-row" style="margin-bottom:12px;">
+                <div class="inp-group" style="max-width:320px;">
+                    <label for="tipoGastoDGII">Tipo de Bien/Servicio DGII 606
+                        <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;"
+                           title="Clasificación del gasto según la naturaleza real (no por el tipo de NCF). Ver tabla de códigos 01-11 de la DGII."></i>
+                    </label>
+                    <select id="tipoGastoDGII" name="tipoGastoDGII" class="form-select" required>
+                        <option value="01" {% if expense_data.get('tipoGastoDGII') == '01' %}selected{% endif %}>01 - Gastos de Personal</option>
+                        <option value="02" {% if expense_data.get('tipoGastoDGII') == '02' %}selected{% endif %}>02 - Gastos por Trabajos, Suministros y Servicios</option>
+                        <option value="03" {% if expense_data.get('tipoGastoDGII') == '03' %}selected{% endif %}>03 - Arrendamientos</option>
+                        <option value="04" {% if expense_data.get('tipoGastoDGII') == '04' %}selected{% endif %}>04 - Gastos de Activos Fijos</option>
+                        <option value="05" {% if expense_data.get('tipoGastoDGII') == '05' %}selected{% endif %}>05 - Gastos de Representación</option>
+                        <option value="06" {% if expense_data.get('tipoGastoDGII') == '06' %}selected{% endif %}>06 - Otras Deducciones Admitidas</option>
+                        <option value="07" {% if expense_data.get('tipoGastoDGII') == '07' %}selected{% endif %}>07 - Gastos Financieros</option>
+                        <option value="08" {% if expense_data.get('tipoGastoDGII') == '08' %}selected{% endif %}>08 - Gastos Extraordinarios</option>
+                        <option value="09" {% if expense_data.get('tipoGastoDGII') == '09' %}selected{% endif %}>09 - Compras y Gastos que Formarán Parte del Costo de Venta</option>
+                        <option value="10" {% if expense_data.get('tipoGastoDGII') == '10' %}selected{% endif %}>10 - Adquisiciones de Activos</option>
+                        <option value="11" {% if expense_data.get('tipoGastoDGII') == '11' %}selected{% endif %}>11 - Gastos de Seguros</option>
+                    </select>
+                </div>
+            </div>
+
             <div class="inp-row">
                 <div class="inp-group wide">
                     <label for="notes">Notas de egreso</label>
@@ -683,6 +705,28 @@
         contactDropdown.classList.remove('open');
     }
 
+    document.getElementById('minor-form').addEventListener('submit', function(e) {
+        const firstConcept = document.querySelector('input[name="account_items[0][concept]"]');
+        if (!firstConcept || !firstConcept.value.trim()) {
+            e.preventDefault();
+            const firstRow = document.querySelector('.accounting-row');
+            if (firstRow) {
+                firstRow.style.boxShadow = 'inset 0 0 0 2px #ef4444';
+                firstRow.querySelector('.item-concept')?.focus();
+                setTimeout(() => firstRow.style.boxShadow = '', 3000);
+            }
+            const existing = document.getElementById('concept-validation-msg');
+            if (!existing) {
+                const msg = document.createElement('div');
+                msg.id = 'concept-validation-msg';
+                msg.style.cssText = 'padding:12px 16px;margin-bottom:16px;border-radius:8px;background:rgba(239,68,68,0.08);color:#ef4444;border:1px solid rgba(239,68,68,0.2);font-size:0.82rem;display:flex;align-items:center;gap:8px;';
+                msg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Debe agregar al menos un concepto en la primera línea.';
+                const form = document.getElementById('minor-form');
+                form.insertBefore(msg, form.firstChild);
+                setTimeout(() => msg.remove(), 5000);
+            }
+        }
+    });
 </script>
 
 {% include 'components/_attachment_panel.html' %}

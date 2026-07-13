@@ -3,6 +3,16 @@
 {% block page_header %}Editar Factura Proveedor{% endblock %}
 
 {% block content %}
+<style>
+    {% include 'components/_accordion_css.html' %}
+
+    .actions-bar { display:flex; justify-content:flex-end; align-items:center; gap:12px; padding-top:8px; }
+    .actions-bar .btn { padding:10px 24px; font-size:0.85rem; }
+
+    .help-banner { background:rgba(59,130,246,0.05); border:1px solid rgba(59,130,246,0.15); border-radius:var(--radius-sm); padding:14px 18px; font-size:0.78rem; color:var(--text-secondary); line-height:1.5; margin-bottom:20px; }
+    .help-banner i { color:var(--accent-blue); margin-right:6px; }
+</style>
+
 <div class="page-title-container" style="margin-bottom:24px; padding-left:4px; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
     <div>
         <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
@@ -20,33 +30,91 @@
     </div>
 </div>
 
-<div class="card-form-body" style="padding:24px; max-width:600px;">
+<div style="max-width:850px; margin:0 auto 50px auto; width:100%;">
+
+    <div class="help-banner">
+        <i class="fa-solid fa-circle-info"></i>
+        Solo puedes modificar fechas y notas. Los montos, NCF e items no se pueden editar.
+    </div>
+
     <form method="POST">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="form-group" style="margin-bottom:16px;">
-            <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">
-                Fecha de Emisión
-            </label>
-            <input type="date" name="date" class="form-input" value="{{ (invoice.date or '')[:10] }}" style="width:100%;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="settings-accordion">
+
+            <!-- SECCIÓN 1: FECHAS -->
+            <div class="accordion-item active" id="sec-fechas">
+                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                    <div class="accordion-title">
+                        <i class="fa-solid fa-calendar" style="color:var(--accent-blue);"></i>
+                        <span>1. Fechas</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                </button>
+                <div class="accordion-content" style="max-height:none;">
+                    <div class="accordion-body">
+                        <div class="form-inner-grid">
+                            <div class="form-group">
+                                <label for="date" style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">
+                                    Fecha de Emisión
+                                </label>
+                                <input type="date" id="date" name="date" class="form-input" value="{{ (invoice.date or '')[:10] }}" style="width:100%;">
+                            </div>
+                            <div class="form-group">
+                                <label for="dueDate" style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">
+                                    Fecha de Vencimiento
+                                </label>
+                                <input type="date" id="dueDate" name="dueDate" class="form-input" value="{{ (invoice.dueDate or '')[:10] }}" style="width:100%;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN 2: NOTAS -->
+            <div class="accordion-item" id="sec-notas">
+                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                    <div class="accordion-title">
+                        <i class="fa-solid fa-comment" style="color:var(--text-muted);"></i>
+                        <span>2. Notas</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                </button>
+                <div class="accordion-content">
+                    <div class="accordion-body">
+                        <div class="form-group">
+                            <label for="notes" style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">
+                                Notas
+                            </label>
+                            <textarea id="notes" name="notes" class="form-textarea" rows="4" style="width:100%; resize:vertical;">{{ invoice.notes or '' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
-        <div class="form-group" style="margin-bottom:16px;">
-            <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">
-                Fecha de Vencimiento
-            </label>
-            <input type="date" name="dueDate" class="form-input" value="{{ (invoice.dueDate or '')[:10] }}" style="width:100%;">
+
+        <div class="actions-bar">
+            <a href="{{ url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice.id) }}" class="btn btn-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-primary" style="background:var(--accent-purple);border-color:var(--accent-purple);color:#fff;">
+                <i class="fa-solid fa-save"></i> Guardar Cambios
+            </button>
         </div>
-        <div class="form-group" style="margin-bottom:20px;">
-            <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">
-                Notas
-            </label>
-            <textarea name="notes" class="form-input" rows="4" style="width:100%; resize:vertical;">{{ invoice.notes or '' }}</textarea>
-        </div>
-        <div style="color:var(--text-muted); font-size:0.78rem; margin-bottom:16px;">
-            <i class="fa-solid fa-info-circle"></i> Solo puedes modificar fechas y notas. Los montos, NCF e items no se pueden editar.
-        </div>
-        <button type="submit" class="btn btn-primary">
-            <i class="fa-solid fa-save"></i> Guardar Cambios
-        </button>
     </form>
 </div>
+
+<script>
+    function toggleAccordionSection(header) {
+        const item = header.parentElement;
+        const content = item.querySelector('.accordion-content');
+        const isActive = item.classList.contains('active');
+        if (isActive) {
+            item.classList.remove('active');
+            content.style.maxHeight = null;
+        } else {
+            item.classList.add('active');
+            content.style.maxHeight = content.scrollHeight + 'px';
+        }
+    }
+</script>
 {% endblock %}

@@ -1096,6 +1096,24 @@
             window.history.replaceState({}, '', newUrl);
         }
     })();
+
+    document.getElementById('payment-form').addEventListener('submit', function(e) {
+        const firstConcept = document.querySelector('input[name="account_items[0][concept]"]');
+        if (!firstConcept || !firstConcept.value.trim()) {
+            e.preventDefault();
+            const firstRow = document.querySelector('.accounting-row');
+            if (firstRow) {
+                firstRow.style.boxShadow = 'inset 0 0 0 2px #ef4444';
+                firstRow.querySelector('.item-concept')?.focus();
+                setTimeout(() => firstRow.style.boxShadow = '', 3000);
+            }
+            if (typeof showPremiumToast === 'function') {
+                showPremiumToast({ title: 'Concepto requerido', message: 'Debe agregar al menos un concepto en la primera línea.', icon: 'fa-solid fa-circle-exclamation', color: '#ef4444' });
+            } else {
+                alert('Debe agregar al menos un concepto en la primera línea.');
+            }
+        }
+    });
 </script>
 
 <div class="search-modal" id="ocr-upload-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;align-items:center;justify-content:center;z-index:1100;" onclick="if(event.target===this)closeOcrModal()">
