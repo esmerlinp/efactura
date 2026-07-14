@@ -530,7 +530,11 @@ def _cached_invoices(owner_uid, sandbox, quotations_only, include_all):
                     "pendingPaymentProof": data.get("pendingPaymentProof"),
                     "isProfessional": data.get("isProfessional", False),
                     "professionalData": data.get("professionalData", {}),
-                    "registeredBy": data.get("registeredBy", "")
+                    "registeredBy": data.get("registeredBy", ""),
+                    "includeInRui": bool(data.get("includeInRui", True)),
+                    "ruiId": data.get("ruiId", ""),
+                    "ruiNcf": data.get("ruiNcf", ""),
+                    "excludeFromRuiReason": data.get("excludeFromRuiReason", "")
                 })
             invoices.sort(key=lambda x: x["date"] or "", reverse=True)
         except Exception as e:
@@ -2099,12 +2103,33 @@ class DatabaseService:
         """
         Bloquea y consume el siguiente consecutivo de una secuencia fiscal en Firestore.
         Garantiza consistencia mutua usando transacciones nativas de Firestore.
+        Valida período fiscal abierto y fecha de expiración de la secuencia.
         """
         if not firebase_initialized:
             raise RuntimeError("El SDK de Firebase Admin no está inicializado.")
 
         coll_seq = "sandbox_sequences" if sandbox else "sequences"
         coll_log = "sandbox_sequence_logs" if sandbox else "sequence_logs"
+
+        # Validar que exista un período fiscal abierto para el mes actual
+        try:
+            from app.services.fiscal_period_service import FiscalPeriodService
+            fiscal_periods = FiscalPeriodService.list_periods(owner_uid)
+            today = datetime.now(timezone.utc)
+            period_key = f"{today.year}-{today.month:02d}"
+            period_open = any(
+                p.get("id", "") == period_key and p.get("status") == "open"
+                for p in fiscal_periods
+            )
+            if fiscal_periods and not period_open:
+                raise ValueError(
+                    f"El período fiscal {period_key} no está abierto. "
+                    "No se pueden emitir comprobantes hasta que se abra el período."
+                )
+        except ValueError:
+            raise
+        except Exception:
+            pass  # Si falla la validación de período, continuar (no blocker)
 
         transaction = db_firestore.transaction()
 
@@ -2465,7 +2490,11 @@ class DatabaseService:
                         "isProfessional": data.get("isProfessional", False),
                         "professionalData": data.get("professionalData", {}),
                         "registeredBy": data.get("registeredBy", ""),
-                        "signatureInfo": data.get("signatureInfo")
+                        "signatureInfo": data.get("signatureInfo"),
+                        "includeInRui": bool(data.get("includeInRui", True)),
+                        "ruiId": data.get("ruiId", ""),
+                        "ruiNcf": data.get("ruiNcf", ""),
+                        "excludeFromRuiReason": data.get("excludeFromRuiReason", "")
                     }
             except Exception as e:
                 print(f"⚠️ Error al obtener factura por ID desde Firestore: {e}")
@@ -2835,6 +2864,7 @@ class DatabaseService:
             # Registrar el abono en la subcolección
             payment_id = payment_dict.get("id") or str(uuid.uuid4())
             payment_dict["id"] = payment_id
+            payment_dict["ownerUID"] = owner_uid
             if "paymentDate" not in payment_dict or not payment_dict["paymentDate"]:
                 payment_dict["paymentDate"] = datetime.now(timezone.utc).isoformat()
             payment_dict["paymentDate"] = serialize_field(payment_dict["paymentDate"])
@@ -3288,7 +3318,7 @@ class DatabaseService:
         return exp_dict
 
     @classmethod
-    def save_cxp_payment(cls, owner_uid, expense_id, payment_amount, registered_by="Usuario", sandbox=True):
+    def save_cxp_payment(cls, owner_uid, expense_id, payment_amount, registered_by="Usuario", bank_account_id=None, sandbox=True):
         """Registra un abono/pago a una cuenta por pagar (gasto a crédito)."""
         if not firebase_initialized:
             return False, "Firebase no inicializado."
@@ -3312,7 +3342,9 @@ class DatabaseService:
                 "id": payment_id,
                 "amount": payment_amount,
                 "paymentDate": datetime.now(timezone.utc).isoformat(),
-                "registeredBy": registered_by
+                "registeredBy": registered_by,
+                "ownerUID": owner_uid,
+                "bankAccountId": bank_account_id or ""
             }
             doc_ref.collection("cxp_payments").document(payment_id).set(payment_doc)
             
@@ -3341,7 +3373,8 @@ class DatabaseService:
                         "id": doc.id,
                         "amount": float(data.get("amount", 0.0)),
                         "paymentDate": data.get("paymentDate", ""),
-                        "registeredBy": data.get("registeredBy", "")
+                        "registeredBy": data.get("registeredBy", ""),
+                        "bankAccountId": data.get("bankAccountId", "")
                     })
                 payments.sort(key=lambda x: x["paymentDate"], reverse=True)
             except Exception as e:
@@ -4924,6 +4957,206 @@ class DatabaseService:
             print(f"⚠️ Error al actualizar configuración de caja: {e}")
 
     @classmethod
+    def get_rui_eligible_invoices(cls, owner_uid, business_date, sandbox=True):
+        """Retorna facturas elegibles para RUI en una fecha fiscal específica.
+        Elegible = Cobrada, includeInRui=True, ruiId vacío, consumidor final, no notas."""
+        invoices = []
+        if not firebase_initialized:
+            return invoices
+        try:
+            coll = "sandbox_invoices" if sandbox else "invoices"
+            business_prefix = str(business_date)[:10]
+            docs = db_firestore.collection("users").document(owner_uid).collection(coll)\
+                .where(filter=firestore.FieldFilter("status", "==", "Cobrada"))\
+                .get()
+            for doc in docs:
+                data = doc.to_dict()
+                inv_date = (data.get("date") or data.get("createdAt") or "")[:10]
+                if inv_date != business_prefix:
+                    continue
+                if data.get("ruiId"):
+                    continue
+                if not data.get("includeInRui", True):
+                    continue
+                rnc = (data.get("clientRNC") or "").strip()
+                client_id = data.get("clientId") or ""
+                is_final = (not rnc or rnc == "000000000" or client_id == "default")
+                if not is_final:
+                    continue
+                ecf = data.get("ecfType", "")
+                if "Nota de Crédito" in ecf or "Nota de Débito" in ecf:
+                    continue
+                if data.get("isQuotation"):
+                    continue
+                invoices.append(data)
+        except Exception as e:
+            print(f"⚠️ Error al obtener facturas elegibles para RUI: {e}")
+        return invoices
+
+    @classmethod
+    def get_fiscal_summary_document(cls, owner_uid, doc_id, sandbox=True):
+        """Obtiene un documento de resumen fiscal (RUI) por ID."""
+        if not firebase_initialized:
+            return None
+        try:
+            coll = "sandbox_rui_summaries" if sandbox else "rui_summaries"
+            doc = db_firestore.collection("users").document(owner_uid).collection(coll).document(doc_id).get()
+            if doc.exists:
+                data = doc.to_dict()
+                data["id"] = doc.id
+                return data
+        except Exception as e:
+            print(f"⚠️ Error al obtener documento RUI {doc_id}: {e}")
+        return None
+
+    @classmethod
+    def get_fiscal_summary_documents(cls, owner_uid, sandbox=True, document_type=None, estado=None, business_date=None, date_from=None, date_to=None, limit_results=100):
+        """Obtiene lista de documentos de resumen fiscal (RUI) con filtros opcionales."""
+        results = []
+        if not firebase_initialized:
+            return results
+        try:
+            coll = "sandbox_rui_summaries" if sandbox else "rui_summaries"
+            col_ref = db_firestore.collection("users").document(owner_uid).collection(coll)
+            query = col_ref.order_by("businessDate", direction=firestore.Query.DESCENDING).limit(limit_results)
+            docs = query.get()
+            for doc in docs:
+                data = doc.to_dict()
+                data["id"] = doc.id
+                if document_type and data.get("documentType") != document_type:
+                    continue
+                if estado and data.get("estado") != estado:
+                    continue
+                if business_date:
+                    bd = str(data.get("businessDate", ""))[:10]
+                    if bd != str(business_date)[:10]:
+                        continue
+                if date_from and (data.get("businessDate") or "")[:10] < str(date_from)[:10]:
+                    continue
+                if date_to and (data.get("businessDate") or "")[:10] > str(date_to)[:10]:
+                    continue
+                results.append(data)
+        except Exception as e:
+            print(f"⚠️ Error al obtener documentos RUI: {e}")
+        return results
+
+    @classmethod
+    def save_fiscal_summary_document(cls, owner_uid, doc_dict, sandbox=True):
+        """Guarda o actualiza un documento de resumen fiscal (RUI).
+        Usa ID determinista RUI_{ownerUID}_{businessDate} para unicidad transaccional."""
+        doc_id = doc_dict.get("id")
+        if not doc_id:
+            business_date = str(doc_dict.get("businessDate", ""))[:10]
+            doc_id = f"RUI_{owner_uid}_{business_date}"
+            doc_dict["id"] = doc_id
+        doc_dict["ownerUID"] = owner_uid
+        if "createdAt" not in doc_dict or not doc_dict["createdAt"]:
+            doc_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
+        doc_dict["updatedAt"] = datetime.now(timezone.utc).isoformat()
+        if firebase_initialized:
+            try:
+                coll = "sandbox_rui_summaries" if sandbox else "rui_summaries"
+                doc_ref = db_firestore.collection("users").document(owner_uid).collection(coll).document(doc_id)
+                doc_ref.set(doc_dict)
+                return doc_dict
+            except Exception as e:
+                print(f"⚠️ Error al guardar documento RUI: {e}")
+                return None
+        return doc_dict
+
+    @classmethod
+    def cancel_fiscal_summary_document(cls, owner_uid, doc_id, cancelled_by, cancelled_by_email, cancel_reason, replacement_rui_id="", sandbox=True):
+        """Anula un documento RUI con trazabilidad completa."""
+        if not firebase_initialized:
+            return None
+        try:
+            coll = "sandbox_rui_summaries" if sandbox else "rui_summaries"
+            doc_ref = db_firestore.collection("users").document(owner_uid).collection(coll).document(doc_id)
+            doc = doc_ref.get()
+            if not doc.exists:
+                return None
+            updates = {
+                "estado": "ANULADO",
+                "cancelledBy": cancelled_by,
+                "cancelledByEmail": cancelled_by_email,
+                "cancelledAt": datetime.now(timezone.utc).isoformat(),
+                "cancelReason": cancel_reason,
+                "updatedAt": datetime.now(timezone.utc).isoformat()
+            }
+            if replacement_rui_id:
+                updates["replacementRuiId"] = replacement_rui_id
+            doc_ref.update(updates)
+            updates["id"] = doc_id
+            return updates
+        except Exception as e:
+            print(f"⚠️ Error al anular documento RUI {doc_id}: {e}")
+            return None
+
+    @classmethod
+    def mark_invoices_as_rui_included(cls, owner_uid, invoice_ids, rui_id, rui_ncf, sandbox=True):
+        """Batch: marca facturas como incluidas en un RUI."""
+        if not firebase_initialized or not invoice_ids:
+            return False
+        try:
+            coll = "sandbox_invoices" if sandbox else "invoices"
+            batch = db_firestore.batch()
+            now = datetime.now(timezone.utc).isoformat()
+            for inv_id in invoice_ids:
+                ref = db_firestore.collection("users").document(owner_uid).collection(coll).document(inv_id)
+                batch.update(ref, {
+                    "ruiId": rui_id,
+                    "ruiNcf": rui_ncf,
+                    "includeInRui": False,
+                    "ruiIncludedAt": now,
+                    "updatedAt": now,
+                })
+            batch.commit()
+            return True
+        except Exception as e:
+            print(f"⚠️ Error al marcar facturas como incluidas en RUI: {e}")
+            return False
+
+    @classmethod
+    def release_invoices_from_rui(cls, owner_uid, rui_id, sandbox=True):
+        """Libera facturas de un RUI anulado (resetea ruiId, ruiNcf)."""
+        if not firebase_initialized:
+            return False
+        try:
+            coll = "sandbox_invoices" if sandbox else "invoices"
+            docs = db_firestore.collection("users").document(owner_uid).collection(coll)\
+                .where(filter=firestore.FieldFilter("ruiId", "==", rui_id)).get()
+            batch = db_firestore.batch()
+            now = datetime.now(timezone.utc).isoformat()
+            for doc in docs:
+                ref = db_firestore.collection("users").document(owner_uid).collection(coll).document(doc.id)
+                batch.update(ref, {
+                    "ruiId": "",
+                    "ruiNcf": "",
+                    "includeInRui": True,
+                    "ruiIncludedAt": "",
+                    "updatedAt": now,
+                })
+            batch.commit()
+            return True
+        except Exception as e:
+            print(f"⚠️ Error al liberar facturas de RUI {rui_id}: {e}")
+            return False
+
+    @classmethod
+    def get_rui_invoice_count(cls, owner_uid, rui_id, sandbox=True):
+        """Retorna la cantidad de facturas incluidas en un RUI."""
+        if not firebase_initialized:
+            return 0
+        try:
+            coll = "sandbox_invoices" if sandbox else "invoices"
+            docs = db_firestore.collection("users").document(owner_uid).collection(coll)\
+                .where(filter=firestore.FieldFilter("ruiId", "==", rui_id)).get()
+            return len(docs)
+        except Exception as e:
+            print(f"⚠️ Error al contar facturas en RUI {rui_id}: {e}")
+            return 0
+
+    @classmethod
     def save_payment_promise(cls, owner_uid, promise_id, promise_dict, sandbox=True):
         """Guarda o actualiza una promesa de pago en Firestore."""
         promise_dict["id"] = promise_id
@@ -5598,6 +5831,7 @@ class DatabaseService:
                         "currentBalance": float(data.get("currentBalance", 0.0)),
                         "creditLimit": float(data.get("creditLimit", 0.0)),
                         "description": data.get("description", ""),
+                        "accountingAccountId": data.get("accountingAccountId", ""),
                         "createdAt": serialize_field(data.get("createdAt")),
                         "updatedAt": serialize_field(data.get("updatedAt"))
                     })
@@ -5633,6 +5867,7 @@ class DatabaseService:
                         "currentBalance": float(data.get("currentBalance", 0.0)),
                         "creditLimit": float(data.get("creditLimit", 0.0)),
                         "description": data.get("description", ""),
+                        "accountingAccountId": data.get("accountingAccountId", ""),
                         "createdAt": serialize_field(data.get("createdAt")),
                         "updatedAt": serialize_field(data.get("updatedAt"))
                     }
@@ -5658,6 +5893,7 @@ class DatabaseService:
         account_dict["currentBalance"] = float(account_dict.get("currentBalance", account_dict["initialBalance"]))
         account_dict["creditLimit"] = float(account_dict.get("creditLimit", 0.0))
         account_dict["description"] = account_dict.get("description", "")
+        account_dict["accountingAccountId"] = account_dict.get("accountingAccountId", "")
         account_dict["createdAt"] = serialize_field(account_dict["createdAt"])
         account_dict["updatedAt"] = serialize_field(account_dict["updatedAt"])
 

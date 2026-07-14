@@ -9,7 +9,14 @@ def get_ecf_type_number_code(ecf_type):
     if "E45" in ecf_type: return "45"
     if "E46" in ecf_type: return "46"
     if "E47" in ecf_type: return "47"
+    if "E48" in ecf_type: return "48"
+    if "E49" in ecf_type: return "49"
+    if "E50" in ecf_type: return "50"
+    if "B12" in ecf_type: return "12"
     return "32"
 
 def get_ecf_type_short_code(ecf_type):
     return f"E{get_ecf_type_number_code(ecf_type)}"
+
+def is_ncf_type_rui(ecf_type_or_ncf):
+    return "B12" in ecf_type_or_ncf or ecf_type_or_ncf == "12"

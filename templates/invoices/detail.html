@@ -1069,6 +1069,38 @@
                     <i class="fa-solid fa-building-columns"></i>
                     <span>Emitir como Crédito Fiscal (E31)</span>
                 </button>
+
+                <button type="button"
+                    onclick="confirmConvert('Comprobante Gubernamental (E45)')"
+                    class="btn btn-secondary"
+                    style="width:100%; border-color: var(--accent-blue); color: var(--accent-blue);">
+                    <i class="fa-solid fa-government"></i>
+                    <span>Emitir como Gubernamental (E45)</span>
+                </button>
+
+                <button type="button"
+                    onclick="confirmConvert('Comprobante de Exportación (E46)')"
+                    class="btn btn-secondary"
+                    style="width:100%; border-color: var(--accent-cyan); color: var(--accent-cyan);">
+                    <i class="fa-solid fa-ship"></i>
+                    <span>Emitir como Exportación (E46)</span>
+                </button>
+
+                <button type="button"
+                    onclick="confirmConvert('Factura Clientes del Exterior (E48)')"
+                    class="btn btn-secondary"
+                    style="width:100%; border-color: var(--accent-purple); color: var(--accent-purple);">
+                    <i class="fa-solid fa-globe"></i>
+                    <span>Emitir como Cliente Exterior (E48)</span>
+                </button>
+
+                <button type="button"
+                    onclick="confirmConvert('Operaciones Zonas Francas (E49)')"
+                    class="btn btn-secondary"
+                    style="width:100%; border-color: var(--accent-gold); color: var(--accent-gold);">
+                    <i class="fa-solid fa-industry"></i>
+                    <span>Emitir como Zona Franca (E49)</span>
+                </button>
             </form>
 
             <div
@@ -1076,7 +1108,9 @@
                 <p style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.4; margin: 0; text-align: left;">
                     <strong style="color: var(--accent-purple);">📋 Requerimientos DGII:</strong><br>
                     • <strong>E31</strong> siempre requiere RNC/Cédula del cliente.<br>
-                    • <strong>E32</strong> requiere RNC si el monto supera RD$ 250,000.
+                    • <strong>E32</strong> requiere RNC si el monto supera RD$ 250,000.<br>
+                    • <strong>E45</strong> requiere RNC del gobierno (9 dígitos).<br>
+                    • <strong>E46</strong> requiere RNC o pasaporte del cliente exportador.
                 </p>
             </div>
         </div>

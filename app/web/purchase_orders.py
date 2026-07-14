@@ -12,6 +12,7 @@ from app.services.purchase_credit_note_service import PurchaseCreditNoteService
 from app.utils.decorators import check_permission
 from app.services.audit_service import AuditService, ACTION_CREATE, ACTION_UPDATE, ACTION_DELETE
 from app.web.invoices import format_mentions, _get_taggable_users, process_resource_comment_mentions
+from app.models.fiscal_document_type import by_code as _by_code
 
 try:
     from weasyprint import HTML as WeasyprintHTML
@@ -920,7 +921,7 @@ def new_supplier_invoice_direct():
         ncf = request.form.get('ncf', '').strip()
         inv_date = request.form.get('date', datetime.now(timezone.utc).strftime('%Y-%m-%d'))
         due_date = request.form.get('dueDate', '')
-        ecf_type = request.form.get('ecfType', 'E31')
+        ecf_type = request.form.get('ecfType', _by_code("E31").code)
 
         today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
         if inv_date > today_str:
@@ -1055,7 +1056,44 @@ def new_supplier_invoice_direct():
             "projectId": request.form.get('projectId') or g.get('project_id'),
         }
 
-        SupplierInvoiceService.create(owner_uid, inv_data, sandbox=sandbox)
+        inv_data["id"] = SupplierInvoiceService.create(owner_uid, inv_data, sandbox=sandbox)["id"]
+
+        # ── Generate accounting entry ──
+        try:
+            from app.services.accounting_service import AccountingService
+            account_items = []
+            for item in inv_data.get("items", []):
+                line_value = (float(item.get("quantity", 0)) * float(item.get("unitPrice", 0)))
+                line_disc = line_value * (float(item.get("discount", 0)) / 100.0)
+                account_items.append({
+                    "concept_id": item.get("accountingAccountId", ""),
+                    "concept": item.get("name", ""),
+                    "value": round(line_value - line_disc, 2),
+                    "quantity": float(item.get("quantity", 0)),
+                    "tax": float(item.get("itbisRate", 0)),
+                    "total": float(item.get("total", 0)),
+                })
+            expense_dict = {
+                "id": inv_data["id"],
+                "providerName": inv_data.get("supplierName", ""),
+                "supplierName": inv_data.get("supplierName", ""),
+                "concept": f"Compra {inv_data.get('supplierInvoiceNumber', '')} - {inv_data.get('supplierName', '')}",
+                "ncf": inv_data.get("ncf", ""),
+                "amount": float(inv_data.get("total", 0)),
+                "total": float(inv_data.get("total", 0)),
+                "itbisAmount": float(inv_data.get("itbis", 0)),
+                "itbis": float(inv_data.get("itbis", 0)),
+                "date": inv_data.get("date", ""),
+                "paymentType": inv_data.get("paymentType", "Contado"),
+                "bankAccountId": inv_data.get("bankAccountId", ""),
+                "retainedISR": float(inv_data.get("retainedISR", 0)),
+                "retainedITBIS": float(inv_data.get("retainedITBIS", 0)),
+                "accountItems": account_items,
+                "isCost": False,
+            }
+            AccountingService.auto_generate_expense_entry(owner_uid, expense_dict, sandbox=sandbox)
+        except Exception as acc_err:
+            print(f"Error al generar asiento contable de factura proveedor: {acc_err}")
 
         # ── File upload after save (non-blocking with timeout) ──
         file_upload_error = None
@@ -1253,7 +1291,43 @@ def register_supplier_invoice(po_id):
             "createdBy": session['user'].get('displayName', 'Usuario'),
         }
 
-        SupplierInvoiceService.create(owner_uid, inv_data, sandbox=sandbox)
+        inv_data["id"] = SupplierInvoiceService.create(owner_uid, inv_data, sandbox=sandbox)["id"]
+
+        # ── Generate accounting entry ──
+        try:
+            from app.services.accounting_service import AccountingService
+            account_items = []
+            for item in inv_data.get("items", []):
+                line_value = (float(item.get("quantity", 0)) * float(item.get("unitPrice", 0)))
+                line_disc = line_value * (float(item.get("discount", 0)) / 100.0)
+                account_items.append({
+                    "concept_id": "",
+                    "concept": item.get("itemName", ""),
+                    "value": round(line_value - line_disc, 2),
+                    "quantity": float(item.get("quantity", 0)),
+                    "tax": float(item.get("itbisRate", 0)),
+                    "total": float(item.get("total", 0)),
+                })
+            expense_dict = {
+                "id": inv_data["id"],
+                "providerName": inv_data.get("supplierName", ""),
+                "supplierName": inv_data.get("supplierName", ""),
+                "concept": f"Compra {inv_data.get('supplierInvoiceNumber', '')} - {inv_data.get('supplierName', '')}",
+                "ncf": inv_data.get("ncf", ""),
+                "amount": float(inv_data.get("total", 0)),
+                "total": float(inv_data.get("total", 0)),
+                "itbisAmount": float(inv_data.get("itbis", 0)),
+                "itbis": float(inv_data.get("itbis", 0)),
+                "date": inv_data.get("date", ""),
+                "paymentType": "Crédito",
+                "retainedISR": 0.0,
+                "retainedITBIS": 0.0,
+                "accountItems": account_items,
+                "isCost": True,
+            }
+            AccountingService.auto_generate_expense_entry(owner_uid, expense_dict, sandbox=sandbox)
+        except Exception as acc_err:
+            print(f"Error al generar asiento contable de factura desde OC: {acc_err}")
 
         # ── File upload after save (non-blocking with timeout) ──
         file_upload_error = None
@@ -1327,7 +1401,7 @@ def supplier_invoice_detail(invoice_id):
     linked_entry = None
     all_entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox)
     for e in all_entries:
-        if e.get("status") != "voided" and e.get("referenceType") == "supplier_invoice" and e.get("referenceId") == invoice_id:
+        if e.get("status") != "voided" and e.get("referenceId") == invoice_id and e.get("referenceType") in ("supplier_invoice", "expense"):
             linked_entry = e
             break
 

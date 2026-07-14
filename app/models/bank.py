@@ -15,6 +15,7 @@ class BankAccount(BaseModel):
     currentBalance: float = 0.0
     creditLimit: float = 0.0
     description: str = ""
+    accountingAccountId: str = ""
     createdAt: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updatedAt: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 

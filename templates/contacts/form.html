@@ -265,11 +265,11 @@
                     </div>
                     <div class="form-group">
                         <label>e-CF que Emite</label>
-                        <select name="ecfTypeEmits" class="form-input">
-                            <option value="E31" {% if not contact or contact.ecfTypeEmits == 'E31' %}selected{% endif %}>E31 (Factura de Crédito)</option>
-                            <option value="E33" {% if contact and contact.ecfTypeEmits == 'E33' %}selected{% endif %}>E33 (Nota de Débito)</option>
-                            <option value="E34" {% if contact and contact.ecfTypeEmits == 'E34' %}selected{% endif %}>E34 (Nota de Crédito)</option>
-                        </select>
+<select name="ecfTypeEmits" class="form-input">
+    {% for t in ecf_types %}{% if t.code in ('E31', 'E33', 'E34') %}
+    <option value="{{ t.code }}" {% if not contact or contact.ecfTypeEmits == t.code %}selected{% endif %}>{{ t.code }} ({{ t.short_label }})</option>
+    {% endif %}{% endfor %}
+</select>
                     </div>
                     <div class="form-group">
                         <label>Tipo de Gasto DGII</label>

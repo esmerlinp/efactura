@@ -80,13 +80,13 @@
             {% set st = invoice.cxpStatus|default('Pendiente') %}
 
             {% if invoice.ecfType == 'E41' %}
-            <span class="badge-pill badge-purple"><i class="fa-solid fa-store"></i> E41 – Compra Suplidor</span>
+            <span class="badge-pill badge-purple"><i class="fa-solid fa-store"></i> E41/B06 – Comprobante de Compras</span>
             {% elif invoice.ecfType == 'E43' %}
-            <span class="badge-pill badge-amber"><i class="fa-solid fa-receipt"></i> E43 – Gastos Menores</span>
+            <span class="badge-pill badge-amber"><i class="fa-solid fa-receipt"></i> E43/B07 – Gastos Menores</span>
             {% elif invoice.ecfType == 'E31' %}
-            <span class="badge-pill badge-blue"><i class="fa-solid fa-file-invoice"></i> E31 – Crédito Fiscal</span>
+            <span class="badge-pill badge-blue"><i class="fa-solid fa-file-invoice"></i> E31/B01 – Crédito Fiscal</span>
             {% elif invoice.ecfType == 'E47' %}
-            <span class="badge-pill badge-purple"><i class="fa-solid fa-globe"></i> E47 – Pago al Exterior</span>
+            <span class="badge-pill badge-purple"><i class="fa-solid fa-globe"></i> E47/B10 – Pago al Exterior</span>
             {% elif invoice.ecfType %}
             <span class="badge-pill badge-gray"><i class="fa-solid fa-stamp"></i> {{ invoice.ecfType }}</span>
             {% endif %}
@@ -278,12 +278,12 @@
         <div class="field-row">
             <span class="field-label">Tipo e-CF</span>
             <span class="field-value">
-                {% if invoice.ecfType == 'E31' %}E31 – Factura de Crédito Fiscal Electrónica
-                {% elif invoice.ecfType == 'E32' %}E32 – Factura de Consumo Electrónica
-                {% elif invoice.ecfType == 'E41' %}E41 – Comprobante de Compras Electrónico
-                {% elif invoice.ecfType == 'E43' %}E43 – Gastos Menores Electrónicos
-                {% elif invoice.ecfType == 'E45' %}E45 – Comprobante Gubernamental Electrónico
-                {% elif invoice.ecfType == 'E47' %}E47 – Comprobante Pagos al Exterior
+                {% if invoice.ecfType == 'E31' %}E31/B01 – Factura de Crédito Fiscal
+                {% elif invoice.ecfType == 'E32' %}E32/B02 – Factura de Consumo
+                {% elif invoice.ecfType == 'E41' %}E41/B06 – Comprobante de Compras
+                {% elif invoice.ecfType == 'E43' %}E43/B07 – Gastos Menores
+                {% elif invoice.ecfType == 'E45' %}E45/B08 – Gubernamental
+                {% elif invoice.ecfType == 'E47' %}E47/B10 – Pagos al Exterior
                 {% else %}{{ invoice.ecfType or '—' }}{% endif %}
             </span>
         </div>

@@ -176,7 +176,7 @@
                 <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
                     <div class="accordion-title">
                         <i class="fa-solid fa-stamp" style="color:var(--accent-blue);"></i>
-                        <span>2. Datos del Comprobante Fiscal (e-CF)</span>
+                        <span>2. Datos del Comprobante Fiscal</span>
                     </div>
                     <i class="fa-solid fa-chevron-down accordion-chevron"></i>
                 </button>
@@ -184,15 +184,18 @@
                     <div class="accordion-body">
                         <div class="form-inner-grid">
                             <div class="form-group">
-                                <label for="ecfType">Tipo de Comprobante e-CF</label>
+                                <label for="ecfType">Tipo de Comprobante</label>
                                 <select id="ecfType" name="ecfType" class="form-select" style="width:100%;">
-                                    <option value="E31" selected>E31 - Factura de Crédito Fiscal</option>
-                                    <option value="E32">E32 - Factura de Consumo</option>
-                                    <option value="E41">E41 - Comprobante de Compras</option>
-                                    <option value="E43">E43 - Gastos Menores</option>
-                                    <option value="E45">E45 - Comprobante Gubernamental</option>
-                                    <option value="E47">E47 - Pagos al Exterior</option>
+                                    <option value="E31" selected>E31 / B01 — Factura de Crédito Fiscal</option>
+                                    <option value="E32">E32 / B02 — Factura de Consumo</option>
+                                    <option value="E41">E41 / B06 — Comprobante de Compras <span style="color:#d97706;font-weight:600;">(Tipo B)</span></option>
+                                    <option value="E43">E43 / B07 — Gastos Menores</option>
+                                    <option value="E45">E45 / B08 — Gubernamental</option>
+                                    <option value="E47">E47 / B10 — Pagos al Exterior</option>
                                 </select>
+                                <small style="color:var(--text-muted);font-size:0.7rem;margin-top:4px;display:block;">
+                                    💡 Para compras a <strong>proveedores informales</strong> selecciona <strong>E41/B06 — Comprobante de Compras</strong> (Tipo B en el Reporte 606).
+                                </small>
                             </div>
 
                             <div class="form-group">

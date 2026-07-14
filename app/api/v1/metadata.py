@@ -61,7 +61,11 @@ def get_catalogs():
         {"code": "E44", "label": "Regímenes Especiales (E44)", "description": "Regímenes Especiales (E44)"},
         {"code": "E45", "label": "Gubernamental (E45)", "description": "Gubernamental (E45)"},
         {"code": "E46", "label": "Exportación (E46)", "description": "Comprobante de Exportación (E46)"},
-        {"code": "E47", "label": "Pagos al Exterior (E47)", "description": "Pagos al Exterior (E47)"}
+        {"code": "E47", "label": "Pagos al Exterior (E47)", "description": "Pagos al Exterior (E47)"},
+        {"code": "E48", "label": "Factura Clientes del Exterior (E48)", "description": "Factura para Clientes del Exterior (E48)"},
+        {"code": "E49", "label": "Operaciones Zonas Francas (E49)", "description": "Operaciones de Zonas Francas (E49)"},
+        {"code": "E50", "label": "Comprobante de Retención (E50)", "description": "Comprobante de Retención — pendiente de habilitación DGII"},
+        {"code": "B12", "label": "RUI - Registro Único de Ingresos (B12)", "description": "Comprobante Registro Único de Ingresos"}
     ]
     
     return jsonify({

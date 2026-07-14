@@ -60,6 +60,25 @@ def _accounting_entry_exists(owner_uid, reference_type, reference_id):
     return False
 
 
+def _resolve_bank_account_account(owner_uid, bank_account_id, accounts, sandbox=True):
+    """Resuelve la cuenta contable asociada a una cuenta bancaria.
+    Si la cuenta bancaria tiene un accountingAccountId asignado, retorna esa cuenta.
+    Si no, retorna None para que el sistema use el comportamiento por defecto (por usage).
+    """
+    if not bank_account_id:
+        return None
+    try:
+        bank = DatabaseService.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox)
+        if bank and bank.get("accountingAccountId"):
+            acc_id = bank["accountingAccountId"]
+            for a in accounts:
+                if a.get("id") == acc_id:
+                    return a
+    except Exception:
+        pass
+    return None
+
+
 class AccountingService:
 
     @classmethod
@@ -234,6 +253,7 @@ class AccountingService:
                     movements.append({
                         "date": entry.get("date", ""),
                         "entryNumber": entry.get("number", ""),
+                        "entryId": entry.get("id", ""),
                         "concept": entry.get("concept", ""),
                         "referenceType": entry.get("referenceType", ""),
                         "referenceNumber": entry.get("referenceNumber", ""),
@@ -393,7 +413,13 @@ class AccountingService:
         return entry
 
     @classmethod
-    def _resolve_debit_account(cls, invoice, accounts):
+    def _resolve_debit_account(cls, invoice, accounts, owner_uid=None, sandbox=True):
+        # Intentar usar la cuenta contable vinculada a la cuenta bancaria seleccionada
+        bank_account_id = invoice.get("bankAccountId", "")
+        if bank_account_id and owner_uid:
+            linked = _resolve_bank_account_account(owner_uid, bank_account_id, accounts, sandbox=sandbox)
+            if linked:
+                return linked, f"{linked.get('name', 'Banco')} - {invoice.get('invoiceNumber', '')}"
         payment_type = invoice.get("paymentType", "Contado")
         if payment_type == "Contado":
             payment_method = invoice.get("paymentMethod", "Efectivo")
@@ -480,7 +506,7 @@ class AccountingService:
         provider = CountryProviderFactory.create(country)
         mapping = provider.get_account_mapping() if provider else {}
         labels = provider.get_tax_labels() if provider else {}
-        debit_acc, debit_desc = cls._resolve_debit_account(invoice, accounts)
+        debit_acc, debit_desc = cls._resolve_debit_account(invoice, accounts, owner_uid=owner_uid, sandbox=sandbox)
         sales_acc = _find_account_by_usage(accounts, "ventas")
         itbis_acc = _find_account_by_usage(accounts, mapping.get("vat_payable"))
         # Cuentas de retención del lado del cliente (cuando te retienen a ti → ACTIVO)
@@ -627,11 +653,15 @@ class AccountingService:
         anticipo_acc = _find_account_by_usage(accounts, "anticipos_recibidos")
         if not anticipo_acc:
             return None
-        payment_method = advance.get("paymentMethod", "Efectivo")
-        if payment_method in ("Transferencia", "Tarjeta de Crédito", "Tarjeta de Débito"):
-            debit_acc = _find_account_by_usages(accounts, ["banco", "transferencias_bancarias"])
-        else:
-            debit_acc = _find_account_by_usages(accounts, ["efectivo", "banco"])
+        # Intentar usar la cuenta contable vinculada a la cuenta bancaria
+        bank_id = advance.get("bankAccountId", "")
+        debit_acc = _resolve_bank_account_account(owner_uid, bank_id, accounts, sandbox=sandbox)
+        if not debit_acc:
+            payment_method = advance.get("paymentMethod", "Efectivo")
+            if payment_method in ("Transferencia", "Tarjeta de Crédito", "Tarjeta de Débito"):
+                debit_acc = _find_account_by_usages(accounts, ["banco", "transferencias_bancarias"])
+            else:
+                debit_acc = _find_account_by_usages(accounts, ["efectivo", "banco"])
         if not debit_acc:
             return None
         amount = float(advance.get("amount", 0))
@@ -695,7 +725,11 @@ class AccountingService:
             return None
         payment_type = invoice.get("paymentType", "Contado")
         if payment_type == "Contado":
-            debit_acc = _find_account_by_usages(accounts, ["efectivo", "banco"])
+            # Intentar usar la cuenta contable vinculada a la cuenta bancaria
+            bank_id = invoice.get("bankAccountId", "")
+            debit_acc = _resolve_bank_account_account(owner_uid, bank_id, accounts, sandbox=sandbox)
+            if not debit_acc:
+                debit_acc = _find_account_by_usages(accounts, ["efectivo", "banco"])
         else:
             debit_acc = _find_account_by_usages(accounts, ["cxc", "banco", "efectivo"])
         if not debit_acc:
@@ -1124,8 +1158,12 @@ class AccountingService:
 
             # Crédito: CXP o Banco/Efectivo
             credit_amount = round(total - retained_isr_amount - retained_itbis_amount, 2)
-            if payment_type == "Contado" and banco_acc:
-                credit_acc = banco_acc
+            if payment_type == "Contado":
+                # Intentar usar la cuenta contable vinculada a la cuenta bancaria
+                bank_id = expense.get("bankAccountId", "")
+                credit_acc = _resolve_bank_account_account(owner_uid, bank_id, accounts, sandbox=sandbox)
+                if not credit_acc:
+                    credit_acc = banco_acc
             elif cxp_acc:
                 credit_acc = cxp_acc
             else:
@@ -1164,8 +1202,12 @@ class AccountingService:
                 lines.append({"accountId": itbis_retenido_acc["id"], "accountCode": itbis_retenido_acc.get("code", ""), "accountName": itbis_retenido_acc.get("name", ""), "debit": 0.00, "credit": round(retained_itbis_amount, 2), "description": labels.get("vat_withholding", "ITBIS retenido")})
             credit_amount = round(total - retained_isr_amount - retained_itbis_amount, 2)
             credit_acc = None
-            if payment_type == "Contado" and banco_acc:
-                credit_acc = banco_acc
+            if payment_type == "Contado":
+                # Intentar usar la cuenta contable vinculada a la cuenta bancaria
+                bank_id = expense.get("bankAccountId", "")
+                credit_acc = _resolve_bank_account_account(owner_uid, bank_id, accounts, sandbox=sandbox)
+                if not credit_acc:
+                    credit_acc = banco_acc
             elif cxp_acc:
                 credit_acc = cxp_acc
             if credit_acc and credit_amount > 0:

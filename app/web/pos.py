@@ -10,6 +10,7 @@ from app.services.dgii import DGIIService
 from app.utils.country_context import get_current_country
 from app.utils.decorators import require_permission, check_permission
 from app.brand import get_product_name
+from app.models.fiscal_document_type import all_types as _all_fiscal_types, Family as _Family, by_code as _by_code
 
 web_pos_bp = Blueprint('web_pos', __name__)
 
@@ -628,11 +629,13 @@ def pos_terminal():
                 "name": member.get('name', 'Supervisor')
             })
             
+    _ecf_types = [t for t in _all_fiscal_types() if t.family == _Family.ECF]
     return render_template(
         'pos/terminal.html',
         active_page='pos',
         items=active_items,
-        supervisors=supervisors
+        supervisors=supervisors,
+        ecf_types=_ecf_types,
     )
 
 
@@ -718,7 +721,7 @@ def create_pos_sale():
     client_rnc = data.get('clientRNC', '000000000')
     payment_method = data.get('paymentMethod', 'Efectivo')
     items_list = data.get('items', [])
-    ecf_type = data.get('ecfType', 'Factura de Consumo (E32)')
+    ecf_type = data.get('ecfType', _by_code("E32").label_with_code)
 
     client_project_id = None
     if client_id and client_id != 'default':
@@ -762,6 +765,12 @@ def create_pos_sale():
         and is_consumer_final
         and calcs['total'] < consolidation_threshold
     )
+    # --- Determinar si aplica para RUI ---
+    # Elegible para RUI = consumidor final, E32, no tiene RNC de cliente
+    include_in_rui = (
+        ecf_type == 'Factura de Consumo (E32)'
+        and is_consumer_final
+    )
     # -------------------------------------------
 
 
@@ -792,6 +801,7 @@ def create_pos_sale():
         "stockReduced": False,  # DatabaseService lo reducirá al guardar
         "posShiftId": open_shift['id'],  # Necesario para consultas de consolidación
         "isSyncedWithDGII": False,
+        "includeInRui": include_in_rui,
         "branchId": session.get('selected_branch_id') or 'default-sucursal-principal',
         "projectId": client_project_id or session.get('selected_project_id') or None
     }

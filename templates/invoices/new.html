@@ -80,12 +80,11 @@
     <span style="font-family:monospace;font-size:0.85rem;color:var(--accent-purple);font-weight:700;">{{ invoice.encf }}</span>
     {% endif %}
     {% if active_page != 'quotations' %}
-    <select id="ecf-type-select" name="{% if is_referencing %}ecfTypeDisabled{% else %}ecfType{% endif %}" class="form-select" style="max-width:220px;" {% if is_referencing %}disabled style="opacity:0.75;"{% endif %}>
-      <option value="Factura de Consumo (E32)" {% if invoice and invoice.ecfType=='Factura de Consumo (E32)' %}selected{% endif %}>E32 — Consumo</option>
-      <option value="Factura de Crédito Fiscal (E31)" {% if invoice and invoice.ecfType=='Factura de Crédito Fiscal (E31)' %}selected{% endif %}>E31 — Crédito Fiscal</option>
-      <option value="Nota de Débito (E33)" {% if invoice and invoice.ecfType=='Nota de Débito (E33)' %}selected{% endif %}>E33 — Nota de Débito</option>
-      <option value="Nota de Crédito (E34)" {% if invoice and invoice.ecfType=='Nota de Crédito (E34)' %}selected{% endif %}>E34 — Nota de Crédito</option>
-    </select>
+<select id="ecf-type-select" name="{% if is_referencing %}ecfTypeDisabled{% else %}ecfType{% endif %}" class="form-select" style="max-width:220px;" {% if is_referencing %}disabled style="opacity:0.75;"{% endif %}>
+  {% for t in ecf_types %}
+  <option value="{{ t.label_with_code }}" {% if invoice and invoice.ecfType == t.label_with_code %}selected{% endif %}>{{ t.code }} — {{ t.short_label }}</option>
+  {% endfor %}
+</select>
     {% if is_referencing %}<input type="hidden" name="ecfType" value="{{ invoice.ecfType }}">{% endif %}
     {% endif %}
     <button type="button" class="btn btn-sm btn-secondary" onclick="toggleMoreSettings()" style="margin-left:auto;">

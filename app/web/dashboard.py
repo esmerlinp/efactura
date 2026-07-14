@@ -5,6 +5,7 @@ from app.services.db_service import DatabaseService
 from app.services.recurrence import RecurrenceService
 from app.services.cache_service import CacheService
 from app.services.dgii import DGIIService
+from app.models.fiscal_document_type import by_code as _by_code
 
 web_dashboard_bp = Blueprint('web_dashboard', __name__)
 
@@ -307,7 +308,7 @@ def dashboard():
     # 2. Distribución de Ventas por Tipo de e-CF
     type_counts = {"Crédito Fiscal (E31)": 0, "Consumo (E32)": 0, "Otros": 0}
     for inv in real_invoices:
-        t = inv.get('ecfType', 'Factura de Consumo (E32)')
+        t = inv.get('ecfType', _by_code("E32").label_with_code)
         if "E31" in t:
             type_counts["Crédito Fiscal (E31)"] += inv['total']
         elif "E32" in t:

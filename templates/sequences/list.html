@@ -61,7 +61,14 @@
 'E34': 'Nota de Crédito',
 'E41': 'Comprobante de Compras',
 'E43': 'Gastos Menores',
-'E47': 'Pagos al Exterior'
+'E44': 'Regímenes Especiales',
+'E45': 'Comprobante Gubernamental',
+'E46': 'Comprobante de Exportación',
+'E47': 'Pagos al Exterior',
+'E48': 'Factura Clientes del Exterior',
+'E49': 'Operaciones Zonas Francas',
+'E50': 'Comprobante de Retención',
+'B12': 'Registro Único de Ingresos'
 } %}
 <!-- Rangos Autorizados por la DGII (Ancho Completo para mejor distribución) -->
 <div style="margin-bottom: 40px;">
@@ -73,7 +80,15 @@
                 <span>Rangos Autorizados por la DGII</span>
             </div>
 
-            <div style="display: flex; align-items: center; gap: 15px; margin-left: auto;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-left: auto; flex-wrap: wrap;">
+                <!-- Filtro por Estado -->
+                <select id="filter-estado"
+                    style="background: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 6px 10px; font-size: 0.8rem; height: 32px; color: var(--text-primary); cursor: pointer;">
+                    <option value="">Todos los estados</option>
+                    <option value="ACTIVA">Activas</option>
+                    <option value="EXPIRADA">Expiradas</option>
+                </select>
+
                 <!-- Control de Filtro Premium (Segmented Control) -->
                 <div
                     style="display: flex; background: var(--bg-input); padding: 4px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); align-items: center; gap: 4px;">
@@ -97,12 +112,50 @@
             </div>
         </h3>
 
+        <!-- Alertas del Dashboard -->
+        <div id="sequence-alerts" style="margin-bottom: 16px; display: flex; flex-direction: column; gap: 8px;">
+            {% if expiring_soon_count > 0 %}
+            <div style="background: rgba(33, 150, 243, 0.08); border: 1px solid rgba(33, 150, 243, 0.3); border-radius: var(--radius-sm); padding: 10px 16px; display: flex; align-items: center; gap: 10px; font-size: 0.85rem;">
+                <i class="fa-solid fa-clock" style="color: #2196F3;"></i>
+                <span style="color: var(--text-primary);">
+                    <strong>{{ expiring_soon_count }}</strong> secuencia(s) próximas a expirar (&le;60 días).
+                    <a href="{{ url_for('web_invoices.new_sequence_route') }}" style="color: var(--accent-emerald); text-decoration: underline;">Gestionar renovación</a>
+                </span>
+            </div>
+            {% endif %}
+            {% if low_sequences %}
+            <div style="background: rgba(255, 152, 0, 0.1); border: 1px solid rgba(255, 152, 0, 0.4); border-radius: var(--radius-sm); padding: 10px 16px; display: flex; align-items: center; gap: 10px; font-size: 0.85rem;">
+                <i class="fa-solid fa-triangle-exclamation" style="color: #FF9800;"></i>
+                <span style="color: var(--text-primary);">
+                    <strong>{{ low_sequences|length }}</strong> secuencia(s) con pocos folios disponibles:
+                    {% for seq in low_sequences %}
+                    <strong>{{ seq.prefijo }}</strong> ({{ seq.cantidadDisponible }} libres){% if not loop.last %}, {% endif %}
+                    {% endfor %}
+                    — <a href="{{ url_for('web_invoices.new_sequence_route') }}" style="color: var(--accent-emerald); text-decoration: underline;">Solicitar nuevo rango</a>
+                </span>
+            </div>
+            {% endif %}
+            {% if expired_count > 0 %}
+            <div style="background: rgba(244, 67, 54, 0.08); border: 1px solid rgba(244, 67, 54, 0.3); border-radius: var(--radius-sm); padding: 10px 16px; display: flex; align-items: center; gap: 10px; font-size: 0.85rem;">
+                <i class="fa-solid fa-circle-exclamation" style="color: #F44336;"></i>
+                <span style="color: var(--text-primary);">
+                    <strong>{{ expired_count }}</strong> secuencia(s) expirada(s) — los comprobantes con estas secuencias no serán aceptados por la DGII.
+                    <a href="{{ url_for('web_invoices.new_sequence_route') }}" style="color: var(--accent-emerald); text-decoration: underline;">Registrar nueva autorización</a>
+                </span>
+            </div>
+            {% endif %}
+        </div>
+
         <div id="sequences-grid"
             style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;">
             {% if sequences %}
             {% for seq in sequences %}
             <div class="sequence-card"
                 data-available="{% if seq.cantidadDisponible > 0 %}true{% else %}false{% endif %}"
+                data-estado="{{ seq.estado }}"
+                data-expiracion="{{ seq.fechaExpiracion }}"
+                data-alerta="{{ seq.alertaMinimoDisponible }}"
+                data-disponible="{{ seq.cantidadDisponible }}"
                 style="background-color: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 20px; position: relative; display: flex; flex-direction: column; justify-content: space-between;">
                 <div>
                     <div
@@ -351,15 +404,11 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-group">
                     <label for="tipo_comprobante">Tipo de e-CF</label>
-                    <select id="tipo_comprobante" name="tipoComprobante" class="form-select" required>
-                        <option value="E31">E31 - Crédito Fiscal</option>
-                        <option value="E32">E32 - Factura de Consumo</option>
-                        <option value="E33">E33 - Nota de Débito</option>
-                        <option value="E34">E34 - Nota de Crédito</option>
-                        <option value="E41">E41 - Comprobante de Compras</option>
-                        <option value="E43">E43 - Gastos Menores</option>
-                        <option value="E47">E47 - Pagos al Exterior</option>
-                    </select>
+<select id="tipo_comprobante" name="tipoComprobante" class="form-select" required>
+    {% for t in fiscal_types %}
+    <option value="{{ t.code }}">{{ t.code }} - {{ t.short_label }}</option>
+    {% endfor %}
+</select>
                 </div>
 
                 <div class="form-group">
@@ -429,26 +478,32 @@
         if (closeBtn) closeBtn.addEventListener('click', closeModal);
         if (backdrop) backdrop.addEventListener('click', closeModal);
 
-        // --- Premium Segment Filter Logic ---
+        // --- Premium Segment + Status Filter Logic ---
         const filterAvailableBtn = document.getElementById('filter-available');
         const filterAllBtn = document.getElementById('filter-all');
+        const filterEstado = document.getElementById('filter-estado');
         const sequenceCards = document.querySelectorAll('.sequence-card');
         const emptyStateGrid = document.getElementById('empty-state-grid');
 
-        function applySequenceFilter(filterMode) {
+        let currentFilter = 'available'; // 'available' | 'all'
+        let currentEstado = '';
+
+        function applySequenceFilters() {
             let visibleCount = 0;
             sequenceCards.forEach(card => {
                 const isAvailable = card.getAttribute('data-available') === 'true';
-                if (filterMode === 'available') {
-                    if (isAvailable) {
-                        card.style.display = 'flex';
-                        visibleCount++;
-                    } else {
-                        card.style.display = 'none';
-                    }
-                } else {
+                const estado = card.getAttribute('data-estado') || '';
+
+                // Filtro de disponibilidad
+                const passesAvailability = currentFilter === 'all' || isAvailable;
+                // Filtro de estado
+                const passesEstado = currentEstado === '' || estado === currentEstado;
+
+                if (passesAvailability && passesEstado) {
                     card.style.display = 'flex';
                     visibleCount++;
+                } else {
+                    card.style.display = 'none';
                 }
             });
 
@@ -460,8 +515,8 @@
                 }
             }
 
-            // Update button styles and shadows dynamically to look premium
-            if (filterMode === 'available') {
+            // Update button styles
+            if (currentFilter === 'available') {
                 filterAvailableBtn.style.backgroundColor = 'var(--accent-emerald)';
                 filterAvailableBtn.style.color = 'white';
                 filterAvailableBtn.style.boxShadow = 'var(--shadow-sm)';
@@ -481,11 +536,19 @@
         }
 
         if (filterAvailableBtn && filterAllBtn) {
-            filterAvailableBtn.addEventListener('click', () => applySequenceFilter('available'));
-            filterAllBtn.addEventListener('click', () => applySequenceFilter('all'));
+            filterAvailableBtn.addEventListener('click', () => { currentFilter = 'available'; applySequenceFilters(); });
+            filterAllBtn.addEventListener('click', () => { currentFilter = 'all'; applySequenceFilters(); });
 
             // Set default view to available
-            applySequenceFilter('available');
+            currentFilter = 'available';
+            applySequenceFilters();
+        }
+
+        if (filterEstado) {
+            filterEstado.addEventListener('change', () => {
+                currentEstado = filterEstado.value;
+                applySequenceFilters();
+            });
         }
     });
 </script>

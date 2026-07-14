@@ -26,12 +26,8 @@ TIPO_GASTO_623 = {
     "07": "Gastos Financieros",
 }
 
-ECF_TYPE_LABELS_623 = {
-    "E41": "E-41 (Compras)",
-    "E43": "E-43 (Gastos Menores)",
-    "E45": "E-45 (Gubernamental)",
-    "E47": "E-47 (Exterior)",
-}
+from app.models.fiscal_document_type import report_labels as _report_labels_623
+ECF_TYPE_LABELS_623 = _report_labels_623("623")
 
 
 def _parse_int(val, default=0):

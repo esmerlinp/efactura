@@ -26,11 +26,12 @@
                     <div id="client-rnc-label" style="font-size: 0.7rem; color: var(--text-muted); font-family: monospace;">RNC: 000000000</div>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-end;">
-                    <select id="client-type-select" onchange="updateEcfTypeFromSelect(this.value)" disabled
-                        style="font-size: 0.68rem; padding: 2px 4px; border-radius: 4px; border: 1px solid var(--border-color); background: rgba(255,255,255,0.06); color: var(--text-secondary); cursor: not-allowed; outline: none;">
-                        <option value="Factura de Consumo (E32)">Consumo (E32)</option>
-                        <option value="Factura de Crédito Fiscal (E31)">Crédito (E31)</option>
-                    </select>
+<select id="client-type-select" onchange="updateEcfTypeFromSelect(this.value)" disabled
+    style="font-size: 0.68rem; padding: 2px 4px; border-radius: 4px; border: 1px solid var(--border-color); background: rgba(255,255,255,0.06); color: var(--text-secondary); cursor: not-allowed; outline: none;">
+    {% for t in ecf_types %}{% if t.code in ('E31', 'E32') %}
+    <option value="{{ t.label_with_code }}">{{ t.short_label }} ({{ t.code }})</option>
+    {% endif %}{% endfor %}
+</select>
                     <button type="button" id="btn-clear-client" onclick="clearPOSClient()"
                         style="display: none; background: none; border: none; color: var(--accent-red); cursor: pointer; font-size: 0.75rem; padding: 0;"
                         title="Quitar cliente">

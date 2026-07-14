@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, g
 from app.services.db_service import DatabaseService
+from app.services.accounting_service import AccountingService
 from app.utils.decorators import check_permission
 from app.utils.module_gate import module_enabled
 
@@ -44,23 +45,102 @@ def bank_detail(account_id):
         return redirect(url_for('web_banks.list_banks'))
 
     transactions = []
-    try:
-        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
-        for inv in invoices:
-            inv_payments = DatabaseService.get_invoice_payments(owner_uid, inv.get('id'), sandbox=sandbox)
-            for pmt in inv_payments:
-                if pmt.get('bankAccountId') == account_id:
-                    transactions.append({
-                        "date": str(pmt.get('paymentDate', ''))[:10],
-                        "type": "income",
-                        "concept": f"Pago {inv.get('invoiceNumber', '')} — {inv.get('clientName', '')}",
-                        "amount": float(pmt.get('amount', 0)),
-                        "reference": pmt.get('referenceNumber', ''),
-                        "invoiceId": inv.get('id', '')
-                    })
-    except Exception as e:
-        print(f"⚠️ Error al cargar pagos de facturas: {e}")
 
+    # 1. Pagos de facturas (collection group query - 1 sola consulta)
+    from app.services.db_service import db_firestore
+    try:
+        from firebase_admin import firestore as _fs
+    except ImportError:
+        _fs = None
+    if db_firestore and _fs:
+        try:
+            coll_inv = "sandbox_invoices" if sandbox else "invoices"
+            inv_payments_qs = db_firestore.collection_group("payments").where(
+                filter=_fs.FieldFilter("bankAccountId", "==", account_id)
+            ).where(
+                filter=_fs.FieldFilter("ownerUID", "==", owner_uid)
+            ).get()
+            # Agrupar por invoice_id usando la referencia del documento padre
+            inv_payments_by_inv = {}
+            for doc in inv_payments_qs:
+                data = doc.to_dict()
+                # La ruta es: users/{owner_uid}/{coll_inv}/{invoice_id}/payments/{pmt_id}
+                parts = doc.reference.path.split('/')
+                if len(parts) >= 6 and parts[3] == coll_inv:
+                    inv_id = parts[4]
+                    if inv_id not in inv_payments_by_inv:
+                        inv_payments_by_inv[inv_id] = []
+                    inv_payments_by_inv[inv_id].append(data)
+            if inv_payments_by_inv:
+                invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+                inv_map = {inv.get('id'): inv for inv in invoices}
+                for inv_id, payments in inv_payments_by_inv.items():
+                    inv = inv_map.get(inv_id, {})
+                    for pmt in payments:
+                        transactions.append({
+                            "date": str(pmt.get('paymentDate', ''))[:10],
+                            "type": "income",
+                            "concept": f"Pago {inv.get('invoiceNumber', '')} — {inv.get('clientName', '')}",
+                            "amount": float(pmt.get('amount', 0)),
+                            "reference": pmt.get('referenceNumber', ''),
+                            "invoiceId": inv_id
+                        })
+        except Exception as e:
+            print(f"⚠️ Error al cargar pagos de facturas: {e}")
+
+        # 2. Pagos CxP (collection group query - 1 sola consulta)
+        try:
+            coll_exp = "sandbox_expenses" if sandbox else "expenses"
+            cxp_qs = db_firestore.collection_group("cxp_payments").where(
+                filter=_fs.FieldFilter("bankAccountId", "==", account_id)
+            ).where(
+                filter=_fs.FieldFilter("ownerUID", "==", owner_uid)
+            ).get()
+            cxp_by_exp = {}
+            for doc in cxp_qs:
+                data = doc.to_dict()
+                parts = doc.reference.path.split('/')
+                if len(parts) >= 6 and parts[3] == coll_exp:
+                    exp_id = parts[4]
+                    if exp_id not in cxp_by_exp:
+                        cxp_by_exp[exp_id] = []
+                    cxp_by_exp[exp_id].append(data)
+            if cxp_by_exp:
+                expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+                exp_map = {e.get('id'): e for e in expenses}
+                for exp_id, payments in cxp_by_exp.items():
+                    exp = exp_map.get(exp_id, {})
+                    for pmt in payments:
+                        transactions.append({
+                            "date": str(pmt.get('paymentDate', ''))[:10],
+                            "type": "expense",
+                            "concept": f"Pago CxP: {exp.get('concept', '')}",
+                            "amount": -float(pmt.get('amount', 0)),
+                            "reference": '',
+                            "expenseId": exp_id,
+                            "invoiceId": ''
+                        })
+        except Exception as e:
+            print(f"⚠️ Error al cargar pagos CxP: {e}")
+
+    # 3. Gastos directos con esta cuenta bancaria
+    try:
+        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+        for exp in expenses:
+            if exp.get('bankAccountId') == account_id:
+                transactions.append({
+                    "date": str(exp.get('date', ''))[:10],
+                    "type": "expense",
+                    "concept": f"Gasto: {exp.get('concept', '')}",
+                    "amount": -float(exp.get('amount', 0)),
+                    "reference": exp.get('ncf', '') or exp.get('ecfNumber', ''),
+                    "expenseId": exp.get('id', ''),
+                    "invoiceId": ''
+                })
+    except Exception as e:
+        print(f"⚠️ Error al cargar gastos directos: {e}")
+
+    # 4. Transferencias bancarias
     try:
         transfers = DatabaseService.get_bank_transfers(owner_uid, sandbox=sandbox)
         for t in transfers:
@@ -112,6 +192,7 @@ def new_bank():
             "balanceDate": request.form.get('balanceDate', ''),
             "description": request.form.get('description', ''),
             "creditLimit": float(request.form.get('creditLimit', 0)) if request.form.get('type') == 'tarjeta' else 0,
+            "accountingAccountId": request.form.get('accountingAccountId', ''),
             "branchId": g.get('branch_id', 'default-sucursal-principal'),
             "projectId": g.get('project_id'),
         }
@@ -119,8 +200,11 @@ def new_bank():
         flash('Cuenta creada exitosamente.', 'success')
         return redirect(url_for('web_banks.list_banks'))
 
+    AccountingService.seed_default_accounts(owner_uid)
+    accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid)
     return render_template('banks/form.html', active_page='banks',
-                           account=None, account_types=ACCOUNT_TYPES)
+                           account=None, account_types=ACCOUNT_TYPES,
+                           accounting_accounts=accounting_accounts)
 
 @web_banks_bp.route('/banks/<account_id>/edit', methods=['GET', 'POST'])
 def edit_bank(account_id):
@@ -140,6 +224,7 @@ def edit_bank(account_id):
             "balanceDate": request.form.get('balanceDate', ''),
             "description": request.form.get('description', ''),
             "creditLimit": float(request.form.get('creditLimit', 0)) if request.form.get('type') == 'tarjeta' else 0,
+            "accountingAccountId": request.form.get('accountingAccountId', ''),
             "branchId": g.get('branch_id', 'default-sucursal-principal'),
             "projectId": g.get('project_id'),
         }
@@ -158,8 +243,11 @@ def edit_bank(account_id):
         flash('Cuenta no encontrada.', 'error')
         return redirect(url_for('web_banks.list_banks'))
 
+    AccountingService.seed_default_accounts(owner_uid)
+    accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid)
     return render_template('banks/form.html', active_page='banks',
-                           account=account, account_types=ACCOUNT_TYPES)
+                           account=account, account_types=ACCOUNT_TYPES,
+                           accounting_accounts=accounting_accounts)
 
 @web_banks_bp.route('/banks/<account_id>/delete', methods=['POST'])
 def delete_bank(account_id):
@@ -206,6 +294,7 @@ def new_bank_payment(account_id):
         try:
             success, msg = DatabaseService.save_cxp_payment(owner_uid, expense_id, amount,
                                                             registered_by=session['user']['email'],
+                                                            bank_account_id=account_id,
                                                             sandbox=sandbox)
             if success:
                 flash(f'✅ Pago registrado: RD$ {amount:,.2f} desde {account["name"]}. {msg}', 'success')

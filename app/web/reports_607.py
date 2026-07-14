@@ -18,12 +18,8 @@ def restrict_to_do():
             feature_name="Reporte 607 DGII (solo disponible para República Dominicana)",
             required_permission="")
 
-ECF_TYPE_LABELS_607 = {
-    "E31": "E-31 (Crédito Fiscal)",
-    "E32": "E-32 (Consumo)",
-    "E33": "E-33 (Nota de Débito)",
-    "E34": "E-34 (Nota de Crédito)",
-}
+from app.models.fiscal_document_type import report_labels as _report_labels_607
+ECF_TYPE_LABELS_607 = _report_labels_607("607")
 
 INCOME_TYPE_LABELS = {
     "01": "Ingresos por operaciones (No financieros)",

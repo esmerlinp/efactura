@@ -8,6 +8,7 @@ from app.services.mailer import Mailer
 from app.services.dgii import DGIIService
 from app.utils.decorators import check_permission
 from app.brand import get_product_name
+from app.models.fiscal_document_type import all_types as _all_fiscal_types, Family as _Family, by_code as _by_code
 
 web_contacts_bp = Blueprint('web_contacts', __name__)
 
@@ -219,7 +220,7 @@ def new_contact():
             "itbisWithholding": request.form.get('itbisWithholding') == 'on',
             "isrWithholding": request.form.get('isrWithholding') == 'on',
             "tipoGastoDGII": request.form.get('tipoGastoDGII', '02'),
-            "ecfTypeEmits": request.form.get('ecfTypeEmits', 'E31'),
+            "ecfTypeEmits": request.form.get('ecfTypeEmits', _by_code("E31").code),
             "estado": request.form.get('estado', 'Activo'),
             "notes": request.form.get('notes', ''),
             "associatedPeople": [],
@@ -253,11 +254,13 @@ def new_contact():
 
     collaborators = DatabaseService.get_team_members(owner_uid) or []
     price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    _ecf_types = [t for t in _all_fiscal_types() if t.family == _Family.ECF]
     return render_template('contacts/form.html',
                            active_page='contacts',
                            contact=None,
                            collaborators=collaborators,
-                           price_lists=price_lists)
+                           price_lists=price_lists,
+                           ecf_types=_ecf_types)
 
 
 # =========================================================================
@@ -508,7 +511,7 @@ def edit_contact(contact_id):
             "itbisWithholding": request.form.get('itbisWithholding') == 'on',
             "isrWithholding": request.form.get('isrWithholding') == 'on',
             "tipoGastoDGII": request.form.get('tipoGastoDGII', '02'),
-            "ecfTypeEmits": request.form.get('ecfTypeEmits', 'E31'),
+            "ecfTypeEmits": request.form.get('ecfTypeEmits', _by_code("E31").code),
             "estado": request.form.get('estado', 'Activo'),
             "notes": request.form.get('notes', ''),
             "associatedPeople": [],
@@ -542,11 +545,13 @@ def edit_contact(contact_id):
 
     collaborators = DatabaseService.get_team_members(owner_uid) or []
     price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    _ecf_types = [t for t in _all_fiscal_types() if t.family == _Family.ECF]
     return render_template('contacts/form.html',
                            active_page='contacts',
                            contact=contact,
                            collaborators=collaborators,
-                           price_lists=price_lists)
+                           price_lists=price_lists,
+                           ecf_types=_ecf_types)
 
 
 # =========================================================================
@@ -885,7 +890,7 @@ def api_contacts_list():
             "address": c.get('direccion', ''),
             "types": c.get('types', []),
             "creditDays": c.get('creditDays', 0),
-            "ecfTypeEmits": c.get('ecfTypeEmits', 'E31'),
+            "ecfTypeEmits": c.get('ecfTypeEmits', _by_code("E31").code),
             "currency": c.get('currency', 'DOP'),
         })
 

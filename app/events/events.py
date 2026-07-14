@@ -165,6 +165,20 @@ class BulkAbsenceApplied(DomainEvent):
         object.__setattr__(self, "event_type", "BulkAbsenceApplied")
 
 
+@dataclass(frozen=True)
+class RuiGenerated(DomainEvent):
+    """Emitido cuando se genera un RUI (Registro Único de Ingresos).
+    Solo fiscal — no genera asiento contable (Opción A).
+    """
+    rui_id: str = ""
+    rui_ncf: str = ""
+    business_date: str = ""
+    rui_data: Dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self):
+        object.__setattr__(self, "event_type", "RuiGenerated")
+
+
 def event_from_dict(data: Dict[str, Any]) -> DomainEvent:
     """Reconstruye un evento a partir de un diccionario (ej. desde Redis)."""
     event_type = data.get("event_type", "")
@@ -178,6 +192,7 @@ def event_from_dict(data: Dict[str, Any]) -> DomainEvent:
         "BulkSupervisorChanged": BulkSupervisorChanged,
         "BulkPromotionApplied": BulkPromotionApplied,
         "BulkAbsenceApplied": BulkAbsenceApplied,
+        "RuiGenerated": RuiGenerated,
     }
     cls = event_map.get(event_type)
     if cls is None:

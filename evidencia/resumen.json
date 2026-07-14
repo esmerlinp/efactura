@@ -1,0 +1,466 @@
+{
+  "fecha": "2026-07-14T12:58:57.573922+00:00",
+  "ambiente": "CERTIFICACION",
+  "resultados": [
+    {
+      "label": "XSD Validation v2",
+      "status": "PASS",
+      "detail": "S     OK\nE44   PASS     OK\nE45   PASS     OK\nE46   PASS     OK\nE47   PASS     OK",
+      "stdout": "\n============================================================\nType   Result   Detail\n============================================================\nE31   PASS     OK\nE32   PASS     OK\nE33   PASS     OK\nE34   PASS     OK\nE41   PASS     OK\nE43   PASS     OK\nE44   PASS     OK\nE45   PASS     OK\nE46   PASS     OK\nE47   PASS     OK\n",
+      "stderr": ""
+    },
+    {
+      "label": "Validaci\u00f3n Criptogr\u00e1fica",
+      "status": "WARN",
+      "detail": "Total: 90 | \u2705 PASS: 90 | \u274c FAIL: 0 | \u26a0\ufe0f  SKIP/WARN: 0",
+      "stdout": "\ud83d\udd10 Real-mode disponible: certificado RSA-2048 autofirmado\n\n======================================================================\nTipo   Paso                         Resultado  Detalle\n======================================================================\n\u26a0\ufe0f [Firma Digital] Advertencia: No hay certificado digital cargado. Generando XML sin firma real (Simulado).\n\u26a0\ufe0f [Firma Digital] Advertencia: No hay certificado digital cargado. Generando XML sin firma real (Simulado).\n\u26a0\ufe0f [Firma Digital] Advertencia: No hay certificado digital cargado. Generando XML sin firma real (Simulado).\n\u26a0\ufe0f [Firma Digital] Advertencia: No hay certificado digital cargado. Generando XML sin firma real (Simulado).\n\u26a0\ufe0f [Firma Digital] Advertencia: No hay certificado digital cargado. Generando XML sin firma real (Simulado).\n\u26a0\ufe0f [Firma Digital] Advertencia: No hay certificado digital cargado. Generando XML sin firma real (Simulado).\n\u26a0\ufe0f [Firma Digital] Advertencia: No hay certificado digital cargado. Generando XML sin firma real (Simulado).\n\u26a0\ufe0f [Firma Digital] Advertencia: No hay certificado digital cargado. Generando XML sin firma real (Simulado).\n\u26a0\ufe0f [Firma Digital] Advertencia: No hay certificado digital cargado. Generando XML sin firma real (Simulado).\n\u26a0\ufe0f [Firma Digital] Advertencia: No hay certificado digital cargado. Generando XML sin firma real (Simulado).\n\nE31   well_formed                  PASS       \nE31   mock_signature               PASS       \nE31   real_signature               PASS       \nE31   real_verify                  PASS       \nE31   real_canonicalization        PASS       REC-xml-c14n-20010315\nE31   real_digest                  PASS       DigestValue=MFd406GbBQVyVSpilrYZ...\nE31   real_signaturevalue          PASS       SignatureValue=in8pKKHBv79CIdwwr/mm...\nE31   real_xsd_post_sign           PASS       \nE31   cert_validity                PASS       \nE32   well_formed                  PASS       \nE32   mock_signature               PASS       \nE32   real_signature               PASS       \nE32   real_verify                  PASS       \nE32   real_canonicalization        PASS       REC-xml-c14n-20010315\nE32   real_digest                  PASS       DigestValue=+0RClpNwQPnYkvkWTqnF...\nE32   real_signaturevalue          PASS       SignatureValue=Zv9SMoGoF0mFxTHgk4DT...\nE32   real_xsd_post_sign           PASS       \nE32   cert_validity                PASS       \nE33   well_formed                  PASS       \nE33   mock_signature               PASS       \nE33   real_signature               PASS       \nE33   real_verify                  PASS       \nE33   real_canonicalization        PASS       REC-xml-c14n-20010315\nE33   real_digest                  PASS       DigestValue=5xjSl0t6QGxXY+Ak4P6T...\nE33   real_signaturevalue          PASS       SignatureValue=jnmpH//OtPiItv0N0vG1...\nE33   real_xsd_post_sign           PASS       \nE33   cert_validity                PASS       \nE34   well_formed                  PASS       \nE34   mock_signature               PASS       \nE34   real_signature               PASS       \nE34   real_verify                  PASS       \nE34   real_canonicalization        PASS       REC-xml-c14n-20010315\nE34   real_digest                  PASS       DigestValue=EtxBMek0bTHKcg+WVBsX...\nE34   real_signaturevalue          PASS       SignatureValue=H62AGIoAts7p7Z5RVpV7...\nE34   real_xsd_post_sign           PASS       \nE34   cert_validity                PASS       \nE41   well_formed                  PASS       \nE41   mock_signature               PASS       \nE41   real_signature               PASS       \nE41   real_verify                  PASS       \nE41   real_canonicalization        PASS       REC-xml-c14n-20010315\nE41   real_digest                  PASS       DigestValue=kuvf8TYsmnpS+BAMX+y+...\nE41   real_signaturevalue          PASS       SignatureValue=jc1gp0x0CrJvW8UAZMJd...\nE41   real_xsd_post_sign           PASS       \nE41   cert_validity                PASS       \nE43   well_formed                  PASS       \nE43   mock_signature               PASS       \nE43   real_signature               PASS       \nE43   real_verify                  PASS       \nE43   real_canonicalization        PASS       REC-xml-c14n-20010315\nE43   real_digest                  PASS       DigestValue=BIba7IRKxzEfCJtMm7FB...\nE43   real_signaturevalue          PASS       SignatureValue=GTMQTZD4DVpBYR4Ic4Wk...\nE43   real_xsd_post_sign           PASS       \nE43   cert_validity                PASS       \nE44   well_formed                  PASS       \nE44   mock_signature               PASS       \nE44   real_signature               PASS       \nE44   real_verify                  PASS       \nE44   real_canonicalization        PASS       REC-xml-c14n-20010315\nE44   real_digest                  PASS       DigestValue=2CR3uXE4MWu5W5Aihuzf...\nE44   real_signaturevalue          PASS       SignatureValue=b/bjgmYvQDWnbgjgUXCW...\nE44   real_xsd_post_sign           PASS       \nE44   cert_validity                PASS       \nE45   well_formed                  PASS       \nE45   mock_signature               PASS       \nE45   real_signature               PASS       \nE45   real_verify                  PASS       \nE45   real_canonicalization        PASS       REC-xml-c14n-20010315\nE45   real_digest                  PASS       DigestValue=DSf5MJYzkMU6YceOm/eD...\nE45   real_signaturevalue          PASS       SignatureValue=gC2OVyE6Hm9P08+/UMfk...\nE45   real_xsd_post_sign           PASS       \nE45   cert_validity                PASS       \nE46   well_formed                  PASS       \nE46   mock_signature               PASS       \nE46   real_signature               PASS       \nE46   real_verify                  PASS       \nE46   real_canonicalization        PASS       REC-xml-c14n-20010315\nE46   real_digest                  PASS       DigestValue=SKsQPYRTdf+1bg1BTyHf...\nE46   real_signaturevalue          PASS       SignatureValue=isp/DhACZDoSRfpbBa2t...\nE46   real_xsd_post_sign           PASS       \nE46   cert_validity                PASS       \nE47   well_formed                  PASS       \nE47   mock_signature               PASS       \nE47   real_signature               PASS       \nE47   real_verify                  PASS       \nE47   real_canonicalization        PASS       REC-xml-c14n-20010315\nE47   real_digest                  PASS       DigestValue=8zNnA0se3quPCkRMxbi/...\nE47   real_signaturevalue          PASS       SignatureValue=hAoelaB7p73er6xe4UTy...\nE47   real_xsd_post_sign           PASS       \nE47   cert_validity                PASS       \n\n======================================================================\nTotal: 90 | \u2705 PASS: 90 | \u274c FAIL: 0 | \u26a0\ufe0f  SKIP/WARN: 0\n\n\u2705 VALIDACI\u00d3N CRIPTOGR\u00c1FICA COMPLETA: OK\n",
+      "stderr": ""
+    },
+    {
+      "label": "Bater\u00eda E31",
+      "status": "PASS",
+      "detail": "8/8 passed",
+      "stdout": "\n======================================================================\n  BATER\u00cdA E31\n======================================================================\n#    Caso                                     XSD      Esperado   Bussines   Resultado    Detalle\n======================================================================\n1    Cliente RNC v\u00e1lido, venta gravada        OK       accept     OK         \u2705 PASS               4 assertions passed\n2    Venta exenta (ITBIS=0)                   OK       accept     OK         \u2705 PASS               3 assertions passed\n3    Venta mixta (gravada + exenta)           OK       accept     OK         \u2705 PASS               2 assertions passed\n4    Descuento global antes de ITBIS          OK       accept     OK         \u2705 PASS               3 assertions passed\n5    M\u00faltiples l\u00edneas (5)                     OK       accept     OK         \u2705 PASS               3 assertions passed\n6    ITBIS incorrecto en producto exento      OK       reject     DETECTED   \u2705 PASS (rechazo detectado) assertion returned False\n7    Totales inconsistentes                   OK       reject     DETECTED   \u2705 PASS (rechazo detectado) Total 9999.0 \u2260 1000.0+0.0+180.0\n8    RNC con formato inv\u00e1lido                 FAIL(1)  reject     DETECTED   \u2705 PASS (rechazo detectado) RNC inv\u00e1lido: ABC-123\n======================================================================\n  8/8 passed\n",
+      "stderr": ""
+    },
+    {
+      "label": "Bater\u00eda E32",
+      "status": "PASS",
+      "detail": "5/5 passed",
+      "stdout": "\n======================================================================\n  BATER\u00cdA E32\n======================================================================\n#    Caso                                     XSD      Esperado   Bussines   Resultado    Detalle\n======================================================================\n1    Consumidor final sin identificaci\u00f3n      OK       accept     OK         \u2705 PASS               3 assertions passed\n2    Con c\u00e9dula (consumidor identificado)     OK       accept     OK         \u2705 PASS               2 assertions passed\n3    Venta menor al l\u00edmite DGII               OK       accept     OK         \u2705 PASS               3 assertions passed\n4    Monto > RD$250,000 sin RNC               OK       reject     DETECTED   \u2705 PASS (rechazo detectado) Monto 300000.0 excede l\u00edmite RD$250,000 \n5    ITBIS inconsistente con monto            OK       reject     DETECTED   \u2705 PASS (rechazo detectado) ITBIS 50.0 \u2260 18% de 1000.0\n======================================================================\n  5/5 passed\n",
+      "stderr": ""
+    },
+    {
+      "label": "Bater\u00eda E33",
+      "status": "PASS",
+      "detail": "4/4 passed",
+      "stdout": "\n======================================================================\n  BATER\u00cdA E33\n======================================================================\n#    Caso                                     XSD      Esperado   Bussines   Resultado    Detalle\n======================================================================\n1    Incremento parcial                       OK       accept     OK         \u2705 PASS               5 assertions passed\n2    Incremento total (duplicar monto)        OK       accept     OK         \u2705 PASS               4 assertions passed\n3    NCFModificado con formato inv\u00e1lido       FAIL(1)  reject     DETECTED   \u2705 PASS (rechazo detectado) NCF referencia inv\u00e1lido: BAD-REF\n4    Monto negativo en total                  FAIL(4)  reject     DETECTED   \u2705 PASS (rechazo detectado) Monto negativo: -590.0\n======================================================================\n  4/4 passed\n",
+      "stderr": ""
+    },
+    {
+      "label": "Bater\u00eda E34",
+      "status": "PASS",
+      "detail": "6/6 passed",
+      "stdout": "\n======================================================================\n  BATER\u00cdA E34\n======================================================================\n#    Caso                                     XSD      Esperado   Bussines   Resultado    Detalle\n======================================================================\n1    Devoluci\u00f3n parcial \u2014 1 l\u00ednea de 3        OK       accept     OK         \u2705 PASS               5 assertions passed\n2    Devoluci\u00f3n total \u2014 todas las l\u00edneas      OK       accept     OK         \u2705 PASS               5 assertions passed\n3    Descuento posterior \u2014 ajuste comercial   OK       accept     OK         \u2705 PASS               5 assertions passed\n4    NCFModificado con formato inv\u00e1lido       OK       reject     DETECTED   \u2705 PASS (rechazo detectado) assertion returned False\n5    Monto superior al original               OK       reject     DETECTED   \u2705 PASS (rechazo detectado) NC total (2360.0) excede el original (11\n6    ITBIS recalculado incorrectamente        OK       reject     DETECTED   \u2705 PASS (rechazo detectado) ITBIS 50.0 no coincide con 18% de 500.0 \n======================================================================\n  6/6 passed\n",
+      "stderr": ""
+    },
+    {
+      "label": "Bater\u00eda E41",
+      "status": "PASS",
+      "detail": "6/6 passed",
+      "stdout": "\n======================================================================\n  BATER\u00cdA E41\n======================================================================\n#    Caso                                     XSD      Esperado   Bussines   Resultado    Detalle\n======================================================================\n1    Proveedor informal (sin RNC)             OK       accept     OK         \u2705 PASS               2 assertions passed\n2    Compra local con RNC                     OK       accept     OK         \u2705 PASS               2 assertions passed\n3    Compra con retenci\u00f3n ISR                 OK       accept     OK         \u2705 PASS               2 assertions passed\n4    Compra con retenci\u00f3n ITBIS               OK       accept     OK         \u2705 PASS               3 assertions passed\n5    Retenci\u00f3n ITBIS superior al ITBIS        OK       reject     DETECTED   \u2705 PASS (rechazo detectado) Retenci\u00f3n ITBIS 999.0 > ITBIS 180.0\n6    Sin \u00edtems (DetallesItems vac\u00edo)          OK       reject     DETECTED   \u2705 PASS (rechazo detectado) assertion returned False\n======================================================================\n  6/6 passed\n",
+      "stderr": ""
+    },
+    {
+      "label": "Bater\u00eda E43",
+      "status": "PASS",
+      "detail": "3/3 passed",
+      "stdout": "\n======================================================================\n  BATER\u00cdA E43\n======================================================================\n#    Caso                                     XSD      Esperado   Bussines   Resultado    Detalle\n======================================================================\n1    Gasto de transporte/combustible          OK       accept     OK         \u2705 PASS               3 assertions passed\n2    Gasto operativo (papeler\u00eda)              OK       accept     OK         \u2705 PASS               3 assertions passed\n3    NombreItem vac\u00edo                         FAIL(1)  reject     DETECTED   \u2705 PASS (rechazo detectado) NombreItem vac\u00edo\n======================================================================\n  3/3 passed\n",
+      "stderr": ""
+    },
+    {
+      "label": "Bater\u00eda E45",
+      "status": "PASS",
+      "detail": "2/2 passed",
+      "stdout": "\n======================================================================\n  BATER\u00cdA E45\n======================================================================\n#    Caso                                     XSD      Esperado   Bussines   Resultado    Detalle\n======================================================================\n1    Instituci\u00f3n p\u00fablica RNG gubernamental    OK       accept     OK         \u2705 PASS               3 assertions passed\n2    RNC privado en E45                       OK       reject     DETECTED   \u2705 PASS (rechazo detectado) assertion returned False\n======================================================================\n  2/2 passed\n",
+      "stderr": ""
+    },
+    {
+      "label": "Bater\u00eda E46",
+      "status": "PASS",
+      "detail": "5/5 passed",
+      "stdout": "\n======================================================================\n  BATER\u00cdA E46\n======================================================================\n#    Caso                                     XSD      Esperado   Bussines   Resultado    Detalle\n======================================================================\n1    Cliente extranjero USD                   OK       accept     OK         \u2705 PASS               4 assertions passed\n2    Transporte FOB con puerto especificado   OK       accept     OK         \u2705 PASS               2 assertions passed\n3    Sin ITBIS en exportaci\u00f3n                 OK       accept     OK         \u2705 PASS               2 assertions passed\n4    Cliente local con RNC dominicano         OK       reject     DETECTED   \u2705 PASS (rechazo detectado) assertion returned False\n5    ITBIS incorrectamente incluido           OK       reject     DETECTED   \u2705 PASS (rechazo detectado) Exportaci\u00f3n no debe tener ITBIS, got 180\n======================================================================\n  5/5 passed\n",
+      "stderr": ""
+    },
+    {
+      "label": "Bater\u00eda E47",
+      "status": "PASS",
+      "detail": "3/3 passed",
+      "stdout": "\n======================================================================\n  BATER\u00cdA E47\n======================================================================\n#    Caso                                     XSD      Esperado   Bussines   Resultado    Detalle\n======================================================================\n1    Proveedor extranjero USD                 OK       accept     OK         \u2705 PASS               5 assertions passed\n2    Sin ITBIS (pago exterior)                OK       accept     OK         \u2705 PASS               4 assertions passed\n3    ITBIS incluido incorrectamente (builde   OK       accept     OK         \u2705 PASS               2 assertions passed\n======================================================================\n  3/3 passed\n",
+      "stderr": ""
+    },
+    {
+      "label": "Stress Test Secuencias",
+      "status": "PASS",
+      "detail": "18/18 passed",
+      "stdout": "\n======================================================================\n  ESCENARIO A \u2014 50 workers x 20 emisiones = 1,000\n  Sin duplicados, sin p\u00e9rdidas, sin corrupci\u00f3n\n======================================================================\n  A    Emisiones completadas sin errores      \u2705 PASS   1000/1000 en 0.13s\n  A    Throughput                             \u2705 PASS   7492 emisiones/s\n  A    Tiempo promedio                        \u2705 PASS   1.9ms\n  A    Tiempo m\u00e1ximo                          \u2705 PASS   35.9ms\n  A    Sin duplicados                         \u2705 PASS   \n  A    Sin saltos en secuencia                \u2705 PASS   \u00faltimo=1000\n\n======================================================================\n  ESCENARIO B \u2014 200 workers x 25 emisiones = 5,000\n  Throughput bajo carga, secuencias correctas\n======================================================================\n  B    Emisiones completadas sin errores      \u2705 PASS   5000/5000 en 0.63s\n  B    Throughput bajo carga                  \u2705 PASS   7912 emisiones/s\n  B    Tiempo promedio                        \u2705 PASS   2.9ms\n  B    Tiempo m\u00e1ximo                          \u2705 PASS   115.9ms\n  B    Sin duplicados                         \u2705 PASS   \n  B    Sin saltos en secuencia                \u2705 PASS   \u00faltimo=5000\n\n======================================================================\n  ESCENARIO C \u2014 1 worker x 50 emisiones (fallo simulado 40%)\n  Secuencia consumida, registro consistente, recuperaci\u00f3n\n======================================================================\n  C    Emisiones exitosas con fallos simulados \u2705 PASS   ok=26 fail=24 (tasa fallo=0.4)\n  C    Tiempo total                           \u2705 PASS   0.00s\n  C    Tiempo promedio                        \u2705 PASS   0.1ms\n  C    Sin duplicados pese a fallos           \u2705 PASS   \n  C    Sin saltos en secuencia consumida      \u2705 PASS   \n  C    Estado consistente post-recuperaci\u00f3n   \u2705 PASS   last=26\n\n======================================================================\n  RESUMEN BLOQUE 3 \u2014 Stress Test de Secuencias\n======================================================================\n  18/18 passed\n\n",
+      "stderr": ""
+    },
+    {
+      "label": "Contingencia",
+      "status": "PASS",
+      "detail": "25/25 passed",
+      "stdout": "\n======================================================================\n  ESCENARIO 1 \u2014 DGII offline \u2192 cola de contingencia\n  Verificar que emisiones fallidas entran a cola FALLBACK\n======================================================================\n  Documentos en cola tras fallo            \u2705 PASS   10/10\n  Modo FALLBACK en todos                   \u2705 PASS   \n  isSyncedWithDGII=False en todos          \u2705 PASS   \n  dgiiStatus=PENDING en todos              \u2705 PASS   \n  Timestamp contingencia presente          \u2705 PASS   \n\n======================================================================\n  ESCENARIO 2 \u2014 Reintentos progresivos (backoff)\n  Verificar que _should_retry respeta intervalos\n======================================================================\n  Attempt 0: sin intento previo \u2192 retry    \u2705 PASS   \n  Attempt 1: 0min < 5min \u2192 no retry        \u2705 PASS   \n  Attempt 1: 5min >= 5min \u2192 retry          \u2705 PASS   \n  Attempt 3: 10min < 60min \u2192 no retry      \u2705 PASS   \n  Attempt 3: 60min >= 60min \u2192 retry        \u2705 PASS   \n  Attempt 6: 1000min < 1440min \u2192 no retry  \u2705 PASS   \n  Attempt 6: 1440min >= 1440min \u2192 retry    \u2705 PASS   \n  Attempt 20: agotado \u2192 no retry           \u2705 PASS   \n  Attempt 19: 1440min >= 1440min \u2192 retry (\u00faltimo) \u2705 PASS   \n\n======================================================================\n  ESCENARIO 3 \u2014 Recuperaci\u00f3n: cola se vac\u00eda al restaurar conectividad\n  Sin duplicaci\u00f3n, estados consistentes\n======================================================================\n  Cola llena antes de recuperaci\u00f3n         \u2705 PASS   25/25\n  Cola vac\u00eda despu\u00e9s de recuperaci\u00f3n       \u2705 PASS   0 pendientes\n  Todos marcados como synced               \u2705 PASS   \n  Todos en modo API post-recuperaci\u00f3n      \u2705 PASS   \n  Timestamp contingencia limpiado          \u2705 PASS   \n  dgiiStatus=ACCEPTED en todos             \u2705 PASS   \n\n======================================================================\n  ESCENARIO 4 \u2014 L\u00edmite de reintentos (20) \u2192 SYNC_FAILED\n  Verificar que tras 20 intentos fallidos se detiene\n======================================================================\n  Se realizaron 20 reintentos antes de agotar \u2705 PASS   \n  No m\u00e1s reintentos tras agotar            \u2705 PASS   \n\n======================================================================\n  ESCENARIO 5 \u2014 Ventana de contingencia expirada (72h)\n======================================================================\n  Dentro de ventana (<72h)                 \u2705 PASS   24.0h\n  Fuera de ventana (>72h)                  \u2705 PASS   96.0h\n  Solo el documento expirado es detectado  \u2705 PASS   1 expirados\n\n======================================================================\n  RESUMEN BLOQUE 4 \u2014 Contingencia\n======================================================================\n  25/25 passed\n\n",
+      "stderr": ""
+    },
+    {
+      "label": "Reportes DGII",
+      "status": "PASS",
+      "detail": "19/19 passed",
+      "stdout": "\n======================================================================\n  ESCENARIO 1 \u2014 Reporte 606 (Compras)\n  Tipos: E41, E43, E45, E47\n======================================================================\n  Solo tipos correctos incluidos           \u2705 PASS   4/4\n  E31 excluido del 606                     \u2705 PASS   \n  REJECTED excluido                        \u2705 PASS   1 E41s aceptados\n  Monto total correcto                     \u2705 PASS   17800/17800\n\n======================================================================\n  ESCENARIO 2 \u2014 Reporte 607 (Ventas/Ingresos)\n  Tipos: E31, E32, E33, E34, E45, E46\n======================================================================\n  Solo tipos correctos incluidos           \u2705 PASS   6/6\n  E41 excluido del 607                     \u2705 PASS   \n  Anuladas excluidas                       \u2705 PASS   \n  REJECTED excluidas                       \u2705 PASS   \n  Monto total correcto                     \u2705 PASS   27000/27000\n\n======================================================================\n  ESCENARIO 3 \u2014 Reporte 608 (Anulaciones)\n  NCF anulados de cualquier tipo\n======================================================================\n  Solo anuladas incluidas                  \u2705 PASS   4 anuladas\n  Emitida/Borrador excluidos               \u2705 PASS   \n\n======================================================================\n  ESCENARIO 4 \u2014 Reporte 623 (Gastos Menores)\n  Tipos: E41, E43, E45, E47 | Monto < RD$50,000\n======================================================================\n  Solo tipos y montos correctos            \u2705 PASS   4/4\n  E41>50,000 excluido                      \u2705 PASS   \n  E31 excluido del 623                     \u2705 PASS   \n  Monto total correcto                     \u2705 PASS   37800/37800\n\n======================================================================\n  ESCENARIO 5 \u2014 Agregaci\u00f3n por per\u00edodo\n  Verificar filtrado por a\u00f1o/mes\n======================================================================\n  Enero 2026: 2 facturas                   \u2705 PASS   2\n  Febrero 2026: 1 factura                  \u2705 PASS   1\n  Marzo 2026: 1 factura                    \u2705 PASS   1\n  Enero monto total: 3000                  \u2705 PASS   3000\n\n======================================================================\n  RESUMEN BLOQUE 5 \u2014 Reportes DGII (606/607/608/623)\n======================================================================\n  19/19 passed\n\n",
+      "stderr": ""
+    }
+  ],
+  "evidencia": [
+    {
+      "tipo": "E31",
+      "archivo": "raw.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E31_raw.xml"
+    },
+    {
+      "tipo": "E31",
+      "archivo": "signed.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E31_signed.xml"
+    },
+    {
+      "tipo": "E31",
+      "archivo": "ack.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E31_ack.xml"
+    },
+    {
+      "tipo": "E31",
+      "archivo": "status.json",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E31_status.json"
+    },
+    {
+      "tipo": "E31",
+      "archivo": "report.csv",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E31_report.csv"
+    },
+    {
+      "tipo": "E31",
+      "archivo": "xsd_validation",
+      "status": "PASS",
+      "detail": []
+    },
+    {
+      "tipo": "E31",
+      "archivo": "sha256",
+      "hash": "uky8HagvGU/jWA2HvTgk+xCm3glbekw26vwKuanTe9U="
+    },
+    {
+      "tipo": "E32",
+      "archivo": "raw.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E32_raw.xml"
+    },
+    {
+      "tipo": "E32",
+      "archivo": "signed.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E32_signed.xml"
+    },
+    {
+      "tipo": "E32",
+      "archivo": "ack.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E32_ack.xml"
+    },
+    {
+      "tipo": "E32",
+      "archivo": "status.json",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E32_status.json"
+    },
+    {
+      "tipo": "E32",
+      "archivo": "report.csv",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E32_report.csv"
+    },
+    {
+      "tipo": "E32",
+      "archivo": "xsd_validation",
+      "status": "PASS",
+      "detail": []
+    },
+    {
+      "tipo": "E32",
+      "archivo": "sha256",
+      "hash": "u5khifj6qr8Wkad1k8fmTFtC+Q9jo9yYG9xgwP2nOzg="
+    },
+    {
+      "tipo": "E33",
+      "archivo": "raw.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E33_raw.xml"
+    },
+    {
+      "tipo": "E33",
+      "archivo": "signed.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E33_signed.xml"
+    },
+    {
+      "tipo": "E33",
+      "archivo": "ack.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E33_ack.xml"
+    },
+    {
+      "tipo": "E33",
+      "archivo": "status.json",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E33_status.json"
+    },
+    {
+      "tipo": "E33",
+      "archivo": "report.csv",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E33_report.csv"
+    },
+    {
+      "tipo": "E33",
+      "archivo": "xsd_validation",
+      "status": "PASS",
+      "detail": []
+    },
+    {
+      "tipo": "E33",
+      "archivo": "sha256",
+      "hash": "kNZkOm9NZ2PPsrGh37MPFU699l9t3fj4zFhMIfIr6xw="
+    },
+    {
+      "tipo": "E34",
+      "archivo": "raw.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E34_raw.xml"
+    },
+    {
+      "tipo": "E34",
+      "archivo": "signed.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E34_signed.xml"
+    },
+    {
+      "tipo": "E34",
+      "archivo": "ack.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E34_ack.xml"
+    },
+    {
+      "tipo": "E34",
+      "archivo": "status.json",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E34_status.json"
+    },
+    {
+      "tipo": "E34",
+      "archivo": "report.csv",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E34_report.csv"
+    },
+    {
+      "tipo": "E34",
+      "archivo": "xsd_validation",
+      "status": "PASS",
+      "detail": []
+    },
+    {
+      "tipo": "E34",
+      "archivo": "sha256",
+      "hash": "QOkIkS6EERQOnRZ74nkaxlOreMCly8SnT3RrCMgL0aE="
+    },
+    {
+      "tipo": "E41",
+      "archivo": "raw.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E41_raw.xml"
+    },
+    {
+      "tipo": "E41",
+      "archivo": "signed.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E41_signed.xml"
+    },
+    {
+      "tipo": "E41",
+      "archivo": "ack.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E41_ack.xml"
+    },
+    {
+      "tipo": "E41",
+      "archivo": "status.json",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E41_status.json"
+    },
+    {
+      "tipo": "E41",
+      "archivo": "report.csv",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E41_report.csv"
+    },
+    {
+      "tipo": "E41",
+      "archivo": "xsd_validation",
+      "status": "PASS",
+      "detail": []
+    },
+    {
+      "tipo": "E41",
+      "archivo": "sha256",
+      "hash": "87ERkRXAPEe77O84j5jvIOTZ9d4mF8VDd5F2e6ZmAfM="
+    },
+    {
+      "tipo": "E43",
+      "archivo": "raw.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E43_raw.xml"
+    },
+    {
+      "tipo": "E43",
+      "archivo": "signed.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E43_signed.xml"
+    },
+    {
+      "tipo": "E43",
+      "archivo": "ack.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E43_ack.xml"
+    },
+    {
+      "tipo": "E43",
+      "archivo": "status.json",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E43_status.json"
+    },
+    {
+      "tipo": "E43",
+      "archivo": "report.csv",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E43_report.csv"
+    },
+    {
+      "tipo": "E43",
+      "archivo": "xsd_validation",
+      "status": "PASS",
+      "detail": []
+    },
+    {
+      "tipo": "E43",
+      "archivo": "sha256",
+      "hash": "hg5qnvuPArd/e+wUUF2v29744KXe7f7CHhNkBhO+FH0="
+    },
+    {
+      "tipo": "E44",
+      "archivo": "raw.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E44_raw.xml"
+    },
+    {
+      "tipo": "E44",
+      "archivo": "signed.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E44_signed.xml"
+    },
+    {
+      "tipo": "E44",
+      "archivo": "ack.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E44_ack.xml"
+    },
+    {
+      "tipo": "E44",
+      "archivo": "status.json",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E44_status.json"
+    },
+    {
+      "tipo": "E44",
+      "archivo": "report.csv",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E44_report.csv"
+    },
+    {
+      "tipo": "E44",
+      "archivo": "xsd_validation",
+      "status": "PASS",
+      "detail": []
+    },
+    {
+      "tipo": "E44",
+      "archivo": "sha256",
+      "hash": "UcxTocg3ZfNSL5eYoDGI54xlh0Mdx6tKDR7A+EMqxaQ="
+    },
+    {
+      "tipo": "E45",
+      "archivo": "raw.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E45_raw.xml"
+    },
+    {
+      "tipo": "E45",
+      "archivo": "signed.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E45_signed.xml"
+    },
+    {
+      "tipo": "E45",
+      "archivo": "ack.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E45_ack.xml"
+    },
+    {
+      "tipo": "E45",
+      "archivo": "status.json",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E45_status.json"
+    },
+    {
+      "tipo": "E45",
+      "archivo": "report.csv",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E45_report.csv"
+    },
+    {
+      "tipo": "E45",
+      "archivo": "xsd_validation",
+      "status": "PASS",
+      "detail": []
+    },
+    {
+      "tipo": "E45",
+      "archivo": "sha256",
+      "hash": "QTcHIy0NdCEiCaqeQxFlpgchWMNVmtDU2yEtbGg6ZEI="
+    },
+    {
+      "tipo": "E46",
+      "archivo": "raw.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E46_raw.xml"
+    },
+    {
+      "tipo": "E46",
+      "archivo": "signed.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E46_signed.xml"
+    },
+    {
+      "tipo": "E46",
+      "archivo": "ack.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E46_ack.xml"
+    },
+    {
+      "tipo": "E46",
+      "archivo": "status.json",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E46_status.json"
+    },
+    {
+      "tipo": "E46",
+      "archivo": "report.csv",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E46_report.csv"
+    },
+    {
+      "tipo": "E46",
+      "archivo": "xsd_validation",
+      "status": "PASS",
+      "detail": []
+    },
+    {
+      "tipo": "E46",
+      "archivo": "sha256",
+      "hash": "GEM//XXCrcZvNT8nyCN8ku8vjoKsAv3XFw6y6XRLYj0="
+    },
+    {
+      "tipo": "E47",
+      "archivo": "raw.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E47_raw.xml"
+    },
+    {
+      "tipo": "E47",
+      "archivo": "signed.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E47_signed.xml"
+    },
+    {
+      "tipo": "E47",
+      "archivo": "ack.xml",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E47_ack.xml"
+    },
+    {
+      "tipo": "E47",
+      "archivo": "status.json",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E47_status.json"
+    },
+    {
+      "tipo": "E47",
+      "archivo": "report.csv",
+      "path": "/Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/evidencia/E47_report.csv"
+    },
+    {
+      "tipo": "E47",
+      "archivo": "xsd_validation",
+      "status": "PASS",
+      "detail": []
+    },
+    {
+      "tipo": "E47",
+      "archivo": "sha256",
+      "hash": "yzLWDoMLr6OrU3t8tzlJOS67rUVsRMi2mzZE04h8oWY="
+    }
+  ]
+}

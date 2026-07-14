@@ -84,8 +84,18 @@
             <span class="badge-pill badge-purple"><i class="fa-solid fa-store"></i> E41 – Compra Suplidor</span>
             {% elif expense.ecfType == 'E31' %}
             <span class="badge-pill badge-blue"><i class="fa-solid fa-file-invoice"></i> E31 – Crédito Fiscal</span>
+            {% elif expense.ecfType == 'E44' %}
+            <span class="badge-pill badge-gray"><i class="fa-solid fa-stamp"></i> E44 – Régimen Especial</span>
+            {% elif expense.ecfType == 'E45' %}
+            <span class="badge-pill badge-blue"><i class="fa-solid fa-building-columns"></i> E45 – Gubernamental</span>
+            {% elif expense.ecfType == 'E46' %}
+            <span class="badge-pill badge-cyan"><i class="fa-solid fa-ship"></i> E46 – Exportación</span>
             {% elif expense.ecfType == 'E47' %}
             <span class="badge-pill badge-purple"><i class="fa-solid fa-globe"></i> E47 – Pago al Exterior</span>
+            {% elif expense.ecfType == 'E48' %}
+            <span class="badge-pill badge-purple"><i class="fa-solid fa-earth-americas"></i> E48 – Cliente Exterior</span>
+            {% elif expense.ecfType == 'E49' %}
+            <span class="badge-pill badge-gold"><i class="fa-solid fa-industry"></i> E49 – Zona Franca</span>
             {% elif expense.ecfType %}
             <span class="badge-pill badge-gray"><i class="fa-solid fa-stamp"></i> {{ expense.ecfType }}</span>
             {% endif %}
@@ -287,8 +297,12 @@
                 {% elif expense.ecfType == 'E32' %}E32 – Factura de Consumo Electrónica
                 {% elif expense.ecfType == 'E41' %}E41 – Comprobante de Compras Electrónico
                 {% elif expense.ecfType == 'E43' %}E43 – Gastos Menores Electrónicos
+                {% elif expense.ecfType == 'E44' %}E44 – Regímenes Especiales
                 {% elif expense.ecfType == 'E45' %}E45 – Comprobante Gubernamental Electrónico
+                {% elif expense.ecfType == 'E46' %}E46 – Comprobante de Exportación
                 {% elif expense.ecfType == 'E47' %}E47 – Comprobante Pagos al Exterior
+                {% elif expense.ecfType == 'E48' %}E48 – Factura Clientes del Exterior
+                {% elif expense.ecfType == 'E49' %}E49 – Operaciones Zonas Francas
                 {% else %}{{ expense.ecfType or '—' }}{% endif %}
             </span>
         </div>

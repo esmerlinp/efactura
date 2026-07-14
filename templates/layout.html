@@ -1395,6 +1395,12 @@
                         <i class="fa-solid fa-cash-register"></i>
                         <span>Punto de Venta (POS)</span>
                     </a>
+                    <a href="{{ url_for('web_rui.rui_list') }}"
+                        class="sidebar-discover-item {% if active_page == 'rui' %}active{% endif %}"
+                        data-tooltip="Registro Único de Ingresos">
+                        <i class="fa-solid fa-file-invoice"></i>
+                        <span>RUI (Tipo 12)</span>
+                    </a>
                     {% endif %}
                     {% if module_enabled('portal_cliente') and (session.get('user', {}).get('role') == 'owner' or
                     session.get('user', {}).get('permissions', {}).get('canClients', True)) %}
