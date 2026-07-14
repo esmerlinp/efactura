@@ -130,16 +130,29 @@ def payroll_bank_export(period_id):
     owner_uid, sandbox = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.bank_export_service import generate_bank_file
+    from app.services.db_service import _cached_company_profile
 
     period = hr.get_payroll_period(owner_uid, period_id, sandbox=sandbox)
     if not period:
         flash("Período no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_list"))
 
+    # Obtener perfil de empresa para datos del header
+    profile = _cached_company_profile(owner_uid)
+    company_name = profile.get("companyName", "MI EMPRESA SRL") or "MI EMPRESA SRL"
+    company_rnc = (profile.get("companyRNC") or "").replace("-", "")[:9]
+    company_code = company_rnc or _cached_company_profile.__wrapped__(owner_uid).get("company_code", "101003383")
+    company_email = profile.get("companyEmail", "")
+    # Si no hay RNC, usar código de contrato del banco (configurable)
+    bank_contract = request.args.get("contract_code", company_code.zfill(9)[:9])
+
     bank = request.args.get("bank", "popular")
     employees_list = hr.get_employees(owner_uid, sandbox=sandbox)
     emp_map = {e["id"]: e for e in employees_list}
-    content = generate_bank_file(period, emp_map, bank=bank)
+    content = generate_bank_file(period, emp_map, bank=bank,
+                                 company_name=company_name,
+                                 company_code=bank_contract,
+                                 company_email=company_email)
 
     import io as _io
     buffer = _io.BytesIO(content)
