@@ -84,20 +84,44 @@ IMPORTANTE: Si la factura tiene un desglose de items, extrae cada línea individ
 Si no encuentras algún dato, usa string vacío "" o 0.0 para montos, y array vacío [] para items. No agregues explicaciones, markdown o texto extra. Solo el JSON puro."""
 
         if is_pdf:
-            try:
-                import io
-                import pypdf
-                pdf_file = io.BytesIO(file_bytes)
-                reader = pypdf.PdfReader(pdf_file)
-                pdf_text = ""
-                for page in reader.pages:
-                    page_text = page.extract_text()
-                    if page_text:
-                        pdf_text += page_text + "\n"
-                
+            import io
+            import pypdf
+            pdf_file = io.BytesIO(file_bytes)
+            reader = pypdf.PdfReader(pdf_file)
+            pdf_text = ""
+            for page in reader.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    pdf_text += page_text + "\n"
+
+            if len(pdf_text.strip()) > 20:
                 user_content = f"Analiza el siguiente texto extraído de un PDF de factura e identifica los campos solicitados:\n\n{pdf_text}"
-            except Exception as e:
-                return {"success": False, "message": f"Error al procesar el archivo PDF: {str(e)}"}
+            else:
+                try:
+                    import fitz
+                    pdf_doc = fitz.open(stream=file_bytes, filetype="pdf")
+                    base64_images = []
+                    max_pages = min(len(pdf_doc), 3)
+                    for page_num in range(max_pages):
+                        page = pdf_doc.load_page(page_num)
+                        pix = page.get_pixmap(dpi=200)
+                        img_bytes = pix.tobytes("jpeg")
+                        b64 = base64.b64encode(img_bytes).decode('utf-8')
+                        base64_images.append(b64)
+                    pdf_doc.close()
+
+                    img_contents = []
+                    for b64_img in base64_images:
+                        img_contents.append({
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/jpeg;base64,{b64_img}"}
+                        })
+                    user_content = [
+                        {"type": "text", "text": "Analiza esta factura escaneada e identifica los campos solicitados."},
+                        *img_contents
+                    ]
+                except Exception as e:
+                    return {"success": False, "message": f"Error al procesar el PDF escaneado: {str(e)}"}
         else:
             base64_image = base64.b64encode(file_bytes).decode('utf-8')
             user_content = [

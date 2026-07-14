@@ -16,7 +16,7 @@
 
 {% block content %}
 <style>
-    .doc-main-col { max-width:960px; margin:0 auto; display:flex; flex-direction:column; gap:24px; }
+    .doc-main-col { max-width:1050px; margin:0 auto; display:flex; flex-direction:column; gap:24px; }
     .section-card { background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:28px 32px; margin-bottom:24px; }
     .section-card:last-child { margin-bottom:0; }
     .section-card h3 { font-size:0.95rem; font-weight:700; color:var(--text-primary); margin:0 0 18px 0; display:flex; align-items:center; gap:10px; }
@@ -269,12 +269,12 @@
                 <table class="accounting-table" id="accounting-items-table">
                     <thead>
                         <tr>
-                            <th style="width:28%;">Concepto</th>
-                            <th style="width:14%;text-align:right;">Valor</th>
-                            <th style="width:12%;text-align:right;">Impuesto</th>
-                            <th style="width:8%;text-align:center;">Cant.</th>
-                            <th style="width:20%;">Observaciones</th>
-                            <th style="width:14%;text-align:right;">Total</th>
+                            <th style="width:24%;">Concepto</th>
+                            <th style="width:12%;text-align:right;">Valor</th>
+                            <th style="width:10%;text-align:right;">Impuesto</th>
+                            <th style="width:10%;text-align:center;">Cant.</th>
+                            <th style="width:22%;">Observaciones</th>
+                            <th style="width:12%;text-align:right;">Total</th>
                             <th style="width:4%;"></th>
                         </tr>
                     </thead>
@@ -287,10 +287,10 @@
                                 <div class="acco-dropdown"></div>
                             </td>
                             <td style="text-align:right;">
-                                <input type="number" class="form-input item-value" name="account_items[0][value]" step="0.01" value="0.00" style="width:110px;text-align:right;" oninput="recalculateRowTotal(this);recalculateGrandTotal();">
+                                <input type="number" class="form-input item-value" name="account_items[0][value]" step="0.01" value="0.00" style="width:100%;min-width:60px;text-align:right;" oninput="recalculateRowTotal(this);recalculateGrandTotal();">
                             </td>
                             <td style="text-align:right;">
-                                <select class="form-select item-tax item-tax-select" name="account_items[0][tax]" onchange="recalculateRowTotal(this);recalculateGrandTotal();" style="width:100%;">
+                                <select class="form-select item-tax item-tax-select" name="account_items[0][tax]" onchange="recalculateRowTotal(this);recalculateGrandTotal();" style="width:100%;font-size:0.8rem;padding:6px 24px 6px 6px;background-position:right 6px center;">
                                     <option value="0" selected>Ninguno</option>
                                     <option value="{{ itbis_general }}">ITBIS - ({{ '%.2f'|format(itbis_general * 100) }}%)</option>
                                     <option value="{{ itbis_reduced }}">ITBIS Reducido - ({{ '%.2f'|format(itbis_reduced * 100) }}%)</option>
@@ -299,7 +299,7 @@
                                 </select>
                             </td>
                             <td style="text-align:center;">
-                                <input type="number" class="form-input item-qty" name="account_items[0][quantity]" min="1" value="1" style="width:55px;text-align:center;" oninput="recalculateRowTotal(this);recalculateGrandTotal();">
+                                <input type="number" class="form-input item-qty" name="account_items[0][quantity]" min="1" value="1" style="width:100%;min-width:40px;text-align:center;" oninput="recalculateRowTotal(this);recalculateGrandTotal();">
                             </td>
                             <td>
                                 <input type="text" class="form-input item-obs" name="account_items[0][observations]" placeholder="Opcional" style="width:100%;">
@@ -636,9 +636,9 @@
                 <input type="hidden" class="item-concept-name" name="account_items[${rowIndex}][concept]" value="">
                 <div class="acco-dropdown"></div>
             </td>
-            <td style="text-align:right;"><input type="number" class="form-input item-value" name="account_items[${rowIndex}][value]" step="0.01" value="0.00" style="width:110px;text-align:right;" oninput="recalculateRowTotal(this);recalculateGrandTotal();"></td>
+            <td style="text-align:right;"><input type="number" class="form-input item-value" name="account_items[${rowIndex}][value]" step="0.01" value="0.00" style="width:100%;min-width:60px;text-align:right;" oninput="recalculateRowTotal(this);recalculateGrandTotal();"></td>
             <td style="text-align:right;">${buildTaxSelect(rowIndex)}</td>
-            <td style="text-align:center;"><input type="number" class="form-input item-qty" name="account_items[${rowIndex}][quantity]" min="1" value="1" style="width:55px;text-align:center;" oninput="recalculateRowTotal(this);recalculateGrandTotal();"></td>
+            <td style="text-align:center;"><input type="number" class="form-input item-qty" name="account_items[${rowIndex}][quantity]" min="1" value="1" style="width:100%;min-width:40px;text-align:center;" oninput="recalculateRowTotal(this);recalculateGrandTotal();"></td>
             <td><input type="text" class="form-input item-obs" name="account_items[${rowIndex}][observations]" placeholder="Opcional" style="width:100%;"></td>
             <td style="text-align:right;font-weight:600;">
                 <span class="item-total-label">RD$ 0.00</span>
