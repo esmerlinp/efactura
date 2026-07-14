@@ -568,6 +568,15 @@ def dashboard():
             "text": "Salud financiera estable. No se detectan anomalías en las compras de clientes ni riesgos de liquidez inmediatos."
         })
 
+    # Obligaciones tributarias DGII — alertas para el dashboard
+    tax_alerts = []
+    try:
+        from app.services.tax_obligation_service import TaxObligationService
+        all_status = TaxObligationService.get_status(owner_uid)
+        tax_alerts = [s for s in all_status if s["status"] in ("due_soon", "overdue", "upcoming")]
+    except Exception:
+        pass
+
     return render_template(
         'dashboard.html',
         active_page='dashboard',
@@ -619,5 +628,6 @@ def dashboard():
         impuestos_venta=impuestos_venta,
         ingresos_netos=ingresos_netos,
         egresos_netos=egresos_netos,
+        tax_alerts=tax_alerts,
         _cache_key=f"dashboard_{owner_uid}_{kpi_period}_{scale}_{date_str}",
     )

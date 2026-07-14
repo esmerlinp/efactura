@@ -199,6 +199,38 @@ def run_daily_rui_generation():
         f"{skipped} omitidos, {errors} errores."
     )
 
+def run_tax_obligation_reminders():
+    """
+    Job diario (7:00 AM hora RD): recorre todos los usuarios con companyRNC
+    y envía notificaciones por email para obligaciones tributarias DGII
+    que vencen en los próximos 3 días.
+    """
+    from app.services.tax_obligation_service import TaxObligationService
+
+    logger.info("⏰ APScheduler — Iniciando recordatorios de obligaciones tributarias DGII...")
+
+    owner_uids = _get_all_owner_uids()
+    if not owner_uids:
+        logger.info("ℹ️ No se encontraron usuarios para verificar obligaciones tributarias.")
+        return
+
+    total_sent = 0
+    total_errors = 0
+    for owner_uid in owner_uids:
+        try:
+            sent, errors = TaxObligationService.process_notifications(owner_uid)
+            total_sent += sent
+            total_errors += errors
+        except Exception as exc:
+            logger.error(f"❌ Error procesando obligaciones de {owner_uid}: {exc}")
+            total_errors += 1
+
+    logger.info(
+        f"✅ APScheduler — Recordatorios DGII finalizados: "
+        f"{total_sent} enviados, {total_errors} errores."
+    )
+
+
 def _run_monitored(job_id, name, func):
     from app.services.job_service import JobService
     return JobService.run_monitored(job_id, name, func)
@@ -241,6 +273,14 @@ def monitored_daily_rui_generation():
         "daily_rui_generation",
         "Generación Automática de RUI",
         run_daily_rui_generation,
+    )
+
+
+def monitored_tax_obligation_reminders():
+    return _run_monitored(
+        "tax_obligation_reminders",
+        "Recordatorios de Obligaciones Tributarias DGII",
+        run_tax_obligation_reminders,
     )
 
 
@@ -314,6 +354,14 @@ def init_scheduler(app):
         trigger=CronTrigger(hour=0, minute=30),  # 12:30 AM RD cada día
         id="daily_rui_generation",
         name="Generación Automática de RUI (día anterior)",
+        replace_existing=True,
+    )
+
+    _scheduler.add_job(
+        func=monitored_tax_obligation_reminders,
+        trigger=CronTrigger(hour=7, minute=0),   # 7:00 AM RD cada día
+        id="tax_obligation_reminders",
+        name="Recordatorios de Obligaciones Tributarias DGII",
         replace_existing=True,
     )
 

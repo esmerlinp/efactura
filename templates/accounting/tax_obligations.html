@@ -1,0 +1,152 @@
+{% extends "accounting/layout_accounting.html" %}
+{% block title %}Obligaciones Tributarias DGII{% endblock %}
+{% block page_header %}Obligaciones Tributarias DGII{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
+{% endblock %}
+{% block content %}
+<div class="page-title-container" style="margin-bottom:16px; padding-left:4px;">
+    <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+        <i class="fa-solid fa-scale-balanced" style="color:var(--accent-purple); margin-right:10px;"></i>
+        Obligaciones Tributarias DGII
+    </h1>
+    <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
+        Configura las fechas de tus obligaciones tributarias y activa/desactiva las que te aplican.
+        El sistema te notificará por email y en el Dashboard cuando un vencimiento se acerque.
+    </p>
+</div>
+
+<div class="card-segment">
+    <div class="segment-header">
+        <div class="segment-header-icon purple">
+            <i class="fa-solid fa-calendar-check"></i>
+        </div>
+        <h3 style="flex-grow:1;">Calendario de Obligaciones</h3>
+    </div>
+    <div style="overflow-x:auto;">
+        <table class="table" style="width:100%; border-collapse:collapse; font-size:0.82rem;">
+            <thead>
+                <tr style="background:var(--bg-nav-hover);">
+                    <th style="padding:8px 10px; text-align:left;">Obligación</th>
+                    <th style="padding:8px 10px; text-align:left;">Descripción</th>
+                    <th style="padding:8px 10px; text-align:center;">Primer Vencimiento</th>
+                    <th style="padding:8px 10px; text-align:center;">Próximo Vencimiento</th>
+                    <th style="padding:8px 10px; text-align:center;">Estado</th>
+                    <th style="padding:8px 10px; text-align:center;">Activa</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ob in obligations %}
+                {% set st = status_map.get(ob.get('obligation_key', ob.get('id')), {}) %}
+                <tr style="border-bottom:1px solid var(--border-color);">
+                    <td style="padding:10px;">
+                        <strong style="color:var(--text-primary);">{{ ob.label }}</strong>
+                    </td>
+                    <td style="padding:10px; color:var(--text-secondary); font-size:0.78rem;">
+                        {{ ob.description }}
+                    </td>
+                    <td style="padding:10px; text-align:center;">
+                        <input type="date" class="form-input tax-first-due"
+                               data-key="{{ ob.get('obligation_key', ob.get('id')) }}"
+                               value="{{ ob.first_due_date[:10] if ob.first_due_date else '' }}"
+                               style="font-size:0.78rem; width:140px; text-align:center;"
+                               onchange="saveFirstDueDate(this)">
+                    </td>
+                    <td style="padding:10px; text-align:center;">
+                        {% if st.next_due_date %}
+                        <span style="font-family:monospace; font-size:0.8rem; color:var(--text-primary);">
+                            {{ st.next_due_date }}
+                        </span>
+                        {% else %}
+                        <span style="color:var(--text-muted); font-size:0.75rem;">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:10px; text-align:center;">
+                        {% if st.status == 'overdue' %}
+                        <span style="background:rgba(239,68,68,0.12); color:var(--accent-red); padding:3px 10px; border-radius:12px; font-size:0.72rem; font-weight:600;">
+                            Vencido ({{ st.days_remaining }} días)
+                        </span>
+                        {% elif st.status == 'due_soon' %}
+                        <span style="background:rgba(245,158,11,0.12); color:#d97706; padding:3px 10px; border-radius:12px; font-size:0.72rem; font-weight:600;">
+                            ⚠️ {{ st.days_remaining }} días
+                        </span>
+                        {% elif st.status == 'upcoming' %}
+                        <span style="background:rgba(59,130,246,0.1); color:#3b82f6; padding:3px 10px; border-radius:12px; font-size:0.72rem; font-weight:600;">
+                            Próximo ({{ st.days_remaining }} días)
+                        </span>
+                        {% elif st.status == 'unconfigured' %}
+                        <span style="background:var(--bg-input); color:var(--text-muted); padding:3px 10px; border-radius:12px; font-size:0.72rem;">
+                            Sin configurar
+                        </span>
+                        {% else %}
+                        <span style="background:rgba(16,185,129,0.1); color:var(--accent-emerald); padding:3px 10px; border-radius:12px; font-size:0.72rem; font-weight:600;">
+                            Al día
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:10px; text-align:center;">
+                        <label class="toggle-switch" style="display:inline-flex; align-items:center; gap:8px;">
+                            <input type="checkbox" class="tax-toggle"
+                                   data-key="{{ ob.get('obligation_key', ob.get('id')) }}"
+                                   {% if ob.enabled %}checked{% endif %}
+                                   onchange="toggleObligation(this)"
+                                   style="display:none;">
+                            <span class="toggle-track" style="width:40px; height:22px; background:{% if ob.enabled %}var(--accent-emerald){% else %}var(--border-color){% endif %}; border-radius:11px; position:relative; cursor:pointer; transition:background 0.2s; display:inline-block;">
+                                <span class="toggle-thumb" style="position:absolute; top:2px; left:{% if ob.enabled %}20px{% else %}2px{% endif %}; width:18px; height:18px; background:white; border-radius:50%; transition:left 0.2s; box-shadow:0 1px 3px rgba(0,0,0,0.15);"></span>
+                            </span>
+                        </label>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+// ── Toggle obligación ──────────────────────────────────────────────────────
+function toggleObligation(el) {
+    const key = el.dataset.key;
+    const enabled = el.checked;
+    const track = el.nextElementSibling;
+    const thumb = track.querySelector('.toggle-thumb');
+    track.style.background = enabled ? 'var(--accent-emerald)' : 'var(--border-color)';
+    thumb.style.left = enabled ? '20px' : '2px';
+
+    fetch('{{ url_for("web_accounting.tax_obligations_save") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        },
+        body: 'key=' + encodeURIComponent(key) + '&enabled=' + (enabled ? '1' : '0')
+    }).then(r => r.json()).then(data => {
+        if (data.success) {
+            console.log('✓ Obligación ' + key + ' actualizada');
+        }
+    }).catch(err => console.error('Error:', err));
+}
+
+// ── Guardar first_due_date ────────────────────────────────────────────────
+let _saveTimer = null;
+function saveFirstDueDate(el) {
+    const key = el.dataset.key;
+    const value = el.value;
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(() => {
+        fetch('{{ url_for("web_accounting.tax_obligations_save") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: 'key=' + encodeURIComponent(key) + '&first_due_date=' + encodeURIComponent(value)
+        }).then(r => r.json()).then(data => {
+            if (data.success) {
+                location.reload(); // recargar para mostrar próximo vencimiento actualizado
+            }
+        }).catch(err => console.error('Error:', err));
+    }, 600);
+}
+</script>
+{% endblock %}

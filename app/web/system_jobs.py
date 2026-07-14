@@ -55,6 +55,7 @@ def trigger_job():
         "daily_contract_billing": ("daily_contract_billing", "Facturación Diaria de Contratos (Manual)"),
         "daily_depreciation": ("daily_depreciation", "Depreciación de Activos Fijos (Manual)"),
         "cleanup_idempotency_keys": ("cleanup_idempotency_keys", "Limpieza de Idempotency Keys (Manual)"),
+        "tax_obligation_reminders": ("tax_obligation_reminders", "Recordatorios de Obligaciones Tributarias DGII (Manual)"),
     }
 
     job_info = job_map.get(job_id)
@@ -69,12 +70,14 @@ def trigger_job():
             run_daily_contract_billing,
             run_daily_depreciation,
             cleanup_expired_idempotency_keys,
+            run_tax_obligation_reminders,
         )
         func_map = {
             "contingency_sync": run_contingency_sync,
             "daily_contract_billing": run_daily_contract_billing,
             "daily_depreciation": run_daily_depreciation,
             "cleanup_idempotency_keys": cleanup_expired_idempotency_keys,
+            "tax_obligation_reminders": run_tax_obligation_reminders,
         }
         func = func_map.get(job_id)
         if not func:
