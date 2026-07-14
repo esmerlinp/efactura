@@ -10,6 +10,14 @@ class EcfEmissionService:
         if "E31" in ecf_type or "fiscal-invoices" in ecf_type or "Crédito Fiscal" in ecf_type:
             if client_rnc == "000000000" or not client_rnc or len(client_rnc) not in [9, 11]:
                 raise ValueError("Para emitir un Crédito Fiscal (E31) se requiere un RNC de cliente de 9 dígitos o Cédula de 11 dígitos.")
+        
+        if "E45" in ecf_type or "Gubernamental" in ecf_type:
+            if client_rnc == "000000000" or not client_rnc or len(client_rnc) != 9:
+                raise ValueError("Para emitir un Comprobante Gubernamental (E45) se requiere un RNC de cliente de 9 dígitos.")
+        
+        if "E46" in ecf_type or "Exportación" in ecf_type:
+            if not client_rnc:
+                raise ValueError("Para emitir un Comprobante de Exportación (E46) se requiere el RNC o Pasaporte del cliente.")
                 
         return DgiiDirectService.emit_direct(company, invoice_dict, sandbox=sandbox)
 

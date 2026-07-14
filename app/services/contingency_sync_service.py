@@ -9,6 +9,7 @@ from app.services.dgii import DGIIService
 logger = logging.getLogger(__name__)
 
 BACKOFF_INTERVALS = [1, 5, 15, 60, 360, 1440]
+MAX_RETRY_ATTEMPTS = 20
 CONTINGENCY_WINDOW_HOURS = 72
 WARNING_THRESHOLD_HOURS = 48
 
@@ -77,6 +78,11 @@ class ContingencySyncService:
             last_attempt_str = inv.get('lastSyncAttempt', '')
 
             if not cls._should_retry(sync_attempts, last_attempt_str):
+                if sync_attempts >= MAX_RETRY_ATTEMPTS:
+                    inv["dgiiStatus"] = "SYNC_FAILED"
+                    inv["syncError"] = f"Reintentos agotados ({sync_attempts}). Contacte a soporte."
+                    DatabaseService.save_invoice(owner_uid, inv.get("id"), inv, sandbox=sandbox)
+                    logger.warning(f"Documento {inv.get('encf', 'N/A')} marcado como SYNC_FAILED tras {sync_attempts} intentos.")
                 continue
 
             encf = inv.get('encf', 'N/A')
@@ -111,8 +117,17 @@ class ContingencySyncService:
 
     @classmethod
     def _should_retry(cls, attempts, last_attempt_str):
-        if attempts >= len(BACKOFF_INTERVALS):
+        # Límite absoluto de reintentos para evitar bucles infinitos
+        if attempts >= MAX_RETRY_ATTEMPTS:
+            logger.warning(f"Documento agotó reintentos ({attempts}/{MAX_RETRY_ATTEMPTS}). Se marca como falla permanente.")
             return False
+
+        if attempts >= len(BACKOFF_INTERVALS):
+            logger.info(f"Documento fuera de ventana de backoff ({attempts} intentos). Último reintento con backoff extendido.")
+            # Usar backoff extendido: 24h después del último intento
+            wait_minutes = 1440
+        else:
+            wait_minutes = BACKOFF_INTERVALS[attempts]
 
         if not last_attempt_str:
             return True
@@ -123,7 +138,6 @@ class ContingencySyncService:
             if last_attempt.tzinfo is None:
                 last_attempt = last_attempt.replace(tzinfo=timezone.utc)
             elapsed_minutes = (now - last_attempt).total_seconds() / 60
-            wait_minutes = BACKOFF_INTERVALS[attempts]
             return elapsed_minutes >= wait_minutes
         except (ValueError, TypeError):
             return True

@@ -25,7 +25,7 @@ REGIMEN_LEGACY_MAP = {
 REGIMEN_RULES = {
     REGIMEN_ORDINARY: {
         "label": "Régimen Ordinario (General)",
-        "allowed_ecf_types": ["E31", "E32", "E33", "E34", "E41", "E43", "E44", "E45", "E46", "E47"],
+        "allowed_ecf_types": ["E31", "E32", "E33", "E34", "E41", "E43", "E44", "E45", "E46", "E47", "B12"],
         "itbis_enabled": True,
         "default_ecf_type": "E31",
         "rst_limit": None,

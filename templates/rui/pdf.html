@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>RUI {{ doc.ncf }}</title>
+    <style>
+        @page { margin: 20mm 15mm; }
+        body { font-family: 'Courier New', monospace; font-size: 12px; color: #000; }
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #000; padding-bottom: 15px; }
+        .header h1 { font-size: 18px; margin: 0 0 5px 0; }
+        .header h2 { font-size: 24px; margin: 5px 0; letter-spacing: 2px; }
+        .header p { margin: 2px 0; font-size: 11px; }
+        .info-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        .info-table td { padding: 4px 8px; border: 1px solid #000; font-size: 11px; }
+        .info-table td:first-child { font-weight: bold; width: 40%; background: #f5f5f5; }
+        .totals-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        .totals-table th, .totals-table td { padding: 6px 8px; border: 1px solid #000; text-align: right; font-size: 11px; }
+        .totals-table th { background: #e0e0e0; text-align: center; }
+        .totals-table td:first-child { text-align: left; }
+        .grand-total { font-weight: bold; font-size: 14px; }
+        .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 9px; border-top: 1px solid #000; padding-top: 8px; }
+        .qr { text-align: center; margin-top: 20px; }
+        .badge-active { color: #059669; font-weight: bold; }
+        .badge-cancelled { color: #dc2626; font-weight: bold; }
+        @media print { .no-print { display: none; } }
+    </style>
+</head>
+<body>
+    <div class="no-print" style="margin-bottom: 20px; text-align: center;">
+        <button onclick="window.print()" style="padding: 10px 24px; font-size: 14px; cursor: pointer;">Imprimir / Guardar PDF</button>
+    </div>
+
+    <div class="header">
+        <h1>{{ company.companyName }}</h1>
+        <p>RNC: {{ company.companyRNC }} | {{ company.tradeName }}</p>
+        <p>{{ company.companyAddress }}</p>
+        <p>{{ company.province }}, {{ company.municipality }}</p>
+        <hr style="margin: 10px 0;">
+        <h1>REGISTRO ÚNICO DE INGRESOS</h1>
+        <h2>RUI</h2>
+        <p>NCF Tipo 12 — Resumen Diario de Ventas a Consumidores Finales</p>
+    </div>
+
+    <table class="info-table">
+        <tr>
+            <td>NCF</td>
+            <td><strong>{{ doc.ncf }}</strong></td>
+        </tr>
+        <tr>
+            <td>Fecha Fiscal</td>
+            <td>{{ doc.businessDate }}</td>
+        </tr>
+        <tr>
+            <td>Estado</td>
+            <td>
+                {% if doc.estado == 'ACTIVO' %}
+                <span class="badge-active">ACTIVO</span>
+                {% else %}
+                <span class="badge-cancelled">ANULADO</span>
+                {% endif %}
+            </td>
+        </tr>
+        <tr>
+            <td>Cantidad de Transacciones</td>
+            <td>{{ doc.cantidadTransacciones }}</td>
+        </tr>
+        <tr>
+            <td>Fecha de Generación</td>
+            <td>{{ doc.generatedAt[:19] }}</td>
+        </tr>
+        <tr>
+            <td>Generado por</td>
+            <td>{{ doc.generatedBy }}</td>
+        </tr>
+        {% if doc.estado == 'ANULADO' %}
+        <tr>
+            <td>Anulado por</td>
+            <td>{{ doc.cancelledBy }} — {{ doc.cancelledAt[:19] }}</td>
+        </tr>
+        <tr>
+            <td>Motivo Anulación</td>
+            <td>{{ doc.cancelReason }}</td>
+        </tr>
+        {% endif %}
+    </table>
+
+    <h3 style="margin-bottom: 8px;">Resumen de Ventas</h3>
+    <table class="totals-table">
+        <thead>
+            <tr>
+                <th>Concepto</th>
+                <th>Monto</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Ventas Gravadas 18%</td>
+                <td>{{ doc.totalGravado18 | round(2) | money }}</td>
+            </tr>
+            <tr>
+                <td>ITBIS 18%</td>
+                <td>{{ doc.totalItbis18 | round(2) | money }}</td>
+            </tr>
+            <tr>
+                <td>Ventas Gravadas 16%</td>
+                <td>{{ doc.totalGravado16 | round(2) | money }}</td>
+            </tr>
+            <tr>
+                <td>ITBIS 16%</td>
+                <td>{{ doc.totalItbis16 | round(2) | money }}</td>
+            </tr>
+            <tr>
+                <td>Ventas Exentas</td>
+                <td>{{ doc.totalExento | round(2) | money }}</td>
+            </tr>
+            <tr class="grand-total">
+                <td>TOTAL GENERAL</td>
+                <td>{{ doc.totalVentas | round(2) | money }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div style="margin-top: 30px;">
+        <p style="font-size: 10px;">
+            <strong>Nota:</strong> Este comprobante consolida las ventas a consumidores finales
+            realizadas en la fecha {{ doc.businessDate }}. No incluye operaciones con NCF individual
+            (Crédito Fiscal, Consumo con RNC de cliente).
+        </p>
+        {% if doc.notes %}
+        <p style="font-size: 10px;"><strong>Notas internas:</strong> {{ doc.notes }}</p>
+        {% endif %}
+    </div>
+
+    <div style="margin-top: 40px; display: flex; justify-content: space-between;">
+        <div style="text-align: center; width: 45%;">
+            <div style="border-top: 1px solid #000; padding-top: 8px; font-size: 10px;">
+                _______________________________<br>
+                Firma Autorizada
+            </div>
+        </div>
+        <div style="text-align: center; width: 45%;">
+            <div style="border-top: 1px solid #000; padding-top: 8px; font-size: 10px;">
+                _______________________________<br>
+                Sello de la Empresa
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        Documento generado electrónicamente — {{ generated_at[:19] }}<br>
+        {{ company.companyName }} — RNC: {{ company.companyRNC }} — NCF: {{ doc.ncf }}
+    </div>
+</body>
+</html>

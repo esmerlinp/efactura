@@ -33,6 +33,7 @@ from app.utils.decorators import check_permission, require_permission
 from app.utils.module_gate import require_module
 from app.utils.ecf_utils import get_ecf_type_short_code
 from app.brand import get_product_name
+from app.models.fiscal_document_type import all_types as _all_fiscal_types, Family as _Family, by_code as _by_code
 
 
 from flask import Blueprint
@@ -1163,7 +1164,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             if ref_id:
                 ref_inv = DatabaseService.get_invoice(owner_uid, ref_id, sandbox=sandbox)
                 if ref_inv:
-                    note_type = request.args.get('note_type', 'E34')
+                    note_type = request.args.get('note_type', _by_code("E34").code)
                     ecf_type_str = "Nota de Crédito (E34)" if note_type == 'E34' else "Nota de Débito (E33)"
                     
                     # Clone original document information and items
@@ -1230,7 +1231,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         profile = DatabaseService.get_company_profile(owner_uid)
         regimen = DGIIService.normalize_regimen(profile.get("regimenFiscal", "ordinary")) if profile else "ordinary"
         regimen_rules = DGIIService.get_regimen_rules(regimen)
-        ecf_code_from_form = request.form.get('ecfType', 'Factura de Consumo (E32)')
+        ecf_code_from_form = request.form.get('ecfType', _by_code("E32").label_with_code)
 
         # 1. Obtener campos principales
         client_id = request.form.get('clientId')
@@ -1683,8 +1684,21 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                         msg = f"⚠️ ¡Comprobante emitido en modalidad de contingencia (sin conexión a DGII)! e-NCF: {res.get('encf')}. Recuerde sincronizarlo con la DGII en un plazo máximo de 72 horas."
                     flash(msg, "success")
                 else:
+                    # Marcar el sequence log como FALLIDO cuando DGII rechaza
+                    if log_id:
+                        DatabaseService.update_sequence_log(owner_uid, log_id, {
+                            "estado": "FAILED",
+                            "motivo": f"DGII rechazó: {res.get('message', res.get('error', 'Error desconocido'))}",
+                            "respuestaDGII": json.dumps(res.get("responseBody"), indent=2) if res.get("responseBody") else ""
+                        }, sandbox=sandbox)
                     flash(f"Borrador creado, pero error al emitir: {res.get('message')}", "warning")
             except Exception as e:
+                # Marcar el sequence log como FALLIDO ante excepción no manejada
+                if log_id:
+                    DatabaseService.update_sequence_log(owner_uid, log_id, {
+                        "estado": "FAILED",
+                        "motivo": f"Excepción en emisión: {str(e)}"
+                    }, sandbox=sandbox)
                 flash(f"Borrador creado, pero fallo en emisión: {str(e)}", "error")
             return redirect(url_for('web_invoices.invoice_detail', invoice_id=target_invoice_id))
         else:
@@ -1728,6 +1742,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
 
     default_due_date = existing_invoice.get('dueDate', (datetime.now(timezone.utc) + timedelta(days=30)).strftime("%Y-%m-%d")) if existing_invoice else (datetime.now(timezone.utc) + timedelta(days=30)).strftime("%Y-%m-%d")
 
+    _ecf_types = [t for t in _all_fiscal_types() if t.family == _Family.ECF]
     return render_template(
         'invoices/new.html',
         active_page=active_page,
@@ -1744,6 +1759,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         cost_centers=active_cost_centers,
         projects=projects,
         active_project_id=active_project_id,
+        ecf_types=_ecf_types,
     )
 
 
@@ -2429,7 +2445,7 @@ def send_invoice_email(owner_uid, invoice, recipient_email, sandbox=True, base_u
         encf = invoice.get('encf', 'N/A')
         company_name = company.get("tradeName") or company.get("companyName", "EMISOR")
         brand_color  = company.get("colorMarca", "#1a365d")
-        ecf_type = invoice.get('ecfType', 'Factura de Consumo Electrónica')
+        ecf_type = invoice.get('ecfType', _by_code("E32").label_with_code)
         date_str = invoice.get('date', '')[:10]
         total_str = f"$ {invoice.get('total', 0.0):.2f} {invoice.get('currency', 'DOP')}"
         client_name = invoice.get('clientName') or invoice.get('razonSocial', 'Consumidor Final')
@@ -3135,7 +3151,7 @@ def convert_quotation_route(invoice_id):
         flash(f'Esta cotización ya fue convertida a la factura {invoice.get("convertedInvoiceNumber", "")}. No se puede convertir nuevamente.', 'error')
         return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
-    target_ecf_type = request.form.get('targetEcfType', 'Factura de Consumo (E32)')
+    target_ecf_type = request.form.get('targetEcfType', _by_code("E32").label_with_code)
 
     # Validaciones fiscales DGII
     client_rnc = invoice.get('clientRNC', '').strip()
@@ -4261,7 +4277,7 @@ def invoice_preview_route():
         branch = next((b for b in branches if b['id'] == branch_id), {})
         
     client_id = request.form.get('clientId')
-    ecf_type = request.form.get('ecfType', 'Factura de Consumo (E32)')
+    ecf_type = request.form.get('ecfType', _by_code("E32").label_with_code)
     
     is_quotation = ecf_type == "Cotización"
         
@@ -5343,7 +5359,7 @@ def new_expense_route():
             "assignedApproverId": assigned_approver_id,
             "assignedApproverName": assigned_approver_name,
             "assignedApproverEmail": assigned_approver_email,
-            "ecfType": request.form.get('ecfType', 'E31'),
+            "ecfType": request.form.get('ecfType', _by_code("E31").code),
             "ecfNumber": request.form.get('ncf', ''),
             "cne": request.form.get('cne', ''),
             "tipoGastoDGII": request.form.get('tipoGastoDGII', '02'),
@@ -5523,6 +5539,7 @@ def new_expense_route():
         and not s.get('bloqueadaManualmente', False)
     }
     bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
+    _ecf_types = [t for t in _all_fiscal_types() if t.family == _Family.ECF]
     return render_template(
         'expenses/new.html',
         active_page='expenses',
@@ -5530,7 +5547,8 @@ def new_expense_route():
         invoices=[],
         today_str=today_str,
         expense_sequences=expense_sequences,
-        bank_accounts=bank_accounts
+        bank_accounts=bank_accounts,
+        ecf_types=_ecf_types,
     )
 
 
@@ -6116,7 +6134,7 @@ def recurring_new_route():
             'itbisAmount': tax_amount * exchange_rate,
             'isITBISDeductible': True,
             'isDeductible': True,
-            'ecfType': 'E31',
+            'ecfType': _by_code("E31").code,
             'cne': '',
             'tipoGastoDGII': '02',
             'paymentType': 'Contado',
@@ -6379,7 +6397,7 @@ def edit_expense_route(expense_id):
             "isDeductible": is_deductible,
             "firebaseAttachmentURLs": attachment_urls,
             "attachments": attachments,
-            "ecfType": request.form.get('ecfType', 'E31'),
+            "ecfType": request.form.get('ecfType', _by_code("E31").code),
             "ecfNumber": request.form.get('ncf', ''),
             "cne": request.form.get('cne', ''),
             "tipoGastoDGII": request.form.get('tipoGastoDGII', '02'),
@@ -6814,13 +6832,37 @@ def list_sequences():
     
     default_exp_date = (datetime.now(timezone.utc) + timedelta(days=730)).strftime("%Y-%m-%d") # 2 años
     
+    # Alertas del dashboard
+    now = datetime.now(timezone.utc)
+    low_sequences = [
+        s for s in sequences
+        if s.get("cantidadDisponible", 0) <= s.get("alertaMinimoDisponible", 0)
+        and s.get("estado") == "ACTIVA"
+    ]
+    expired_count = len([s for s in sequences if s.get("estado") == "EXPIRADA"])
+    expiring_soon_count = len([
+        s for s in sequences
+        if s.get("estado") == "ACTIVA"
+        and s.get("fechaExpiracion", "")
+        and s["fechaExpiracion"][:10] > now.strftime("%Y-%m-%d")
+        and (
+            datetime.strptime(s["fechaExpiracion"][:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            - now
+        ).days <= 60
+    ])
+
+    _fiscal_types = _all_fiscal_types()
     return render_template(
         'sequences/list.html',
         active_page='sequences',
         sequences=sequences,
         sequence_logs=sequence_logs,
         cancellations=cancellations,
-        default_exp_date=default_exp_date
+        default_exp_date=default_exp_date,
+        low_sequences=low_sequences,
+        expired_count=expired_count,
+        expiring_soon_count=expiring_soon_count,
+        fiscal_types=_fiscal_types,
     )
 
 @web_invoices_bp.route('/sequences/new', methods=['POST'])
@@ -7055,6 +7097,10 @@ def company_settings():
             "azulAuth2": request.form.get('azulAuth2', '').strip(),
             "consolidationEnabled": request.form.get('consolidationEnabled') == 'true',
             "consolidationThreshold": float(request.form.get('consolidationThreshold') or 250000.0),
+            "ruiEnabled": request.form.get('ruiEnabled') == 'true',
+            "ruiAuthorizationNumber": request.form.get('ruiAuthorizationNumber', '').strip(),
+            "ruiAutoGenerate": request.form.get('ruiAutoGenerate') == 'true',
+            "ruiAutoGenerateHour": request.form.get('ruiAutoGenerateHour', '23:00').strip(),
             "posToleranceDOP": float(request.form.get('posToleranceDOP') or 0.0),
             "posToleranceUSD": float(request.form.get('posToleranceUSD') or 0.0),
             "configured": True
@@ -7172,13 +7218,13 @@ def onboarding_wizard():
 
         # Defaults inteligentes según régimen fiscal
         if regimen_normalized in ('rst_income', 'rst_purchases'):
-            defaults = {"defaultEcfType": "Factura de Consumo (E32)", "defaultItbisRate": 0.0}
+            defaults = {"defaultEcfType": _by_code("E32").label_with_code, "defaultItbisRate": 0.0}
         elif regimen_normalized == 'ordinary':
-            defaults = {"defaultEcfType": "Factura de Crédito Fiscal (E31)", "defaultItbisRate": 0.18}
+            defaults = {"defaultEcfType": _by_code("E31").label_with_code, "defaultItbisRate": 0.18}
         elif regimen_normalized == 'exempt':
-            defaults = {"defaultEcfType": "Factura de Consumo (E32)", "defaultItbisRate": 0.0}
+            defaults = {"defaultEcfType": _by_code("E32").label_with_code, "defaultItbisRate": 0.0}
         else:
-            defaults = {"defaultEcfType": "Factura de Consumo (E32)", "defaultItbisRate": 0.18}
+            defaults = {"defaultEcfType": _by_code("E32").label_with_code, "defaultItbisRate": 0.18}
 
         profile_dict.update({
             "companyName": request.form['companyName'],
@@ -9815,7 +9861,7 @@ def expense_import_confirm():
 
     preview_id = data.get("preview_id", "")
     encf = data.get("encf", "")
-    ecf_type = data.get("ecfType", "E31")
+    ecf_type = data.get("ecfType", _by_code("E31").code)
     supplier_rnc = "".join(filter(str.isdigit, str(data.get("supplierRnc", ""))))
     supplier_name = data.get("supplierName", "")
     supplier_address = data.get("supplierAddress", "")

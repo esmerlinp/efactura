@@ -279,14 +279,11 @@
                                 <label for="ecfType">Tipo de Comprobante e-CF
                                     <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Selecciona el tipo de e-CF que emitió el proveedor. Debe coincidir con el prefijo del NCF (E31, E41, E43, etc.). La DGII rechaza comprobantes con tipo/NCF inconsistentes."></i>
                                 </label>
-                                <select id="ecfType" name="ecfType" class="form-select" style="width: 100%;">
-                                    <option value="E31" selected>E31 - Factura de Crédito Fiscal Electrónica</option>
-                                    <option value="E32">E32 - Factura de Consumo Electrónica</option>
-                                    <option value="E41">E41 - Comprobante de Compras Electrónico</option>
-                                    <option value="E43">E43 - Gastos Menores Electrónicos</option>
-                                    <option value="E45">E45 - Comprobante Gubernamental Electrónico</option>
-                                    <option value="E47">E47 - Comprobante para Pagos al Exterior Electrónico</option>
-                                </select>
+<select id="ecfType" name="ecfType" class="form-select" style="width: 100%;">
+    {% for t in ecf_types %}
+    <option value="{{ t.code }}" {% if loop.first %}selected{% endif %}>{{ t.code }} - {{ t.short_label }}</option>
+    {% endfor %}
+</select>
                             </div>
 
                             <div class="form-group" id="ncf-group">

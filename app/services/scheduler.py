@@ -145,6 +145,60 @@ def run_contingency_sync():
     synced, failed = ContingencySyncService.sync_all_companies()
     logger.info(f"✅ APScheduler — Sincronización de contingencia: {synced} OK, {failed} fallidas")
 
+
+def run_daily_rui_generation():
+    """Job diario (00:30 AM RD): genera RUI automático para el día anterior
+    en todas las empresas con ruiEnabled=True y ruiAutoGenerate=True."""
+    from app.services.db_service import db_firestore
+    from app.services.rui_generation_service import RuiGenerationService
+    from datetime import date, timedelta
+
+    logger.info("⏰ APScheduler — Iniciando generación automática de RUI...")
+
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    owner_uids = _get_all_owner_uids()
+    if not owner_uids:
+        logger.info("ℹ️ No se encontraron usuarios para generación de RUI.")
+        return
+
+    generated = 0
+    skipped = 0
+    errors = 0
+
+    for owner_uid in owner_uids:
+        for coll_prefix, is_sandbox in [("sandbox_", True), ("", False)]:
+            try:
+                profile_ref = db_firestore.collection("users").document(owner_uid) \
+                    .collection("config").document("profile")
+                profile_doc = profile_ref.get()
+                if not profile_doc.exists:
+                    continue
+                profile = profile_doc.to_dict()
+                if not profile.get("ruiEnabled") or not profile.get("ruiAutoGenerate"):
+                    skipped += 1
+                    continue
+
+                RuiGenerationService.generate_rui(
+                    owner_uid, yesterday, "sistema@rui-automatico",
+                    sandbox=is_sandbox, auto=True
+                )
+                logger.info(f"✅ RUI generado para {owner_uid} (fecha={yesterday}, sandbox={is_sandbox})")
+                generated += 1
+            except ValueError as e:
+                if "ya existe" in str(e).lower() or "no hay facturas" in str(e).lower():
+                    skipped += 1
+                else:
+                    logger.warning(f"⏭️ RUI {owner_uid}: {e}")
+                    skipped += 1
+            except Exception as exc:
+                logger.error(f"❌ Error generando RUI para {owner_uid}: {exc}")
+                errors += 1
+
+    logger.info(
+        f"✅ APScheduler — RUI finalizado: {generated} generados, "
+        f"{skipped} omitidos, {errors} errores."
+    )
+
 def _run_monitored(job_id, name, func):
     from app.services.job_service import JobService
     return JobService.run_monitored(job_id, name, func)
@@ -179,6 +233,14 @@ def monitored_daily_depreciation():
         "daily_depreciation",
         "Depreciación Automática de Activos Fijos",
         run_daily_depreciation,
+    )
+
+
+def monitored_daily_rui_generation():
+    return _run_monitored(
+        "daily_rui_generation",
+        "Generación Automática de RUI",
+        run_daily_rui_generation,
     )
 
 
@@ -244,6 +306,14 @@ def init_scheduler(app):
         trigger=CronTrigger(hour=2, minute=0),   # 2:00 AM RD cada día
         id="daily_depreciation",
         name="Depreciación Automática de Activos Fijos",
+        replace_existing=True,
+    )
+
+    _scheduler.add_job(
+        func=monitored_daily_rui_generation,
+        trigger=CronTrigger(hour=0, minute=30),  # 12:30 AM RD cada día
+        id="daily_rui_generation",
+        name="Generación Automática de RUI (día anterior)",
         replace_existing=True,
     )
 

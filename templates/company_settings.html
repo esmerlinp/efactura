@@ -404,6 +404,76 @@
                     </div>
                 </div>
 
+                <!-- SECCIÓN 5A: REGISTRO ÚNICO DE INGRESOS (RUI) -->
+                <div class="accordion-item">
+                    <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                        <div class="accordion-title">
+                            <i class="fa-solid fa-file-invoice"></i>
+                            <span>Registro Único de Ingresos (RUI) — NCF Tipo 12</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                    </button>
+                    <div class="accordion-content">
+                        <div class="accordion-body">
+                            <p style="color: var(--text-secondary); font-size: 0.82rem; line-height: 1.4; margin-bottom: 18px;">
+                                El RUI permite resumir en un solo NCF Tipo 12 todas las ventas a consumidores finales
+                                realizadas en un día fiscal. Aplica para negocios con alto volumen de transacciones
+                                de bajo valor (colmados, estaciones de combustible, transporte, etc.).
+                            </p>
+                            <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 20px; display: grid;">
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="ruiEnabled"
+                                        style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-top: 8px; font-weight: 500; color: var(--text-main);">
+                                        <input type="checkbox" id="ruiEnabled" name="ruiEnabled"
+                                            value="true"
+                                            style="width: 18px; height: 18px; accent-color: var(--accent-emerald); cursor: pointer;"
+                                            {% if profile.ruiEnabled %}checked{% endif %}>
+                                        <span>Habilitar RUI (Registro Único de Ingresos)</span>
+                                    </label>
+                                    <small
+                                        style="color: var(--text-muted); font-size: 0.72rem; margin-top: 6px; display: block; line-height: 1.4;">
+                                        Las ventas POS a consumidor final elegibles se resumirán en un NCF Tipo 12
+                                        diario. Debe contar con autorización DGII para este tipo de comprobante.
+                                    </small>
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="ruiAuthorizationNumber">Número de Autorización DGII</label>
+                                    <input type="text" id="ruiAuthorizationNumber" name="ruiAuthorizationNumber"
+                                        class="form-input" placeholder="Ej: DGII-RUI-2026-XXXXX"
+                                        value="{{ profile.ruiAuthorizationNumber | default('') }}">
+                                    <small
+                                        style="color: var(--text-muted); font-size: 0.72rem; margin-top: 6px; display: block; line-height: 1.4;">
+                                        Número de autorización emitido por la DGII para usar NCF Tipo 12.
+                                    </small>
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="ruiAutoGenerate"
+                                        style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-top: 8px; font-weight: 500; color: var(--text-main);">
+                                        <input type="checkbox" id="ruiAutoGenerate" name="ruiAutoGenerate"
+                                            value="true"
+                                            style="width: 18px; height: 18px; accent-color: var(--accent-emerald); cursor: pointer;"
+                                            {% if profile.ruiAutoGenerate %}checked{% endif %}>
+                                        <span>Generación automática al cierre del día</span>
+                                    </label>
+                                    <small
+                                        style="color: var(--text-muted); font-size: 0.72rem; margin-top: 6px; display: block; line-height: 1.4;">
+                                        Genera automáticamente el RUI para la fecha fiscal anterior a la hora configurada.
+                                    </small>
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="ruiAutoGenerateHour">Hora de generación automática</label>
+                                    <input type="time" id="ruiAutoGenerateHour" name="ruiAutoGenerateHour"
+                                        class="form-input"
+                                        value="{{ profile.ruiAutoGenerateHour | default('23:00') }}">
+                                    <small
+                                        style="color: var(--text-muted); font-size: 0.72rem; margin-top: 6px; display: block; line-height: 1.4;">
+                                        Hora en que se genera el RUI del día anterior.
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <!-- SECCIÓN 5B: TOLERANCIA DE ARQUEO DE CAJAS -->
                 <div class="accordion-item">
                     <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">

@@ -51,13 +51,8 @@ TIPO_RETENCION_ISR_606 = {
     "09": "Retenciones Subsector de Ganadería de Carne Bovina",
 }
 
-ECF_TYPE_LABELS = {
-    "E31": "E-31 (Crédito Fiscal)",
-    "E41": "E-41 (Compras)",
-    "E43": "E-43 (Gastos Menores)",
-    "E45": "E-45 (Gubernamental)",
-    "E47": "E-47 (Exterior)",
-}
+from app.models.fiscal_document_type import report_labels as _report_labels_606
+ECF_TYPE_LABELS = _report_labels_606("606")
 
 
 def _parse_int(val, default=0):

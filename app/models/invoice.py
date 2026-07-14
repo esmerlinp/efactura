@@ -106,6 +106,10 @@ class Invoice(BaseModel):
     consolidatedInvoiceIds: list[str] = Field(default_factory=list)
     invoiceNumberConsolidado: str = ""
     encfConsolidado: str = ""
+    includeInRui: bool = True
+    ruiId: str = ""
+    ruiNcf: str = ""
+    excludeFromRuiReason: str = ""
     items: list[InvoiceItem] = Field(default_factory=list)
     pendingPaymentProof: Optional[Any] = None
     isProfessional: bool = False

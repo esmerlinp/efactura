@@ -5,6 +5,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from app.services.db_service import DatabaseService
 from app.services.supplier_service import SupplierService
 from app.utils.decorators import check_permission
+from app.models.fiscal_document_type import all_types as _all_fiscal_types, Family as _Family, by_code as _by_code
 
 web_suppliers_bp = Blueprint('web_suppliers', __name__)
 
@@ -134,7 +135,7 @@ def new_supplier():
             "creditDays": int(request.form.get('creditDays', 0)),
             "creditLimit": float(request.form.get('creditLimit', 0)),
             "paymentMethod": request.form.get('paymentMethod', 'Efectivo'),
-            "ecfTypeEmits": request.form.get('ecfTypeEmits', 'E31'),
+            "ecfTypeEmits": request.form.get('ecfTypeEmits', _by_code("E31").code),
             "itbisWithholding": request.form.get('itbisWithholding') == 'on',
             "isrWithholding": request.form.get('isrWithholding') == 'on',
             "tipoGastoDGII": request.form.get('tipoGastoDGII', '02'),
@@ -175,7 +176,8 @@ def new_supplier():
         flash('Proveedor registrado exitosamente.', 'success')
         return redirect(url_for('web_suppliers.list_suppliers'))
 
-    return render_template('suppliers/new.html', active_page='suppliers')
+    _ecf_types = [t for t in _all_fiscal_types() if t.family == _Family.ECF]
+    return render_template('suppliers/new.html', active_page='suppliers', ecf_types=_ecf_types)
 
 
 @web_suppliers_bp.route('/suppliers/ajax_create', methods=['POST'])
@@ -313,7 +315,7 @@ def edit_supplier(supplier_id):
             "creditDays": int(request.form.get('creditDays', 0)),
             "creditLimit": float(request.form.get('creditLimit', 0)),
             "paymentMethod": request.form.get('paymentMethod', 'Efectivo'),
-            "ecfTypeEmits": request.form.get('ecfTypeEmits', 'E31'),
+            "ecfTypeEmits": request.form.get('ecfTypeEmits', _by_code("E31").code),
             "itbisWithholding": request.form.get('itbisWithholding') == 'on',
             "isrWithholding": request.form.get('isrWithholding') == 'on',
             "tipoGastoDGII": request.form.get('tipoGastoDGII', '02'),
@@ -351,7 +353,8 @@ def edit_supplier(supplier_id):
         flash('Proveedor actualizado exitosamente.', 'success')
         return redirect(url_for('web_suppliers.list_suppliers'))
 
-    return render_template('suppliers/edit.html', active_page='suppliers', supplier=supplier)
+    _ecf_types = [t for t in _all_fiscal_types() if t.family == _Family.ECF]
+    return render_template('suppliers/edit.html', active_page='suppliers', supplier=supplier, ecf_types=_ecf_types)
 
 
 @web_suppliers_bp.route('/suppliers/<supplier_id>/delete', methods=['POST'])
@@ -406,7 +409,7 @@ def api_suppliers_search():
             "email": s.get("email", ""),
             "supplierType": s.get("supplierType", "formal"),
             "creditDays": s.get("creditDays", 0),
-            "ecfTypeEmits": s.get("ecfTypeEmits", "E31"),
+            "ecfTypeEmits": s.get("ecfTypeEmits", _by_code("E31").code),
             "currency": s.get("currency", "DOP"),
         })
 

@@ -5,6 +5,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from app.services.db_service import DatabaseService
 from app.utils.decorators import require_permission, check_permission
 from app.services.dgii import DGIIService
+from app.models.fiscal_document_type import by_code as _by_code
 
 web_fiscal_notes_bp = Blueprint('web_fiscal_notes', __name__)
 
@@ -41,7 +42,7 @@ def create_fiscal_note():
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
 
-    note_type = request.args.get('type', 'E34')
+    note_type = request.args.get('type', _by_code("E34").code)
     if note_type not in ('E34', 'E33'):
         flash('❌ Tipo de nota inválido. Use E34 (Crédito) o E33 (Débito).', 'error')
         return redirect(url_for('web_fiscal_notes.list_fiscal_notes'))
@@ -96,7 +97,7 @@ def save_fiscal_note():
     sandbox = session.get('is_sandbox_mode', True)
     user = session['user']
 
-    note_type = request.form.get('noteType', 'E34')
+    note_type = request.form.get('noteType', _by_code("E34").code)
     ref_invoice_id = request.form.get('referenceInvoiceId', '').strip()
     modification_code = request.form.get('modificationCode', '1')
     reason = request.form.get('reason', '').strip()

@@ -139,13 +139,11 @@
                         <div class="form-inner-grid">
                             <div class="form-group">
                                 <label>Tipo de e-CF que Emite</label>
-                                <select name="ecfTypeEmits">
-                                    <option value="E31" {% if supplier.ecfTypeEmits == 'E31' %}selected{% endif %}>E31 - Factura de Crédito Fiscal</option>
-                                    <option value="E32" {% if supplier.ecfTypeEmits == 'E32' %}selected{% endif %}>E32 - Factura de Consumo</option>
-                                    <option value="E41" {% if supplier.ecfTypeEmits == 'E41' %}selected{% endif %}>E41 - Comprobante de Compras</option>
-                                    <option value="E43" {% if supplier.ecfTypeEmits == 'E43' %}selected{% endif %}>E43 - Gastos Menores</option>
-                                    <option value="E47" {% if supplier.ecfTypeEmits == 'E47' %}selected{% endif %}>E47 - Pago al Exterior</option>
-                                </select>
+<select name="ecfTypeEmits">
+    {% for t in ecf_types %}{% if t.code in ('E31', 'E32', 'E41', 'E43', 'E47') %}
+    <option value="{{ t.code }}" {% if supplier.ecfTypeEmits == t.code %}selected{% endif %}>{{ t.code }} - {{ t.short_label }}</option>
+    {% endif %}{% endfor %}
+</select>
                             </div>
                             <div class="form-group">
                                 <label>Tipo de Gasto DGII</label>

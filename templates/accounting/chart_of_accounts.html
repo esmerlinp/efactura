@@ -131,6 +131,7 @@
                                 {% endif %}
                             </div>
                             <div class="name-col">
+                                {% if acc.code %}<span style="font-family:monospace; color:var(--text-secondary); margin-right:6px;">{{ acc.code }}</span>{% endif %}
                                 {{ acc.name }}
                             </div>
                             <div class="usage-col">{% if acc.usage_label %}{{ acc.usage_label }}{% endif %}</div>
@@ -353,13 +354,13 @@ function openEdit(accountId) {
     document.getElementById('edit-type').value = acc.type || 'movimiento';
     document.getElementById('edit-description').value = acc.description || '';
     document.getElementById('edit-showByThirdParty').checked = acc.showByThirdParty || false;
-    document.getElementById('edit-form').action = '{{ url_for("web_accounting.edit_account", account_id="") }}' + accountId;
+    document.getElementById('edit-form').action = '/accounting/account/' + accountId + '/edit';
     document.getElementById('edit-modal').style.display = 'flex';
 }
 
 function deleteAccount(accountId, name) {
     document.getElementById('delete-account-name').textContent = name;
-    document.getElementById('delete-form').action = '{{ url_for("web_accounting.delete_account", account_id="") }}' + accountId;
+    document.getElementById('delete-form').action = '/accounting/account/' + accountId + '/delete';
     document.getElementById('delete-modal').style.display = 'flex';
 }
 

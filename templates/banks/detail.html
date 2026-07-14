@@ -162,6 +162,8 @@
                     <td>
                         {% if tx.invoiceId and tx.type == 'income' %}
                         <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=tx.invoiceId) }}">{{ tx.concept }}</a>
+                        {% elif tx.expenseId and tx.type == 'expense' %}
+                        <a href="{{ url_for('web_invoices.expense_detail', expense_id=tx.expenseId) }}">{{ tx.concept }}</a>
                         {% else %}
                         {{ tx.concept }}
                         {% endif %}

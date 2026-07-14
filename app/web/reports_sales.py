@@ -5,6 +5,7 @@ from flask import Blueprint, render_template, request, jsonify, session, send_fi
 from app.services.db_service import DatabaseService
 from app.utils.decorators import check_permission
 from collections import defaultdict
+from app.models.fiscal_document_type import by_code as _by_code
 
 web_reports_sales_bp = Blueprint('web_reports_sales', __name__)
 
@@ -2170,7 +2171,7 @@ def cxc_report():
         cxc_list.append({
             'id': inv.get('id'),
             'ncf_num': inv.get('encf') or inv.get('invoiceNumber') or 'N/A',
-            'doc_type': inv.get('ecfType', 'Factura de Consumo (E32)'),
+            'doc_type': inv.get('ecfType', _by_code("E32").label_with_code),
             'client_name': client_name,
             'client_rnc': client_rnc,
             'fecha_creacion': inv_date_str,
@@ -2283,7 +2284,7 @@ def cxc_report_export():
 
         cxc_list.append([
             inv.get('encf') or inv.get('invoiceNumber') or 'N/A',
-            inv.get('ecfType', 'Factura de Consumo (E32)'),
+            inv.get('ecfType', _by_code("E32").label_with_code),
             client_name,
             inv_date_str,
             due_date_str,

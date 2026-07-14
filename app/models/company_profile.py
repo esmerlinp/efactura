@@ -25,6 +25,10 @@ class CompanyProfile(BaseModel):
     plan_version: int = 0
     status: str = "Activo"
     posEnabled: bool = True
+    ruiEnabled: bool = False
+    ruiAuthorizationNumber: str = ""
+    ruiAutoGenerate: bool = True
+    ruiAutoGenerateHour: str = "23:00"
     productionEnabled: bool = True
     sandboxEnabled: bool = True
     sandboxIndefinite: bool = True

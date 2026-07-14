@@ -77,6 +77,12 @@
             <div class="doc-badge">
                 {% if expense.ecfType == 'E41' %}Comprobante de Compras (E41)
                 {% elif expense.ecfType == 'E43' %}Gastos Menores (E43)
+                {% elif expense.ecfType == 'E44' %}Regímenes Especiales (E44)
+                {% elif expense.ecfType == 'E45' %}Comprobante Gubernamental (E45)
+                {% elif expense.ecfType == 'E46' %}Comprobante de Exportación (E46)
+                {% elif expense.ecfType == 'E47' %}Pagos al Exterior (E47)
+                {% elif expense.ecfType == 'E48' %}Clientes del Exterior (E48)
+                {% elif expense.ecfType == 'E49' %}Zonas Francas (E49)
                 {% else %}e-CF {{ expense.ecfType }}{% endif %}
             </div>
             <div class="doc-number">{{ expense.encf or expense.ncf or 'N/A' }}</div>
