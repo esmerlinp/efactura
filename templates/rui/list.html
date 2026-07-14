@@ -1,118 +1,163 @@
-{% extends "base.html" %}
+{% extends "layout.html" %}
 {% block title %}Registro Único de Ingresos (RUI){% endblock %}
 {% block content %}
-<div class="page-header">
-    <h1><i class="fa-solid fa-file-invoice"></i> Registro Único de Ingresos (RUI)</h1>
-    <p>Resúmenes diarios de ventas a consumidores finales — NCF Tipo 12</p>
+<div class="page-title-container" style="margin-bottom:24px;">
+    <h1 class="page-title" style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+        <i class="fa-solid fa-file-invoice" style="margin-right:10px;color:var(--accent-emerald);"></i>
+        Registro Único de Ingresos (RUI)
+    </h1>
+    <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
+        Resúmenes diarios de ventas a consumidores finales — NCF Tipo 12
+    </p>
 </div>
 
-<div class="card-filter" style="margin-bottom: 20px; padding: 16px; background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border-color);">
-    <form method="GET" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: end;">
-        <div>
-            <label style="font-size: 0.85rem; opacity: 0.7;">Desde</label>
-            <input type="date" name="date_from" value="{{ date_from }}" class="form-input">
-        </div>
-        <div>
-            <label style="font-size: 0.85rem; opacity: 0.7;">Hasta</label>
-            <input type="date" name="date_to" value="{{ date_to }}" class="form-input">
-        </div>
-        <div>
-            <label style="font-size: 0.85rem; opacity: 0.7;">Estado</label>
-            <select name="estado" class="form-select">
-                <option value="">Todos</option>
-                <option value="ACTIVO" {% if estado == 'ACTIVO' %}selected{% endif %}>Activo</option>
-                <option value="ANULADO" {% if estado == 'ANULADO' %}selected{% endif %}>Anulado</option>
-            </select>
-        </div>
-        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-filter"></i> Filtrar</button>
-        <a href="{{ url_for('web_rui.rui_list') }}" class="btn btn-secondary"><i class="fa-solid fa-rotate"></i> Limpiar</a>
-    </form>
-</div>
-
-<div style="display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 16px;">
-    <button class="btn btn-primary" onclick="generateRui()"><i class="fa-solid fa-plus"></i> Generar RUI</button>
-</div>
-
-{% if docs %}
 <div class="card-table-wrapper">
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Fecha</th>
-                <th>NCF</th>
-                <th>Estado</th>
-                <th>Transacciones</th>
-                <th>Gravado 18%</th>
-                <th>ITBIS 18%</th>
-                <th>Exento</th>
-                <th>Total</th>
-                <th>Acciones</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for doc in docs %}
-            <tr>
-                <td>{{ doc.businessDate }}</td>
-                <td><code>{{ doc.ncf }}</code></td>
-                <td>
-                    {% if doc.estado == 'ACTIVO' %}
-                    <span class="badge badge-success">Activo</span>
-                    {% else %}
-                    <span class="badge badge-danger">Anulado</span>
-                    {% endif %}
-                </td>
-                <td>{{ doc.cantidadTransacciones }}</td>
-                <td>{{ doc.totalGravado18 | round(2) | money }}</td>
-                <td>{{ doc.totalItbis18 | round(2) | money }}</td>
-                <td>{{ doc.totalExento | round(2) | money }}</td>
-                <td><strong>{{ doc.totalVentas | round(2) | money }}</strong></td>
-                <td>
-                    <a href="{{ url_for('web_rui.rui_detail', rui_id=doc.id) }}" class="btn btn-sm btn-info"><i class="fa-solid fa-eye"></i></a>
-                    <a href="{{ url_for('web_rui.rui_pdf', rui_id=doc.id) }}" class="btn btn-sm btn-secondary" target="_blank"><i class="fa-solid fa-print"></i></a>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
-{% else %}
-<div class="empty-state">
-    <i class="fa-solid fa-file-invoice" style="font-size: 3rem; opacity: 0.3;"></i>
-    <p>No hay documentos RUI registrados.</p>
-    <button class="btn btn-primary" onclick="generateRui()">Generar primer RUI</button>
-</div>
-{% endif %}
+    <div class="table-header-row" style="display:flex; justify-content:space-between; align-items:center; gap:20px; flex-wrap:wrap; margin-bottom:24px;">
+        <div>
+            <h3 style="font-size:1.25rem; font-family:var(--font-heading); margin-bottom:6px;">Documentos RUI</h3>
+            <p style="color:var(--text-secondary); font-size:0.88rem;">Histórico de resúmenes diarios generados</p>
+        </div>
+        <div style="display:flex; gap:12px; align-items:center;">
+            <button class="btn btn-primary" onclick="openRuiModal()"><i class="fa-solid fa-plus"></i> <span>Generar RUI</span></button>
+        </div>
+    </div>
 
-<div id="generateRuiModal" class="modal" style="display:none;">
-    <div class="modal-content" style="max-width: 480px;">
-        <span class="modal-close" onclick="closeModal('generateRuiModal')">&times;</span>
-        <h3>Generar RUI</h3>
+    <div style="display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap; align-items:center; border-bottom:1px solid rgba(0,0,0,0.05); padding-bottom:12px;">
+        <form method="GET" style="display:flex; gap:12px; flex-wrap:wrap; align-items:end; width:100%;">
+            <div style="min-width:180px;">
+                <label style="display:block; font-size:0.75rem; color:var(--text-secondary); margin-bottom:4px; font-weight:500;">Desde</label>
+                <input type="date" name="date_from" value="{{ date_from }}"
+                       style="width:100%; height:34px; padding:0 10px; border:1px solid var(--border-color); border-radius:var(--radius-sm); background:var(--bg-input); color:var(--text-primary); font-size:0.85rem;">
+            </div>
+            <div style="min-width:180px;">
+                <label style="display:block; font-size:0.75rem; color:var(--text-secondary); margin-bottom:4px; font-weight:500;">Hasta</label>
+                <input type="date" name="date_to" value="{{ date_to }}"
+                       style="width:100%; height:34px; padding:0 10px; border:1px solid var(--border-color); border-radius:var(--radius-sm); background:var(--bg-input); color:var(--text-primary); font-size:0.85rem;">
+            </div>
+            <div style="min-width:140px;">
+                <label style="display:block; font-size:0.75rem; color:var(--text-secondary); margin-bottom:4px; font-weight:500;">Estado</label>
+                <select name="estado"
+                        style="width:100%; height:34px; padding:0 10px; border:1px solid var(--border-color); border-radius:var(--radius-sm); background:var(--bg-input); color:var(--text-primary); font-size:0.85rem;">
+                    <option value="">Todos</option>
+                    <option value="ACTIVO" {% if estado == 'ACTIVO' %}selected{% endif %}>Activo</option>
+                    <option value="ANULADO" {% if estado == 'ANULADO' %}selected{% endif %}>Anulado</option>
+                </select>
+            </div>
+            <div style="display:flex; gap:8px; align-items:end; padding-bottom:1px;">
+                <button type="submit" class="btn btn-primary" style="height:34px;"><i class="fa-solid fa-filter"></i> <span>Filtrar</span></button>
+                <a href="{{ url_for('web_rui.rui_list') }}" class="btn btn-secondary" style="height:34px;"><i class="fa-solid fa-rotate"></i> <span>Limpiar</span></a>
+            </div>
+        </form>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>NCF</th>
+                    <th>Estado</th>
+                    <th style="text-align:right;">Transacciones</th>
+                    <th style="text-align:right;">Gravado 18%</th>
+                    <th style="text-align:right;">ITBIS 18%</th>
+                    <th style="text-align:right;">Exento</th>
+                    <th style="text-align:right;">Total</th>
+                    <th style="text-align:center; width:80px;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for doc in docs %}
+                <tr>
+                    <td>{{ doc.businessDate }}</td>
+                    <td><code style="font-family:var(--font-mono); font-size:0.82rem;">{{ doc.ncf }}</code></td>
+                    <td>
+                        {% if doc.estado == 'ACTIVO' %}
+                        <span class="badge badge-success">Activo</span>
+                        {% else %}
+                        <span class="badge badge-danger">Anulado</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:right;">{{ doc.cantidadTransacciones }}</td>
+                    <td style="text-align:right;">{{ doc.totalGravado18 | round(2) | money }}</td>
+                    <td style="text-align:right;">{{ doc.totalItbis18 | round(2) | money }}</td>
+                    <td style="text-align:right;">{{ doc.totalExento | round(2) | money }}</td>
+                    <td style="text-align:right;"><strong>{{ doc.totalVentas | round(2) | money }}</strong></td>
+                    <td style="text-align:center;">
+                        <div class="action-menu">
+                            <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                            </button>
+                            <div class="action-menu-dropdown">
+                                <a href="{{ url_for('web_rui.rui_detail', rui_id=doc.id) }}" class="action-menu-item">
+                                    <i class="fa-solid fa-eye"></i> Ver detalle
+                                </a>
+                                <a href="{{ url_for('web_rui.rui_pdf', rui_id=doc.id) }}" class="action-menu-item" target="_blank">
+                                    <i class="fa-solid fa-print"></i> Imprimir PDF
+                                </a>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9" style="text-align:center; padding:60px 0; color:var(--text-secondary);">
+                        <i class="fa-solid fa-file-invoice" style="font-size:3rem; color:var(--text-muted); opacity:0.5; display:block; margin-bottom:16px;"></i>
+                        <span>No hay documentos RUI registrados.</span>
+                        <p style="font-size:0.82rem; color:var(--text-muted); margin-top:5px;">Genere un resumen diario de ingresos para iniciar.</p>
+                        <button class="btn btn-primary" onclick="openRuiModal()" style="margin-top:15px;">
+                            <i class="fa-solid fa-plus"></i> <span>Generar primer RUI</span>
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal-overlay" id="generateRuiModal" style="display:none;">
+    <div class="modal-backdrop" onclick="closeRuiModal()"></div>
+    <div class="modal-card modal-card--sm">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="fa-solid fa-file-invoice" style="color:var(--accent-emerald);margin-right:8px;"></i> Generar RUI</h3>
+            <button type="button" class="modal-close" onclick="closeRuiModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
         <form method="POST" action="{{ url_for('web_rui.rui_generate') }}">
-            <div style="margin-bottom: 12px;">
-                <label>Fecha fiscal</label>
-                <input type="date" name="businessDate" value="{{ today | default('') }}" class="form-input" required>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="modal-body">
+                <p style="color:var(--text-secondary); font-size:0.85rem; margin-bottom:20px;">
+                    Se agruparán todas las facturas de consumo (NCF Tipo 12) de la fecha seleccionada en un único resumen diario.
+                </p>
+                <div style="margin-bottom:16px;">
+                    <label style="display:block; font-size:0.82rem; font-weight:500; color:var(--text-primary); margin-bottom:6px;">
+                        Fecha fiscal <span style="color:var(--accent-red);">*</span>
+                    </label>
+                    <input type="date" name="businessDate" value="{{ today | default('') }}"
+                           style="width:100%; height:38px; padding:0 12px; border:1px solid var(--border-color); border-radius:var(--radius-sm); background:var(--bg-input); color:var(--text-primary); font-size:0.88rem;" required>
+                </div>
+                <div style="margin-bottom:8px;">
+                    <label style="display:block; font-size:0.82rem; font-weight:500; color:var(--text-primary); margin-bottom:6px;">
+                        Notas <span style="color:var(--text-muted); font-weight:400;">(opcional)</span>
+                    </label>
+                    <textarea name="notes"
+                              style="width:100%; min-height:80px; padding:10px 12px; border:1px solid var(--border-color); border-radius:var(--radius-sm); background:var(--bg-input); color:var(--text-primary); font-size:0.88rem; resize:vertical;"
+                              placeholder="Notas internas..."></textarea>
+                </div>
             </div>
-            <div style="margin-bottom: 12px;">
-                <label>Notas (opcional)</label>
-                <textarea name="notes" class="form-input" rows="2" placeholder="Notas internas..."></textarea>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeRuiModal()">Cancelar</button>
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Generar</button>
             </div>
-            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Generar</button>
-            <button type="button" class="btn btn-secondary" onclick="closeModal('generateRuiModal')">Cancelar</button>
         </form>
     </div>
 </div>
 
 <script>
-function generateRui() {
+function openRuiModal() {
     document.getElementById('generateRuiModal').style.display = 'flex';
 }
-function closeModal(id) {
-    document.getElementById(id).style.display = 'none';
-}
-window.onclick = function(e) {
-    if (e.target.classList.contains('modal')) {
-        e.target.style.display = 'none';
-    }
+function closeRuiModal() {
+    document.getElementById('generateRuiModal').style.display = 'none';
 }
 </script>
 {% endblock %}

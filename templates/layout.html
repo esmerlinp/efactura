@@ -1362,8 +1362,7 @@
                     {}).get('permissions', {}).get('canHR', True)) %}
                     <a href="{{ url_for('web_rrhh.payroll_dashboard') }}"
                         class="sidebar-discover-item {% if active_page and active_page.startswith('rrhh_') %}active{% endif %}"
-                        data-tooltip="Nómina y RRHH"
-                        target="_blank" rel="noopener noreferrer">
+                        data-tooltip="Nómina y RRHH">
                         <i class="fa-solid fa-coins"></i>
                         <span>Nómina y RRHH</span>
                     </a>
@@ -1371,10 +1370,17 @@
                     {% if module_enabled('contabilidad') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canAccounting', True)) %}
                     <a href="{{ url_for('web_accounting.dashboard') }}"
                         class="sidebar-discover-item {% if active_page and active_page.startswith('acc_') %}active{% endif %}"
-                        data-tooltip="Contabilidad"
-                        target="_blank" rel="noopener noreferrer">
+                        data-tooltip="Contabilidad">
                         <i class="fa-solid fa-scale-balanced"></i>
                         <span>Contabilidad</span>
+                    </a>
+                    {% endif %}
+                    {% if module_enabled('contabilidad') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canAccounting', True)) %}
+                    <a href="{{ url_for('web_accounting.tax_obligations') }}"
+                        class="sidebar-discover-item {% if active_page == 'acc_tax_obligations' %}active{% endif %}"
+                        data-tooltip="Obligaciones DGII">
+                        <i class="fa-solid fa-file-shield"></i>
+                        <span>Obligaciones DGII</span>
                     </a>
                     {% endif %}
                     {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
