@@ -2157,4 +2157,48 @@ def toggle_checklist_task():
     return jsonify(success=True, progress=checklist['progress'])
 
 
+# =========================================================================
+# OBLIGACIONES TRIBUTARIAS DGII
+# =========================================================================
+@web_accounting_bp.route('/accounting/tax-obligations')
+@require_module('contabilidad')
+def tax_obligations():
+    user = _auth()
+    if not user:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canAccounting'):
+        return render_template('auth/restricted.html', required_permission="canAccounting")
+    owner_uid = _owner_uid()
+    from app.services.tax_obligation_service import TaxObligationService
+    TaxObligationService.seed_defaults(owner_uid)
+    obligations = TaxObligationService.get_all(owner_uid)
+    status_list = TaxObligationService.get_status(owner_uid)
+    status_map = {s["key"]: s for s in status_list}
+    return render_template('accounting/tax_obligations.html',
+                           active_page='acc_tax_obligations',
+                           obligations=obligations,
+                           status_map=status_map)
+
+
+@web_accounting_bp.route('/accounting/tax-obligations/save', methods=['POST'])
+@require_module('contabilidad')
+def tax_obligations_save():
+    user = _auth()
+    if not user:
+        return jsonify(success=False, error="No autorizado"), 401
+    if not check_permission('canAccounting'):
+        return jsonify(success=False, error="Permiso denegado"), 403
+    owner_uid = _owner_uid()
+    key = request.form.get('key', '')
+    enabled = request.form.get('enabled', '1') == '1'
+    first_due_date = request.form.get('first_due_date', '')
+    if not key:
+        return jsonify(success=False, error="key requerido"), 400
+    from app.services.tax_obligation_service import TaxObligationService
+    TaxObligationService.save(owner_uid, {
+        "obligation_key": key,
+        "enabled": enabled,
+        "first_due_date": first_due_date,
+    })
+    return jsonify(success=True)
 

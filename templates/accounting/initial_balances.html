@@ -108,14 +108,17 @@ function setupAcSearch(wrap) {
     }
 
     function renderDropdown(results) {
-        if (!results.length) { dropdown.style.display = 'none'; return; }
+        if (!results.length) { hideDropdown(); return; }
         dropdown.innerHTML = results.slice(0, 100).map(a =>
             `<div class="ac-item" data-id="${a.id}" style="padding:7px 10px; cursor:pointer; font-size:0.8rem; border-bottom:1px solid var(--border-color); display:flex; gap:8px;">
                 <span style="font-family:monospace; color:var(--text-muted);">${a.code}</span>
                 <span>${a.name}</span>
             </div>`
         ).join('');
-        // Position dropdown using fixed coordinates to avoid clipping inside card-segment/table overflow
+        // Move dropdown to document.body so position:fixed is relative to viewport, not any transformed ancestor
+        if (dropdown.parentElement !== document.body) {
+            document.body.appendChild(dropdown);
+        }
         const rect = input.getBoundingClientRect();
         dropdown.style.position = 'fixed';
         dropdown.style.top = (rect.bottom + 2) + 'px';
@@ -126,9 +129,17 @@ function setupAcSearch(wrap) {
         dropdown.style.display = 'block';
     }
 
+    function hideDropdown() {
+        dropdown.style.display = 'none';
+        // Return dropdown to original parent so it stays associated with the row
+        if (dropdown.parentElement === document.body) {
+            wrap.appendChild(dropdown);
+        }
+    }
+
     input.addEventListener('input', function() {
         const q = this.value;
-        if (!q) { dropdown.style.display = 'none'; hidden.value = ''; return; }
+        if (!q) { hideDropdown(); hidden.value = ''; return; }
         renderDropdown(filterAccounts(q));
     });
 
@@ -140,11 +151,11 @@ function setupAcSearch(wrap) {
             input.value = account.code + ' — ' + account.name;
             hidden.value = account.id;
         }
-        dropdown.style.display = 'none';
+        hideDropdown();
     });
 
     input.addEventListener('blur', function() {
-        setTimeout(() => { dropdown.style.display = 'none'; }, 200);
+        setTimeout(() => { hideDropdown(); }, 200);
     });
 
     // Recalculate fixed position on scroll/resize
@@ -170,7 +181,7 @@ function setupAcSearch(wrap) {
     });
 
     input.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') dropdown.style.display = 'none';
+        if (e.key === 'Escape') hideDropdown();
     });
 }
 

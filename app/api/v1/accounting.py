@@ -167,3 +167,20 @@ def create_fixed_asset():
         return jsonify({"success": True, "asset": asset}), 201
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
+
+
+# =========================================================================
+# OBLIGACIONES TRIBUTARIAS DGII
+# =========================================================================
+@api_accounting_bp.route('/accounting/tax-obligations/status', methods=['GET'])
+@require_api_key
+def tax_obligations_status():
+    from app.services.tax_obligation_service import TaxObligationService
+    status_list = TaxObligationService.get_status(g.owner_uid)
+    pending = [s for s in status_list if s["status"] in ("due_soon", "overdue", "upcoming")]
+    return jsonify({
+        "success": True,
+        "obligations": status_list,
+        "pending_count": len(pending),
+        "pending": pending,
+    })
