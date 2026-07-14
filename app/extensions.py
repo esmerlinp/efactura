@@ -48,6 +48,7 @@ def init_extensions(app):
 
     # Registrar filtros personalizados
     app.template_filter('formatted')(formatted_filter)
+    app.template_filter('money')(formatted_filter)
     app.template_filter('format_date')(format_date_filter)
     
     # Registrar funciones matemáticas y utilidades en Jinja2
