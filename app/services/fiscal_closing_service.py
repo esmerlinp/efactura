@@ -16,7 +16,24 @@ class FiscalClosingService:
         from app.services.db_service import DatabaseService
 
         accounts = DatabaseService.get_chart_of_accounts(owner_uid)
-        entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox)
+        all_entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox)
+
+        # Filtrar entradas por el año fiscal correspondiente
+        date_from = f"{year}-01-01"
+        date_to = f"{year}-12-31"
+        entries = [
+            e for e in all_entries
+            if date_from <= str(e.get("date", ""))[:10] <= date_to
+        ]
+        # Incluir también entradas de cierre del año (dated 12-31 pero con entryType "closing")
+        closing_entries = [
+            e for e in all_entries
+            if e.get("entryType") == "closing" and str(e.get("concept", "")).endswith(str(year))
+        ]
+        existing_closing_ids = {e["id"] for e in entries if e.get("entryType") == "closing"}
+        for ce in closing_entries:
+            if ce["id"] not in existing_closing_ids:
+                entries.append(ce)
 
         income_codes = {"4"}
         expense_codes = {"5", "6"}
@@ -108,6 +125,11 @@ class FiscalClosingService:
     @classmethod
     def execute_year_close(cls, owner_uid: str, year: int, performed_by: str = "", sandbox: bool = False) -> dict:
         from app.services.accounting_service import AccountingService
+        from app.services.accounting_service import _accounting_entry_exists
+
+        # Prevenir doble cierre
+        if _accounting_entry_exists(owner_uid, "closing", f"year_{year}"):
+            return {"status": "already_closed", "message": f"El año fiscal {year} ya tiene un asiento de cierre."}
 
         preview = cls.generate_closing_preview(owner_uid, year, sandbox=sandbox)
 
@@ -124,6 +146,7 @@ class FiscalClosingService:
             "concept": f"Asiento de cierre del ejercicio fiscal {year}",
             "lines": lines,
             "createdBy": performed_by,
+            "referenceId": f"year_{year}",
             "prefix": "C",
         }
 

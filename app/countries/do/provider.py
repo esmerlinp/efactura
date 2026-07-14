@@ -114,16 +114,20 @@ class DOProvider(BaseCountryProvider):
             "vat_payable": "itbis_pagar",
             "vat_credit": "itbis_credito",
             "vat_withholding": "itbis_retenido",
+            "vat_withholding_client": "retenciones_a_favor",
             "income_tax_withholding": "isr_retenido",
+            "income_tax_withholding_client": "retenciones_a_favor",
         }
 
     def get_tax_labels(self) -> dict:
         return {
             "vat_invoice": "ITBIS factura",
             "vat_withholding": "ITBIS retenido",
+            "vat_withholding_client": "ITBIS retenido por cliente",
             "vat_credit": "ITBIS crédito fiscal",
             "vat_credit_note": "ITBIS devolución",
             "income_tax_withholding": "ISR retenido",
+            "income_tax_withholding_client": "ISR retenido por cliente",
             "vat": "ITBIS",
         }
 
