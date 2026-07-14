@@ -104,15 +104,16 @@
     <!-- ═══════════ EMPLEADOS SIN GRUPO ═══════════ -->
     {% if unassigned_employees %}
     <div class="card-table-wrapper" style="margin-bottom:16px; border:1px solid var(--accent-orange);">
-        <div class="table-header-row">
+        <div class="table-header-row" onclick="toggleUnassigned()" style="cursor:pointer; user-select:none;">
             <div>
                 <h3 style="margin:0; color:var(--accent-orange);"><i class="fa-solid fa-triangle-exclamation"></i> Empleados sin Nómina</h3>
                 <p style="margin:2px 0 0; font-size:0.82rem; color:var(--text-secondary);">
                     {{ unassigned_employees|length }} empleado(s) activo(s) no están asignados a ningún grupo. Asígnalos desde la vista de cada grupo.
                 </p>
             </div>
+            <i id="unassigned-toggle-icon" class="fa-solid fa-chevron-down" style="font-size:0.85rem; color:var(--text-muted); transition:transform 0.25s;"></i>
         </div>
-        <div style="padding:0 20px 20px;">
+        <div id="unassigned-content" style="padding:0 20px 20px; display:none;">
             <div class="table-responsive">
                 <table class="table-premium" style="font-size:0.82rem;">
                     <thead>
@@ -319,6 +320,13 @@ function removeIsrRow(btn) {
 }
 function getCSRFToken() {
     return document.querySelector('input[name="csrf_token"]')?.value || '';
+}
+function toggleUnassigned() {
+    var content = document.getElementById('unassigned-content');
+    var icon = document.getElementById('unassigned-toggle-icon');
+    var isHidden = content.style.display === 'none';
+    content.style.display = isHidden ? '' : 'none';
+    if (icon) icon.style.transform = isHidden ? 'rotate(0deg)' : 'rotate(-90deg)';
 }
 function assignEmployeeToGroup(employeeId, groupId) {
     if (!groupId) return;

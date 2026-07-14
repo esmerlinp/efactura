@@ -45,6 +45,19 @@ def create_app():
         if request.blueprint == 'portal':
             return
         if 'user' in session:
+            # Validar que la sesión activa en Firestore coincida con esta sesión.
+            # Si otro dispositivo inició sesión con el mismo usuario, el token cambió.
+            if session.get('session_token'):
+                try:
+                    from app.services.session_service import SessionService
+                    active = SessionService.get_active_session(session['user']['uid'])
+                    if active and active.get('session_token') != session.get('session_token'):
+                        # Otra máquina tomó la sesión — forzar cierre
+                        session.clear()
+                        flash('Tu sesión fue cerrada porque otro dispositivo inició sesión con tu cuenta.', 'warning')
+                        return redirect(flask_url_for('web_auth.login'))
+                except Exception:
+                    pass
             if 'is_sandbox_mode' not in session:
                 session['is_sandbox_mode'] = False
             # Cargar contexto de sucursal

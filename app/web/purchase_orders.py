@@ -947,14 +947,12 @@ def new_supplier_invoice_direct():
         subtotal = 0.0
         total_itbis = 0.0
         total_discount = 0.0
+        MAX_ITEMS = 500
         idx = 0
-        while True:
+        while idx < MAX_ITEMS:
             item_name = request.form.get(f'items[{idx}][name]', '').strip()
-            if item_name is None:
-                break
             if not item_name:
-                idx += 1
-                continue
+                break
 
             qty = float(request.form.get(f'items[{idx}][quantity]', 0) or 0)
             price = float(request.form.get(f'items[{idx}][unitPrice]', 0) or 0)
