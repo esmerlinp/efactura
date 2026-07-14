@@ -54,22 +54,8 @@
         border-radius: var(--radius-xs);
     }
 </style>
-{% set tipo_desc_map = {
-'E31': 'Factura de Crédito Fiscal',
-'E32': 'Factura de Consumo',
-'E33': 'Nota de Débito',
-'E34': 'Nota de Crédito',
-'E41': 'Comprobante de Compras',
-'E43': 'Gastos Menores',
-'E44': 'Regímenes Especiales',
-'E45': 'Comprobante Gubernamental',
-'E46': 'Comprobante de Exportación',
-'E47': 'Pagos al Exterior',
-'E48': 'Factura Clientes del Exterior',
-'E49': 'Operaciones Zonas Francas',
-'E50': 'Comprobante de Retención',
-'B12': 'Registro Único de Ingresos'
-} %}
+{% set tipo_desc_map = {} %}
+{% for ft in fiscal_types %}{% if tipo_desc_map.update({ft.code: ft.short_label}) %}{% endif %}{% endfor %}
 <!-- Rangos Autorizados por la DGII (Ancho Completo para mejor distribución) -->
 <div style="margin-bottom: 40px;">
     <div class="card-table-wrapper" style="margin-bottom: 0;">

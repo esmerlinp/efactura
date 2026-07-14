@@ -60,6 +60,7 @@ pyotp==2.9.0
 redis==5.2.1
 pyparsing==3.3.2
 pypdf==6.13.3
+PyMuPDF==1.28.0
 pyphen==0.17.2
 pypng==0.20220715.0
 python-dotenv==1.0.1

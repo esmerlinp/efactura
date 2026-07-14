@@ -6840,15 +6840,16 @@ def list_sequences():
         and s.get("estado") == "ACTIVA"
     ]
     expired_count = len([s for s in sequences if s.get("estado") == "EXPIRADA"])
+    def _exp_to_dt(v):
+        return v.replace(tzinfo=timezone.utc) if isinstance(v, datetime) else datetime.strptime(v[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    def _exp_to_str(v):
+        return v.strftime("%Y-%m-%d") if isinstance(v, datetime) else v[:10]
     expiring_soon_count = len([
         s for s in sequences
         if s.get("estado") == "ACTIVA"
-        and s.get("fechaExpiracion", "")
-        and s["fechaExpiracion"][:10] > now.strftime("%Y-%m-%d")
-        and (
-            datetime.strptime(s["fechaExpiracion"][:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
-            - now
-        ).days <= 60
+        and s.get("fechaExpiracion")
+        and _exp_to_str(s["fechaExpiracion"]) > now.strftime("%Y-%m-%d")
+        and (_exp_to_dt(s["fechaExpiracion"]) - now).days <= 60
     ])
 
     _fiscal_types = _all_fiscal_types()

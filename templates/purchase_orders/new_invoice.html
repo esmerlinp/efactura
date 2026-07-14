@@ -38,6 +38,20 @@
 
     .credit-box { display:none; flex-direction:column; gap:12px; margin-top:12px; padding:16px; background:rgba(0,0,0,0.02); border:1px solid var(--border-color); border-radius:var(--radius-sm); }
 
+    .price-mode-bar { display:flex; align-items:center; gap:10px; padding:8px 12px; margin-bottom:10px; background:rgba(245,158,11,0.06); border:1px solid rgba(245,158,11,0.15); border-radius:var(--radius-sm); font-size:0.78rem; }
+    .price-mode-bar.active { background:rgba(245,158,11,0.1); border-color:rgba(245,158,11,0.3); }
+    .price-mode-switch { position:relative; width:36px; height:20px; flex-shrink:0; cursor:pointer; }
+    .price-mode-switch input { opacity:0; width:0; height:0; }
+    .price-mode-switch .slider { position:absolute; inset:0; background:var(--border-color); border-radius:20px; transition:0.2s; }
+    .price-mode-switch .slider::before { content:''; position:absolute; left:2px; bottom:2px; width:16px; height:16px; background:#fff; border-radius:50%; transition:0.2s; }
+    .price-mode-switch input:checked + .slider { background:#d97706; }
+    .price-mode-switch input:checked + .slider::before { transform:translateX(16px); }
+    .price-mode-label { font-weight:500; color:var(--text-primary); cursor:pointer; user-select:none; }
+    .price-mode-label em { font-style:normal; color:#d97706; font-weight:600; }
+    .price-mode-hint { font-size:0.7rem; color:var(--text-muted); margin-left:auto; }
+    .item-price-wrap { display:flex; align-items:center; gap:4px; }
+    .item-price-badge { display:none; font-size:0.6rem; color:#d97706; font-weight:600; white-space:nowrap; }
+
     .uploader-zone { border:2px dashed var(--border-color); border-radius:var(--radius-md); padding:40px 20px; text-align:center; background:rgba(0,0,0,0.01); cursor:pointer; transition:all 0.25s ease; }
     .uploader-zone:hover { border-color:var(--accent-emerald); background:rgba(16,185,129,0.03); }
 
@@ -85,7 +99,7 @@
     .ocr-loading span { font-size:0.88rem; color:var(--text-muted); }
 </style>
 
-<div style="max-width:850px; margin:0 auto 50px auto; width:100%;">
+<div style="max-width:1050px; margin:0 auto 50px auto; width:100%;">
 
     {% if po %}
     <div class="help-banner" style="background:rgba(139,92,246,0.06); border-color:rgba(139,92,246,0.2);">
@@ -238,18 +252,28 @@
                 </button>
                 <div class="accordion-content" style="max-height:none;" id="partidas-content">
                     <div class="accordion-body" style="overflow:visible;">
+                        <div class="price-mode-bar" id="price-mode-bar">
+                            <label class="price-mode-switch">
+                                <input type="checkbox" id="price-mode-toggle" onchange="onPriceModeChange()">
+                                <span class="slider"></span>
+                            </label>
+                            <span class="price-mode-label" onclick="togglePriceMode()">
+                                Los precios incluyen <em>ITBIS</em>
+                            </span>
+                            <span class="price-mode-hint">Al activar, el sistema calculará la base imponible automáticamente</span>
+                        </div>
                         <div style="overflow:visible;">
                             <table class="items-table" id="items-table">
                                 <thead>
                                     <tr>
-                                        <th style="width:17%;">Descripción *</th>
-                                        <th style="width:7%;text-align:center;">Cant.</th>
-                                        <th style="width:9%;text-align:right;">Precio U.</th>
-                                        <th style="width:9%;text-align:center;">ITBIS</th>
-                                        <th style="width:6%;text-align:right;">Desc%</th>
-                                        <th style="width:18%;">Cuenta Contable</th>
-                                        <th style="width:10%;text-align:right;">Total</th>
-                                        <th style="width:4%;"></th>
+                                        <th style="width:21%;">Descripción *</th>
+                                        <th style="width:8%;text-align:center;">Cant.</th>
+                                        <th style="width:12%;text-align:right;">Precio U.</th>
+                                        <th style="width:10%;text-align:center;">ITBIS</th>
+                                        <th style="width:5%;text-align:right;">Desc%</th>
+                                        <th style="width:24%;">Cuenta Contable</th>
+                                        <th style="width:12%;text-align:right;">Total</th>
+                                        <th style="width:2%;"></th>
                                     </tr>
                                 </thead>
                                 <tbody id="items-body">
@@ -258,10 +282,13 @@
                                             <input type="text" class="form-input item-name" name="items[0][name]" placeholder="Descripción del producto/servicio" required style="width:100%;">
                                         </td>
                                         <td style="text-align:center;">
-                                            <input type="number" class="form-input item-qty" name="items[0][quantity]" value="1" min="0.01" step="0.01" required style="width:70px;text-align:center;" oninput="recalculateTotals()">
+                                            <input type="number" class="form-input item-qty" name="items[0][quantity]" value="1" min="0.01" step="0.01" required style="width:100%;min-width:40px;text-align:center;" oninput="recalculateTotals()">
                                         </td>
                                         <td style="text-align:right;">
-                                            <input type="number" class="form-input item-price" name="items[0][unitPrice]" value="0.00" step="0.01" min="0" required style="width:110px;text-align:right;" oninput="recalculateTotals()">
+                                            <div class="item-price-wrap">
+                                                <input type="number" class="form-input item-price" name="items[0][unitPrice]" value="0.00" step="0.01" min="0" required style="width:100%;min-width:60px;text-align:right;" oninput="recalculateTotals()">
+                                                <span class="item-price-badge">c/ITBIS</span>
+                                            </div>
                                         </td>
                                         <td style="text-align:center;">
                                             <select class="form-select item-itbis" name="items[0][itbisRate]" onchange="recalculateTotals()" style="width:100%;font-size:0.8rem;padding:6px 24px 6px 6px;background-position:right 6px center;">
@@ -271,7 +298,7 @@
                                             </select>
                                         </td>
                                         <td style="text-align:right;">
-                                            <input type="number" class="form-input item-discount" name="items[0][discount]" value="0" step="0.01" min="0" max="100" style="width:70px;text-align:right;" oninput="recalculateTotals()">
+                                            <input type="number" class="form-input item-discount" name="items[0][discount]" value="0" step="0.01" min="0" max="100" style="width:100%;min-width:40px;text-align:right;" oninput="recalculateTotals()">
                                         </td>
                                         <td class="account-cell">
                                             <input type="text" class="form-input item-account-display" value="" placeholder="Buscar cuenta..." autocomplete="off" onfocus="openAccountDropdown(this)" oninput="filterAccountDropdown(this)" style="width:100%;font-size:0.78rem;">
@@ -496,16 +523,19 @@
                 <input type="text" class="form-input item-name" name="items[${idx}][name]" placeholder="Descripción del producto/servicio" required style="width:100%;">
             </td>
             <td style="text-align:center;">
-                <input type="number" class="form-input item-qty" name="items[${idx}][quantity]" value="1" min="0.01" step="0.01" required style="width:70px;text-align:center;" oninput="recalculateTotals()">
+                <input type="number" class="form-input item-qty" name="items[${idx}][quantity]" value="1" min="0.01" step="0.01" required style="width:100%;min-width:40px;text-align:center;" oninput="recalculateTotals()">
             </td>
             <td style="text-align:right;">
-                <input type="number" class="form-input item-price" name="items[${idx}][unitPrice]" value="0.00" step="0.01" min="0" required style="width:110px;text-align:right;" oninput="recalculateTotals()">
+                <div class="item-price-wrap">
+                    <input type="number" class="form-input item-price" name="items[${idx}][unitPrice]" value="0.00" step="0.01" min="0" required style="width:100%;min-width:60px;text-align:right;" oninput="recalculateTotals()">
+                    <span class="item-price-badge">c/ITBIS</span>
+                </div>
             </td>
             <td style="text-align:center;">
                 ${buildItbisSelect(idx)}
             </td>
             <td style="text-align:right;">
-                <input type="number" class="form-input item-discount" name="items[${idx}][discount]" value="0" step="0.01" min="0" max="100" style="width:70px;text-align:right;" oninput="recalculateTotals()">
+                <input type="number" class="form-input item-discount" name="items[${idx}][discount]" value="0" step="0.01" min="0" max="100" style="width:100%;min-width:40px;text-align:right;" oninput="recalculateTotals()">
             </td>
             <td class="account-cell">
                 <input type="text" class="form-input item-account-display" value="" placeholder="Buscar cuenta..." autocomplete="off" onfocus="openAccountDropdown(this)" oninput="filterAccountDropdown(this)" style="width:100%;font-size:0.78rem;">
@@ -520,6 +550,10 @@
             </td>
         `;
         tbody.appendChild(tr);
+        if (document.getElementById('price-mode-toggle').checked) {
+            const badge = tr.querySelector('.item-price-badge');
+            if (badge) badge.style.display = 'inline';
+        }
         attachRowEvents(tr);
         updateRemoveButtons();
     }
@@ -548,13 +582,15 @@
     }
 
     function recalculateTotals() {
+        const includesTax = document.getElementById('price-mode-toggle').checked;
         let subtotal = 0, totalItbis = 0, totalDiscount = 0;
         const rows = document.querySelectorAll('#items-body .item-row');
         rows.forEach(function(row) {
             const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
-            const price = parseFloat(row.querySelector('.item-price').value) || 0;
+            const enteredPrice = parseFloat(row.querySelector('.item-price').value) || 0;
             const itbisRate = parseFloat(row.querySelector('.item-itbis').value) || 0;
             const discountPct = parseFloat(row.querySelector('.item-discount').value) || 0;
+            const price = (includesTax && itbisRate > 0) ? (enteredPrice / (1 + itbisRate)) : enteredPrice;
             const lineSub = qty * price;
             const lineDiscount = lineSub * (discountPct / 100);
             const lineItbis = (lineSub - lineDiscount) * itbisRate;
@@ -578,6 +614,35 @@
         attachRowEvents(tr);
     });
     updateRemoveButtons();
+
+    function onPriceModeChange() {
+        const active = document.getElementById('price-mode-toggle').checked;
+        document.getElementById('price-mode-bar').classList.toggle('active', active);
+        document.querySelectorAll('.item-price-badge').forEach(function(el) {
+            el.style.display = active ? 'inline' : 'none';
+        });
+        recalculateTotals();
+    }
+
+    function togglePriceMode() {
+        const cb = document.getElementById('price-mode-toggle');
+        cb.checked = !cb.checked;
+        onPriceModeChange();
+    }
+
+    document.getElementById('invoice-form').addEventListener('submit', function() {
+        const includesTax = document.getElementById('price-mode-toggle').checked;
+        if (!includesTax) return;
+        const rows = document.querySelectorAll('#items-body .item-row');
+        rows.forEach(function(row) {
+            const priceInput = row.querySelector('.item-price');
+            const itbisRate = parseFloat(row.querySelector('.item-itbis').value) || 0;
+            const enteredPrice = parseFloat(priceInput.value) || 0;
+            if (itbisRate > 0) {
+                priceInput.value = (enteredPrice / (1 + itbisRate)).toFixed(2);
+            }
+        });
+    });
 
     function togglePaymentFields() {
         const paymentType = document.getElementById('paymentType').value;
