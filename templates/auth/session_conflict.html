@@ -24,63 +24,65 @@
     {% endif %}
     <style>
         .conflict-icon {
-            width: 64px;
-            height: 64px;
+            width: 48px;
+            height: 48px;
             border-radius: 50%;
-            background: rgba(245, 158, 11, 0.12);
+            background: rgba(245, 158, 11, 0.08);
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 16px;
-            font-size: 1.6rem;
+            margin: 0 auto 12px;
+            font-size: 1.2rem;
             color: #f59e0b;
         }
         .conflict-device-info {
-            background: var(--bg-secondary, rgba(255,255,255,0.04));
-            border: 1px solid var(--border-color, rgba(255,255,255,0.08));
-            border-radius: 12px;
-            padding: 16px;
-            margin: 18px 0;
-            font-size: 0.85rem;
-            line-height: 1.6;
+            margin: 16px 0;
+            font-size: 0.82rem;
+            line-height: 1.8;
+            color: var(--text-secondary);
         }
         .conflict-device-info i {
             width: 20px;
             text-align: center;
-            margin-right: 8px;
+            margin-right: 6px;
             color: var(--text-muted);
         }
-        .btn-group {
+        .actions {
             display: flex;
-            gap: 12px;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 16px;
             margin-top: 24px;
         }
-        .btn-group .btn {
-            flex: 1;
-            padding: 13px;
-            font-size: 0.92rem;
-            border-radius: var(--radius-sm, 8px);
-            text-align: center;
+        .btn-link-cancel {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.85rem;
             cursor: pointer;
-            font-weight: 600;
+            text-decoration: none;
+            padding: 0;
+            font-weight: 400;
+            transition: color 0.2s;
+        }
+        .btn-link-cancel:hover {
+            color: var(--text-primary);
+            text-decoration: underline;
+        }
+        .btn-session-action {
+            padding: 10px 20px;
+            font-size: 0.85rem;
+            border-radius: var(--radius-sm, 8px);
+            border: 1px solid var(--border-color, rgba(128, 128, 128, 0.3));
+            background: transparent;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-weight: 500;
             transition: all 0.2s ease;
         }
-        .btn-danger {
-            background: #ef4444;
-            color: #fff;
-            border: none;
-        }
-        .btn-danger:hover {
-            background: #dc2626;
-        }
-        .btn-secondary {
-            background: transparent;
-            color: var(--text-secondary);
-            border: 1px solid var(--border-color, rgba(255,255,255,0.15));
-        }
-        .btn-secondary:hover {
-            background: var(--bg-secondary, rgba(255,255,255,0.04));
-            color: var(--text-primary);
+        .btn-session-action:hover {
+            background: var(--bg-secondary, rgba(128,128,128,0.06));
+            border-color: var(--text-muted);
         }
     </style>
 </head>
@@ -106,10 +108,10 @@
 
         <div style="text-align: center;">
             <div class="conflict-icon">
-                <i class="fa-solid fa-triangle-exclamation"></i>
+                <i class="fa-solid fa-circle-exclamation"></i>
             </div>
-            <h3 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 700;">Ya tienes una sesión activa</h3>
-            <p style="color: var(--text-secondary); font-size: 0.88rem; line-height: 1.5; margin: 0;">
+            <h3 style="margin: 0 0 6px; font-size: 1.05rem; font-weight: 600;">Ya tienes una sesión activa</h3>
+            <p style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5; margin: 0;">
                 El usuario <strong>{{ email }}</strong> ya tiene una sesión iniciada en otro dispositivo o navegador.
             </p>
 
@@ -125,19 +127,17 @@
                 {% endif %}
             </div>
 
-            <p style="color: var(--text-secondary); font-size: 0.82rem; line-height: 1.5; margin: 0 0 4px;">
-                Para continuar, la sesión anterior será cerrada. Solo una sesión activa por usuario está permitida.
+            <p style="color: var(--text-muted); font-size: 0.78rem; line-height: 1.5; margin: 0 0 4px;">
+                Para continuar, la sesión anterior será cerrada.
             </p>
         </div>
 
         <form method="POST" action="{{ url_for('web_auth.resolve_session_conflict') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <div class="btn-group">
-                <a href="{{ url_for('web_auth.login') }}" class="btn btn-secondary">
-                    <i class="fa-solid fa-arrow-left"></i> Cancelar
-                </a>
-                <button type="submit" name="action" value="force_login" class="btn btn-danger">
-                    <i class="fa-solid fa-right-to-bracket"></i> Cerrar otra sesión y entrar
+            <div class="actions">
+                <a href="{{ url_for('web_auth.login') }}" class="btn-link-cancel">Cancelar</a>
+                <button type="submit" name="action" value="force_login" class="btn-session-action">
+                    Cerrar otra sesión y entrar
                 </button>
             </div>
         </form>

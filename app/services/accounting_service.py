@@ -73,13 +73,20 @@ class AccountingService:
                 return
         else:
             missing = default_accounts
-        all_existing = existing or []
-        existing_by_code = {a.get("code"): a for a in all_existing}
-        all_accounts = all_existing + [a for a in missing if a["code"] not in existing_by_code]
+
+        # Re-leer para prevenir escritura duplicada en concurrencia
+        refreshed = DatabaseService.get_chart_of_accounts(owner_uid)
+        refreshed_codes = {a.get("code") for a in refreshed}
+        missing = [a for a in missing if a["code"] not in refreshed_codes]
+        if not missing:
+            return
+
+        # Construir parent_map solo con cuentas existentes confirmadas
         parent_map = {}
-        for a in all_accounts:
+        for a in refreshed:
             if a.get("id"):
                 parent_map[a["code"]] = a["id"]
+
         for acc in missing:
             acc_id = str(uuid.uuid4())
             parent_code = ".".join(acc["code"].split(".")[:-1])
@@ -476,8 +483,17 @@ class AccountingService:
         debit_acc, debit_desc = cls._resolve_debit_account(invoice, accounts)
         sales_acc = _find_account_by_usage(accounts, "ventas")
         itbis_acc = _find_account_by_usage(accounts, mapping.get("vat_payable"))
-        itbis_ret_acc = _find_account_by_usage(accounts, mapping.get("vat_withholding"))
-        isr_ret_acc = _find_account_by_usage(accounts, mapping.get("income_tax_withholding"))
+        # Cuentas de retención del lado del cliente (cuando te retienen a ti → ACTIVO)
+        itbis_ret_acc = _find_account_by_usages(accounts, [
+            mapping.get("vat_withholding_client", "retenciones_a_favor"),
+            "retenciones_a_favor",
+            "impuesto_a_favor",
+        ])
+        isr_ret_acc = _find_account_by_usages(accounts, [
+            mapping.get("income_tax_withholding_client", "retenciones_a_favor"),
+            "retenciones_a_favor",
+            "impuesto_a_favor",
+        ])
         if not debit_acc or not sales_acc:
             return None
         total = float(invoice.get("netPayable", invoice.get("total", 0)))
@@ -559,7 +575,7 @@ class AccountingService:
                 "accountName": itbis_ret_acc.get("name", ""),
                 "debit": round(retained_itbis, 2),
                 "credit": 0.00,
-                "description": labels.get("vat_withholding", "ITBIS retenido"),
+                "description": labels.get("vat_withholding_client", "ITBIS retenido por cliente"),
                 "branchId": branch_id,
                 "costCenterId": cost_center_id,
                 "currency": currency
@@ -571,7 +587,7 @@ class AccountingService:
                 "accountName": isr_ret_acc.get("name", ""),
                 "debit": round(retained_isr, 2),
                 "credit": 0.00,
-                "description": labels.get("income_tax_withholding", "ISR retenido"),
+                "description": labels.get("income_tax_withholding_client", "ISR retenido por cliente"),
                 "branchId": branch_id,
                 "costCenterId": cost_center_id,
                 "currency": currency
@@ -594,7 +610,9 @@ class AccountingService:
                 "prefix": "A",
             }, sandbox=sandbox)
             return entry
-        except ValueError:
+        except ValueError as e:
+            from flask import current_app
+            current_app.logger.warning(f"auto_generate_invoice_entry desbalanceada ({invoice_id}): {e}")
             return None
 
     @classmethod
@@ -660,7 +678,9 @@ class AccountingService:
                 "prefix": "A",
             }, sandbox=sandbox)
             return entry
-        except ValueError:
+        except ValueError as e:
+            from flask import current_app
+            current_app.logger.warning(f"auto_generate_client_advance_entry desbalanceado ({advance_id}): {e}")
             return None
 
     @classmethod
@@ -719,7 +739,9 @@ class AccountingService:
                 "prefix": "A",
             }, sandbox=sandbox)
             return entry
-        except ValueError:
+        except ValueError as e:
+            from flask import current_app
+            current_app.logger.warning(f"auto_generate_advance_application_entry desbalanceado ({invoice_id}): {e}")
             return None
 
     @classmethod
@@ -831,28 +853,23 @@ class AccountingService:
         lines = cls._build_inventory_adjustment_lines(operation_type, items, accounts, reference_id)
         if not lines:
             return None
-        total_debit = round(sum(l["debit"] for l in lines), 2)
-        total_credit = round(sum(l["credit"] for l in lines), 2)
-        if abs(total_debit - total_credit) > 0.01:
+        concept = f"{'Ajuste' if operation_type == 'ajuste' else 'Merma' if operation_type == 'merma' else 'Transferencia'} de inventario"
+        try:
+            entry = cls.generate_entry(owner_uid, {
+                "entryType": "inventory",
+                "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                "concept": concept,
+                "referenceType": "inventory",
+                "referenceId": reference_id,
+                "lines": lines,
+                "createdBy": performed_by or "system",
+                "prefix": "A",
+            }, sandbox=sandbox)
+            return entry
+        except ValueError as e:
+            from flask import current_app
+            current_app.logger.warning(f"auto_generate_inventory_entry desbalanceado ({reference_id}): {e}")
             return None
-        entry_id = str(uuid.uuid4())
-        entry = {
-            "id": entry_id,
-            "entryType": "inventory",
-            "referenceId": reference_id,
-            "date": datetime.now(timezone.utc).isoformat(),
-            "description": f"{'Ajuste' if operation_type == 'ajuste' else 'Merma' if operation_type == 'merma' else 'Transferencia'} de inventario",
-            "lines": lines,
-            "totalDebit": total_debit,
-            "totalCredit": total_credit,
-            "status": "open",
-            "createdBy": performed_by or "system",
-            "createdAt": datetime.now(timezone.utc).isoformat(),
-        }
-        DatabaseService.save_accounting_entry(owner_uid, entry_id, entry, sandbox=sandbox)
-        from app.services.ledger_audit_service import LedgerAuditService
-        LedgerAuditService.log_entry_created(entry, owner_uid, performed_by=performed_by or "system")
-        return entry
 
     @classmethod
     def auto_reverse_invoice_entry(cls, owner_uid, invoice, reason="", user_id="", sandbox=True, country="DO"):
@@ -900,7 +917,9 @@ class AccountingService:
                     "prefix": "A",
                 }, sandbox=sandbox)
                 reversed_entries.append(rev_entry)
-            except ValueError:
+            except ValueError as e:
+                from flask import current_app
+                current_app.logger.warning(f"auto_reverse_invoice_entry desbalanceado ({invoice_id}): {e}")
                 continue
         return reversed_entries[0] if reversed_entries else None
 
@@ -996,7 +1015,9 @@ class AccountingService:
                 "prefix": "A",
             }, sandbox=sandbox)
             return entry
-        except ValueError:
+        except ValueError as e:
+            from flask import current_app
+            current_app.logger.warning(f"auto_generate_credit_note_entry desbalanceada ({invoice.get('id', '')}): {e}")
             return None
 
     @classmethod
@@ -1128,13 +1149,27 @@ class AccountingService:
                 lines.append({"accountId": gastos_acc["id"], "accountCode": gastos_acc.get("code", ""), "accountName": gastos_acc.get("name", ""), "debit": round(net, 2), "credit": 0.00, "description": expense.get("concept", "")})
             if itbis > 0 and itbis_credito_acc:
                 lines.append({"accountId": itbis_credito_acc["id"], "accountCode": itbis_credito_acc.get("code", ""), "accountName": itbis_credito_acc.get("name", ""), "debit": round(itbis, 2), "credit": 0.00, "description": labels.get("vat", "ITBIS")})
+            # Retenciones en el fallback
+            retained_isr_amount = 0.0
+            retained_itbis_amount = 0.0
+            retained_isr_rate = float(expense.get("retainedISR", 0))
+            retained_itbis_rate = float(expense.get("retainedITBIS", 0))
+            if retained_isr_rate > 0:
+                retained_isr_amount = round(total * retained_isr_rate, 2)
+            if retained_itbis_rate > 0:
+                retained_itbis_amount = round(itbis * retained_itbis_rate, 2)
+            if retained_isr_amount > 0 and isr_retenido_acc:
+                lines.append({"accountId": isr_retenido_acc["id"], "accountCode": isr_retenido_acc.get("code", ""), "accountName": isr_retenido_acc.get("name", ""), "debit": 0.00, "credit": round(retained_isr_amount, 2), "description": labels.get("income_tax_withholding", "ISR retenido")})
+            if retained_itbis_amount > 0 and itbis_retenido_acc:
+                lines.append({"accountId": itbis_retenido_acc["id"], "accountCode": itbis_retenido_acc.get("code", ""), "accountName": itbis_retenido_acc.get("name", ""), "debit": 0.00, "credit": round(retained_itbis_amount, 2), "description": labels.get("vat_withholding", "ITBIS retenido")})
+            credit_amount = round(total - retained_isr_amount - retained_itbis_amount, 2)
             credit_acc = None
             if payment_type == "Contado" and banco_acc:
                 credit_acc = banco_acc
             elif cxp_acc:
                 credit_acc = cxp_acc
-            if credit_acc:
-                lines.append({"accountId": credit_acc["id"], "accountCode": credit_acc.get("code", ""), "accountName": credit_acc.get("name", ""), "debit": 0.00, "credit": round(total, 2), "description": expense.get("concept", "")})
+            if credit_acc and credit_amount > 0:
+                lines.append({"accountId": credit_acc["id"], "accountCode": credit_acc.get("code", ""), "accountName": credit_acc.get("name", ""), "debit": 0.00, "credit": round(credit_amount, 2), "description": expense.get("concept", "")})
 
         try:
             supplier_name = expense.get("providerName", expense.get("supplierName", ""))
@@ -1152,7 +1187,9 @@ class AccountingService:
                 "prefix": "A",
             }, sandbox=sandbox)
             return entry
-        except ValueError:
+        except ValueError as e:
+            from flask import current_app
+            current_app.logger.warning(f"auto_generate_expense_entry desbalanceado ({expense.get('id', '')}): {e}")
             return None
 
     @classmethod
@@ -1220,7 +1257,9 @@ class AccountingService:
                 "prefix": "DP",
             }, sandbox=sandbox)
             return entry
-        except ValueError:
+        except ValueError as e:
+            from flask import current_app
+            current_app.logger.warning(f"auto_generate_depreciation_entry desbalanceado ({asset_id}): {e}")
             return None
 
     @classmethod
