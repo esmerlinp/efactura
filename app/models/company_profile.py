@@ -13,7 +13,7 @@ class CompanyProfile(BaseModel):
     companyPhone: str = "809-555-0199"
     companyEmail: str = "factura@miempresa.com.do"
     colorMarca: str = "#10b981"
-    gradientEnabled: bool = True
+    gradientEnabled: bool = False
     logoUrl: str = ""
     logoBase64: str = ""
     regimenFiscal: str = "ordinary"

@@ -7438,6 +7438,14 @@ def save_branch_route():
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
+    profile = DatabaseService.get_company_profile(owner_uid)
+    branch_limit = int(profile.get('branchLimit', 0)) if profile else 0
+    if branch_limit > 0 and not request.form.get('id'):
+        branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
+        if len(branches) >= branch_limit:
+            flash(f'Límite de sucursales alcanzado ({branch_limit} sucursales en tu plan). Actualiza tu plan para crear más.', 'error')
+            return redirect(url_for('web_invoices.company_settings'))
+    
     branch_id = request.form.get('id') or str(uuid.uuid4())
     branch_dict = {
         "name": request.form.get('name', ''),

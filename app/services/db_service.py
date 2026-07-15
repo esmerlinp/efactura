@@ -65,7 +65,7 @@ def _cached_company_profile(owner_uid):
         "companyPhone": "809-555-0199",
         "companyEmail": "factura@miempresa.com.do",
         "colorMarca": "#10b981",
-        "gradientEnabled": True,
+        "gradientEnabled": False,
         "logoUrl": "",
         "logoBase64": "",
         "regimenFiscal": "ordinary",

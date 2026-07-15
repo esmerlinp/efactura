@@ -180,7 +180,7 @@
                 <div class="plan-feature">
                     <i class="fa-solid fa-cubes"></i>
                     <span class="feature-label">Módulos incluidos</span>
-                    <span class="feature-value" style="font-size:0.75rem;">{{ plan.modules|length if plan.modules else '—' }}</span>
+                    <span class="feature-value" style="font-size:0.75rem;">{{ plan.modules.values()|selectattr('enabled')|list|length if plan.modules else '—' }}</span>
                 </div>
                 {% set all_module_keys = ["e_cf","dashboard","catalogo","cotizaciones","crm","pos","inventario","cxc","cxp_compras","gastos","contratos","comisiones","reporte_606","api","multi_empresa","portal_cliente","ia_bi","auditoria","exportacion_contable","pasarela_azul"] %}
                 {% set plan_module_keys = plan.modules.keys()|list if plan.modules else [] %}
