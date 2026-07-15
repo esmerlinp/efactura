@@ -1471,32 +1471,246 @@ def edit_supplier_invoice(invoice_id):
         return redirect(url_for('web_purchase_orders.list_purchase_cxp'))
 
     if request.method == 'POST':
-        updates = {}
-        notes = request.form.get('notes', '').strip()
-        if notes != invoice.get('notes', ''):
-            updates['notes'] = notes
-        due_date = request.form.get('dueDate', '')
-        if due_date and due_date != invoice.get('dueDate', ''):
-            updates['dueDate'] = due_date
-        date = request.form.get('date', '')
-        if date and date != invoice.get('date', ''):
-            updates['date'] = date
+        inv_number = request.form.get('invoiceNumber', '').strip()
+        if not inv_number:
+            flash('El número de factura del proveedor es obligatorio.', 'error')
+            return redirect(url_for('web_purchase_orders.edit_supplier_invoice', invoice_id=invoice_id))
 
-        if updates:
-            SupplierInvoiceService.update(owner_uid, invoice_id, updates, sandbox=sandbox)
-            AuditService.log_from_request(
-                owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_SINV,
-                entity_id=invoice_id,
-                entity_label=f"Factura Proveedor {invoice.get('invoiceNumber', '')} editada",
-                sandbox=sandbox
-            )
-            flash('✅ Factura actualizada.', 'success')
-        else:
-            flash('ℹ️ No hay cambios para guardar.', 'info')
+        if inv_number != invoice.get('supplierInvoiceNumber', ''):
+            if not SupplierInvoiceService._check_ncf_unique(owner_uid, inv_number, sandbox=sandbox, exclude_id=invoice_id):
+                flash('El número de factura del proveedor ya existe. Verifique los datos.', 'error')
+                return redirect(url_for('web_purchase_orders.edit_supplier_invoice', invoice_id=invoice_id))
+
+        ncf = request.form.get('ncf', '').strip()
+        inv_date = request.form.get('date', datetime.now(timezone.utc).strftime('%Y-%m-%d'))
+        due_date = request.form.get('dueDate', '')
+        ecf_type = request.form.get('ecfType', _by_code("E31").code)
+
+        today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+        if inv_date > today_str:
+            flash('La fecha de emisión no puede ser futura.', 'error')
+            return redirect(url_for('web_purchase_orders.edit_supplier_invoice', invoice_id=invoice_id))
+        if due_date and due_date < inv_date:
+            flash('La fecha de vencimiento no puede ser anterior a la fecha de emisión.', 'error')
+            return redirect(url_for('web_purchase_orders.edit_supplier_invoice', invoice_id=invoice_id))
+
+        if ncf and ncf != invoice.get('ncf', ''):
+            if not SupplierInvoiceService._check_ncf_unique(owner_uid, ncf, sandbox=sandbox, exclude_id=invoice_id):
+                flash('El NCF ya está registrado en otra factura.', 'error')
+                return redirect(url_for('web_purchase_orders.edit_supplier_invoice', invoice_id=invoice_id))
+
+        payment_type = request.form.get('paymentType', 'Contado')
+        currency = request.form.get('currency', 'DOP')
+        exchange_rate = float(request.form.get('exchangeRate', 1.0))
+
+        bank_account_id = request.form.get('bankAccountId', '')
+        if payment_type == 'Contado' and not bank_account_id:
+            flash('Debe seleccionar una cuenta bancaria para pagos al contado.', 'error')
+            return redirect(url_for('web_purchase_orders.edit_supplier_invoice', invoice_id=invoice_id))
+
+        items = []
+        subtotal = 0.0
+        total_itbis = 0.0
+        total_discount = 0.0
+        MAX_ITEMS = 500
+        idx = 0
+        while idx < MAX_ITEMS:
+            item_name = request.form.get(f'items[{idx}][name]', '').strip()
+            if not item_name:
+                break
+
+            qty = float(request.form.get(f'items[{idx}][quantity]', 0) or 0)
+            price = float(request.form.get(f'items[{idx}][unitPrice]', 0) or 0)
+            itbis_rate = float(request.form.get(f'items[{idx}][itbisRate]', 0.0) or 0.0)
+            discount_pct = float(request.form.get(f'items[{idx}][discount]', 0.0) or 0.0)
+            accounting_account_id = request.form.get(f'items[{idx}][accountingAccountId]', '')
+
+            line_sub = qty * price
+            line_discount = line_sub * (discount_pct / 100.0)
+            line_itbis = (line_sub - line_discount) * itbis_rate
+            line_total = line_sub - line_discount + line_itbis
+            subtotal += line_sub
+            total_discount += line_discount
+            total_itbis += line_itbis
+
+            items.append({
+                "id": str(uuid.uuid4()),
+                "name": item_name,
+                "quantity": qty,
+                "unit": "Unidad",
+                "unitPrice": price,
+                "itbisRate": itbis_rate,
+                "discount": discount_pct,
+                "subtotal": round(line_sub, 2),
+                "itbisAmount": round(line_itbis, 2),
+                "total": round(line_total, 2),
+                "receivedQuantity": 0,
+                "accountingAccountId": accounting_account_id,
+            })
+            idx += 1
+
+        if not items:
+            flash('Debe agregar al menos una partida.', 'error')
+            return redirect(url_for('web_purchase_orders.edit_supplier_invoice', invoice_id=invoice_id))
+
+        total = subtotal - total_discount + total_itbis
+
+        old_payment_type = invoice.get('paymentType', 'Contado')
+
+        supplier_id = request.form.get('supplierId', '')
+        supplier_name = request.form.get('supplierName', '')
+        supplier_rnc = request.form.get('supplierRnc', '')
+
+        if not supplier_id and supplier_rnc:
+            from app.services.contact_service import ContactService
+            contact = ContactService.get_contact_by_rnc(owner_uid, supplier_rnc, sandbox=sandbox)
+            if contact:
+                supplier_id = contact["id"]
+                types = list(contact.get("types", []))
+                if "proveedor" not in types:
+                    types.append("proveedor")
+                    contact_dict = dict(contact)
+                    contact_dict["types"] = types
+                    ContactService.save_contact(owner_uid, contact["id"], contact_dict, sandbox=sandbox)
+            elif supplier_name:
+                supplier_id = str(uuid.uuid4())
+                ContactService.save_contact(owner_uid, supplier_id, {
+                    "rnc": supplier_rnc,
+                    "razonSocial": supplier_name,
+                    "types": ["proveedor"],
+                }, sandbox=sandbox)
+
+        cxp_status = "Pagado" if payment_type == 'Contado' else invoice.get('cxpStatus', 'Pendiente')
+        if cxp_status == 'Vencido' and payment_type == 'Crédito':
+            cxp_status = 'Vencido'
+        elif payment_type == 'Crédito' and old_payment_type == 'Contado':
+            cxp_status = 'Pendiente'
+        cxp_remaining = 0.0 if payment_type == 'Contado' else total
+
+        updates = {
+            "supplierInvoiceNumber": inv_number,
+            "ncf": ncf,
+            "supplierId": supplier_id,
+            "supplierName": supplier_name,
+            "supplierRnc": supplier_rnc,
+            "supplierType": request.form.get('supplierType', 'formal'),
+            "ecfType": ecf_type,
+            "cne": request.form.get('cne', ''),
+            "date": inv_date,
+            "dueDate": due_date,
+            "paymentTerms": "contado" if payment_type == 'Contado' else "credito_30d",
+            "currency": currency,
+            "exchangeRate": exchange_rate,
+            "subtotal": round(subtotal, 2),
+            "itbis": round(total_itbis, 2),
+            "discount": round(total_discount, 2),
+            "total": round(total, 2),
+            "items": items,
+            "notes": request.form.get('notes', ''),
+            "comentario": request.form.get('comentario', ''),
+            "tipoGastoDGII": request.form.get('tipoGastoDGII', '02'),
+            "cxpStatus": cxp_status,
+            "cxpRemainingBalance": round(cxp_remaining, 2),
+            "paymentType": payment_type,
+            "paymentMethod": request.form.get('paymentMethod', 'transferencia'),
+            "bankAccountId": bank_account_id,
+            "retainedISR": float(request.form.get('retainedISRRate', 0) or 0),
+            "retainedITBIS": float(request.form.get('retainedITBISRate', 0) or 0),
+            "projectId": request.form.get('projectId') or g.get('project_id'),
+            "updatedAt": datetime.now(timezone.utc).isoformat(),
+        }
+
+        SupplierInvoiceService.update(owner_uid, invoice_id, updates, sandbox=sandbox)
+
+        attachment_file = request.files.get('attachment')
+        if attachment_file and attachment_file.filename:
+            file_data = attachment_file.read()
+            if len(file_data) > MAX_FILE_SIZE:
+                flash('El archivo excede el límite de 10 MB.', 'error')
+            else:
+                mime_type = attachment_file.content_type or "application/octet-stream"
+                if mime_type not in ALLOWED_MIME_TYPES:
+                    flash('Tipo de archivo no permitido. Solo PDF, JPG y PNG.', 'error')
+                else:
+                    try:
+                        public_url = SupplierInvoiceService.add_attachment(
+                            owner_uid, invoice_id, file_data,
+                            attachment_file.filename, mime_type, sandbox=sandbox
+                        )
+                        if not public_url:
+                            flash('El archivo no pudo subirse.', 'error')
+                    except Exception as e:
+                        print(f"Error al subir archivo en edición: {e}")
+
+        try:
+            from app.services.accounting_service import AccountingService
+            all_entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox)
+            for entry in all_entries:
+                if entry.get("status") != "voided" and entry.get("referenceId") == invoice_id:
+                    AccountingService.void_entry(owner_uid, entry["id"], sandbox=sandbox)
+                    break
+            account_items = []
+            for item in items:
+                line_value = (float(item.get("quantity", 0)) * float(item.get("unitPrice", 0)))
+                line_disc = line_value * (float(item.get("discount", 0)) / 100.0)
+                account_items.append({
+                    "concept_id": item.get("accountingAccountId", ""),
+                    "concept": item.get("name", ""),
+                    "value": round(line_value - line_disc, 2),
+                    "quantity": float(item.get("quantity", 0)),
+                    "tax": float(item.get("itbisRate", 0)),
+                    "total": float(item.get("total", 0)),
+                })
+            expense_dict = {
+                "id": invoice_id,
+                "providerName": supplier_name,
+                "supplierName": supplier_name,
+                "concept": f"Compra {inv_number} - {supplier_name}",
+                "ncf": ncf,
+                "amount": float(total),
+                "total": float(total),
+                "itbisAmount": float(total_itbis),
+                "itbis": float(total_itbis),
+                "date": inv_date,
+                "paymentType": payment_type,
+                "bankAccountId": bank_account_id,
+                "retainedISR": float(request.form.get('retainedISRRate', 0) or 0),
+                "retainedITBIS": float(request.form.get('retainedITBISRate', 0) or 0),
+                "accountItems": account_items,
+                "isCost": False,
+            }
+            AccountingService.auto_generate_expense_entry(owner_uid, expense_dict, sandbox=sandbox)
+        except Exception as acc_err:
+            print(f"Error al regenerar asiento contable en edición: {acc_err}")
+
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_SINV,
+            entity_id=invoice_id,
+            entity_label=f"Factura Proveedor {invoice.get('invoiceNumber', '')} editada",
+            sandbox=sandbox
+        )
+        flash('✅ Factura actualizada correctamente.', 'success')
         return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
 
+    today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    suppliers = SupplierService.get_suppliers(owner_uid, sandbox=sandbox)
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
+    accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+    tax_rules = DatabaseService.get_tax_rules(owner_uid)
+    itbis_general = tax_rules.get('itbis', {}).get('general', 0.18)
+    itbis_reduced = tax_rules.get('itbis', {}).get('reduced', 0.16)
+    selected_bid = g.get('branch_id') or session.get('selected_branch_id')
+    projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox) if selected_bid else []
     return render_template('purchase_orders/edit_supplier_invoice.html',
-                           invoice=invoice, active_page='purchase_cxp')
+                           invoice=invoice,
+                           today=today,
+                           suppliers=suppliers,
+                           bank_accounts=bank_accounts,
+                           accounting_accounts=accounting_accounts,
+                           itbis_general=itbis_general,
+                           itbis_reduced=itbis_reduced,
+                           projects=projects,
+                           active_page='purchase_cxp')
 
 
 @web_purchase_orders_bp.route('/purchase-orders/invoices/<invoice_id>/add-attachment', methods=['POST'])

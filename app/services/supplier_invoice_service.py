@@ -4,11 +4,13 @@ from datetime import datetime, timezone
 
 try:
     from app.services.db_service import db_firestore, firebase_initialized, firebase_storage_bucket, DatabaseService
+    from firebase_admin import firestore as _fstore  # needed for ArrayUnion
 except ImportError:
     db_firestore = None
     firebase_initialized = False
     firebase_storage_bucket = None
     DatabaseService = None
+    _fstore = None
 
 
 def serialize_field(val):
@@ -245,7 +247,7 @@ class SupplierInvoiceService:
             if public_url:
                 doc_ref = db_firestore.collection("users").document(owner_uid).collection(cls._coll(sandbox)).document(invoice_id)
                 doc_ref.update({
-                    "attachmentUrls": firestore.ArrayUnion([public_url]),
+                    "attachmentUrls": _fstore.ArrayUnion([public_url]),
                     "updatedAt": serialize_field(datetime.now(timezone.utc)),
                 })
             return public_url
