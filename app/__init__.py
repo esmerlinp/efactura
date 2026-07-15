@@ -418,7 +418,7 @@ def create_app():
         from flask import current_app, has_request_context
         product_name = current_app.config.get('PRODUCT_NAME', 'VykOne')
         logo_url = ''
-        gradient_enabled = True
+        gradient_enabled = False
         color_marca = ''
         apply_ui = True
         apply_reports = True
@@ -430,7 +430,7 @@ def create_app():
                 company = DatabaseService.get_company_profile(owner_uid)
                 logo_url = company.get('logoUrl', '')
                 color_marca = company.get('colorMarca', '')
-                gradient_enabled = company.get('gradientEnabled', True)
+                gradient_enabled = company.get('gradientEnabled', False)
                 apply_ui = company.get('applyColorMarcaUI', True)
                 apply_reports = company.get('applyColorMarcaReports', True)
                 theme = company.get('theme', 'moderno')
