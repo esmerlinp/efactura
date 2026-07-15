@@ -469,9 +469,17 @@ def by_ncf_prefix(ncf: str) -> FiscalDocumentType:
     return by_code(prefix)
 
 
+INVOICE_ECF_CODES = ["E31", "E32", "E44", "E45", "E46"]
+
+
 def emitables() -> list[FiscalDocumentType]:
     """Tipos que pueden emitirse por API (e-CF)."""
     return [t for t in _TYPES.values() if t.family == Family.ECF]
+
+
+def invoice_types() -> list[FiscalDocumentType]:
+    """e-CF types valid for sales invoice creation (not notes, purchases, etc.)."""
+    return [by_code(c) for c in INVOICE_ECF_CODES]
 
 
 def all_types() -> list[FiscalDocumentType]:

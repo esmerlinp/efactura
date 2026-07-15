@@ -26,7 +26,8 @@ def create_prospect():
             "direccion": data.get('direccion', ''),
             "crmNotes": data.get('notas') or data.get('crm_notes') or data.get('crmNotes', 'Creado desde n8n'),
             "pipelineStage": "Prospecto",
-            "nextContactDate": data.get('fechaProximoContacto') or data.get('next_contact_date') or data.get('nextContactDate') or datetime.now(timezone.utc).isoformat()
+            "nextContactDate": data.get('fechaProximoContacto') or data.get('next_contact_date') or data.get('nextContactDate') or datetime.now(timezone.utc).isoformat(),
+            "customer_category": data.get('customer_category', 'NORMAL')
         }
 
         DatabaseService.save_client(g.owner_uid, prospect_id, prospect_dict, sandbox=g.sandbox_mode)

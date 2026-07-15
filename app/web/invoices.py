@@ -33,7 +33,7 @@ from app.utils.decorators import check_permission, require_permission
 from app.utils.module_gate import require_module
 from app.utils.ecf_utils import get_ecf_type_short_code
 from app.brand import get_product_name
-from app.models.fiscal_document_type import all_types as _all_fiscal_types, Family as _Family, by_code as _by_code
+from app.models.fiscal_document_type import all_types as _all_fiscal_types, Family as _Family, by_code as _by_code, invoice_types as _invoice_types
 
 
 from flask import Blueprint
@@ -1566,8 +1566,16 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                 return redirect(url_for('web_invoices.list_invoices'))
             elif limit_msg:
                 flash(limit_msg, 'warning')
-                
+
+            from app.services.ecf_readiness_service import EcfReadinessService, EcfReadinessError
+            try:
+                EcfReadinessService.validate_or_raise(owner_uid)
+            except EcfReadinessError as e:
+                flash(f"No es posible emitir comprobantes electrónicos: {str(e)}", 'error')
+                return redirect(url_for('web_invoices.list_invoices'))
+
             company = DatabaseService.get_company_profile(owner_uid)
+            log_id = None
             try:
                 if not invoice_dict.get("encf"):
                     ecf_short = get_ecf_type_short_code(invoice_dict["ecfType"])
@@ -1742,7 +1750,25 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
 
     default_due_date = existing_invoice.get('dueDate', (datetime.now(timezone.utc) + timedelta(days=30)).strftime("%Y-%m-%d")) if existing_invoice else (datetime.now(timezone.utc) + timedelta(days=30)).strftime("%Y-%m-%d")
 
-    _ecf_types = [t for t in _all_fiscal_types() if t.family == _Family.ECF]
+    # --- ECF types: intersección de tipos de factura de venta × régimen del emisor ---
+    profile = DatabaseService.get_company_profile(owner_uid)
+    regimen = DGIIService.normalize_regimen(profile.get("regimenFiscal", "ordinary")) if profile else "ordinary"
+    regimen_rules = DGIIService.get_regimen_rules(regimen)
+    allowed_by_regimen = set(regimen_rules.get("allowed_ecf_types", []))
+    base_invoice_types = _invoice_types()
+    _ecf_types = [t for t in base_invoice_types if t.code in allowed_by_regimen]
+    if existing_invoice:
+        current_code = _by_code(existing_invoice.get("ecfType", "E32")).code
+        if current_code not in {t.code for t in _ecf_types}:
+            _ecf_types.append(_by_code(current_code))
+
+    CLIENT_ECF_RULES = {
+        "NORMAL": {"hasRnc": {"def": "E31", "types": ["E31", "E32"]}, "noRnc": {"def": "E32", "types": ["E32"]}},
+        "GOVERNMENT": {"def": "E45", "types": ["E45"]},
+        "SPECIAL_REGIME": {"def": "E44", "types": ["E44", "E31"]},
+        "FOREIGN": {"def": "E46", "types": ["E46"]},
+    }
+
     return render_template(
         'invoices/new.html',
         active_page=active_page,
@@ -1760,6 +1786,8 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         projects=projects,
         active_project_id=active_project_id,
         ecf_types=_ecf_types,
+        available_ecf_codes=[t.code for t in _ecf_types],
+        client_ecf_rules=CLIENT_ECF_RULES,
     )
 
 
@@ -7175,7 +7203,8 @@ def company_settings():
                     "telefono": "",
                     "direccion": "",
                     "crmNotes": "Cliente creado mediante asistente de Onboarding",
-                    "nextContactDate": ""
+                    "nextContactDate": "",
+                    "customer_category": "NORMAL"
                 }
                 DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
                 

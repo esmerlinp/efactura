@@ -46,7 +46,8 @@ def create_client():
             "telefono": data.get('telefono', ''),
             "direccion": data.get('direccion', ''),
             "crmNotes": data.get('crm_notes', data.get('crmNotes', 'Creado mediante la API externa')),
-            "nextContactDate": data.get('next_contact_date') or data.get('nextContactDate')
+            "nextContactDate": data.get('next_contact_date') or data.get('nextContactDate'),
+            "customer_category": data.get('customer_category', 'NORMAL')
         }
         
         DatabaseService.save_client(g.owner_uid, client_id, client_dict, sandbox=g.sandbox_mode)
@@ -83,7 +84,8 @@ def update_client(client_id):
             "telefono": data.get('telefono', client.get('telefono')),
             "direccion": data.get('direccion', client.get('direccion')),
             "crmNotes": data.get('crm_notes', data.get('crmNotes', client.get('crmNotes'))),
-            "nextContactDate": data.get('next_contact_date', data.get('nextContactDate', client.get('nextContactDate')))
+            "nextContactDate": data.get('next_contact_date', data.get('nextContactDate', client.get('nextContactDate'))),
+            "customer_category": data.get('customer_category', client.get('customer_category', 'NORMAL'))
         }
         
         DatabaseService.save_client(g.owner_uid, client_id, client_dict, sandbox=g.sandbox_mode)
