@@ -6,6 +6,7 @@
 endblock %}
 
 {% block content %}
+<div style="max-width: 1200px; margin: 0 auto;">
 <style>
     .invoice-link,
     .client-link {
@@ -236,11 +237,9 @@ endblock %}
             <thead>
                 <tr>
                     <th style="width: 40px; text-align: center;"><input type="checkbox" id="select-all-invoices" style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent-purple);"></th>
-                    <th># Interno</th>
                     <th>NCF/Número</th>
                     <th>Cliente</th>
                     <th>Creación</th>
-                    <th>Vencimiento</th>
                     <th>Total</th>
                     <th>Por cobrar</th>
                     <th>Estado</th>
@@ -255,25 +254,22 @@ endblock %}
                         <input type="checkbox" class="invoice-checkbox" value="{{ inv.id }}" style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent-purple);">
                     </td>
                     <td>
-                        {% if inv.isExpense %}
-                        <a href="{{ url_for('web_invoices.expense_detail', expense_id=inv.id) }}" class="invoice-link">
+                        {% if active_page == 'quotations' %}
+                        <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=inv.id) }}" class="invoice-link" style="color: var(--accent-purple);">
                             {{ inv.invoiceNumber }}
+                        </a>
+                        {% elif inv.isExpense %}
+                        <a href="{{ url_for('web_invoices.expense_detail', expense_id=inv.id) }}" class="invoice-link" style="font-family: monospace; font-size: 0.85rem; color: var(--accent-purple);">
+                            {{ inv.encf or inv.invoiceNumber }}
+                        </a>
+                        {% elif inv.encf %}
+                        <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=inv.id) }}" class="invoice-link" style="font-family: monospace; font-size: 0.85rem; color: var(--accent-purple);">
+                            {{ inv.encf }}
                         </a>
                         {% else %}
                         <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=inv.id) }}" class="invoice-link">
                             {{ inv.invoiceNumber }}
                         </a>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if active_page == 'quotations' %}
-                        <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=inv.id) }}" class="invoice-link" style="color: var(--accent-purple);">
-                            {{ inv.invoiceNumber }}
-                        </a>
-                        {% elif inv.encf %}
-                        <span style="font-family: monospace; font-size: 0.85rem; color: var(--accent-purple);">{{ inv.encf }}</span>
-                        {% else %}
-                        <span class="invoice-link">{{ inv.invoiceNumber }}</span>
                         {% endif %}
                     </td>
                     <td>
@@ -291,9 +287,6 @@ endblock %}
                     </td>
                     <td>
                         {{ inv.date | format_date }}
-                    </td>
-                    <td>
-                        {{ inv.dueDate | format_date }}
                     </td>
                     <td>
                         RD$ {{ "{:,.2f}".format(inv.total) }}
@@ -398,7 +391,7 @@ endblock %}
                 {% endfor %}
                 {% else %}
                 <tr>
-                    <td colspan="7" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                    <td colspan="8" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
                         <i class="fa-solid fa-file-invoice-dollar"
                             style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
                         <span>No hay documentos que coincidan con los filtros aplicados.</span>
@@ -854,4 +847,5 @@ endblock %}
     }
 });
 </script>
+</div>
 {% endblock %}
