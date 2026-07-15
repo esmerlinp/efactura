@@ -63,14 +63,61 @@ def _parse_int(val, default=0):
 
 
 def _get_expenses_for_period(owner_uid, sandbox, year, month):
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     prefix = f"{year:04d}-{month:02d}"
-    filtered = []
+    all_items = []
+    branch_id = g.get('branch_id')
+    project_id = g.get('project_id')
+
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=branch_id, project_id=project_id)
     for exp in expenses:
         d = (exp.get("date") or exp.get("createdAt") or "")[:7]
-        if d == prefix and exp.get('dgiiStatus', '') in ('ACCEPTED', 'ACCEPTED_CONDITIONAL'):
-            filtered.append(exp)
-    return filtered
+        if d == prefix:
+            all_items.append(exp)
+
+    try:
+        from app.services.supplier_invoice_service import SupplierInvoiceService
+        invoices = SupplierInvoiceService.get_all(owner_uid, sandbox=sandbox)
+        for inv in invoices:
+            if branch_id and inv.get("branchId") != branch_id:
+                continue
+            if project_id == '__no_project__':
+                if inv.get("projectId"):
+                    continue
+            elif project_id:
+                if inv.get("projectId") != project_id:
+                    continue
+            d = (inv.get("date") or inv.get("createdAt") or "")[:7]
+            if d == prefix:
+                concept = inv.get("comentario") or inv.get("notes") or ""
+                if not concept and inv.get("supplierInvoiceNumber"):
+                    concept = f"Compra {inv.get('supplierInvoiceNumber', '')} - {inv.get('supplierName', '')}"
+                mapped = {
+                    "id": inv.get("id", ""),
+                    "concept": concept,
+                    "amount": float(inv.get("total", 0)),
+                    "itbisAmount": float(inv.get("itbis", 0)),
+                    "date": inv.get("date", ""),
+                    "dueDate": inv.get("dueDate", ""),
+                    "rncEmisor": inv.get("supplierRnc", ""),
+                    "providerName": inv.get("supplierName", ""),
+                    "ncf": inv.get("ncf", ""),
+                    "encf": inv.get("ncf", ""),
+                    "ecfType": inv.get("ecfType", ""),
+                    "tipoGastoDGII": inv.get("tipoGastoDGII", "02"),
+                    "supplierId": inv.get("supplierId", ""),
+                    "isDeductible": inv.get("isDeductible", True),
+                    "isITBISDeductible": inv.get("isITBISDeductible", True),
+                    "isrWithheld": float(inv.get("retainedISR", 0) or 0),
+                    "itbisWithheld": float(inv.get("retainedITBIS", 0) or 0),
+                    "formaPago": "02",
+                    "dgiiStatus": inv.get("dgiiStatus", ""),
+                    "createdAt": inv.get("createdAt", ""),
+                }
+                all_items.append(mapped)
+    except Exception as e:
+        print(f"Error al obtener facturas proveedor para 606: {e}")
+
+    return all_items
 
 
 def _filter_expenses(expenses, supplier_id, tipo_gasto, ecf_type, search):
