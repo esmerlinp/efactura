@@ -9,6 +9,49 @@ from app.models.fiscal_document_type import by_code as _by_code
 
 web_dashboard_bp = Blueprint('web_dashboard', __name__)
 
+def _merge_supplier_invoices_into_expenses(owner_uid, expenses, sandbox=True):
+    branch_id = g.get('branch_id')
+    project_id = g.get('project_id')
+    try:
+        from app.services.supplier_invoice_service import SupplierInvoiceService
+        invoices = SupplierInvoiceService.get_all(owner_uid, sandbox=sandbox)
+        for inv in invoices:
+            if branch_id and inv.get("branchId") != branch_id:
+                continue
+            if project_id == '__no_project__':
+                if inv.get("projectId"):
+                    continue
+            elif project_id:
+                if inv.get("projectId") != project_id:
+                    continue
+            concept = inv.get("comentario") or inv.get("notes") or ""
+            if not concept and inv.get("supplierInvoiceNumber"):
+                concept = f"Compra {inv.get('supplierInvoiceNumber', '')} - {inv.get('supplierName', '')}"
+            mapped = {
+                "id": inv.get("id", ""),
+                "concept": concept,
+                "amount": float(inv.get("total", 0)),
+                "itbisAmount": float(inv.get("itbis", 0)),
+                "date": inv.get("date", ""),
+                "dueDate": inv.get("dueDate", ""),
+                "rncEmisor": inv.get("supplierRnc", ""),
+                "providerName": inv.get("supplierName", ""),
+                "ncf": inv.get("ncf", ""),
+                "tipoGastoDGII": inv.get("tipoGastoDGII", "02"),
+                "supplierId": inv.get("supplierId", ""),
+                "isDeductible": inv.get("isDeductible", True),
+                "isITBISDeductible": inv.get("isITBISDeductible", True),
+                "paymentType": inv.get("paymentType", "Contado"),
+                "cxpStatus": inv.get("cxpStatus", "Pagado"),
+                "cxpRemainingBalance": float(inv.get("cxpRemainingBalance", 0) or 0),
+                "createdAt": inv.get("createdAt", ""),
+                "status": inv.get("status", "registrada"),
+            }
+            expenses.append(mapped)
+    except Exception as e:
+        print(f"Error al incluir facturas proveedor en dashboard: {e}")
+    return expenses
+
 @web_dashboard_bp.route('/dashboard')
 def dashboard():
     if 'user' not in session:
@@ -68,6 +111,7 @@ def dashboard():
     # Obtener facturas y gastos
     invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    expenses = _merge_supplier_invoices_into_expenses(owner_uid, expenses, sandbox=sandbox)
     sequences = DatabaseService.get_sequences(owner_uid, sandbox=sandbox)
     profile = DatabaseService.get_company_profile(owner_uid)
     

@@ -824,11 +824,10 @@ document.addEventListener('keydown', function(e) {
         return;
     }
     if (e.ctrlKey && e.key === 'k') { e.preventDefault(); showCommandPalette(); }
-    if (e.ctrlKey && e.key === 'n') {
-        e.preventDefault();
-        if (window.location.pathname.includes('/invoices')) window.location.href = '/invoices/new';
-    }
+    if (e.ctrlKey && e.key === 'n') { e.preventDefault(); window.location.href = '/invoices/new'; }
     if (e.ctrlKey && e.key === 'e') { e.preventDefault(); window.location.href = '/expenses/new'; }
+    if (e.ctrlKey && e.key === 'p') { e.preventDefault(); window.location.href = '/purchase-orders/new'; }
+    if (e.ctrlKey && e.key === 'm') { e.preventDefault(); window.location.href = '/expenses/minor/new'; }
     if (e.key === 'Escape') {
         closeAllActionMenus();
     }
@@ -927,9 +926,11 @@ function showCommandPalette() {
 
     var commands = [
         { label: 'Nueva Factura', icon: 'fa-file-invoice', url: '/invoices/new', keys: 'Ctrl+N' },
+        { label: 'Nueva Compra', icon: 'fa-truck', url: '/purchase-orders/new', keys: 'Ctrl+P' },
         { label: 'Lista de Facturas', icon: 'fa-list', url: '/invoices' },
         { label: 'Nueva Cotización', icon: 'fa-file-signature', url: '/quotations/new' },
         { label: 'Nuevo Gasto', icon: 'fa-receipt', url: '/expenses/new', keys: 'Ctrl+E' },
+        { label: 'Gasto Menor', icon: 'fa-coins', url: '/expenses/minor/new', keys: 'Ctrl+M' },
         { label: 'Dashboard', icon: 'fa-house', url: '/dashboard' },
         { label: 'Lista de Clientes', icon: 'fa-users', url: '/clients' },
         { label: 'Catálogo de Cuentas', icon: 'fa-book', url: '/accounting/chart-of-accounts' },
