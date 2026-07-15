@@ -70,6 +70,8 @@ def _get_expenses_for_period(owner_uid, sandbox, year, month):
 
     expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=branch_id, project_id=project_id)
     for exp in expenses:
+        if exp.get("includeIn606") is False:
+            continue
         d = (exp.get("date") or exp.get("createdAt") or "")[:7]
         if d == prefix:
             all_items.append(exp)
@@ -78,6 +80,8 @@ def _get_expenses_for_period(owner_uid, sandbox, year, month):
         from app.services.supplier_invoice_service import SupplierInvoiceService
         invoices = SupplierInvoiceService.get_all(owner_uid, sandbox=sandbox)
         for inv in invoices:
+            if inv.get("includeIn606") is False:
+                continue
             if branch_id and inv.get("branchId") != branch_id:
                 continue
             if project_id == '__no_project__':

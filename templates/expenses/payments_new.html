@@ -266,6 +266,11 @@
                 </div>
             </div>
 
+            <label class="switch-container" style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-top: 16px;">
+                <input type="checkbox" id="include-in-606-checkbox" name="includeIn606" value="true" {% if expense_data.includeIn606 != False %}checked{% endif %} style="width: 18px; height: 18px; accent-color: var(--accent-emerald);">
+                <span style="font-weight: 500;">Incluir en Reporte 606 de Compras y Gastos</span>
+            </label>
+
             <div style="margin-top:14px; font-size:0.72rem; color:var(--text-muted);">
                 Los campos marcados con <span style="color:var(--accent-red);">*</span> son obligatorios.
             </div>

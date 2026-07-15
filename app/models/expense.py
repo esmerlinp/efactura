@@ -62,6 +62,7 @@ class Expense(BaseModel):
     xmlContent: str = ""
     supplierId: str = ""
     dgiiStatus: str = ""
+    includeIn606: bool = True
     isCost: bool = False
     createdAt: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updatedAt: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
