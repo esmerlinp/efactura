@@ -386,7 +386,7 @@
                     {% for item in invoice.get('items', []) %}
                     <tr>
                         <td style="padding:8px 10px; font-size:0.82rem;">{{ loop.index }}</td>
-                        <td style="padding:8px 10px; font-weight:600; font-size:0.82rem;">{{ item.itemName or '—' }}</td>
+                        <td style="padding:8px 10px; font-weight:600; font-size:0.82rem;">{{ item.itemName or item.name or '—' }}</td>
                         <td style="padding:8px 10px; text-align:center; font-size:0.82rem;">{{ item.quantity|default(0) }}</td>
                         <td style="padding:8px 10px; text-align:right; font-size:0.82rem;">{{ "{:,.2f}".format(item.unitPrice|default(0)) }}</td>
                         <td style="padding:8px 10px; text-align:right; font-size:0.82rem;">{{ "%.0f%%"|format((item.itbisRate|default(0))*100) if item.itbisRate else '0%' }}</td>
