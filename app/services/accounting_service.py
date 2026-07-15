@@ -1077,6 +1077,7 @@ class AccountingService:
         total = float(expense.get("amount", expense.get("total", 0)))
         account_items = expense.get("accountItems", [])
         payment_type = expense.get("paymentType", expense.get("payment_type", "Contado"))
+        cost_center_id = expense.get("costCenterId", "")
         lines = []
 
         if account_items:
@@ -1214,6 +1215,9 @@ class AccountingService:
                 lines.append({"accountId": credit_acc["id"], "accountCode": credit_acc.get("code", ""), "accountName": credit_acc.get("name", ""), "debit": 0.00, "credit": round(credit_amount, 2), "description": expense.get("concept", "")})
 
         try:
+            for line in lines:
+                if "costCenterId" not in line:
+                    line["costCenterId"] = cost_center_id
             supplier_name = expense.get("providerName", expense.get("supplierName", ""))
             concept = expense.get("concept", "")
             ncf = expense.get("ncf", "")

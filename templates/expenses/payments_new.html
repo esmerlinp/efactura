@@ -223,6 +223,19 @@
                     </select>
                     <small style="color:var(--text-muted); display:block; font-size:0.72rem; margin-top:4px;">Asocia este gasto a un proyecto específico (opcional).</small>
                 </div>
+                <div class="inp-group wide">
+                    <label style="display:flex;justify-content:space-between;">
+                        <span>Centro de Costo</span>
+                        <button type="button" onclick="openCostCenterModal()" style="font-size:0.72rem;color:var(--accent-emerald);background:none;border:none;cursor:pointer;">+ Nuevo</button>
+                    </label>
+                    <select id="costCenterId" name="costCenterId" class="form-select" style="width:100%;">
+                        <option value="">— Sin centro de costo —</option>
+                        {% for cc in cost_centers %}
+                        <option value="{{ cc.id }}">{% if cc.code %}[{{ cc.code }}] {% endif %}{{ cc.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <small style="color:var(--text-muted); display:block; font-size:0.72rem; margin-top:4px;">Asocia este gasto a un centro de costo (opcional).</small>
+                </div>
             </div>
 
             <div class="inp-row" style="margin-bottom:12px;">
@@ -1143,5 +1156,90 @@
 
 {% include 'components/_attachment_panel.html' %}
 {% include 'components/_supplier_create_modal.html' %}
+
+<div class="search-modal" id="cost-center-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;align-items:center;justify-content:center;z-index:1100;" onclick="if(event.target===this)closeCostCenterModal()">
+    <div class="modal-content" style="max-width:480px;position:relative;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
+        <div class="modal-header" style="padding:18px 22px;border-bottom:1px solid var(--border-color);display:flex;align-items:center;justify-content:space-between;">
+            <h3 style="margin:0;font-size:0.9rem;display:flex;align-items:center;gap:8px;"><i class="fa-solid fa-layer-group" style="color:var(--accent-emerald);"></i>Nuevo Centro de Costo</h3>
+            <button type="button" onclick="closeCostCenterModal()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body" style="padding:20px 22px;">
+            <div id="cc-error" style="display:none;padding:8px 12px;border-radius:6px;margin-bottom:14px;font-size:0.82rem;background:rgba(239,68,68,0.08);color:var(--accent-red);"></div>
+            <div style="display:flex;flex-direction:column;gap:14px;">
+                <div class="form-group">
+                    <label>Nombre <span style="color:var(--accent-red);">*</span></label>
+                    <input type="text" id="cc-name" class="form-input" placeholder="Ej: Administración" style="width:100%;">
+                </div>
+                <div class="form-group">
+                    <label>Código</label>
+                    <input type="text" id="cc-code" class="form-input" placeholder="Ej: ADM" style="width:100%;font-family:monospace;">
+                </div>
+                <div class="form-group">
+                    <label>Descripción</label>
+                    <textarea id="cc-description" class="form-textarea" rows="2" placeholder="Descripción opcional..." style="width:100%;resize:vertical;"></textarea>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer" style="padding:14px 22px;border-top:1px solid var(--border-color);display:flex;justify-content:flex-end;gap:10px;">
+            <button type="button" onclick="closeCostCenterModal()" class="btn btn-secondary">Cancelar</button>
+            <button type="button" onclick="saveCostCenter()" id="cc-save-btn" class="btn btn-primary">Guardar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+function openCostCenterModal() {
+    document.getElementById('cc-name').value = '';
+    document.getElementById('cc-code').value = '';
+    document.getElementById('cc-description').value = '';
+    document.getElementById('cc-error').style.display = 'none';
+    document.getElementById('cost-center-modal').style.display = 'flex';
+    setTimeout(() => document.getElementById('cc-name').focus(), 100);
+}
+function closeCostCenterModal() {
+    document.getElementById('cost-center-modal').style.display = 'none';
+}
+function saveCostCenter() {
+    const n = document.getElementById('cc-name').value.trim();
+    const c = document.getElementById('cc-code').value.trim();
+    const d = document.getElementById('cc-description').value.trim();
+    const errEl = document.getElementById('cc-error');
+    const btn = document.getElementById('cc-save-btn');
+    if (!n) {
+        errEl.textContent = 'El nombre es obligatorio.';
+        errEl.style.display = 'block';
+        return;
+    }
+    errEl.style.display = 'none';
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    fetch('/accounting/ajax/cost-centers', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrf_token]').value
+        },
+        body: JSON.stringify({ name: n, code: c, description: d })
+    }).then(r => r.json()).then(data => {
+        btn.disabled = false;
+        btn.innerHTML = 'Guardar';
+        if (data.success) {
+            const sel = document.getElementById('costCenterId');
+            const label = c ? '[' + c + '] ' + n : n;
+            sel.appendChild(new Option(label, data.id, true, true));
+            sel.value = data.id;
+            closeCostCenterModal();
+        } else {
+            errEl.textContent = data.error || 'Error al crear.';
+            errEl.style.display = 'block';
+        }
+    }).catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = 'Guardar';
+        errEl.textContent = 'Error de conexión.';
+        errEl.style.display = 'block';
+    });
+}
+</script>
 
 {% endblock %}

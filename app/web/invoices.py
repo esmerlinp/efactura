@@ -5701,7 +5701,8 @@ def payments_new_route():
             'expense_type': 'payment',
             'comentario': request.form.get('comentario', ''),
             "branchId": request.form.get('branchId') or session.get('selected_branch_id') or 'default-sucursal-principal',
-            "projectId": request.form.get('projectId') or session.get('selected_project_id') or None
+            "projectId": request.form.get('projectId') or session.get('selected_project_id') or None,
+            "costCenterId": request.form.get('costCenterId', ''),
         }
 
         ocr_attachment_url = request.form.get('ocr_attachment_url', '').strip()
@@ -5764,6 +5765,8 @@ def payments_new_route():
     selected_bid = g.get('branch_id') or session.get('selected_branch_id')
     projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox) if selected_bid else []
     active_project_id = session.get('selected_project_id') or ''
+    cost_centers = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox)
+    active_cost_centers = [cc for cc in cost_centers if cc.get('isActive', True)]
     return render_template(
         'expenses/payments_new.html',
         active_page='expenses_payments',
@@ -5774,6 +5777,7 @@ def payments_new_route():
         itbis_reduced=itbis_reduced,
         projects=projects,
         active_project_id=active_project_id,
+        cost_centers=active_cost_centers,
     )
 
 
@@ -6414,7 +6418,8 @@ def edit_expense_route(expense_id):
             "createdAt": expense.get('createdAt'),
             "bankAccountId": request.form.get('bankAccountId', expense.get('bankAccountId', '')),
             "branchId": request.form.get('branchId') or expense.get('branchId') or session.get('selected_branch_id') or 'default-sucursal-principal',
-            "projectId": request.form.get('projectId') or expense.get('projectId') or session.get('selected_project_id') or None
+            "projectId": request.form.get('projectId') or expense.get('projectId') or session.get('selected_project_id') or None,
+            "costCenterId": request.form.get('costCenterId', expense.get('costCenterId', '')),
         }
         
         try:
@@ -6535,6 +6540,8 @@ def edit_expense_route(expense_id):
     selected_bid = g.get('branch_id') or session.get('selected_branch_id')
     projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox) if selected_bid else []
     active_project_id = session.get('selected_project_id') or ''
+    cost_centers = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox)
+    active_cost_centers = [cc for cc in cost_centers if cc.get('isActive', True)]
 
     common_vars = {
         'active_page': 'expenses',
@@ -6547,6 +6554,7 @@ def edit_expense_route(expense_id):
         'today_str': today_str,
         'projects': projects,
         'active_project_id': active_project_id,
+        'cost_centers': active_cost_centers,
     }
 
     if expense.get('isMinorExpense'):

@@ -1054,6 +1054,7 @@ def new_supplier_invoice_direct():
             "createdBy": session['user'].get('displayName', 'Usuario'),
             "branchId": g.get('branch_id', 'default-sucursal-principal'),
             "projectId": request.form.get('projectId') or g.get('project_id'),
+            "costCenterId": request.form.get('costCenterId', ''),
         }
 
         inv_data["id"] = SupplierInvoiceService.create(owner_uid, inv_data, sandbox=sandbox)["id"]
@@ -1090,6 +1091,7 @@ def new_supplier_invoice_direct():
                 "retainedITBIS": float(inv_data.get("retainedITBIS", 0)),
                 "accountItems": account_items,
                 "isCost": False,
+                "costCenterId": inv_data.get("costCenterId", ""),
             }
             AccountingService.auto_generate_expense_entry(owner_uid, expense_dict, sandbox=sandbox)
         except Exception as acc_err:
@@ -1164,6 +1166,8 @@ def new_supplier_invoice_direct():
     selected_bid = g.get('branch_id') or session.get('selected_branch_id')
     projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox) if selected_bid else []
     active_project_id = session.get('selected_project_id') or ''
+    cost_centers = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox)
+    active_cost_centers = [cc for cc in cost_centers if cc.get('isActive', True)]
     return render_template('purchase_orders/new_invoice.html',
                            today=today,
                            suppliers=suppliers,
@@ -1173,6 +1177,7 @@ def new_supplier_invoice_direct():
                            itbis_reduced=itbis_reduced,
                            projects=projects,
                            active_project_id=active_project_id,
+                           cost_centers=active_cost_centers,
                            po=po,
                            po_id=po_id,
                            po_supplier_name=po_supplier_name,
@@ -1617,6 +1622,7 @@ def edit_supplier_invoice(invoice_id):
             "retainedISR": float(request.form.get('retainedISRRate', 0) or 0),
             "retainedITBIS": float(request.form.get('retainedITBISRate', 0) or 0),
             "projectId": request.form.get('projectId') or g.get('project_id'),
+            "costCenterId": request.form.get('costCenterId', ''),
             "updatedAt": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -1678,6 +1684,7 @@ def edit_supplier_invoice(invoice_id):
                 "retainedITBIS": float(request.form.get('retainedITBISRate', 0) or 0),
                 "accountItems": account_items,
                 "isCost": False,
+                "costCenterId": request.form.get('costCenterId', ''),
             }
             AccountingService.auto_generate_expense_entry(owner_uid, expense_dict, sandbox=sandbox)
         except Exception as acc_err:
@@ -1701,6 +1708,8 @@ def edit_supplier_invoice(invoice_id):
     itbis_reduced = tax_rules.get('itbis', {}).get('reduced', 0.16)
     selected_bid = g.get('branch_id') or session.get('selected_branch_id')
     projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox) if selected_bid else []
+    cost_centers = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox)
+    active_cost_centers = [cc for cc in cost_centers if cc.get('isActive', True)]
     return render_template('purchase_orders/edit_supplier_invoice.html',
                            invoice=invoice,
                            today=today,
@@ -1710,6 +1719,7 @@ def edit_supplier_invoice(invoice_id):
                            itbis_general=itbis_general,
                            itbis_reduced=itbis_reduced,
                            projects=projects,
+                           cost_centers=active_cost_centers,
                            active_page='purchase_cxp')
 
 
