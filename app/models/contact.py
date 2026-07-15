@@ -1,7 +1,15 @@
 from datetime import datetime, timezone
+from enum import Enum
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
+
+
+class CustomerCategory(str, Enum):
+    NORMAL = "NORMAL"
+    GOVERNMENT = "GOVERNMENT"
+    SPECIAL_REGIME = "SPECIAL_REGIME"
+    FOREIGN = "FOREIGN"
 
 
 class Contact(BaseModel):
@@ -35,6 +43,7 @@ class Contact(BaseModel):
     isrWithholding: bool = False
     tipoGastoDGII: str = "02"
     ecfTypeEmits: str = "E31"
+    customer_category: CustomerCategory = CustomerCategory.NORMAL
     estado: str = "Activo"
     associatedPeople: list = Field(default_factory=list)
     notes: str = ""

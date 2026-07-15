@@ -676,7 +676,8 @@ def pos_client_lookup():
             "direccion": real_data.get('address', '').strip() or "República Dominicana",
             "crmNotes": "Registrado automáticamente desde consulta RNC en POS",
             "nextContactDate": "",
-            "createdAt": datetime.now(timezone.utc).isoformat()
+            "createdAt": datetime.now(timezone.utc).isoformat(),
+            "customer_category": "NORMAL"
         }
         DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
         

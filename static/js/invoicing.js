@@ -125,7 +125,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 clientIdHidden.value = id;
                 clientSearchInput.value = `${name} (${rnc || 'Consumidor Final'})`;
-                if (clientRncInput) clientRncInput.value = rnc;
+                if (clientRncInput) {
+                    clientRncInput.value = rnc;
+                    if (typeof window.enableRncInput === 'function') window.enableRncInput();
+                }
 
                 // Establecer la lista de precios activa según el cliente seleccionado
                 const client = crmClients.find(c => c.id === id);
@@ -137,6 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 closeClientModal();
+                if (typeof window.updateEcfByClient === 'function') window.updateEcfByClient(client);
                 validateTaxConstraints();
             });
         });
@@ -229,10 +233,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (createClientAlert) createClientAlert.style.display = 'none';
 
             try {
+                const customerCategory = (document.getElementById('new-client-category')?.value || 'NORMAL');
                 const response = await fetch('/clients/ajax_create', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rnc, razonSocial, email, telefono, direccion, projectId: projectIdHidden ? projectIdHidden.value : '' })
+                    body: JSON.stringify({ rnc, razonSocial, email, telefono, direccion, projectId: projectIdHidden ? projectIdHidden.value : '', customer_category: customerCategory })
                 });
 
                 const result = await response.json();
@@ -249,7 +254,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         telefono: newClient.telefono,
                         direccion: newClient.direccion,
                         phone: newClient.telefono,
-                        projectId: newClient.projectId || ''
+                        projectId: newClient.projectId || '',
+                        customer_category: newClient.customer_category || customerCategory
                     });
 
                     // Autoseleccionar en el formulario de factura
@@ -457,13 +463,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (clientSearchInput) {
             clientSearchInput.value = rnc ? `${name} (${rnc})` : name;
         }
-        if (clientRncInput) clientRncInput.value = rnc || '';
+        if (clientRncInput) {
+            clientRncInput.value = rnc || '';
+            if (typeof window.enableRncInput === 'function') window.enableRncInput();
+        }
         activePriceListId = (client && client.priceListId) || defaultPriceListId;
         if (projectIdHidden && client && client.projectId) {
             projectIdHidden.value = client.projectId;
         }
         const dropdown = getOrCreateClientDropdown();
         dropdown.style.display = 'none';
+        if (typeof window.updateEcfByClient === 'function') window.updateEcfByClient(client);
         if (typeof validateTaxConstraints === 'function') validateTaxConstraints();
     };
 
@@ -735,6 +745,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const searchInput = newRow.querySelector('.item-catalog-search-input');
             if (searchInput) createProductAutocomplete(newRow, searchInput);
             recalculateTotals();
+            // Abrir modal de búsqueda de producto inmediatamente
+            activeProductRow = newRow;
+            openProductModal();
         });
     }
 
@@ -1019,10 +1032,40 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Inicializar primera fila si la tabla está vacía al cargar
+    // Inicializar primera fila si la tabla está vacía al cargar (sin abrir modal)
     if (itemsTableBody) {
-        if (itemsTableBody.children.length === 0 && btnAddItem) {
-            btnAddItem.click();
+        if (itemsTableBody.children.length === 0) {
+            const rowIndex = 0;
+            const newRow = document.createElement('tr');
+            newRow.className = 'item-row animate-fade-in';
+            newRow.innerHTML = `
+                <td>
+                  <div style="position:relative;">
+                    <input type="text" class="form-input item-catalog-search-input" placeholder="Escriba nombre o código…" autocomplete="off" style="padding-right:30px;">
+                    <input type="hidden" class="item-catalog-id-hidden" name="items[${rowIndex}][catalog_id]">
+                    <input type="hidden" class="item-name-input" name="items[${rowIndex}][name]">
+                    <button type="button" class="btn-search-product" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;"><i class="fa-solid fa-magnifying-glass" style="font-size:0.65rem;"></i></button>
+                  </div>
+                </td>
+                <td style="text-align:center;"><input type="number" class="form-input item-qty-input" name="items[${rowIndex}][quantity]" min="1" value="1" style="width:60px;text-align:center;" required></td>
+                <td style="text-align:right;"><input type="number" class="form-input item-price-input" name="items[${rowIndex}][price]" step="0.01" value="0.00" style="width:110px;" required></td>
+                <td style="text-align:right;"><input type="number" class="form-input item-discount-input" name="items[${rowIndex}][discountRate]" step="0.01" min="0" max="1" value="0.00" style="width:75px;"></td>
+                <td style="text-align:center;"><select class="form-select item-itbis-select" name="items[${rowIndex}][itbisRate]" style="width:75px;"><option value="0.18" selected>18%</option><option value="0.16">16%</option><option value="0.0108">1.08%</option><option value="0.0">0%</option></select></td>
+                <td style="text-align:right;font-weight:600;"><span class="item-total-label">RD$ 0.00</span></td>
+                <td>
+                  <div style="position:relative;">
+                    <button type="button" class="row-menu-btn" onclick="toggleRowMenu(this)"><i class="fa-solid fa-ellipsis" style="font-size:0.9rem;"></i></button>
+                    <div class="row-menu-dropdown">
+                      <button type="button" class="row-menu-item danger" onclick="removeRowFromMenu(this)"><i class="fa-solid fa-trash-can" style="font-size:0.7rem;"></i> Eliminar de la lista</button>
+                    </div>
+                  </div>
+                </td>
+            `;
+            itemsTableBody.appendChild(newRow);
+            bindRowEvents(newRow);
+            const searchInput = newRow.querySelector('.item-catalog-search-input');
+            if (searchInput) createProductAutocomplete(newRow, searchInput);
+            recalculateTotals();
         } else {
             const existingRows = itemsTableBody.querySelectorAll('.item-row');
             existingRows.forEach(row => bindRowEvents(row));
@@ -1147,6 +1190,289 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     window.openProductCreateModal = openProductCreateModal;
+
+    // =========================================================================
+    // ESTADO E-CF (READINESS)
+    // =========================================================================
+    const ecfReadinessCard = document.getElementById('ecf-readiness-card');
+    const ecfIndicators = document.getElementById('ecf-readiness-indicators');
+    const ecfActions = document.getElementById('ecf-readiness-actions');
+
+    window.checkCompanyReadiness = async function() {
+        if (!ecfReadinessCard) return null;
+        try {
+            const resp = await fetch('/company/ecf-status');
+            const data = await resp.json();
+            renderEcfReadiness(data);
+            return data;
+        } catch (err) {
+            ecfReadinessCard.style.display = 'none';
+            return null;
+        }
+    };
+
+    function renderEcfReadiness(data) {
+        if (!data || !ecfReadinessCard || !ecfIndicators || !ecfActions) return;
+        ecfIndicators.innerHTML = '';
+        ecfActions.innerHTML = '';
+
+        var certStatus = data.certificate || {};
+        var logoStatus = data.logo || {};
+        var blocking = data.blocking_errors || [];
+        var warnings = data.warnings || [];
+
+        var hasCertErrors = blocking.some(function(e) { return e.code && e.code.startsWith('CERTIFICATE_'); });
+        var hasCertWarning = warnings.some(function(e) { return e.code === 'CERTIFICATE_EXPIRING_SOON'; });
+
+        if (certStatus.configured && certStatus.valid) {
+            var certLabel = document.createElement('span');
+            certLabel.className = 'ecf-indicator';
+            certLabel.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:0.72rem;font-weight:600;';
+            if (hasCertWarning) {
+                certLabel.style.background = 'rgba(245,158,11,0.1)';
+                certLabel.style.color = '#d97706';
+                certLabel.style.border = '1px solid rgba(245,158,11,0.25)';
+                certLabel.innerHTML = '<span>\uD83D\uDFE1</span> Certificado por vencer';
+            } else {
+                certLabel.style.background = 'rgba(16,185,129,0.1)';
+                certLabel.style.color = '#059669';
+                certLabel.style.border = '1px solid rgba(16,185,129,0.25)';
+                certLabel.innerHTML = '<span>\uD83D\uDFE2</span> Certificado v\u00E1lido';
+            }
+            if (certStatus.expires_at) {
+                var expEl = document.createElement('span');
+                expEl.style.cssText = 'font-size:0.68rem;color:var(--text-muted);margin-left:2px;';
+                expEl.textContent = 'Exp: ' + formatDateLocal(certStatus.expires_at);
+                certLabel.appendChild(expEl);
+            }
+            ecfIndicators.appendChild(certLabel);
+        } else if (certStatus.configured && !certStatus.valid) {
+            var certBad = document.createElement('span');
+            certBad.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:0.72rem;font-weight:600;background:rgba(239,68,68,0.1);color:#dc2626;border:1px solid rgba(239,68,68,0.25);';
+            certBad.innerHTML = '<span>\u274C</span> Certificado inv\u00E1lido';
+            ecfIndicators.appendChild(certBad);
+            addActionButton('[Configurar]', openEcfCertModal);
+        } else {
+            var certMissing = document.createElement('span');
+            certMissing.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:0.72rem;font-weight:600;background:rgba(239,68,68,0.1);color:#dc2626;border:1px solid rgba(239,68,68,0.25);';
+            certMissing.innerHTML = '<span>\u274C</span> Certificado pendiente';
+            ecfIndicators.appendChild(certMissing);
+            addActionButton('[Configurar Firma]', openEcfCertModal);
+        }
+
+        if (logoStatus.configured) {
+            var logoOk = document.createElement('span');
+            logoOk.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:0.72rem;font-weight:600;background:rgba(16,185,129,0.1);color:#059669;border:1px solid rgba(16,185,129,0.25);';
+            logoOk.innerHTML = '<span>\uD83D\uDFE2</span> Logo configurado';
+            ecfIndicators.appendChild(logoOk);
+        } else {
+            var logoMissing = document.createElement('span');
+            logoMissing.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:0.72rem;font-weight:600;background:rgba(245,158,11,0.1);color:#d97706;border:1px solid rgba(245,158,11,0.25);';
+            logoMissing.innerHTML = '<span>\uD83D\uDFE1</span> Logo pendiente';
+            ecfIndicators.appendChild(logoMissing);
+            addActionButton('[Subir Logo]', openEcfLogoModal);
+        }
+
+        ecfReadinessCard.style.display = 'block';
+    }
+
+    function addActionButton(text, onClick) {
+        if (!ecfActions) return;
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = text;
+        btn.style.cssText = 'background:none;border:1px solid var(--accent-emerald);color:var(--accent-emerald);border-radius:6px;padding:4px 12px;font-size:0.75rem;cursor:pointer;font-weight:500;white-space:nowrap;';
+        btn.addEventListener('click', onClick);
+        ecfActions.appendChild(btn);
+    }
+
+    function formatDateLocal(isoStr) {
+        if (!isoStr) return '';
+        try {
+            var d = new Date(isoStr);
+            return d.toLocaleDateString('es-DO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        } catch(e) { return isoStr; }
+    }
+
+    // =========================================================================
+    // MODAL: CARGA RÁPIDA DE CERTIFICADO
+    // =========================================================================
+    var ecfCertModal = document.getElementById('ecf-cert-modal');
+    var ecfCertForm = document.getElementById('ecf-cert-form');
+    var ecfCertAlert = document.getElementById('ecf-cert-alert');
+
+    window.openEcfCertModal = function() {
+        if (!ecfCertModal) return;
+        if (ecfCertAlert) { ecfCertAlert.style.display = 'none'; }
+        if (ecfCertForm) ecfCertForm.reset();
+        ecfCertModal.style.display = 'flex';
+    };
+
+    function closeEcfCertModal() {
+        if (ecfCertModal) ecfCertModal.style.display = 'none';
+    }
+
+    document.getElementById('btn-close-ecf-cert-modal')?.addEventListener('click', closeEcfCertModal);
+    document.getElementById('btn-cancel-ecf-cert')?.addEventListener('click', closeEcfCertModal);
+    if (ecfCertModal) {
+        ecfCertModal.addEventListener('click', function(e) {
+            if (e.target === ecfCertModal) closeEcfCertModal();
+        });
+    }
+
+    if (ecfCertForm) {
+        ecfCertForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            var fileInput = document.getElementById('ecf-cert-file');
+            var passwordInput = document.getElementById('ecf-cert-password');
+            var saveBtn = document.getElementById('btn-save-ecf-cert');
+
+            if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+                if (ecfCertAlert) { ecfCertAlert.textContent = 'Debe seleccionar un archivo .p12 o .pfx.'; ecfCertAlert.style.display = 'block'; ecfCertAlert.style.background = 'rgba(239,68,68,0.12)'; ecfCertAlert.style.color = '#dc2626'; }
+                return;
+            }
+            if (!passwordInput || !passwordInput.value.trim()) {
+                if (ecfCertAlert) { ecfCertAlert.textContent = 'Debe ingresar la contrase\u00F1a del certificado.'; ecfCertAlert.style.display = 'block'; ecfCertAlert.style.background = 'rgba(239,68,68,0.12)'; ecfCertAlert.style.color = '#dc2626'; }
+                return;
+            }
+
+            saveBtn.disabled = true;
+            var origText = saveBtn.textContent;
+            saveBtn.textContent = 'Guardando...';
+            if (ecfCertAlert) ecfCertAlert.style.display = 'none';
+
+            var formData = new FormData();
+            formData.append('certificateFile', fileInput.files[0]);
+            formData.append('certificatePassword', passwordInput.value);
+            formData.append('csrf_token', document.querySelector('[name=csrf_token]')?.value || '');
+
+            try {
+                var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                var csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
+                var resp = await fetch('/company/certificate', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken },
+                    body: formData
+                });
+                closeEcfCertModal();
+                await checkCompanyReadiness();
+            } catch (err) {
+                if (ecfCertAlert) { ecfCertAlert.textContent = 'Error de conexi\u00F3n al guardar el certificado.'; ecfCertAlert.style.display = 'block'; ecfCertAlert.style.background = 'rgba(239,68,68,0.12)'; ecfCertAlert.style.color = '#dc2626'; }
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = origText;
+            }
+        });
+    }
+
+    // =========================================================================
+    // MODAL: CARGA RÁPIDA DE LOGO
+    // =========================================================================
+    var ecfLogoModal = document.getElementById('ecf-logo-modal');
+    var ecfLogoForm = document.getElementById('ecf-logo-form');
+    var ecfLogoAlert = document.getElementById('ecf-logo-alert');
+    var ecfLogoDropzone = document.getElementById('ecf-logo-dropzone');
+    var ecfLogoFileInput = document.getElementById('ecf-logo-file');
+    var ecfLogoPreview = document.getElementById('ecf-logo-preview');
+    var ecfLogoPreviewImg = document.getElementById('ecf-logo-preview-img');
+
+    window.openEcfLogoModal = function() {
+        if (!ecfLogoModal) return;
+        if (ecfLogoAlert) ecfLogoAlert.style.display = 'none';
+        if (ecfLogoPreview) ecfLogoPreview.style.display = 'none';
+        if (ecfLogoFileInput) ecfLogoFileInput.value = '';
+        ecfLogoModal.style.display = 'flex';
+    };
+
+    function closeEcfLogoModal() {
+        if (ecfLogoModal) ecfLogoModal.style.display = 'none';
+    }
+
+    document.getElementById('btn-close-ecf-logo-modal')?.addEventListener('click', closeEcfLogoModal);
+    document.getElementById('btn-cancel-ecf-logo')?.addEventListener('click', closeEcfLogoModal);
+    if (ecfLogoModal) {
+        ecfLogoModal.addEventListener('click', function(e) {
+            if (e.target === ecfLogoModal) closeEcfLogoModal();
+        });
+    }
+
+    if (ecfLogoDropzone && ecfLogoFileInput) {
+        ecfLogoDropzone.addEventListener('click', function() { ecfLogoFileInput.click(); });
+        ecfLogoDropzone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            ecfLogoDropzone.style.borderColor = 'var(--accent-emerald)';
+            ecfLogoDropzone.style.background = 'rgba(16,185,129,0.05)';
+        });
+        ecfLogoDropzone.addEventListener('dragleave', function() {
+            ecfLogoDropzone.style.borderColor = 'var(--border-color)';
+            ecfLogoDropzone.style.background = 'transparent';
+        });
+        ecfLogoDropzone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            ecfLogoDropzone.style.borderColor = 'var(--border-color)';
+            ecfLogoDropzone.style.background = 'transparent';
+            if (e.dataTransfer.files.length > 0) {
+                ecfLogoFileInput.files = e.dataTransfer.files;
+                showLogoPreview(e.dataTransfer.files[0]);
+            }
+        });
+        ecfLogoFileInput.addEventListener('change', function() {
+            if (ecfLogoFileInput.files.length > 0) {
+                showLogoPreview(ecfLogoFileInput.files[0]);
+            }
+        });
+    }
+
+    function showLogoPreview(file) {
+        if (!ecfLogoPreview || !ecfLogoPreviewImg) return;
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            ecfLogoPreviewImg.src = e.target.result;
+            ecfLogoPreview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    }
+
+    if (ecfLogoForm) {
+        ecfLogoForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            if (!ecfLogoFileInput || !ecfLogoFileInput.files || ecfLogoFileInput.files.length === 0) {
+                if (ecfLogoAlert) { ecfLogoAlert.textContent = 'Debe seleccionar una imagen.'; ecfLogoAlert.style.display = 'block'; ecfLogoAlert.style.background = 'rgba(239,68,68,0.12)'; ecfLogoAlert.style.color = '#dc2626'; }
+                return;
+            }
+
+            var saveBtn = document.getElementById('btn-save-ecf-logo');
+            saveBtn.disabled = true;
+            var origText = saveBtn.textContent;
+            saveBtn.textContent = 'Guardando...';
+            if (ecfLogoAlert) ecfLogoAlert.style.display = 'none';
+
+            var formData = new FormData();
+            formData.append('logoFile', ecfLogoFileInput.files[0]);
+
+            try {
+                var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                var csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
+                var resp = await fetch('/settings/company/brand', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken },
+                    body: formData
+                });
+                closeEcfLogoModal();
+                await checkCompanyReadiness();
+            } catch (err) {
+                if (ecfLogoAlert) { ecfLogoAlert.textContent = 'Error de conexi\u00F3n al guardar el logo.'; ecfLogoAlert.style.display = 'block'; ecfLogoAlert.style.background = 'rgba(239,68,68,0.12)'; ecfLogoAlert.style.color = '#dc2626'; }
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = origText;
+            }
+        });
+    }
+
+    // Cargar estado al abrir la pantalla
+    if (ecfReadinessCard) {
+        checkCompanyReadiness();
+    }
 });
 
 // Helper para formatear valores monetarios de DOP en la UI

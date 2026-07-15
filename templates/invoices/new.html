@@ -56,6 +56,8 @@
 <div id="clients-data-json" style="display:none;">{{ clients_json }}</div>
 <div id="price-list-prices-json" style="display:none;">{{ price_list_prices_json }}</div>
 <div id="default-price-list-id" style="display:none;">{{ default_price_list_id }}</div>
+<div id="ecf-rules-data" style="display:none;">{{ client_ecf_rules | tojson | safe }}</div>
+<div id="available-ecf-codes" style="display:none;">{{ available_ecf_codes | tojson | safe }}</div>
 
 <form method="POST" id="invoice-form">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -82,7 +84,7 @@
     {% if active_page != 'quotations' %}
 <select id="ecf-type-select" name="{% if is_referencing %}ecfTypeDisabled{% else %}ecfType{% endif %}" class="form-select" style="max-width:220px;" {% if is_referencing %}disabled style="opacity:0.75;"{% endif %}>
   {% for t in ecf_types %}
-  <option value="{{ t.label_with_code }}" {% if invoice and invoice.ecfType == t.label_with_code %}selected{% endif %}>{{ t.code }} — {{ t.short_label }}</option>
+  <option value="{{ t.label_with_code }}" data-code="{{ t.code }}" {% if invoice and invoice.ecfType == t.label_with_code %}selected{% endif %}>{{ t.code }} — {{ t.short_label }}</option>
   {% endfor %}
 </select>
     {% if is_referencing %}<input type="hidden" name="ecfType" value="{{ invoice.ecfType }}">{% endif %}
@@ -90,6 +92,17 @@
     <button type="button" class="btn btn-sm btn-secondary" onclick="toggleMoreSettings()" style="margin-left:auto;">
       <i class="fa-solid fa-sliders"></i> Más ajustes
     </button>
+  </div>
+
+  <!-- ESTADO E-CF (READINESS) -->
+  <div class="section-card" id="ecf-readiness-card" style="display:none;padding:16px 20px;">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <h3 style="font-size:0.9rem;font-weight:700;margin:0;display:flex;align-items:center;gap:6px;">
+        <i class="fa-solid fa-shield-halved"></i> Estado e-CF
+      </h3>
+      <div id="ecf-readiness-indicators" style="display:flex;gap:10px;flex-wrap:wrap;"></div>
+      <div style="margin-left:auto;display:flex;gap:8px;" id="ecf-readiness-actions"></div>
+    </div>
   </div>
 
   <!-- REFERENCIA NOTAS E33/E34 -->
@@ -146,6 +159,7 @@
           <i class="fa-solid fa-percent"></i> Retenciones
         </span>
         <button type="button" id="btn-add-item" class="btn btn-sm btn-secondary"><i class="fa-solid fa-plus"></i> Agregar línea</button>
+        <button type="button" id="btn-create-product" class="btn btn-sm btn-secondary" onclick="window.openProductCreateModal(null)"><i class="fa-solid fa-cube"></i> Crear producto</button>
       </div>
     </h3>
     <div style="overflow-x:auto;">
@@ -328,6 +342,7 @@
         <div class="inp-group"><label>Razón Social / Nombre <span style="color:var(--accent-red);">*</span></label><input type="text" id="new-client-razon" class="form-input" placeholder="Nombre completo o empresa"></div>
         <div class="inp-group"><label>Correo Electrónico</label><input type="email" id="new-client-email" class="form-input" placeholder="cliente@empresa.com"></div>
         <div class="inp-group"><label>Teléfono</label><input type="tel" id="new-client-telefono" class="form-input" placeholder="809-000-0000"></div>
+        <div class="inp-group"><label>Categoría</label><select id="new-client-category" class="form-select"><option value="NORMAL">Normal</option><option value="GOVERNMENT">Gubernamental</option><option value="SPECIAL_REGIME">Régimen Especial</option><option value="FOREIGN">Extranjero</option></select></div>
         <div class="inp-group" style="grid-column:1/-1;"><label>Dirección</label><input type="text" id="new-client-direccion" class="form-input" placeholder="Calle, sector, ciudad, provincia"></div>
       </div>
     </div>
@@ -398,6 +413,64 @@
   </div>
 </div>
 
+<!-- MODAL: CARGA RÁPIDA DE CERTIFICADO DIGITAL -->
+<div class="search-modal" id="ecf-cert-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;align-items:center;justify-content:center;z-index:1050;">
+  <div class="modal-content" style="max-width:480px;position:relative;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
+    <div class="modal-header" style="padding:20px 24px;border-bottom:1px solid var(--border-color);">
+      <h3 style="font-size:0.95rem;margin:0;"><i class="fa-solid fa-certificate" style="color:var(--accent-emerald);margin-right:8px;"></i>Configurar Firma Digital</h3>
+      <button type="button" id="btn-close-ecf-cert-modal" class="btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="ecf-cert-form" enctype="multipart/form-data">
+      <div class="modal-body" style="padding:22px 24px;">
+        <div id="ecf-cert-alert" style="display:none;padding:10px 16px;border-radius:6px;margin-bottom:16px;font-size:0.85rem;"></div>
+        <div class="inp-group" style="margin-bottom:16px;">
+          <label>Certificado (.p12 / .pfx) <span style="color:var(--accent-red);">*</span></label>
+          <input type="file" id="ecf-cert-file" accept=".p12,.pfx" class="form-input" style="padding:8px;">
+        </div>
+        <div class="inp-group">
+          <label>Contraseña <span style="color:var(--accent-red);">*</span></label>
+          <input type="password" id="ecf-cert-password" class="form-input" placeholder="Contraseña del certificado" autocomplete="new-password">
+        </div>
+      </div>
+      <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:10px;padding:16px 24px;border-top:1px solid var(--border-color);">
+        <button type="button" id="btn-cancel-ecf-cert" class="btn btn-secondary">Cancelar</button>
+        <button type="submit" id="btn-save-ecf-cert" class="btn btn-primary">Vincular Certificado</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: CARGA RÁPIDA DE LOGO -->
+<div class="search-modal" id="ecf-logo-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;align-items:center;justify-content:center;z-index:1050;">
+  <div class="modal-content" style="max-width:480px;position:relative;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
+    <div class="modal-header" style="padding:20px 24px;border-bottom:1px solid var(--border-color);">
+      <h3 style="font-size:0.95rem;margin:0;"><i class="fa-solid fa-image" style="color:var(--accent-emerald);margin-right:8px;"></i>Subir Logo</h3>
+      <button type="button" id="btn-close-ecf-logo-modal" class="btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="ecf-logo-form" enctype="multipart/form-data">
+      <div class="modal-body" style="padding:22px 24px;">
+        <div id="ecf-logo-alert" style="display:none;padding:10px 16px;border-radius:6px;margin-bottom:16px;font-size:0.85rem;"></div>
+        <div class="inp-group" style="margin-bottom:16px;">
+          <label>Logo de la empresa</label>
+          <div id="ecf-logo-dropzone" style="border:2px dashed var(--border-color);border-radius:var(--radius-md);padding:30px;text-align:center;cursor:pointer;transition:all 0.15s;">
+            <i class="fa-solid fa-cloud-arrow-up" style="font-size:2rem;color:var(--text-muted);display:block;margin-bottom:8px;"></i>
+            <span style="color:var(--text-muted);font-size:0.85rem;">Arrastre una imagen o <strong style="color:var(--accent-emerald);">seleccione archivo</strong></span>
+            <p style="font-size:0.72rem;color:var(--text-muted);margin:8px 0 0 0;">PNG, JPG, SVG</p>
+            <input type="file" id="ecf-logo-file" accept="image/png,image/jpeg,image/svg+xml" style="display:none;">
+          </div>
+          <div id="ecf-logo-preview" style="display:none;margin-top:12px;text-align:center;">
+            <img id="ecf-logo-preview-img" style="max-height:80px;border-radius:6px;border:1px solid var(--border-color);">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:10px;padding:16px 24px;border-top:1px solid var(--border-color);">
+        <button type="button" id="btn-cancel-ecf-logo" class="btn btn-secondary">Cancelar</button>
+        <button type="submit" id="btn-save-ecf-logo" class="btn btn-primary">Guardar Logo</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block extra_scripts %}
@@ -439,21 +512,185 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (ecfTypeSelect) { ecfTypeSelect.addEventListener('change', handleEcfTypeChange); handleEcfTypeChange(); }
 
+    // --- ECF type filtering by client category + regimen ---
+    const ecfRulesEl = document.getElementById('ecf-rules-data');
+    const availableCodesEl = document.getElementById('available-ecf-codes');
+    const CLIENT_ECF_RULES = ecfRulesEl ? JSON.parse(ecfRulesEl.textContent) : {};
+    const AVAILABLE_ECF_CODES = availableCodesEl ? JSON.parse(availableCodesEl.textContent) : [];
+    const allEcfOptions = Array.from(ecfTypeSelect ? ecfTypeSelect.options : []).map(o => ({ value: o.value, code: o.getAttribute('data-code') || o.value.replace(/.*\(([A-Z0-9]+)\).*/, '$1'), label: o.textContent }));
+
+    function extractCodeFromLabel(label) {
+        const m = label.match(/\(([A-Z0-9]+)\)/);
+        return m ? m[1] : label;
+    }
+
+    function setRncDisabled(disabled) {
+        const ri = document.getElementById('client-rnc-input');
+        if (!ri) return;
+        if (disabled) {
+            ri.disabled = true;
+            ri.value = '';
+            ri.style.opacity = '0.5';
+            ri.title = 'RNC bloqueado para Consumidor Final — se envía 000000000 a la DGII';
+        } else {
+            ri.disabled = false;
+            ri.style.opacity = '1';
+            ri.title = '';
+        }
+    }
+
+    function setConsumerClient() {
+        const clientId = document.getElementById('client-id-hidden');
+        if (!clientId || clientId.value) return;
+        const ci = document.getElementById('client-search-input');
+        const ri = document.getElementById('client-rnc-input');
+        if (ci && ci.value !== 'Consumidor Final') ci.value = 'Consumidor Final';
+        if (ri && ri.value !== '') ri.value = '';
+        if (clientId && clientId.value !== '') clientId.value = '';
+        setRncDisabled(true);
+    }
+
+    function enableRncInput() {
+        setRncDisabled(false);
+    }
+
+    function syncRncState() {
+        if (!ecfTypeSelect) return;
+        const code = extractCodeFromLabel(ecfTypeSelect.value);
+        const isE32 = code === 'E32';
+        const ci = document.getElementById('client-search-input');
+        const isConsumer = ci && ci.value === 'Consumidor Final';
+        const clientId = document.getElementById('client-id-hidden');
+        const hasClient = clientId && clientId.value;
+        if (isE32 && isConsumer && !hasClient) {
+            setRncDisabled(true);
+        } else {
+            setRncDisabled(false);
+        }
+    }
+
+    function rebuildEcfOptions(rules) {
+        if (!ecfTypeSelect) return;
+        const currentVal = ecfTypeSelect.value;
+        const currentCode = extractCodeFromLabel(currentVal);
+        ecfTypeSelect.innerHTML = '';
+        const allowed = rules.types.filter(c => AVAILABLE_ECF_CODES.includes(c));
+        allowed.forEach(code => {
+            const cached = allEcfOptions.find(o => o.code === code);
+            const opt = document.createElement('option');
+            opt.value = cached ? cached.value : code;
+            opt.textContent = cached ? cached.label : code;
+            opt.dataset.code = code;
+            ecfTypeSelect.appendChild(opt);
+        });
+        if (ecfTypeSelect.options.length > 0) {
+            const targetCode = allowed.includes(currentCode) ? currentCode : rules.def;
+            const targetOption = Array.from(ecfTypeSelect.options).find(o => o.dataset.code === targetCode);
+            if (targetOption) ecfTypeSelect.value = targetOption.value;
+        }
+        handleEcfTypeChange();
+        if (extractCodeFromLabel(ecfTypeSelect.value) === 'E32') {
+            setConsumerClient();
+        }
+        syncRncState();
+    }
+
+    function updateEcfByClient(client) {
+        if (!ecfTypeSelect || ecfTypeSelect.hasAttribute('data-manual-override')) return;
+        const cat = (client && client.customer_category) || 'NORMAL';
+        const rnc = (client && client.rnc || '').replace(/[^0-9]/g, '');
+        const hasRnc = rnc.length > 0 && rnc !== '000000000';
+        let rules;
+        if (cat === 'NORMAL') {
+            rules = hasRnc ? CLIENT_ECF_RULES.NORMAL.hasRnc : CLIENT_ECF_RULES.NORMAL.noRnc;
+        } else {
+            rules = CLIENT_ECF_RULES[cat] || CLIENT_ECF_RULES.NORMAL.noRnc;
+        }
+        rebuildEcfOptions(rules);
+    }
+
     function inferEcfTypeFromRNC(rncValue) {
         if (!ecfTypeSelect || ecfTypeSelect.hasAttribute('data-manual-override')) return;
-        const val = ecfTypeSelect.value; if (val === 'Nota de Débito (E33)' || val === 'Nota de Crédito (E34)') return;
-        ecfTypeSelect.value = (!rncValue || rncValue === '000000000' || rncValue === 'Consumidor Final') ? 'Factura de Consumo (E32)' : 'Factura de Crédito Fiscal (E31)'; handleEcfTypeChange();
+        const hasRnc = rncValue && rncValue.replace(/[^0-9]/g, '').length > 0 && rncValue !== '000000000' && rncValue !== 'Consumidor Final';
+        const rules = hasRnc ? CLIENT_ECF_RULES.NORMAL.hasRnc : CLIENT_ECF_RULES.NORMAL.noRnc;
+        rebuildEcfOptions(rules);
     }
+
+    const clientIdHidden = document.getElementById('client-id-hidden');
     const clientRncInput = document.getElementById('client-rnc-input');
-    if (clientRncInput && ecfTypeSelect) { const obs = new MutationObserver(() => { inferEcfTypeFromRNC(clientRncInput.value); }); obs.observe(clientRncInput, { attributes: true, attributeFilter: ['value'] }); clientRncInput.addEventListener('input', () => { inferEcfTypeFromRNC(clientRncInput.value); }); ecfTypeSelect.addEventListener('change', () => { ecfTypeSelect.setAttribute('data-manual-override','true'); }); }
+    const clientSearchInput = document.getElementById('client-search-input');
+    if (ecfTypeSelect) {
+        ecfTypeSelect.addEventListener('change', () => {
+            ecfTypeSelect.setAttribute('data-manual-override','true');
+            const code = extractCodeFromLabel(ecfTypeSelect.value);
+            if (code === 'E32' && clientIdHidden && !clientIdHidden.value) {
+                setConsumerClient();
+            } else if (code !== 'E32') {
+                const ci = document.getElementById('client-search-input');
+                if (ci && ci.value === 'Consumidor Final' && clientIdHidden && !clientIdHidden.value) {
+                    ci.value = '';
+                    if (clientIdHidden) clientIdHidden.value = '';
+                    if (clientRncInput) clientRncInput.value = '';
+                }
+            }
+            syncRncState();
+        });
+    }
+    if (clientRncInput && ecfTypeSelect) {
+        const obs = new MutationObserver(() => { inferEcfTypeFromRNC(clientRncInput.value); });
+        obs.observe(clientRncInput, { attributes: true, attributeFilter: ['value'] });
+        clientRncInput.addEventListener('input', () => { inferEcfTypeFromRNC(clientRncInput.value); });
+    }
+    if (clientSearchInput) {
+        clientSearchInput.addEventListener('input', () => {
+            if (ecfTypeSelect && ecfTypeSelect.hasAttribute('data-manual-override')) return;
+            if (clientIdHidden) clientIdHidden.value = '';
+        });
+    }
+    window.updateEcfByClient = updateEcfByClient;
+    window.enableRncInput = enableRncInput;
+    // On load: sync RNC state
+    if (ecfTypeSelect && clientIdHidden) {
+        if (extractCodeFromLabel(ecfTypeSelect.value) === 'E32' && !clientIdHidden.value) {
+            setConsumerClient();
+        }
+        syncRncState();
+    }
 
     if (submitCobrarBtn) {
-        submitCobrarBtn.addEventListener('click', (e) => {
+        submitCobrarBtn.addEventListener('click', async (e) => {
             const invoiceForm = document.getElementById('invoice-form');
             if (!invoiceForm.checkValidity()) { invoiceForm.reportValidity(); e.preventDefault(); return; }
             const rows = document.querySelectorAll('#invoice-items-body .item-row'); if (rows.length === 0) { alert('Añada al menos una partida.'); e.preventDefault(); return; }
             const refTotalInput = document.getElementById('referenced-invoice-total');
             if (refTotalInput && ecfTypeSelect && ecfTypeSelect.value === 'Nota de Crédito (E34)') { const refTotal = parseFloat(refTotalInput.value) || 0; const nt = parseFloat((document.getElementById('lbl-net-payable')?.innerText || '0').replace(/[^0-9.]/g,'')) || 0; if (nt > refTotal) { alert('La Nota de Crédito excede el monto del documento original.'); e.preventDefault(); return; } }
+            const ecfReadiness = await checkCompanyReadiness();
+            if (ecfReadiness && !ecfReadiness.can_issue_ecf) {
+                e.preventDefault();
+                const certBlocking = ecfReadiness.blocking_errors.find(function(er) { return er.code && er.code.startsWith('CERTIFICATE_'); });
+                if (certBlocking) {
+                    openEcfCertModal();
+                }
+            }
+        });
+    }
+    // --- Unsaved changes warning ---
+    let formDirty = false;
+    const form = document.getElementById('invoice-form');
+    if (form) {
+        form.addEventListener('change', () => { formDirty = true; });
+        form.addEventListener('input', () => { formDirty = true; });
+        form.addEventListener('submit', () => { formDirty = false; });
+        window.addEventListener('beforeunload', (e) => {
+            if (formDirty) { e.preventDefault(); e.returnValue = ''; }
+        });
+        document.querySelectorAll('a:not([target="_blank"])').forEach(a => {
+            a.addEventListener('click', (e) => {
+                if (!formDirty || a.hasAttribute('data-no-warn')) return;
+                if (!confirm('Tiene cambios sin guardar. ¿Está seguro de que desea salir?')) {
+                    e.preventDefault();
+                }
+            });
         });
     }
     document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); if (submitCobrarBtn) { submitCobrarBtn.focus(); submitCobrarBtn.click(); } } });

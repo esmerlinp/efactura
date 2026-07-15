@@ -101,6 +101,17 @@
             </div>
 
             <div class="form-group">
+                <label for="customer_category">Categoría Fiscal</label>
+                <select id="customer_category" name="customer_category" class="form-input" style="width: 100%; height: auto; padding: 10px; background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); outline: none;">
+                    <option value="NORMAL" {% if not client or client.customer_category == 'NORMAL' %}selected{% endif %}>Normal</option>
+                    <option value="GOVERNMENT" {% if client and client.customer_category == 'GOVERNMENT' %}selected{% endif %}>Gubernamental</option>
+                    <option value="SPECIAL_REGIME" {% if client and client.customer_category == 'SPECIAL_REGIME' %}selected{% endif %}>Régimen Especial</option>
+                    <option value="FOREIGN" {% if client and client.customer_category == 'FOREIGN' %}selected{% endif %}>Extranjero</option>
+                </select>
+                <small style="color: var(--text-muted); display: block; font-size: 0.75rem; margin-top: 4px;">Define qué tipo de e-CF se sugerirá automáticamente al facturar a este cliente.</small>
+            </div>
+
+            <div class="form-group">
                 <label for="priceListId">Lista de Precios</label>
                 <select id="priceListId" name="priceListId" class="form-input" style="width: 100%; height: auto; padding: 10px; background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); outline: none;">
                     <option value="" {% if not client or not client.priceListId %}selected{% endif %}>Precio por defecto del catálogo</option>

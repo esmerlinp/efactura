@@ -305,7 +305,8 @@ def process_import():
                         "crmNotes": get_val('crmNotes') or "Importado mediante asistente universal.",
                         "nextContactDate": get_val('nextContactDate'),
                         "pipelineStage": get_val('pipelineStage', 'Prospecto'),
-                        "createdAt": datetime.now(timezone.utc).isoformat()
+                        "createdAt": datetime.now(timezone.utc).isoformat(),
+                        "customer_category": get_val('customer_category', 'NORMAL')
                     }
                     DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
                     results["imported"] += 1

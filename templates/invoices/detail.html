@@ -79,26 +79,6 @@
     }
 </style>
 
-<div class="guide-banner" id="guide-invoice-detail">
-    <button class="guide-banner-close" onclick="closeGuide('guide-invoice-detail')" title="Cerrar guía" aria-label="Cerrar guía">
-        <i class="fa-solid fa-xmark"></i>
-    </button>
-    <div class="guide-banner-icon">
-        <i class="fa-solid fa-lightbulb"></i>
-    </div>
-    <div class="guide-banner-content">
-        <h4>Guía de Uso: Detalle del Documento</h4>
-        <p>
-            Revisa toda la información de tu factura electrónica, incluyendo el estado ante la DGII, los pagos recibidos y los datos del cliente.
-        </p>
-        <ul>
-            <li><strong>QR y Código de Aprobación:</strong> Accede al código QR y al código de aprobación DGII para verificar la validez del comprobante.</li>
-            <li><strong>Gestión de Pagos:</strong> Registra abonos, pagos totales o visualiza el historial de cobros.</li>
-            <li><strong>Documentos Relacionados:</strong> Consulta y genera notas de crédito o débito asociadas a esta factura.</li>
-        </ul>
-    </div>
-</div>
-
 <div class="detail-grid">
     <div style="display: flex; flex-direction: column; gap: 30px;">
         {% if invoice.status == 'Revisión de Pago' and invoice.pendingPaymentProof %}

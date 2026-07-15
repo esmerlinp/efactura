@@ -103,6 +103,7 @@ def _sync_to_legacy_clients(owner_uid, contact, sandbox):
         "accessPin": contact.get("accessPin", ""),
         "disableAutoReminders": contact.get("disableAutoReminders", False),
         "createdAt": contact.get("createdAt", datetime.now(timezone.utc).isoformat()),
+        "customer_category": contact.get("customer_category", "NORMAL"),
     }
     DatabaseService.save_client(owner_uid, contact["id"], client_dict, sandbox=sandbox)
 

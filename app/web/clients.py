@@ -153,7 +153,8 @@ def new_client():
             "imageUrl": image_url,
             "accessPin": access_pin,
             "priceListId": request.form.get('priceListId', ''),
-            "projectId": request.form.get('projectId') or None
+            "projectId": request.form.get('projectId') or None,
+            "customer_category": request.form.get('customer_category', 'NORMAL')
         }
         
         DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
@@ -210,7 +211,8 @@ def ajax_create_client():
         "pipelineStage": "Cliente Activo",
         "createdAt": datetime.now(timezone.utc).isoformat(),
         "accessPin": access_pin,
-        "projectId": (data.get('projectId') or '').strip() or None
+        "projectId": (data.get('projectId') or '').strip() or None,
+        "customer_category": (data.get('customer_category') or 'NORMAL').strip()
     }
     
     DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
@@ -237,7 +239,8 @@ def ajax_create_client():
             "email": client_dict["email"],
             "telefono": client_dict["telefono"],
             "direccion": client_dict["direccion"],
-            "projectId": client_dict.get("projectId") or ""
+            "projectId": client_dict.get("projectId") or "",
+            "customer_category": client_dict.get("customer_category", "NORMAL")
         }
     })
 
@@ -296,7 +299,8 @@ def edit_client(client_id):
             "imageUrl": image_url,
             "accessPin": access_pin,
             "priceListId": request.form.get('priceListId', ''),
-            "projectId": request.form.get('projectId') or None
+            "projectId": request.form.get('projectId') or None,
+            "customer_category": request.form.get('customer_category', client.get('customer_category', 'NORMAL'))
         }
         DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
         
