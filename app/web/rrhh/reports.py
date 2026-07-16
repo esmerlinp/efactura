@@ -7,6 +7,8 @@ from app.web.rrhh import (
     _is_hr_role, _sanitize_for_role, MONTHS_ES,
     _filter_employees_by_period, _generate_periods,
 )
+from app.web.invoices import web_invoices_bp
+from app.utils.module_gate import require_module
 from app.services import hr_data_service as hr
 from app.services.payroll_ytd_service import get_ytd
 from app.services.payroll_service import PayrollService
@@ -31,7 +33,9 @@ def _enrich_period(period, owner_uid, sandbox):
 # REPORTES
 # ═══════════════════════════════════════════════════════════════════════════
 
+@web_invoices_bp.route('/reports/rrhh/ir18')
 @web_rrhh_bp.route("/rrhh/reports/ir18")
+@require_module('nomina')
 def report_ir18_list():
     if _login_required():
         return redirect(url_for("web_auth.login"))
@@ -60,7 +64,9 @@ def report_ir18_list():
                            employee_ytds=employee_ytds, year=year)
 
 
+@web_invoices_bp.route('/reports/rrhh/ir18/<employee_id>')
 @web_rrhh_bp.route("/rrhh/reports/ir18/<employee_id>")
+@require_module('nomina')
 def report_ir18_view(employee_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
@@ -71,7 +77,7 @@ def report_ir18_view(employee_id):
     employee = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
     if not employee:
         flash("Empleado no encontrado.", "error")
-        return redirect(url_for("web_rrhh.report_ir18_list"))
+        return redirect(url_for("web_invoices.report_ir18_list"))
 
     try:
         year = int(request.args.get("year", date.today().year))
@@ -83,14 +89,18 @@ def report_ir18_view(employee_id):
                            employee=employee, ytd=ytd, year=year, today=date.today())
 
 
+@web_invoices_bp.route('/reports/rrhh')
 @web_rrhh_bp.route("/rrhh/reports")
+@require_module('nomina')
 def reports_index():
     if _login_required():
         return redirect(url_for("web_auth.login"))
     return render_template("rrhh/reports/index.html", active_page="rrhh_reports")
 
 
+@web_invoices_bp.route('/reports/rrhh/department')
 @web_rrhh_bp.route("/rrhh/reports/department")
+@require_module('nomina')
 def report_department():
     if _login_required():
         return redirect(url_for("web_auth.login"))
@@ -116,7 +126,9 @@ def report_department():
                            by_dept=by_dept, period_keys=period_keys, selected=period_key)
 
 
+@web_invoices_bp.route('/reports/rrhh/tss')
 @web_rrhh_bp.route("/rrhh/reports/tss")
+@require_module('nomina')
 def report_tss():
     if _login_required():
         return redirect(url_for("web_auth.login"))
@@ -149,7 +161,9 @@ def report_tss():
                            monthly=monthly, year=year, months_es=MONTHS_ES)
 
 
+@web_invoices_bp.route('/reports/rrhh/comparative')
 @web_rrhh_bp.route("/rrhh/reports/comparative")
+@require_module('nomina')
 def report_comparative():
     if _login_required():
         return redirect(url_for("web_auth.login"))
@@ -194,7 +208,9 @@ def report_comparative():
 # REPORTE: NÓMINA NETA SIN PROVISIONES
 # ═══════════════════════════════════════════════════════════════════════════
 
+@web_invoices_bp.route('/reports/rrhh/net-payroll')
 @web_rrhh_bp.route("/rrhh/reports/net-payroll")
+@require_module('nomina')
 def report_net_payroll():
     if _login_required():
         return redirect(url_for("web_auth.login"))
@@ -219,7 +235,9 @@ def report_net_payroll():
                            lines=lines, period_key=period_key)
 
 
+@web_invoices_bp.route('/reports/rrhh/net-payroll/export')
 @web_rrhh_bp.route("/rrhh/reports/net-payroll/export")
+@require_module('nomina')
 def report_net_payroll_export():
     if _login_required():
         return redirect(url_for("web_auth.login"))
@@ -231,7 +249,7 @@ def report_net_payroll_export():
     period = _enrich_period(period, owner_uid, sandbox)
     if not period:
         flash("Período no encontrado.", "error")
-        return redirect(url_for("web_rrhh.report_net_payroll"))
+        return redirect(url_for("web_invoices.report_net_payroll"))
 
     import csv, io
     output = io.StringIO()
@@ -312,7 +330,9 @@ def payroll_export_csv(period_id):
 # REPORTE: RETENCIONES ISR NÓMINA (suma quincenas para DGII)
 # ═══════════════════════════════════════════════════════════════════════════
 
+@web_invoices_bp.route('/reports/rrhh/isr-retentions')
 @web_rrhh_bp.route("/rrhh/reports/isr-retentions")
+@require_module('nomina')
 def report_isr_retentions():
     if _login_required():
         return redirect(url_for("web_auth.login"))
@@ -349,7 +369,9 @@ def report_isr_retentions():
                            monthly=monthly, year=year, months_es=MONTHS_ES)
 
 
+@web_invoices_bp.route('/reports/rrhh/isr-retentions/export')
 @web_rrhh_bp.route("/rrhh/reports/isr-retentions/export")
+@require_module('nomina')
 def report_isr_retentions_export():
     if _login_required():
         return redirect(url_for("web_auth.login"))
@@ -403,7 +425,9 @@ def report_isr_retentions_export():
 # WHAT-IF ANALYSIS
 # ═══════════════════════════════════════════════════════════════════════════
 
+@web_invoices_bp.route('/reports/rrhh/what-if')
 @web_rrhh_bp.route("/rrhh/reports/what-if")
+@require_module('nomina')
 def report_what_if():
     if _login_required():
         return redirect(url_for("web_auth.login"))
@@ -473,7 +497,9 @@ def employee_retroactive_pay(employee_id):
 # VALIDACIÓN IR-18
 # ═══════════════════════════════════════════════════════════════════════════
 
+@web_invoices_bp.route('/reports/rrhh/ir18/validation')
 @web_rrhh_bp.route("/rrhh/reports/ir18/validation")
+@require_module('nomina')
 def report_ir18_validation():
     if _login_required():
         return redirect(url_for("web_auth.login"))

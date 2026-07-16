@@ -85,6 +85,7 @@
     .report-category-card .card-header .icon.contables { background: #f5f3ff; color: #8b5cf6; }
     .report-category-card .card-header .icon.fiscales { background: #fef2f2; color: #ef4444; }
     .report-category-card .card-header .icon.para_trabajar { background: #f8fafc; color: #64748b; }
+    .report-category-card .card-header .icon.nomina { background: #f0fdf4; color: #10b981; }
     .report-category-card .card-header .icon.favoritos { background: #fffbeb; color: #f59e0b; }
     .report-category-card .card-header .badge {
         font-size: 0.65rem; font-weight: 600; color: var(--text-muted);
@@ -101,53 +102,12 @@
         display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
         overflow: hidden;
     }
-    .report-category-card .report-list {
-        list-style: none; padding: 0; margin: 0;
-        display: flex; flex-direction: column;
-    }
-    .report-category-card .report-list li {
-        display: flex; align-items: center; gap: 5px;
-        font-size: 0.75rem; padding: 2px 0;
-        line-height: 1.3; min-width: 0;
-    }
-    .report-category-card .report-list li::before {
-        content: ''; width: 5px; height: 5px; border-radius: 50%;
-        flex-shrink: 0;
-    }
-    .report-category-card .report-list li.done::before { background: #10b981; }
-    .report-category-card .report-list li.pending::before { background: #e2e8f0; }
-    .report-category-card .report-list li a {
-        color: var(--text-primary); text-decoration: none;
-        font-weight: 500; transition: color 0.15s; white-space: nowrap;
-        overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1;
-    }
-    .report-category-card .report-list li a:hover { color: var(--accent-emerald); }
-    .report-category-card .report-list li .report-title-pending {
-        color: #94a3b8; white-space: nowrap; overflow: hidden;
-        text-overflow: ellipsis; min-width: 0; flex: 1;
-    }
-    .report-category-card .report-list li .coming-soon {
-        font-size: 0.6rem; color: #94a3b8; background: #f8fafc;
-        padding: 1px 6px; border-radius: 8px; font-weight: 500;
-        flex-shrink: 0;
-    }
-
     @media (max-width: 768px) {
         .report-category-grid { grid-template-columns: 1fr; }
     }
 </style>
 
 <div class="breadcrumb"><span>Reportes</span></div>
-
-<div class="reports-banner">
-    <div class="banner-text">
-        ¿Necesitas ayuda con tus reportes?<br>
-        <strong>Invita gratis a tu contador</strong> y deja tus reportes en manos expertas. 🤝💼
-    </div>
-    <a href="{{ url_for('web_invoices.team_settings') }}" class="banner-btn">
-        <i class="fa-solid fa-user-plus"></i> Invitar a mi contador/a
-    </a>
-</div>
 
 <div class="reports-header">
     <div>
@@ -177,20 +137,6 @@
         </div>
         <div class="card-title">{{ cat.title }}</div>
         <div class="card-desc">{{ cat.description }}</div>
-        {% if cat.reports %}
-        <ul class="report-list">
-            {% for r in cat.reports %}
-            <li class="{% if r.enabled %}done{% else %}pending{% endif %}">
-                {% if r.enabled and r.url %}
-                <a href="{{ url_for(r.url) }}">{{ r.title }}</a>
-                {% else %}
-                <span class="report-title-pending">{{ r.title }}</span>
-                <span class="coming-soon">Pronto</span>
-                {% endif %}
-            </li>
-            {% endfor %}
-        </ul>
-        {% endif %}
     </div>
     {% endfor %}
 </div>

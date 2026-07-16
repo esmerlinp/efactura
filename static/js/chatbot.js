@@ -11,6 +11,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
   var conversationHistory = [];
   var MAX_CHAT_HISTORY = 50;
+  var usageBar = document.getElementById('chatbot-usage-bar');
+  var usageCountEl = document.getElementById('chatbot-usage-count');
+  var usageLimitEl = document.getElementById('chatbot-usage-limit');
+
+  // Fetch initial usage
+  fetch('/api/chatbot/usage')
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d.usage_info) {
+        usageCountEl.textContent = d.usage_info.used;
+        usageLimitEl.textContent = d.usage_info.limit;
+        usageBar.style.display = '';
+      }
+    })
+    .catch(function () {});
 
   // Restore state
   var savedWidth = localStorage.getItem('chatbot-sidebar-width') || '420';
@@ -97,6 +112,11 @@ document.addEventListener('DOMContentLoaded', function () {
     .then(function (res) { return res.json(); })
     .then(function (data) {
       typingBubble.remove();
+      if (data.usage_info) {
+        usageCountEl.textContent = data.usage_info.used;
+        usageLimitEl.textContent = data.usage_info.limit;
+        usageBar.style.display = '';
+      }
       if (data.success) {
         appendMessage('ai', data.message);
         conversationHistory.push({ role: 'user', content: userText });

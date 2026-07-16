@@ -281,6 +281,37 @@
 }
 
 /* Footer / Input */
+/* Usage bar */
+.chatbot-usage-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 16px;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  background: var(--bg-nav);
+}
+
+.chatbot-usage-label {
+  opacity: 0.7;
+}
+
+.chatbot-usage-count {
+  font-weight: 700;
+  color: var(--accent-emerald);
+}
+
+.chatbot-usage-sep {
+  opacity: 0.4;
+}
+
+.chatbot-usage-limit {
+  opacity: 0.6;
+}
+
 .chatbot-footer {
   padding: 14px 20px 18px;
   border-top: 1px solid var(--border-color);

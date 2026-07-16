@@ -8049,6 +8049,58 @@ def get_report_categories():
             ]
         },
         {
+            "key": "nomina",
+            "icon": "fa-solid fa-coins",
+            "title": "Nómina",
+            "count": 14,
+            "description": "Reportes detallados de nómina, contribuciones TSS, certificados IR-18, simulaciones y formularios DGT.",
+            "category_url": url_for('web_invoices.reports_category', category_key='nomina'),
+            "reports": [
+                {"title": "Resumen por Departamento", "url": "web_invoices.report_department",
+                 "enabled": module_enabled('nomina'),
+                 "desc": "Desglose de nómina agrupado por departamento."},
+                {"title": "Aportes TSS Mensuales", "url": "web_invoices.report_tss",
+                 "enabled": module_enabled('nomina'),
+                 "desc": "Aportes mensuales AFP, SFS, SRL e INFOTEP."},
+                {"title": "Comparativa de Períodos", "url": "web_invoices.report_comparative",
+                 "enabled": module_enabled('nomina'),
+                 "desc": "Compara dos períodos de nómina lado a lado."},
+                {"title": "Certificados IR-18", "url": "web_invoices.report_ir18_list",
+                 "enabled": module_enabled('nomina'),
+                 "desc": "Certificados de retenciones ISR por empleado."},
+                {"title": "Validación IR-18", "url": "web_invoices.report_ir18_validation",
+                 "enabled": module_enabled('nomina'),
+                 "desc": "Verifica que los datos estén listos para IR-18."},
+                {"title": "Nómina Neta sin Provisiones", "url": "web_invoices.report_net_payroll",
+                 "enabled": module_enabled('nomina'),
+                 "desc": "Nómina neta excluyendo provisiones."},
+                {"title": "Retenciones ISR Nómina", "url": "web_invoices.report_isr_retentions",
+                 "enabled": module_enabled('nomina'),
+                 "desc": "Retenciones ISR agrupadas por mes."},
+                {"title": "Simulador What-If", "url": "web_invoices.report_what_if",
+                 "enabled": module_enabled('nomina'),
+                 "desc": "Simula cambios salariales y su impacto."},
+                {"title": "DGT-3: Personal Fijo", "url": "web_invoices.dgt3_view",
+                 "enabled": module_enabled('nomina'),
+                 "desc": "Planilla de personal fijo para el Ministerio de Trabajo."},
+                {"title": "DGT-4: Cambios en Personal Fijo", "url": "web_invoices.dgt4_view",
+                 "enabled": module_enabled('nomina'),
+                 "desc": "Altas, bajas y modificaciones del personal fijo."},
+                {"title": "DGT-2: Horas y Vacaciones", "url": "web_invoices.dgt2_view",
+                 "enabled": module_enabled('nomina'),
+                 "desc": "Cartel de horas y vacaciones para SIRLA."},
+                {"title": "DGT-5: Personal Ocasional", "url": "web_invoices.dgt5_view",
+                 "enabled": module_enabled('nomina'),
+                 "desc": "Personal móvil u ocasional."},
+                {"title": "DGT-9: Suspensión", "url": "web_invoices.dgt9_view",
+                 "enabled": module_enabled('nomina'),
+                 "desc": "Registro de suspensión de contratos."},
+                {"title": "DGT-12: Cese de Suspensión", "url": "web_invoices.dgt12_view",
+                 "enabled": module_enabled('nomina'),
+                 "desc": "Cese de suspensión de contratos."},
+            ]
+        },
+        {
             "key": "para_trabajar",
             "icon": "fa-solid fa-briefcase",
             "title": "Para trabajar",
@@ -8721,6 +8773,27 @@ def help_module(module_name):
     template = f'help/{module_name}.html'
     return render_template(template, active_page='help')
 
+@web_invoices_bp.route('/api/chatbot/usage', methods=['GET'])
+@require_module('ia_bi')
+@require_permission('canUseChatbot', 'Asistente IA')
+def chatbot_usage_api():
+    if 'user' not in session:
+        return jsonify({"success": False}), 401
+    owner_uid = session['user']['ownerUID']
+    user_uid = session['user']['uid']
+    profile = DatabaseService.get_company_profile(owner_uid)
+    api_key = (profile.get("openaiApiKey") or "").strip()
+    using_global_key = not api_key
+    if not using_global_key:
+        return jsonify({"usage_info": None})
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    user_profile = DatabaseService.get_user_profile(user_uid) or {}
+    last_reset = user_profile.get("chatbotDailyReset", "")
+    usage_count = int(user_profile.get("chatbotDailyUsageCount", 0))
+    if last_reset != today_str:
+        usage_count = 0
+    return jsonify({"usage_info": {"used": usage_count, "limit": 20}})
+
 @web_invoices_bp.route('/api/chatbot', methods=['POST'])
 @require_module('ia_bi')
 @require_permission('canUseChatbot', 'Asistente IA')
@@ -8729,6 +8802,7 @@ def chatbot_api():
         return jsonify({"success": False, "message": "Debes iniciar sesión para interactuar con el chatbot."}), 401
     
     owner_uid = session['user']['ownerUID']
+    user_uid = session['user']['uid']
     sandbox = session.get('is_sandbox_mode', True)
     
     data = request.get_json() or {}
@@ -8739,7 +8813,7 @@ def chatbot_api():
         return jsonify({"success": False, "message": "El mensaje no puede estar vacío."}), 400
         
     from app.services.chatbot import ChatbotService
-    result = ChatbotService.ask_chatbot(owner_uid, message, history, sandbox=sandbox)
+    result = ChatbotService.ask_chatbot(owner_uid, user_uid, message, history, sandbox=sandbox)
     return jsonify(result)
 
 @web_invoices_bp.route('/suscripcion')

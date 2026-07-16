@@ -288,7 +288,17 @@ def payroll_new():
                 if emp_specific:
                     emp_rules.extend(emp_specific)
                     emp_rules.sort(key=lambda r: r.get("priority", 999))
-                rule_result = PayrollRuleEngine.evaluate_rules(emp_rules, emp)
+                # Filtrar reglas one-shot ya aplicadas
+                filtered_rules = []
+                for r in emp_rules:
+                    freq = r.get("frequency", "always")
+                    if freq == "always":
+                        filtered_rules.append(r)
+                    elif freq in ("annual", "once"):
+                        log_year = year if freq == "annual" else None
+                        if not hr.rule_log_exists(owner_uid, r["id"], emp_id, log_year, sandbox=sandbox):
+                            filtered_rules.append(r)
+                rule_result = PayrollRuleEngine.evaluate_rules(filtered_rules, emp)
                 if rule_result:
                     for rule_concept, rule_amount in [
                         ("BONIFICACION", rule_result.get("bonus", 0)),
@@ -309,6 +319,14 @@ def payroll_new():
                                 updatedAt=datetime.now(timezone.utc).isoformat(),
                             )
                             employee_transactions.append(tx.model_dump())
+                    # Loguear reglas one-shot aplicadas
+                    now_iso = datetime.now(timezone.utc).isoformat()
+                    for applied in rule_result.get("applied_rules", []):
+                        rule_obj = next((r for r in emp_rules if r["id"] == applied["ruleId"]), None)
+                        if rule_obj and rule_obj.get("frequency") in ("annual", "once"):
+                            log_year = year if rule_obj.get("frequency") == "annual" else None
+                            hr.save_rule_log(owner_uid, rule_obj["id"], emp_id, log_year,
+                                             period_key, 0.0, now_iso, sandbox=sandbox)
 
             # ── Aplicar movimientos recurrentes ──
             recurring_txs, recurring_apps = apply_recurring_for_employee(
@@ -768,7 +786,18 @@ def payroll_simulate():
                 if emp_specific:
                     emp_rules.extend(emp_specific)
                     emp_rules.sort(key=lambda r: r.get("priority", 999))
-                rule_result = PayrollRuleEngine.evaluate_rules(emp_rules, emp)
+                # Filtrar reglas one-shot ya aplicadas
+                sim_year = int(period_key[:4]) if period_key and len(period_key) >= 4 else 0
+                filtered_rules = []
+                for r in emp_rules:
+                    freq = r.get("frequency", "always")
+                    if freq == "always":
+                        filtered_rules.append(r)
+                    elif freq in ("annual", "once"):
+                        log_year = sim_year if freq == "annual" else None
+                        if not hr.rule_log_exists(owner_uid, r["id"], emp_id, log_year, sandbox=sandbox):
+                            filtered_rules.append(r)
+                rule_result = PayrollRuleEngine.evaluate_rules(filtered_rules, emp)
                 if rule_result:
                     for rule_concept, rule_amount in [
                         ("BONIFICACION", rule_result.get("bonus", 0)),
@@ -787,11 +816,19 @@ def payroll_simulate():
                                 type="deduction" if rule_concept == "OTRAS_DEDUCCIONES" else "earning",
                                 amount=round(rule_amount, 2), source=f"rule:{rule_result.get('_ruleId', '')}",
                                 status="applied", conceptSnapshot=build_concept_snapshot(concept),
-                                periodYear=int(period_key[:4]) if period_key and len(period_key) >= 4 else 0,
+                                periodYear=sim_year,
                                 createdAt=datetime.now(timezone.utc).isoformat(),
                                 updatedAt=datetime.now(timezone.utc).isoformat(),
                             )
                             employee_transactions.append(tx.model_dump())
+                    # Loguear reglas one-shot aplicadas
+                    now_iso = datetime.now(timezone.utc).isoformat()
+                    for applied in rule_result.get("applied_rules", []):
+                        rule_obj = next((r for r in emp_rules if r["id"] == applied["ruleId"]), None)
+                        if rule_obj and rule_obj.get("frequency") in ("annual", "once"):
+                            log_year = sim_year if rule_obj.get("frequency") == "annual" else None
+                            hr.save_rule_log(owner_uid, rule_obj["id"], emp_id, log_year,
+                                             period_key, 0.0, now_iso, sandbox=sandbox)
 
             # ── Aplicar movimientos recurrentes (simulación, sin escribir en DB) ──
             now_iso = datetime.now(timezone.utc).isoformat()

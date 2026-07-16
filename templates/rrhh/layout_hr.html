@@ -163,25 +163,6 @@
 
                 <div class="sidebar-divider"></div>
 
-                <!-- ── Reportes y Cumplimiento ── -->
-                <div class="sidebar-section" id="sidebar-section-rrhh-reportes">
-                    <div class="sidebar-section-header">
-                        <div class="header-left">
-                            <i class="fa-solid fa-chart-pie section-icon"></i>
-                            <span>Reportes y Cumplimiento</span>
-                        </div>
-                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
-                    </div>
-                    <ul class="sidebar-section-content">
-                        <li class="nav-item {% if active_page == 'rrhh_reports' %}active{% endif %}"
-                            data-tooltip="Reportes">
-                            <a href="{{ url_for('web_rrhh.reports_index') }}"><span>Reportes de RRHH</span></a>
-                        </li>
-                    </ul>
-                </div>
-
-                <div class="sidebar-divider"></div>
-
                 <!-- ── Configuración (solo owner) ── -->
                 {% if session.get('user', {}).get('role') == 'owner' %}
                 <div class="sidebar-section" id="sidebar-section-rrhh-config">
