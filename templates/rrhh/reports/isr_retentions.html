@@ -2,14 +2,14 @@
 {% block title %}Retenciones ISR Nómina — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
-<div class="breadcrumb"><a href="{{ url_for('web_rrhh.reports_index') }}">Reportes de RRHH</a> <span class="sep">›</span> <span>Retenciones ISR Nómina</span></div>
+<div class="breadcrumb"><a href="{{ url_for('web_invoices.reports_index') }}">Reportes de RRHH</a> <span class="sep">›</span> <span>Retenciones ISR Nómina</span></div>
 <div class="page-header hr-page-header">
     <h1 class="page-title"><i class="fa-solid fa-file-invoice-dollar"></i> Retenciones ISR Nómina {{ year }}</h1>
     <div class="hr-page-actions">
-        <a href="{{ url_for('web_rrhh.report_isr_retentions_export', year=year, month=request.args.get('month', 1)) }}" class="btn btn-primary">
+        <a href="{{ url_for('web_invoices.report_isr_retentions_export', year=year, month=request.args.get('month', 1)) }}" class="btn btn-primary">
             <i class="fa-solid fa-file-csv"></i> Exportar CSV
         </a>
-        <a href="{{ url_for('web_rrhh.reports_index') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Reportes</a>
+        <a href="{{ url_for('web_invoices.reports_index') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Reportes</a>
     </div>
 </div>
 
@@ -42,7 +42,7 @@
                 <td style="text-align:right;">RD$ {{ "{:,.2f}".format(data.sfs_emp) }}</td>
                 <td style="text-align:right; font-weight:600;">RD$ {{ "{:,.2f}".format(total) }}</td>
                 <td>
-                    <a href="{{ url_for('web_rrhh.report_isr_retentions_export', year=year, month=loop.index) }}" class="btn btn-sm btn-ghost">
+                    <a href="{{ url_for('web_invoices.report_isr_retentions_export', year=year, month=loop.index) }}" class="btn btn-sm btn-ghost">
                         <i class="fa-solid fa-download"></i> CSV
                     </a>
                 </td>

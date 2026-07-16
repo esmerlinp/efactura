@@ -1199,17 +1199,7 @@ class DatabaseService:
         if not firebase_initialized:
             return
         try:
-            perms = profile_dict.get("permissions", {})
-            update_data = {
-                "name": profile_dict.get("name", ""),
-                "phone": profile_dict.get("phone", ""),
-                "address": profile_dict.get("address", ""),
-                "permissions": perms
-            }
-            if "profileImageUrl" in profile_dict:
-                update_data["profileImageUrl"] = profile_dict["profileImageUrl"]
-            
-            db_firestore.collection("users").document(uid).collection("config").document("user_profile").update(update_data)
+            db_firestore.collection("users").document(uid).collection("config").document("user_profile").set(profile_dict)
             cache.delete_memoized(_cached_user_profile, uid)
         except Exception as e:
             print(f"⚠️ Fallo al guardar perfil en Firestore: {e}")

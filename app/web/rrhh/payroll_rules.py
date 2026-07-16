@@ -63,6 +63,7 @@ def payroll_rules_new():
         scope = request.form.get("scope", "global")
         scope_id = request.form.get("scope_id", "")
         logic = request.form.get("logic", "AND")
+        frequency = request.form.get("frequency", "always")
         is_active = request.form.get("isActive") == "1"
 
         conditions = []
@@ -88,6 +89,7 @@ def payroll_rules_new():
             "scope": scope,
             "scopeId": scope_id,
             "logic": logic,
+            "frequency": frequency,
             "conditions": conditions,
             "actions": actions,
             "isActive": is_active,
@@ -145,6 +147,7 @@ def payroll_rules_edit(rule_id):
         rule["scope"] = request.form.get("scope", "global")
         rule["scopeId"] = request.form.get("scope_id", "")
         rule["logic"] = request.form.get("logic", "AND")
+        rule["frequency"] = request.form.get("frequency", "always")
         rule["isActive"] = request.form.get("isActive") == "1"
 
         conditions = []

@@ -21,8 +21,8 @@
             <option value="{{ y }}" {% if y==year %}selected{% endif %}>{{ y }}</option>
             {% endfor %}
         </select>
-        <a href="{{ url_for('web_rrhh.report_ir18_list') }}" class="btn btn-ghost"><i class="fa-solid fa-list"></i> IR-18</a>
-        <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Dashboard</a>
+        <a href="{{ url_for('web_invoices.report_ir18_list') }}" class="btn btn-ghost"><i class="fa-solid fa-list"></i> IR-18</a>
+        <a href="{{ url_for('web_invoices.payroll_dashboard') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Dashboard</a>
     </div>
 </div>
 

@@ -146,12 +146,30 @@ class PayrollRuleEngine:
                     pass
             return 0
 
+        if field == "hire_month":
+            hire_date = context.get("hireDate", "")
+            if hire_date:
+                try:
+                    return int(hire_date[5:7])
+                except (ValueError, TypeError):
+                    pass
+            return 0
+
+        if field == "hire_day":
+            hire_date = context.get("hireDate", "")
+            if hire_date:
+                try:
+                    return int(hire_date[8:10])
+                except (ValueError, TypeError):
+                    pass
+            return 0
+
         return field_map.get(field, context.get(field, ""))
 
     @classmethod
     def _parse_value(cls, value_str: str, field: str, context: dict):
         """Convierte el valor de cadena al tipo apropiado según el campo."""
-        numeric_fields = {"salary", "seniority_years", "age", "weekly_hours"}
+        numeric_fields = {"salary", "seniority_years", "age", "weekly_hours", "hire_month", "hire_day"}
         if field in numeric_fields:
             try:
                 return float(value_str)
@@ -225,5 +243,10 @@ class PayrollRuleEngine:
                 errors.append(f"Acción {i + 1}: tipo '{action.get('type')}' no válido.")
             if not action.get("formula"):
                 errors.append(f"Acción {i + 1}: la fórmula es obligatoria.")
+
+        frequency = rule.get("frequency", "always")
+        valid_frequencies = {"once", "annual", "always"}
+        if frequency not in valid_frequencies:
+            errors.append(f"Frecuencia '{frequency}' no válida.")
 
         return {"valid": len(errors) == 0, "errors": errors}

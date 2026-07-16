@@ -34,13 +34,81 @@
     color: white;
 }
 .logic-toggle span { padding: 6px 14px; display: block; }
+
+#help-sidebar {
+    position: fixed; top: 0; right: -440px;
+    width: 420px; max-width: 90vw; height: 100vh;
+    z-index: 1005;
+    background: #ffffff;
+    border-left: 1px solid var(--border-color);
+    box-shadow: -8px 0 30px rgba(0,0,0,0.1);
+    transition: right 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex; flex-direction: column;
+}
+#help-sidebar.open { right: 0; }
+.help-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+.help-header-title {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.95rem; font-weight: 600;
+}
+.help-header-btn {
+    background: none; border: none; cursor: pointer;
+    font-size: 1.2rem; color: var(--text-muted);
+    padding: 4px 8px; border-radius: var(--radius-sm);
+}
+.help-header-btn:hover { background: var(--bg-surface-secondary); }
+.help-body {
+    flex: 1; overflow-y: auto; padding: 24px 20px;
+    font-size: 0.85rem; line-height: 1.6;
+}
+.help-body h3 {
+    font-size: 0.95rem; margin: 24px 0 10px;
+    color: var(--accent-emerald);
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border-color-light);
+}
+.help-body h3:first-child { margin-top: 0; }
+.help-body h4 { font-size: 0.85rem; margin: 16px 0 6px; }
+.help-body table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+.help-body td, .help-body th {
+    padding: 6px 8px; border-bottom: 1px solid var(--border-color-light);
+    text-align: left; vertical-align: top;
+}
+.help-body th { font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+.help-body code {
+    background: var(--bg-surface-secondary);
+    padding: 1px 5px; border-radius: 4px;
+    font-size: 0.8rem; font-family: monospace;
+}
+.help-body .help-example {
+    background: var(--bg-surface-secondary);
+    padding: 12px 14px; border-radius: var(--radius-sm);
+    margin: 10px 0; font-size: 0.82rem;
+    border-left: 3px solid var(--accent-emerald);
+}
+.help-body .help-example code { background: var(--bg-surface); }
+.help-body p { margin: 6px 0; }
+.help-body ul { margin: 4px 0; padding-left: 20px; }
+.help-body li { margin: 3px 0; }
+
+@media (max-width: 500px) {
+    #help-sidebar { width: 100% !important; max-width: 100% !important; right: -100%; }
+}
 </style>
 {% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
 <div class="page-header hr-page-header">
     <h1 class="page-title"><i class="fa-solid fa-code-branch"></i> {% if rule %}Editar{% else %}Nueva{% endif %} Regla</h1>
-    <a href="{{ url_for('web_rrhh.payroll_rules_list') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Reglas</a>
+    <div style="display:flex; gap:8px;">
+        <button type="button" class="btn btn-ghost" onclick="toggleHelpSidebar()"><i class="fa-solid fa-circle-question"></i> Ayuda</button>
+        <a href="{{ url_for('web_rrhh.payroll_rules_list') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Reglas</a>
+    </div>
 </div>
 
 <form method="POST" class="card-table-wrapper" style="padding:24px;">
@@ -96,13 +164,22 @@
         </div>
     </div>
 
+    <div style="margin-bottom:20px;">
+        <label style="font-size:0.82rem; display:block; margin-bottom:4px;">Frecuencia</label>
+        <select name="frequency" class="form-select" style="width:250px;">
+            <option value="always" {% if rule and rule.frequency=='always' %}selected{% endif %}>Siempre (cada nómina que cumpla condiciones)</option>
+            <option value="annual" {% if rule and rule.frequency=='annual' %}selected{% endif %}>Una vez al año</option>
+            <option value="once" {% if rule and rule.frequency=='once' %}selected{% endif %}>Una sola vez</option>
+        </select>
+    </div>
+
     <h3 style="font-size:0.9rem; margin-bottom:8px;">Condiciones</h3>
     <div id="conditionsContainer">
         {% if rule and rule.conditions %}
         {% for cond in rule.conditions %}
         <div class="condition-row">
             <select name="cond_field[]" class="form-select" style="width:150px;">
-                {% set fields = ['department','area','position','salary','salary_type','contract_type','seniority_years','status','workday','cost_center','gender'] %}
+                {% set fields = ['department','area','position','salary','salary_type','contract_type','seniority_years','status','workday','cost_center','gender','hire_month','hire_day'] %}
                 {% for f in fields %}
                 <option value="{{ f }}" {% if cond.field==f %}selected{% endif %}>{{ f }}</option>
                 {% endfor %}
@@ -131,6 +208,8 @@
                 <option value="workday">workday</option>
                 <option value="cost_center">cost_center</option>
                 <option value="gender">gender</option>
+                <option value="hire_month">hire_month</option>
+                <option value="hire_day">hire_day</option>
             </select>
             <select name="cond_op[]" class="form-select" style="width:100px;">
                 <option value="==">==</option><option value="!=">!=</option><option value=">">></option>
@@ -191,6 +270,149 @@
     </div>
 </form>
 
+<aside id="help-sidebar">
+    <div class="help-header">
+        <div class="help-header-title">
+            <i class="fa-solid fa-circle-question"></i>
+            <span>Guía de Reglas de Nómina</span>
+        </div>
+        <button type="button" class="help-header-btn" onclick="toggleHelpSidebar()" title="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="help-body">
+
+        <h3>Campos de condición</h3>
+        <p>Define qué datos del empleado se evalúan. Cada condición compara el campo contra un valor usando un operador.</p>
+        <table>
+            <tr><th>Campo</th><th>Descripción</th><th>Tipo</th></tr>
+            <tr><td><code>department</code></td><td>Departamento del empleado</td><td>texto</td></tr>
+            <tr><td><code>area</code></td><td>Área del empleado</td><td>texto</td></tr>
+            <tr><td><code>position</code></td><td>Cargo / posición</td><td>texto</td></tr>
+            <tr><td><code>salary</code></td><td>Salario base mensual</td><td>número</td></tr>
+            <tr><td><code>salary_type</code></td><td>Tipo de salario (fijo, variable, mixto)</td><td>texto</td></tr>
+            <tr><td><code>contract_type</code></td><td>Tipo de contrato</td><td>texto</td></tr>
+            <tr><td><code>seniority_years</code></td><td>Años cumplidos desde la fecha de ingreso</td><td>número</td></tr>
+            <tr><td><code>status</code></td><td>Estatus del empleado (activo, suspendido, etc.)</td><td>texto</td></tr>
+            <tr><td><code>workday</code></td><td>Tipo de jornada (completa, media, etc.)</td><td>texto</td></tr>
+            <tr><td><code>cost_center</code></td><td>Centro de costo</td><td>texto</td></tr>
+            <tr><td><code>gender</code></td><td>Género</td><td>texto</td></tr>
+            <tr><td><code>hire_month</code></td><td>Mes de aniversario (1-12). Útil para bonos vacacionales</td><td>número</td></tr>
+            <tr><td><code>hire_day</code></td><td>Día del aniversario (1-31)</td><td>número</td></tr>
+        </table>
+
+        <h3>Operadores</h3>
+        <table>
+            <tr><th>Operador</th><th>Significado</th><th>Ejemplo</th></tr>
+            <tr><td><code>==</code></td><td>Igual a</td><td><code>department == "Ventas"</code></td></tr>
+            <tr><td><code>!=</code></td><td>Distinto de</td><td><code>department != "Administración"</code></td></tr>
+            <tr><td><code>&gt;</code></td><td>Mayor que</td><td><code>seniority_years &gt; 5</code></td></tr>
+            <tr><td><code>&lt;</code></td><td>Menor que</td><td><code>salary &lt; 30000</code></td></tr>
+            <tr><td><code>&gt;=</code></td><td>Mayor o igual que</td><td><code>seniority_years &gt;= 1</code></td></tr>
+            <tr><td><code>&lt;=</code></td><td>Menor o igual que</td><td><code>salary &lt;= 50000</code></td></tr>
+            <tr><td><code>contains</code></td><td>Contiene el texto (búsqueda parcial)</td><td><code>position contains "Supervisor"</code></td></tr>
+            <tr><td><code>in</code></td><td>Está en una lista separada por comas</td><td><code>department in "Ventas,Marketing"</code></td></tr>
+            <tr><td><code>not_in</code></td><td>No está en una lista separada por comas</td><td><code>department not_in "Gerencia,RRHH"</code></td></tr>
+        </table>
+
+        <h3>Tipos de acción</h3>
+        <p>Define qué ocurre cuando se cumplen las condiciones de la regla.</p>
+        <table>
+            <tr><th>Acción</th><th>Efecto</th><th>Concepto en nómina</th></tr>
+            <tr><td><code>set_bonus</code></td><td>Agrega un bono al empleado</td><td>BONIFICACION</td></tr>
+            <tr><td><code>set_commission</code></td><td>Agrega una comisión</td><td>COMISION</td></tr>
+            <tr><td><code>set_deduction</code></td><td>Agrega una deducción</td><td>OTRAS_DEDUCCIONES</td></tr>
+            <tr><td><code>set_overtime_rate</code></td><td>Sobreescribe la tasa de horas extras</td><td>HORAS_EXTRA (tasa)</td></tr>
+            <tr><td><code>set_other_income</code></td><td>Agrega otro ingreso no clasificado</td><td>OTROS_INGRESOS</td></tr>
+            <tr><td><code>set_other_deduction</code></td><td>Agrega otra deducción no clasificada</td><td>OTRAS_DEDUCCIONES</td></tr>
+        </table>
+
+        <h3>Variables de fórmula</h3>
+        <p>Disponibles dentro del campo <strong>Fórmula</strong> de cada acción. Se reemplazan automáticamente con los datos del empleado.</p>
+        <table>
+            <tr><th>Variable</th><th>Descripción</th><th>Ejemplo</th></tr>
+            <tr><td><code>salary</code></td><td>Salario base mensual del empleado</td><td><code>salary * 0.50</code> → 50% del salario</td></tr>
+            <tr><td><code>days_worked</code></td><td>Días laborados en el período (default: 23.83)</td><td><code>days_worked * 200</code> → bono por día</td></tr>
+            <tr><td><code>seniority_years</code></td><td>Años de antigüedad calculados desde la fecha de ingreso</td><td><code>salary * seniority_years * 0.05</code> → 5% por año</td></tr>
+            <tr><td><code>age</code></td><td>Edad del empleado calculada desde la fecha de nacimiento</td><td><code>age >= 60 ? 2000 : 0</code> (no soporta condicionales)</td></tr>
+        </table>
+        <p><strong>Operadores soportados:</strong> <code>+</code> <code>-</code> <code>*</code> <code>/</code> <code>(</code> <code>)</code></p>
+        <div class="help-example">
+            <strong>Ejemplos de fórmulas:</strong><br>
+            <code>salary * 0.10</code> — Bono del 10% del salario<br>
+            <code>5000</code> — Monto fijo de RD$5,000<br>
+            <code>salary * 0.05 + 2000</code> — 5% del salario + RD$2,000 fijos<br>
+            <code>days_worked * 150</code> — RD$150 por día trabajado
+        </div>
+
+        <h3>Lógica de condiciones (AND / OR)</h3>
+        <p><strong>AND (Y):</strong> Todas las condiciones deben cumplirse para que la regla se active.</p>
+        <p><strong>OR (O):</strong> Con que se cumpla una sola condición, la regla se activa.</p>
+        <div class="help-example">
+            <strong>Ejemplo AND:</strong><br>
+            <code>department == "Ventas"</code> Y <code>seniority_years >= 1</code><br>
+            → Solo empleados de Ventas con 1+ año reciben el bono.
+        </div>
+
+        <h3>Ámbito (Scope)</h3>
+        <p><strong>Global:</strong> Aplica a todos los empleados activos.</p>
+        <p><strong>Por grupo de nómina:</strong> Aplica solo a empleados del grupo seleccionado.</p>
+        <p><strong>Por empleado:</strong> Aplica únicamente al empleado seleccionado.</p>
+
+        <h3>Frecuencia</h3>
+        <p>Controla cuántas veces se aplica la regla en el tiempo:</p>
+        <ul>
+            <li><strong>Siempre:</strong> Se aplica en cada nómina donde se cumplan las condiciones (comportamiento normal).</li>
+            <li><strong>Una vez al año:</strong> Se aplica solo una vez por año calendario por empleado. Ideal para bonos vacacionales o de aniversario.</li>
+            <li><strong>Una sola vez:</strong> Se aplica una única vez en toda la historia laboral del empleado. Ideal para bonos de bienvenida o primer año.</li>
+        </ul>
+
+        <h3>Prioridad</h3>
+        <p>Número que define el orden de evaluación. <strong>Menor número = mayor prioridad</strong>. Si dos reglas aplican al mismo concepto, la de mayor prioridad (número más bajo) se evalúa primero.</p>
+
+        <h3>Ejemplos prácticos</h3>
+
+        <div class="help-example">
+            <strong>🎯 Bono vacacional anual</strong><br>
+            Un bono del 50% del salario cada año en el mes de aniversario.<br>
+            <strong>Condiciones:</strong> <code>hire_month == 7</code> AND <code>seniority_years >= 1</code><br>
+            <strong>Frecuencia:</strong> Una vez al año<br>
+            <strong>Acción:</strong> <code>set_bonus</code> con fórmula <code>salary * 0.50</code>
+        </div>
+
+        <div class="help-example">
+            <strong>🎯 Bono por 5 años de antigüedad</strong><br>
+            Un bono único de RD$10,000 al cumplir exactamente 5 años.<br>
+            <strong>Condiciones:</strong> <code>seniority_years == 5</code><br>
+            <strong>Frecuencia:</strong> Una sola vez<br>
+            <strong>Acción:</strong> <code>set_bonus</code> con fórmula <code>10000</code>
+        </div>
+
+        <div class="help-example">
+            <strong>🎯 Comisión para departamento de Ventas</strong><br>
+            Comisión del 5% sobre el salario para todos los empleados de Ventas.<br>
+            <strong>Condiciones:</strong> <code>department == "Ventas"</code><br>
+            <strong>Frecuencia:</strong> Siempre<br>
+            <strong>Acción:</strong> <code>set_commission</code> con fórmula <code>salary * 0.05</code>
+        </div>
+
+        <div class="help-example">
+            <strong>🎯 Deducción para empleados con salario alto</strong><br>
+            Deducción fija de RD$2,000 para empleados con salario superior a RD$100,000.<br>
+            <strong>Condiciones:</strong> <code>salary > 100000</code><br>
+            <strong>Frecuencia:</strong> Siempre<br>
+            <strong>Acción:</strong> <code>set_deduction</code> con fórmula <code>2000</code>
+        </div>
+
+        <div class="help-example">
+            <strong>🎯 Bono de bienvenida primer año</strong><br>
+            RD$5,000 al cumplir el primer año en la empresa, una sola vez.<br>
+            <strong>Condiciones:</strong> <code>seniority_years == 1</code><br>
+            <strong>Frecuencia:</strong> Una sola vez<br>
+            <strong>Acción:</strong> <code>set_bonus</code> con fórmula <code>5000</code>
+        </div>
+
+    </div>
+</aside>
+
 <script>
 function addCondition() {
     var container = document.getElementById('conditionsContainer');
@@ -202,7 +424,7 @@ function addCondition() {
         + '<option value="salary_type">salary_type</option><option value="contract_type">contract_type</option>'
         + '<option value="seniority_years">seniority_years</option><option value="status">status</option>'
         + '<option value="workday">workday</option><option value="cost_center">cost_center</option>'
-        + '<option value="gender">gender</option></select>'
+        + '<option value="gender">gender</option><option value="hire_month">hire_month</option><option value="hire_day">hire_day</option></select>'
         + '<select name="cond_op[]" class="form-select" style="width:100px;">'
         + '<option value="==">==</option><option value="!=">!=</option><option value=">">></option>'
         + '<option value="<"><</option><option value=">=">>=</option><option value="<="><=</option>'
@@ -224,6 +446,11 @@ function addAction() {
         + '<input type="text" name="action_desc[]" class="form-input" style="width:150px;" placeholder="Descripción">'
         + '<button type="button" class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()" style="color:var(--accent-red);"><i class="fa-solid fa-xmark"></i></button>';
     container.appendChild(row);
+}
+
+function toggleHelpSidebar() {
+    var sidebar = document.getElementById('help-sidebar');
+    sidebar.classList.toggle('open');
 }
 </script>
 {% endblock %}

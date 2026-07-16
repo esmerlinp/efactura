@@ -1012,6 +1012,66 @@ def get_active_rules_for_scope(owner_uid: str, scope: str = "global",
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# PAYROLL RULE LOG (control de one-shot / annual)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def rule_log_exists(owner_uid: str, rule_id: str, employee_id: str,
+                    year: int | None = None, sandbox: bool = True) -> bool:
+    """Verifica si ya se aplicó una regla one-shot a un empleado.
+    
+    Si year es None, busca cualquier registro (one-shot forever).
+    Si year tiene valor, busca solo en ese año (annual).
+    """
+    if not firebase_initialized or db_firestore is None:
+        return False
+    try:
+        coll_path = _hr_collection(owner_uid, "payroll_rule_log", sandbox)
+        query = db_firestore.collection(coll_path) \
+            .where("ruleId", "==", rule_id) \
+            .where("employeeId", "==", employee_id)
+        if year is not None:
+            query = query.where("year", "==", year)
+        docs = query.limit(1).get()
+        return len(docs) > 0
+    except Exception as e:
+        print(f"⚠️ HRDataService.rule_log_exists: {e}")
+        return False
+
+
+def save_rule_log(owner_uid: str, rule_id: str, employee_id: str,
+                  year: int | None, period_key: str, amount: float,
+                  applied_at: str, sandbox: bool = True):
+    """Registra la aplicación de una regla one-shot para un empleado."""
+    import uuid
+    log_id = str(uuid.uuid4())
+    data = {
+        "ruleId": rule_id,
+        "employeeId": employee_id,
+        "periodKey": period_key,
+        "amount": amount,
+        "appliedAt": applied_at,
+    }
+    if year is not None:
+        data["year"] = year
+    _save(owner_uid, "payroll_rule_log", log_id, data, sandbox)
+
+
+def delete_rule_logs_for_rule(owner_uid: str, rule_id: str, sandbox: bool = True):
+    """Elimina todos los logs de una regla (útil al eliminar la regla)."""
+    if not firebase_initialized or db_firestore is None:
+        return
+    try:
+        coll_path = _hr_collection(owner_uid, "payroll_rule_log", sandbox)
+        docs = db_firestore.collection(coll_path) \
+            .where("ruleId", "==", rule_id) \
+            .get()
+        for d in docs:
+            d.reference.delete()
+    except Exception as e:
+        print(f"⚠️ HRDataService.delete_rule_logs: {e}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # GARNISHMENTS (embargos salariales)
 # ═══════════════════════════════════════════════════════════════════════════
 

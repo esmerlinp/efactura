@@ -2,10 +2,10 @@
 {% block title %}Aportes TSS — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
-<div class="breadcrumb"><a href="{{ url_for('web_rrhh.reports_index') }}">Reportes de RRHH</a> <span class="sep">›</span> <span>Aportes TSS</span></div>
+<div class="breadcrumb"><a href="{{ url_for('web_invoices.reports_index') }}">Reportes de RRHH</a> <span class="sep">›</span> <span>Aportes TSS</span></div>
 <div class="page-header hr-page-header">
     <h1 class="page-title"><i class="fa-solid fa-shield-halved"></i> Aportes TSS {{ year }}</h1>
-    <a href="{{ url_for('web_rrhh.reports_index') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Reportes</a>
+    <a href="{{ url_for('web_invoices.reports_index') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Reportes</a>
 </div>
 <div class="card-table-wrapper hr-table-card">
     <div class="table-responsive">

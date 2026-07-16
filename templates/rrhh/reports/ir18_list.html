@@ -2,7 +2,7 @@
 {% block title %}IR-18 — Certificados de Retención — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
-<div class="breadcrumb"><a href="{{ url_for('web_rrhh.reports_index') }}">Reportes de RRHH</a> <span class="sep">›</span> <span>Certificados IR-18</span></div>
+<div class="breadcrumb"><a href="{{ url_for('web_invoices.reports_index') }}">Reportes de RRHH</a> <span class="sep">›</span> <span>Certificados IR-18</span></div>
 <div class="page-header hr-page-header">
     <h1 class="page-title"><i class="fa-solid fa-file-invoice"></i> Certificados IR-18</h1>
     <div style="display:flex; gap:8px;">
@@ -11,7 +11,7 @@
             <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
             {% endfor %}
         </select>
-        <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost">
+        <a href="{{ url_for('web_invoices.payroll_dashboard') }}" class="btn btn-ghost">
             <i class="fa-solid fa-arrow-left"></i> Dashboard
         </a>
     </div>
@@ -50,7 +50,7 @@
                 <td style="text-align:right;">RD$ {{ "{:,.2f}".format(y.sfsEmployee|float) }}</td>
                 <td style="text-align:right; color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(y.netSalary|float) }}</td>
                 <td>
-                    <a href="{{ url_for('web_rrhh.report_ir18_view', employee_id=e.id, year=year) }}" class="btn btn-sm btn-primary">
+                    <a href="{{ url_for('web_invoices.report_ir18_view', employee_id=e.id, year=year) }}" class="btn btn-sm btn-primary">
                         <i class="fa-solid fa-eye"></i> Ver IR-18
                     </a>
                 </td>

@@ -431,7 +431,7 @@ class ChatbotService:
 """
 
     @classmethod
-    def ask_chatbot(cls, owner_uid, message, history=None, sandbox=True):
+    def ask_chatbot(cls, owner_uid, user_uid, message, history=None, sandbox=True):
         if history is None:
             history = []
 
@@ -500,21 +500,23 @@ class ChatbotService:
                 "message": "⚠️ **Clave de API de OpenAI no configurada.**\n\nPor favor, introduce tu clave secreta de OpenAI en el panel de **Administrar Empresa** (sección Datos del Emisor) o solicita al administrador del servidor que la agregue al archivo `.env` como `OPENAI_API_KEY`."
             }
 
-        FREE_MONTHLY_LIMIT = 50
-        current_month = datetime.now(timezone.utc).strftime("%Y-%m")
+        DAILY_LIMIT = 20
+        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
         if using_global_key:
-            last_reset = profile.get("chatbotLastReset", "")
-            usage_count = int(profile.get("chatbotUsageCount", 0))
-            if last_reset != current_month:
+            user_profile = DatabaseService.get_user_profile(user_uid) or {}
+            last_reset = user_profile.get("chatbotDailyReset", "")
+            usage_count = int(user_profile.get("chatbotDailyUsageCount", 0))
+            if last_reset != today_str:
                 usage_count = 0
-                profile["chatbotUsageCount"] = 0
-                profile["chatbotLastReset"] = current_month
-                DatabaseService.save_company_profile(owner_uid, profile)
-            if usage_count >= FREE_MONTHLY_LIMIT:
+                user_profile["chatbotDailyUsageCount"] = 0
+                user_profile["chatbotDailyReset"] = today_str
+                DatabaseService.save_user_profile(user_uid, user_profile)
+            if usage_count >= DAILY_LIMIT:
                 return {
                     "success": False,
-                    "message": f"⚠️ **Límite de consultas mensuales alcanzado (Cuota del Servidor).**\n\nHaz consumido tus **{FREE_MONTHLY_LIMIT} consultas de cortesía** de este mes.\n\nPara seguir disfrutando del asistente IA de forma **ilimitada**, introduce tu propia clave de API de OpenAI en la pantalla de [Configuración de Empresa](/company/settings) o solicita una ampliación de cuota a soporte."
+                    "message": f"⚠️ **Límite de consultas diarias alcanzado (Cuota del Servidor).**\n\nHaz consumido tus **{DAILY_LIMIT} consultas de cortesía** de hoy. El límite se reinicia cada día.\n\nPara seguir disfrutando del asistente IA de forma **ilimitada**, introduce tu propia clave de API de OpenAI en la pantalla de [Configuración de Empresa](/company/settings) o solicita una ampliación de cuota a soporte.",
+                    "usage_info": {"used": DAILY_LIMIT, "limit": DAILY_LIMIT}
                 }
 
         product = get_product_name()
@@ -588,12 +590,18 @@ EMPRESA ACTUAL:
 
                     if using_global_key:
                         try:
-                            profile["chatbotUsageCount"] = int(profile.get("chatbotUsageCount", 0)) + 1
-                            DatabaseService.save_company_profile(owner_uid, profile)
+                            user_profile = DatabaseService.get_user_profile(user_uid) or {}
+                            user_profile["chatbotDailyUsageCount"] = int(user_profile.get("chatbotDailyUsageCount", 0)) + 1
+                            user_profile["chatbotDailyReset"] = today_str
+                            DatabaseService.save_user_profile(user_uid, user_profile)
+                            usage_info = {"used": user_profile["chatbotDailyUsageCount"], "limit": DAILY_LIMIT}
                         except Exception as ex:
                             print(f"⚠️ Error al guardar incremento de cuota en Firestore: {ex}")
+                            usage_info = None
+                    else:
+                        usage_info = None
 
-                    return {"success": True, "message": assistant_reply}
+                    return {"success": True, "message": assistant_reply, "usage_info": usage_info}
 
                 api_messages.append(msg)
 

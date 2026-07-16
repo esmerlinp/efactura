@@ -90,7 +90,7 @@
             Reportes de nómina, empleados y obligaciones ante el Ministerio de Trabajo.
         </p>
     </div>
-    <a href="{{ url_for('web_rrhh.reports_index') }}" class="btn btn-ghost"><i class="fa-solid fa-chart-pie"></i> Reportes</a>
+    <a href="{{ url_for('web_invoices.reports_index') }}" class="btn btn-ghost"><i class="fa-solid fa-chart-pie"></i> Reportes</a>
 </div>
 
 <div class="report-category-grid">
@@ -104,13 +104,13 @@
         <div class="card-desc">Información y exportación de datos del personal.</div>
         <ul class="report-list">
             <li class="done">
-                <a href="{{ url_for('web_rrhh.employee_export') }}"><i class="fa-solid fa-download" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Exportar empleados (XLSX)</a>
+                <a href="{{ url_for('web_invoices.employee_export') }}"><i class="fa-solid fa-download" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Exportar empleados (XLSX)</a>
             </li>
             <li class="done">
-                <a href="{{ url_for('web_rrhh.org_chart') }}"><i class="fa-solid fa-sitemap" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Organigrama</a>
+                <a href="{{ url_for('web_invoices.org_chart') }}"><i class="fa-solid fa-sitemap" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Organigrama</a>
             </li>
             <li class="done">
-                <a href="{{ url_for('web_rrhh.attendance') }}"><i class="fa-solid fa-clock" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Reporte de asistencia</a>
+                <a href="{{ url_for('web_invoices.attendance') }}"><i class="fa-solid fa-clock" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Reporte de asistencia</a>
             </li>
         </ul>
     </div>
@@ -125,28 +125,28 @@
         <div class="card-desc">Desgloses, contribuciones y certificados de nómina.</div>
         <ul class="report-list">
             <li class="done">
-                <a href="{{ url_for('web_rrhh.report_department') }}"><i class="fa-solid fa-building" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Resumen por Departamento</a>
+                <a href="{{ url_for('web_invoices.report_department') }}"><i class="fa-solid fa-building" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Resumen por Departamento</a>
             </li>
             <li class="done">
-                <a href="{{ url_for('web_rrhh.report_tss') }}"><i class="fa-solid fa-shield-halved" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Aportes TSS Mensuales</a>
+                <a href="{{ url_for('web_invoices.report_tss') }}"><i class="fa-solid fa-shield-halved" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Aportes TSS Mensuales</a>
             </li>
             <li class="done">
-                <a href="{{ url_for('web_rrhh.report_comparative') }}"><i class="fa-solid fa-scale-balanced" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Comparativa de Períodos</a>
+                <a href="{{ url_for('web_invoices.report_comparative') }}"><i class="fa-solid fa-scale-balanced" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Comparativa de Períodos</a>
             </li>
             <li class="done">
-                <a href="{{ url_for('web_rrhh.report_ir18_list') }}"><i class="fa-solid fa-receipt" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Certificados IR-18</a>
+                <a href="{{ url_for('web_invoices.report_ir18_list') }}"><i class="fa-solid fa-receipt" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Certificados IR-18</a>
             </li>
             <li class="done">
-                <a href="{{ url_for('web_rrhh.report_ir18_validation') }}"><i class="fa-solid fa-check-circle" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Validación IR-18</a>
+                <a href="{{ url_for('web_invoices.report_ir18_validation') }}"><i class="fa-solid fa-check-circle" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Validación IR-18</a>
             </li>
             <li class="done">
-                <a href="{{ url_for('web_rrhh.report_net_payroll') }}"><i class="fa-solid fa-file-invoice" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Nómina Neta sin Provisiones</a>
+                <a href="{{ url_for('web_invoices.report_net_payroll') }}"><i class="fa-solid fa-file-invoice" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Nómina Neta sin Provisiones</a>
             </li>
             <li class="done">
-                <a href="{{ url_for('web_rrhh.report_isr_retentions') }}"><i class="fa-solid fa-file-invoice-dollar" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Retenciones ISR Nómina</a>
+                <a href="{{ url_for('web_invoices.report_isr_retentions') }}"><i class="fa-solid fa-file-invoice-dollar" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Retenciones ISR Nómina</a>
             </li>
             <li class="done">
-                <a href="{{ url_for('web_rrhh.report_what_if') }}"><i class="fa-solid fa-chart-line" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Simulador What-If</a>
+                <a href="{{ url_for('web_invoices.report_what_if') }}"><i class="fa-solid fa-chart-line" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Simulador What-If</a>
             </li>
         </ul>
     </div>
@@ -161,22 +161,22 @@
         <div class="card-desc">Formularios DGT para carga en SIRLA.</div>
         <ul class="report-list">
             <li class="done">
-                <a href="{{ url_for('web_rrhh.dgt3_view') }}"><i class="fa-solid fa-users" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> DGT-3: Personal Fijo</a>
+                <a href="{{ url_for('web_invoices.dgt3_view') }}"><i class="fa-solid fa-users" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> DGT-3: Personal Fijo</a>
             </li>
             <li class="done">
-                <a href="{{ url_for('web_rrhh.dgt4_view') }}"><i class="fa-solid fa-arrows-rotate" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> DGT-4: Cambios en Personal Fijo</a>
+                <a href="{{ url_for('web_invoices.dgt4_view') }}"><i class="fa-solid fa-arrows-rotate" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> DGT-4: Cambios en Personal Fijo</a>
             </li>
             <li class="done">
-                <a href="{{ url_for('web_rrhh.dgt2_view') }}"><i class="fa-solid fa-clock" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> DGT-2: Horas y Vacaciones</a>
+                <a href="{{ url_for('web_invoices.dgt2_view') }}"><i class="fa-solid fa-clock" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> DGT-2: Horas y Vacaciones</a>
             </li>
             <li class="done">
-                <a href="{{ url_for('web_rrhh.dgt5_view') }}"><i class="fa-solid fa-briefcase" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> DGT-5: Personal Ocasional</a>
+                <a href="{{ url_for('web_invoices.dgt5_view') }}"><i class="fa-solid fa-briefcase" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> DGT-5: Personal Ocasional</a>
             </li>
             <li class="done">
-                <a href="{{ url_for('web_rrhh.dgt9_view') }}"><i class="fa-solid fa-pause-circle" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> DGT-9: Suspensión</a>
+                <a href="{{ url_for('web_invoices.dgt9_view') }}"><i class="fa-solid fa-pause-circle" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> DGT-9: Suspensión</a>
             </li>
             <li class="done">
-                <a href="{{ url_for('web_rrhh.dgt12_view') }}"><i class="fa-solid fa-play-circle" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> DGT-12: Cese de Suspensión</a>
+                <a href="{{ url_for('web_invoices.dgt12_view') }}"><i class="fa-solid fa-play-circle" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> DGT-12: Cese de Suspensión</a>
             </li>
         </ul>
     </div>
