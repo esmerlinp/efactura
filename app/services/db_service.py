@@ -2114,18 +2114,16 @@ class DatabaseService:
         # Validar que exista un período fiscal abierto para el mes actual
         try:
             from app.services.fiscal_period_service import FiscalPeriodService
-            fiscal_periods = FiscalPeriodService.list_periods(owner_uid)
             today = datetime.now(timezone.utc)
             period_key = f"{today.year}-{today.month:02d}"
-            period_open = any(
-                p.get("id", "") == period_key and p.get("status") == "open"
-                for p in fiscal_periods
-            )
-            if fiscal_periods and not period_open:
+            period = FiscalPeriodService.get_period(owner_uid, today.year, today.month)
+            if period and period.get("status") == "closed":
                 raise ValueError(
-                    f"El período fiscal {period_key} no está abierto. "
-                    "No se pueden emitir comprobantes hasta que se abra el período."
+                    f"El período fiscal {period_key} está cerrado. "
+                    "No se pueden emitir comprobantes en períodos cerrados."
                 )
+            if not period:
+                FiscalPeriodService.ensure_period_exists(owner_uid, today.year, today.month)
         except ValueError:
             raise
         except Exception:

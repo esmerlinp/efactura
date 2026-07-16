@@ -135,7 +135,8 @@
         <button type="button" id="btn-create-client-modal" style="position:absolute;top:0;right:0;background:none;border:none;color:var(--accent-emerald);font-size:0.72rem;font-weight:600;cursor:pointer;padding:0;">+ Nuevo</button>
       </div>
       <div class="inp-group" style="max-width:180px;"><label>RNC / Cédula</label><input type="text" id="client-rnc-input" name="clientRNC" class="form-input" placeholder="Opcional" style="font-family:monospace;" value="{{ invoice.clientRNC if invoice else '' }}" {% if is_referencing %}readonly{% endif %}></div>
-      <div class="inp-group" style="max-width:160px;"><label>Fecha creación</label><input type="date" id="due-date" name="dueDate" class="form-input" required value="{{ default_due_date }}"></div>
+      <div class="inp-group" style="max-width:160px;"><label>Fecha de emisión</label><input type="date" id="invoice-date" name="date" class="form-input" value="{{ invoice.date[:10] if invoice and invoice.date else default_date }}"></div>
+      <div class="inp-group" style="max-width:160px;"><label>Fecha de vencimiento</label><input type="date" id="due-date" name="dueDate" class="form-input" required value="{{ default_due_date }}"></div>
       <div class="inp-group" style="max-width:160px;"><label>Condición</label><select id="payment-type-select" name="paymentType" class="form-select"><option value="Contado" {% if not invoice or invoice.paymentType=='Contado' %}selected{% endif %}>Contado</option><option value="Crédito" {% if invoice and invoice.paymentType=='Crédito' %}selected{% endif %}>Crédito</option></select></div>
     </div>
     <input type="hidden" name="paymentMethod" value="{% if invoice %}{{ invoice.paymentMethod or 'Efectivo' }}{% else %}Efectivo{% endif %}">

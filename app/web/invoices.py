@@ -1453,9 +1453,14 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             random_num = f"{random.randint(1, 999999):06d}"
             inv_number = f"COT-{random_num}" if is_quotation else f"FAC-{random_num}"
             target_invoice_id = str(uuid.uuid4())
+            form_date = request.form.get('date')
+            if form_date:
+                inv_date_value = form_date + " " + datetime.now(timezone(timedelta(hours=-4))).strftime("%H:%M:%S")
+            else:
+                inv_date_value = datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d %H:%M:%S")
             invoice_dict = {
                 "invoiceNumber": inv_number,
-                "date": datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d %H:%M:%S"),
+                "date": inv_date_value,
                 "dueDate": due_date,
                 "clientId": client_id,
                 "clientName": client_name,
@@ -1748,7 +1753,8 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
     cost_centers = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox)
     active_cost_centers = [cc for cc in cost_centers if cc.get('isActive', True)]
 
-    default_due_date = existing_invoice.get('dueDate', (datetime.now(timezone.utc) + timedelta(days=30)).strftime("%Y-%m-%d")) if existing_invoice else (datetime.now(timezone.utc) + timedelta(days=30)).strftime("%Y-%m-%d")
+    default_date = (existing_invoice.get('date', datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d %H:%M:%S"))[:10] if existing_invoice else datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d"))
+    default_due_date = existing_invoice.get('dueDate', (datetime.now(timezone(timedelta(hours=-4))) + timedelta(days=30)).strftime("%Y-%m-%d")) if existing_invoice else (datetime.now(timezone(timedelta(hours=-4))) + timedelta(days=30)).strftime("%Y-%m-%d")
 
     # --- ECF types: intersección de tipos de factura de venta × régimen del emisor ---
     profile = DatabaseService.get_company_profile(owner_uid)
@@ -1775,6 +1781,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         clients=clients,
         catalog_json=catalog_json,
         clients_json=clients_json,
+        default_date=default_date,
         default_due_date=default_due_date,
         warehouses=warehouses,
         branches=branches,
