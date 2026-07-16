@@ -161,15 +161,15 @@
                     <td><span style="font-family: monospace; font-size: 0.85rem;">{{ contract.clientRNC }}</span></td>
                     <td><span style="color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(contract.amount) }}</span>
                     </td>
-                    <td><span class="badge badge-secondary" style="font-weight: 500;">{{ contract.recurrenceInterval |
-                            capitalize }}</span></td>
-                    <td><span style="font-size: 0.9rem; font-weight: 500; color: var(--text-secondary);"><i
-                                class="fa-solid fa-calendar-days" style="margin-right: 4px;"></i> {{
+<td><span class="badge badge-secondary" style="font-size: 0.7rem; font-weight: 400;">{{ contract.recurrenceInterval |
+                             capitalize }}</span></td>
+<td><span style="font-size: 0.8rem; font-weight: 400; color: var(--text-secondary);"><i
+                                 class="fa-solid fa-calendar-days" style="margin-right: 4px;"></i> {{
                             contract.nextBillingDate }}</span></td>
                     <td>
                         {% set s = contract.status %}
                         <span id="status-badge-{{ contract.id }}" class="badge"
-                            style="font-weight: 600; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem;
+                            style="font-weight: 400; padding: 4px 10px; border-radius: 20px; font-size: 0.7rem;
                             {% if s == 'Activo' %}background: rgba(22,163,74,0.12); color: #16a34a;
                             {% elif s == 'Borrador' %}background: rgba(100,116,139,0.12); color: #64748b;
                             {% elif s == 'Pendiente de Aprobación' %}background: rgba(245,158,11,0.12); color: #d97706;
