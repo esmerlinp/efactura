@@ -743,6 +743,7 @@ def create_app():
     from app.api.v1.prospects import api_prospects_bp
     from app.api.v1.accounting import api_accounting_bp
     from app.api.v1.liquidacion import api_liquidacion_bp
+    from app.api.v1.supplier_invoices import api_supplier_invoices_bp
     
     app.register_blueprint(api_expenses_bp, url_prefix='/api/v1')
     app.register_blueprint(api_invoices_bp, url_prefix='/api/v1')
@@ -753,6 +754,7 @@ def create_app():
     app.register_blueprint(api_prospects_bp, url_prefix='/api/v1')
     app.register_blueprint(api_accounting_bp, url_prefix='/api/v1')
     app.register_blueprint(api_liquidacion_bp, url_prefix='/api/v1')
+    app.register_blueprint(api_supplier_invoices_bp, url_prefix='/api/v1')
 
     # 2. Web UI Blueprints
     from app.web.auth import web_auth_bp
