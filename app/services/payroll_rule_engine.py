@@ -116,6 +116,13 @@ class PayrollRuleEngine:
             "nationality": context.get("nationality", 1),
             "gender": context.get("gender", ""),
             "marital_status": context.get("maritalStatus", ""),
+            "weekly_hours": int(context.get("weeklyHours", 44)),
+            "education_level": int(context.get("educationLevel", 0)),
+            "payment_method": context.get("paymentMethod", ""),
+            "work_shift": int(context.get("workShift", 1)),
+            "prorated_salary": float(context.get("proratedSalary", 0)),
+            "overtime_hours": float(context.get("overtimeHours", 0)),
+            "days_in_period": float(context.get("daysInPeriod", 23.83)),
         }
 
         if field == "seniority_years":
@@ -164,12 +171,29 @@ class PayrollRuleEngine:
                     pass
             return 0
 
+        if field == "is_anniversary_month":
+            return int(context.get("isAnniversaryMonth", 0))
+
+        if field == "months_since_hire":
+            hire_date = context.get("hireDate", "")
+            if hire_date:
+                try:
+                    hd = datetime.strptime(hire_date[:10], "%Y-%m-%d").date()
+                    today = dt_date.today()
+                    return (today.year - hd.year) * 12 + (today.month - hd.month)
+                except (ValueError, TypeError):
+                    pass
+            return 0
+
+        if field == "accumulated_ordinary_salary":
+            return float(context.get("accumulatedOrdinarySalary", 0))
+
         return field_map.get(field, context.get(field, ""))
 
     @classmethod
     def _parse_value(cls, value_str: str, field: str, context: dict):
         """Convierte el valor de cadena al tipo apropiado según el campo."""
-        numeric_fields = {"salary", "seniority_years", "age", "weekly_hours", "hire_month", "hire_day"}
+        numeric_fields = {"salary", "seniority_years", "age", "weekly_hours", "hire_month", "hire_day", "accumulated_ordinary_salary", "is_anniversary_month", "nationality", "education_level", "work_shift", "months_since_hire", "prorated_salary", "overtime_hours", "days_in_period"}
         if field in numeric_fields:
             try:
                 return float(value_str)
@@ -181,13 +205,17 @@ class PayrollRuleEngine:
     def _evaluate_formula(cls, formula: str, context: dict) -> float:
         """Evalúa una fórmula matemática simple usando el contexto del empleado.
 
-        Soporta: salary, seniority_years, age, days_worked, y operadores + - * / ( )
+        Soporta: salary, seniority_years, age, days_worked, weekly_hours,
+                 education_level, hourly_rate, months_since_hire,
+                 prorated_salary, overtime_hours, days_in_period,
+                 y operadores + - * / ( )
 
         Ejemplos:
             "salary * 0.10"
             "5000"
-            "salary * 0.05 + 2000"
-            "days_worked * 500"
+            "hourly_rate * days_worked * 8"
+            "salary * (weekly_hours / 40)"
+            "overtime_hours * hourly_rate * 1.35"
         """
         formula = formula.strip()
         if not formula:
@@ -199,6 +227,15 @@ class PayrollRuleEngine:
 
         try:
             expr = formula
+            # Reemplazar primero variables compuestas (contienen substring de otras)
+            expr = expr.replace("accumulated_ordinary_salary", str(float(context.get("accumulatedOrdinarySalary", 0))))
+            expr = expr.replace("prorated_salary", str(float(context.get("proratedSalary", 0))))
+            expr = expr.replace("overtime_hours", str(float(context.get("overtimeHours", 0))))
+            expr = expr.replace("days_in_period", str(float(context.get("daysInPeriod", 23.83))))
+            expr = expr.replace("weekly_hours", str(float(context.get("weeklyHours", 44))))
+            expr = expr.replace("education_level", str(float(context.get("educationLevel", 0))))
+            expr = expr.replace("hourly_rate", str(float(context.get("hourlyRate", 0))))
+            expr = expr.replace("months_since_hire", str(float(cls._resolve_field("months_since_hire", context))))
             expr = expr.replace("salary", str(salary))
             expr = expr.replace("days_worked", str(days_worked))
             expr = re.sub(r'seniority_years', str(cls._resolve_field("seniority_years", context)), expr)
@@ -248,5 +285,9 @@ class PayrollRuleEngine:
         valid_frequencies = {"once", "annual", "always"}
         if frequency not in valid_frequencies:
             errors.append(f"Frecuencia '{frequency}' no válida.")
+
+        trigger_month = rule.get("triggerMonth", 0)
+        if not isinstance(trigger_month, int) or trigger_month < 0 or trigger_month > 12:
+            errors.append("Mes de ejecución debe ser un número entre 0 y 12.")
 
         return {"valid": len(errors) == 0, "errors": errors}

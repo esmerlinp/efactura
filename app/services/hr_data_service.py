@@ -7,6 +7,7 @@ Evita inflar aún más el DatabaseService monolítico.
 
 import uuid
 from datetime import datetime, timezone
+from google.cloud.firestore import FieldFilter
 from app.services.db_service import db_firestore, firebase_initialized
 
 
@@ -317,8 +318,8 @@ def get_payroll_period_by_key_and_group(owner_uid: str, period_key: str, group_i
     try:
         coll_path = _hr_collection(owner_uid, "payroll", sandbox)
         docs = db_firestore.collection(coll_path) \
-            .where("periodKey", "==", period_key) \
-            .where("payrollGroupId", "==", group_id) \
+            .where(filter=FieldFilter("periodKey", "==", period_key)) \
+            .where(filter=FieldFilter("payrollGroupId", "==", group_id)) \
             .limit(1).get()
         for d in docs:
             return {"id": d.id, **d.to_dict()}
@@ -1005,7 +1006,7 @@ def get_active_rules_for_scope(owner_uid: str, scope: str = "global",
         r_scope = r.get("scope", "global")
         if r_scope == "global":
             matching.append(r)
-        elif r_scope == scope and (not scope_id or r.get("scopeId") == scope_id):
+        elif r_scope == scope and (not scope_id or scope_id == r.get("scopeId") or scope_id in r.get("scopeIds", [])):
             matching.append(r)
     matching.sort(key=lambda r: r.get("priority", 999))
     return matching
@@ -1027,10 +1028,10 @@ def rule_log_exists(owner_uid: str, rule_id: str, employee_id: str,
     try:
         coll_path = _hr_collection(owner_uid, "payroll_rule_log", sandbox)
         query = db_firestore.collection(coll_path) \
-            .where("ruleId", "==", rule_id) \
-            .where("employeeId", "==", employee_id)
+            .where(filter=FieldFilter("ruleId", "==", rule_id)) \
+            .where(filter=FieldFilter("employeeId", "==", employee_id))
         if year is not None:
-            query = query.where("year", "==", year)
+            query = query.where(filter=FieldFilter("year", "==", year))
         docs = query.limit(1).get()
         return len(docs) > 0
     except Exception as e:
@@ -1056,15 +1057,16 @@ def save_rule_log(owner_uid: str, rule_id: str, employee_id: str,
     _save(owner_uid, "payroll_rule_log", log_id, data, sandbox)
 
 
-def delete_rule_logs_for_rule(owner_uid: str, rule_id: str, sandbox: bool = True):
-    """Elimina todos los logs de una regla (útil al eliminar la regla)."""
+def delete_rule_logs_for_rule(owner_uid: str, rule_id: str | None = None, sandbox: bool = True):
+    """Elimina logs de una regla específica o todos los logs si rule_id es None."""
     if not firebase_initialized or db_firestore is None:
         return
     try:
         coll_path = _hr_collection(owner_uid, "payroll_rule_log", sandbox)
-        docs = db_firestore.collection(coll_path) \
-            .where("ruleId", "==", rule_id) \
-            .get()
+        query = db_firestore.collection(coll_path)
+        if rule_id:
+            query = query.where(filter=FieldFilter("ruleId", "==", rule_id))
+        docs = query.get()
         for d in docs:
             d.reference.delete()
     except Exception as e:
@@ -1198,11 +1200,11 @@ def get_ytd_transactions(owner_uid: str, employee_id: str, year: int,
     try:
         coll_path = _hr_collection(owner_uid, "payroll_transactions", sandbox)
         query = db_firestore.collection(coll_path)\
-                            .where("employeeId", "==", employee_id)\
-                            .where("periodYear", "==", year)\
-                            .where("status", "in", ["applied", "adjusted"])
+                            .where(filter=FieldFilter("employeeId", "==", employee_id))\
+                            .where(filter=FieldFilter("periodYear", "==", year))\
+                            .where(filter=FieldFilter("status", "in", ["applied", "adjusted"]))
         if concept_code:
-            query = query.where("conceptCode", "==", concept_code)
+            query = query.where(filter=FieldFilter("conceptCode", "==", concept_code))
         docs = query.get()
         return [{"id": d.id, **d.to_dict()} for d in docs]
     except Exception as e:
@@ -1315,3 +1317,72 @@ def save_garnishment(owner_uid: str, garnishment_id: str, data: dict, sandbox: b
 
 def delete_garnishment(owner_uid: str, garnishment_id: str, sandbox: bool = True):
     _delete(owner_uid, "garnishments", garnishment_id, sandbox)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# HORAS EXTRAS — Types
+# ═══════════════════════════════════════════════════════════════════════
+
+def get_overtime_types(owner_uid: str, sandbox: bool = True) -> list:
+    return _get_all(owner_uid, "overtime_types", sandbox)
+
+
+def get_overtime_type(owner_uid: str, code: str, sandbox: bool = True) -> dict | None:
+    return _get_one(owner_uid, "overtime_types", code, sandbox)
+
+
+def save_overtime_type(owner_uid: str, code: str, data: dict, sandbox: bool = True):
+    _save(owner_uid, "overtime_types", code, data, sandbox)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# HORAS EXTRAS — Records
+# ═══════════════════════════════════════════════════════════════════════
+
+def get_overtime_records(owner_uid: str, sandbox: bool = True) -> list:
+    return _get_all(owner_uid, "overtime_records", sandbox)
+
+
+def get_overtime_record(owner_uid: str, record_id: str, sandbox: bool = True) -> dict | None:
+    return _get_one(owner_uid, "overtime_records", record_id, sandbox)
+
+
+def save_overtime_record(owner_uid: str, record_id: str, data: dict, sandbox: bool = True):
+    _save(owner_uid, "overtime_records", record_id, data, sandbox)
+
+
+def get_overtime_records_by_status(owner_uid: str, status: str, sandbox: bool = True) -> list:
+    if not firebase_initialized or db_firestore is None:
+        return []
+    try:
+        coll_path = _hr_collection(owner_uid, "overtime_records", sandbox)
+        docs = db_firestore.collection(coll_path) \
+            .where("status", "==", status) \
+            .get()
+        return [{"id": d.id, **d.to_dict()} for d in docs]
+    except Exception as e:
+        print(f"⚠️ HRDataService.get_overtime_records_by_status: {e}")
+        return []
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# HORAS EXTRAS — Payroll Links
+# ═══════════════════════════════════════════════════════════════════════
+
+def get_overtime_payroll_links(owner_uid: str, payroll_id: str = "", sandbox: bool = True) -> list:
+    if not firebase_initialized or db_firestore is None:
+        return []
+    try:
+        coll_path = _hr_collection(owner_uid, "overtime_payroll_links", sandbox)
+        query = db_firestore.collection(coll_path)
+        if payroll_id:
+            query = query.where("payrollId", "==", payroll_id)
+        docs = query.get()
+        return [{"id": d.id, **d.to_dict()} for d in docs]
+    except Exception as e:
+        print(f"⚠️ HRDataService.get_overtime_payroll_links: {e}")
+        return []
+
+
+def save_overtime_payroll_link(owner_uid: str, link_id: str, data: dict, sandbox: bool = True):
+    _save(owner_uid, "overtime_payroll_links", link_id, data, sandbox)

@@ -177,6 +177,7 @@
                     <div class="hr-info-item"><span class="hr-info-label">Departamento</span><span class="hr-info-value">{{ employee.department or employee.area or '—' }}</span></div>
                     <div class="hr-info-item"><span class="hr-info-label">Sucursal</span><span class="hr-info-value">{% set branch = branches|selectattr("id", "equalto", employee.branchId)|first %}{{ branch.name if branch else '—' }}</span></div>
                     <div class="hr-info-item"><span class="hr-info-label">Tipo contrato</span><span class="hr-info-value">{{ employee.contractType or '—' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Fecha de ingreso</span><span class="hr-info-value">{{ employee.hireDate or '—' }}</span></div>
                     <div class="hr-info-item"><span class="hr-info-label">Grupos de nómina</span><span class="hr-info-value">
                         {% set emp_groups = employee.payrollGroupIds or [] %}
                         {% if emp_groups %}

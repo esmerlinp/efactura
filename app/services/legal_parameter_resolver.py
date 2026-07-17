@@ -11,6 +11,7 @@ import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
 
+from google.cloud.firestore import FieldFilter
 from app.services.db_service import db_firestore, firebase_initialized
 from app.models.legal_parameter import LegalParameter, PARAM_TYPES, get_default_params
 
@@ -64,8 +65,8 @@ def resolve_parameter(owner_uid: str, parameter_type: str, target_date: str,
         coll = _legal_params_collection(owner_uid, sandbox)
         collection_ref = db_firestore.collection(coll)
 
-        query = collection_ref.where("parameterType", "==", parameter_type)\
-                              .where("isActive", "==", True)
+        query = collection_ref.where(filter=FieldFilter("parameterType", "==", parameter_type))\
+                              .where(filter=FieldFilter("isActive", "==", True))
         docs = query.get()
 
         matched = []

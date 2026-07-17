@@ -2,7 +2,7 @@
 """Payroll processing — refactored with ConceptEngine, RecurringService, PayrollTransaction."""
 
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from flask import render_template, request, redirect, url_for, session, flash, jsonify, send_file
 from app.web.rrhh import (
     web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
@@ -14,6 +14,19 @@ from app.services.payroll_service import PayrollService
 from app.services.payroll_ytd_service import get_ytd, save_ytd, accumulate_ytd
 from app.services.payroll_static_data import DEFAULT_PAYROLL_CONFIG
 from app.services.payroll_audit_service import log_action
+from app.services.overtime_service import OvertimeService
+from app.services.payroll_overtime_calculator import PayrollOvertimeCalculator
+
+
+def _rule_action_type_to_concept(action_type: str) -> str | None:
+    return {
+        "set_bonus": "BONIFICACION",
+        "set_commission": "COMISION",
+        "set_deduction": "OTRAS_DEDUCCIONES",
+        "set_overtime_rate": "HORAS_EXTRA",
+        "set_other_income": "OTROS_INGRESOS",
+        "set_other_deduction": "OTRAS_DEDUCCIONES",
+    }.get(action_type)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -170,6 +183,12 @@ def payroll_new():
         for mv in active_movements:
             recurring_by_employee[mv["employeeId"]].append(mv)
 
+        # ── PASO 5: Cargar horas extras aprobadas del período ──
+        approved_overtime = OvertimeService.get_approved_for_period(
+            owner_uid, start_date, end_date, sandbox=sandbox,
+        )
+        overtime_by_employee = OvertimeService.group_by_employee_and_type(approved_overtime)
+
         total_gross = 0.0
         total_net = 0.0
         total_employer = 0.0
@@ -190,6 +209,7 @@ def payroll_new():
                 commission = 0.0
             if group_overrides.get("includeOvertime") is False:
                 overtime = 0.0
+
             if group_overrides.get("includeBonus") is False:
                 bonus = 0.0
             if group_overrides.get("includeOtherIncome") is False:
@@ -203,6 +223,53 @@ def payroll_new():
 
             # Colección de transacciones para este empleado
             employee_transactions = []
+
+            # ── Integración con módulo Horas Extras ──
+            emp_overtime_records = overtime_by_employee.get(emp_id, {})
+            overtime_records_used = []
+            overtime_breakdown = {}
+            for tcode, tdata in emp_overtime_records.items():
+                if tdata.get("minutes", 0) <= 0:
+                    continue
+                hourly = float(tdata.get("hourlyRate", 0))
+                factor = float(tdata.get("factor", 1.35))
+                mins = tdata.get("minutes", 0)
+                amount = PayrollOvertimeCalculator.calculate_pay(hourly, mins, factor)
+                if amount <= 0:
+                    continue
+                otype_cache = hr.get_overtime_type(owner_uid, tcode, sandbox=sandbox)
+                concept_code = (otype_cache.get("conceptCode", "") if otype_cache else "") or "HORAS_EXTRA"
+                concept = concept_map.get(concept_code) or concept_map.get("HORAS_EXTRA")
+                if not concept:
+                    continue
+
+                from app.models.transaction import PayrollTransaction
+                now_iso = datetime.now(timezone.utc).isoformat()
+                tx = PayrollTransaction(
+                    id=str(uuid.uuid4()),
+                    periodId=period_id,
+                    periodKey=period_key,
+                    payrollLineId=line_id,
+                    employeeId=emp_id,
+                    conceptCode=concept_code,
+                    type="earning",
+                    amount=round(amount, 2),
+                    source=f"overtime:{tcode}",
+                    status="applied",
+                    conceptSnapshot=build_concept_snapshot(concept),
+                    periodYear=year,
+                    createdAt=now_iso,
+                    updatedAt=now_iso,
+                )
+                tx_dict = tx.model_dump()
+                tx_dict["overtimeRecordIds"] = tdata.get("records", [])
+                employee_transactions.append(tx_dict)
+                overtime_records_used.extend(tdata.get("records", []))
+                overtime_breakdown[concept_code] = overtime_breakdown.get(concept_code, 0) + amount
+
+            o_locked_ids = list(set(overtime_records_used))
+            for oid in o_locked_ids:
+                OvertimeService.lock(owner_uid, oid, session.get("user", {}).get("email", "system"), sandbox=sandbox)
 
             # ── Prorrateo salarial ──
             salary_history = hr.get_salary_history(owner_uid, emp_id, sandbox=sandbox)
@@ -291,6 +358,9 @@ def payroll_new():
                 # Filtrar reglas one-shot ya aplicadas
                 filtered_rules = []
                 for r in emp_rules:
+                    trigger_month = r.get("triggerMonth", 0)
+                    if trigger_month and trigger_month != month:
+                        continue
                     freq = r.get("frequency", "always")
                     if freq == "always":
                         filtered_rules.append(r)
@@ -298,30 +368,56 @@ def payroll_new():
                         log_year = year if freq == "annual" else None
                         if not hr.rule_log_exists(owner_uid, r["id"], emp_id, log_year, sandbox=sandbox):
                             filtered_rules.append(r)
-                rule_result = PayrollRuleEngine.evaluate_rules(filtered_rules, emp)
+                # Acumulado de salario ordinario anual para reglas (ej: Salario de Navidad)
+                accumulated = hr.get_ytd_transactions(owner_uid, emp_id, year,
+                                                       concept_code="SALARIO_BASE", sandbox=sandbox)
+                acc_salary = sum(tx.get("amount", 0) for tx in accumulated) + base
+                emp_context = dict(emp)
+                emp_context["accumulatedOrdinarySalary"] = acc_salary
+                hire_date = emp.get("hireDate", "")
+                emp_hire_month = int(hire_date[5:7]) if hire_date and len(hire_date) >= 7 else 0
+                emp_context["isAnniversaryMonth"] = 1 if emp_hire_month == month else 0
+                emp_context["proratedSalary"] = prorated if prorated is not None else base
+                total_overtime_mins = sum(td.get("minutes", 0) for td in emp_overtime_records.values())
+                emp_context["overtimeHours"] = round(total_overtime_mins / 60, 2)
+                try:
+                    ps_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+                    pe_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+                    emp_context["daysInPeriod"] = (pe_date - ps_date).days + 1
+                except (ValueError, TypeError):
+                    emp_context["daysInPeriod"] = 23.83
+                rule_result = PayrollRuleEngine.evaluate_rules(filtered_rules, emp_context)
                 if rule_result:
-                    for rule_concept, rule_amount in [
-                        ("BONIFICACION", rule_result.get("bonus", 0)),
-                        ("COMISION", rule_result.get("commission", 0)),
-                        ("OTROS_INGRESOS", rule_result.get("other_income", 0)),
-                        ("OTRAS_DEDUCCIONES", rule_result.get("deduction", 0)),
-                    ]:
-                        if rule_amount > 0:
-                            concept = concept_map.get(rule_concept, {})
-                            tx = PayrollTransaction(
-                                id=str(uuid.uuid4()), periodId=period_id, periodKey=period_key,
-                                payrollLineId=line_id, employeeId=emp_id,
-                                conceptCode=rule_concept,
-                                type="deduction" if rule_concept == "OTRAS_DEDUCCIONES" else "earning",
-                                amount=round(rule_amount, 2), source=f"rule:{rule_result.get('_ruleId', '')}",
-                                status="applied", conceptSnapshot=build_concept_snapshot(concept),
-                                periodYear=year, createdAt=datetime.now(timezone.utc).isoformat(),
-                                updatedAt=datetime.now(timezone.utc).isoformat(),
-                            )
-                            employee_transactions.append(tx.model_dump())
-                    # Loguear reglas one-shot aplicadas
+                    from app.models.transaction import PayrollTransaction
                     now_iso = datetime.now(timezone.utc).isoformat()
                     for applied in rule_result.get("applied_rules", []):
+                        rule_name = applied.get("ruleName", "")
+                        for action in applied.get("actions", []):
+                            action_type = action.get("type", "")
+                            action_desc = action.get("description", "") or rule_name
+                            formula = action.get("formula", "0")
+                            concept_code = _rule_action_type_to_concept(action_type)
+                            if not concept_code:
+                                continue
+                            value = PayrollRuleEngine._evaluate_formula(formula, emp_context)
+                            if value > 0:
+                                concept = concept_map.get(concept_code, {})
+                                tx_type = "deduction" if concept_code in ("OTRAS_DEDUCCIONES",) else "earning"
+                                tx = PayrollTransaction(
+                                    id=str(uuid.uuid4()), periodId=period_id, periodKey=period_key,
+                                    payrollLineId=line_id, employeeId=emp_id,
+                                    conceptCode=concept_code, type=tx_type,
+                                    amount=round(value, 2),
+                                    source=f"rule:{applied.get('ruleId', '')}",
+                                    status="applied",
+                                    conceptSnapshot=build_concept_snapshot(concept),
+                                    periodYear=year, createdAt=now_iso, updatedAt=now_iso,
+                                )
+                                tx_dict = tx.model_dump()
+                                tx_dict["isRuleGenerated"] = True
+                                tx_dict["ruleGeneratedDescription"] = action_desc
+                                employee_transactions.append(tx_dict)
+                        # Loguear reglas one-shot aplicadas
                         rule_obj = next((r for r in emp_rules if r["id"] == applied["ruleId"]), None)
                         if rule_obj and rule_obj.get("frequency") in ("annual", "once"):
                             log_year = year if rule_obj.get("frequency") == "annual" else None
@@ -406,17 +502,21 @@ def payroll_new():
                     ccode = tx.get("conceptCode", "")
                     cname = concept_map.get(ccode, {}).get("name", tx.get("conceptSnapshot", {}).get("name", ccode))
                     is_rec = tx.get("isRecurring", False)
+                    is_rule = tx.get("isRuleGenerated", False)
                     tx_summary.append({
                         "conceptCode": ccode,
                         "amount": tx.get("amount", 0),
                         "type": tx.get("type", ""),
                         "isRecurring": is_rec,
+                        "isRuleGenerated": is_rule,
                         "conceptName": cname,
                     })
-                    if is_rec and tx.get("type") == "deduction":
-                        recurring_details.append({"description": cname, "amount": float(tx.get("amount", 0))})
-                    if is_rec and tx.get("type") == "earning":
-                        recurring_additions_details.append({"description": cname, "amount": float(tx.get("amount", 0))})
+                    if (is_rec or is_rule) and tx.get("type") == "deduction":
+                        desc = tx.get("ruleGeneratedDescription", cname) if is_rule else cname
+                        recurring_details.append({"description": desc, "amount": float(tx.get("amount", 0))})
+                    if (is_rec or is_rule) and tx.get("type") == "earning":
+                        desc = tx.get("ruleGeneratedDescription", cname) if is_rule else cname
+                        recurring_additions_details.append({"description": desc, "amount": float(tx.get("amount", 0))})
                 else:
                     tx_summary.append({
                         "conceptCode": getattr(tx, "conceptCode", ""),
@@ -431,7 +531,7 @@ def payroll_new():
             net = max(0, earn - deduct)
             recurring_earnings = sum(
                 float(t.get("amount", 0)) for t in employee_transactions
-                if t.get("isRecurring") and t.get("type") == "earning"
+                if t.get("isRecurring") and not t.get("isRuleGenerated") and t.get("type") == "earning"
             )
 
             line = {
@@ -442,8 +542,9 @@ def payroll_new():
                 "department": emp.get("department", ""),
                 "baseSalary": base,
                 "grossSalary": base,
-                "overtimePay": overtime,
+                "overtimePay": round(sum(overtime_breakdown.values()) + overtime, 2),
                 "overtimeHours": float(request.form.get(f"overtime_{emp_id}", 0) or 0),
+                "overtimeBreakdown": overtime_breakdown,
                 "commission": commission,
                 "bonus": bonus,
                 "otherIncome": round(other_income_manual + recurring_earnings, 2),
@@ -463,7 +564,7 @@ def payroll_new():
                 "sfsEmployer": sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("conceptCode") == "SFS_EMPLEADOR"),
                 "srlEmployer": sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("conceptCode") == "SRL_EMPLEADOR"),
                 "infotepEmployer": sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("conceptCode") == "INFOTEP_EMPLEADOR"),
-                "otherDeductions": round(sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("conceptCode") in ("OTRAS_DEDUCCIONES",) and not t.get("isRecurring")), 2),
+                "otherDeductions": round(sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("conceptCode") in ("OTRAS_DEDUCCIONES",) and not t.get("isRecurring") and not t.get("isRuleGenerated")), 2),
                 "recurringDeductionsBreakdown": recurring_details,
                 "recurringAdditionsBreakdown": recurring_additions_details,
             }
@@ -500,6 +601,16 @@ def payroll_new():
                 for d in line.get("recurringAdditionsBreakdown", [])
             }
 
+        all_overtime_cols = []
+        overtime_type_names = {}
+        for line in lines:
+            for code in line.get("overtimeBreakdown", {}):
+                if code not in all_overtime_cols:
+                    all_overtime_cols.append(code)
+                    c = concept_map.get(code) if code in concept_map else None
+                    overtime_type_names[code] = c.get("name", code) if c else code
+        overtime_columns = [{"code": c, "name": overtime_type_names.get(c, c)} for c in all_overtime_cols]
+
         period_data = {
             "id": period_id,
             "periodKey": period_key,
@@ -527,6 +638,7 @@ def payroll_new():
             "lineCount": len(lines),
             "recurringDeductionColumns": all_recurring_descs,
             "recurringAdditionsColumns": all_recurring_additions_descs,
+            "overtimeColumns": overtime_columns,
             "statusHistory": [{
                 "from": "borrador",
                 "to": "calculada",
@@ -550,6 +662,35 @@ def payroll_new():
         hr.save_payroll_transactions_batch(owner_uid, all_transactions, sandbox=sandbox)
         from app.services.recurring_service import save_applications_batch
         save_applications_batch(owner_uid, all_applications, sandbox=sandbox)
+
+        # ── Marcar HE como procesadas ──
+        processed_count = 0
+        for tx in all_transactions:
+            record_ids = tx.get("overtimeRecordIds", [])
+            if not record_ids:
+                continue
+            for oid in record_ids:
+                result = OvertimeService.mark_as_processed(
+                    owner_uid, oid, period_id,
+                    session.get("user", {}).get("email", "system"),
+                    sandbox=sandbox,
+                )
+                if not isinstance(result, tuple):
+                    processed_count += 1
+        if processed_count:
+            print(f"✅ {processed_count} HE marcadas como procesadas en nómina {period_id}")
+
+        # ── Crear vínculos HE-Nómina ──
+        for tx in all_transactions:
+            record_ids = tx.get("overtimeRecordIds", [])
+            if not record_ids:
+                continue
+            for oid in record_ids:
+                OvertimeService.create_payroll_link(
+                    owner_uid, oid, period_id, period_key,
+                    tx.get("id", ""), tx.get("conceptCode", ""),
+                    tx.get("amount", 0), sandbox=sandbox,
+                )
 
         emp_map = {e["id"]: e for e in period_employees}
         anomalies = PayrollService.detect_anomalies(lines, emp_map, owner_uid=owner_uid, sandbox=sandbox)
@@ -669,6 +810,12 @@ def payroll_simulate():
         for mv in active_movements:
             recurring_by_employee[mv["employeeId"]].append(mv)
 
+        # ── PASO 5: Cargar horas extras aprobadas del período ──
+        approved_overtime = OvertimeService.get_approved_for_period(
+            owner_uid, start_date, end_date, sandbox=sandbox,
+        )
+        overtime_by_employee = OvertimeService.group_by_employee_and_type(approved_overtime)
+
         for emp in period_employees:
             emp_id = emp["id"]
             base = float(emp.get("baseSalary", 0))
@@ -705,6 +852,47 @@ def payroll_simulate():
             sim_period_id = f"sim_{uuid.uuid4()}"
             line_id = f"line_{uuid.uuid4()}"
             employee_transactions = []
+
+            # ── Integración con módulo Horas Extras ──
+            emp_overtime_records = overtime_by_employee.get(emp_id, {})
+            overtime_breakdown = {}
+            for tcode, tdata in emp_overtime_records.items():
+                if tdata.get("minutes", 0) <= 0:
+                    continue
+                hourly = float(tdata.get("hourlyRate", 0))
+                factor = float(tdata.get("factor", 1.35))
+                mins = tdata.get("minutes", 0)
+                amount = PayrollOvertimeCalculator.calculate_pay(hourly, mins, factor)
+                if amount <= 0:
+                    continue
+                otype_cache = hr.get_overtime_type(owner_uid, tcode, sandbox=sandbox)
+                concept_code = (otype_cache.get("conceptCode", "") if otype_cache else "") or "HORAS_EXTRA"
+                concept = concept_map.get(concept_code) or concept_map.get("HORAS_EXTRA")
+                if not concept:
+                    continue
+                from app.models.transaction import PayrollTransaction
+                from app.services.payroll_concept_engine import build_concept_snapshot
+                now_iso = datetime.now(timezone.utc).isoformat()
+                tx = PayrollTransaction(
+                    id=str(uuid.uuid4()),
+                    periodId=sim_period_id,
+                    periodKey=period_key,
+                    payrollLineId=line_id,
+                    employeeId=emp_id,
+                    conceptCode=concept_code,
+                    type="earning",
+                    amount=round(amount, 2),
+                    source=f"overtime:{tcode}",
+                    status="applied",
+                    conceptSnapshot=build_concept_snapshot(concept),
+                    periodYear=int(period_key[:4]) if period_key and len(period_key) >= 4 else 0,
+                    createdAt=now_iso,
+                    updatedAt=now_iso,
+                )
+                tx_dict = tx.model_dump()
+                tx_dict["overtimeRecordIds"] = tdata.get("records", [])
+                employee_transactions.append(tx_dict)
+                overtime_breakdown[concept_code] = overtime_breakdown.get(concept_code, 0) + amount
 
             # ── Salario base ──
             salario_concept = concept_map.get("SALARIO_BASE")
@@ -786,49 +974,66 @@ def payroll_simulate():
                 if emp_specific:
                     emp_rules.extend(emp_specific)
                     emp_rules.sort(key=lambda r: r.get("priority", 999))
-                # Filtrar reglas one-shot ya aplicadas
+                # En simulación no se filtran por reglas ya aplicadas (what-if)
                 sim_year = int(period_key[:4]) if period_key and len(period_key) >= 4 else 0
+                sim_month = int(period_key[5:7]) if period_key and len(period_key) >= 7 else 0
                 filtered_rules = []
                 for r in emp_rules:
-                    freq = r.get("frequency", "always")
-                    if freq == "always":
-                        filtered_rules.append(r)
-                    elif freq in ("annual", "once"):
-                        log_year = sim_year if freq == "annual" else None
-                        if not hr.rule_log_exists(owner_uid, r["id"], emp_id, log_year, sandbox=sandbox):
-                            filtered_rules.append(r)
-                rule_result = PayrollRuleEngine.evaluate_rules(filtered_rules, emp)
+                    trigger_month = r.get("triggerMonth", 0)
+                    if trigger_month and trigger_month != sim_month:
+                        continue
+                    filtered_rules.append(r)
+                # Acumulado de salario ordinario anual para reglas (ej: Salario de Navidad)
+                accumulated = hr.get_ytd_transactions(owner_uid, emp_id, sim_year,
+                                                       concept_code="SALARIO_BASE", sandbox=sandbox)
+                acc_salary = sum(tx.get("amount", 0) for tx in accumulated) + base
+                emp_context = dict(emp)
+                emp_context["accumulatedOrdinarySalary"] = acc_salary
+                hire_date = emp.get("hireDate", "")
+                emp_hire_month = int(hire_date[5:7]) if hire_date and len(hire_date) >= 7 else 0
+                emp_context["isAnniversaryMonth"] = 1 if emp_hire_month == sim_month else 0
+                emp_context["proratedSalary"] = prorated if prorated is not None else base
+                total_overtime_mins = sum(td.get("minutes", 0) for td in emp_overtime_records.values())
+                emp_context["overtimeHours"] = round(total_overtime_mins / 60, 2)
+                try:
+                    ps_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+                    pe_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+                    emp_context["daysInPeriod"] = (pe_date - ps_date).days + 1
+                except (ValueError, TypeError):
+                    emp_context["daysInPeriod"] = 23.83
+                rule_result = PayrollRuleEngine.evaluate_rules(filtered_rules, emp_context)
                 if rule_result:
-                    for rule_concept, rule_amount in [
-                        ("BONIFICACION", rule_result.get("bonus", 0)),
-                        ("COMISION", rule_result.get("commission", 0)),
-                        ("OTROS_INGRESOS", rule_result.get("other_income", 0)),
-                        ("OTRAS_DEDUCCIONES", rule_result.get("deduction", 0)),
-                    ]:
-                        if rule_amount > 0:
-                            from app.models.transaction import PayrollTransaction
-                            from app.services.payroll_concept_engine import build_concept_snapshot
-                            concept = concept_map.get(rule_concept, {})
-                            tx = PayrollTransaction(
-                                id=str(uuid.uuid4()), periodId=sim_period_id, periodKey=period_key,
-                                payrollLineId=line_id, employeeId=emp_id,
-                                conceptCode=rule_concept,
-                                type="deduction" if rule_concept == "OTRAS_DEDUCCIONES" else "earning",
-                                amount=round(rule_amount, 2), source=f"rule:{rule_result.get('_ruleId', '')}",
-                                status="applied", conceptSnapshot=build_concept_snapshot(concept),
-                                periodYear=sim_year,
-                                createdAt=datetime.now(timezone.utc).isoformat(),
-                                updatedAt=datetime.now(timezone.utc).isoformat(),
-                            )
-                            employee_transactions.append(tx.model_dump())
-                    # Loguear reglas one-shot aplicadas
+                    from app.models.transaction import PayrollTransaction
+                    from app.services.payroll_concept_engine import build_concept_snapshot
                     now_iso = datetime.now(timezone.utc).isoformat()
                     for applied in rule_result.get("applied_rules", []):
-                        rule_obj = next((r for r in emp_rules if r["id"] == applied["ruleId"]), None)
-                        if rule_obj and rule_obj.get("frequency") in ("annual", "once"):
-                            log_year = sim_year if rule_obj.get("frequency") == "annual" else None
-                            hr.save_rule_log(owner_uid, rule_obj["id"], emp_id, log_year,
-                                             period_key, 0.0, now_iso, sandbox=sandbox)
+                        rule_name = applied.get("ruleName", "")
+                        for action in applied.get("actions", []):
+                            action_type = action.get("type", "")
+                            action_desc = action.get("description", "") or rule_name
+                            formula = action.get("formula", "0")
+                            concept_code = _rule_action_type_to_concept(action_type)
+                            if not concept_code:
+                                continue
+                            value = PayrollRuleEngine._evaluate_formula(formula, emp_context)
+                            if value > 0:
+                                concept = concept_map.get(concept_code, {})
+                                tx_type = "deduction" if concept_code in ("OTRAS_DEDUCCIONES",) else "earning"
+                                tx = PayrollTransaction(
+                                    id=str(uuid.uuid4()), periodId=sim_period_id, periodKey=period_key,
+                                    payrollLineId=line_id, employeeId=emp_id,
+                                    conceptCode=concept_code, type=tx_type,
+                                    amount=round(value, 2),
+                                    source=f"rule:{applied.get('ruleId', '')}",
+                                    status="applied",
+                                    conceptSnapshot=build_concept_snapshot(concept),
+                                    periodYear=sim_year, createdAt=now_iso, updatedAt=now_iso,
+                                )
+                                tx_dict = tx.model_dump()
+                                tx_dict["isRuleGenerated"] = True
+                                tx_dict["ruleGeneratedDescription"] = action_desc
+                                employee_transactions.append(tx_dict)
+                    # NOTA: en simulación NO se persisten rule logs para no consumir reglas one-shot/anuales
 
             # ── Aplicar movimientos recurrentes (simulación, sin escribir en DB) ──
             now_iso = datetime.now(timezone.utc).isoformat()
@@ -962,30 +1167,26 @@ def payroll_simulate():
             employer = sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("type") == "employer_contrib")
 
             def sum_by_concept(tx_list, *codes):
-                return sum(float(t.get("amount", 0)) for t in tx_list if t.get("conceptCode") in codes)
+                return sum(float(t.get("amount", 0)) for t in tx_list if t.get("conceptCode") in codes and not t.get("isRuleGenerated"))
 
             overtime_hours_val = float(request.form.get(f"overtime_{emp_id}", 0) or 0)
 
             recurring_earnings = sum(
                 float(t.get("amount", 0)) for t in employee_transactions
-                if t.get("isRecurring") and t.get("type") == "earning"
+                if t.get("isRecurring") and not t.get("isRuleGenerated") and t.get("type") == "earning"
             )
-            recurring_additions_details = [
-                {
-                    "description": concept_map.get(t.get("conceptCode", ""), {}).get("name", t.get("conceptSnapshot", {}).get("name", t.get("conceptCode", ""))),
-                    "amount": float(t.get("amount", 0)),
-                }
-                for t in employee_transactions
-                if t.get("isRecurring") and t.get("type") == "earning"
-            ]
-            recurring_deductions_details = [
-                {
-                    "description": concept_map.get(t.get("conceptCode", ""), {}).get("name", t.get("conceptSnapshot", {}).get("name", t.get("conceptCode", ""))),
-                    "amount": float(t.get("amount", 0)),
-                }
-                for t in employee_transactions
-                if t.get("isRecurring") and t.get("type") == "deduction"
-            ]
+            recurring_additions_details = []
+            for t in employee_transactions:
+                if (t.get("isRecurring") or t.get("isRuleGenerated")) and t.get("type") == "earning":
+                    cname = concept_map.get(t.get("conceptCode", ""), {}).get("name", t.get("conceptSnapshot", {}).get("name", t.get("conceptCode", "")))
+                    desc = t.get("ruleGeneratedDescription", cname) if t.get("isRuleGenerated") else cname
+                    recurring_additions_details.append({"description": desc, "amount": float(t.get("amount", 0))})
+            recurring_deductions_details = []
+            for t in employee_transactions:
+                if (t.get("isRecurring") or t.get("isRuleGenerated")) and t.get("type") == "deduction":
+                    cname = concept_map.get(t.get("conceptCode", ""), {}).get("name", t.get("conceptSnapshot", {}).get("name", t.get("conceptCode", "")))
+                    desc = t.get("ruleGeneratedDescription", cname) if t.get("isRuleGenerated") else cname
+                    recurring_deductions_details.append({"description": desc, "amount": float(t.get("amount", 0))})
 
             line = {
                 "employeeId": emp_id,
@@ -993,8 +1194,9 @@ def payroll_simulate():
                 "position": emp.get("position", ""),
                 "periodType": emp_period_type,
                 "grossSalary": sum_by_concept(employee_transactions, "SALARIO_BASE"),
-                "overtimePay": sum_by_concept(employee_transactions, "HORAS_EXTRA"),
+                "overtimePay": round(sum(overtime_breakdown.values()) + overtime, 2),
                 "overtimeHours": overtime_hours_val,
+                "overtimeBreakdown": overtime_breakdown,
                 "commission": sum_by_concept(employee_transactions, "COMISION"),
                 "bonus": sum_by_concept(employee_transactions, "BONIFICACION"),
                 "otherIncome": round(sum_by_concept(employee_transactions, "OTROS_INGRESOS") + recurring_earnings, 2),
@@ -1005,10 +1207,16 @@ def payroll_simulate():
                 "afpEmployee": sum_by_concept(employee_transactions, "AFP_EMPLEADO"),
                 "sfsEmployee": sum_by_concept(employee_transactions, "SFS_EMPLEADO"),
                 "isrRetention": sum_by_concept(employee_transactions, "ISR_RETENCION"),
-                "otherDeductions": round(sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("conceptCode") in ("OTRAS_DEDUCCIONES",) and not t.get("isRecurring")), 2),
+                "otherDeductions": round(sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("conceptCode") in ("OTRAS_DEDUCCIONES",) and not t.get("isRecurring") and not t.get("isRuleGenerated")), 2),
                 "recurringDeductionsBreakdown": recurring_deductions_details,
                 "recurringAdditionsBreakdown": recurring_additions_details,
             }
+
+            # Ensure rule-generated amounts are excluded from fixed columns
+            # (they appear in dynamic columns via the breakdown/map mechanism)
+            line["bonus"] = sum_by_concept(employee_transactions, "BONIFICACION")
+            line["commission"] = sum_by_concept(employee_transactions, "COMISION")
+            line["otherIncome"] = round(sum_by_concept(employee_transactions, "OTROS_INGRESOS") + recurring_earnings, 2)
 
             lines.append(line)
             total_gross += line["totalIncome"]
@@ -1034,6 +1242,16 @@ def payroll_simulate():
                 for d in line.get("recurringAdditionsBreakdown", [])
             }
 
+        all_overtime_cols = []
+        overtime_type_names = {}
+        for line in lines:
+            for code in line.get("overtimeBreakdown", {}):
+                if code not in all_overtime_cols:
+                    all_overtime_cols.append(code)
+                    c = concept_map.get(code) if code in concept_map else None
+                    overtime_type_names[code] = c.get("name", code) if c else code
+        overtime_columns = [{"code": c, "name": overtime_type_names.get(c, c)} for c in all_overtime_cols]
+
         simulation = {
             "period_range": period_info["label"] if period_info else period_key,
             "period_type": period_type,
@@ -1045,6 +1263,7 @@ def payroll_simulate():
             "total_costo": round(total_costo, 2),
             "recurringDeductionColumns": all_recurring_descs,
             "recurringAdditionsColumns": all_recurring_additions_descs,
+            "overtimeColumns": overtime_columns,
             "lines": lines,
         }
 

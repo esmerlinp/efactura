@@ -1,5 +1,6 @@
 """Payroll Rules CRUD — Motor de reglas configurables de nómina."""
 
+from datetime import datetime
 from flask import render_template, request, redirect, url_for, session, flash, jsonify
 from app.web.rrhh import (
     web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
@@ -61,9 +62,17 @@ def payroll_rules_new():
         desc = request.form.get("description", "").strip()
         priority = int(request.form.get("priority", 0) or 0)
         scope = request.form.get("scope", "global")
-        scope_id = request.form.get("scope_id", "")
+        scope_ids = []
+        if scope == "group":
+            raw = request.form.get("scope_group_ids", "")
+            scope_ids = [s.strip() for s in raw.split(",") if s.strip()]
+        elif scope == "employee":
+            emp_id = request.form.get("scope_employee_id", "")
+            if emp_id:
+                scope_ids = [emp_id]
         logic = request.form.get("logic", "AND")
         frequency = request.form.get("frequency", "always")
+        trigger_month = int(request.form.get("triggerMonth", 0) or 0)
         is_active = request.form.get("isActive") == "1"
 
         conditions = []
@@ -87,9 +96,10 @@ def payroll_rules_new():
             "description": desc,
             "priority": priority,
             "scope": scope,
-            "scopeId": scope_id,
+            "scopeIds": scope_ids,
             "logic": logic,
             "frequency": frequency,
+            "triggerMonth": trigger_month,
             "conditions": conditions,
             "actions": actions,
             "isActive": is_active,
@@ -145,9 +155,19 @@ def payroll_rules_edit(rule_id):
         rule["description"] = request.form.get("description", "").strip()
         rule["priority"] = int(request.form.get("priority", 0) or 0)
         rule["scope"] = request.form.get("scope", "global")
-        rule["scopeId"] = request.form.get("scope_id", "")
+        scope = rule["scope"]
+        scope_ids = []
+        if scope == "group":
+            raw = request.form.get("scope_group_ids", "")
+            scope_ids = [s.strip() for s in raw.split(",") if s.strip()]
+        elif scope == "employee":
+            emp_id = request.form.get("scope_employee_id", "")
+            if emp_id:
+                scope_ids = [emp_id]
+        rule["scopeIds"] = scope_ids
         rule["logic"] = request.form.get("logic", "AND")
         rule["frequency"] = request.form.get("frequency", "always")
+        rule["triggerMonth"] = int(request.form.get("triggerMonth", 0) or 0)
         rule["isActive"] = request.form.get("isActive") == "1"
 
         conditions = []
@@ -223,6 +243,20 @@ def payroll_rules_delete(rule_id):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# LIMPIAR LOGS DE REGLAS (one-shot/anual)
+# ═══════════════════════════════════════════════════════════════════════════
+
+@web_rrhh_bp.route("/rrhh/payroll/rules/cleanup-logs", methods=["POST"])
+def payroll_rules_cleanup_logs():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    hr.delete_rule_logs_for_rule(owner_uid, sandbox=sandbox)
+    flash("Historial de reglas limpiado. Las reglas one-shot/anuales podrán aplicarse nuevamente.", "success")
+    return redirect(url_for("web_rrhh.payroll_rules_list"))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # TEST DE REGLAS
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -259,4 +293,5 @@ def payroll_rules_test():
 
     return render_template("rrhh/payroll_rules_test.html", active_page="rrhh_settings",
                            employees=active, rules=rules,
-                           test_results=test_results, selected_emp=selected_emp)
+                           test_results=test_results, selected_emp=selected_emp,
+                           now=datetime.now())

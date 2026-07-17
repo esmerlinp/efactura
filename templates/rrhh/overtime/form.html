@@ -1,0 +1,287 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Nueva Hora Extra — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<style>
+.searchable-wrapper { position: relative; width: 100%; }
+.searchable-input {
+    width: 100%; height: 44px; padding: 10px 36px 10px 14px;
+    border: 1px solid #e2e8f0; border-radius: var(--radius-sm);
+    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='M21 21l-4.35-4.35'/%3E%3C/svg%3E") no-repeat right 12px center;
+    font-size: 0.9rem; font-family: var(--font-body); color: var(--text-primary);
+    box-sizing: border-box; cursor: text;
+    transition: border-color 0.2s, box-shadow 0.2s; outline: none;
+}
+.searchable-input:focus { border-color: var(--accent-emerald); box-shadow: 0 0 0 3px rgba(30,58,138,0.08); }
+.searchable-input.has-value { background-image: none; padding-right: 14px; }
+.searchable-dropdown {
+    display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    background: #fff; border: 1px solid #e2e8f0; border-radius: var(--radius-sm);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.10); z-index: 200;
+    max-height: 220px; overflow-y: auto;
+}
+.searchable-dropdown.open { display: block; }
+.sd-option {
+    padding: 10px 14px; cursor: pointer; font-size: 0.875rem;
+    color: var(--text-primary); border-bottom: 1px solid #f8fafc;
+    transition: background 0.12s;
+}
+.sd-option:last-child { border-bottom: none; }
+.sd-option:hover, .sd-option.active { background: rgba(30,58,138,0.06); }
+.sd-option .sd-sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+.sd-empty { padding: 14px; text-align: center; color: var(--text-muted); font-size: 0.85rem; }
+</style>
+{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-clock"></i> Nueva Hora Extra</h1>
+    <a href="{{ url_for('web_rrhh.overtime_list') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Volver</a>
+</div>
+
+<form method="POST" class="hr-main-col" autocomplete="off">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="hr-section-card">
+        <h3><i class="fa-solid fa-user"></i> Empleado y tipo</h3>
+        <div class="hr-form-grid">
+            <div class="form-group">
+                <label>Empleado <span style="color:var(--danger);">*</span></label>
+                <div class="searchable-wrapper">
+                    <input type="text" class="searchable-input" id="employeeSearch"
+                           placeholder="Buscar empleado por nombre o cédula…" autocomplete="new-password">
+                    <input type="hidden" name="employeeId" id="employeeIdHidden">
+                    <div id="employeeDropdown" class="searchable-dropdown"></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Tipo de hora extra <span style="color:var(--danger);">*</span></label>
+                <select name="overtimeTypeCode" class="form-select" required id="type-select"
+                        onchange="previewCalculation()">
+                    <option value="">Seleccionar tipo</option>
+                    {% for t in overtime_types %}
+                    {% if t.active %}
+                    <option value="{{ t.code }}" data-factor="{{ t.factor }}">{{ t.code }} — {{ t.name }} (x{{ t.factor }})</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Fecha <span style="color:var(--danger);">*</span></label>
+                <input type="date" name="date" class="form-input" required value="{{ today }}">
+            </div>
+            <div class="form-group">
+                <label>Origen</label>
+                <select name="source" class="form-select">
+                    <option value="manual">Manual</option>
+                    <option value="attendance" disabled>Asistencia (próximamente)</option>
+                    <option value="import" disabled>Importación</option>
+                    <option value="api" disabled>API</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Ref. origen</label>
+                <input type="text" name="sourceReference" class="form-input" placeholder="Ej. ATT-20260715-001">
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+                <label>Comentario</label>
+                <textarea name="comment" class="form-input" rows="2" placeholder="Motivo o detalle adicional..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="hr-section-card">
+        <h3><i class="fa-solid fa-table-cells"></i> Detalle de horas</h3>
+        <p style="color:var(--text-muted); font-size:0.85rem; margin:0 0 12px;">
+            Ingresa los períodos trabajados. Usa el formato HH:MM para desde/hasta.
+        </p>
+        <div class="table-responsive">
+            <table class="table-premium" id="details-table" style="font-size:0.85rem;">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Desde</th>
+                        <th>Hasta</th>
+                        <th>Minutos</th>
+                        <th>Horas</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="detail-row">
+                        <td><input type="date" name="detail_date[]" class="form-input" style="min-width:130px;" onchange="updateRowMinutes(this)"></td>
+                        <td><input type="time" name="detail_from[]" class="form-input" style="min-width:100px;" onchange="updateRowMinutes(this)"></td>
+                        <td><input type="time" name="detail_to[]" class="form-input" style="min-width:100px;" onchange="updateRowMinutes(this)"></td>
+                        <td><input type="number" name="detail_minutes[]" class="form-input" style="min-width:80px;" readonly value="0"></td>
+                        <td class="hours-display">0.00</td>
+                        <td><button type="button" class="btn btn-sm btn-danger" onclick="this.closest('tr').remove(); updateTotals();"><i class="fa-solid fa-xmark"></i></button></td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="6">
+                            <button type="button" class="btn btn-sm btn-ghost" onclick="addDetailRow()">
+                                <i class="fa-solid fa-plus"></i> Agregar detalle
+                            </button>
+                        </td>
+                    </tr>
+                    <tr style="font-weight:700;">
+                        <td colspan="3" style="text-align:right;">Totales:</td>
+                        <td id="total-minutes">0</td>
+                        <td id="total-hours">0.00</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <div class="hr-section-card" id="calculation-preview" style="display:none;">
+        <h3><i class="fa-solid fa-calculator"></i> Previsualización de cálculo</h3>
+        <div style="display:flex; gap:24px; flex-wrap:wrap;">
+            <div><strong>Salario hora:</strong> RD$ <span id="preview-hourly">0.00</span></div>
+            <div><strong>Factor:</strong> x<span id="preview-factor">1.00</span></div>
+            <div><strong>Total horas:</strong> <span id="preview-hours">0.00</span></div>
+            <div><strong>Total a pagar:</strong> RD$ <span id="preview-amount" style="color:var(--accent-emerald); font-size:1.1rem;">0.00</span></div>
+        </div>
+    </div>
+
+    <div class="hr-section-card hr-actions-card hr-actions-bar">
+        <a href="{{ url_for('web_rrhh.overtime_list') }}" class="btn btn-ghost">Cancelar</a>
+        <button type="submit" class="btn btn-primary">Crear Hora Extra</button>
+    </div>
+</form>
+
+<script>
+const EMPLOYEES_DATA = {{ employees | tojson }};
+
+function initSearchable(inputId, dropdownId, hiddenId, data, labelFn, subFn, valueFn, filterFn) {
+    const input    = document.getElementById(inputId);
+    const dropdown = document.getElementById(dropdownId);
+    const hidden   = document.getElementById(hiddenId);
+
+    function render(query) {
+        const q = query.toLowerCase().trim();
+        const filtered = q ? data.filter(item => filterFn(item, q)) : data;
+        dropdown.innerHTML = '';
+        if (!filtered.length) {
+            dropdown.innerHTML = '<div class="sd-empty">No se encontraron resultados</div>';
+        } else {
+            filtered.slice(0, 60).forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'sd-option';
+                div.innerHTML = `<div>${labelFn(item)}</div><div class="sd-sub">${subFn(item)}</div>`;
+                div.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                    input.value = labelFn(item);
+                    input.classList.add('has-value');
+                    hidden.value = valueFn(item);
+                    dropdown.classList.remove('open');
+                    previewCalculation();
+                });
+                dropdown.appendChild(div);
+            });
+        }
+        dropdown.classList.add('open');
+    }
+
+    input.addEventListener('input', function() { render(input.value); });
+    input.addEventListener('focus', function() { render(input.value); });
+    input.addEventListener('blur', function() { setTimeout(function() { dropdown.classList.remove('open'); }, 150); });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    initSearchable(
+        'employeeSearch', 'employeeDropdown', 'employeeIdHidden',
+        EMPLOYEES_DATA,
+        function(e) { return e.fullName || (e.firstName + ' ' + e.lastName); },
+        function(e) { return 'Cédula: ' + (e.cedula || 'S/C'); },
+        function(e) { return e.id; },
+        function(e, q) {
+            var name = (e.fullName || e.firstName + ' ' + e.lastName).toLowerCase();
+            var cedula = (e.cedula || '').replace(/-/g,'');
+            var qclean = q.replace(/-/g,'');
+            return name.includes(q) || cedula.includes(qclean);
+        }
+    );
+});
+
+function addDetailRow() {
+    const tbody = document.querySelector('#details-table tbody');
+    const row = document.createElement('tr');
+    row.className = 'detail-row';
+    row.innerHTML = `
+        <td><input type="date" name="detail_date[]" class="form-input" style="min-width:130px;" onchange="updateRowMinutes(this)"></td>
+        <td><input type="time" name="detail_from[]" class="form-input" style="min-width:100px;" onchange="updateRowMinutes(this)"></td>
+        <td><input type="time" name="detail_to[]" class="form-input" style="min-width:100px;" onchange="updateRowMinutes(this)"></td>
+        <td><input type="number" name="detail_minutes[]" class="form-input" style="min-width:80px;" readonly value="0"></td>
+        <td class="hours-display">0.00</td>
+        <td><button type="button" class="btn btn-sm btn-danger" onclick="this.closest('tr').remove(); updateTotals();"><i class="fa-solid fa-xmark"></i></button></td>
+    `;
+    tbody.appendChild(row);
+}
+
+function parseTime(timeStr) {
+    if (!timeStr) return null;
+    const parts = timeStr.split(':');
+    if (parts.length < 2) return null;
+    const h = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    if (isNaN(h) || isNaN(m)) return null;
+    return h * 60 + m;
+}
+
+function updateRowMinutes(el) {
+    const row = el.closest('tr');
+    const from = row.querySelector('input[name="detail_from[]"]').value;
+    const to = row.querySelector('input[name="detail_to[]"]').value;
+    const fromMin = parseTime(from);
+    const toMin = parseTime(to);
+    let mins = 0;
+    if (fromMin !== null && toMin !== null) {
+        if (toMin > fromMin) {
+            mins = toMin - fromMin;
+        }
+    }
+    row.querySelector('input[name="detail_minutes[]"]').value = mins;
+    row.querySelector('.hours-display').textContent = (mins / 60).toFixed(2);
+    updateTotals();
+}
+
+function updateTotals() {
+    const inputs = document.querySelectorAll('input[name="detail_minutes[]"]');
+    let total = 0;
+    inputs.forEach(inp => { total += parseInt(inp.value || 0, 10); });
+    document.getElementById('total-minutes').textContent = total;
+    document.getElementById('total-hours').textContent = (total / 60).toFixed(2);
+    previewCalculation();
+}
+
+function previewCalculation() {
+    const empId = document.getElementById('employeeIdHidden').value;
+    const typeSelect = document.getElementById('type-select');
+    const typeCode = typeSelect.value;
+    const totalMins = parseInt(document.getElementById('total-minutes').textContent || '0', 10);
+
+    const preview = document.getElementById('calculation-preview');
+    if (!empId || !typeCode || totalMins <= 0) {
+        preview.style.display = 'none';
+        return;
+    }
+
+    fetch('{{ url_for("web_rrhh.overtime_preview_calculation") }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}'},
+        body: JSON.stringify({employeeId: empId, minutes: totalMins, overtimeTypeCode: typeCode}),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) return;
+        preview.style.display = 'block';
+        document.getElementById('preview-hourly').textContent = data.hourlyRate.toFixed(2);
+        document.getElementById('preview-factor').textContent = data.factor.toFixed(2);
+        document.getElementById('preview-hours').textContent = data.hours.toFixed(2);
+        document.getElementById('preview-amount').textContent = data.amount.toFixed(2);
+    })
+    .catch(() => { preview.style.display = 'none'; });
+}
+</script>
+{% endblock %}

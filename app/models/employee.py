@@ -142,6 +142,7 @@ class PayrollLine(BaseModel):
     grossSalary: float = 0.0
     overtimeHours: float = 0.0
     overtimePay: float = 0.0
+    overtimeBreakdown: dict = Field(default_factory=dict)
     commission: float = 0.0
     bonus: float = 0.0  # Bonificación
     otherIncome: float = 0.0

@@ -188,6 +188,9 @@
                     <th style="min-width:180px; position:sticky; left:0; background:var(--bg-card); z-index:1;">Empleado</th>
                     <th style="text-align:right;">Salario Base</th>
                     <th style="text-align:right;">Horas Extras</th>
+                    {% for col in simulation.get('overtimeColumns', []) %}
+                    <th style="text-align:right; font-size:0.8rem;">{{ col.name }}</th>
+                    {% endfor %}
                     <th style="text-align:right;">Comisiones</th>
                     <th style="text-align:right;">Bonificación</th>
                     <th style="text-align:right;">Otros Ingresos</th>
@@ -198,6 +201,7 @@
                 </tr></thead>
                 <tbody id="simResTbody1">
                     {% for l in simulation.lines %}
+                    {% set obd = l.get('overtimeBreakdown', {}) %}
                     <tr data-search="{{ (l.employeeName or '')|lower }}">
                         <td style="position:sticky; left:0; background:var(--bg-card); font-weight:500;"><strong>{{ l.employeeName }}</strong></td>
                         <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.grossSalary) }}</td>
@@ -207,6 +211,9 @@
                             <span style="font-size:0.65rem;color:var(--text-muted);display:block;">{{ l.overtimeHours|float }} h</span>
                             {% else %}—{% endif %}
                         </td>
+                        {% for col in simulation.get('overtimeColumns', []) %}
+                        <td style="text-align:right; font-size:0.8rem;">{% set amt = obd.get(col.code, 0) %}{% if amt > 0 %}RD$ {{ "{:,.2f}".format(amt) }}{% else %}—{% endif %}</td>
+                        {% endfor %}
                         <td style="text-align:right;">{% if l.commission and l.commission|float > 0 %}RD$ {{ "{:,.2f}".format(l.commission) }}{% else %}—{% endif %}</td>
                         <td style="text-align:right;">{% if l.bonus and l.bonus|float > 0 %}RD$ {{ "{:,.2f}".format(l.bonus) }}{% else %}—{% endif %}</td>
                         <td style="text-align:right;">{% if l.otherIncome and l.otherIncome|float > 0 %}RD$ {{ "{:,.2f}".format(l.otherIncome) }}{% else %}—{% endif %}</td>
@@ -267,6 +274,9 @@
                     <th style="min-width:180px; position:sticky; left:0; background:var(--bg-card); z-index:1;">Empleado</th>
                     <th style="text-align:right;">Salario Base</th>
                     <th style="text-align:right;">Horas Extras</th>
+                    {% for col in simulation.get('overtimeColumns', []) %}
+                    <th style="text-align:right; font-size:0.8rem;">{{ col.name }}</th>
+                    {% endfor %}
                     <th style="text-align:right;">Comisiones</th>
                     <th style="text-align:right;">Bonificación</th>
                     <th style="text-align:right;">Otros Ingresos</th>
@@ -287,6 +297,7 @@
                 </tr></thead>
                 <tbody id="simResTbody3">
                     {% for l in simulation.lines %}
+                    {% set obd = l.get('overtimeBreakdown', {}) %}
                     <tr data-search="{{ (l.employeeName or '')|lower }}">
                         <td style="position:sticky; left:0; background:var(--bg-card); font-weight:500;"><strong>{{ l.employeeName }}</strong></td>
                         <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.grossSalary) }}</td>
@@ -296,6 +307,9 @@
                             <span style="font-size:0.65rem;color:var(--text-muted);display:block;">{{ l.overtimeHours|float }} h</span>
                             {% else %}—{% endif %}
                         </td>
+                        {% for col in simulation.get('overtimeColumns', []) %}
+                        <td style="text-align:right; font-size:0.8rem;">{% set amt = obd.get(col.code, 0) %}{% if amt > 0 %}RD$ {{ "{:,.2f}".format(amt) }}{% else %}—{% endif %}</td>
+                        {% endfor %}
                         <td style="text-align:right;">{% if l.commission and l.commission|float > 0 %}RD$ {{ "{:,.2f}".format(l.commission) }}{% else %}—{% endif %}</td>
                         <td style="text-align:right;">{% if l.bonus and l.bonus|float > 0 %}RD$ {{ "{:,.2f}".format(l.bonus) }}{% else %}—{% endif %}</td>
                         <td style="text-align:right;">{% if l.otherIncome and l.otherIncome|float > 0 %}RD$ {{ "{:,.2f}".format(l.otherIncome) }}{% else %}—{% endif %}</td>
