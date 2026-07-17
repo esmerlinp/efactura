@@ -161,6 +161,9 @@
                 <li class="docs-sidebar-item" data-target="dgt3">
                     <a href="#dgt3"><i class="fa-solid fa-file-export"></i><span>Generación DGT-3</span></a>
                 </li>
+                <li class="docs-sidebar-item" data-target="reglas">
+                    <a href="#reglas"><i class="fa-solid fa-gear"></i><span>Reglas de Nómina</span></a>
+                </li>
             </ul>
         </div>
         <div class="docs-sidebar-footer-info">
@@ -564,10 +567,332 @@
             </div>
         </section>
 
+        <!-- Reglas de Nómina -->
+        <section id="reglas" class="docs-section">
+            <div class="docs-section-title">
+                <i class="fa-solid fa-gear" style="color: var(--accent-emerald);"></i>
+                <span>Reglas de Nómina</span>
+            </div>
+            <div class="docs-article" data-search-content="reglas condiciones acciones bono comision deduccion antiguedad aniversario ingreso campo formula variable">
+                <h3 class="docs-article-title">
+                    <span class="docs-article-title-text">
+                        <i class="fa-solid fa-gear docs-article-title-icon"></i>
+                        Automatiza tu nómina con reglas configurables
+                    </span>
+                </h3>
+                <div class="docs-article-body">
+                    <p>Las <strong>Reglas de Nómina</strong> te permiten automatizar cálculos de bonos, comisiones, deducciones y otros conceptos sin necesidad de programar. Puedes definir reglas que se evaluarán automáticamente al procesar cada nómina.</p>
+
+                    <br>
+                    <strong>¿Cómo funcionan?</strong>
+                    <p>Cada regla tiene dos partes principales:</p>
+                    <ul>
+                        <li><strong>Condiciones:</strong> Filtros que determinan a qué empleados aplica la regla (ej: <code>department == "Ventas"</code>). Se pueden combinar con lógica AND/OR.</li>
+                        <li><strong>Acciones:</strong> Qué concepto calcular y con qué fórmula (ej: <code>set_bonus</code> con fórmula <code>salary * 0.10</code>).</li>
+                    </ul>
+                    <p>Adicionalmente, cada regla tiene:</p>
+                    <ul>
+                        <li><strong>Ámbito:</strong> Global (todos los empleados), Grupo (empleados de un grupo específico) o Empleado (un empleado en particular).</li>
+                        <li><strong>Frecuencia:</strong> Siempre (cada período), Una vez al año o Una sola vez.</li>
+                        <li><strong>Mes de ejecución:</strong> Opcional, para restringir la regla a un mes específico.</li>
+                        <li><strong>Prioridad:</strong> Número menor = mayor prioridad (se evalúa primero).</li>
+                    </ul>
+
+                    <br>
+                    <strong>Campos disponibles para condiciones</strong>
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%; font-size:0.85rem;">
+                            <tr><th>Campo</th><th>Descripción</th><th>Tipo</th></tr>
+                            <tr><td><code>department</code></td><td>Departamento del empleado</td><td>texto</td></tr>
+                            <tr><td><code>area</code></td><td>Área del empleado</td><td>texto</td></tr>
+                            <tr><td><code>position</code></td><td>Cargo / posición</td><td>texto</td></tr>
+                            <tr><td><code>salary</code></td><td>Salario base mensual</td><td>número</td></tr>
+                            <tr><td><code>salary_type</code></td><td>Tipo de salario (fijo, por_hora)</td><td>texto</td></tr>
+                            <tr><td><code>contract_type</code></td><td>Tipo de contrato</td><td>texto</td></tr>
+                            <tr><td><code>status</code></td><td>Estatus (activo, inactivo, suspendido)</td><td>texto</td></tr>
+                            <tr><td><code>workday</code></td><td>Tipo de jornada (completa, media, etc.)</td><td>texto</td></tr>
+                            <tr><td><code>branch</code></td><td>Sucursal del empleado</td><td>texto</td></tr>
+                            <tr><td><code>cost_center</code></td><td>Centro de costo</td><td>texto</td></tr>
+                            <tr><td><code>gender</code></td><td>Género</td><td>texto</td></tr>
+                            <tr><td><code>marital_status</code></td><td>Estado civil (S=Soltero, C=Casado, U=Unión Libre, D=Divorciado, V=Viudo)</td><td>texto</td></tr>
+                            <tr><td><code>nationality</code></td><td>Código de nacionalidad (1=Dominicana)</td><td>número</td></tr>
+                            <tr><td><code>payment_method</code></td><td>Método de pago (transferencia, cheque, efectivo, deposito)</td><td>texto</td></tr>
+                            <tr><td><code>weekly_hours</code></td><td>Horas semanales contratadas (0-44)</td><td>número</td></tr>
+                            <tr><td><code>education_level</code></td><td>Nivel educativo (0-6)</td><td>número</td></tr>
+                            <tr><td><code>work_shift</code></td><td>Turno (1=Diurno, 2=Nocturno, 3=Mixto)</td><td>número</td></tr>
+                            <tr><td><code>seniority_years</code></td><td>Años de antigüedad desde la fecha de ingreso</td><td>número</td></tr>
+                            <tr><td><code>months_since_hire</code></td><td>Meses transcurridos desde la fecha de ingreso</td><td>número</td></tr>
+                            <tr><td><code>age</code></td><td>Edad calculada del empleado</td><td>número</td></tr>
+                            <tr><td><code>hire_month</code></td><td>Mes de contratación (1-12)</td><td>número</td></tr>
+                            <tr><td><code>hire_day</code></td><td>Día de contratación (1-31)</td><td>número</td></tr>
+                            <tr><td><code>is_anniversary_month</code></td><td>1 si el mes actual coincide con el mes de contratación</td><td>número</td></tr>
+                            <tr><td><code>accumulated_ordinary_salary</code></td><td>Suma de salarios base del año + período actual</td><td>número</td></tr>
+                        </table>
+                    </div>
+
+                    <br>
+                    <strong>Variables disponibles para fórmulas</strong>
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%; font-size:0.85rem;">
+                            <tr><th>Variable</th><th>Descripción</th><th>Ejemplo</th></tr>
+                            <tr><td><code>salary</code></td><td>Salario base mensual</td><td><code>salary * 0.50</code></td></tr>
+                            <tr><td><code>days_worked</code></td><td>Días laborados en el período (default 23.83)</td><td><code>days_worked * 200</code></td></tr>
+                            <tr><td><code>accumulated_ordinary_salary</code></td><td>Suma YTD de salarios base</td><td><code>accumulated_ordinary_salary / 12</code></td></tr>
+                            <tr><td><code>seniority_years</code></td><td>Años de antigüedad</td><td><code>salary * seniority_years * 0.05</code></td></tr>
+                            <tr><td><code>age</code></td><td>Edad del empleado</td><td><code>age</code></td></tr>
+                            <tr><td><code>weekly_hours</code></td><td>Horas semanales contratadas</td><td><code>salary * (weekly_hours / 40)</code></td></tr>
+                            <tr><td><code>education_level</code></td><td>Nivel educativo (0-6)</td><td><code>education_level * 2000</code></td></tr>
+                            <tr><td><code>hourly_rate</code></td><td>Tarifa por hora</td><td><code>hourly_rate * days_worked * 8</code></td></tr>
+                            <tr><td><code>months_since_hire</code></td><td>Meses desde el ingreso</td><td><code>months_since_hire * 200</code></td></tr>
+                            <tr><td><code>prorated_salary</code></td><td>Salario prorrateado del período</td><td><code>prorated_salary * 0.10</code></td></tr>
+                            <tr><td><code>overtime_hours</code></td><td>Horas extra del período</td><td><code>overtime_hours * hourly_rate * 1.35</code></td></tr>
+                            <tr><td><code>days_in_period</code></td><td>Días calendario del período</td><td><code>days_in_period * 300</code></td></tr>
+                        </table>
+                    </div>
+
+                    <br>
+                    <strong>Tipos de acción</strong>
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%; font-size:0.85rem;">
+                            <tr><th>Acción</th><th>Concepto</th><th>Efecto</th></tr>
+                            <tr><td><code>set_bonus</code></td><td>BONIFICACION</td><td>Suma al bono del empleado</td></tr>
+                            <tr><td><code>set_commission</code></td><td>COMISION</td><td>Suma a la comisión</td></tr>
+                            <tr><td><code>set_deduction</code></td><td>OTRAS_DEDUCCIONES</td><td>Suma a otras deducciones</td></tr>
+                            <tr><td><code>set_overtime_rate</code></td><td>HORAS_EXTRA</td><td>Establece tarifa de horas extra</td></tr>
+                            <tr><td><code>set_other_income</code></td><td>OTROS_INGRESOS</td><td>Suma a otros ingresos</td></tr>
+                            <tr><td><code>set_other_deduction</code></td><td>OTRAS_DEDUCCIONES</td><td>Suma a otras deducciones</td></tr>
+                        </table>
+                    </div>
+
+                    <br>
+                    <strong>Operadores disponibles para condiciones</strong>
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%; font-size:0.85rem;">
+                            <tr><th>Operador</th><th>Significado</th><th>Ejemplo</th></tr>
+                            <tr><td><code>==</code></td><td>Igual a</td><td><code>department == "Ventas"</code></td></tr>
+                            <tr><td><code>!=</code></td><td>Distinto de</td><td><code>department != "Administración"</code></td></tr>
+                            <tr><td><code>&gt;</code></td><td>Mayor que</td><td><code>salary > 100000</code></td></tr>
+                            <tr><td><code>&lt;</code></td><td>Menor que</td><td><code>seniority_years &lt; 1</code></td></tr>
+                            <tr><td><code>&gt;=</code></td><td>Mayor o igual</td><td><code>age >= 60</code></td></tr>
+                            <tr><td><code>&lt;=</code></td><td>Menor o igual</td><td><code>weekly_hours &lt;= 30</code></td></tr>
+                            <tr><td><code>contains</code></td><td>Contiene texto</td><td><code>position contains "Gerente"</code></td></tr>
+                            <tr><td><code>in</code></td><td>Está en lista</td><td><code>department in "Ventas,Marketing"</code></td></tr>
+                            <tr><td><code>not_in</code></td><td>No está en lista</td><td><code>branch not_in "Santiago,La Vega"</code></td></tr>
+                        </table>
+                    </div>
+
+                    <br>
+                    <strong>Ejemplos prácticos</strong>
+
+                    <div class="fiscal-alert-box alert-info" style="margin-top:12px;">
+                        <i class="fa-solid fa-lightbulb"></i>
+                        <div class="fiscal-alert-text">
+                            Puedes crear estas reglas desde <strong>RRHH → Reglas de Nómina</strong> o <code>/rrhh/payroll/rules/new</code>.
+                        </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:14px; margin-top:16px;">
+
+                        <div class="fiscal-alert-box" style="border-left:4px solid var(--accent-emerald);">
+                            <div><strong>Bono aniversario anual</strong></div>
+                            <div style="font-size:0.82rem; color:var(--text-secondary); margin:6px 0;">50% del salario cada año en el mes de aniversario.</div>
+                            <div style="font-size:0.78rem; background:var(--bg-nav-hover); border-radius:4px; padding:6px;">
+                                <strong>Condiciones:</strong> <code>is_anniversary_month == 1</code> AND <code>seniority_years >= 1</code><br>
+                                <strong>Frecuencia:</strong> Una vez al año<br>
+                                <strong>Acción:</strong> <code>set_bonus</code> con <code>salary * 0.50</code>
+                            </div>
+                        </div>
+
+                        <div class="fiscal-alert-box" style="border-left:4px solid var(--accent-emerald);">
+                            <div><strong>Comisión departamento Ventas</strong></div>
+                            <div style="font-size:0.82rem; color:var(--text-secondary); margin:6px 0;">5% de comisión sobre salario para todo el equipo de Ventas.</div>
+                            <div style="font-size:0.78rem; background:var(--bg-nav-hover); border-radius:4px; padding:6px;">
+                                <strong>Condiciones:</strong> <code>department == "Ventas"</code><br>
+                                <strong>Frecuencia:</strong> Siempre<br>
+                                <strong>Acción:</strong> <code>set_commission</code> con <code>salary * 0.05</code>
+                            </div>
+                        </div>
+
+                        <div class="fiscal-alert-box" style="border-left:4px solid var(--accent-emerald);">
+                            <div><strong>Salario de Navidad</strong></div>
+                            <div style="font-size:0.82rem; color:var(--text-secondary); margin:6px 0;">Regalía pascual equivalente a 1/12 del salario acumulado del año.</div>
+                            <div style="font-size:0.78rem; background:var(--bg-nav-hover); border-radius:4px; padding:6px;">
+                                <strong>Condiciones:</strong> Sin condiciones<br>
+                                <strong>Frecuencia:</strong> Una vez al año / Diciembre<br>
+                                <strong>Acción:</strong> <code>set_bonus</code> con <code>accumulated_ordinary_salary / 12</code>
+                            </div>
+                        </div>
+
+                        <div class="fiscal-alert-box" style="border-left:4px solid var(--accent-emerald);">
+                            <div><strong>Bono 5 años de antigüedad</strong></div>
+                            <div style="font-size:0.82rem; color:var(--text-secondary); margin:6px 0;">RD$10,000 una sola vez al cumplir exactamente 5 años.</div>
+                            <div style="font-size:0.78rem; background:var(--bg-nav-hover); border-radius:4px; padding:6px;">
+                                <strong>Condiciones:</strong> <code>seniority_years == 5</code><br>
+                                <strong>Frecuencia:</strong> Una sola vez<br>
+                                <strong>Acción:</strong> <code>set_bonus</code> con <code>10000</code>
+                            </div>
+                        </div>
+
+                        <div class="fiscal-alert-box" style="border-left:4px solid var(--accent-emerald);">
+                            <div><strong>Bono bienvenida primer año</strong></div>
+                            <div style="font-size:0.82rem; color:var(--text-secondary); margin:6px 0;">RD$5,000 una sola vez al cumplir el primer año.</div>
+                            <div style="font-size:0.78rem; background:var(--bg-nav-hover); border-radius:4px; padding:6px;">
+                                <strong>Condiciones:</strong> <code>seniority_years == 1</code><br>
+                                <strong>Frecuencia:</strong> Una sola vez<br>
+                                <strong>Acción:</strong> <code>set_bonus</code> con <code>5000</code>
+                            </div>
+                        </div>
+
+                        <div class="fiscal-alert-box" style="border-left:4px solid var(--accent-emerald);">
+                            <div><strong>Recargo nocturno</strong></div>
+                            <div style="font-size:0.82rem; color:var(--text-secondary); margin:6px 0;">15% adicional para empleados con turno nocturno.</div>
+                            <div style="font-size:0.78rem; background:var(--bg-nav-hover); border-radius:4px; padding:6px;">
+                                <strong>Condiciones:</strong> <code>work_shift == 2</code><br>
+                                <strong>Frecuencia:</strong> Siempre<br>
+                                <strong>Acción:</strong> <code>set_other_income</code> con <code>salary * 0.15</code>
+                            </div>
+                        </div>
+
+                        <div class="fiscal-alert-box" style="border-left:4px solid var(--accent-emerald);">
+                            <div><strong>Cargo por pago en cheque</strong></div>
+                            <div style="font-size:0.82rem; color:var(--text-secondary); margin:6px 0;">Deducción de RD$250 a empleados que cobran en cheque.</div>
+                            <div style="font-size:0.78rem; background:var(--bg-nav-hover); border-radius:4px; padding:6px;">
+                                <strong>Condiciones:</strong> <code>payment_method == "cheque"</code><br>
+                                <strong>Frecuencia:</strong> Siempre<br>
+                                <strong>Acción:</strong> <code>set_deduction</code> con <code>250</code>
+                            </div>
+                        </div>
+
+                        <div class="fiscal-alert-box" style="border-left:4px solid var(--accent-emerald);">
+                            <div><strong>Bono educación universitaria</strong></div>
+                            <div style="font-size:0.82rem; color:var(--text-secondary); margin:6px 0;">RD$5,000 anuales si el empleado tiene nivel universitario o superior.</div>
+                            <div style="font-size:0.78rem; background:var(--bg-nav-hover); border-radius:4px; padding:6px;">
+                                <strong>Condiciones:</strong> <code>education_level >= 4</code><br>
+                                <strong>Frecuencia:</strong> Una vez al año<br>
+                                <strong>Acción:</strong> <code>set_bonus</code> con <code>5000</code>
+                            </div>
+                        </div>
+
+                        <div class="fiscal-alert-box" style="border-left:4px solid var(--accent-emerald);">
+                            <div><strong>Bono proporcional a horas</strong></div>
+                            <div style="font-size:0.82rem; color:var(--text-secondary); margin:6px 0;">Bono ajustado según horas contratadas (mínimo 20h).</div>
+                            <div style="font-size:0.78rem; background:var(--bg-nav-hover); border-radius:4px; padding:6px;">
+                                <strong>Condiciones:</strong> <code>weekly_hours >= 20</code><br>
+                                <strong>Frecuencia:</strong> Siempre<br>
+                                <strong>Acción:</strong> <code>set_bonus</code> con <code>salary * (weekly_hours / 40)</code>
+                            </div>
+                        </div>
+
+                        <div class="fiscal-alert-box" style="border-left:4px solid var(--accent-emerald);">
+                            <div><strong>Deducción alta remuneración</strong></div>
+                            <div style="font-size:0.82rem; color:var(--text-secondary); margin:6px 0;">RD$5,000 de deducción a empleados con salario superior a RD$250,000.</div>
+                            <div style="font-size:0.78rem; background:var(--bg-nav-hover); border-radius:4px; padding:6px;">
+                                <strong>Condiciones:</strong> <code>salary > 250000</code><br>
+                                <strong>Frecuencia:</strong> Siempre<br>
+                                <strong>Acción:</strong> <code>set_deduction</code> con <code>5000</code>
+                            </div>
+                        </div>
+
+                        <div class="fiscal-alert-box" style="border-left:4px solid var(--accent-emerald);">
+                            <div><strong>Aporte plan retiro</strong></div>
+                            <div style="font-size:0.82rem; color:var(--text-secondary); margin:6px 0;">2% de aporte voluntario a plan de retiro para empleados mayores de 55.</div>
+                            <div style="font-size:0.78rem; background:var(--bg-nav-hover); border-radius:4px; padding:6px;">
+                                <strong>Condiciones:</strong> <code>age >= 55</code><br>
+                                <strong>Frecuencia:</strong> Siempre<br>
+                                <strong>Acción:</strong> <code>set_deduction</code> con <code>salary * 0.02</code>
+                            </div>
+                        </div>
+
+                        <div class="fiscal-alert-box" style="border-left:4px solid var(--accent-emerald);">
+                            <div><strong>Bono sucursal Santiago</strong></div>
+                            <div style="font-size:0.82rem; color:var(--text-secondary); margin:6px 0;">RD$3,000 fijos para empleados de la sucursal Santiago.</div>
+                            <div style="font-size:0.78rem; background:var(--bg-nav-hover); border-radius:4px; padding:6px;">
+                                <strong>Condiciones:</strong> <code>branch == "Santiago"</code><br>
+                                <strong>Frecuencia:</strong> Siempre<br>
+                                <strong>Acción:</strong> <code>set_bonus</code> con <code>3000</code>
+                            </div>
+                        </div>
+
+                        <div class="fiscal-alert-box" style="border-left:4px solid var(--accent-emerald);">
+                            <div><strong>Viático diario Ventas</strong></div>
+                            <div style="font-size:0.82rem; color:var(--text-secondary); margin:6px 0;">RD$300 por día del período para empleados de Ventas.</div>
+                            <div style="font-size:0.78rem; background:var(--bg-nav-hover); border-radius:4px; padding:6px;">
+                                <strong>Condiciones:</strong> <code>department == "Ventas"</code><br>
+                                <strong>Frecuencia:</strong> Siempre<br>
+                                <strong>Acción:</strong> <code>set_other_income</code> con <code>days_in_period * 300</code>
+                            </div>
+                        </div>
+
+                        <div class="fiscal-alert-box" style="border-left:4px solid var(--accent-emerald);">
+                            <div><strong>Bono por horas extra</strong></div>
+                            <div style="font-size:0.82rem; color:var(--text-secondary); margin:6px 0;">Pago de horas extra registradas, calculado automáticamente.</div>
+                            <div style="font-size:0.78rem; background:var(--bg-nav-hover); border-radius:4px; padding:6px;">
+                                <strong>Condiciones:</strong> <code>overtime_hours > 0</code><br>
+                                <strong>Frecuencia:</strong> Siempre<br>
+                                <strong>Acción:</strong> <code>set_bonus</code> con <code>overtime_hours * hourly_rate * 1.35</code>
+                            </div>
+                        </div>
+
+                        <div class="fiscal-alert-box" style="border-left:4px solid var(--accent-emerald);">
+                            <div><strong>Bono por antigüedad mensual</strong></div>
+                            <div style="font-size:0.82rem; color:var(--text-secondary); margin:6px 0;">RD$200 por cada mes de servicio.</div>
+                            <div style="font-size:0.78rem; background:var(--bg-nav-hover); border-radius:4px; padding:6px;">
+                                <strong>Condiciones:</strong> <code>seniority_years >= 1</code><br>
+                                <strong>Frecuencia:</strong> Siempre<br>
+                                <strong>Acción:</strong> <code>set_bonus</code> con <code>months_since_hire * 200</code>
+                            </div>
+                        </div>
+
+                        <div class="fiscal-alert-box" style="border-left:4px solid var(--accent-emerald);">
+                            <div><strong>Bono gerentes y supervisores</strong></div>
+                            <div style="font-size:0.82rem; color:var(--text-secondary); margin:6px 0;">20% de bono adicional para cargos gerenciales.</div>
+                            <div style="font-size:0.78rem; background:var(--bg-nav-hover); border-radius:4px; padding:6px;">
+                                <strong>Condiciones:</strong> <code>position contains "Gerente"</code><br>
+                                <strong>Frecuencia:</strong> Siempre<br>
+                                <strong>Acción:</strong> <code>set_bonus</code> con <code>salary * 0.20</code>
+                            </div>
+                        </div>
+
+                        <div class="fiscal-alert-box" style="border-left:4px solid var(--accent-emerald);">
+                            <div><strong>Bono empleados por hora</strong></div>
+                            <div style="font-size:0.82rem; color:var(--text-secondary); margin:6px 0;">Pago mensual equivalente para empleados con salario por hora.</div>
+                            <div style="font-size:0.78rem; background:var(--bg-nav-hover); border-radius:4px; padding:6px;">
+                                <strong>Condiciones:</strong> <code>salary_type == "por_hora"</code><br>
+                                <strong>Frecuencia:</strong> Siempre<br>
+                                <strong>Acción:</strong> <code>set_other_income</code> con <code>hourly_rate * days_worked * 8</code>
+                            </div>
+                        </div>
+
+                        <div class="fiscal-alert-box" style="border-left:4px solid var(--accent-emerald);">
+                            <div><strong>Sin bono período prueba</strong></div>
+                            <div style="font-size:0.82rem; color:var(--text-secondary); margin:6px 0;">Excluir del bono a empleados con menos de 3 meses.</div>
+                            <div style="font-size:0.78rem; background:var(--bg-nav-hover); border-radius:4px; padding:6px;">
+                                <strong>Condiciones:</strong> <code>months_since_hire < 3</code><br>
+                                <strong>Frecuencia:</strong> Siempre<br>
+                                <strong>Acción:</strong> <code>set_deduction</code> con <code>0</code> (inhibe bono)
+                            </div>
+                        </div>
+
+                        <div class="fiscal-alert-box" style="border-left:4px solid var(--accent-emerald);">
+                            <div><strong>Bono aniversario 6 meses</strong></div>
+                            <div style="font-size:0.82rem; color:var(--text-secondary); margin:6px 0;">25% del salario prorrateado al cumplir 6 meses.</div>
+                            <div style="font-size:0.78rem; background:var(--bg-nav-hover); border-radius:4px; padding:6px;">
+                                <strong>Condiciones:</strong> <code>months_since_hire == 6</code><br>
+                                <strong>Frecuencia:</strong> Una sola vez<br>
+                                <strong>Acción:</strong> <code>set_bonus</code> con <code>prorated_salary * 0.25</code>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
         <div id="no-results" class="no-results-state">
             <i class="fa-solid fa-triangle-exclamation"></i>
             <h4>No encontramos resultados</h4>
-            <p>Prueba buscando con palabras clave como "empleados", "TSS", "AFP", "ISR" o "DGT-3".</p>
+            <p>Prueba buscando con palabras clave como "empleados", "TSS", "AFP", "ISR", "reglas" o "DGT-3".</p>
         </div>
 
         <div class="docs-footer-banner">

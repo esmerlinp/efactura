@@ -6,6 +6,7 @@
     padding: 14px 18px;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
+    background: var(--bg-card);
     margin-bottom: 10px;
     transition: all 0.15s;
 }
@@ -61,6 +62,10 @@
     <h1 class="page-title"><i class="fa-solid fa-code-branch"></i> Reglas de Cálculo</h1>
     <div class="hr-page-actions">
         <a href="{{ url_for('web_rrhh.payroll_rules_test') }}" class="btn btn-ghost"><i class="fa-solid fa-flask"></i> Probar reglas</a>
+        <form method="POST" action="{{ url_for('web_rrhh.payroll_rules_cleanup_logs') }}" style="display:inline; margin:0;" onsubmit="return confirm('Esto permitirá que las reglas one-shot/anuales se apliquen nuevamente. ¿Continuar?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-ghost"><i class="fa-solid fa-broom"></i> Limpiar historial</button>
+        </form>
         <a href="{{ url_for('web_rrhh.payroll_rules_new') }}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Nueva regla</a>
         <a href="{{ url_for('web_rrhh.payroll_settings') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Configuración</a>
     </div>

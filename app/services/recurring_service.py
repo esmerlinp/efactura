@@ -12,6 +12,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
+from google.cloud.firestore import FieldFilter
 from app.services.db_service import db_firestore, firebase_initialized
 from app.models.transaction import PayrollTransaction
 from app.models.recurring import RecurringMovement, RecurringException, RecurringApplication
@@ -129,8 +130,8 @@ def get_exception(owner_uid: str, rm_id: str, period_key: str,
     try:
         coll = _exception_collection(owner_uid, sandbox)
         docs = db_firestore.collection(coll)\
-            .where("recurringMovementId", "==", rm_id)\
-            .where("periodKey", "==", period_key).get()
+            .where(filter=FieldFilter("recurringMovementId", "==", rm_id))\
+            .where(filter=FieldFilter("periodKey", "==", period_key)).get()
         for d in docs:
             return _doc_to_dict(d)
         return None

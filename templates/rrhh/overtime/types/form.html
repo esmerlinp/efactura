@@ -1,0 +1,51 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}{{ 'Editar' if otype else 'Nuevo' }} Tipo HE — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-clock"></i> {{ 'Editar' if otype else 'Nuevo' }} Tipo de Hora Extra</h1>
+    <a href="{{ url_for('web_rrhh.overtime_types_list') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Volver</a>
+</div>
+
+<form method="POST" class="hr-main-col">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="hr-section-card">
+        <h3><i class="fa-solid fa-gear"></i> Datos del tipo</h3>
+        <div class="hr-form-grid">
+            <div class="form-group">
+                <label>Código <span style="color:var(--danger);">*</span></label>
+                <input type="text" name="code" class="form-input" required {% if otype %}readonly{% endif %}
+                       value="{{ otype.code if otype else '' }}" placeholder="Ej. HE04">
+                {% if not otype %}<span style="font-size:0.75rem; color:var(--text-muted);">Sin espacios, mayúsculas.</span>{% endif %}
+            </div>
+            <div class="form-group">
+                <label>Nombre <span style="color:var(--danger);">*</span></label>
+                <input type="text" name="name" class="form-input" required
+                       value="{{ otype.name if otype else '' }}" placeholder="Ej. Hora Extra Diurna">
+            </div>
+            <div class="form-group">
+                <label>Factor <span style="color:var(--danger);">*</span></label>
+                <input type="number" name="factor" class="form-input" step="0.01" min="1.0" required
+                       value="{{ otype.factor if otype else 1.35 }}" placeholder="1.35">
+                <span style="font-size:0.75rem; color:var(--text-muted);">Multiplicador sobre hora ordinaria.</span>
+            </div>
+            <div class="form-group">
+                <label>Concepto de nómina</label>
+                <select name="conceptCode" class="form-select">
+                    <option value="">Sin vínculo</option>
+                    {% for c in concepts %}
+                    <option value="{{ c.code }}" {% if otype and otype.conceptCode == c.code %}selected{% endif %}>
+                        {{ c.code }} — {{ c.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <span style="font-size:0.75rem; color:var(--text-muted);">Concepto que se usará en nómina para este tipo.</span>
+            </div>
+        </div>
+    </div>
+    <div class="hr-section-card hr-actions-card hr-actions-bar">
+        <a href="{{ url_for('web_rrhh.overtime_types_list') }}" class="btn btn-ghost">Cancelar</a>
+        <button type="submit" class="btn btn-primary">{{ 'Guardar' if otype else 'Crear Tipo' }}</button>
+    </div>
+</form>
+{% endblock %}

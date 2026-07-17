@@ -1,0 +1,160 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}HE {{ record.number }} — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+{% set status_badge = {
+    'draft': 'badge-secondary',
+    'pending': 'badge-warning',
+    'approved': 'badge-success',
+    'locked': 'badge-info',
+    'processed': 'badge-purple',
+    'rejected': 'badge-danger',
+    'reopened': 'badge-info',
+} %}
+{% set status_label = {
+    'draft': 'Borrador',
+    'pending': 'Pendiente',
+    'approved': 'Aprobada',
+    'locked': 'Bloqueada',
+    'processed': 'Procesada',
+    'rejected': 'Rechazada',
+    'reopened': 'Reabierta',
+} %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title">
+        <i class="fa-solid fa-clock"></i> HE {{ record.number }}
+        <span class="badge {{ status_badge.get(record.status, 'badge-secondary') }}" style="font-size:0.75rem; margin-left:8px;">
+            {{ status_label.get(record.status, record.status) }}
+        </span>
+    </h1>
+    <div class="hr-page-actions">
+        <a href="{{ url_for('web_rrhh.overtime_list') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Volver</a>
+    </div>
+</div>
+
+<div class="hr-grid-2col">
+    <div>
+        <div class="hr-section-card">
+            <h3><i class="fa-solid fa-info-circle"></i> Información general</h3>
+            <table class="info-table">
+                <tr><td>Número</td><td><code>{{ record.number }}</code></td></tr>
+                <tr><td>Empleado</td><td><strong>{{ record.employeeSnapshot.get('name', '') }}</strong></td></tr>
+                <tr><td>Fecha</td><td>{{ record.date }}</td></tr>
+                <tr><td>Tipo HE</td><td>{{ record.overtimeTypeCode }} {% if otype %}({{ otype.name }}){% endif %}</td></tr>
+                <tr><td>Total minutos</td><td>{{ record.totalMinutes }} min ({{ '%.2f'|format(record.totalMinutes / 60) }} horas)</td></tr>
+                <tr><td>Comentario</td><td>{{ record.comment or '—' }}</td></tr>
+                <tr><td>Origen</td><td>{{ record.source }}{% if record.sourceReference %} ({{ record.sourceReference }}){% endif %}</td></tr>
+            </table>
+        </div>
+
+        {% if record.details %}
+        <div class="hr-section-card">
+            <h3><i class="fa-solid fa-table-cells"></i> Detalle de horas</h3>
+            <div class="table-responsive">
+                <table class="table-premium" style="font-size:0.85rem;">
+                    <thead>
+                        <tr><th>Fecha</th><th>Desde</th><th>Hasta</th><th>Minutos</th><th>Horas</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for d in record.details %}
+                        <tr>
+                            <td>{{ d.date }}</td>
+                            <td>{{ d.fromTime }}</td>
+                            <td>{{ d.toTime }}</td>
+                            <td>{{ d.minutes }}</td>
+                            <td>{{ '%.2f'|format(d.minutes / 60) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div>
+        <div class="hr-section-card">
+            <h3><i class="fa-solid fa-calculator"></i> Cálculo</h3>
+            {% if record.hourlyRateAtApproval > 0 %}
+            <table class="info-table">
+                <tr><td>Salario hora (congelado)</td><td>RD$ {{ '%.2f'|format(record.hourlyRateAtApproval) }}</td></tr>
+                <tr><td>Factor (congelado)</td><td>x{{ '%.2f'|format(record.factorAtApproval) }}</td></tr>
+                <tr><td>Total a pagar</td><td style="font-weight:700; color:var(--accent-emerald); font-size:1.1rem;">
+                    RD$ {{ '%.2f'|format(record.hourlyRateAtApproval * record.factorAtApproval * (record.totalMinutes / 60)) }}
+                </td></tr>
+            </table>
+            {% else %}
+            <p class="text-muted">El cálculo se congelará al aprobar la solicitud.</p>
+            {% endif %}
+        </div>
+
+        {% if record.processedPayrollId %}
+        <div class="hr-section-card">
+            <h3><i class="fa-solid fa-file-invoice"></i> Nómina vinculada</h3>
+            <table class="info-table">
+                <tr><td>Nómina</td><td><code>{{ record.processedPayrollId }}</code></td></tr>
+                <tr><td>Procesado en</td><td>{{ record.processedAt }}</td></tr>
+            </table>
+        </div>
+        {% endif %}
+
+        <div class="hr-section-card">
+            <h3><i class="fa-solid fa-timeline"></i> Acciones</h3>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                {% if record.status == 'draft' %}
+                <form method="POST" action="{{ url_for('web_rrhh.overtime_submit', record_id=record.id) }}" style="display:contents;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-warning"><i class="fa-solid fa-paper-plane"></i> Enviar a aprobación</button>
+                </form>
+                {% endif %}
+                {% if record.status == 'pending' %}
+                <form method="POST" action="{{ url_for('web_rrhh.overtime_approve', record_id=record.id) }}" style="display:contents;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-success"><i class="fa-solid fa-check"></i> Aprobar</button>
+                </form>
+                <form method="POST" action="{{ url_for('web_rrhh.overtime_reject', record_id=record.id) }}" style="display:contents;" onsubmit="return confirm('¿Estás seguro de rechazar esta hora extra?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div style="display:flex; gap:8px;">
+                        <input type="text" name="reason" class="form-input" placeholder="Motivo de rechazo *" required style="flex:1;">
+                        <button type="submit" class="btn btn-danger"><i class="fa-solid fa-xmark"></i> Rechazar</button>
+                    </div>
+                </form>
+                {% endif %}
+                {% if record.status in ('rejected', 'reopened') %}
+                <form method="POST" action="{{ url_for('web_rrhh.overtime_reset', record_id=record.id) }}" style="display:contents;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-ghost"><i class="fa-solid fa-rotate-left"></i> Devolver a borrador</button>
+                </form>
+                {% endif %}
+                {% if record.status == 'processed' %}
+                <p class="text-muted"><i class="fa-solid fa-lock"></i> Esta hora extra fue procesada en nómina y no puede modificarse.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="hr-section-card">
+            <h3><i class="fa-solid fa-clock-rotate-left"></i> Historial de estados</h3>
+            <div style="font-size:0.85rem;">
+                {% for h in record.statusHistory %}
+                <div style="display:flex; gap:12px; padding:6px 0; border-bottom:1px solid var(--border-subtle);">
+                    <span class="badge {{ status_badge.get(h.status, 'badge-secondary') }}" style="min-width:80px;">{{ status_label.get(h.status, h.status) }}</span>
+                    <span style="color:var(--text-muted);">{{ h.at[:16] if h.at else '' }}</span>
+                    <span>{{ h.by }}</span>
+                    {% if h.comment and h.comment != 'Creado' and h.comment != ('Cambió a ' ~ h.status) %}
+                    <span style="color:var(--text-secondary);">— {{ h.comment }}</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.hr-grid-2col { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media (max-width:900px) { .hr-grid-2col { grid-template-columns:1fr; } }
+.info-table { width:100%; border-collapse:collapse; }
+.info-table td { padding:6px 8px; border-bottom:1px solid var(--border-subtle); font-size:0.85rem; }
+.info-table td:first-child { color:var(--text-muted); width:140px; }
+</style>
+{% endblock %}

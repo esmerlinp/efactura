@@ -16,7 +16,8 @@ from app.services.db_service import db_firestore, firebase_initialized
 SYSTEM_CONCEPT_CODES = {
     "SALARIO_BASE", "AFP_EMPLEADO", "SFS_EMPLEADO", "ISR_RETENCION",
     "AFP_EMPLEADOR", "SFS_EMPLEADOR", "SRL_EMPLEADOR", "INFOTEP_EMPLEADOR",
-    "INFOTEP_EMPLEADO", "HORAS_EXTRA", "COMISION", "BONIFICACION",
+    "INFOTEP_EMPLEADO",     "HORAS_EXTRA", "HE_DIURNA", "HE_NOCTURNA", "HE_FERIADO",
+    "COMISION", "BONIFICACION",
     "OTROS_INGRESOS", "OTRAS_DEDUCCIONES",
 }
 
@@ -44,6 +45,30 @@ DEFAULT_CONCEPTS = [
      "accountDebit": "6.2.1.02", "account_credit": "2.1.2.1.02",
      "priority": 10, "active": True, "isSystem": True,
      "isRecurringCapable": False, "isLegalMandatory": False, "maxPercentage": 0.0},
+
+    {"code": "HE_DIURNA",          "name": "Hora extra diurna",
+     "type": "earning", "category": "variable",
+     "taxable": True, "affects_afp": True, "affects_sfs": True, "affects_isr": True,
+     "accountDebit": "6.2.1.02", "account_credit": "2.1.2.1.02",
+     "priority": 11, "active": True, "isSystem": True,
+     "isRecurringCapable": False, "isLegalMandatory": False, "maxPercentage": 0.0,
+     "calculationMethod": "overtime", "factor": 1.35},
+
+    {"code": "HE_NOCTURNA",        "name": "Hora extra nocturna",
+     "type": "earning", "category": "variable",
+     "taxable": True, "affects_afp": True, "affects_sfs": True, "affects_isr": True,
+     "accountDebit": "6.2.1.02", "account_credit": "2.1.2.1.02",
+     "priority": 12, "active": True, "isSystem": True,
+     "isRecurringCapable": False, "isLegalMandatory": False, "maxPercentage": 0.0,
+     "calculationMethod": "overtime", "factor": 1.50},
+
+    {"code": "HE_FERIADO",         "name": "Hora extra feriado / descanso",
+     "type": "earning", "category": "variable",
+     "taxable": True, "affects_afp": True, "affects_sfs": True, "affects_isr": True,
+     "accountDebit": "6.2.1.02", "account_credit": "2.1.2.1.02",
+     "priority": 13, "active": True, "isSystem": True,
+     "isRecurringCapable": False, "isLegalMandatory": False, "maxPercentage": 0.0,
+     "calculationMethod": "overtime", "factor": 2.00},
 
     {"code": "COMISION",           "name": "Comisión",
      "type": "earning", "category": "variable",

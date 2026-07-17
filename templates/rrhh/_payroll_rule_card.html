@@ -13,6 +13,7 @@
         <span style="display:flex; gap:4px; align-items:center;">
             <span style="font-size:0.7rem; color:var(--text-muted);">Prioridad: {{ rule.priority }}</span>
             <form method="POST" action="{{ url_for('web_rrhh.payroll_rules_toggle', rule_id=rule.id) }}" style="margin:0;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button class="btn btn-ghost btn-sm" title="Activar/Desactivar">
                     <i class="fa-solid {% if rule.isActive %}fa-toggle-on{% else %}fa-toggle-off{% endif %}"></i>
                 </button>
@@ -21,6 +22,7 @@
                 <i class="fa-solid fa-pen"></i>
             </a>
             <form method="POST" action="{{ url_for('web_rrhh.payroll_rules_delete', rule_id=rule.id) }}" style="margin:0;" onsubmit="return confirm('¿Eliminar esta regla?')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button class="btn btn-ghost btn-sm" style="color:var(--accent-red);">
                     <i class="fa-solid fa-trash"></i>
                 </button>

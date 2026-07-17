@@ -1,0 +1,63 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Tipos de Horas Extras — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-clock"></i> Tipos de Horas Extras</h1>
+    <div class="hr-page-actions">
+        <a href="{{ url_for('web_rrhh.overtime_types_new') }}" class="btn btn-primary">
+            <i class="fa-solid fa-plus"></i> Nuevo Tipo
+        </a>
+        <a href="{{ url_for('web_rrhh.overtime_list') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Horas Extras</a>
+    </div>
+</div>
+
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-responsive">
+        <table class="table-premium" style="font-size:0.85rem;">
+        <thead>
+            <tr>
+                <th>Código</th>
+                <th>Nombre</th>
+                <th>Factor</th>
+                <th>Concepto Nómina</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for t in types %}
+            <tr>
+                <td><code style="font-size:0.8rem;">{{ t.code }}</code></td>
+                <td><strong>{{ t.name }}</strong></td>
+                <td>x{{ '%.2f'|format(t.factor) }}</td>
+                <td>{{ concepts_map.get(t.conceptCode, t.conceptCode) or '—' }}</td>
+                <td>
+                    {% if t.active %}
+                    <span class="badge badge-success">Activo</span>
+                    {% else %}
+                    <span class="badge badge-warning">Inactivo</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{{ url_for('web_rrhh.overtime_types_edit', code=t.code) }}" class="btn btn-sm btn-ghost" title="Editar">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                    </a>
+                    <form method="POST" action="{{ url_for('web_rrhh.overtime_types_toggle', code=t.code) }}" style="display:contents;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-ghost"
+                                title="{{ 'Desactivar' if t.active else 'Activar' }}">
+                            <i class="fa-solid fa-{{ 'toggle-on' if t.active else 'toggle-off' }}"
+                               style="color:{% if t.active %}var(--accent-emerald){% else %}var(--text-muted){% endif %};"></i>
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted">No hay tipos de horas extras configurados.</td></tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

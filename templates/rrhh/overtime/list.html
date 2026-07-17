@@ -1,0 +1,102 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Horas Extras — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-clock"></i> Horas Extras</h1>
+    <div class="hr-page-actions">
+        <a href="{{ url_for('web_rrhh.overtime_new') }}" class="btn btn-primary">
+            <i class="fa-solid fa-plus"></i> Nueva Hora Extra
+        </a>
+        <a href="{{ url_for('web_rrhh.overtime_pending') }}" class="btn btn-warning">
+            <i class="fa-solid fa-clock"></i> Pendientes
+        </a>
+        <a href="{{ url_for('web_rrhh.overtime_types_list') }}" class="btn btn-ghost">
+            <i class="fa-solid fa-gear"></i> Tipos
+        </a>
+        <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost">
+            <i class="fa-solid fa-arrow-left"></i> Dashboard
+        </a>
+    </div>
+</div>
+
+<div class="card-table-wrapper" style="padding:16px 24px; margin-bottom:16px;">
+    <form method="GET" action="{{ url_for('web_rrhh.overtime_list') }}">
+        <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:end;">
+            <div class="form-group" style="min-width:160px;">
+                <label>Estado</label>
+                <select name="status" class="form-select" onchange="this.form.submit()">
+                    <option value="">Todos</option>
+                    <option value="draft" {% if status_filter=='draft' %}selected{% endif %}>Borrador</option>
+                    <option value="pending" {% if status_filter=='pending' %}selected{% endif %}>Pendiente</option>
+                    <option value="approved" {% if status_filter=='approved' %}selected{% endif %}>Aprobada</option>
+                    <option value="locked" {% if status_filter=='locked' %}selected{% endif %}>Bloqueada</option>
+                    <option value="processed" {% if status_filter=='processed' %}selected{% endif %}>Procesada</option>
+                    <option value="rejected" {% if status_filter=='rejected' %}selected{% endif %}>Rechazada</option>
+                    <option value="reopened" {% if status_filter=='reopened' %}selected{% endif %}>Reabierta</option>
+                </select>
+            </div>
+            <div class="form-group" style="min-width:200px;">
+                <label>Empleado</label>
+                <select name="employee" class="form-select" onchange="this.form.submit()">
+                    <option value="">Todos</option>
+                    {% for e in employees %}
+                    <option value="{{ e.id }}" {% if emp_filter==e.id %}selected{% endif %}>{{ e.fullName }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-ghost" style="margin-bottom:4px;">
+                <i class="fa-solid fa-filter"></i> Filtrar
+            </button>
+        </div>
+    </form>
+</div>
+
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-responsive">
+        <table class="table-premium" style="font-size:0.85rem;">
+        <thead>
+            <tr>
+                <th>N°</th>
+                <th>Empleado</th>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Minutos</th>
+                <th>Estado</th>
+                <th>Registrado por</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in records %}
+            <tr>
+                <td><code style="font-size:0.8rem;">{{ r.number }}</code></td>
+                <td><strong>{{ r.employeeSnapshot.get('name', '') }}</strong></td>
+                <td>{{ r.date }}</td>
+                <td>{{ r.overtimeTypeCode }}</td>
+                <td>{{ r.totalMinutes }} min ({{ '%g'|format(r.totalMinutes / 60) }}h)</td>
+                <td>
+                    {% if r.status == 'draft' %}<span class="badge badge-secondary">Borrador</span>
+                    {% elif r.status == 'pending' %}<span class="badge badge-warning">Pendiente</span>
+                    {% elif r.status == 'approved' %}<span class="badge badge-success">Aprobada</span>
+                    {% elif r.status == 'locked' %}<span class="badge badge-info">Bloqueada</span>
+                    {% elif r.status == 'processed' %}<span class="badge badge-purple">Procesada</span>
+                    {% elif r.status == 'rejected' %}<span class="badge badge-danger">Rechazada</span>
+                    {% elif r.status == 'reopened' %}<span class="badge badge-info">Reabierta</span>
+                    {% else %}{{ r.status }}{% endif %}
+                </td>
+                <td>{{ r.registeredBy }}</td>
+                <td>
+                    <a href="{{ url_for('web_rrhh.overtime_view', record_id=r.id) }}" class="btn btn-sm btn-ghost" title="Ver">
+                        <i class="fa-solid fa-eye"></i>
+                    </a>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-center text-muted">No hay registros de horas extras.</td></tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

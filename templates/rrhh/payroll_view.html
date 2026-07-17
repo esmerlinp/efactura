@@ -350,6 +350,9 @@
                     <th>Empleado</th>
                     <th style="text-align:right;">Salario Base</th>
                     <th style="text-align:right;">Horas Extras</th>
+                    {% for col in period.get('overtimeColumns', []) %}
+                    <th style="text-align:right; font-size:0.8rem;">{{ col.name }}</th>
+                    {% endfor %}
                     <th style="text-align:right;">Comisiones</th>
                     <th style="text-align:right;">Bonificación</th>
                     <th style="text-align:right;">Otros Ingresos</th>
@@ -362,6 +365,7 @@
             <tbody>
                 {% for l in period.lines %}
                 {% set amap = l.get('recurringAdditionsMap', {}) %}
+                {% set obd = l.get('overtimeBreakdown', {}) %}
                 <tr data-search="{{ (l.employeeName or '')|lower }} {{ (l.cedula or '')|lower }}">
                     <td style="white-space:nowrap;"><a href="{{ url_for('web_rrhh.employee_view', employee_id=l.employeeId) }}" class="emp-link">{{ l.employeeName }}</a></td>
                     <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.get('grossSalary', l.get('baseSalary', 0))|float) }}</td>
@@ -371,6 +375,9 @@
                         <span style="font-size:0.65rem;color:var(--text-muted);"> ({{ l.overtimeHours|float }} h)</span>
                         {% else %}—{% endif %}
                     </td>
+                    {% for col in period.get('overtimeColumns', []) %}
+                    <td style="text-align:right; white-space:nowrap; font-size:0.8rem;">{% set amt = obd.get(col.code, 0) %}{% if amt > 0 %}RD$ {{ "{:,.2f}".format(amt) }}{% else %}—{% endif %}</td>
+                    {% endfor %}
                     <td style="text-align:right; white-space:nowrap;">{% if l.commission and l.commission|float > 0 %}{{ "RD$ {:,.2f}".format(l.commission|float) }}{% else %}—{% endif %}</td>
                     <td style="text-align:right; white-space:nowrap;">{% if l.bonus and l.bonus|float > 0 %}{{ "RD$ {:,.2f}".format(l.bonus|float) }}{% else %}—{% endif %}</td>
                     <td style="text-align:right; white-space:nowrap;">{% if l.otherIncome and l.otherIncome|float > 0 %}{{ "RD$ {:,.2f}".format(l.otherIncome|float) }}{% else %}—{% endif %}</td>
@@ -386,6 +393,9 @@
                     <td>Totales</td>
                     <td style="text-align:right;">—</td>
                     <td style="text-align:right;">—</td>
+                    {% for col in period.get('overtimeColumns', []) %}
+                    <td style="text-align:right;">—</td>
+                    {% endfor %}
                     <td style="text-align:right;">—</td>
                     <td style="text-align:right;">—</td>
                     <td style="text-align:right;">—</td>
@@ -471,6 +481,9 @@
                     <th>Cargo</th>
                     <th style="text-align:right;">Salario Base</th>
                     <th style="text-align:right;">Horas Extras</th>
+                    {% for col in period.get('overtimeColumns', []) %}
+                    <th style="text-align:right; font-size:0.8rem;">{{ col.name }}</th>
+                    {% endfor %}
                     <th style="text-align:right;">Comisiones</th>
                     <th style="text-align:right;">Bonificación</th>
                     <th style="text-align:right;">Otros Ingresos</th>
@@ -493,6 +506,7 @@
             <tbody>
                 {% for l in period.lines %}
                 {% set amap = l.get('recurringAdditionsMap', {}) %}
+                {% set obd = l.get('overtimeBreakdown', {}) %}
                 <tr data-search="{{ (l.employeeName or '')|lower }} {{ (l.cedula or '')|lower }}">
                     <td style="white-space:nowrap;"><a href="{{ url_for('web_rrhh.employee_view', employee_id=l.employeeId) }}" class="emp-link">{{ l.employeeName }}</a></td>
                     <td style="white-space:nowrap;">{{ l.cedula }}</td>
@@ -504,6 +518,9 @@
                         <span style="font-size:0.65rem;color:var(--text-muted);"> ({{ l.overtimeHours|float }} h)</span>
                         {% else %}—{% endif %}
                     </td>
+                    {% for col in period.get('overtimeColumns', []) %}
+                    <td style="text-align:right; white-space:nowrap; font-size:0.8rem;">{% set amt = obd.get(col.code, 0) %}{% if amt > 0 %}RD$ {{ "{:,.2f}".format(amt) }}{% else %}—{% endif %}</td>
+                    {% endfor %}
                     <td style="text-align:right; white-space:nowrap;">{% if l.commission and l.commission|float > 0 %}{{ "RD$ {:,.2f}".format(l.commission|float) }}{% else %}—{% endif %}</td>
                     <td style="text-align:right; white-space:nowrap;">{% if l.bonus and l.bonus|float > 0 %}{{ "RD$ {:,.2f}".format(l.bonus|float) }}{% else %}—{% endif %}</td>
                     <td style="text-align:right; white-space:nowrap;">{% if l.otherIncome and l.otherIncome|float > 0 %}{{ "RD$ {:,.2f}".format(l.otherIncome|float) }}{% else %}—{% endif %}</td>
@@ -530,6 +547,9 @@
                     <td colspan="3">Totales</td>
                     <td style="text-align:right;">—</td>
                     <td style="text-align:right;">—</td>
+                    {% for col in period.get('overtimeColumns', []) %}
+                    <td style="text-align:right;">—</td>
+                    {% endfor %}
                     <td style="text-align:right;">—</td>
                     <td style="text-align:right;">—</td>
                     <td style="text-align:right;">—</td>

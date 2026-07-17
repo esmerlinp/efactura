@@ -1,0 +1,94 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Horas Extras Pendientes — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-clock"></i> Horas Extras Pendientes de Aprobación</h1>
+    <div class="hr-page-actions">
+        <a href="{{ url_for('web_rrhh.overtime_list') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Todas las HE</a>
+    </div>
+</div>
+
+{% if records %}
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-responsive">
+        <table class="table-premium" style="font-size:0.85rem;">
+        <thead>
+            <tr>
+                <th>N°</th>
+                <th>Empleado</th>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Minutos</th>
+                <th>Registrado por</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in records %}
+            <tr>
+                <td><code>{{ r.number }}</code></td>
+                <td><strong>{{ r.employeeSnapshot.get('name', '') }}</strong></td>
+                <td>{{ r.date }}</td>
+                <td>{{ r.overtimeTypeCode }}</td>
+                <td>{{ r.totalMinutes }} min</td>
+                <td>{{ r.registeredBy }}</td>
+                <td>
+                    <div style="display:flex; gap:6px;">
+                        <a href="{{ url_for('web_rrhh.overtime_view', record_id=r.id) }}" class="btn btn-sm btn-ghost" title="Ver">
+                            <i class="fa-solid fa-eye"></i>
+                        </a>
+                        <form method="POST" action="{{ url_for('web_rrhh.overtime_approve', record_id=r.id) }}" style="display:contents;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-success" title="Aprobar">
+                                <i class="fa-solid fa-check"></i>
+                            </button>
+                        </form>
+                        <button type="button" class="btn btn-sm btn-danger" title="Rechazar"
+                                onclick="rejectOvertime('{{ r.id }}', '{{ r.number }}')">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="reject-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:999; align-items:center; justify-content:center;">
+    <div style="background:#fff; border-radius:12px; padding:24px; max-width:420px; width:90%;">
+        <h3 style="margin:0 0 12px;">Rechazar HE <span id="reject-number"></span></h3>
+        <form method="POST" id="reject-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label>Motivo del rechazo <span style="color:var(--danger);">*</span></label>
+                <textarea name="reason" class="form-input" rows="3" required placeholder="Indica el motivo..."></textarea>
+            </div>
+            <div style="display:flex; gap:8px; justify-content:end; margin-top:16px;">
+                <button type="button" class="btn btn-ghost" onclick="closeRejectModal()">Cancelar</button>
+                <button type="submit" class="btn btn-danger">Rechazar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function rejectOvertime(id, number) {
+    document.getElementById('reject-number').textContent = number;
+    document.getElementById('reject-form').action = '/rrhh/overtime/' + id + '/reject';
+    document.getElementById('reject-modal').style.display = 'flex';
+}
+function closeRejectModal() {
+    document.getElementById('reject-modal').style.display = 'none';
+}
+</script>
+{% else %}
+<div class="card-table-wrapper" style="padding:40px; text-align:center;">
+    <i class="fa-solid fa-check-circle" style="font-size:3rem; color:var(--accent-emerald); opacity:0.5; margin-bottom:12px;"></i>
+    <p style="color:var(--text-muted);">No hay horas extras pendientes de aprobación.</p>
+    <a href="{{ url_for('web_rrhh.overtime_list') }}" class="btn btn-ghost">Ver todas</a>
+</div>
+{% endif %}
+{% endblock %}

@@ -15,6 +15,7 @@
 </div>
 
 <form method="POST" class="card-table-wrapper" style="padding:20px; margin-bottom:20px;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div style="display:flex; gap:12px; align-items:end;">
         <div style="flex:1;">
             <label style="font-size:0.82rem; display:block; margin-bottom:4px;">Empleado</label>

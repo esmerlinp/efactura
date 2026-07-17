@@ -99,6 +99,191 @@
 @media (max-width: 500px) {
     #help-sidebar { width: 100% !important; max-width: 100% !important; right: -100%; }
 }
+
+/* ── Multi-select grupos ── */
+.multiselect-container {
+    position: relative;
+    width: 100%;
+}
+.multiselect-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--input-bg, #fff);
+    cursor: pointer;
+    min-height: 42px;
+    gap: 8px;
+}
+.multiselect-trigger:hover { border-color: var(--primary); }
+.multiselect-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    flex: 1;
+}
+.multiselect-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--primary-bg, rgba(37,99,235,0.1));
+    color: var(--primary);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+.multiselect-chip i {
+    cursor: pointer;
+    font-size: 0.7rem;
+    opacity: 0.7;
+}
+.multiselect-chip i:hover { opacity: 1; }
+.multiselect-placeholder {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+.multiselect-arrow {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    transition: transform 0.2s;
+}
+.multiselect-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--card-bg, #fff);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    z-index: 100;
+    max-height: 320px;
+    overflow: hidden;
+}
+.multiselect-dropdown.open { display: block; }
+.multiselect-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+.multiselect-search i { color: var(--text-muted); }
+.multiselect-search-input {
+    border: none;
+    outline: none;
+    flex: 1;
+    background: transparent;
+    font-size: 0.9rem;
+}
+.multiselect-options {
+    max-height: 220px;
+    overflow-y: auto;
+}
+.multiselect-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.multiselect-option:hover { background: var(--hover-bg, rgba(0,0,0,0.04)); }
+.multiselect-option input[type="checkbox"] { accent-color: var(--primary); }
+.multiselect-option small { color: var(--text-muted); }
+
+/* ── Autocomplete fórmulas (@variables) ── */
+.formula-autocomplete-dropdown {
+    display: none;
+    position: fixed;
+    z-index: 1001;
+    background: #fff;
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: var(--radius-md, 8px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    max-height: 220px;
+    overflow-y: auto;
+    min-width: 280px;
+    font-size: 0.85rem;
+}
+.formula-autocomplete-dropdown.open { display: block; }
+.formula-autocomplete-item {
+    padding: 8px 16px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    transition: background 0.12s;
+}
+.formula-autocomplete-item:hover,
+.formula-autocomplete-item.active {
+    background: var(--hover-bg, #f1f5f9);
+}
+.formula-autocomplete-item code {
+    font-weight: 600;
+    color: var(--primary, #2563eb);
+    font-size: 0.88rem;
+}
+.formula-autocomplete-item small {
+    color: var(--text-muted, #94a3b8);
+    font-size: 0.75rem;
+    text-align: right;
+    flex-shrink: 0;
+}
+.formula-autocomplete-empty {
+    padding: 16px;
+    color: var(--text-muted, #94a3b8);
+    text-align: center;
+    font-size: 0.82rem;
+}
+
+/* ── Modal variables ── */
+#variables-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+#variables-modal.open { display: flex; }
+.variables-modal-content {
+    background: #fff;
+    border-radius: 12px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 24px;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.18);
+}
+.variables-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+.variables-modal-content table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+.variables-modal-content th,
+.variables-modal-content td {
+    border: 1px solid var(--border-color, #e2e8f0);
+    padding: 8px 10px;
+    text-align: left;
+}
+.variables-modal-content th {
+    background: var(--hover-bg, #f8fafc);
+    font-weight: 600;
+}
 </style>
 {% endblock %}
 {% block content %}
@@ -112,6 +297,7 @@
 </div>
 
 <form method="POST" class="card-table-wrapper" style="padding:24px;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
         <div>
             <label style="font-size:0.82rem; display:block; margin-bottom:4px;">Nombre *</label>
@@ -132,27 +318,54 @@
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
         <div>
             <label style="font-size:0.82rem; display:block; margin-bottom:4px;">Ámbito</label>
-            <select name="scope" class="form-select" onchange="document.getElementById('scopeIdContainer').style.display=this.value=='global'?'none':'block'">
+            <select name="scope" class="form-select" onchange="onScopeChange(this)">
                 <option value="global" {% if rule and rule.scope=='global' %}selected{% endif %}>Global (todos los empleados)</option>
                 <option value="group" {% if rule and rule.scope=='group' %}selected{% endif %}>Por grupo de nómina</option>
                 <option value="employee" {% if rule and rule.scope=='employee' %}selected{% endif %}>Por empleado</option>
             </select>
         </div>
         <div id="scopeIdContainer" style="{% if not rule or rule.scope=='global' %}display:none;{% endif %}">
-            <label style="font-size:0.82rem; display:block; margin-bottom:4px;">
-                {% if rule and rule.scope=='group' %}Grupo{% else %}Empleado{% endif %}
-            </label>
-            <select name="scope_id" class="form-select">
-                {% if rule and rule.scope == 'group' %}
-                {% for g in groups %}
-                <option value="{{ g.id }}" {% if rule.scopeId==g.id %}selected{% endif %}>{{ g.name }}</option>
-                {% endfor %}
-                {% elif rule and rule.scope == 'employee' %}
-                {% for e in employees %}
-                <option value="{{ e.id }}" {% if rule.scopeId==e.id %}selected{% endif %}>{{ e.fullName }}</option>
-                {% endfor %}
-                {% endif %}
-            </select>
+            <!-- Multi-select grupos -->
+            <div id="scopeGroupContainer" {% if rule and rule.scope=='employee' %}style="display:none;"{% endif %}>
+                <label style="font-size:0.82rem; display:block; margin-bottom:4px;">Grupos de Nómina</label>
+                <div class="multiselect-container" id="payroll-multiselect">
+                    <div class="multiselect-trigger" tabindex="0" role="button" onclick="toggleGroupDropdown()">
+                        <div class="multiselect-chips" id="multiselect-chips">
+                            <span class="multiselect-placeholder">Seleccionar grupos…</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down multiselect-arrow"></i>
+                    </div>
+                    <div class="multiselect-dropdown" id="multiselect-dropdown">
+                        <div class="multiselect-search">
+                            <i class="fa-solid fa-search"></i>
+                            <input type="text" class="multiselect-search-input" placeholder="Filtrar grupos…" oninput="filterGroupOptions(this)">
+                        </div>
+                        <div class="multiselect-options" id="multiselect-options">
+                            {% for g in groups %}
+                            <label class="multiselect-option" data-value="{{ g.id }}">
+                                <input type="checkbox" value="{{ g.id }}"
+                                    {% if rule and rule.scope=='group' and g.id in rule.get('scopeIds', []) %}checked{% endif %}>
+                                <span>{{ g.name }} <small>({{ g.frequency or 'mensual' }})</small></span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <input type="hidden" name="scope_group_ids" id="scopeGroupIds-hidden" value="{{ ','.join(rule.get('scopeIds', [])) if rule and rule.scope=='group' else '' }}">
+            </div>
+            <!-- Autocomplete empleado -->
+            <div id="scopeEmployeeContainer" {% if not rule or rule.scope!='employee' %}style="display:none;"{% endif %}>
+                <label style="font-size:0.82rem; display:block; margin-bottom:4px;">Empleado</label>
+                <input type="text" id="employee-input" class="form-input" list="employee-list"
+                       placeholder="Buscar empleado por nombre o cédula…" autocomplete="off">
+                <input type="hidden" name="scope_employee_id" id="employee-id-hidden" value="{{ rule.scopeIds[0] if rule and rule.scope=='employee' and rule.get('scopeIds') else '' }}">
+                <datalist id="employee-list">
+                    {% for e in employees %}
+                    {% set ename = e.get('fullName', '') %}
+                    <option value="{{ ename }} ({{ e.cedula or 'S/C' }})" data-id="{{ e.id }}">
+                    {% endfor %}
+                </datalist>
+            </div>
         </div>
     </div>
 
@@ -173,13 +386,25 @@
         </select>
     </div>
 
+    <div style="margin-bottom:20px;">
+        <label style="font-size:0.82rem; display:block; margin-bottom:4px;">Mes de ejecución</label>
+        <select name="triggerMonth" class="form-select" style="width:250px;">
+            <option value="0" {% if rule and rule.triggerMonth==0 %}selected{% endif %}>Cualquier mes</option>
+            {% set meses = [('1','Enero'),('2','Febrero'),('3','Marzo'),('4','Abril'),('5','Mayo'),('6','Junio'),('7','Julio'),('8','Agosto'),('9','Septiembre'),('10','Octubre'),('11','Noviembre'),('12','Diciembre')] %}
+            {% for val, lbl in meses %}
+            <option value="{{ val }}" {% if rule and rule.triggerMonth|string==val %}selected{% endif %}>{{ lbl }}</option>
+            {% endfor %}
+        </select>
+        <span style="font-size:0.7rem; color:var(--text-muted); display:block; margin-top:4px;">La regla solo se evaluará en el mes seleccionado. Usar "Cualquier mes" para reglas sin restricción mensual.</span>
+    </div>
+
     <h3 style="font-size:0.9rem; margin-bottom:8px;">Condiciones</h3>
     <div id="conditionsContainer">
         {% if rule and rule.conditions %}
         {% for cond in rule.conditions %}
         <div class="condition-row">
             <select name="cond_field[]" class="form-select" style="width:150px;">
-                {% set fields = ['department','area','position','salary','salary_type','contract_type','seniority_years','status','workday','cost_center','gender','hire_month','hire_day'] %}
+                {% set fields = ['department','area','position','salary','salary_type','contract_type','seniority_years','status','workday','cost_center','gender','hire_month','hire_day','accumulated_ordinary_salary','is_anniversary_month','age','marital_status','branch','nationality','weekly_hours','education_level','payment_method','work_shift','months_since_hire','prorated_salary','overtime_hours','days_in_period'] %}
                 {% for f in fields %}
                 <option value="{{ f }}" {% if cond.field==f %}selected{% endif %}>{{ f }}</option>
                 {% endfor %}
@@ -210,6 +435,20 @@
                 <option value="gender">gender</option>
                 <option value="hire_month">hire_month</option>
                 <option value="hire_day">hire_day</option>
+                <option value="accumulated_ordinary_salary">accumulated_ordinary_salary</option>
+                <option value="is_anniversary_month">is_anniversary_month</option>
+                <option value="age">age</option>
+                <option value="marital_status">marital_status</option>
+                <option value="branch">branch</option>
+                <option value="nationality">nationality</option>
+                <option value="weekly_hours">weekly_hours</option>
+                <option value="education_level">education_level</option>
+                <option value="payment_method">payment_method</option>
+                <option value="work_shift">work_shift</option>
+                <option value="months_since_hire">months_since_hire</option>
+                <option value="prorated_salary">prorated_salary</option>
+                <option value="overtime_hours">overtime_hours</option>
+                <option value="days_in_period">days_in_period</option>
             </select>
             <select name="cond_op[]" class="form-select" style="width:100px;">
                 <option value="==">==</option><option value="!=">!=</option><option value=">">></option>
@@ -223,7 +462,10 @@
     </div>
     <button type="button" class="btn btn-ghost btn-sm" onclick="addCondition()" style="margin-bottom:20px;"><i class="fa-solid fa-plus"></i> Agregar condición</button>
 
-    <h3 style="font-size:0.9rem; margin-bottom:8px;">Acciones</h3>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h3 style="font-size:0.9rem; margin:0;">Acciones</h3>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="showVariablesModal()"><i class="fa-solid fa-code"></i> Ver variables</button>
+    </div>
     <div id="actionsContainer">
         {% if rule and rule.actions %}
         {% for act in rule.actions %}
@@ -297,6 +539,19 @@
             <tr><td><code>gender</code></td><td>Género</td><td>texto</td></tr>
             <tr><td><code>hire_month</code></td><td>Mes de aniversario (1-12). Útil para bonos vacacionales</td><td>número</td></tr>
             <tr><td><code>hire_day</code></td><td>Día del aniversario (1-31)</td><td>número</td></tr>
+            <tr><td><code>is_anniversary_month</code></td><td>1 si el mes actual coincide con el mes de contratación. Ideal para bonos por aniversario.</td><td>número (0/1)</td></tr>
+            <tr><td><code>age</code></td><td>Edad calculada del empleado desde fecha de nacimiento</td><td>número</td></tr>
+            <tr><td><code>marital_status</code></td><td>Estado civil: S=Soltero, C=Casado, U=Unión libre, D=Divorciado, V=Viudo</td><td>texto</td></tr>
+            <tr><td><code>branch</code></td><td>Sucursal del empleado</td><td>texto</td></tr>
+            <tr><td><code>nationality</code></td><td>Código de nacionalidad (1=Dominicana)</td><td>número</td></tr>
+            <tr><td><code>weekly_hours</code></td><td>Horas semanales contratadas (0-44)</td><td>número</td></tr>
+            <tr><td><code>education_level</code></td><td>Nivel educativo: 1=Primaria, 2=Secundaria, 3=Técnico, 4=Grado, 5=Postgrado, 6=Ninguno</td><td>número</td></tr>
+            <tr><td><code>payment_method</code></td><td>Método de pago: transferencia, cheque, efectivo, deposito</td><td>texto</td></tr>
+            <tr><td><code>work_shift</code></td><td>Turno: 1=Diurno, 2=Nocturno, 3=Mixto</td><td>número</td></tr>
+            <tr><td><code>months_since_hire</code></td><td>Meses transcurridos desde la fecha de ingreso. Más granular que seniority_years</td><td>número</td></tr>
+            <tr><td><code>prorated_salary</code></td><td>Salario prorrateado del período (ajustado por ingresos/terminaciones)</td><td>número</td></tr>
+            <tr><td><code>overtime_hours</code></td><td>Horas extra registradas en el período desde el módulo de Horas Extras</td><td>número</td></tr>
+            <tr><td><code>days_in_period</code></td><td>Días calendario del período de nómina actual</td><td>número</td></tr>
         </table>
 
         <h3>Operadores</h3>
@@ -333,6 +588,7 @@
             <tr><td><code>days_worked</code></td><td>Días laborados en el período (default: 23.83)</td><td><code>days_worked * 200</code> → bono por día</td></tr>
             <tr><td><code>seniority_years</code></td><td>Años de antigüedad calculados desde la fecha de ingreso</td><td><code>salary * seniority_years * 0.05</code> → 5% por año</td></tr>
             <tr><td><code>age</code></td><td>Edad del empleado calculada desde la fecha de nacimiento</td><td><code>age >= 60 ? 2000 : 0</code> (no soporta condicionales)</td></tr>
+            <tr><td><code>accumulated_ordinary_salary</code></td><td>Suma de todos los salarios base (<code>SALARIO_BASE</code>) del año calendario + período actual</td><td><code>accumulated_ordinary_salary / 12</code> → Salario de Navidad</td></tr>
         </table>
         <p><strong>Operadores soportados:</strong> <code>+</code> <code>-</code> <code>*</code> <code>/</code> <code>(</code> <code>)</code></p>
         <div class="help-example">
@@ -365,14 +621,33 @@
             <li><strong>Una sola vez:</strong> Se aplica una única vez en toda la historia laboral del empleado. Ideal para bonos de bienvenida o primer año.</li>
         </ul>
 
+        <h3>Mes de ejecución</h3>
+        <p>Opcional. Restringe la regla para que solo se evalúe en un mes específico del año.</p>
+        <ul>
+            <li><strong>Cualquier mes (0):</strong> La regla se evalúa en todas las nóminas donde se cumplan las condiciones.</li>
+            <li><strong>Enero - Diciembre (1-12):</strong> La regla solo se evalúa en el mes seleccionado. Combinado con frecuencia "Una vez al año", evita que se ejecute en períodos múltiples del mismo mes (ej: dos quincenas en diciembre).</li>
+        </ul>
+        <div class="help-example">
+            <strong>Ejemplo:</strong> Salario de Navidad con <code>triggerMonth = 12</code> (Diciembre) + frecuencia "Una vez al año" + fórmula <code>accumulated_ordinary_salary / 12</code>.<br>
+            La regla solo se evalúa en diciembre y se ejecuta una única vez.
+        </div>
+
         <h3>Prioridad</h3>
         <p>Número que define el orden de evaluación. <strong>Menor número = mayor prioridad</strong>. Si dos reglas aplican al mismo concepto, la de mayor prioridad (número más bajo) se evalúa primero.</p>
 
         <h3>Ejemplos prácticos</h3>
 
         <div class="help-example">
-            <strong>🎯 Bono vacacional anual</strong><br>
-            Un bono del 50% del salario cada año en el mes de aniversario.<br>
+            <strong>🎯 Bono aniversario anual (todos los meses)</strong><br>
+            Un bono del 50% del salario cada año en el mes de aniversario de cada empleado, con una sola regla.<br>
+            <strong>Condiciones:</strong> <code>is_anniversary_month == 1</code> AND <code>seniority_years >= 1</code><br>
+            <strong>Frecuencia:</strong> Una vez al año<br>
+            <strong>Acción:</strong> <code>set_bonus</code> con fórmula <code>salary * 0.50</code>
+        </div>
+
+        <div class="help-example">
+            <strong>🎯 Bono vacacional (mes específico)</strong><br>
+            Un bono del 50% del salario cada año solo para empleados contratados en julio.<br>
             <strong>Condiciones:</strong> <code>hire_month == 7</code> AND <code>seniority_years >= 1</code><br>
             <strong>Frecuencia:</strong> Una vez al año<br>
             <strong>Acción:</strong> <code>set_bonus</code> con fórmula <code>salary * 0.50</code>
@@ -410,8 +685,77 @@
             <strong>Acción:</strong> <code>set_bonus</code> con fórmula <code>5000</code>
         </div>
 
+        <div class="help-example">
+            <strong>🎯 Recargo nocturno</strong><br>
+            15% adicional para empleados con turno nocturno.<br>
+            <strong>Condiciones:</strong> <code>work_shift == 2</code><br>
+            <strong>Frecuencia:</strong> Siempre<br>
+            <strong>Acción:</strong> <code>set_other_income</code> con fórmula <code>salary * 0.15</code>
+        </div>
+
+        <div class="help-example">
+            <strong>🎯 Cargo por pago en cheque</strong><br>
+            Deducción administrativa de RD$250 para empleados que cobran en cheque.<br>
+            <strong>Condiciones:</strong> <code>payment_method == "cheque"</code><br>
+            <strong>Frecuencia:</strong> Siempre<br>
+            <strong>Acción:</strong> <code>set_deduction</code> con fórmula <code>250</code>
+        </div>
+
+        <div class="help-example">
+            <strong>🎯 Bono educación universitaria</strong><br>
+            RD$5,000 anuales para empleados con nivel educativo universitario o superior.<br>
+            <strong>Condiciones:</strong> <code>education_level >= 4</code><br>
+            <strong>Frecuencia:</strong> Una vez al año<br>
+            <strong>Acción:</strong> <code>set_bonus</code> con fórmula <code>5000</code>
+        </div>
+
+        <div class="help-example">
+            <strong>🎯 Bono proporcional a horas contratadas</strong><br>
+            Bono ajustado según las horas semanales del empleado.<br>
+            <strong>Condiciones:</strong> <code>weekly_hours >= 20</code><br>
+            <strong>Frecuencia:</strong> Siempre<br>
+            <strong>Acción:</strong> <code>set_bonus</code> con fórmula <code>salary * (weekly_hours / 40)</code>
+        </div>
+
+        <div class="help-example">
+            <strong>🎯 Bono por antigüedad (por mes)</strong><br>
+            RD$200 por cada mes de antigüedad desde la fecha de ingreso.<br>
+            <strong>Condiciones:</strong> <code>seniority_years >= 1</code><br>
+            <strong>Frecuencia:</strong> Siempre<br>
+            <strong>Acción:</strong> <code>set_bonus</code> con fórmula <code>months_since_hire * 200</code>
+        </div>
+
     </div>
 </aside>
+
+<div id="variables-modal">
+    <div class="variables-modal-content">
+        <div class="variables-modal-header">
+            <h3 style="margin:0;"><i class="fa-solid fa-code"></i> Variables disponibles</h3>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="hideVariablesModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <table>
+            <tr><th>Variable</th><th>Descripción</th><th>Ejemplo</th></tr>
+            <tr><td><code>salary</code></td><td>Salario base mensual del empleado</td><td><code>salary * 0.50</code></td></tr>
+            <tr><td><code>days_worked</code></td><td>Días laborados en el período (default: 23.83)</td><td><code>days_worked * 200</code></td></tr>
+            <tr><td><code>seniority_years</code></td><td>Años de antigüedad desde la fecha de ingreso</td><td><code>salary * seniority_years * 0.05</code></td></tr>
+            <tr><td><code>age</code></td><td>Edad calculada desde la fecha de nacimiento</td><td><code>age</code></td></tr>
+            <tr><td><code>accumulated_ordinary_salary</code></td><td>Suma de salarios base del año + período actual</td><td><code>accumulated_ordinary_salary / 12</code></td></tr>
+            <tr><td><code>weekly_hours</code></td><td>Horas semanales contratadas (default 44)</td><td><code>salary * (weekly_hours / 40)</code></td></tr>
+            <tr><td><code>education_level</code></td><td>Nivel educativo (0-6)</td><td><code>education_level * 2000</code></td></tr>
+            <tr><td><code>hourly_rate</code></td><td>Tarifa por hora (empleados por hora)</td><td><code>hourly_rate * days_worked * 8</code></td></tr>
+            <tr><td><code>months_since_hire</code></td><td>Meses desde la fecha de ingreso</td><td><code>months_since_hire * 500</code></td></tr>
+            <tr><td><code>prorated_salary</code></td><td>Salario prorrateado del período (ajustado por ingresos/terminaciones)</td><td><code>prorated_salary * 0.10</code></td></tr>
+            <tr><td><code>overtime_hours</code></td><td>Horas extra registradas en el período</td><td><code>overtime_hours * hourly_rate * 1.35</code></td></tr>
+            <tr><td><code>days_in_period</code></td><td>Días calendario del período de nómina</td><td><code>days_in_period * 300</code></td></tr>
+        </table>
+        <p style="margin-top:12px;"><strong>Operadores:</strong> <code>+</code> <code>-</code> <code>*</code> <code>/</code> <code>(</code> <code>)</code></p>
+        <p style="font-size:0.82rem; color:var(--text-muted);">Estas variables se reemplazan automáticamente con los datos del empleado al momento de calcular la nómina.</p>
+        <div style="text-align:right; margin-top:16px;">
+            <button type="button" class="btn btn-primary" onclick="hideVariablesModal()">Cerrar</button>
+        </div>
+    </div>
+</div>
 
 <script>
 function addCondition() {
@@ -424,7 +768,7 @@ function addCondition() {
         + '<option value="salary_type">salary_type</option><option value="contract_type">contract_type</option>'
         + '<option value="seniority_years">seniority_years</option><option value="status">status</option>'
         + '<option value="workday">workday</option><option value="cost_center">cost_center</option>'
-        + '<option value="gender">gender</option><option value="hire_month">hire_month</option><option value="hire_day">hire_day</option></select>'
+        + '<option value="gender">gender</option><option value="hire_month">hire_month</option><option value="hire_day">hire_day</option><option value="accumulated_ordinary_salary">accumulated_ordinary_salary</option><option value="is_anniversary_month">is_anniversary_month</option><option value="age">age</option><option value="marital_status">marital_status</option><option value="branch">branch</option><option value="nationality">nationality</option><option value="weekly_hours">weekly_hours</option><option value="education_level">education_level</option><option value="payment_method">payment_method</option><option value="work_shift">work_shift</option><option value="months_since_hire">months_since_hire</option><option value="prorated_salary">prorated_salary</option><option value="overtime_hours">overtime_hours</option><option value="days_in_period">days_in_period</option></select>'
         + '<select name="cond_op[]" class="form-select" style="width:100px;">'
         + '<option value="==">==</option><option value="!=">!=</option><option value=">">></option>'
         + '<option value="<"><</option><option value=">=">>=</option><option value="<="><=</option>'
@@ -448,9 +792,253 @@ function addAction() {
     container.appendChild(row);
 }
 
+function onScopeChange(sel) {
+    var container = document.getElementById('scopeIdContainer');
+    var groupContainer = document.getElementById('scopeGroupContainer');
+    var empContainer = document.getElementById('scopeEmployeeContainer');
+    if (sel.value === 'global') {
+        container.style.display = 'none';
+    } else {
+        container.style.display = 'block';
+        groupContainer.style.display = sel.value === 'group' ? '' : 'none';
+        empContainer.style.display = sel.value === 'employee' ? '' : 'none';
+    }
+}
+
+// ── Multi-select grupos ──
+function toggleGroupDropdown() {
+    document.getElementById('multiselect-dropdown').classList.toggle('open');
+}
+
+function filterGroupOptions(input) {
+    var q = input.value.toLowerCase();
+    document.querySelectorAll('#multiselect-options .multiselect-option').forEach(function(opt) {
+        opt.style.display = opt.textContent.toLowerCase().includes(q) ? 'flex' : 'none';
+    });
+}
+
+function updateGroupMultiselect() {
+    var chips = document.getElementById('multiselect-chips');
+    var hidden = document.getElementById('scopeGroupIds-hidden');
+    var checked = document.querySelectorAll('#multiselect-options input[type="checkbox"]:checked');
+    var values = [];
+    var html = '';
+    checked.forEach(function(cb) {
+        var val = cb.value;
+        values.push(val);
+        var label = cb.closest('.multiselect-option').querySelector('span').textContent.trim();
+        html += '<span class="multiselect-chip" data-value="' + val + '">' + label + ' <i class="fa-solid fa-xmark" onclick="removeGroupChip(\'' + val + '\')"></i></span>';
+    });
+    if (values.length === 0) {
+        html = '<span class="multiselect-placeholder">Seleccionar grupos…</span>';
+    }
+    chips.innerHTML = html;
+    hidden.value = values.join(',');
+}
+
+function removeGroupChip(val) {
+    document.querySelectorAll('#multiselect-options input[type="checkbox"]').forEach(function(cb) {
+        if (cb.value === val) cb.checked = false;
+    });
+    updateGroupMultiselect();
+}
+
+// ── Autocomplete empleado ──
+document.addEventListener('DOMContentLoaded', function() {
+    // Init multiselect
+    document.querySelectorAll('#multiselect-options input[type="checkbox"]').forEach(function(cb) {
+        cb.addEventListener('change', updateGroupMultiselect);
+    });
+    updateGroupMultiselect();
+    document.addEventListener('click', function(e) {
+        var container = document.getElementById('payroll-multiselect');
+        if (container && !container.contains(e.target)) {
+            var dd = document.getElementById('multiselect-dropdown');
+            if (dd) dd.classList.remove('open');
+        }
+    });
+
+    // Init employee autocomplete
+    var empInput = document.getElementById('employee-input');
+    var empHidden = document.getElementById('employee-id-hidden');
+    var empList = document.getElementById('employee-list');
+    if (empInput && empHidden) {
+        // Pre-fill input when editing
+        if (empHidden.value) {
+            var opts = empList.querySelectorAll('option');
+            for (var i = 0; i < opts.length; i++) {
+                if (opts[i].getAttribute('data-id') === empHidden.value) {
+                    empInput.value = opts[i].value;
+                    break;
+                }
+            }
+        }
+        empInput.addEventListener('change', function() {
+            var val = this.value.trim();
+            var opts = empList.querySelectorAll('option');
+            for (var i = 0; i < opts.length; i++) {
+                if (opts[i].value === val) {
+                    empHidden.value = opts[i].getAttribute('data-id');
+                    return;
+                }
+            }
+            empHidden.value = '';
+        });
+    }
+});
+
 function toggleHelpSidebar() {
     var sidebar = document.getElementById('help-sidebar');
     sidebar.classList.toggle('open');
 }
+
+function showVariablesModal() {
+    document.getElementById('variables-modal').classList.add('open');
+}
+function hideVariablesModal() {
+    document.getElementById('variables-modal').classList.remove('open');
+}
+document.addEventListener('click', function(e) {
+    var modal = document.getElementById('variables-modal');
+    if (modal && e.target === modal) hideVariablesModal();
+});
+
+// ── Autocomplete @variables en fórmula ──
+(function() {
+    var AUTO_VARS = [
+        { name: 'salary', desc: 'Salario base mensual' },
+        { name: 'days_worked', desc: 'Días laborados en el período' },
+        { name: 'seniority_years', desc: 'Años de antigüedad' },
+        { name: 'age', desc: 'Edad del empleado' },
+        { name: 'accumulated_ordinary_salary', desc: 'Salario base acumulado (año + período)' }
+    ];
+
+    var dropdown = null;
+    var activeInput = null;
+    var activeIdx = -1;
+    var atIndex = -1;
+    var filtered = [];
+
+    function getDropdown() {
+        if (!dropdown) {
+            dropdown = document.createElement('div');
+            dropdown.className = 'formula-autocomplete-dropdown';
+            document.body.appendChild(dropdown);
+        }
+        return dropdown;
+    }
+
+    function closeVarAutocomplete() {
+        var dd = getDropdown();
+        dd.classList.remove('open');
+        dd.innerHTML = '';
+        activeInput = null;
+        activeIdx = -1;
+        atIndex = -1;
+    }
+
+    function insertVar(name) {
+        if (!activeInput || atIndex === -1) return;
+        var input = activeInput;
+        var val = input.value;
+        var before = val.slice(0, atIndex);
+        var after = val.slice(input.selectionStart || val.length);
+        input.value = before + name + ' ' + after;
+        input.focus();
+        var pos = (before + name).length + 1;
+        input.setSelectionRange(pos, pos);
+        closeVarAutocomplete();
+        input.dispatchEvent(new Event('input'));
+    }
+
+    function renderDropdown() {
+        var dd = getDropdown();
+        dd.innerHTML = '';
+        if (filtered.length === 0) {
+            var empty = document.createElement('div');
+            empty.className = 'formula-autocomplete-empty';
+            empty.textContent = 'Sin coincidencias';
+            dd.appendChild(empty);
+        } else {
+            filtered.forEach(function(v, i) {
+                var item = document.createElement('div');
+                item.className = 'formula-autocomplete-item' + (i === activeIdx ? ' active' : '');
+                item.innerHTML = '<code>' + v.name + '</code> <small>' + v.desc + '</small>';
+                item.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                    insertVar(v.name);
+                });
+                dd.appendChild(item);
+            });
+        }
+        dd.classList.add('open');
+    }
+
+    // Event delegation: input
+    document.getElementById('actionsContainer').addEventListener('input', function(e) {
+        var input = e.target;
+        if (!input.matches('input[name="action_formula[]"]')) return;
+        var val = input.value;
+        var selStart = input.selectionStart || 0;
+        var before = val.slice(0, selStart);
+        var lastAt = before.lastIndexOf('@');
+        if (lastAt !== -1 && (lastAt === 0 || /\s/.test(before[lastAt - 1]))) {
+            var query = before.slice(lastAt + 1).toLowerCase();
+            if (/\s/.test(query)) { closeVarAutocomplete(); return; }
+            activeInput = input;
+            atIndex = lastAt;
+            activeIdx = 0;
+            filtered = AUTO_VARS.filter(function(v) {
+                return v.name.toLowerCase().includes(query) || v.desc.toLowerCase().includes(query);
+            });
+            var rect = input.getBoundingClientRect();
+            var dd = getDropdown();
+            dd.style.left = rect.left + 'px';
+            dd.style.top = (rect.bottom + 4) + 'px';
+            dd.style.minWidth = Math.max(280, rect.width) + 'px';
+            renderDropdown();
+        } else {
+            closeVarAutocomplete();
+        }
+    });
+
+    // Event delegation: keydown
+    document.getElementById('actionsContainer').addEventListener('keydown', function(e) {
+        var input = e.target;
+        if (!input.matches('input[name="action_formula[]"]')) return;
+        var dd = getDropdown();
+        if (!dd.classList.contains('open')) return;
+        var items = dd.querySelectorAll('.formula-autocomplete-item');
+        if (items.length === 0) return;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            items[activeIdx] && items[activeIdx].classList.remove('active');
+            activeIdx = (activeIdx + 1) % items.length;
+            items[activeIdx].classList.add('active');
+            items[activeIdx].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            items[activeIdx] && items[activeIdx].classList.remove('active');
+            activeIdx = (activeIdx - 1 + items.length) % items.length;
+            items[activeIdx].classList.add('active');
+            items[activeIdx].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter' || e.key === 'Tab') {
+            if (activeIdx >= 0 && activeIdx < items.length) {
+                e.preventDefault();
+                items[activeIdx].click();
+            }
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            closeVarAutocomplete();
+        }
+    });
+
+    // Cerrar al hacer clic fuera
+    document.addEventListener('click', function(e) {
+        if (dropdown && !dropdown.contains(e.target) && e.target !== activeInput) {
+            closeVarAutocomplete();
+        }
+    });
+})();
 </script>
 {% endblock %}
