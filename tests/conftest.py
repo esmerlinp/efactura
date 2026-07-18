@@ -12,13 +12,37 @@ os.environ.setdefault('DGII_SANDBOX_MODE', 'local')
 os.environ.setdefault('DGII_ALLOW_SIMULATION', 'true')
 os.environ.setdefault('DGII_SIGNING_MODE', 'mock')
 
-# Mock Firebase BEFORE any app module imports it
-firebase_admin_patch = patch.dict('sys.modules', {
+# Mock native-ext modules BEFORE any app module imports them
+# The entire cryptography module tree must be mocked because:
+#   1. _rust.abi3.so has dlopen arch mismatch on this system
+#   2. google.cloud.firestore → google.auth.crypt.es → cryptography.hazmat.primitives.asymmetric.utils
+_sys_modules_patch = patch.dict('sys.modules', {
+    'cryptography': MagicMock(),
+    'cryptography.fernet': MagicMock(),
+    'cryptography.exceptions': MagicMock(),
+    'cryptography.hazmat': MagicMock(),
+    'cryptography.hazmat.backends': MagicMock(),
+    'cryptography.hazmat.bindings': MagicMock(),
+    'cryptography.hazmat.bindings._rust': MagicMock(),
+    'cryptography.hazmat.primitives': MagicMock(),
+    'cryptography.hazmat.primitives.asymmetric': MagicMock(),
+    'cryptography.hazmat.primitives.asymmetric.utils': MagicMock(),
+    'cryptography.hazmat.primitives.asymmetric.padding': MagicMock(),
+    'cryptography.hazmat.primitives.asymmetric.rsa': MagicMock(),
+    'cryptography.hazmat.primitives.asymmetric.ec': MagicMock(),
+    'cryptography.hazmat.primitives.ciphers': MagicMock(),
+    'cryptography.hazmat.primitives.hashes': MagicMock(),
+    'cryptography.hazmat.primitives.kdf': MagicMock(),
+    'cryptography.hazmat.primitives.serialization': MagicMock(),
+    'cryptography.x509': MagicMock(),
     'firebase_admin': MagicMock(),
     'firebase_admin.credentials': MagicMock(),
     'firebase_admin.firestore': MagicMock(),
+    'google.cloud': MagicMock(),
+    'google.cloud.firestore': MagicMock(),
+    'google.cloud.firestore_v1': MagicMock(),
 })
-firebase_admin_patch.start()
+_sys_modules_patch.start()
 
 
 @pytest.fixture(scope='session')

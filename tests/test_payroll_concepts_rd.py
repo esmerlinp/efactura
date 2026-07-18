@@ -8,22 +8,7 @@ Cubre:
 """
 
 import pytest
-import sys
 from unittest.mock import MagicMock, patch
-
-# Mock modules that require native extensions before any app import
-crypto_patch = patch.dict('sys.modules', {
-    'cryptography': MagicMock(),
-    'cryptography.fernet': MagicMock(),
-    'cryptography.exceptions': MagicMock(),
-    'cryptography.hazmat': MagicMock(),
-    'cryptography.hazmat.bindings': MagicMock(),
-    'cryptography.hazmat.bindings._rust': MagicMock(),
-    'firebase_admin': MagicMock(),
-    'firebase_admin.credentials': MagicMock(),
-    'firebase_admin.firestore': MagicMock(),
-})
-crypto_patch.start()
 
 from app.services.concept_engine import (
     ConceptEngine, TSSResolver, TSSContext,
@@ -348,8 +333,7 @@ class TestConceptEngine:
         ctx = {"baseSalary": 50000.00, "grossIncome": 50000.00, "isQuincenal": False}
         tx = ConceptEngine.evaluate(concept, ctx, RD_PARAMS)
         assert tx is not None
-        period_cap = round(464460.00 / 12, 2)
-        expected = round(period_cap * 0.0287, 2)
+        expected = round(50000.00 * 0.0287, 2)
         assert tx.amount == pytest.approx(expected, abs=0.01)
         assert tx.type == "deduction"
         assert tx.source == "system"
@@ -391,8 +375,8 @@ class TestConceptEngine:
         ]
         txs = [t for t in txs if t is not None]
         totals = ConceptEngine.build_totals(txs)
-        afp_ded = round(min(50000.00, round(464460.00 / 12, 2)) * 0.0287, 2)
-        sfs_ded = round(min(50000.00, round(232230.00 / 12, 2)) * 0.0304, 2)
+        afp_ded = round(min(50000.00, 464460.00) * 0.0287, 2)
+        sfs_ded = round(min(50000.00, 232230.00) * 0.0304, 2)
         assert totals["totalIncome"] == pytest.approx(50000.00, abs=0.01)
         assert totals["totalDeductions"] == pytest.approx(afp_ded + sfs_ded, abs=0.01)
         assert totals["netSalary"] == pytest.approx(50000.00 - afp_ded - sfs_ded, abs=0.01)

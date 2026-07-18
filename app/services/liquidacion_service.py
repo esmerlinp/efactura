@@ -304,7 +304,7 @@ class LiquidacionService:
                 "aplica": dias > 0, "dias": dias,
                 "monto": round(dias * sdp, 2),
                 "detalle": f"Vacaciones proporcionales: {months} meses → {dias} días (Art. 180).",
-                "exentoTSS": True, "exentoISR": False,
+                "exentoTSS": False, "exentoISR": False,
                 "baseLegal": "Art. 180 y 182 Código de Trabajo",
             }
 
@@ -351,7 +351,7 @@ class LiquidacionService:
             "dias": total_dias,
             "monto": round(total_dias * sdp, 2),
             "detalle": detalle,
-            "exentoTSS": True,
+            "exentoTSS": False,
             "exentoISR": False,
             "baseLegal": "Art. 177 y 182 Código de Trabajo",
         }

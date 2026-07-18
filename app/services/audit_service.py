@@ -384,3 +384,27 @@ class AuditService:
             ip_address=ip,
             user_agent=ua,
         )
+
+    @classmethod
+    def get_user_recent_activity(cls, owner_uid: str, user_uid: str, limit: int = 10) -> list:
+        """Retorna la actividad reciente de un usuario específico."""
+        if not firebase_initialized or not db_firestore:
+            return []
+        try:
+            docs = db_firestore.collection("users") \
+                .document(owner_uid) \
+                .collection("audit_logs") \
+                .where("performedByUID", "==", user_uid) \
+                .order_by("timestamp", direction="DESCENDING") \
+                .limit(limit) \
+                .get()
+            return [{
+                "id": d.id,
+                "action": d.get("action"),
+                "module": d.get("module"),
+                "entityLabel": d.get("entityLabel", ""),
+                "timestamp": d.get("timestamp", ""),
+            } for d in docs if d.exists]
+        except Exception as e:
+            print(f"⚠️ [AuditService] Error al obtener actividad de usuario: {e}")
+            return []

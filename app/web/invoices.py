@@ -39,6 +39,110 @@ from app.models.fiscal_document_type import all_types as _all_fiscal_types, Fami
 from flask import Blueprint
 web_invoices_bp = Blueprint('web_invoices', __name__)
 
+# ═══════════════════════════════════════════════════════════════════════
+# ROLES Y PERMISOS — Presets + merge con overrides
+# ═══════════════════════════════════════════════════════════════════════
+
+ALL_PERMISSION_KEYS = [
+    "canInvoice", "canExpenses", "canClients", "canModifySettings",
+    "canManageInventory", "canManagePOS", "canViewDashboard",
+    "canManageCXC", "canManageCXP", "canManageContracts",
+    "canManageCommissions", "canViewBI", "canViewAuditLog",
+    "canAccounting", "isPosSupervisor", "canViewSubscription",
+    "canToggleSandbox", "canManageNotes", "canManageSuppliers",
+    "canManagePurchaseCXP", "canUseChatbot",
+]
+
+ROLES_PRESETS = {
+    "administrador": {k: True for k in ALL_PERMISSION_KEYS},
+    "vendedor": {
+        "canInvoice": True, "canExpenses": False, "canClients": True,
+        "canModifySettings": False, "canManageInventory": False, "canManagePOS": True,
+        "canViewDashboard": True, "canManageCXC": False, "canManageCXP": False,
+        "canManageContracts": False, "canManageCommissions": True, "canViewBI": False,
+        "canViewAuditLog": False, "canAccounting": False, "isPosSupervisor": False,
+        "canViewSubscription": False, "canToggleSandbox": False, "canManageNotes": False,
+        "canManageSuppliers": False, "canManagePurchaseCXP": False, "canUseChatbot": False,
+    },
+    "contador": {
+        "canInvoice": True, "canExpenses": True, "canClients": False,
+        "canModifySettings": False, "canManageInventory": False, "canManagePOS": False,
+        "canViewDashboard": True, "canManageCXC": True, "canManageCXP": True,
+        "canManageContracts": False, "canManageCommissions": False, "canViewBI": True,
+        "canViewAuditLog": False, "canAccounting": True, "isPosSupervisor": False,
+        "canViewSubscription": False, "canToggleSandbox": False, "canManageNotes": False,
+        "canManageSuppliers": False, "canManagePurchaseCXP": False, "canUseChatbot": False,
+    },
+    "consulta": {
+        "canInvoice": False, "canExpenses": False, "canClients": False,
+        "canModifySettings": False, "canManageInventory": False, "canManagePOS": False,
+        "canViewDashboard": True, "canManageCXC": False, "canManageCXP": False,
+        "canManageContracts": False, "canManageCommissions": False, "canViewBI": True,
+        "canViewAuditLog": True, "canAccounting": False, "isPosSupervisor": False,
+        "canViewSubscription": False, "canToggleSandbox": False, "canManageNotes": False,
+        "canManageSuppliers": False, "canManagePurchaseCXP": False, "canUseChatbot": False,
+    },
+}
+
+PERMISSION_GROUPS = [
+    {
+        "name": "Módulos Principales",
+        "perms": ["canViewDashboard", "canInvoice", "canClients", "canManagePOS", "canManageInventory"],
+        "labels": {
+            "canViewDashboard": "Dashboard general",
+            "canInvoice": "Facturación y emisión",
+            "canClients": "Clientes (CRM)",
+            "canManagePOS": "Caja (POS)",
+            "canManageInventory": "Inventario",
+        },
+    },
+    {
+        "name": "Financiero",
+        "perms": ["canExpenses", "canManageCXC", "canManageCXP", "canManagePurchaseCXP",
+                  "canManageCommissions", "canAccounting", "canViewBI"],
+        "labels": {
+            "canExpenses": "Gastos y egresos",
+            "canManageCXC": "Cuentas por cobrar (CxC)",
+            "canManageCXP": "Cuentas por pagar (CxP)",
+            "canManagePurchaseCXP": "CxP Compras",
+            "canManageCommissions": "Comisiones y metas",
+            "canAccounting": "Contabilidad",
+            "canViewBI": "Inteligencia financiera (BI)",
+        },
+    },
+    {
+        "name": "Administración",
+        "perms": ["canModifySettings", "canViewAuditLog", "canViewSubscription",
+                  "canToggleSandbox", "canManageNotes", "canManageSuppliers",
+                  "canUseChatbot", "isPosSupervisor"],
+        "labels": {
+            "canModifySettings": "Ajustes de empresa",
+            "canViewAuditLog": "Registro de auditoría",
+            "canViewSubscription": "Plan y consumo",
+            "canToggleSandbox": "Modo sandbox",
+            "canManageNotes": "Gestor de notas",
+            "canManageSuppliers": "Proveedores",
+            "canUseChatbot": "Asistente IA",
+            "isPosSupervisor": "Supervisor de caja (POS)",
+        },
+    },
+]
+
+def resolve_permissions(role: str, overrides: dict | None = None) -> dict:
+    base = dict(ROLES_PRESETS.get(role, ROLES_PRESETS["consulta"]))
+    if overrides:
+        for k, v in overrides.items():
+            if k in ALL_PERMISSION_KEYS and isinstance(v, bool):
+                base[k] = v
+    return base
+
+def detect_role_from_permissions(permissions: dict) -> str:
+    """Detecta qué preset coincide exactamente con los permisos dados."""
+    for role, preset in ROLES_PRESETS.items():
+        if all(permissions.get(k) == v for k, v in preset.items()):
+            return role
+    return "personalizado"
+
 def check_document_limit_exceeded(owner_uid, sandbox=True):
     """
     Verifica si la empresa ha excedido su límite de documentos emitidos.
@@ -7389,7 +7493,8 @@ def team_settings():
         return redirect(url_for('web_dashboard.dashboard'))
     owner_uid = session['user']['ownerUID']
     team = DatabaseService.get_team_members(owner_uid)
-    return render_template('team_settings.html', active_page='team_settings', team=team)
+    return render_template('team_settings.html', active_page='team_settings', team=team,
+                           ROLES_PRESETS=ROLES_PRESETS, PERMISSION_GROUPS=PERMISSION_GROUPS)
 
 @web_invoices_bp.route('/settings/team/new', methods=['POST'])
 def add_team_member():
@@ -7411,29 +7516,10 @@ def add_team_member():
     email = request.form['email']
     password = request.form['password']
     
-    permissions = {
-        "canInvoice": 'canInvoice' in request.form,
-        "canExpenses": 'canExpenses' in request.form,
-        "canClients": 'canClients' in request.form,
-        "canModifySettings": 'canModifySettings' in request.form,
-        "canManageInventory": 'canManageInventory' in request.form,
-        "canManagePOS": 'canManagePOS' in request.form,
-        "canViewDashboard": 'canViewDashboard' in request.form,
-        "canManageCXC": 'canManageCXC' in request.form,
-        "canManageCXP": 'canManageCXP' in request.form,
-        "canManageContracts": 'canManageContracts' in request.form,
-        "canManageCommissions": 'canManageCommissions' in request.form,
-        "canViewBI": 'canViewBI' in request.form,
-        "canViewAuditLog": 'canViewAuditLog' in request.form,
-        "canAccounting": 'canAccounting' in request.form,
-        "isPosSupervisor": 'isPosSupervisor' in request.form,
-        "canViewSubscription": 'canViewSubscription' in request.form,
-        "canToggleSandbox": 'canToggleSandbox' in request.form,
-        "canManageNotes": 'canManageNotes' in request.form,
-        "canManageSuppliers": 'canManageSuppliers' in request.form,
-        "canManagePurchaseCXP": 'canManagePurchaseCXP' in request.form,
-        "canUseChatbot": 'canUseChatbot' in request.form
-    }
+    role = request.form.get('role', 'personalizado')
+    permissions = {}
+    for k in ALL_PERMISSION_KEYS:
+        permissions[k] = k in request.form
 
     try:
         # Registrar usuario en Firebase Auth & Firestore
@@ -7444,8 +7530,8 @@ def add_team_member():
             role="employee",
             owner_uid=owner_uid
         )
-        # Actualizar permisos a los configurados
-        DatabaseService.update_employee_permissions(profile['uid'], permissions)
+        # Actualizar permisos según rol + overrides
+        DatabaseService.update_employee_permissions(profile['uid'], permissions, role=role if role != 'personalizado' else None)
         
         from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_USUARIOS
         AuditService.log_from_request(
@@ -7658,7 +7744,8 @@ def update_team_member_permissions(employee_uid):
         except Exception as e:
             flash(f"Error al subir avatar: {str(e)}", "error")
     
-    if DatabaseService.update_employee_permissions(employee_uid, permissions):
+    role = request.form.get('role', '')
+    if DatabaseService.update_employee_permissions(employee_uid, permissions, role=role or None):
         from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_USUARIOS
         AuditService.log_from_request(
             owner_uid=session['user']['ownerUID'],
@@ -7701,6 +7788,140 @@ def delete_team_member_route(employee_uid):
         flash('Error al desvincular colaborador.', 'error')
         
     return redirect(url_for('web_invoices.team_settings'))
+
+# ═══════════════════════════════════════════════════════════════════════
+# NUEVAS RUTAS — Detalle de usuario, permisos, estado, reset password
+# ═══════════════════════════════════════════════════════════════════════
+
+@web_invoices_bp.route('/settings/team/<employee_uid>', methods=['GET'])
+def team_member_detail(employee_uid):
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if session['user'].get('role') != 'owner':
+        flash('No tienes permisos de propietario.', 'error')
+        return redirect(url_for('web_dashboard.dashboard'))
+    owner_uid = session['user']['ownerUID']
+    member = DatabaseService.get_team_member_detail(owner_uid, employee_uid)
+    if not member:
+        flash('Colaborador no encontrado.', 'error')
+        return redirect(url_for('web_invoices.team_settings'))
+    from app.services.audit_service import AuditService
+    activity = AuditService.get_user_recent_activity(owner_uid, employee_uid, limit=10)
+    return render_template('user_detail.html', active_page='team_settings', member=member, activity=activity,
+                           ROLES_PRESETS=ROLES_PRESETS, PERMISSION_GROUPS=PERMISSION_GROUPS)
+
+@web_invoices_bp.route('/settings/team/<employee_uid>/permissions', methods=['POST'])
+def update_team_member_permissions_v2(employee_uid):
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if session['user'].get('role') != 'owner':
+        flash('No tienes permisos de propietario.', 'error')
+        return redirect(url_for('web_invoices.team_settings'))
+
+    role = request.form.get('role', 'personalizado')
+    permissions = {}
+    for k in ALL_PERMISSION_KEYS:
+        permissions[k] = k in request.form
+
+    if DatabaseService.update_employee_permissions(employee_uid, permissions, role=role):
+        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_USUARIOS
+        AuditService.log_from_request(
+            owner_uid=session['user']['ownerUID'],
+            action=ACTION_UPDATE,
+            module=MODULE_USUARIOS,
+            entity_id=employee_uid,
+            entity_label=f"Permisos de colaborador actualizados (rol: {role})",
+            user_session=session.get('user', {}),
+            after={"role": role, **permissions},
+            sandbox=True,
+        )
+        flash('Permisos actualizados con éxito.', 'success')
+    else:
+        flash('Error al actualizar permisos.', 'error')
+    return redirect(url_for('web_invoices.team_member_detail', employee_uid=employee_uid))
+
+@web_invoices_bp.route('/settings/team/<employee_uid>/reset-password', methods=['POST'])
+def reset_team_member_password(employee_uid):
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if session['user'].get('role') != 'owner':
+        return jsonify({"success": False, "error": "No autorizado"}), 403
+
+    owner_uid = session['user']['ownerUID']
+    member = DatabaseService.get_team_member_detail(owner_uid, employee_uid)
+    if not member:
+        return jsonify({"success": False, "error": "Colaborador no encontrado"}), 404
+
+    email = member.get("email", "")
+    if not email:
+        return jsonify({"success": False, "error": "El colaborador no tiene correo electrónico"}), 400
+
+    if not Config.FIREBASE_API_KEY:
+        return jsonify({"success": False, "error": "Función no disponible"}), 503
+
+    try:
+        import requests as http_requests
+        url = f"https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key={Config.FIREBASE_API_KEY}"
+        res = http_requests.post(url, json={
+            "requestType": "PASSWORD_RESET",
+            "email": email,
+        }, timeout=10)
+        if res.status_code == 200:
+            from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_USUARIOS
+            AuditService.log_from_request(
+                owner_uid=owner_uid,
+                action=ACTION_UPDATE,
+                module=MODULE_USUARIOS,
+                entity_id=employee_uid,
+                entity_label=f"Correo de recuperación enviado a {email}",
+                user_session=session.get('user', {}),
+                sandbox=True,
+            )
+            flash(f"Correo de recuperación enviado a {email}.", 'success')
+        else:
+            flash("Error al enviar el correo de recuperación.", 'error')
+    except Exception as e:
+        flash(f"Error de conexión: {e}", 'error')
+
+    return redirect(url_for('web_invoices.team_member_detail', employee_uid=employee_uid))
+
+@web_invoices_bp.route('/settings/team/<employee_uid>/toggle-status', methods=['POST'])
+def toggle_team_member_status(employee_uid):
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if session['user'].get('role') != 'owner':
+        flash('No tienes permisos de propietario.', 'error')
+        return redirect(url_for('web_invoices.team_settings'))
+
+    owner_uid = session['user']['ownerUID']
+    new_status = request.form.get('status', 'active')
+    if new_status not in ('active', 'suspended', 'pending'):
+        new_status = 'active'
+
+    if DatabaseService.update_employee_status(owner_uid, employee_uid, new_status):
+        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_USUARIOS
+        AuditService.log_from_request(
+            owner_uid=owner_uid,
+            action=ACTION_UPDATE,
+            module=MODULE_USUARIOS,
+            entity_id=employee_uid,
+            entity_label=f"Estado cambiado a {new_status}",
+            user_session=session.get('user', {}),
+            after={"status": new_status},
+            sandbox=True,
+        )
+        flash(f"Estado actualizado a '{new_status}'.", 'success')
+    else:
+        flash("Error al actualizar estado.", 'error')
+
+    return redirect(url_for('web_invoices.team_member_detail', employee_uid=employee_uid))
+
+@web_invoices_bp.route('/settings/team/<employee_uid>/activity', methods=['GET'])
+def team_member_activity(employee_uid):
+    """API endpoint para obtener actividad de un usuario (futura expansión)."""
+    if 'user' not in session: return jsonify({"error": "No autorizado"}), 401
+    if session['user'].get('role') != 'owner':
+        return jsonify({"error": "No autorizado"}), 403
+    from app.services.audit_service import AuditService
+    limit = request.args.get('limit', 10, type=int)
+    activity = AuditService.get_user_recent_activity(session['user']['ownerUID'], employee_uid, limit=limit)
+    return jsonify({"activity": activity})
 
 @web_invoices_bp.route('/settings/company/export', methods=['POST'])
 def export_company_data():
