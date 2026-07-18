@@ -1484,3 +1484,40 @@ def get_overtime_payroll_links(owner_uid: str, payroll_id: str = "", sandbox: bo
 
 def save_overtime_payroll_link(owner_uid: str, link_id: str, data: dict, sandbox: bool = True):
     _save(owner_uid, "overtime_payroll_links", link_id, data, sandbox)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# WORK CERTIFICATES (CARTAS DE TRABAJO)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_work_certificates(owner_uid: str, sandbox: bool = True) -> list:
+    return _get_all(owner_uid, "work_certificates", sandbox)
+
+
+def get_work_certificate(owner_uid: str, cert_id: str, sandbox: bool = True) -> dict | None:
+    return _get_one(owner_uid, "work_certificates", cert_id, sandbox)
+
+
+def save_work_certificate(owner_uid: str, data: dict, sandbox: bool = True):
+    cert_id = data.get("id", str(uuid.uuid4()))
+    data["id"] = cert_id
+    _save(owner_uid, "work_certificates", cert_id, data, sandbox)
+
+
+def get_work_certificate_by_verification_code(verification_code: str) -> dict | None:
+    """Busca un certificado por verificationCode en TODOS los owner_uids.
+    Usado por la página pública de verificación (sin auth)."""
+    if not firebase_initialized or db_firestore is None:
+        return None
+    try:
+        users_coll = db_firestore.collection("users")
+        user_docs = users_coll.list_documents()
+        for user_ref in user_docs:
+            for prefix in ("sandbox_hr_work_certificates", "hr_work_certificates"):
+                coll_ref = user_ref.collection(prefix)
+                docs = coll_ref.where("verificationCode", "==", verification_code).limit(1).get()
+                for d in docs:
+                    return {"id": d.id, **d.to_dict(), "_owner_uid": user_ref.id}
+    except Exception as e:
+        print(f"⚠️ get_work_certificate_by_verification_code: {e}")
+    return None

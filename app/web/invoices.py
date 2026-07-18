@@ -7262,6 +7262,8 @@ def company_settings():
             "ruiAutoGenerateHour": request.form.get('ruiAutoGenerateHour', '23:00').strip(),
             "posToleranceDOP": float(request.form.get('posToleranceDOP') or 0.0),
             "posToleranceUSD": float(request.form.get('posToleranceUSD') or 0.0),
+            "certificateSignerName": request.form.get('certificateSignerName', existing_profile.get('certificateSignerName', '')).strip(),
+            "certificateSignerPosition": request.form.get('certificateSignerPosition', existing_profile.get('certificateSignerPosition', '')).strip(),
             "configured": True
         })
         saved = DatabaseService.save_company_profile(owner_uid, profile_dict)
@@ -7473,7 +7475,7 @@ def save_company_brand_settings():
         if request.form.get('removeLogo') == 'true':
             existing_profile['logoUrl'] = ''
             existing_profile['logoBase64'] = ''
-            
+
         saved = DatabaseService.save_company_profile(owner_uid, existing_profile)
         if not saved:
             return jsonify({"success": False, "error": "No se pudo guardar el perfil. Verifica el tamaño del archivo o intenta de nuevo."}), 500
@@ -7493,6 +7495,70 @@ def save_company_brand_settings():
     except Exception as e:
         print(f"❌ Error en save_company_brand_settings: {e}")
         return jsonify({"success": False, "error": f"Error interno: {str(e)[:200]}"}), 500
+
+
+@web_invoices_bp.route('/settings/company/certifications', methods=['POST'])
+def save_certification_settings():
+    if 'user' not in session:
+        return jsonify({"error": "No autorizado"}), 401
+    if not check_permission('canModifySettings'):
+        return jsonify({"error": "No autorizado"}), 403
+
+    try:
+        owner_uid = session['user']['ownerUID']
+        existing_profile = DatabaseService.get_company_profile(owner_uid)
+        if not existing_profile:
+            return jsonify({"success": False, "error": "Perfil de empresa no encontrado."}), 404
+
+        if 'certificateSignerName' in request.form:
+            existing_profile['certificateSignerName'] = request.form.get('certificateSignerName', '').strip()
+        if 'certificateSignerPosition' in request.form:
+            existing_profile['certificateSignerPosition'] = request.form.get('certificateSignerPosition', '').strip()
+
+        stamp_file = request.files.get('stampFile')
+        if stamp_file and stamp_file.filename:
+            import base64
+            file_data = stamp_file.read()
+            mime_type = stamp_file.content_type or "image/png"
+            ext = stamp_file.filename.rsplit('.', 1)[-1].lower() if '.' in stamp_file.filename else 'png'
+            dest_path = f"users/{owner_uid}/company/stamp_{uuid.uuid4().hex[:8]}.{ext}"
+            existing_profile['stampUrl'] = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type)
+
+        if request.form.get('removeStamp') == 'true':
+            existing_profile['stampUrl'] = ''
+
+        signature_file = request.files.get('signatureFile')
+        if signature_file and signature_file.filename:
+            import base64
+            file_data = signature_file.read()
+            mime_type = signature_file.content_type or "image/png"
+            ext = signature_file.filename.rsplit('.', 1)[-1].lower() if '.' in signature_file.filename else 'png'
+            dest_path = f"users/{owner_uid}/company/signature_{uuid.uuid4().hex[:8]}.{ext}"
+            existing_profile['signatureUrl'] = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type)
+
+        if request.form.get('removeSignature') == 'true':
+            existing_profile['signatureUrl'] = ''
+
+        saved = DatabaseService.save_company_profile(owner_uid, existing_profile)
+        if not saved:
+            return jsonify({"success": False, "error": "No se pudo guardar. Verifica el tamaño del archivo."}), 500
+
+        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_EMPRESA
+        AuditService.log_from_request(
+            owner_uid=owner_uid,
+            action=ACTION_UPDATE,
+            module=MODULE_EMPRESA,
+            entity_id=owner_uid,
+            entity_label="Configuración de certificaciones laborales actualizada",
+            user_session=session.get('user', {}),
+            after=existing_profile,
+            sandbox=True
+        )
+        return jsonify({"success": True, "profile": existing_profile})
+    except Exception as e:
+        print(f"Error en save_certification_settings: {e}")
+        return jsonify({"success": False, "error": f"Error interno: {str(e)[:200]}"}), 500
+
 
 @web_invoices_bp.route('/settings/team', methods=['GET'])
 def team_settings():

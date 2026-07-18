@@ -360,7 +360,79 @@
                     </div>
                 </div>
 
-                <!-- SECCIÓN 5: CONSOLIDACIÓN DE COMPROBANTES -->
+                <!-- SECCIÓN 5: CERTIFICACIONES LABORALES (CARTA DE TRABAJO) -->
+                <div class="accordion-item">
+                    <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                        <div class="accordion-title">
+                            <i class="fa-solid fa-file-signature"></i>
+                            <span>Certificaciones Laborales</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                    </button>
+                    <div class="accordion-content">
+                        <div class="accordion-body">
+                            <p style="color: var(--text-secondary); font-size: 0.82rem; margin: 0 0 16px 0;">
+                                Estos datos se guardan al instante sin recargar la página.
+                            </p>
+                            <div id="cert-msg" style="display:none; padding:8px 12px; border-radius:6px; font-size:0.82rem; margin-bottom:12px;"></div>
+                            <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 20px; display: grid;">
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="certSignerName">Nombre del Firmante</label>
+                                    <input type="text" id="certSignerName" class="form-input" style="font-size:0.85rem;"
+                                        placeholder="Jhon Doe"
+                                        value="{{ profile.certificateSignerName or '' }}">
+                                    <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px; display: block;">
+                                        Nombre de la persona que firma las certificaciones.
+                                    </small>
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="certSignerPosition">Cargo del Firmante</label>
+                                    <input type="text" id="certSignerPosition" class="form-input" style="font-size:0.85rem;"
+                                        placeholder="Coordinador Senior De Compensacion Y Beneficios"
+                                        value="{{ profile.certificateSignerPosition or '' }}">
+                                    <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px; display: block;">
+                                        Cargo del firmante tal como aparecerá en la carta.
+                                    </small>
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="certStampFile">Sello Corporativo (imagen)</label>
+                                    <input type="file" id="certStampFile" class="form-input" accept="image/png,image/jpeg,image/webp">
+                                    <div id="cert-stamp-preview" style="margin-top: 8px; display: flex; align-items: center; gap: 10px;">
+                                        {% if profile.stampUrl %}
+                                        <img src="{{ profile.stampUrl }}" alt="Sello" style="max-height: 50px; border: 1px solid var(--border-color); border-radius: 4px;">
+                                        <small style="color: var(--accent-emerald); font-size: 0.72rem;">✓ Sello cargado</small>
+                                        <button type="button" id="btn-remove-cert-stamp" class="btn btn-sm btn-ghost" style="color:var(--danger); font-size:0.7rem;" onclick="removeCertStamp()">
+                                            <i class="fa-solid fa-trash-can"></i> Eliminar
+                                        </button>
+                                        {% else %}
+                                        <small style="color: var(--text-muted); font-size: 0.72rem;">PNG con fondo transparente, preferiblemente.</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="certSignatureFile">Firma Escaneada (imagen)</label>
+                                    <input type="file" id="certSignatureFile" class="form-input" accept="image/png,image/jpeg,image/webp">
+                                    <div id="cert-signature-preview" style="margin-top: 8px; display: flex; align-items: center; gap: 10px;">
+                                        {% if profile.signatureUrl %}
+                                        <img src="{{ profile.signatureUrl }}" alt="Firma" style="max-height: 40px; border: 1px solid var(--border-color); border-radius: 4px;">
+                                        <small style="color: var(--accent-emerald); font-size: 0.72rem;">✓ Firma cargada</small>
+                                        <button type="button" id="btn-remove-cert-signature" class="btn btn-sm btn-ghost" style="color:var(--danger); font-size:0.7rem;" onclick="removeCertSignature()">
+                                            <i class="fa-solid fa-trash-can"></i> Eliminar
+                                        </button>
+                                        {% else %}
+                                        <small style="color: var(--text-muted); font-size: 0.72rem;">Imagen de la firma escaneada con fondo transparente.</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="button" id="btn-save-cert-settings" class="btn btn-primary" style="margin-top:16px;">
+                                <i class="fa-solid fa-floppy-disk"></i> Guardar configuración
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 6: CONSOLIDACIÓN DE COMPROBANTES -->
                 <div class="accordion-item">
                     <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
                         <div class="accordion-title">
@@ -404,7 +476,7 @@
                     </div>
                 </div>
 
-                <!-- SECCIÓN 5A: REGISTRO ÚNICO DE INGRESOS (RUI) -->
+                <!-- SECCIÓN 7: REGISTRO ÚNICO DE INGRESOS (RUI) -->
                 <div class="accordion-item">
                     <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
                         <div class="accordion-title">
@@ -474,7 +546,7 @@
                         </div>
                     </div>
                 </div>
-                <!-- SECCIÓN 5B: TOLERANCIA DE ARQUEO DE CAJAS -->
+                <!-- SECCIÓN 8: TOLERANCIA DE ARQUEO DE CAJAS -->
                 <div class="accordion-item">
                     <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
                         <div class="accordion-title">
@@ -512,7 +584,7 @@
                     </div>
                 </div>
 
-                <!-- SECCIÓN 6: CREDENCIALES DE API (e-CF) & CHATBOT -->
+                <!-- SECCIÓN 9: CREDENCIALES DE API (e-CF) & CHATBOT -->
                 <div class="accordion-item">
                     <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
                         <div class="accordion-title">
@@ -576,7 +648,7 @@
                     </div>
                 </div>
 
-                <!-- SECCIÓN 7: PASARELA DE PAGOS AZUL -->
+                <!-- SECCIÓN 10: PASARELA DE PAGOS AZUL -->
                 <div class="accordion-item">
                     <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
                         <div class="accordion-title">
@@ -1908,6 +1980,103 @@
                             logoFileInput.dispatchEvent(new Event('change'));
                         }
                     });
+                }
+
+                // ═══════════════════════════════════════════════════
+                // CERTIFICACIONES LABORALES: Guardar configuración (AJAX)
+                // ═══════════════════════════════════════════════════
+                const btnSaveCert = document.getElementById('btn-save-cert-settings');
+                const certMsg = document.getElementById('cert-msg');
+
+                function saveCertSettings() {
+                    const formData = new FormData();
+                    formData.append('certificateSignerName', document.getElementById('certSignerName').value.trim());
+                    formData.append('certificateSignerPosition', document.getElementById('certSignerPosition').value.trim());
+
+                    const stampFile = document.getElementById('certStampFile');
+                    if (stampFile && stampFile.files[0]) {
+                        formData.append('stampFile', stampFile.files[0]);
+                    }
+                    const sigFile = document.getElementById('certSignatureFile');
+                    if (sigFile && sigFile.files[0]) {
+                        formData.append('signatureFile', sigFile.files[0]);
+                    }
+
+                    btnSaveCert.disabled = true;
+                    btnSaveCert.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+
+                    fetch('/settings/company/certifications', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            certMsg.style.display = 'block';
+                            certMsg.style.background = '#d1fae5';
+                            certMsg.style.color = '#065f46';
+                            certMsg.innerHTML = '<i class="fa-solid fa-check-circle"></i> Configuración guardada correctamente.';
+                            setTimeout(() => { certMsg.style.display = 'none'; }, 4000);
+                            if (data.profile) {
+                                if (data.profile.stampUrl) {
+                                    document.getElementById('cert-stamp-preview').innerHTML =
+                                        '<img src="' + data.profile.stampUrl + '" alt="Sello" style="max-height:50px;border:1px solid var(--border-color);border-radius:4px;">' +
+                                        '<small style="color:var(--accent-emerald);font-size:0.72rem;">✓ Sello cargado</small>' +
+                                        '<button type="button" id="btn-remove-cert-stamp" class="btn btn-sm btn-ghost" style="color:var(--danger);font-size:0.7rem;" onclick="removeCertStamp()"><i class="fa-solid fa-trash-can"></i> Eliminar</button>';
+                                }
+                                if (data.profile.signatureUrl) {
+                                    document.getElementById('cert-signature-preview').innerHTML =
+                                        '<img src="' + data.profile.signatureUrl + '" alt="Firma" style="max-height:40px;border:1px solid var(--border-color);border-radius:4px;">' +
+                                        '<small style="color:var(--accent-emerald);font-size:0.72rem;">✓ Firma cargada</small>' +
+                                        '<button type="button" id="btn-remove-cert-signature" class="btn btn-sm btn-ghost" style="color:var(--danger);font-size:0.7rem;" onclick="removeCertSignature()"><i class="fa-solid fa-trash-can"></i> Eliminar</button>';
+                                }
+                            }
+                        } else {
+                            certMsg.style.display = 'block';
+                            certMsg.style.background = '#fee2e2';
+                            certMsg.style.color = '#991b1b';
+                            certMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + (data.error || 'Error al guardar.');
+                        }
+                    })
+                    .catch(err => {
+                        certMsg.style.display = 'block';
+                        certMsg.style.background = '#fee2e2';
+                        certMsg.style.color = '#991b1b';
+                        certMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Error de conexión.';
+                        console.error('Error saving cert settings:', err);
+                    })
+                    .finally(() => {
+                        btnSaveCert.disabled = false;
+                        btnSaveCert.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar configuración';
+                    });
+                }
+
+                window.removeCertStamp = function() {
+                    const formData = new FormData();
+                    formData.append('removeStamp', 'true');
+                    fetch('/settings/company/certifications', { method: 'POST', body: formData })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success) {
+                                document.getElementById('cert-stamp-preview').innerHTML = '<small style="color:var(--text-muted);font-size:0.72rem;">PNG con fondo transparente, preferiblemente.</small>';
+                            }
+                        });
+                };
+
+                window.removeCertSignature = function() {
+                    const formData = new FormData();
+                    formData.append('removeSignature', 'true');
+                    fetch('/settings/company/certifications', { method: 'POST', body: formData })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success) {
+                                document.getElementById('cert-signature-preview').innerHTML = '<small style="color:var(--text-muted);font-size:0.72rem;">Imagen de la firma escaneada con fondo transparente.</small>';
+                            }
+                        });
+                };
+
+                if (btnSaveCert) {
+                    btnSaveCert.addEventListener('click', saveCertSettings);
                 }
 
                 // ═══════════════════════════════════════════════════

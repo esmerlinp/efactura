@@ -41,3 +41,8 @@ class CompanyProfile(BaseModel):
     createdAt: str = ""
     updatedBy: str = ""
     updatedAt: str = ""
+    certificateSignerName: str = ""
+    certificateSignerPosition: str = ""
+    stampUrl: str = ""
+    signatureUrl: str = ""
+    nextCertificateNumber: int = 1

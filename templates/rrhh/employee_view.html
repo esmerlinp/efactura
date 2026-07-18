@@ -55,6 +55,9 @@
         <a href="{{ url_for('web_rrhh.employee_checklist', employee_id=employee.id, checklist_type='onboarding') }}" class="btn btn-ghost btn-sm">
             <i class="fa-solid fa-clipboard-check"></i> Onboarding
         </a>
+        <a href="{{ url_for('web_rrhh.employee_certificate', employee_id=employee.id) }}" class="btn btn-primary btn-sm">
+            <i class="fa-solid fa-file-signature"></i> Carta de Trabajo
+        </a>
         {% if employee.status == 'inactivo' %}
         <a href="{{ url_for('web_rrhh.employee_checklist', employee_id=employee.id, checklist_type='offboarding') }}" class="btn btn-ghost btn-sm">
             <i class="fa-solid fa-door-open"></i> Offboarding
