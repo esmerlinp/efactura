@@ -2,6 +2,8 @@
 
 import pytest
 from datetime import date, timedelta
+from unittest.mock import MagicMock, patch
+
 from app.services.liquidacion_service import LiquidacionService
 
 
@@ -210,48 +212,51 @@ class TestCalcularVacaciones:
 
     def test_6_meses_proporcional(self):
         ant = {"years": 0, "months": 6, "days": 0, "total_months": 6}
-        r = LiquidacionService.calcular_vacaciones(ant, self.SDP, 0, 0)
+        r = LiquidacionService.calcular_vacaciones(ant, self.SDP, termination_type="desahucio_empleador")
         assert r["dias"] == 7
         assert r["monto"] == round(7 * self.SDP, 2)
 
     def test_11_meses_proporcional(self):
         ant = {"years": 0, "months": 11, "days": 0, "total_months": 11}
-        r = LiquidacionService.calcular_vacaciones(ant, self.SDP, 0, 0)
+        r = LiquidacionService.calcular_vacaciones(ant, self.SDP, termination_type="desahucio_empleador")
         assert r["dias"] == 12
         assert r["monto"] == round(12 * self.SDP, 2)
 
     def test_3_anios_14_dias_base(self):
-        ant = {"years": 3, "months": 0, "days": 0, "total_months": 36}
-        r = LiquidacionService.calcular_vacaciones(ant, self.SDP, 0, 0)
-        assert r["dias"] == 14  # período completo, 1-5 años
-        assert r["monto"] == round(14 * self.SDP, 2)
+        ant = {"years": 3, "months": 5, "days": 0, "total_months": 41}
+        r = LiquidacionService.calcular_vacaciones(ant, self.SDP)
+        tabla = LiquidacionService.TABLA_VACACIONES_PROPORCIONAL
+        assert r["dias"] == tabla[5]  # 5 meses = 6 días
+        assert r["monto"] == round(tabla[5] * self.SDP, 2)
 
     def test_7_anios_18_dias_base(self):
-        ant = {"years": 7, "months": 0, "days": 0, "total_months": 84}
-        r = LiquidacionService.calcular_vacaciones(ant, self.SDP, 0, 0)
-        assert r["dias"] == 18  # período completo, >5 años
-        assert r["monto"] == round(18 * self.SDP, 2)
+        ant = {"years": 7, "months": 5, "days": 0, "total_months": 89}
+        r = LiquidacionService.calcular_vacaciones(ant, self.SDP)
+        tabla = LiquidacionService.TABLA_VACACIONES_PROPORCIONAL
+        assert r["dias"] == tabla[5]  # 5 meses = 6 días
+        assert r["monto"] == round(tabla[5] * self.SDP, 2)
 
     def test_con_pendientes_anteriores(self):
         ant = {"years": 3, "months": 0, "days": 0, "total_months": 36}
-        r = LiquidacionService.calcular_vacaciones(ant, self.SDP, pending_days=14, days_taken_this_period=0)
-        assert r["dias"] == 14 + 14  # 14 del año actual + 14 pendientes = 28
-        assert r["monto"] == round(28 * self.SDP, 2)
+        r = LiquidacionService.calcular_vacaciones(ant, self.SDP, pending_complete_years=1, taken_current_period=0)
+        assert r["dias"] == 14  # 1 año pendiente * 14 días = 14
+        assert r["monto"] == round(14 * self.SDP, 2)
 
     def test_restando_dias_tomados(self):
-        ant = {"years": 3, "months": 0, "days": 0, "total_months": 36}
-        r = LiquidacionService.calcular_vacaciones(ant, self.SDP, pending_days=0, days_taken_this_period=7)
-        assert r["dias"] == 14 - 7  # 7 restantes
-        assert r["monto"] == round(7 * self.SDP, 2)
+        ant = {"years": 3, "months": 6, "days": 0, "total_months": 42}
+        tabla = LiquidacionService.TABLA_VACACIONES_PROPORCIONAL
+        r = LiquidacionService.calcular_vacaciones(ant, self.SDP, pending_complete_years=0, taken_current_period=7)
+        assert r["dias"] == tabla[6] - 7  # 7 - 7 = 0 (6 meses = 7 días en tabla)
+        assert r["monto"] == round(0 * self.SDP, 2)
 
     def test_3_meses_proporcional_en_segundo_anio(self):
         ant = {"years": 2, "months": 3, "days": 0, "total_months": 27}
-        r = LiquidacionService.calcular_vacaciones(ant, self.SDP, 0, 0)
+        r = LiquidacionService.calcular_vacaciones(ant, self.SDP)
         assert r["dias"] == 0  # menos de 5 meses del período actual
 
     def test_7_meses_proporcional_en_segundo_anio(self):
         ant = {"years": 2, "months": 7, "days": 0, "total_months": 31}
-        r = LiquidacionService.calcular_vacaciones(ant, self.SDP, 0, 0)
+        r = LiquidacionService.calcular_vacaciones(ant, self.SDP)
         assert r["dias"] == 8  # tabla: 7 meses = 8 días
 
 
@@ -284,9 +289,9 @@ class TestCalcularSalarioNavidad:
 
 class TestCalcularLiquidacion:
     def test_desahucio_empleador_3_anios(self):
-        """Empleado con 3 años, salario fijo 45000, desahucio por empleador."""
-        hire = _d(1095)  # ~3 años atrás
-        term = _d(0)      # hoy
+        """Empleado con 3 años exactos, desahucio del empleador."""
+        hire = "2023-07-17"
+        term = _d(0)
         salaries_12 = [45000.0] * 12
         salaries_ytd = [45000.0] * 7  # enero a julio
 
@@ -302,8 +307,8 @@ class TestCalcularLiquidacion:
             monthly_salaries_last_12=salaries_12,
             monthly_salaries_ytd=salaries_ytd,
             preaviso_trabajado=False,
-            vacation_pending_days=0,
-            vacation_days_taken_this_period=0,
+            vacation_pending_complete_years=3,
+            vacation_taken_current_period=0,
             created_by="test@example.com",
         )
 
@@ -483,8 +488,8 @@ class TestCalcularLiquidacion:
             salary_frequency="mensual",
             monthly_salaries_last_12=salaries_12,
             monthly_salaries_ytd=salaries_ytd,
-            vacation_pending_days=14,
-            vacation_days_taken_this_period=7,
+            vacation_pending_complete_years=1,
+            vacation_taken_current_period=7,
             created_by="test@example.com",
         )
 

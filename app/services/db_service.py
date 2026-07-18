@@ -1206,61 +1206,123 @@ class DatabaseService:
 
     @classmethod
     def get_team_members(cls, owner_uid):
-        """Retorna el listado de miembros del equipo del owner desde Firestore."""
+        """Retorna el listado de miembros del equipo del owner desde Firestore.
+
+        Cada miembro incluye: uid, name, email, profileImageUrl, role, status,
+        createdAt, permissions (resueltas con preset + overrides).
+        """
         team = []
         if firebase_initialized:
             try:
-                docs = db_firestore.collection("users").document(owner_uid).collection("team").get()
-                for doc in docs:
-                    emp_uid = doc.id
+                from app.web.invoices import resolve_permissions, ROLES_PRESETS
+                team_docs = db_firestore.collection("users").document(owner_uid).collection("team").get()
+                team_data_map = {d.id: d.to_dict() for d in team_docs if d.exists}
+
+                for emp_uid in team_data_map:
                     emp_doc = db_firestore.collection("users").document(emp_uid).collection("config").document("user_profile").get()
                     if emp_doc.exists:
                         emp_data = emp_doc.to_dict()
+                        raw_perms = emp_data.get("permissions", {})
+                        role = emp_data.get("role", "consulta")
+                        overrides = emp_data.get("permissions_overrides", {})
+                        if isinstance(raw_perms, dict) and not overrides:
+                            overrides = raw_perms
+                        created_at = team_data_map[emp_uid].get("createdAt", emp_data.get("createdAt", ""))
+                        if hasattr(created_at, 'strftime'):
+                            created_at = created_at.strftime('%Y-%m-%dT%H:%M:%S')
                         team.append({
                             "uid": emp_uid,
                             "name": emp_data.get("name", ""),
                             "email": emp_data.get("email", ""),
                             "profileImageUrl": emp_data.get("profileImageUrl", ""),
-                            "permissions": {
-                                "canInvoice": bool(emp_data.get("permissions", {}).get("canInvoice", True)),
-                                "canExpenses": bool(emp_data.get("permissions", {}).get("canExpenses", True)),
-                                "canClients": bool(emp_data.get("permissions", {}).get("canClients", True)),
-                                "canModifySettings": bool(emp_data.get("permissions", {}).get("canModifySettings", True)),
-                                "canManageInventory": bool(emp_data.get("permissions", {}).get("canManageInventory", True)),
-                                "canManagePOS": bool(emp_data.get("permissions", {}).get("canManagePOS", True)),
-                                "canViewDashboard": bool(emp_data.get("permissions", {}).get("canViewDashboard", True)),
-                                "canManageCXC": bool(emp_data.get("permissions", {}).get("canManageCXC", True)),
-                                "canManageCXP": bool(emp_data.get("permissions", {}).get("canManageCXP", True)),
-                                "canManageContracts": bool(emp_data.get("permissions", {}).get("canManageContracts", True)),
-                                "canManageCommissions": bool(emp_data.get("permissions", {}).get("canManageCommissions", True)),
-                                "canViewBI": bool(emp_data.get("permissions", {}).get("canViewBI", True)),
-                                "canViewAuditLog": bool(emp_data.get("permissions", {}).get("canViewAuditLog", False)),
-                                "isPosSupervisor": bool(emp_data.get("permissions", {}).get("isPosSupervisor", False)),
-                                "canViewSubscription": bool(emp_data.get("permissions", {}).get("canViewSubscription", True)),
-                                "canToggleSandbox": bool(emp_data.get("permissions", {}).get("canToggleSandbox", True)),
-                                "canManageNotes": bool(emp_data.get("permissions", {}).get("canManageNotes", True)),
-                                "canManageSuppliers": bool(emp_data.get("permissions", {}).get("canManageSuppliers", True)),
-                                "canManagePurchaseCXP": bool(emp_data.get("permissions", {}).get("canManagePurchaseCXP", True)),
-                                "canUseChatbot": bool(emp_data.get("permissions", {}).get("canUseChatbot", False)),
-                                "canAccounting": bool(emp_data.get("permissions", {}).get("canAccounting", False))
-                            }
+                            "role": role,
+                            "status": team_data_map[emp_uid].get("status", "active"),
+                            "createdAt": created_at,
+                            "permissions": resolve_permissions(role, overrides or None),
                         })
             except Exception as e:
                 print(f"⚠️ Error al obtener miembros del equipo: {e}")
         return team
 
     @classmethod
-    def update_employee_permissions(cls, employee_uid, permissions):
-        """Actualiza los permisos granulares de un colaborador en Firestore."""
+    def get_team_member_detail(cls, owner_uid: str, employee_uid: str) -> dict | None:
+        """Retorna detalle completo de un miembro del equipo (para la página de detalle)."""
+        if not firebase_initialized:
+            return None
+        try:
+            from app.web.invoices import resolve_permissions
+            team_doc = db_firestore.collection("users").document(owner_uid).collection("team").document(employee_uid).get()
+            if not team_doc.exists:
+                return None
+            emp_doc = db_firestore.collection("users").document(employee_uid).collection("config").document("user_profile").get()
+            if not emp_doc.exists:
+                return None
+            emp_data = emp_doc.to_dict()
+            team_data = team_doc.to_dict()
+            raw_perms = emp_data.get("permissions", {})
+            role = emp_data.get("role", "consulta")
+            overrides = emp_data.get("permissions_overrides", {})
+            if isinstance(raw_perms, dict) and not overrides:
+                overrides = raw_perms
+            created_at = team_data.get("createdAt", emp_data.get("createdAt", ""))
+            if hasattr(created_at, 'strftime'):
+                created_at = created_at.strftime('%Y-%m-%dT%H:%M:%S')
+            return {
+                "uid": employee_uid,
+                "name": emp_data.get("name", ""),
+                "email": emp_data.get("email", ""),
+                "phone": emp_data.get("phone", ""),
+                "address": emp_data.get("address", ""),
+                "profileImageUrl": emp_data.get("profileImageUrl", ""),
+                "role": role,
+                "status": team_data.get("status", "active"),
+                "createdAt": created_at,
+                "permissions": resolve_permissions(role, overrides or None),
+                "permissions_overrides": overrides or {},
+            }
+        except Exception as e:
+            print(f"⚠️ Error al obtener detalle del miembro del equipo: {e}")
+            return None
+
+    @classmethod
+    def update_employee_permissions(cls, employee_uid, permissions, role=None):
+        """Actualiza los permisos de un colaborador.
+
+        Si se especifica role, guarda role + permissions_overrides (solo las diferencias
+        respecto al preset). Si no, guarda permissions como dict completo (legacy).
+        """
         if not firebase_initialized:
             return False
         try:
-            db_firestore.collection("users").document(employee_uid).collection("config").document("user_profile").update({
-                "permissions": permissions
-            })
+            from app.web.invoices import ROLES_PRESETS
+            if role and role in ROLES_PRESETS:
+                preset = ROLES_PRESETS[role]
+                overrides = {k: v for k, v in permissions.items() if k in preset and v != preset[k]}
+                db_firestore.collection("users").document(employee_uid).collection("config").document("user_profile").update({
+                    "role": role,
+                    "permissions_overrides": overrides,
+                })
+            else:
+                db_firestore.collection("users").document(employee_uid).collection("config").document("user_profile").update({
+                    "permissions": permissions,
+                })
             return True
         except Exception as e:
             print(f"⚠️ Fallo al actualizar permisos del empleado: {e}")
+            return False
+
+    @classmethod
+    def update_employee_status(cls, owner_uid, employee_uid, status):
+        """Actualiza el estado de un miembro del equipo (active/suspended/pending)."""
+        if not firebase_initialized:
+            return False
+        try:
+            db_firestore.collection("users").document(owner_uid).collection("team").document(employee_uid).update({
+                "status": status
+            })
+            return True
+        except Exception as e:
+            print(f"⚠️ Error al actualizar estado del empleado: {e}")
             return False
 
     @classmethod

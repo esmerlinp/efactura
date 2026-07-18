@@ -989,7 +989,7 @@ class PayrollService:
             "scenario": {
                 "type": scenario_type,
                 "value": value,
-                "label": self._what_if_label(scenario_type, value),
+                "label": cls._what_if_label(scenario_type, value),
             },
             "affectedEmployees": affected,
             "currentMonthly": {
