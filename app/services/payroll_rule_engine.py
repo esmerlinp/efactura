@@ -152,6 +152,11 @@ class PayrollRuleEngine:
             "prorated_salary": float(context.get("proratedSalary", 0)),
             "overtime_hours": float(context.get("overtimeHours", 0)),
             "days_in_period": float(context.get("daysInPeriod", 23.83)),
+            "dependent_count": int(context.get("dependentCount", 0)),
+            "dependent_count_minor": int(context.get("dependentCountMinor", 0)),
+            "dependent_count_adult": int(context.get("dependentCountAdult", 0)),
+            "dependent_count_student": int(context.get("dependentCountStudent", 0)),
+            "financial_dependent_count": int(context.get("financialDependentCount", 0)),
         }
 
         if field == "seniority_years":
@@ -222,7 +227,7 @@ class PayrollRuleEngine:
     @classmethod
     def _parse_value(cls, value_str: str, field: str, context: dict):
         """Convierte el valor de cadena al tipo apropiado según el campo."""
-        numeric_fields = {"salary", "seniority_years", "age", "weekly_hours", "hire_month", "hire_day", "accumulated_ordinary_salary", "is_anniversary_month", "nationality", "education_level", "work_shift", "months_since_hire", "prorated_salary", "overtime_hours", "days_in_period"}
+        numeric_fields = {"salary", "seniority_years", "age", "weekly_hours", "hire_month", "hire_day", "accumulated_ordinary_salary", "is_anniversary_month", "nationality", "education_level", "work_shift", "months_since_hire", "prorated_salary", "overtime_hours", "days_in_period", "dependent_count", "dependent_count_minor", "dependent_count_adult", "dependent_count_student", "financial_dependent_count"}
         if field in numeric_fields:
             try:
                 return float(value_str)
@@ -265,6 +270,11 @@ class PayrollRuleEngine:
             expr = expr.replace("education_level", str(float(context.get("educationLevel", 0))))
             expr = expr.replace("hourly_rate", str(float(context.get("hourlyRate", 0))))
             expr = expr.replace("months_since_hire", str(float(cls._resolve_field("months_since_hire", context))))
+            expr = expr.replace("dependent_count", str(int(context.get("dependentCount", 0))))
+            expr = expr.replace("dependent_count_minor", str(int(context.get("dependentCountMinor", 0))))
+            expr = expr.replace("dependent_count_adult", str(int(context.get("dependentCountAdult", 0))))
+            expr = expr.replace("dependent_count_student", str(int(context.get("dependentCountStudent", 0))))
+            expr = expr.replace("financial_dependent_count", str(int(context.get("financialDependentCount", 0))))
             expr = expr.replace("salary", str(salary))
             expr = expr.replace("days_worked", str(days_worked))
             expr = re.sub(r'seniority_years', str(cls._resolve_field("seniority_years", context)), expr)

@@ -1,0 +1,83 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Mantenimientos — {{ product_name }}{% endblock %}
+{% block page_header %}Historial de Mantenimientos{% endblock %}
+{% block content %}
+<div class="card-table-wrapper" style="margin-bottom: 30px;">
+    <div class="table-header-row">
+        <div>
+            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 6px;">
+                <i class="fa-solid fa-screwdriver-wrench" style="color:var(--accent-purple); margin-right:8px;"></i>
+                Historial de Mantenimientos
+            </h3>
+            <p style="color: var(--text-secondary); font-size: 0.88rem;">
+                Registro de mantenimientos preventivos y correctivos de activos.
+            </p>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: center;">
+            <a href="{{ url_for('web_herramientas.list_herramientas') }}" class="btn btn-ghost"
+               style="display: inline-flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-arrow-left"></i> Herramientas
+            </a>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Herramienta</th>
+                    <th>Tipo</th>
+                    <th>Descripción</th>
+                    <th style="text-align: right;">Costo</th>
+                    <th>Proveedor</th>
+                    <th>Próx. Mantenimiento</th>
+                    <th style="text-align: right; width: 50px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in mantenimientos %}
+                <tr>
+                    <td style="font-size:0.82rem;">{{ m.date or '—' }}</td>
+                    <td>
+                        <a href="{{ url_for('web_herramientas.detail_herramienta', herramienta_id=m.herramientaId) }}" style="font-weight:600; text-decoration:none; color:var(--text-primary);">
+                            {{ m._herramientaCode or m._herramientaName or m.herramientaId[:8] }}
+                        </a>
+                    </td>
+                    <td>
+                        {% if m.type == 'preventivo' %}
+                        <span class="badge badge-primary">Preventivo</span>
+                        {% else %}
+                        <span class="badge badge-warning">Correctivo</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size:0.82rem; color:var(--text-secondary); max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ m.description or '—' }}</td>
+                    <td style="text-align: right; font-weight:600;">{% if m.cost %}RD$ {{ "{:,.2f}".format(m.cost|float) }}{% else %}—{% endif %}</td>
+                    <td>{{ m.provider or '—' }}</td>
+                    <td style="font-size:0.82rem;">{{ m.nextMaintenanceDate or '—' }}</td>
+                    <td style="text-align: right;">
+                        <div class="action-menu">
+                            <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                            </button>
+                            <div class="action-menu-dropdown">
+                                <a href="{{ url_for('web_herramientas.detail_herramienta', herramienta_id=m.herramientaId) }}" class="action-menu-item">
+                                    <i class="fa-solid fa-eye"></i> Ver Herramienta
+                                </a>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                        <i class="fa-solid fa-screwdriver-wrench" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
+                        No hay mantenimientos registrados.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

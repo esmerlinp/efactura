@@ -404,7 +404,7 @@
         {% for cond in rule.conditions %}
         <div class="condition-row">
             <select name="cond_field[]" class="form-select" style="width:150px;">
-                {% set fields = ['department','area','position','salary','salary_type','contract_type','seniority_years','status','workday','cost_center','gender','hire_month','hire_day','accumulated_ordinary_salary','is_anniversary_month','age','marital_status','branch','nationality','weekly_hours','education_level','payment_method','work_shift','months_since_hire','prorated_salary','overtime_hours','days_in_period'] %}
+                {% set fields = ['department','area','position','salary','salary_type','contract_type','seniority_years','status','workday','cost_center','gender','hire_month','hire_day','accumulated_ordinary_salary','is_anniversary_month','age','marital_status','branch','nationality','weekly_hours','education_level','payment_method','work_shift','months_since_hire','prorated_salary','overtime_hours','days_in_period','dependent_count','dependent_count_minor','dependent_count_adult','dependent_count_student','financial_dependent_count'] %}
                 {% for f in fields %}
                 <option value="{{ f }}" {% if cond.field==f %}selected{% endif %}>{{ f }}</option>
                 {% endfor %}
@@ -449,6 +449,11 @@
                 <option value="prorated_salary">prorated_salary</option>
                 <option value="overtime_hours">overtime_hours</option>
                 <option value="days_in_period">days_in_period</option>
+                <option value="dependent_count">dependent_count</option>
+                <option value="dependent_count_minor">dependent_count_minor</option>
+                <option value="dependent_count_adult">dependent_count_adult</option>
+                <option value="dependent_count_student">dependent_count_student</option>
+                <option value="financial_dependent_count">financial_dependent_count</option>
             </select>
             <select name="cond_op[]" class="form-select" style="width:100px;">
                 <option value="==">==</option><option value="!=">!=</option><option value=">">></option>
@@ -565,6 +570,11 @@
             <tr><td><code>prorated_salary</code></td><td>Salario prorrateado del período (ajustado por ingresos/terminaciones)</td><td>número</td></tr>
             <tr><td><code>overtime_hours</code></td><td>Horas extra registradas en el período desde el módulo de Horas Extras</td><td>número</td></tr>
             <tr><td><code>days_in_period</code></td><td>Días calendario del período de nómina actual</td><td>número</td></tr>
+            <tr><td><code>dependent_count</code></td><td>Total de dependientes activos del empleado</td><td>número</td></tr>
+            <tr><td><code>dependent_count_minor</code></td><td>Dependientes menores de edad</td><td>número</td></tr>
+            <tr><td><code>dependent_count_adult</code></td><td>Dependientes adultos</td><td>número</td></tr>
+            <tr><td><code>dependent_count_student</code></td><td>Dependientes que son estudiantes</td><td>número</td></tr>
+            <tr><td><code>financial_dependent_count</code></td><td>Dependientes con dependencia económica</td><td>número</td></tr>
         </table>
 
         <h3>Operadores</h3>
@@ -740,6 +750,30 @@
             <strong>Acción:</strong> <code>set_bonus</code> con fórmula <code>months_since_hire * 200</code>
         </div>
 
+        <div class="help-example">
+            <strong>🎒 Bono escolar por hijos</strong><br>
+            RD$3,000 por cada dependiente menor de edad para útiles escolares.<br>
+            <strong>Condiciones:</strong> <code>dependent_count_minor >= 1</code><br>
+            <strong>Frecuencia:</strong> Una vez al año<br>
+            <strong>Acción:</strong> <code>set_bonus</code> con fórmula <code>dependent_count_minor * 3000</code>
+        </div>
+
+        <div class="help-example">
+            <strong>🎓 Bono por dependientes estudiantes</strong><br>
+            RD$2,000 por cada dependiente que estudie.<br>
+            <strong>Condiciones:</strong> <code>dependent_count_student >= 1</code><br>
+            <strong>Frecuencia:</strong> Una vez al año<br>
+            <strong>Acción:</strong> <code>set_bonus</code> con fórmula <code>dependent_count_student * 2000</code>
+        </div>
+
+        <div class="help-example">
+            <strong>👨‍👩‍👧‍👦 Bono familia numerosa</strong><br>
+            RD$5,000 para empleados con 3 o más dependientes económicos.<br>
+            <strong>Condiciones:</strong> <code>financial_dependent_count >= 3</code><br>
+            <strong>Frecuencia:</strong> Siempre<br>
+            <strong>Acción:</strong> <code>set_bonus</code> con fórmula <code>5000</code>
+        </div>
+
     </div>
 </aside>
 
@@ -763,6 +797,10 @@
             <tr><td><code>prorated_salary</code></td><td>Salario prorrateado del período (ajustado por ingresos/terminaciones)</td><td><code>prorated_salary * 0.10</code></td></tr>
             <tr><td><code>overtime_hours</code></td><td>Horas extra registradas en el período</td><td><code>overtime_hours * hourly_rate * 1.35</code></td></tr>
             <tr><td><code>days_in_period</code></td><td>Días calendario del período de nómina</td><td><code>days_in_period * 300</code></td></tr>
+            <tr><td><code>dependent_count</code></td><td>Total de dependientes activos</td><td><code>dependent_count * 1000</code></td></tr>
+            <tr><td><code>dependent_count_minor</code></td><td>Dependientes menores de edad</td><td><code>dependent_count_minor * 2000</code></td></tr>
+            <tr><td><code>dependent_count_student</code></td><td>Dependientes estudiantes</td><td><code>dependent_count_student * 1500</code></td></tr>
+            <tr><td><code>financial_dependent_count</code></td><td>Dependientes con dependencia económica</td><td><code>financial_dependent_count * 500</code></td></tr>
         </table>
         <p style="margin-top:12px;"><strong>Operadores:</strong> <code>+</code> <code>-</code> <code>*</code> <code>/</code> <code>(</code> <code>)</code></p>
         <p style="font-size:0.82rem; color:var(--text-muted);">Estas variables se reemplazan automáticamente con los datos del empleado al momento de calcular la nómina.</p>
@@ -783,7 +821,7 @@ function addCondition() {
         + '<option value="salary_type">salary_type</option><option value="contract_type">contract_type</option>'
         + '<option value="seniority_years">seniority_years</option><option value="status">status</option>'
         + '<option value="workday">workday</option><option value="cost_center">cost_center</option>'
-        + '<option value="gender">gender</option><option value="hire_month">hire_month</option><option value="hire_day">hire_day</option><option value="accumulated_ordinary_salary">accumulated_ordinary_salary</option><option value="is_anniversary_month">is_anniversary_month</option><option value="age">age</option><option value="marital_status">marital_status</option><option value="branch">branch</option><option value="nationality">nationality</option><option value="weekly_hours">weekly_hours</option><option value="education_level">education_level</option><option value="payment_method">payment_method</option><option value="work_shift">work_shift</option><option value="months_since_hire">months_since_hire</option><option value="prorated_salary">prorated_salary</option><option value="overtime_hours">overtime_hours</option><option value="days_in_period">days_in_period</option></select>'
+        + '<option value="gender">gender</option><option value="hire_month">hire_month</option><option value="hire_day">hire_day</option><option value="accumulated_ordinary_salary">accumulated_ordinary_salary</option><option value="is_anniversary_month">is_anniversary_month</option><option value="age">age</option><option value="marital_status">marital_status</option><option value="branch">branch</option><option value="nationality">nationality</option><option value="weekly_hours">weekly_hours</option><option value="education_level">education_level</option><option value="payment_method">payment_method</option><option value="work_shift">work_shift</option><option value="months_since_hire">months_since_hire</option><option value="prorated_salary">prorated_salary</option><option value="overtime_hours">overtime_hours</option><option value="days_in_period">days_in_period</option><option value="dependent_count">dependent_count</option><option value="dependent_count_minor">dependent_count_minor</option><option value="dependent_count_adult">dependent_count_adult</option><option value="dependent_count_student">dependent_count_student</option><option value="financial_dependent_count">financial_dependent_count</option></select>'
         + '<select name="cond_op[]" class="form-select" style="width:100px;">'
         + '<option value="==">==</option><option value="!=">!=</option><option value=">">></option>'
         + '<option value="<"><</option><option value=">=">>=</option><option value="<="><=</option>'
@@ -935,7 +973,12 @@ document.addEventListener('click', function(e) {
         { name: 'days_worked', desc: 'Días laborados en el período' },
         { name: 'seniority_years', desc: 'Años de antigüedad' },
         { name: 'age', desc: 'Edad del empleado' },
-        { name: 'accumulated_ordinary_salary', desc: 'Salario base acumulado (año + período)' }
+        { name: 'accumulated_ordinary_salary', desc: 'Salario base acumulado (año + período)' },
+        { name: 'dependent_count', desc: 'Total de dependientes activos' },
+        { name: 'dependent_count_minor', desc: 'Cantidad de dependientes menores de edad' },
+        { name: 'dependent_count_adult', desc: 'Cantidad de dependientes adultos' },
+        { name: 'dependent_count_student', desc: 'Cantidad de dependientes estudiantes' },
+        { name: 'financial_dependent_count', desc: 'Cantidad de dependientes con dependencia económica' }
     ];
 
     var dropdown = null;

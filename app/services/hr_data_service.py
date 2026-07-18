@@ -595,6 +595,104 @@ def delete_employee_document(owner_uid: str, doc_id: str, sandbox: bool = True):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# EMPLOYEE DEPENDENTS
+# ═══════════════════════════════════════════════════════════════════════════
+
+DEPENDENT_RELATIONSHIPS = [
+    {"code": "hijo", "name": "Hijo"},
+    {"code": "hija", "name": "Hija"},
+    {"code": "conyuge", "name": "Cónyuge"},
+    {"code": "padre", "name": "Padre"},
+    {"code": "madre", "name": "Madre"},
+    {"code": "hijastro", "name": "Hijastro"},
+    {"code": "hijastra", "name": "Hijastra"},
+    {"code": "nieto", "name": "Nieto"},
+    {"code": "nieta", "name": "Nieta"},
+    {"code": "hermano", "name": "Hermano"},
+    {"code": "hermana", "name": "Hermana"},
+    {"code": "tutor", "name": "Tutor"},
+    {"code": "otro", "name": "Otro"},
+]
+
+
+def get_employee_dependents(owner_uid: str, employee_id: str, sandbox: bool = True) -> list:
+    """Retorna todos los dependientes de un empleado, ordenados por fecha de creación descendente."""
+    if not firebase_initialized or db_firestore is None:
+        return []
+    try:
+        coll_path = _hr_collection(owner_uid, "employee_dependents", sandbox)
+        docs = db_firestore.collection(coll_path)\
+            .where("employeeId", "==", employee_id).get()
+        return sorted([{"id": d.id, **d.to_dict()} for d in docs],
+                      key=lambda x: x.get("createdAt", ""), reverse=True)
+    except Exception as e:
+        print(f"⚠️ get_employee_dependents: {e}")
+        return []
+
+
+def get_employee_dependents_active(owner_uid: str, employee_id: str, sandbox: bool = True) -> list:
+    """Retorna solo dependientes activos."""
+    all_deps = get_employee_dependents(owner_uid, employee_id, sandbox=sandbox)
+    return [d for d in all_deps if d.get("active", True)]
+
+
+def save_employee_dependent(owner_uid: str, data: dict, sandbox: bool = True):
+    """Crea o actualiza un dependiente."""
+    if not firebase_initialized or db_firestore is None:
+        return
+    try:
+        coll_path = _hr_collection(owner_uid, "employee_dependents", sandbox)
+        doc_id = data.get("id", str(uuid.uuid4()))
+        data["id"] = doc_id
+        db_firestore.collection(coll_path).document(doc_id).set(data)
+    except Exception as e:
+        print(f"⚠️ save_employee_dependent: {e}")
+
+
+def deactivate_employee_dependent(owner_uid: str, dep_id: str, sandbox: bool = True,
+                                  updated_by: str = "", end_date: str = ""):
+    """Desactiva un dependiente en lugar de eliminarlo físicamente."""
+    if not firebase_initialized or db_firestore is None:
+        return
+    try:
+        coll_path = _hr_collection(owner_uid, "employee_dependents", sandbox)
+        update_data = {"active": False}
+        if end_date:
+            update_data["endDate"] = end_date
+        if updated_by:
+            update_data["updatedBy"] = updated_by
+        update_data["updatedAt"] = datetime.now(timezone.utc).isoformat()
+        db_firestore.collection(coll_path).document(dep_id).update(update_data)
+    except Exception as e:
+        print(f"⚠️ deactivate_employee_dependent: {e}")
+
+
+def get_dependents_for_employees(owner_uid: str, employee_ids: list, sandbox: bool = True) -> dict:
+    """Carga todos los dependientes activos para múltiples empleados en una consulta.
+
+    Returns:
+        Dict {employee_id: [dependent_dict, ...]}
+    """
+    if not firebase_initialized or db_firestore is None or not employee_ids:
+        return {}
+    try:
+        coll_path = _hr_collection(owner_uid, "employee_dependents", sandbox)
+        docs = db_firestore.collection(coll_path)\
+            .where("active", "==", True)\
+            .where("employeeId", "in", employee_ids)\
+            .get()
+        result: dict[str, list] = {}
+        for d in docs:
+            dep = {"id": d.id, **d.to_dict()}
+            emp_id = dep.get("employeeId", "")
+            result.setdefault(emp_id, []).append(dep)
+        return result
+    except Exception as e:
+        print(f"⚠️ get_dependents_for_employees: {e}")
+        return {}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # TAX RATES — Tasas y topes TSS/DGII configurables
 # ═══════════════════════════════════════════════════════════════════════════
 

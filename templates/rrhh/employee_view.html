@@ -103,6 +103,10 @@
         <button class="tab-btn" data-tab="tab-docs" onclick="switchTab('tab-docs', this)">
             <i class="fa-solid fa-folder-open"></i> Documentos
         </button>
+        <button class="tab-btn" data-tab="tab-dependents" onclick="switchTab('tab-dependents', this)">
+            <i class="fa-solid fa-people-group"></i> Dependientes
+            {% if dependents %}<span class="badge badge-info" style="font-size:0.65rem;">{{ dependents|length }}</span>{% endif %}
+        </button>
         <button class="tab-btn" data-tab="tab-evals" onclick="switchTab('tab-evals', this)">
             <i class="fa-solid fa-star"></i> Evals & Cap
         </button>
@@ -111,6 +115,10 @@
         </button>
         <button class="tab-btn" data-tab="tab-actions" onclick="switchTab('tab-actions', this)">
             <i class="fa-solid fa-people-arrows"></i> Acciones
+        </button>
+        <button class="tab-btn" data-tab="tab-herramientas" onclick="switchTab('tab-herramientas', this)">
+            <i class="fa-solid fa-toolbox"></i> Herramientas
+            {% if herramientas_asignadas %}<span class="badge badge-info" style="font-size:0.65rem;">{{ herramientas_asignadas|length }}</span>{% endif %}
         </button>
     </div>
 
@@ -253,6 +261,73 @@
                 <input type="file" name="file" class="form-input" style="flex:1; min-width:150px;" required>
                 <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-upload"></i> Subir</button>
             </form>
+        </div>
+    </div>
+
+    <!-- Tab: Dependientes -->
+    <div id="tab-dependents" class="tab-content" style="display:none;">
+        <div class="hr-section-card" style="border:none; box-shadow:none; padding:0;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+                <h3 style="margin:0;">Dependientes ({{ dependents|length }})</h3>
+                <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('depModal').style.display='flex'">
+                    <i class="fa-solid fa-plus"></i> Agregar dependiente
+                </button>
+            </div>
+            {% if dependents %}
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; padding:10px 14px; background:var(--bg-nav-hover); border-radius:var(--radius-sm); font-size:0.82rem; color:var(--text-secondary);">
+                <span><strong>{{ dependents|length }}</strong> total</span>
+                <span>·</span>
+                <span><strong>{{ dep_minor }}</strong> {{ 'menor' if dep_minor == 1 else 'menores' }}</span>
+                <span>·</span>
+                <span><strong>{{ dep_adult }}</strong> {{ 'adulto' if dep_adult == 1 else 'adultos' }}</span>
+                {% if dep_student %}
+                <span>·</span>
+                <span><strong>{{ dep_student }}</strong> {{ 'estudiante' if dep_student == 1 else 'estudiantes' }}</span>
+                {% endif %}
+                {% if dep_financial %}
+                <span>·</span>
+                <span><strong>{{ dep_financial }}</strong> dependencia económica</span>
+                {% endif %}
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+                {% for d in dependents %}
+                <div style="display:flex; align-items:center; gap:10px; padding:10px 14px; border:1px solid var(--border-color); border-radius:var(--radius-sm); {{ 'opacity:0.55;' if not d.active }}">
+                    <div class="hr-avatar" style="width:36px; height:36px; font-size:0.7rem; flex-shrink:0;">
+                        {{ (d.firstName or '')[:1] }}{{ (d.firstLastName or '')[:1] }}
+                    </div>
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-weight:600; font-size:0.85rem;">
+                            {{ d.firstName }} {{ d.middleName }} {{ d.firstLastName }} {{ d.secondLastName }}
+                            {% if not d.active %}<span class="badge badge-secondary" style="font-size:0.65rem;">Inactivo</span>{% endif %}
+                        </div>
+                        <div style="font-size:0.75rem; color:var(--text-muted); display:flex; gap:10px; flex-wrap:wrap;">
+                            <span><strong>Parentesco:</strong> {{ d.relationshipName or d.relationshipCode }}</span>
+                            {% if d._age > 0 %}<span><strong>Edad:</strong> {{ d._age }} {{ 'año' if d._age == 1 else 'años' }}</span>{% endif %}
+                            {% if d.gender %}<span>{{ '♂' if d.gender == 'masculino' else '♀' if d.gender == 'femenino' else '' }} {{ d.gender }}</span>{% endif %}
+                            {% if d.isStudent %}<span class="badge badge-info" style="font-size:0.65rem;">Estudiante</span>{% endif %}
+                            {% if d.isFinancialDependent %}<span class="badge badge-warning" style="font-size:0.65rem;">Dep. económica</span>{% endif %}
+                            {% if d.idNumber %}<span>Cédula: {{ d.idNumber }}</span>{% endif %}
+                            {% if d.birthDate %}<span>Nac: {{ d.birthDate }}</span>{% endif %}
+                        </div>
+                        {% if d.notes %}
+                        <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:2px;">{{ d.notes }}</div>
+                        {% endif %}
+                    </div>
+                    {% if d.active %}
+                    <form method="POST" action="{{ url_for('web_rrhh.employee_dependent_deactivate', employee_id=employee.id, dep_id=d.id) }}"
+                          onsubmit="return confirm('¿Desactivar este dependiente? Se conservará el registro histórico.')" style="display:contents;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-ghost" style="color:var(--text-muted);" title="Desactivar">
+                            <i class="fa-solid fa-user-xmark"></i>
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p style="color:var(--text-muted);">Sin dependientes registrados.</p>
+            {% endif %}
         </div>
     </div>
 
@@ -424,9 +499,126 @@
         <p class="text-muted" style="padding:20px;">Este empleado no ha sido incluido en ninguna acción masiva.</p>
         {% endif %}
     </div>
+
+    <!-- Tab: Herramientas Asignadas -->
+    <div id="tab-herramientas" class="tab-content" style="display:none;">
+        {% if herramientas_asignadas %}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Herramienta</th>
+                    <th>Código</th>
+                    <th>Fecha Asignación</th>
+                    <th>Estado</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ha in herramientas_asignadas %}
+                <tr>
+                    <td><strong>{{ ha.herramientaName or '—' }}</strong></td>
+                    <td style="font-family:var(--font-mono); font-size:0.82rem;">{{ ha.herramientaCode or '—' }}</td>
+                    <td>{{ ha.assignedDate[:10] if ha.assignedDate else '—' }}</td>
+                    <td>
+                        {% if ha.status == 'activa' %}
+                        <span class="badge badge-success">Asignada</span>
+                        {% else %}
+                        <span class="badge badge-secondary">Devuelta</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('web_herramientas.detail_herramienta', herramienta_id=ha.herramientaId) }}" class="btn btn-sm btn-ghost" title="Ver herramienta">
+                            <i class="fa-solid fa-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="color:var(--text-muted); padding:20px;">Este empleado no tiene herramientas asignadas.</p>
+        {% endif %}
+    </div>
 </div>
 
-
+<!-- Modal: Agregar dependiente -->
+<div id="depModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.55); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); align-items:center; justify-content:center;" onclick="if(event.target===this)this.style.display='none'">
+    <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-xl); width:100%; max-width:520px; max-height:90vh; display:flex; flex-direction:column; box-shadow:var(--shadow-xl); animation:fadeInUp 0.3s ease;" onclick="event.stopPropagation()">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--border-color);">
+            <h2 style="margin:0; font-size:1rem; font-weight:700;"><i class="fa-solid fa-user-plus" style="color:var(--accent-emerald);"></i> Agregar dependiente</h2>
+            <button type="button" class="btn btn-sm btn-ghost" onclick="document.getElementById('depModal').style.display='none'">
+                <i class="fa-solid fa-times" style="font-size:1.1rem;"></i>
+            </button>
+        </div>
+        <form method="POST" action="{{ url_for('web_rrhh.employee_dependent_add', employee_id=employee.id) }}" style="padding:20px; overflow-y:auto; display:flex; flex-direction:column; gap:14px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <div class="form-group" style="margin:0;">
+                    <label style="font-size:0.78rem; font-weight:600;">Primer nombre *</label>
+                    <input type="text" name="firstName" class="form-input" required style="font-size:0.85rem;">
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label style="font-size:0.78rem; font-weight:600;">Segundo nombre</label>
+                    <input type="text" name="middleName" class="form-input" style="font-size:0.85rem;">
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label style="font-size:0.78rem; font-weight:600;">Primer apellido *</label>
+                    <input type="text" name="firstLastName" class="form-input" required style="font-size:0.85rem;">
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label style="font-size:0.78rem; font-weight:600;">Segundo apellido</label>
+                    <input type="text" name="secondLastName" class="form-input" style="font-size:0.85rem;">
+                </div>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <div class="form-group" style="margin:0;">
+                    <label style="font-size:0.78rem; font-weight:600;">Parentesco *</label>
+                    <select name="relationshipCode" class="form-select" required style="font-size:0.85rem;">
+                        <option value="">Seleccionar...</option>
+                        {% for r in relationship_catalog %}
+                        <option value="{{ r.code }}">{{ r.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label style="font-size:0.78rem; font-weight:600;">Fecha de nacimiento</label>
+                    <input type="date" name="birthDate" class="form-input" style="font-size:0.85rem;">
+                </div>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <div class="form-group" style="margin:0;">
+                    <label style="font-size:0.78rem; font-weight:600;">Género</label>
+                    <select name="gender" class="form-select" style="font-size:0.85rem;">
+                        <option value="">Seleccionar...</option>
+                        <option value="masculino">Masculino</option>
+                        <option value="femenino">Femenino</option>
+                        <option value="otro">Otro</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label style="font-size:0.78rem; font-weight:600;">Cédula/ID</label>
+                    <input type="text" name="idNumber" class="form-input" style="font-size:0.85rem;">
+                </div>
+            </div>
+            <div style="display:flex; gap:16px; flex-wrap:wrap;">
+                <label style="display:flex; align-items:center; gap:6px; font-size:0.82rem; cursor:pointer;">
+                    <input type="checkbox" name="isStudent"> ¿Es estudiante?
+                </label>
+                <label style="display:flex; align-items:center; gap:6px; font-size:0.82rem; cursor:pointer;">
+                    <input type="checkbox" name="isFinancialDependent" checked> Dependencia económica
+                </label>
+            </div>
+            <div class="form-group" style="margin:0;">
+                <label style="font-size:0.78rem; font-weight:600;">Notas</label>
+                <textarea name="notes" class="form-input" rows="2" style="font-size:0.85rem; resize:vertical;"></textarea>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+                <button type="submit" class="btn btn-primary" style="flex:1;"><i class="fa-solid fa-floppy-disk"></i> Guardar</button>
+                <button type="button" class="btn btn-ghost" onclick="document.getElementById('depModal').style.display='none'">Cancelar</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <!-- Modal: Simulador de pago -->
 <div id="simModal" style="display:none; position:fixed; inset:16px; z-index:9999; background:rgba(0,0,0,0.55); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); align-items:center; justify-content:center; border-radius:12px;" onclick="closeSimModal(event)">

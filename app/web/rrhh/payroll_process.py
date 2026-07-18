@@ -203,6 +203,11 @@ def payroll_new():
         total_net = 0.0
         total_employer = 0.0
 
+        # ── Carga masiva de dependientes para reglas ──
+        all_emp_ids = [e["id"] for e in period_employees if e.get("id")]
+        dependents_by_employee = hr.get_dependents_for_employees(owner_uid, all_emp_ids, sandbox=sandbox)
+        from app.utils.hr_utils import is_minor as _is_minor_dep
+
         for emp in period_employees:
             emp_id = emp["id"]
             base = float(emp.get("baseSalary", 0))
@@ -390,6 +395,12 @@ def payroll_new():
                 emp_context["proratedSalary"] = prorated if prorated is not None else base
                 total_overtime_mins = sum(td.get("minutes", 0) for td in emp_overtime_records.values())
                 emp_context["overtimeHours"] = round(total_overtime_mins / 60, 2)
+                emp_deps = dependents_by_employee.get(emp_id, [])
+                emp_context["dependentCount"] = len(emp_deps)
+                emp_context["dependentCountMinor"] = sum(1 for d in emp_deps if _is_minor_dep(d.get("birthDate", "")))
+                emp_context["dependentCountAdult"] = sum(1 for d in emp_deps if d.get("active", True) and not _is_minor_dep(d.get("birthDate", "")))
+                emp_context["dependentCountStudent"] = sum(1 for d in emp_deps if d.get("active", True) and d.get("isStudent"))
+                emp_context["financialDependentCount"] = sum(1 for d in emp_deps if d.get("active", True) and d.get("isFinancialDependent", True))
                 try:
                     ps_date = datetime.strptime(start_date, "%Y-%m-%d").date()
                     pe_date = datetime.strptime(end_date, "%Y-%m-%d").date()
@@ -825,6 +836,11 @@ def payroll_simulate():
         )
         overtime_by_employee = OvertimeService.group_by_employee_and_type(approved_overtime)
 
+        # ── Carga masiva de dependientes para reglas ──
+        all_emp_ids = [e["id"] for e in period_employees if e.get("id")]
+        dependents_by_employee = hr.get_dependents_for_employees(owner_uid, all_emp_ids, sandbox=sandbox)
+        from app.utils.hr_utils import is_minor as _is_minor_dep
+
         for emp in period_employees:
             emp_id = emp["id"]
             base = float(emp.get("baseSalary", 0))
@@ -1004,6 +1020,12 @@ def payroll_simulate():
                 emp_context["proratedSalary"] = prorated if prorated is not None else base
                 total_overtime_mins = sum(td.get("minutes", 0) for td in emp_overtime_records.values())
                 emp_context["overtimeHours"] = round(total_overtime_mins / 60, 2)
+                emp_deps = dependents_by_employee.get(emp_id, [])
+                emp_context["dependentCount"] = len(emp_deps)
+                emp_context["dependentCountMinor"] = sum(1 for d in emp_deps if _is_minor_dep(d.get("birthDate", "")))
+                emp_context["dependentCountAdult"] = sum(1 for d in emp_deps if d.get("active", True) and not _is_minor_dep(d.get("birthDate", "")))
+                emp_context["dependentCountStudent"] = sum(1 for d in emp_deps if d.get("active", True) and d.get("isStudent"))
+                emp_context["financialDependentCount"] = sum(1 for d in emp_deps if d.get("active", True) and d.get("isFinancialDependent", True))
                 try:
                     ps_date = datetime.strptime(start_date, "%Y-%m-%d").date()
                     pe_date = datetime.strptime(end_date, "%Y-%m-%d").date()

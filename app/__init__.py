@@ -626,7 +626,7 @@ def create_app():
                 return flask_url_for(endpoint, **values)
             except Exception:
                 # Si falla, intentar buscar agregando el prefijo de nuestros Blueprints web
-                for bp_name in ['web_auth', 'web_dashboard', 'web_clients', 'web_contacts', 'web_crm', 'web_workflows', 'web_budgets', 'web_system_jobs', 'web_i18n', 'web_bi', 'web_invoices', 'web_suppliers', 'web_purchase_orders', 'web_reports_606', 'web_pos', 'web_operations', 'portal', 'web_audit', 'web_accounting', 'web_banks', 'web_reports_sales', 'web_rrhh', 'web_inventory']:
+                for bp_name in ['web_auth', 'web_dashboard', 'web_clients', 'web_contacts', 'web_crm', 'web_workflows', 'web_budgets', 'web_system_jobs', 'web_i18n', 'web_bi', 'web_invoices', 'web_suppliers', 'web_purchase_orders', 'web_reports_606', 'web_pos', 'web_operations', 'portal', 'web_audit', 'web_accounting', 'web_banks', 'web_reports_sales', 'web_rrhh', 'web_inventory', 'web_herramientas']:
                     try:
                         return flask_url_for(f"{bp_name}.{endpoint}", **values)
                     except Exception:
@@ -810,8 +810,10 @@ def create_app():
     from app.web.rrhh import web_rrhh_bp
     from app.web.inventory import web_inventory_bp
     from app.web.rui import web_rui_bp
+    from app.web.herramientas import web_herramientas_bp
     from app.web.company import web_company_bp
 
+    app.register_blueprint(web_herramientas_bp)
     app.register_blueprint(web_auth_bp)
     app.register_blueprint(web_dashboard_bp)
     app.register_blueprint(web_clients_bp)

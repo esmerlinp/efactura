@@ -1,0 +1,71 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Registrar Mantenimiento — {{ product_name }}{% endblock %}
+{% block page_header %}Registrar Mantenimiento{% endblock %}
+{% block content %}
+<div style="max-width:600px; margin:0 auto;">
+<div class="card-table-wrapper" style="padding:24px;">
+    <div style="margin-bottom:20px; padding:16px; background:var(--bg-secondary); border-radius:var(--radius-sm);">
+        <h3 style="margin:0 0 8px 0; font-size:0.95rem;">{{ herramienta.code }} — {{ herramienta.name }}</h3>
+        <div style="font-size:0.82rem; color:var(--text-muted);">
+            Estado: {{ herramienta.operationalStatus }} · Última lectura: {{ herramienta.usageReading or '0' }}
+        </div>
+    </div>
+
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+            <div class="form-group">
+                <label style="font-weight:600; font-size:0.82rem;">Tipo *</label>
+                <select name="type" class="form-select" required>
+                    <option value="preventivo">Preventivo</option>
+                    <option value="correctivo">Correctivo</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label style="font-weight:600; font-size:0.82rem;">Fecha *</label>
+                <input type="date" name="date" class="form-input" required>
+            </div>
+
+            <div class="form-group">
+                <label style="font-weight:600; font-size:0.82rem;">Costo (RD$)</label>
+                <input type="number" step="0.01" name="cost" class="form-input" value="0">
+            </div>
+
+            <div class="form-group">
+                <label style="font-weight:600; font-size:0.82rem;">Proveedor</label>
+                <input type="text" name="provider" class="form-input" placeholder="Nombre del taller o técnico">
+            </div>
+
+            <div class="form-group">
+                <label style="font-weight:600; font-size:0.82rem;">Lectura de Uso (km/h)</label>
+                <input type="number" step="0.1" name="usageReading" class="form-input" value="{{ herramienta.usageReading or '0' }}">
+            </div>
+
+            <div class="form-group">
+                <label style="font-weight:600; font-size:0.82rem;">Próximo Mantenimiento</label>
+                <input type="date" name="nextMaintenanceDate" class="form-input" value="{{ herramienta.nextMaintenanceDate or '' }}">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label style="font-weight:600; font-size:0.82rem;">Descripción *</label>
+            <textarea name="description" class="form-input" rows="3" required placeholder="Describe el trabajo realizado..."></textarea>
+        </div>
+
+        <div class="form-group">
+            <label style="font-weight:600; font-size:0.82rem;">Notas</label>
+            <textarea name="notes" class="form-input" rows="2" placeholder="Observaciones adicionales"></textarea>
+        </div>
+
+        <div style="display:flex; gap:8px; margin-top:20px; padding-top:16px; border-top:1px solid var(--border-color);">
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-floppy-disk"></i> Guardar Mantenimiento
+            </button>
+            <a href="{{ url_for('web_herramientas.detail_herramienta', herramienta_id=herramienta.id) }}" class="btn btn-ghost">Cancelar</a>
+        </div>
+    </form>
+</div>
+</div>
+{% endblock %}

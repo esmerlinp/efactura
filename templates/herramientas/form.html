@@ -1,0 +1,273 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}{% if herramienta %}Editar{% else %}Nueva{% endif %} Herramienta — {{ product_name }}{% endblock %}
+{% block page_header %}{% if herramienta %}Editar: {{ herramienta.code }} — {{ herramienta.name }}{% else %}Nueva Herramienta{% endif %}{% endblock %}
+{% block content %}
+<div style="max-width:900px; margin:0 auto;">
+<div class="card-table-wrapper" style="padding:24px;">
+    <form action="{% if herramienta %}{{ url_for('web_herramientas.edit_herramienta', herramienta_id=herramienta.id) }}{% else %}{{ url_for('web_herramientas.new_herramienta') }}{% endif %}" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+
+            <div class="form-group">
+                <label style="font-weight:600; font-size:0.82rem;">Nombre *</label>
+                <input type="text" name="name" class="form-input" required value="{{ herramienta.name if herramienta else '' }}" placeholder="Ej: Laptop Dell Latitude 5440">
+            </div>
+
+            <div class="form-group">
+                <label style="font-weight:600; font-size:0.82rem;">Categoría *</label>
+                <div style="display:flex; gap:4px;">
+                    <select name="category" class="form-select" required onchange="updateCode(this.value)" style="flex:1;">
+                        <option value="">Seleccionar...</option>
+                        {% for c in categories %}
+                        <option value="{{ c.value }}" {% if herramienta and herramienta.category == c.value %}selected{% endif %}>{{ c.label }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('catModal').style.display='flex'" title="Nueva categoría">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label style="font-weight:600; font-size:0.82rem;">Código único</label>
+                <div style="display:flex; gap:4px;">
+                    <input type="text" name="code" class="form-input" id="codeField" value="{{ herramienta.code if herramienta else next_code }}" style="font-family:var(--font-mono); font-size:0.82rem; flex:1;">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="generateCode()" title="Generar siguiente código"><i class="fa-solid fa-rotate"></i></button>
+                </div>
+                <small style="color:var(--text-muted);">Se genera automáticamente según la categoría.</small>
+            </div>
+
+            <div class="form-group">
+                <label style="font-weight:600; font-size:0.82rem;">Asset Tag (N° Inventario)</label>
+                <input type="text" name="assetTag" class="form-input" value="{{ herramienta.assetTag if herramienta else '' }}" placeholder="INV-2026-00001" style="font-family:var(--font-mono); font-size:0.82rem;">
+            </div>
+
+            <div class="form-group">
+                <label style="font-weight:600; font-size:0.82rem;">Tipo</label>
+                <select name="type" class="form-select">
+                    {% for t in types %}
+                    <option value="{{ t.value }}" {% if herramienta and herramienta.type == t.value %}selected{% endif %}>{{ t.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label style="font-weight:600; font-size:0.82rem;">Ubicación</label>
+                <input type="text" name="location" class="form-input" value="{{ herramienta.location if herramienta else '' }}" placeholder="Ej: Santo Domingo, Oficina Principal, Almacén">
+            </div>
+
+            <div class="form-group">
+                <label style="font-weight:600; font-size:0.82rem;">Marca</label>
+                <input type="text" name="brand" class="form-input" value="{{ herramienta.brand if herramienta else '' }}" placeholder="Ej: Dell, Samsung, Toyota">
+            </div>
+
+            <div class="form-group">
+                <label style="font-weight:600; font-size:0.82rem;">Modelo</label>
+                <input type="text" name="model" class="form-input" value="{{ herramienta.model if herramienta else '' }}" placeholder="Ej: Latitude 5440, Galaxy S24">
+            </div>
+
+            <div class="form-group">
+                <label style="font-weight:600; font-size:0.82rem;">Número de Serie</label>
+                <input type="text" name="serialNumber" class="form-input" value="{{ herramienta.serialNumber if herramienta else '' }}">
+            </div>
+
+            <div class="form-group">
+                <label style="font-weight:600; font-size:0.82rem;">Proveedor</label>
+                <input type="text" name="supplier" class="form-input" value="{{ herramienta.supplier if herramienta else '' }}">
+            </div>
+
+            <div class="form-group">
+                <label style="font-weight:600; font-size:0.82rem;">Precio de Compra</label>
+                <div style="display:flex; gap:4px;">
+                    <input type="number" step="0.01" name="purchasePrice" class="form-input" value="{{ herramienta.purchasePrice if herramienta else '0' }}" style="flex:1;">
+                    <select name="purchasePriceCurrency" class="form-select" style="width:100px; flex:none;">
+                        {% set cur = herramienta.purchasePriceCurrency if herramienta and herramienta.purchasePriceCurrency else 'DOP' %}
+                        <option value="DOP" {% if cur == 'DOP' %}selected{% endif %}>RD$</option>
+                        <option value="USD" {% if cur == 'USD' %}selected{% endif %}>US$</option>
+                        <option value="EUR" {% if cur == 'EUR' %}selected{% endif %}>€</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label style="font-weight:600; font-size:0.82rem;">Fecha de Compra</label>
+                <input type="date" name="purchaseDate" class="form-input" value="{{ herramienta.purchaseDate if herramienta else '' }}">
+            </div>
+
+            <div class="form-group">
+                <label style="font-weight:600; font-size:0.82rem;">Vida Útil (años)</label>
+                <input type="number" name="usefulLife" class="form-input" value="{{ herramienta.usefulLife if herramienta else '0' }}" min="0">
+            </div>
+
+            <div class="form-group">
+                <label style="font-weight:600; font-size:0.82rem;">Centro de Costo</label>
+                <select name="costCenterId" class="form-select">
+                    <option value="">Sin centro de costo</option>
+                    {% for cc in cost_centers %}
+                    <option value="{{ cc.id }}" {% if herramienta and herramienta.costCenterId == cc.id %}selected{% endif %}>{{ cc.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label style="font-weight:600; font-size:0.82rem;">Próximo Mantenimiento</label>
+                <input type="date" name="nextMaintenanceDate" class="form-input" value="{{ herramienta.nextMaintenanceDate if herramienta else '' }}">
+            </div>
+
+            <div class="form-group">
+                <label style="font-weight:600; font-size:0.82rem;">Lectura de Uso (km/horas)</label>
+                <input type="number" step="0.1" name="usageReading" class="form-input" value="{{ herramienta.usageReading if herramienta else '0' }}">
+            </div>
+
+            {% if not herramienta or herramienta.type == 'digital' %}
+            <div class="form-group">
+                <label style="font-weight:600; font-size:0.82rem;">License Key <small style="color:var(--text-muted);">(se cifra al guardar)</small></label>
+                <input type="text" name="licenseKey" class="form-input" value="{{ herramienta.licenseKey if herramienta else '' }}" placeholder="Se almacenará cifrada">
+            </div>
+            <div class="form-group">
+                <label style="font-weight:600; font-size:0.82rem;">Cantidad de Licencias</label>
+                <input type="number" name="licenseCount" class="form-input" value="{{ herramienta.licenseCount if herramienta else '1' }}" min="1">
+            </div>
+            <div class="form-group">
+                <label style="font-weight:600; font-size:0.82rem;">Fecha de Expiración</label>
+                <input type="date" name="expirationDate" class="form-input" value="{{ herramienta.expirationDate if herramienta else '' }}">
+            </div>
+            {% endif %}
+
+        </div>
+
+        <div class="form-group" style="grid-column:1/-1; margin-top:12px;">
+            <label style="font-weight:600; font-size:0.82rem;">Descripción</label>
+            <textarea name="description" class="form-input" rows="2" style="resize:vertical;">{{ herramienta.description if herramienta else '' }}</textarea>
+        </div>
+
+        <div class="form-group" style="grid-column:1/-1;">
+            <label style="font-weight:600; font-size:0.82rem;">Notas</label>
+            <textarea name="notes" class="form-input" rows="2" style="resize:vertical;">{{ herramienta.notes if herramienta else '' }}</textarea>
+        </div>
+
+        {% if herramienta %}
+        <div class="form-group" style="grid-column:1/-1;">
+            <label style="font-weight:600; font-size:0.82rem;">Estado Operativo</label>
+            <select name="operationalStatus" class="form-select">
+                {% for s in operational_statuses %}
+                <option value="{{ s.value }}" {% if herramienta.operationalStatus == s.value %}selected{% endif %}>{{ s.label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+
+        <div style="display:flex; gap:8px; margin-top:20px; padding-top:16px; border-top:1px solid var(--border-color);">
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-floppy-disk"></i> {% if herramienta %}Guardar Cambios{% else %}Crear Herramienta{% endif %}
+            </button>
+            <a href="{{ url_for('web_herramientas.list_herramientas') }}" class="btn btn-ghost">Cancelar</a>
+        </div>
+    </form>
+</div>
+</div>
+
+<!-- Modal: Nueva Categoría -->
+<div id="catModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.55); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); align-items:center; justify-content:center;" onclick="if(event.target===this)this.style.display='none'">
+    <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-xl); width:100%; max-width:400px; box-shadow:var(--shadow-xl); animation:fadeInUp 0.3s ease;" onclick="event.stopPropagation()">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--border-color);">
+            <h3 style="margin:0; font-size:1rem;"><i class="fa-solid fa-tag" style="color:var(--accent-emerald);"></i> Nueva Categoría</h3>
+            <button type="button" class="btn btn-sm btn-ghost" onclick="document.getElementById('catModal').style.display='none'"><i class="fa-solid fa-times" style="font-size:1.1rem;"></i></button>
+        </div>
+        <div style="padding:20px; display:flex; flex-direction:column; gap:14px;">
+            <div class="form-group" style="margin:0;">
+                <label style="font-weight:600; font-size:0.82rem;">Nombre *</label>
+                <input type="text" id="catLabel" class="form-input" placeholder="Ej: Tablet, Monitor, Impresora" style="font-size:0.85rem;">
+            </div>
+            <div class="form-group" style="margin:0;">
+                <label style="font-weight:600; font-size:0.82rem;">Valor interno</label>
+                <input type="text" id="catValue" class="form-input" placeholder="Se genera automáticamente" style="font-size:0.82rem; font-family:var(--font-mono);" readonly>
+                <small style="color:var(--text-muted);">Se genera en minúsculas sin espacios.</small>
+            </div>
+            <div id="catError" style="color:var(--danger); font-size:0.82rem; display:none;"></div>
+            <div style="display:flex; gap:8px;">
+                <button type="button" class="btn btn-primary" onclick="saveCategory()">
+                    <i class="fa-solid fa-floppy-disk"></i> Guardar
+                </button>
+                <button type="button" class="btn btn-ghost" onclick="document.getElementById('catModal').style.display='none'">Cancelar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var labelInput = document.getElementById('catLabel');
+    var valueInput = document.getElementById('catValue');
+    if (labelInput) {
+        labelInput.addEventListener('input', function() {
+            valueInput.value = this.value.toLowerCase().replace(/[^a-z0-9áéíóúüñ]+/g, '_').replace(/^_|_$/g, '') || '';
+        });
+    }
+});
+
+function updateCode(category) {
+    if (!category) return;
+    fetch('{{ url_for("web_herramientas.ajax_generate_code") }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}'},
+        body: JSON.stringify({category: category})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) document.getElementById('codeField').value = data.code;
+    })
+    .catch(function(err) {
+        console.warn('updateCode error:', err);
+    });
+}
+
+function generateCode() {
+    var cat = document.querySelector('[name=category]').value;
+    if (cat) updateCode(cat);
+}
+
+function saveCategory() {
+    var label = document.getElementById('catLabel').value.trim();
+    var value = document.getElementById('catValue').value.trim();
+    var errorEl = document.getElementById('catError');
+
+    if (!label) {
+        errorEl.textContent = 'El nombre es requerido.';
+        errorEl.style.display = 'block';
+        return;
+    }
+    errorEl.style.display = 'none';
+
+    fetch('{{ url_for("web_herramientas.ajax_nueva_categoria") }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}'},
+        body: JSON.stringify({value: value, label: label})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            var select = document.querySelector('[name=category]');
+            var opt = document.createElement('option');
+            opt.value = data.category.value;
+            opt.textContent = data.category.label;
+            opt.selected = true;
+            select.appendChild(opt);
+            document.getElementById('catModal').style.display = 'none';
+            document.getElementById('catLabel').value = '';
+            document.getElementById('catValue').value = '';
+            updateCode(data.category.value);
+        } else {
+            errorEl.textContent = data.error || 'Error al guardar.';
+            errorEl.style.display = 'block';
+        }
+    })
+    .catch(function() {
+        errorEl.textContent = 'Error de conexión.';
+        errorEl.style.display = 'block';
+    });
+}
+</script>
+{% endblock %}
