@@ -1,0 +1,116 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Carta de Trabajo — {{ employee.fullName }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-file-signature"></i> Carta de Trabajo</h1>
+    <div>
+        <a href="{{ url_for('web_rrhh.employee_view', employee_id=employee.id) }}" class="btn btn-ghost">
+            <i class="fa-solid fa-arrow-left"></i> Volver
+        </a>
+    </div>
+</div>
+
+<div class="card-table-wrapper" style="max-width:800px; margin:0 auto;">
+
+    <!-- Sección: Generar nueva carta -->
+    <div class="hr-section-card" style="margin-bottom:20px;">
+        <h3><i class="fa-solid fa-plus-circle"></i> Generar nueva Carta de Trabajo</h3>
+        <p style="color:var(--text-secondary); font-size:0.85rem; margin-bottom:16px;">
+            Se usará la información actual del empleado y la configuración de la empresa.
+            Una vez generada, podrás descargarla en PDF o enviarla por email.
+        </p>
+        <form method="POST" action="{{ url_for('web_rrhh.certificate_generate', employee_id=employee.id) }}" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group" style="margin:0; flex:1; min-width:180px;">
+                <label style="font-size:0.78rem; font-weight:600;">Ciudad de emisión</label>
+                <input type="text" name="issueCity" class="form-input" style="font-size:0.85rem;"
+                       value="{{ company.municipality or company.province or 'Santo Domingo' }}"
+                       placeholder="Ciudad">
+            </div>
+            <div class="form-group" style="margin:0; flex:1; min-width:180px;">
+                <label style="font-size:0.78rem; font-weight:600;">Destinatario</label>
+                <input type="text" name="addressee" class="form-input" style="font-size:0.85rem;"
+                       value="A QUIEN PUEDA INTERESAR" placeholder="A QUIEN PUEDA INTERESAR">
+            </div>
+            <div class="form-group" style="margin:0; flex:1; min-width:180px;">
+                <label style="font-size:0.78rem; font-weight:600;">Propósito</label>
+                <select name="purpose" class="form-select" style="font-size:0.85rem;">
+                    <option value="general">General</option>
+                    <option value="consular">Consular</option>
+                    <option value="bancaria">Bancaria</option>
+                    <option value="prestamo">Préstamo</option>
+                    <option value="visa">Visa</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary" style="margin-bottom:1px;">
+                <i class="fa-solid fa-file-pen"></i> Generar Carta
+            </button>
+        </form>
+    </div>
+
+    <!-- Sección: Historial de cartas -->
+    <h3 style="margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+        <i class="fa-solid fa-clock-rotate-left"></i> Historial de Cartas
+        {% if certificates %}<span class="badge badge-info" style="font-size:0.7rem;">{{ certificates|length }}</span>{% endif %}
+    </h3>
+
+    {% if certificates %}
+    <div style="display:flex; flex-direction:column; gap:8px;">
+        {% for cert in certificates %}
+        <div id="cert-{{ cert.id }}" style="display:flex; align-items:center; gap:12px; padding:12px 16px; border:1px solid var(--border-color); border-radius:var(--radius-sm); {{ 'opacity:0.55;' if cert.status == 'revoked' }}">
+            <div style="flex-shrink:0;">
+                <i class="fa-solid fa-file-lines" style="font-size:1.3rem; color:var(--accent-blue);"></i>
+            </div>
+            <div style="flex:1; min-width:0;">
+                <div style="font-weight:600; font-size:0.88rem;">
+                    {{ cert.referenceCode }}
+                    {% if cert.status == 'active' %}
+                    <span class="badge badge-success" style="font-size:0.65rem;">Activo</span>
+                    {% else %}
+                    <span class="badge badge-danger" style="font-size:0.65rem;">Revocado</span>
+                    {% endif %}
+                </div>
+                <div style="font-size:0.75rem; color:var(--text-muted); display:flex; gap:12px; flex-wrap:wrap; margin-top:2px;">
+                    <span>{{ cert.issueDate }}</span>
+                    <span>{{ cert.purpose|capitalize }}</span>
+                    <span>RD$ {{ "{:,.2f}".format(cert.monthlyIncome) }}</span>
+                    {% if cert.generatedBy %}<span>por {{ cert.generatedBy }}</span>{% endif %}
+                </div>
+            </div>
+            <div style="display:flex; gap:6px; flex-shrink:0;">
+                <a href="{{ url_for('web_rrhh.certificate_pdf', employee_id=employee.id, cert_id=cert.id) }}" class="btn btn-sm btn-primary" title="Descargar PDF">
+                    <i class="fa-solid fa-download"></i>
+                </a>
+                {% if employee.email %}
+                <form method="POST" action="{{ url_for('web_rrhh.certificate_email', employee_id=employee.id, cert_id=cert.id) }}"
+                      style="display:contents;" onsubmit="return confirm('¿Enviar carta a {{ employee.email }}?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sm btn-ghost" title="Enviar por email">
+                        <i class="fa-solid fa-envelope"></i>
+                    </button>
+                </form>
+                {% endif %}
+                {% if cert.status == 'active' %}
+                <form method="POST" action="{{ url_for('web_rrhh.certificate_revoke', employee_id=employee.id, cert_id=cert.id) }}"
+                      style="display:contents;" onsubmit="return confirm('¿Revocar esta carta de trabajo? Una vez revocada, el QR mostrará el documento como inválido.')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sm btn-ghost" style="color:var(--danger);" title="Revocar">
+                        <i class="fa-solid fa-ban"></i>
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="hr-section-card" style="text-align:center; padding:40px 20px;">
+        <i class="fa-solid fa-file-circle-plus" style="font-size:2rem; color:var(--text-muted); margin-bottom:12px;"></i>
+        <p style="color:var(--text-muted); margin:0;">No hay cartas de trabajo generadas para este empleado.</p>
+        <p style="color:var(--text-muted); font-size:0.82rem;">Usa el formulario de arriba para generar la primera.</p>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

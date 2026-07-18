@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page {
+            size: letter;
+            margin: 2.5cm 2cm 2cm 2cm;
+            @bottom-left {
+                content: "";
+                font-size: 0;
+            }
+            @bottom-right {
+                content: "";
+                font-size: 0;
+            }
+            @bottom-center {
+                content: "";
+                font-size: 0;
+            }
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            font-size: 11pt;
+            color: #1a1a1a;
+            line-height: 1.5;
+            padding-bottom: 80px;
+        }
+        .header-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+        .header-left {
+            text-align: left;
+        }
+        .header-left .logo img {
+            max-height: 60px;
+            max-width: 180px;
+        }
+        .header-left .company-name {
+            font-size: 10pt;
+            font-weight: bold;
+            margin-top: 6px;
+        }
+        .header-right {
+            text-align: right;
+        }
+        .header-right .qr-code {
+            margin-bottom: 4px;
+        }
+        .header-right .qr-code img {
+            width: 60px;
+            height: 60px;
+        }
+        .header-right .ref-code {
+            font-size: 8pt;
+            color: #666;
+            font-weight: normal;
+            letter-spacing: 0.5px;
+        }
+        .meta-block {
+            margin-bottom: 24px;
+            font-size: 10pt;
+            color: #333;
+            text-align: right;
+        }
+        .meta-block div {
+            margin-bottom: 2px;
+        }
+        .destinatario {
+            margin-bottom: 20px;
+            font-weight: bold;
+            font-size: 11pt;
+            text-transform: uppercase;
+        }
+        .cuerpo {
+            margin-bottom: 16px;
+            text-align: justify;
+        }
+        .cuerpo p {
+            margin-bottom: 12px;
+        }
+        .despedida {
+            margin-top: 24px;
+            margin-bottom: 30px;
+        }
+        .signature-area {
+            margin-top: 10px;
+        }
+        .signature-area .signature-images {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .signature-area .signature-images img.signature-img {
+            max-height: 50px;
+        }
+        .signature-area .signature-images img.stamp-img {
+            max-height: 70px;
+            margin-left: auto;
+        }
+        .signature-area .signer-name {
+            font-weight: bold;
+            font-size: 10pt;
+        }
+        .signature-area .signer-position {
+            font-size: 9pt;
+            color: #555;
+        }
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: auto;
+            padding: 12px 0;
+            border-top: 2px solid #1a1a1a;
+            font-size: 7.5pt;
+            color: #555;
+            text-align: center;
+            line-height: 1.6;
+        }
+        .footer .footer-line {
+            margin: 0;
+        }
+        .page-break { page-break-before: always; }
+        .hash-info {
+            margin-top: 20px;
+            font-size: 6.5pt;
+            color: #999;
+            text-align: center;
+            border-top: 1px solid #ddd;
+            padding-top: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header-section">
+        <div class="header-left">
+            {% if company.logoUrl or company.logoBase64 %}
+            <div class="logo">
+                <img src="{% if company.logoBase64 %}data:image/png;base64,{{ company.logoBase64 }}{% else %}{{ company.logoUrl }}{% endif %}" alt="Logo">
+            </div>
+            {% endif %}
+            <div class="company-name">{{ company.companyName or company.tradeName }}</div>
+        </div>
+        <div class="header-right">
+            <div class="qr-code">
+                <img src="data:image/png;base64,{{ qr_base64 }}" alt="QR">
+            </div>
+            <div class="ref-code">{{ cert.referenceCode }}</div>
+        </div>
+    </div>
+
+    <div class="meta-block">
+        <div>{{ format_date_es(cert.issueDate) }}</div>
+        <div>{{ cert.issueCity }}</div>
+    </div>
+
+    <div class="destinatario">{{ cert.addressee }}</div>
+
+    <div class="cuerpo">
+        <p>
+            Por medio de la presente, {{ company.companyName or company.tradeName }}, certificamos que el señor(a) <strong>{{ cert.employeeName }}</strong>,
+            portador(a) de la Cédula de Identidad Personal y Electoral No. <strong>{{ cert.employeeCedula }}</strong>,
+            labora en esta empresa desde el <strong>{{ format_date_es(cert.hireDate) }}</strong>, ocupando la posición de <strong>{{ cert.position }}</strong>.
+        </p>
+
+        <p>
+            El señor(a) {{ cert.employeeName.split()[-1] if cert.employeeName.split()|length > 1 else cert.employeeName }}, percibe ingresos mensuales
+            aproximados por la cantidad de <strong>{{ cert.monthlyIncomeWords }}</strong>
+            (<strong>RD$ {{ "{:,.2f}".format(cert.monthlyIncome) }}</strong>),
+            que corresponden a sus ingresos mensuales por comisión y/o incentivo y salario.
+        </p>
+
+        {% set fecha_emision = format_date_es(cert.issueDate) %}
+        <p>
+            Esta certificación se expide a solicitud de la parte interesada, en {{ cert.issueCity }},
+            {{ fecha_emision }}.
+        </p>
+    </div>
+
+    <div class="despedida">
+        Atentamente,
+    </div>
+
+    <div class="signature-area">
+        <div class="signature-images">
+            {% if cert.signatureUrl %}
+            <img src="{{ cert.signatureUrl }}" class="signature-img" alt="Firma">
+            {% endif %}
+            {% if cert.stampUrl %}
+            <img src="{{ cert.stampUrl }}" class="stamp-img" alt="Sello">
+            {% endif %}
+        </div>
+        <div class="signer-name">{{ cert.signerName or company.certificateSignerName }}</div>
+        <div class="signer-position">{{ cert.signerPosition or company.certificateSignerPosition }}</div>
+    </div>
+
+    <div class="hash-info">
+        Hash de integridad: {{ cert.documentHash }} | Código: {{ cert.referenceCode }}
+    </div>
+
+    <div class="footer">
+        <div class="footer-line">{{ company.companyAddress }}</div>
+        <div class="footer-line">{{ company.municipality }}{% if company.municipality and company.province %}, {% endif %}{{ company.province }}, República Dominicana</div>
+        <div class="footer-line">{% if company.companyPhone %}T {{ company.companyPhone }}{% endif %}{% if company.companyPhone and company.companyEmail %} · {% endif %}{% if company.companyEmail %}{{ company.companyEmail }}{% endif %}</div>
+        <div class="footer-line">RNC {{ company.companyRNC }}</div>
+    </div>
+
+</body>
+</html>
