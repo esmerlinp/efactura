@@ -88,7 +88,7 @@
         <strong>{{ applied.ruleName }}</strong>
         <div style="font-size:0.78rem; color:var(--text-muted);">
             {% for act in applied.actions %}
-            <span class="badge badge-info" style="margin-right:4px;">{{ act.type }}: {{ act.formula }}</span>
+            <span class="badge badge-info" style="margin-right:4px;">{{ act.type }}: {{ act.formula }}{% if act.get('conceptCode') %} [{{ act.conceptCode }}]{% endif %}</span>
             {% endfor %}
         </div>
     </div>
