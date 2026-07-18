@@ -9,6 +9,17 @@ from typing import Optional
 class PayrollRuleEngine:
     """Motor de reglas de nómina — evalúa condiciones y aplica acciones sobre líneas de cálculo."""
 
+    # Mapeo por defecto de action_type → concepto (cuando no se especifica conceptCode)
+    _DEFAULT_ACTION_CONCEPT = {
+        "set_bonus": "BONIFICACION",
+        "set_commission": "COMISION",
+        "set_deduction": "OTRAS_DEDUCCIONES",
+        "set_overtime_rate": "HORAS_EXTRA",
+        "set_other_income": "OTROS_INGRESOS",
+        "set_other_deduction": "OTRAS_DEDUCCIONES",
+        "add_concept": None,
+    }
+
     _OPERATORS = {
         "==": lambda a, b: a == b,
         "!=": lambda a, b: a != b,
@@ -20,6 +31,19 @@ class PayrollRuleEngine:
         "in": lambda a, b: str(a).lower() in [x.strip().lower() for x in str(b).split(",")],
         "not_in": lambda a, b: str(a).lower() not in [x.strip().lower() for x in str(b).split(",")],
     }
+
+    @classmethod
+    def get_action_concept_code(cls, action: dict) -> str | None:
+        """Resuelve el código de concepto para una acción.
+
+        Si la acción tiene conceptCode explícito, lo usa.
+        Si no, usa el mapeo por defecto según el action_type.
+        """
+        concept_code = action.get("conceptCode", "")
+        if concept_code:
+            return concept_code
+        action_type = action.get("type", "")
+        return cls._DEFAULT_ACTION_CONCEPT.get(action_type)
 
     @classmethod
     def evaluate_rules(cls, rules: list, context: dict) -> dict:
@@ -65,6 +89,11 @@ class PayrollRuleEngine:
                         result["other_income"] += value
                     elif action_type == "set_other_deduction":
                         result["other_deduction"] += value
+                    elif action_type == "add_concept":
+                        concept_code = cls.get_action_concept_code(action)
+                        # Default to other_income bucket for backward compat;
+                        # the actual type is resolved in payroll_process.py
+                        result["other_income"] += value
 
                 result["applied_rules"].append({
                     "ruleId": rule.get("id", ""),
@@ -275,11 +304,13 @@ class PayrollRuleEngine:
             errors.append("La regla debe tener al menos una acción.")
         for i, action in enumerate(actions):
             valid_types = {"set_bonus", "set_commission", "set_deduction", "set_overtime_rate",
-                           "set_other_income", "set_other_deduction"}
+                           "set_other_income", "set_other_deduction", "add_concept"}
             if action.get("type") not in valid_types:
                 errors.append(f"Acción {i + 1}: tipo '{action.get('type')}' no válido.")
             if not action.get("formula"):
                 errors.append(f"Acción {i + 1}: la fórmula es obligatoria.")
+            if action.get("type") == "add_concept" and not action.get("conceptCode"):
+                errors.append(f"Acción {i + 1}: debe seleccionar un concepto para 'add_concept'.")
 
         frequency = rule.get("frequency", "always")
         valid_frequencies = {"once", "annual", "always"}

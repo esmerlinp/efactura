@@ -8,6 +8,7 @@ from app.web.rrhh import (
 )
 from app.services import hr_data_service as hr
 from app.services.payroll_rule_engine import PayrollRuleEngine
+from app.services.payroll_concept_engine import get_concepts
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -87,9 +88,19 @@ def payroll_rules_new():
         act_types = request.form.getlist("action_type[]")
         act_formulas = request.form.getlist("action_formula[]")
         act_descs = request.form.getlist("action_desc[]")
-        for at, af, ad in zip(act_types, act_formulas, act_descs):
+        act_concepts = request.form.getlist("action_concept[]")
+        for at, af, ad, ac in zip(act_types, act_formulas, act_descs, act_concepts):
             if at.strip() and af.strip():
-                actions.append({"type": at.strip(), "formula": af.strip(), "description": ad.strip()})
+                action = {"type": at.strip(), "formula": af.strip(), "description": ad.strip()}
+                if ac.strip():
+                    action["conceptCode"] = ac.strip()
+                actions.append(action)
+
+        concepts = get_concepts(owner_uid, sandbox=sandbox)
+        active_concepts = sorted(
+            [c for c in concepts if c.get("active")],
+            key=lambda c: (c.get("type", ""), c.get("priority", 99))
+        )
 
         rule_data = {
             "name": name,
@@ -110,7 +121,8 @@ def payroll_rules_new():
             for err in validation["errors"]:
                 flash(err, "error")
             return render_template("rrhh/payroll_rules_form.html", active_page="rrhh_settings",
-                                   rule=rule_data, groups=groups, employees=active_employees)
+                                   rule=rule_data, groups=groups, employees=active_employees,
+                                   concepts=active_concepts)
 
         rule_id = str(uuid.uuid4())
         now_iso = datetime.now(timezone.utc).isoformat()
@@ -122,8 +134,14 @@ def payroll_rules_new():
         flash(f"Regla «{name}» creada exitosamente.", "success")
         return redirect(url_for("web_rrhh.payroll_rules_list"))
 
+    concepts = get_concepts(owner_uid, sandbox=sandbox)
+    active_concepts = sorted(
+        [c for c in concepts if c.get("active")],
+        key=lambda c: (c.get("type", ""), c.get("priority", 99))
+    )
     return render_template("rrhh/payroll_rules_form.html", active_page="rrhh_settings",
-                           rule=None, groups=groups, employees=active_employees)
+                           rule=None, groups=groups, employees=active_employees,
+                           concepts=active_concepts)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -183,17 +201,28 @@ def payroll_rules_edit(rule_id):
         act_types = request.form.getlist("action_type[]")
         act_formulas = request.form.getlist("action_formula[]")
         act_descs = request.form.getlist("action_desc[]")
-        for at, af, ad in zip(act_types, act_formulas, act_descs):
+        act_concepts = request.form.getlist("action_concept[]")
+        for at, af, ad, ac in zip(act_types, act_formulas, act_descs, act_concepts):
             if at.strip() and af.strip():
-                actions.append({"type": at.strip(), "formula": af.strip(), "description": ad.strip()})
+                action = {"type": at.strip(), "formula": af.strip(), "description": ad.strip()}
+                if ac.strip():
+                    action["conceptCode"] = ac.strip()
+                actions.append(action)
         rule["actions"] = actions
+
+        concepts = get_concepts(owner_uid, sandbox=sandbox)
+        active_concepts = sorted(
+            [c for c in concepts if c.get("active")],
+            key=lambda c: (c.get("type", ""), c.get("priority", 99))
+        )
 
         validation = PayrollRuleEngine.validate_rule(rule)
         if not validation["valid"]:
             for err in validation["errors"]:
                 flash(err, "error")
             return render_template("rrhh/payroll_rules_form.html", active_page="rrhh_settings",
-                                   rule=rule, groups=groups, employees=active_employees)
+                                   rule=rule, groups=groups, employees=active_employees,
+                                   concepts=active_concepts)
 
         now_iso = datetime.now(timezone.utc).isoformat()
         rule["updatedBy"] = session.get("user", {}).get("email", "")
@@ -203,8 +232,14 @@ def payroll_rules_edit(rule_id):
         flash(f"Regla «{rule['name']}» actualizada.", "success")
         return redirect(url_for("web_rrhh.payroll_rules_list"))
 
+    concepts = get_concepts(owner_uid, sandbox=sandbox)
+    active_concepts = sorted(
+        [c for c in concepts if c.get("active")],
+        key=lambda c: (c.get("type", ""), c.get("priority", 99))
+    )
     return render_template("rrhh/payroll_rules_form.html", active_page="rrhh_settings",
-                           rule=rule, groups=groups, employees=active_employees)
+                           rule=rule, groups=groups, employees=active_employees,
+                           concepts=active_concepts)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

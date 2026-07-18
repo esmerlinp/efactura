@@ -18,7 +18,16 @@ from app.services.overtime_service import OvertimeService
 from app.services.payroll_overtime_calculator import PayrollOvertimeCalculator
 
 
-def _rule_action_type_to_concept(action_type: str) -> str | None:
+def _resolve_rule_concept_code(action: dict) -> str | None:
+    """Resuelve el código de concepto para una acción de regla.
+
+    Si la acción tiene 'conceptCode' explícito, lo usa.
+    Si no, usa el mapeo por defecto según el action_type.
+    """
+    concept_code = action.get("conceptCode", "")
+    if concept_code:
+        return concept_code
+    action_type = action.get("type", "")
     return {
         "set_bonus": "BONIFICACION",
         "set_commission": "COMISION",
@@ -26,6 +35,7 @@ def _rule_action_type_to_concept(action_type: str) -> str | None:
         "set_overtime_rate": "HORAS_EXTRA",
         "set_other_income": "OTROS_INGRESOS",
         "set_other_deduction": "OTRAS_DEDUCCIONES",
+        "add_concept": None,
     }.get(action_type)
 
 
@@ -393,16 +403,15 @@ def payroll_new():
                     for applied in rule_result.get("applied_rules", []):
                         rule_name = applied.get("ruleName", "")
                         for action in applied.get("actions", []):
-                            action_type = action.get("type", "")
                             action_desc = action.get("description", "") or rule_name
                             formula = action.get("formula", "0")
-                            concept_code = _rule_action_type_to_concept(action_type)
+                            concept_code = _resolve_rule_concept_code(action)
                             if not concept_code:
                                 continue
                             value = PayrollRuleEngine._evaluate_formula(formula, emp_context)
                             if value > 0:
                                 concept = concept_map.get(concept_code, {})
-                                tx_type = "deduction" if concept_code in ("OTRAS_DEDUCCIONES",) else "earning"
+                                tx_type = concept.get("type", "earning")
                                 tx = PayrollTransaction(
                                     id=str(uuid.uuid4()), periodId=period_id, periodKey=period_key,
                                     payrollLineId=line_id, employeeId=emp_id,
@@ -1009,16 +1018,15 @@ def payroll_simulate():
                     for applied in rule_result.get("applied_rules", []):
                         rule_name = applied.get("ruleName", "")
                         for action in applied.get("actions", []):
-                            action_type = action.get("type", "")
                             action_desc = action.get("description", "") or rule_name
                             formula = action.get("formula", "0")
-                            concept_code = _rule_action_type_to_concept(action_type)
+                            concept_code = _resolve_rule_concept_code(action)
                             if not concept_code:
                                 continue
                             value = PayrollRuleEngine._evaluate_formula(formula, emp_context)
                             if value > 0:
                                 concept = concept_map.get(concept_code, {})
-                                tx_type = "deduction" if concept_code in ("OTRAS_DEDUCCIONES",) else "earning"
+                                tx_type = concept.get("type", "earning")
                                 tx = PayrollTransaction(
                                     id=str(uuid.uuid4()), periodId=sim_period_id, periodKey=period_key,
                                     payrollLineId=line_id, employeeId=emp_id,

@@ -46,7 +46,9 @@
     <div class="rule-actions">
         <span style="font-size:0.72rem; color:var(--text-muted);">→</span>
         {% for action in rule.actions %}
-        <span class="action-tag">{{ action.type }}: {{ action.formula }}</span>
+        <span class="action-tag">{{ action.type }}: {{ action.formula }}
+            {%- if action.get('conceptCode') %} <span style="font-weight:400;">[{{ action.conceptCode }}]</span>{% endif -%}
+        </span>
         {% endfor %}
     </div>
 </div>
