@@ -87,6 +87,36 @@ class Employee(BaseModel):
         return name or self.fullName or f"{self.firstName} {self.lastName}".strip()
 
 
+class Dependent(BaseModel):
+    """Dependiente de un empleado — hijos, cónyuge, padres, etc."""
+    id: str = ""
+    employeeId: str = ""
+    firstName: str = ""
+    middleName: str = ""
+    firstLastName: str = ""
+    secondLastName: str = ""
+
+    @property
+    def full_name(self) -> str:
+        parts = [self.firstName, self.middleName, self.firstLastName, self.secondLastName]
+        return " ".join(p for p in parts if p)
+
+    relationshipCode: str = ""  # "hijo" | "hija" | "conyuge" | "padre" | "madre" | "otro"
+    relationshipName: str = ""  # Nombre del parentesco desde catálogo
+    birthDate: str = ""  # YYYY-MM-DD
+    gender: str = ""  # "masculino" | "femenino" | "otro"
+    isStudent: bool = False
+    isFinancialDependent: bool = True
+    active: bool = True
+    endDate: str = ""  # Fecha fin de dependencia (si aplica)
+    idNumber: str = ""  # Cédula opcional del dependiente
+    notes: str = ""
+    createdAt: str = ""
+    createdBy: str = ""
+    updatedAt: str = ""
+    updatedBy: str = ""
+
+
 class AttendanceRecord(BaseModel):
     """Registro de asistencia diaria."""
     id: str = ""

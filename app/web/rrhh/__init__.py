@@ -120,6 +120,7 @@ from app.web.rrhh import portal              # noqa: E402, F401
 from app.web.rrhh import audit               # noqa: E402, F401
 from app.web.rrhh import payroll_settings    # noqa: E402, F401
 from app.web.rrhh import reports             # noqa: E402, F401
+from app.web.rrhh import dependents          # noqa: E402, F401
 from app.web.rrhh import payroll_workflow    # noqa: E402, F401
 from app.web.rrhh import evaluations         # noqa: E402, F401
 from app.web.rrhh import trainings           # noqa: E402, F401

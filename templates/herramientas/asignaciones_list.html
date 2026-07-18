@@ -1,0 +1,93 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Asignaciones — {{ product_name }}{% endblock %}
+{% block page_header %}Asignaciones de Herramientas{% endblock %}
+{% block content %}
+<div class="card-table-wrapper" style="margin-bottom: 30px;">
+    <div class="table-header-row">
+        <div>
+            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 6px;">
+                <i class="fa-solid fa-arrows-left-right" style="color:var(--accent-purple); margin-right:8px;"></i>
+                Asignaciones de Herramientas
+            </h3>
+            <p style="color: var(--text-secondary); font-size: 0.88rem;">
+                Registro de herramientas asignadas a empleados.
+            </p>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: center;">
+            <a href="{{ url_for('web_herramientas.list_herramientas') }}" class="btn btn-ghost"
+               style="display: inline-flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-arrow-left"></i> Herramientas
+            </a>
+        </div>
+    </div>
+
+    <div style="display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap;">
+        <a href="{{ url_for('web_herramientas.list_asignaciones') }}?status=activa" class="btn btn-sm {% if request.args.get('status') == 'activa' %}btn-primary{% else %}btn-ghost{% endif %}">
+            <i class="fa-solid fa-check-circle"></i> Activas
+        </a>
+        <a href="{{ url_for('web_herramientas.list_asignaciones') }}?status=devuelta" class="btn btn-sm {% if request.args.get('status') == 'devuelta' %}btn-primary{% else %}btn-ghost{% endif %}">
+            <i class="fa-solid fa-rotate-left"></i> Devueltas
+        </a>
+        <a href="{{ url_for('web_herramientas.list_asignaciones') }}" class="btn btn-sm {% if not request.args.get('status') %}btn-primary{% else %}btn-ghost{% endif %}">
+            Todas
+        </a>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th>Herramienta</th>
+                    <th>Código</th>
+                    <th>Empleado</th>
+                    <th>Asignación</th>
+                    <th>Devolución</th>
+                    <th>Estado</th>
+                    <th style="text-align: right; width: 50px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in asignaciones %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('web_herramientas.detail_herramienta', herramienta_id=a.herramientaId) }}" style="font-weight:600; text-decoration:none; color:var(--text-primary);">
+                            {{ a.herramientaName or '—' }}
+                        </a>
+                    </td>
+                    <td><strong style="font-family:monospace;">{{ a.herramientaCode or '—' }}</strong></td>
+                    <td>{{ a.empleadoName or '—' }}</td>
+                    <td style="font-size:0.82rem;">{{ a.assignedDate[:10] if a.assignedDate else '—' }}</td>
+                    <td style="font-size:0.82rem;">{{ a.returnedDate[:10] if a.returnedDate else '—' }}</td>
+                    <td>
+                        {% if a.status == 'activa' %}
+                        <span class="badge badge-success">Activa</span>
+                        {% else %}
+                        <span class="badge badge-secondary">Devuelta</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right;">
+                        <div class="action-menu">
+                            <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                            </button>
+                            <div class="action-menu-dropdown">
+                                <a href="{{ url_for('web_herramientas.detail_herramienta', herramienta_id=a.herramientaId) }}" class="action-menu-item">
+                                    <i class="fa-solid fa-eye"></i> Ver Herramienta
+                                </a>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                        <i class="fa-solid fa-arrows-left-right" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
+                        No hay asignaciones registradas.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

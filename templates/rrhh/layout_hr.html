@@ -167,13 +167,13 @@
 
                 <div class="sidebar-divider"></div>
 
-                <!-- ── Configuración (solo owner) ── -->
-                {% if session.get('user', {}).get('role') == 'owner' %}
+                <!-- ── Administración ── -->
+                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canManageTools', True) %}
                 <div class="sidebar-section" id="sidebar-section-rrhh-config">
                     <div class="sidebar-section-header">
                         <div class="header-left">
                             <i class="fa-solid fa-gear section-icon"></i>
-                            <span>Configuración</span>
+                            <span>Administración</span>
                         </div>
                         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
                     </div>
@@ -189,6 +189,10 @@
                         <li class="nav-item {% if active_page == 'rrhh_audit' %}active{% endif %}"
                             data-tooltip="Auditoría">
                             <a href="{{ url_for('web_rrhh.audit_log') }}"><span>Auditoría</span></a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'herramientas' %}active{% endif %}"
+                            data-tooltip="Activos y Herramientas">
+                            <a href="{{ url_for('web_herramientas.list_herramientas') }}"><i class="fa-solid fa-toolbox"></i> <span>Activos y Herramientas</span></a>
                         </li>
                     </ul>
                 </div>

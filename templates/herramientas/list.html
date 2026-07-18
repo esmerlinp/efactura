@@ -1,0 +1,129 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Activos y Herramientas — {{ product_name }}{% endblock %}
+{% block page_header %}Activos y Herramientas{% endblock %}
+{% block content %}
+<div class="card-table-wrapper" style="margin-bottom: 30px;">
+    <div class="table-header-row">
+        <div>
+            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 6px;">
+                <i class="fa-solid fa-toolbox" style="color:var(--accent-purple); margin-right:8px;"></i>
+                Activos y Herramientas
+            </h3>
+            <p style="color: var(--text-secondary); font-size: 0.88rem;">
+                Gestión de activos fijos, equipos, licencias y herramientas.
+            </p>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: center;">
+            <a href="{{ url_for('web_herramientas.list_mantenimientos') }}" class="btn btn-ghost"
+               style="display: inline-flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-screwdriver-wrench"></i> Mantenimientos
+            </a>
+            <a href="{{ url_for('web_herramientas.list_asignaciones') }}" class="btn btn-ghost"
+               style="display: inline-flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-arrows-left-right"></i> Asignaciones
+            </a>
+            <a href="{{ url_for('web_herramientas.new_herramienta') }}" class="btn btn-primary"
+               style="display: inline-flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-plus"></i> Nueva Herramienta
+            </a>
+        </div>
+    </div>
+
+    <form method="GET" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:16px;">
+        <input type="text" name="q" class="form-input" placeholder="Buscar..." value="{{ request.args.get('q', '') }}" style="width:180px; font-size:0.82rem;">
+        <select name="category" class="form-select" style="font-size:0.82rem; width:auto;">
+            <option value="">Todas las categorías</option>
+            {% for c in categories %}
+            <option value="{{ c.value }}" {% if request.args.get('category') == c.value %}selected{% endif %}>{{ c.label }}</option>
+            {% endfor %}
+        </select>
+        <select name="operationalStatus" class="form-select" style="font-size:0.82rem; width:auto;">
+            <option value="">Todos los estados</option>
+            {% for s in operational_statuses %}
+            <option value="{{ s.value }}" {% if request.args.get('operationalStatus') == s.value %}selected{% endif %}>{{ s.label }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-filter"></i></button>
+        <a href="{{ url_for('web_herramientas.list_herramientas') }}" class="btn btn-ghost btn-sm">Limpiar</a>
+    </form>
+
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Nombre</th>
+                    <th>Categoría</th>
+                    <th>Marca / Modelo</th>
+                    <th>Serial / Asset Tag</th>
+                    <th>Ubicación</th>
+                    <th>Estado</th>
+                    <th style="text-align: right; width: 50px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for h in herramientas %}
+                <tr>
+                    <td><strong style="font-family:monospace;">{{ h.code }}</strong></td>
+                    <td>
+                        <a href="{{ url_for('web_herramientas.detail_herramienta', herramienta_id=h.id) }}" style="font-weight:600; text-decoration:none; color:var(--text-primary);">
+                            {{ h.name }}
+                        </a>
+                    </td>
+                    <td style="font-size:0.82rem; color:var(--text-secondary);">
+                        {% for c in categories %}
+                            {% if c.value == h.category %}{{ c.label }}{% endif %}
+                        {% endfor %}
+                    </td>
+                    <td style="font-size:0.82rem;">{{ h.brand or '' }} {{ h.model or '' }}</td>
+                    <td style="font-size:0.82rem;">
+                        {% if h.serialNumber %}<span style="font-family:monospace;">{{ h.serialNumber }}</span>{% endif %}
+                        {% if h.assetTag %}<br><span style="color:var(--text-muted); font-family:monospace; font-size:0.75rem;">{{ h.assetTag }}</span>{% endif %}
+                        {% if not h.serialNumber and not h.assetTag %}—{% endif %}
+                    </td>
+                    <td>{{ h.location or '—' }}</td>
+                    <td>
+                        {% if h.operationalStatus == 'activo' %}
+                        <span class="badge badge-success">Activo</span>
+                        {% elif h.operationalStatus == 'mantenimiento' %}
+                        <span class="badge badge-warning">Mantenimiento</span>
+                        {% elif h.operationalStatus == 'baja' %}
+                        <span class="badge badge-danger">De Baja</span>
+                        {% endif %}
+                        {% if h.assignmentStatus == 'asignado' %}
+                        <span class="badge badge-primary" style="margin-left:4px;">Asignado</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right;">
+                        <div class="action-menu">
+                            <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                            </button>
+                            <div class="action-menu-dropdown">
+                                <a href="{{ url_for('web_herramientas.detail_herramienta', herramienta_id=h.id) }}" class="action-menu-item">
+                                    <i class="fa-solid fa-eye"></i> Ver Detalle
+                                </a>
+                                <a href="{{ url_for('web_herramientas.edit_herramienta', herramienta_id=h.id) }}" class="action-menu-item">
+                                    <i class="fa-solid fa-pen-to-square"></i> Editar
+                                </a>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                        <i class="fa-solid fa-toolbox" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
+                        No hay herramientas registradas.
+                        <br><br>
+                        <a href="{{ url_for('web_herramientas.new_herramienta') }}" class="btn btn-primary" style="display: inline-block; margin-top: 16px; padding: 10px 20px;">
+                            <i class="fa-solid fa-plus"></i> Crear primera herramienta
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

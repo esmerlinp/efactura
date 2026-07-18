@@ -1,0 +1,55 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Asignar {{ herramienta.code }} — {{ product_name }}{% endblock %}
+{% block page_header %}Asignar Herramienta{% endblock %}
+{% block content %}
+<div style="max-width:600px; margin:0 auto;">
+<div class="card-table-wrapper" style="padding:24px;">
+    <div style="margin-bottom:20px; padding:16px; background:var(--bg-secondary); border-radius:var(--radius-sm);">
+        <h3 style="margin:0 0 8px 0; font-size:0.95rem;">{{ herramienta.code }} — {{ herramienta.name }}</h3>
+        <div style="font-size:0.82rem; color:var(--text-muted);">
+            {% if herramienta.brand or herramienta.model %}{{ herramienta.brand }} {{ herramienta.model }} · {% endif %}
+            {{ herramienta.location or 'Sin ubicación' }}
+        </div>
+    </div>
+
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="form-group">
+            <label style="font-weight:600; font-size:0.82rem;">Empleado *</label>
+            <select name="empleadoId" class="form-select" required>
+                <option value="">Seleccionar empleado...</option>
+                {% for e in employees %}
+                <option value="{{ e.id }}">{{ e.fullName or (e.firstName + ' ' + (e.firstLastName or e.lastName or '')) }} — {{ e.position or 'Sin cargo' }}</option>
+                {% endfor %}
+            </select>
+            {% if not employees %}
+            <small style="color:var(--danger);">No hay empleados activos. Debes crear empleados en RRHH primero.</small>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label style="font-weight:600; font-size:0.82rem;">Condición al Asignar</label>
+            <textarea name="conditionOnAssignment" class="form-input" rows="2" placeholder="Ej: Buen estado, sin rayones, funciona correctamente"></textarea>
+        </div>
+
+        <div class="form-group">
+            <label style="font-weight:600; font-size:0.82rem;">Notas de Entrega</label>
+            <textarea name="deliveryNotes" class="form-input" rows="2" placeholder="Observaciones sobre la entrega"></textarea>
+        </div>
+
+        <div class="form-group" style="display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" name="requiresApproval" id="requiresApproval" value="1" style="width:auto;">
+            <label for="requiresApproval" style="font-weight:600; font-size:0.82rem; margin:0;">Requiere aprobación</label>
+        </div>
+
+        <div style="display:flex; gap:8px; margin-top:20px; padding-top:16px; border-top:1px solid var(--border-color);">
+            <button type="submit" class="btn btn-primary" {% if not employees %}disabled{% endif %}>
+                <i class="fa-solid fa-hand"></i> Asignar
+            </button>
+            <a href="{{ url_for('web_herramientas.detail_herramienta', herramienta_id=herramienta.id) }}" class="btn btn-ghost">Cancelar</a>
+        </div>
+    </form>
+</div>
+</div>
+{% endblock %}

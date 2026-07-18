@@ -50,7 +50,7 @@ ALL_PERMISSION_KEYS = [
     "canManageCommissions", "canViewBI", "canViewAuditLog",
     "canAccounting", "isPosSupervisor", "canViewSubscription",
     "canToggleSandbox", "canManageNotes", "canManageSuppliers",
-    "canManagePurchaseCXP", "canUseChatbot",
+    "canManagePurchaseCXP", "canUseChatbot", "canManageTools",
 ]
 
 ROLES_PRESETS = {
@@ -63,6 +63,7 @@ ROLES_PRESETS = {
         "canViewAuditLog": False, "canAccounting": False, "isPosSupervisor": False,
         "canViewSubscription": False, "canToggleSandbox": False, "canManageNotes": False,
         "canManageSuppliers": False, "canManagePurchaseCXP": False, "canUseChatbot": False,
+        "canManageTools": False,
     },
     "contador": {
         "canInvoice": True, "canExpenses": True, "canClients": False,
@@ -72,6 +73,7 @@ ROLES_PRESETS = {
         "canViewAuditLog": False, "canAccounting": True, "isPosSupervisor": False,
         "canViewSubscription": False, "canToggleSandbox": False, "canManageNotes": False,
         "canManageSuppliers": False, "canManagePurchaseCXP": False, "canUseChatbot": False,
+        "canManageTools": False,
     },
     "consulta": {
         "canInvoice": False, "canExpenses": False, "canClients": False,
@@ -124,6 +126,13 @@ PERMISSION_GROUPS = [
             "canManageSuppliers": "Proveedores",
             "canUseChatbot": "Asistente IA",
             "isPosSupervisor": "Supervisor de caja (POS)",
+        },
+    },
+    {
+        "name": "Activos Fijos",
+        "perms": ["canManageTools"],
+        "labels": {
+            "canManageTools": "Gestión de activos y herramientas",
         },
     },
 ]

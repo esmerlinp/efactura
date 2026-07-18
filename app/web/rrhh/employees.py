@@ -374,6 +374,20 @@ def employee_view(employee_id):
                 break
     employee_actions.sort(key=lambda a: a.get("createdAt", ""), reverse=True)
 
+    dependents = hr.get_employee_dependents(owner_uid, employee_id, sandbox=sandbox)
+    from app.utils.hr_utils import calculate_age, is_minor, RELATIONSHIP_CATALOG
+    for d in dependents:
+        d["_age"] = calculate_age(d.get("birthDate", ""))
+        d["_isMinor"] = is_minor(d.get("birthDate", ""))
+    dep_minor = sum(1 for d in dependents if d.get("_isMinor"))
+    dep_adult = sum(1 for d in dependents if d.get("active", True) and not d.get("_isMinor"))
+    dep_financial = sum(1 for d in dependents if d.get("active", True) and d.get("isFinancialDependent", True))
+    dep_student = sum(1 for d in dependents if d.get("active", True) and d.get("isStudent"))
+
+    from app.services.herramientas_service import get_asignaciones_por_empleado
+
+    herramientas_asignadas = get_asignaciones_por_empleado(owner_uid, employee_id, sandbox=sandbox)
+
     branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
     return render_template("rrhh/employee_view.html", active_page="rrhh_employees",
                            employee=_sanitize_for_role(employee), vacation_days=vacation_days,
@@ -381,5 +395,9 @@ def employee_view(employee_id):
                            documents=docs, payment_history=payment_history,
                            employee_actions=employee_actions,
                            payroll_groups=hr.get_payroll_groups(owner_uid, sandbox=sandbox),
-                           branches=branches)
+                           branches=branches,
+                           dependents=dependents, dep_minor=dep_minor, dep_adult=dep_adult,
+                           dep_financial=dep_financial, dep_student=dep_student,
+                           relationship_catalog=RELATIONSHIP_CATALOG,
+                           herramientas_asignadas=herramientas_asignadas)
 

@@ -1,0 +1,296 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}{{ herramienta.code }} — {{ herramienta.name }} — {{ product_name }}{% endblock %}
+{% block page_header %}{{ herramienta.code }} — {{ herramienta.name }}{% endblock %}
+{% block content %}
+<div class="card-table-wrapper" style="padding:24px;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; margin-bottom:20px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+            <div>
+                <h2 style="margin:0 0 4px 0;">{{ herramienta.name }}</h2>
+                <div style="color:var(--text-muted); font-size:0.85rem;">
+                    <strong>{{ herramienta.code }}</strong>
+                    {% if herramienta.assetTag %} · {{ herramienta.assetTag }}{% endif %}
+                </div>
+            </div>
+        </div>
+        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+            {% if herramienta.assignmentStatus == 'disponible' and herramienta.operationalStatus == 'activo' %}
+            <a href="{{ url_for('web_herramientas.asignar_herramienta', herramienta_id=herramienta.id) }}" class="btn btn-primary">
+                <i class="fa-solid fa-hand"></i> Asignar
+            </a>
+            {% endif %}
+            <a href="{{ url_for('web_herramientas.edit_herramienta', herramienta_id=herramienta.id) }}" class="btn btn-secondary">
+                <i class="fa-solid fa-pen-to-square"></i> Editar
+            </a>
+            <a href="{{ url_for('web_herramientas.nuevo_mantenimiento', herramienta_id=herramienta.id) }}" class="btn btn-secondary">
+                <i class="fa-solid fa-screwdriver-wrench"></i> Mantenimiento
+            </a>
+            <form method="POST" action="{{ url_for('web_herramientas.delete_herramienta_route', herramienta_id=herramienta.id) }}" style="display:inline;" onsubmit="return confirm('¿Eliminar esta herramienta? Esta acción no se puede deshacer.')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-danger" {% if herramienta.assignmentStatus == 'asignado' %}disabled title="Debe devolverse primero"{% endif %}>
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:20px;">
+        <span class="badge {% if herramienta.operationalStatus == 'activo' %}badge-success{% elif herramienta.operationalStatus == 'mantenimiento' %}badge-warning{% else %}badge-danger{% endif %}" style="font-size:0.82rem;">
+            {% for s in operational_statuses %}{% if s.value == herramienta.operationalStatus %}{{ s.label }}{% endif %}{% endfor %}
+        </span>
+        <span class="badge {% if herramienta.assignmentStatus == 'asignado' %}badge-info{% else %}badge-secondary{% endif %}" style="font-size:0.82rem;">
+            {{ 'Asignado' if herramienta.assignmentStatus == 'asignado' else 'Disponible' }}
+        </span>
+        {% for c in categories %}{% if c.value == herramienta.category %}
+        <span class="badge badge-secondary" style="font-size:0.82rem;">{{ c.label }}</span>
+        {% endif %}{% endfor %}
+        {% if herramienta.type == 'digital' %}
+        <span class="badge badge-info" style="font-size:0.82rem;">Digital</span>
+        {% endif %}
+    </div>
+
+    <form method="POST" action="{{ url_for('web_herramientas.change_status', herramienta_id=herramienta.id) }}" style="display:flex; gap:6px; align-items:center; margin-bottom:20px; padding:12px 16px; background:var(--bg-secondary); border-radius:var(--radius-sm);">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <span style="font-size:0.82rem; font-weight:600;">Cambiar estado operativo:</span>
+        <select name="operationalStatus" class="form-select" style="font-size:0.82rem; width:auto;">
+            {% for s in operational_statuses %}
+            <option value="{{ s.value }}" {% if herramienta.operationalStatus == s.value %}selected{% endif %}>{{ s.label }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-sm btn-primary">Actualizar</button>
+    </form>
+
+    <div style="display:flex; gap:4px; margin-bottom:16px; border-bottom:2px solid var(--border-color);">
+        <button class="tab-btn active" data-tab="tab-info" onclick="switchTab('tab-info', this)"><i class="fa-solid fa-circle-info"></i> Información</button>
+        <button class="tab-btn" data-tab="tab-asignaciones" onclick="switchTab('tab-asignaciones', this)"><i class="fa-solid fa-arrows-left-right"></i> Asignaciones {% if asignaciones %}<span class="badge badge-info" style="font-size:0.65rem;">{{ asignaciones|length }}</span>{% endif %}</button>
+        <button class="tab-btn" data-tab="tab-mantenimientos" onclick="switchTab('tab-mantenimientos', this)"><i class="fa-solid fa-screwdriver-wrench"></i> Mantenimientos {% if mantenimientos %}<span class="badge badge-warning" style="font-size:0.65rem;">{{ mantenimientos|length }}</span>{% endif %}</button>
+        <button class="tab-btn" data-tab="tab-movimientos" onclick="switchTab('tab-movimientos', this)"><i class="fa-solid fa-clock-rotate-left"></i> Bitácora {% if movimientos %}<span class="badge badge-secondary" style="font-size:0.65rem;">{{ movimientos|length }}</span>{% endif %}</button>
+    </div>
+
+    <div id="tab-info" class="tab-content">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+            <div class="hr-section-card" style="border:1px solid var(--border-color); padding:16px;">
+                <h3 style="margin:0 0 12px 0; font-size:0.95rem;">Detalles Generales</h3>
+                <div class="hr-info-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <div><span class="hr-info-label">Marca</span><span class="hr-info-value">{{ herramienta.brand or '—' }}</span></div>
+                    <div><span class="hr-info-label">Modelo</span><span class="hr-info-value">{{ herramienta.model or '—' }}</span></div>
+                    <div><span class="hr-info-label">Serial</span><span class="hr-info-value" style="font-family:var(--font-mono);">{{ herramienta.serialNumber or '—' }}</span></div>
+                    <div><span class="hr-info-label">Asset Tag</span><span class="hr-info-value" style="font-family:var(--font-mono);">{{ herramienta.assetTag or '—' }}</span></div>
+                    <div><span class="hr-info-label">Ubicación</span><span class="hr-info-value">{{ herramienta.location or '—' }}</span></div>
+                    <div><span class="hr-info-label">Centro de Costo</span><span class="hr-info-value">{{ herramienta.costCenterId or '—' }}</span></div>
+                </div>
+            </div>
+            <div class="hr-section-card" style="border:1px solid var(--border-color); padding:16px;">
+                <h3 style="margin:0 0 12px 0; font-size:0.95rem;">Compra y Depreciación</h3>
+                <div class="hr-info-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    {% set cur = herramienta.purchasePriceCurrency if herramienta.purchasePriceCurrency else 'DOP' %}
+                    {% set sym = {'DOP': 'RD$', 'USD': 'US$', 'EUR': '€'}.get(cur, 'RD$') %}
+                    <div><span class="hr-info-label">Precio Compra</span><span class="hr-info-value" style="font-weight:600;">{% if herramienta.purchasePrice %}{{ sym }} {{ "{:,.2f}".format(herramienta.purchasePrice|float) }}{% else %}—{% endif %}</span></div>
+                    <div><span class="hr-info-label">Fecha Compra</span><span class="hr-info-value">{{ herramienta.purchaseDate or '—' }}</span></div>
+                    <div><span class="hr-info-label">Proveedor</span><span class="hr-info-value">{{ herramienta.supplier or '—' }}</span></div>
+                    <div><span class="hr-info-label">Vida Útil</span><span class="hr-info-value">{{ herramienta.usefulLife or '—' }} años</span></div>
+                    <div><span class="hr-info-label">Próx. Mantenimiento</span><span class="hr-info-value">{{ herramienta.nextMaintenanceDate or '—' }}</span></div>
+                    <div><span class="hr-info-label">Lectura de Uso</span><span class="hr-info-value">{{ herramienta.usageReading or '0' }}</span></div>
+                </div>
+            </div>
+            {% if herramienta.type == 'digital' %}
+            <div class="hr-section-card" style="border:1px solid var(--border-color); padding:16px; grid-column:1/-1;">
+                <h3 style="margin:0 0 12px 0; font-size:0.95rem;">Licencia / Digital</h3>
+                <div class="hr-info-grid" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
+                    <div><span class="hr-info-label">License Key</span><span class="hr-info-value" style="font-family:var(--font-mono); font-size:0.78rem;">{{ herramienta.licenseKey or '—' }}</span></div>
+                    <div><span class="hr-info-label">Cantidad</span><span class="hr-info-value">{{ herramienta.licenseCount or '1' }}</span></div>
+                    <div><span class="hr-info-label">Expiración</span><span class="hr-info-value">{{ herramienta.expirationDate or '—' }}</span></div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% if herramienta.description %}
+        <div class="hr-section-card" style="border:1px solid var(--border-color); padding:16px; margin-top:12px;">
+            <h3 style="margin:0 0 8px 0; font-size:0.95rem;">Descripción</h3>
+            <p style="color:var(--text-secondary); margin:0;">{{ herramienta.description }}</p>
+        </div>
+        {% endif %}
+        {% if herramienta.notes %}
+        <div class="hr-section-card" style="border:1px solid var(--border-color); padding:16px; margin-top:12px;">
+            <h3 style="margin:0 0 8px 0; font-size:0.95rem;">Notas</h3>
+            <p style="color:var(--text-secondary); margin:0;">{{ herramienta.notes }}</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div id="tab-asignaciones" class="tab-content" style="display:none;">
+        {% if asignaciones %}
+        <div class="table-responsive">
+            <table class="table-premium">
+                <thead>
+                    <tr>
+                        <th>Empleado</th>
+                        <th>Fecha Asignación</th>
+                        <th>Fecha Devolución</th>
+                        <th>Estado</th>
+                        <th>Asignado por</th>
+                        <th style="text-align: right; width: 50px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in asignaciones %}
+                    <tr>
+                        <td><strong>{{ a.empleadoName or '—' }}</strong></td>
+                        <td style="font-size:0.82rem;">{{ a.assignedDate[:10] if a.assignedDate else '—' }}</td>
+                        <td style="font-size:0.82rem;">{{ a.returnedDate[:10] if a.returnedDate else '—' }}</td>
+                        <td>
+                            {% if a.status == 'activa' %}
+                            <span class="badge badge-success">Activa</span>
+                            {% else %}
+                            <span class="badge badge-secondary">Devuelta</span>
+                            {% endif %}
+                        </td>
+                        <td style="font-size:0.82rem;">{{ a.assignedBy or '—' }}</td>
+                        <td style="text-align: right;">
+                            {% if a.status == 'activa' %}
+                            <div class="action-menu">
+                                <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </button>
+                                <div class="action-menu-dropdown">
+                                    <form method="POST" action="{{ url_for('web_herramientas.devolver_asignacion', asignacion_id=a.id) }}" style="display:contents;" onsubmit="return confirm('¿Confirmar devolución?')">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <input type="hidden" name="conditionOnReturn" value="">
+                                        <button type="submit" class="action-menu-item">
+                                            <i class="fa-solid fa-rotate-left"></i> Devolver
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+            <i class="fa-solid fa-arrows-left-right" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
+            Sin asignaciones registradas.
+            {% if herramienta.assignmentStatus == 'disponible' and herramienta.operationalStatus == 'activo' %}
+            <br><br><a href="{{ url_for('web_herramientas.asignar_herramienta', herramienta_id=herramienta.id) }}" class="btn btn-primary" style="padding: 10px 20px;"><i class="fa-solid fa-hand"></i> Asignar ahora</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <div id="tab-mantenimientos" class="tab-content" style="display:none;">
+        {% if mantenimientos %}
+        <div class="table-responsive">
+            <table class="table-premium">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Tipo</th>
+                        <th>Descripción</th>
+                        <th style="text-align: right;">Costo</th>
+                        <th>Proveedor</th>
+                        <th>Próx. Mantenimiento</th>
+                        <th style="text-align: right; width: 50px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in mantenimientos %}
+                    <tr>
+                        <td style="font-size:0.82rem;">{{ m.date or '—' }}</td>
+                        <td>
+                            {% if m.type == 'preventivo' %}
+                            <span class="badge badge-primary">Preventivo</span>
+                            {% else %}
+                            <span class="badge badge-warning">Correctivo</span>
+                            {% endif %}
+                        </td>
+                        <td style="font-size:0.82rem; color:var(--text-secondary); max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ m.description or '—' }}</td>
+                        <td style="text-align: right; font-weight:600;">{% if m.cost %}RD$ {{ "{:,.2f}".format(m.cost|float) }}{% else %}—{% endif %}</td>
+                        <td>{{ m.provider or '—' }}</td>
+                        <td style="font-size:0.82rem;">{{ m.nextMaintenanceDate or '—' }}</td>
+                        <td style="text-align: right;">
+                            <div class="action-menu">
+                                <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </button>
+                                <div class="action-menu-dropdown">
+                                    <form method="POST" action="{{ url_for('web_herramientas.delete_mantenimiento_route', mantenimiento_id=m.id) }}" style="display:contents;" onsubmit="return confirm('¿Eliminar este mantenimiento?')">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="action-menu-item text-danger">
+                                            <i class="fa-solid fa-trash-can"></i> Eliminar
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+            <i class="fa-solid fa-screwdriver-wrench" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
+            Sin mantenimientos registrados.
+            <br><br><a href="{{ url_for('web_herramientas.nuevo_mantenimiento', herramienta_id=herramienta.id) }}" class="btn btn-primary" style="padding: 10px 20px;"><i class="fa-solid fa-plus"></i> Registrar mantenimiento</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <div id="tab-movimientos" class="tab-content" style="display:none;">
+        {% if movimientos %}
+        <div class="table-responsive">
+            <table class="table-premium">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Evento</th>
+                        <th>Valor Anterior</th>
+                        <th>Nuevo Valor</th>
+                        <th>Notas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mv in movimientos %}
+                    <tr>
+                        <td style="font-size:0.82rem;">{{ mv.createdAt[:16] if mv.createdAt else '—' }}</td>
+                        <td>
+                            <span class="badge {% if mv.eventType == 'CREADA' %}badge-success{% elif mv.eventType == 'ASIGNADA' %}badge-primary{% elif mv.eventType == 'DEVUELTA' %}badge-secondary{% elif mv.eventType == 'MANTENIMIENTO' %}badge-warning{% elif 'BAJA' in mv.eventType %}badge-danger{% else %}badge-secondary{% endif %}">
+                                {{ mv.eventType }}
+                            </span>
+                        </td>
+                        <td style="font-size:0.82rem; color:var(--text-muted); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ mv.previousValue[:60] if mv.previousValue else '—' }}</td>
+                        <td style="font-size:0.82rem; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ mv.newValue[:60] if mv.newValue else '—' }}</td>
+                        <td style="font-size:0.82rem; color:var(--text-muted); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ mv.notes[:80] if mv.notes else '' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+            <i class="fa-solid fa-clock-rotate-left" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
+            Sin movimientos registrados.
+        </div>
+        {% endif %}
+    </div>
+</div>
+<style>
+.tab-btn { background:none; border:none; padding:8px 18px; cursor:pointer; font-weight:600; font-size:0.82rem; color:var(--text-muted); border-bottom:2px solid transparent; margin-bottom:-2px; transition:all 0.2s; display:inline-flex; align-items:center; gap:6px; }
+.tab-btn.active { color:var(--accent-emerald); border-bottom-color:var(--accent-emerald); }
+.tab-btn:hover { color:var(--text-primary); }
+.tab-content { padding-top:8px; }
+.hr-info-label { display:block; font-size:0.72rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.3px; margin-bottom:2px; }
+.hr-info-value { font-size:0.88rem; color:var(--text-primary); }
+</style>
+<script>
+function switchTab(tabId, btn) {
+    document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(tabId).style.display = '';
+    btn.classList.add('active');
+}
+</script>
+{% endblock %}
