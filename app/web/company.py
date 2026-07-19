@@ -88,6 +88,7 @@ def save_paypal_settings():
     existing['paypalSandbox'] = paypal_sandbox
     existing['paypalBankAccountId'] = request.form.get('paypalBankAccountId', '').strip()
     existing['paypalAccountingAccountId'] = request.form.get('paypalAccountingAccountId', '').strip()
+    existing['paypalWebhookId'] = request.form.get('paypalWebhookId', '').strip()
 
     saved = DatabaseService.save_company_profile(owner_uid, existing)
     if saved:
