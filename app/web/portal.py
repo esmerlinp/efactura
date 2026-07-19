@@ -86,8 +86,8 @@ class PortalDbService:
                 # Evaluar vencimiento de facturas
                 status = data.get("status", "Borrador")
                 
-                # Excluir documentos en estado Borrador (tanto facturas como cotizaciones en Borrador se ocultan)
-                if status == 'Borrador':
+                # Excluir documentos en estado Borrador, Eliminada o Anulada
+                if status in ('Borrador', 'Eliminada', 'Anulada'):
                     continue
                 
                 due_date_str = data.get("dueDate")
@@ -218,7 +218,7 @@ def client_portal_main():
     total_cxc = 0.0
     
     for inv in invoices:
-        if not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador']:
+        if not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador', 'Eliminada']:
             total_invoiced += float(inv.get('total', 0.0))
             if inv.get('status') in ['Emitida', 'Vencida', 'Parcialmente Cobrada', 'Revisión de Pago']:
                 total_cxc += float(inv.get('remainingBalance', inv.get('netPayable', 0.0)))
@@ -1145,6 +1145,20 @@ def paypal_create_order(invoice_id):
     )
 
     if result.get('success'):
+        # Guardar contexto en sesión (por invoice_id y por order_id) por si PayPal omite query params al redirigir
+        pending_data = {
+            "order_id": result['order_id'],
+            "owner_uid": owner_uid,
+            "client_id": client_id,
+            "sandbox": sandbox,
+            "exchange_rate": exchange_rate,
+            "paypal_currency": paypal_currency,
+            "invoice_currency": invoice_currency,
+            "remaining": remaining,
+            "paypal_amount": paypal_amount,
+        }
+        session[f'paypal_pending_{invoice_id}'] = pending_data
+        session[f'paypal_order_{result["order_id"]}'] = pending_data
         return jsonify({
             "success": True,
             "orderID": result['order_id'],
@@ -1157,6 +1171,97 @@ def paypal_create_order(invoice_id):
         })
     else:
         return jsonify({"success": False, "error": result.get('error', 'Error al crear orden PayPal.')}), 500
+
+
+def _paypal_capture_and_process(invoice_id, order_id, owner_uid, client_id, sandbox, exchange_rate=None):
+    """Captura una orden PayPal y procesa el pago. Reutilizado por capture, return y captura diferida."""
+    company = DatabaseService.get_company_profile(owner_uid)
+    paypal_client_id = company.get('paypalClientId', '').strip()
+    paypal_secret_enc = company.get('paypalClientSecretEncrypted', '').strip()
+    paypal_sandbox = company.get('paypalSandbox', True)
+
+    if not paypal_client_id or not paypal_secret_enc:
+        return {"success": False, "error": "PayPal no está configurado."}
+
+    paypal_secret = decrypt_field(paypal_secret_enc)
+    access_token = PayPalService.get_access_token(paypal_client_id, paypal_secret, sandbox=paypal_sandbox)
+    if not access_token:
+        return {"success": False, "error": "Error de autenticación con PayPal."}
+
+    capture_result = PayPalService.capture_order(access_token, order_id, sandbox=paypal_sandbox)
+    if not capture_result.get('success'):
+        return {"success": False, "error": capture_result.get('error', 'Error al capturar pago PayPal.')}
+
+    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice:
+        return {"success": False, "error": "Factura no encontrada."}
+
+    paypal_currency = company.get('paypalCurrency', 'USD').strip()
+    if paypal_currency not in PAYPAL_SUPPORTED_CURRENCIES:
+        paypal_currency = 'USD'
+    invoice_currency = invoice.get('currency', 'DOP')
+    captured_amount = float(capture_result['amount'])
+
+    gateway_data = {
+        "gatewayTransactionId": capture_result.get("capture_id"),
+        "gatewayOrderId": capture_result.get("order_id"),
+        "gatewayResponse": capture_result.get("full_response"),
+        "createTime": capture_result.get("create_time"),
+    }
+
+    if invoice_currency != paypal_currency:
+        if exchange_rate is None or exchange_rate <= 0:
+            rate = CurrencyService.get_rate(paypal_currency)
+            if rate and rate > 0:
+                exchange_rate = rate
+            else:
+                return {"success": False, "error": "No se pudo obtener tasa de cambio."}
+        gateway_data["exchangeRate"] = exchange_rate
+        gateway_data["paypalAmount"] = captured_amount
+        gateway_data["paypalCurrency"] = paypal_currency
+        if invoice_currency == 'DOP':
+            invoice_amount = round(captured_amount * exchange_rate, 2)
+        elif paypal_currency == 'DOP':
+            invoice_amount = round(captured_amount / exchange_rate, 2)
+        else:
+            inv_rate = CurrencyService.get_rate(invoice_currency)
+            if inv_rate and inv_rate > 0:
+                invoice_amount = round(captured_amount * exchange_rate / inv_rate, 2)
+            else:
+                invoice_amount = round(captured_amount * exchange_rate, 2)
+    else:
+        invoice_amount = captured_amount
+
+    paypal_bank_account_id = company.get('paypalBankAccountId') or None
+    paypal_accounting_account_id = company.get('paypalAccountingAccountId') or None
+
+    ok = _process_payment_record(
+        owner_uid=owner_uid,
+        invoice_id=invoice_id,
+        amount=invoice_amount,
+        reference=capture_result['capture_id'],
+        gateway="PAYPAL",
+        method_label="PayPal",
+        bank="PayPal",
+        sandbox=sandbox,
+        gateway_data=gateway_data,
+        bank_account_id=paypal_bank_account_id,
+        accounting_account_id=paypal_accounting_account_id,
+    )
+
+    if not ok:
+        return {"success": False, "error": "Error al registrar el pago en el sistema."}
+
+    return {
+        "success": True,
+        "amount": invoice_amount,
+        "original_currency": invoice_currency,
+        "paypal_currency": paypal_currency,
+        "paypal_amount": captured_amount,
+        "exchange_rate": exchange_rate,
+        "capture_id": capture_result.get('capture_id'),
+        "invoice": invoice,
+    }
 
 
 @portal_bp.route('/portal/pago/<invoice_id>/paypal/capture', methods=['POST'])
@@ -1184,83 +1289,24 @@ def paypal_capture_order(invoice_id):
     if remaining <= 0.01:
         return jsonify({"success": False, "error": "La factura ya está saldada."}), 400
 
-    company = DatabaseService.get_company_profile(owner_uid)
-    paypal_client_id = company.get('paypalClientId', '').strip()
-    paypal_secret_enc = company.get('paypalClientSecretEncrypted', '').strip()
-    paypal_sandbox = company.get('paypalSandbox', True)
-
-    if not paypal_client_id or not paypal_secret_enc:
-        return jsonify({"success": False, "error": "PayPal no está configurado."}), 400
-
-    paypal_secret = decrypt_field(paypal_secret_enc)
-
-    access_token = PayPalService.get_access_token(paypal_client_id, paypal_secret, sandbox=paypal_sandbox)
-    if not access_token:
-        return jsonify({"success": False, "error": "Error de autenticación con PayPal."}), 500
-
-    capture_result = PayPalService.capture_order(access_token, order_id, sandbox=paypal_sandbox)
-    if not capture_result.get('success'):
-        return jsonify({"success": False, "error": capture_result.get('error', 'Error al capturar pago PayPal.')}), 500
-
-    gateway_data = {
-        "gatewayTransactionId": capture_result.get("capture_id"),
-        "gatewayOrderId": capture_result.get("order_id"),
-        "gatewayResponse": capture_result.get("full_response"),
-        "createTime": capture_result.get("create_time"),
-    }
-
-    paypal_currency = company.get('paypalCurrency', 'USD').strip()
-    invoice_currency = invoice.get('currency', 'DOP')
-    captured_amount = float(capture_result['amount'])
-
-    if invoice_currency != paypal_currency:
-        exchange_rate = float(data.get('exchangeRate', 1.0))
-        gateway_data["exchangeRate"] = exchange_rate
-        gateway_data["paypalAmount"] = captured_amount
-        gateway_data["paypalCurrency"] = paypal_currency
-        # Convertir el monto capturado de vuelta a la moneda de la factura
-        if paypal_currency == 'DOP':
-            invoice_amount = round(captured_amount / exchange_rate, 2)
-        elif invoice_currency == 'DOP':
-            invoice_amount = round(captured_amount * exchange_rate, 2)
-        else:
-            invoice_rate = CurrencyService.get_rate(invoice_currency)
-            paypal_rate = exchange_rate
-            if invoice_rate and invoice_rate > 0:
-                invoice_amount = round(captured_amount * paypal_rate / invoice_rate, 2)
-            else:
-                invoice_amount = round(captured_amount * exchange_rate, 2)
-    else:
-        invoice_amount = captured_amount
-
-    paypal_bank_account_id = company.get('paypalBankAccountId') or None
-    paypal_accounting_account_id = company.get('paypalAccountingAccountId') or None
-
-    ok = _process_payment_record(
-        owner_uid=owner_uid,
-        invoice_id=invoice_id,
-        amount=invoice_amount,
-        reference=capture_result['capture_id'],
-        gateway="PAYPAL",
-        method_label="PayPal",
-        bank="PayPal",
-        sandbox=sandbox,
-        gateway_data=gateway_data,
-        bank_account_id=paypal_bank_account_id,
-        accounting_account_id=paypal_accounting_account_id,
+    exchange_rate = float(data.get('exchangeRate', 0))
+    result = _paypal_capture_and_process(
+        invoice_id=invoice_id, order_id=order_id,
+        owner_uid=owner_uid, client_id=client_id, sandbox=sandbox,
+        exchange_rate=exchange_rate if exchange_rate > 0 else None,
     )
 
-    if ok:
+    if result.get('success'):
         return jsonify({
             "success": True,
             "message": "Pago procesado exitosamente.",
-            "amount": invoice_amount,
-            "original_currency": invoice_currency,
-            "paypal_currency": paypal_currency,
-            "paypal_amount": captured_amount,
+            "amount": result['amount'],
+            "original_currency": result['original_currency'],
+            "paypal_currency": result['paypal_currency'],
+            "paypal_amount": result['paypal_amount'],
         })
     else:
-        return jsonify({"success": False, "error": "Error al registrar el pago en el sistema."}), 500
+        return jsonify({"success": False, "error": result.get('error', 'Error al registrar el pago en el sistema.')}), 500
 
 
 @portal_bp.route('/portal/pago/<invoice_id>/paypal/return', methods=['GET'])
@@ -1273,82 +1319,57 @@ def paypal_return(invoice_id):
         return redirect(url_for('portal.portal_entry'))
 
     token = request.args.get('token', '')
-    payer_id = request.args.get('PayerID', '')
+
+    # Si no hay token en query param, buscar en sesión por invoice_id
     if not token:
+        pending_key = f'paypal_pending_{invoice_id}'
+        pending = session.get(pending_key)
+        if pending:
+            token = pending.get("order_id", "")
+            owner_uid = owner_uid or pending.get("owner_uid")
+            client_id = client_id or pending.get("client_id")
+            sandbox = sandbox if sandbox else pending.get("sandbox", True)
+
+    if not token:
+        flash("No se recibió el ID de la orden PayPal. Intenta nuevamente.", "error")
         return redirect(url_for('portal.portal_document_detail', invoice_id=invoice_id))
 
-    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
-    if not invoice:
-        return redirect(url_for('portal.portal_document_detail', invoice_id=invoice_id))
-
-    company = DatabaseService.get_company_profile(owner_uid)
-    paypal_client_id = company.get('paypalClientId', '').strip()
-    paypal_secret_enc = company.get('paypalClientSecretEncrypted', '').strip()
-    if not paypal_client_id or not paypal_secret_enc:
-        return redirect(url_for('portal.portal_document_detail', invoice_id=invoice_id))
-
-    paypal_secret = decrypt_field(paypal_secret_enc)
-    access_token = PayPalService.get_access_token(paypal_client_id, paypal_secret, sandbox=sandbox)
-    if not access_token:
-        return redirect(url_for('portal.portal_document_detail', invoice_id=invoice_id))
-
-    capture_result = PayPalService.capture_order(access_token, token, sandbox=sandbox)
-    if not capture_result.get('success'):
-        return render_template('portal/payment_failed.html',
-            company=company, invoice=invoice, sandbox=sandbox,
-            error=capture_result.get('error', 'Error al capturar el pago.'))
-
-    paypal_currency = company.get('paypalCurrency', 'USD').strip()
-    if paypal_currency not in PAYPAL_SUPPORTED_CURRENCIES:
-        paypal_currency = 'USD'
-    invoice_currency = invoice.get('currency', 'DOP')
-    captured_amount = float(capture_result['amount'])
+    # Obtener exchange_rate de la sesión si existe
     exchange_rate = None
+    pending_key = f'paypal_pending_{invoice_id}'
+    pending = session.get(pending_key)
+    if pending and pending.get("order_id") == token:
+        exchange_rate = pending.get("exchange_rate")
 
-    gateway_data = {
-        "gatewayTransactionId": capture_result.get("capture_id"),
-        "gatewayOrderId": capture_result.get("order_id"),
-        "gatewayResponse": capture_result.get("full_response"),
-        "createTime": capture_result.get("create_time"),
-    }
+    # Limpiar el pendiente de la sesión después de usarlo
+    session.pop(pending_key, None)
 
-    if invoice_currency != paypal_currency:
-        rate = CurrencyService.get_rate(paypal_currency)
-        if rate and rate > 0:
-            exchange_rate = rate
-            if invoice_currency == 'DOP':
-                invoice_amount = round(captured_amount * rate, 2)
-            else:
-                inv_rate = CurrencyService.get_rate(invoice_currency)
-                invoice_amount = round(captured_amount * rate / inv_rate, 2) if inv_rate and inv_rate > 0 else round(captured_amount * rate, 2)
-            gateway_data["exchangeRate"] = rate
-            gateway_data["paypalAmount"] = captured_amount
-            gateway_data["paypalCurrency"] = paypal_currency
-    else:
-        invoice_amount = captured_amount
-
-    paypal_bank_account_id = company.get('paypalBankAccountId') or None
-    paypal_accounting_account_id = company.get('paypalAccountingAccountId') or None
-
-    ok = _process_payment_record(
-        owner_uid=owner_uid,
-        invoice_id=invoice_id,
-        amount=invoice_amount,
-        reference=capture_result['capture_id'],
-        gateway="PAYPAL",
-        method_label="PayPal",
-        bank="PayPal",
-        sandbox=sandbox,
-        gateway_data=gateway_data,
-        bank_account_id=paypal_bank_account_id,
-        accounting_account_id=paypal_accounting_account_id,
+    result = _paypal_capture_and_process(
+        invoice_id=invoice_id, order_id=token,
+        owner_uid=owner_uid, client_id=client_id, sandbox=sandbox,
+        exchange_rate=exchange_rate,
     )
 
+    if not result.get('success'):
+        flash(f"Error al procesar el pago: {result.get('error', 'Error desconocido')}", "error")
+        invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox) or {}
+        company = DatabaseService.get_company_profile(owner_uid) or {}
+        return render_template('portal/payment_failed.html',
+            company=company, invoice=invoice, sandbox=sandbox,
+            client_id=client_id,
+            result={"error": result.get('error', 'Error al procesar el pago.')},
+            error=result.get('error', 'Error al procesar el pago.'))
+
+    flash("¡Pago procesado exitosamente!", "success")
+
+    invoice_actualizada = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox) or {}
+
     return render_template('portal/payment_success_paypal.html',
-        company=company, invoice=invoice, sandbox=sandbox,
-        amount=invoice_amount, currency=invoice_currency,
-        paypal_amount=captured_amount, paypal_currency=paypal_currency,
-        exchange_rate=exchange_rate, capture_id=capture_result.get('capture_id'))
+        company=DatabaseService.get_company_profile(owner_uid) or {},
+        invoice=invoice_actualizada, sandbox=sandbox,
+        amount=result['amount'], currency=result['original_currency'],
+        paypal_amount=result['paypal_amount'], paypal_currency=result['paypal_currency'],
+        exchange_rate=result.get('exchange_rate'), capture_id=result.get('capture_id'))
 
 
 @portal_bp.route('/webhooks/paypal', methods=['POST'])
@@ -1357,77 +1378,175 @@ def paypal_webhook():
     webhook_body = request.get_data(as_text=True)
     webhook_json = request.get_json(silent=True)
     if not webhook_json:
+        print("Webhook: no JSON body")
         abort(400)
 
     event_type = webhook_json.get("event_type", "")
     resource = webhook_json.get("resource", {})
 
-    if event_type in ("CHECKOUT.ORDER.APPROVED", "PAYMENT.CAPTURE.COMPLETED"):
-        custom_id = None
-        invoice_id = None
-        owner_uid = None
-        is_sandbox = True
+    print(f"Webhook: event_type={event_type}")
 
-        if event_type == "PAYMENT.CAPTURE.COMPLETED":
-            custom_id = resource.get("custom_id")
-            invoice_id = resource.get("invoice_id")
-        else:
-            purchase_units = resource.get("purchase_units", [])
-            if purchase_units:
-                custom_id = purchase_units[0].get("custom_id")
+    if event_type not in ("CHECKOUT.ORDER.APPROVED", "PAYMENT.CAPTURE.COMPLETED"):
+        return jsonify({"success": True})
 
-        if custom_id:
-            try:
-                meta = json.loads(custom_id)
-                invoice_id = meta.get("invoice_id", invoice_id)
-                owner_uid = meta.get("owner_uid")
-                is_sandbox = meta.get("sandbox", True)
-            except (json.JSONDecodeError, TypeError):
-                pass
+    # Extraer custom_id (el orden depende del event_type)
+    custom_id = None
+    invoice_id = None
+    owner_uid = None
+    is_sandbox = True
 
-        if not owner_uid or not invoice_id:
-            return jsonify({"success": False, "error": "No se pudo identificar la factura."}), 400
+    if event_type == "PAYMENT.CAPTURE.COMPLETED":
+        custom_id = resource.get("custom_id")
+        invoice_id = resource.get("invoice_id")
+    else:
+        purchase_units = resource.get("purchase_units", [])
+        if purchase_units:
+            custom_id = purchase_units[0].get("custom_id")
 
-        company = DatabaseService.get_company_profile(owner_uid)
-        paypal_client_id = company.get('paypalClientId', '').strip()
-        paypal_secret_enc = company.get('paypalClientSecretEncrypted', '').strip()
-        paypal_sandbox_mode = company.get('paypalSandbox', True)
+    if custom_id:
+        try:
+            meta = json.loads(custom_id)
+            invoice_id = meta.get("invoice_id", invoice_id)
+            owner_uid = meta.get("owner_uid")
+            is_sandbox = meta.get("sandbox", True)
+        except (json.JSONDecodeError, TypeError):
+            print(f"Webhook: error decodificando custom_id: {custom_id}")
+            pass
 
-        paypal_secret = decrypt_field(paypal_secret_enc) if paypal_secret_enc else None
+    if not owner_uid or not invoice_id:
+        print(f"Webhook: owner_uid={owner_uid} invoice_id={invoice_id} no identificados")
+        return jsonify({"success": False, "error": "No se pudo identificar la factura."}), 400
 
-        if paypal_client_id and paypal_secret:
-            access_token = PayPalService.get_access_token(paypal_client_id, paypal_secret, sandbox=paypal_sandbox_mode)
-            if access_token:
-                order_id = resource.get("id") or webhook_json.get("resource", {}).get("supplementary_data", {}).get("related_ids", {}).get("order_id", "")
-                if order_id:
-                    details = PayPalService.get_order_details(access_token, order_id, sandbox=paypal_sandbox_mode)
-                    if details.get("success"):
-                        detail_data = details["data"]
-                        purchase_units = detail_data.get("purchase_units", [])
-                        if purchase_units:
-                            payments = purchase_units[0].get("payments", {})
-                            captures = payments.get("captures", [])
-                            for cap in captures:
-                                cap_id = cap.get("id")
-                                cap_status = cap.get("status")
-                                if cap_status == "COMPLETED" and cap_id:
-                                    _process_payment_record(
-                                        owner_uid=owner_uid,
-                                        invoice_id=invoice_id,
-                                        amount=float(cap.get("amount", {}).get("value", 0)),
-                                        reference=cap_id,
-                                        gateway="PAYPAL",
-                                        method_label="PayPal",
-                                        bank="PayPal",
-                                        sandbox=is_sandbox,
-                                        gateway_data={
-                                            "gatewayTransactionId": cap_id,
-                                            "gatewayOrderId": order_id,
-                                            "gatewayResponse": detail_data,
-                                            "createTime": cap.get("create_time"),
-                                        },
-                                    )
-                                    break
+    company = DatabaseService.get_company_profile(owner_uid)
+    paypal_client_id = company.get('paypalClientId', '').strip()
+    paypal_secret_enc = company.get('paypalClientSecretEncrypted', '').strip()
+    paypal_sandbox_mode = company.get('paypalSandbox', True)
+    paypal_currency = company.get('paypalCurrency', 'USD').strip()
+    if paypal_currency not in PAYPAL_SUPPORTED_CURRENCIES:
+        paypal_currency = 'USD'
+
+    paypal_bank_account_id = company.get('paypalBankAccountId') or None
+    paypal_accounting_account_id = company.get('paypalAccountingAccountId') or None
+
+    # Verificar firma del webhook si hay webhook_id configurado
+    paypal_webhook_id = company.get('paypalWebhookId', '').strip()
+    if paypal_webhook_id:
+        headers_dict = {
+            "Paypal-Transmission-Id": request.headers.get("Paypal-Transmission-Id", ""),
+            "Paypal-Transmission-Time": request.headers.get("Paypal-Transmission-Time", ""),
+            "Paypal-Cert-Url": request.headers.get("Paypal-Cert-Url", ""),
+            "Paypal-Auth-Algo": request.headers.get("Paypal-Auth-Algo", ""),
+            "Paypal-Transmission-Sig": request.headers.get("Paypal-Transmission-Sig", ""),
+        }
+        try:
+            body_dict = webhook_json
+            verified = PayPalService.verify_webhook(headers_dict, body_dict, paypal_webhook_id, sandbox=paypal_sandbox_mode)
+            if not verified:
+                print(f"Webhook: firma no válida para owner={owner_uid}")
+                return jsonify({"success": False, "error": "Firma de webhook no válida"}), 403
+        except Exception as e:
+            print(f"Webhook: error al verificar firma: {e}")
+
+    paypal_secret = decrypt_field(paypal_secret_enc) if paypal_secret_enc else None
+
+    if not paypal_client_id or not paypal_secret:
+        print(f"Webhook: PayPal no configurado para owner={owner_uid}")
+        return jsonify({"success": True})
+
+    access_token = PayPalService.get_access_token(paypal_client_id, paypal_secret, sandbox=paypal_sandbox_mode)
+    if not access_token:
+        print(f"Webhook: error de autenticación PayPal para owner={owner_uid}")
+        return jsonify({"success": True})
+
+    # Obtener invoice para conocer la moneda
+    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=is_sandbox)
+    invoice_currency = invoice.get("currency", "DOP") if invoice else "DOP"
+
+    # Función interna para convertir monto PayPal a moneda de factura
+    def _convert_paypal_amount(captured_amount, paypal_cur, inv_cur):
+        if paypal_cur == inv_cur:
+            return captured_amount
+        try:
+            if inv_cur == 'DOP':
+                rate = CurrencyService.get_rate(paypal_cur)
+                if rate and rate > 0:
+                    return round(captured_amount * rate, 2)
+            elif paypal_cur == 'DOP':
+                rate = CurrencyService.get_rate(inv_cur)
+                if rate and rate > 0:
+                    return round(captured_amount / rate, 2)
+            else:
+                paypal_rate = CurrencyService.get_rate(paypal_cur)
+                inv_rate = CurrencyService.get_rate(inv_cur)
+                if paypal_rate and paypal_rate > 0 and inv_rate and inv_rate > 0:
+                    return round(captured_amount * paypal_rate / inv_rate, 2)
+        except Exception as e:
+            print(f"Webhook: error en conversión de moneda: {e}")
+        return captured_amount
+
+    if event_type == "PAYMENT.CAPTURE.COMPLETED":
+        cap_id = resource.get("id")
+        cap_status = resource.get("status")
+        cap_amount = float(resource.get("amount", {}).get("value", 0))
+        cap_currency = resource.get("amount", {}).get("currency_code", paypal_currency)
+
+        if cap_status == "COMPLETED" and cap_id:
+            invoice_amount = _convert_paypal_amount(cap_amount, cap_currency, invoice_currency)
+            _process_payment_record(
+                owner_uid=owner_uid,
+                invoice_id=invoice_id,
+                amount=invoice_amount,
+                reference=cap_id,
+                gateway="PAYPAL",
+                method_label="PayPal",
+                bank="PayPal",
+                sandbox=is_sandbox,
+                gateway_data={
+                    "gatewayTransactionId": cap_id,
+                    "gatewayOrderId": resource.get("supplementary_data", {}).get("related_ids", {}).get("order_id", ""),
+                    "gatewayResponse": webhook_json,
+                    "createTime": resource.get("create_time"),
+                },
+                bank_account_id=paypal_bank_account_id,
+                accounting_account_id=paypal_accounting_account_id,
+            )
+    else:
+        # CHECKOUT.ORDER.APPROVED: obtener detalles de la orden para encontrar captures
+        order_id = resource.get("id", "")
+        if order_id:
+            details = PayPalService.get_order_details(access_token, order_id, sandbox=paypal_sandbox_mode)
+            if details.get("success"):
+                detail_data = details["data"]
+                purchase_units = detail_data.get("purchase_units", [])
+                if purchase_units:
+                    payments = purchase_units[0].get("payments", {})
+                    captures = payments.get("captures", [])
+                    for cap in captures:
+                        cap_id = cap.get("id")
+                        cap_status = cap.get("status")
+                        if cap_status == "COMPLETED" and cap_id:
+                            cap_amount = float(cap.get("amount", {}).get("value", 0))
+                            cap_currency = cap.get("amount", {}).get("currency_code", paypal_currency)
+                            invoice_amount = _convert_paypal_amount(cap_amount, cap_currency, invoice_currency)
+                            _process_payment_record(
+                                owner_uid=owner_uid,
+                                invoice_id=invoice_id,
+                                amount=invoice_amount,
+                                reference=cap_id,
+                                gateway="PAYPAL",
+                                method_label="PayPal",
+                                bank="PayPal",
+                                sandbox=is_sandbox,
+                                gateway_data={
+                                    "gatewayTransactionId": cap_id,
+                                    "gatewayOrderId": order_id,
+                                    "gatewayResponse": detail_data,
+                                    "createTime": cap.get("create_time"),
+                                },
+                                bank_account_id=paypal_bank_account_id,
+                                accounting_account_id=paypal_accounting_account_id,
+                            )
+                            break
 
     return jsonify({"success": True})
 
@@ -1437,12 +1556,14 @@ def _process_payment_record(owner_uid, invoice_id, amount, reference, gateway, m
 
     invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
     if not invoice:
+        print(f"ERROR _process_payment_record: factura {invoice_id} no encontrada (owner={owner_uid})")
         return False
 
     payment_id = reference
 
     payment_doc = db_firestore.collection("users").document(owner_uid).collection(coll_inv).document(invoice_id).collection("payments").document(payment_id).get()
     if payment_doc.exists:
+        print(f"_process_payment_record: pago {payment_id} ya existe para factura {invoice_id}, omitiendo")
         return True
 
     net_payable = float(invoice.get('netPayable', 0.0))
@@ -1452,11 +1573,20 @@ def _process_payment_record(owner_uid, invoice_id, amount, reference, gateway, m
     new_total_paid = current_total_paid + amount
     new_remaining_balance = max(0.0, net_payable - new_total_paid)
 
-    if new_remaining_balance <= 0.01:
+    if current_status in ("Borrador", "Pagado pero no emitido"):
+        new_status = "Pagado pero no emitido"
+    elif new_remaining_balance <= 0.01:
         new_status = "Cobrada"
         new_remaining_balance = 0.0
     else:
         new_status = "Parcialmente Cobrada"
+
+    fiscal_pending = (
+        invoice.get("dgiiStatus") in ["PENDING", "CONTINGENCY"]
+        or (invoice.get("emisionMode") == "FALLBACK" and not invoice.get("isSyncedWithDGII", False))
+    )
+    if fiscal_pending and new_status not in ("Borrador", "Pagado pero no emitido"):
+        new_status = "Pendiente DGII"
 
     payment_dict = {
         "id": payment_id,
@@ -1481,11 +1611,14 @@ def _process_payment_record(owner_uid, invoice_id, amount, reference, gateway, m
     invoice['paymentMethod'] = method_label
     invoice['paymentDate'] = payment_dict['paymentDate']
 
-    PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+    save_ok = PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+    if not save_ok:
+        print(f"ERROR _process_payment_record: fallo al guardar factura {invoice_id} (owner={owner_uid})")
+        return False
 
     # Generar asiento contable
     from app.services.accounting_service import AccountingService
-    AccountingService.auto_generate_payment_entry(
+    entry = AccountingService.auto_generate_payment_entry(
         owner_uid=owner_uid,
         invoice=invoice,
         amount=amount,
@@ -1494,6 +1627,10 @@ def _process_payment_record(owner_uid, invoice_id, amount, reference, gateway, m
         accounting_account_id=accounting_account_id,
         sandbox=sandbox,
     )
+    if entry:
+        print(f"✅ Asiento contable {entry.get('number', '')} generado para pago {payment_id}")
+    else:
+        print(f"⚠️ No se generó asiento contable para pago {payment_id} (verificar cuentas contables configuradas)")
 
     # Actualizar saldo de la cuenta bancaria
     if bank_account_id:
@@ -1502,6 +1639,11 @@ def _process_payment_record(owner_uid, invoice_id, amount, reference, gateway, m
             new_balance = float(bank_acc.get("currentBalance", 0.0)) + amount
             bank_acc["currentBalance"] = new_balance
             DatabaseService.save_bank_account(owner_uid, bank_account_id, bank_acc, sandbox=sandbox)
+            print(f"✅ Saldo de cuenta bancaria actualizado: +{amount:,.2f}")
+        else:
+            print(f"⚠️ Cuenta bancaria {bank_account_id} no encontrada, no se actualizó saldo")
+    else:
+        print(f"⚠️ No se actualizó saldo bancario: paypalBankAccountId no configurado en la empresa")
 
     return True
 
@@ -1531,6 +1673,30 @@ def _process_azul_payment_record(result):
     )
 
 
+def _capturar_paypal_pendiente(owner_uid, client_id, invoice_id, sandbox):
+    """Intenta capturar una orden PayPal pendiente desde la sesión. Retorna True si se procesó."""
+    pending_key = f'paypal_pending_{invoice_id}'
+    pending = session.get(pending_key)
+    if not pending:
+        return False
+    order_id = pending.get("order_id", "")
+    if not order_id:
+        return False
+    exchange_rate = pending.get("exchange_rate")
+    session.pop(pending_key, None)
+    result = _paypal_capture_and_process(
+        invoice_id=invoice_id, order_id=order_id,
+        owner_uid=owner_uid, client_id=client_id, sandbox=sandbox,
+        exchange_rate=exchange_rate,
+    )
+    if result.get('success'):
+        flash("¡Pago PayPal procesado exitosamente!", "success")
+        return True
+    else:
+        flash(f"El pago PayPal se realizó pero hubo un error al registrarlo: {result.get('error', 'Error desconocido')}. Contacte al equipo de soporte.", "error")
+        return True
+
+
 @portal_bp.route('/portal/documento/<invoice_id>')
 def portal_document_detail(invoice_id):
     owner_uid = session.get('portal_owner_uid')
@@ -1543,13 +1709,18 @@ def portal_document_detail(invoice_id):
     session_key = f'verified_client_{client_id}'
     if session.get(session_key) != True:
         return redirect(url_for('portal.client_portal_main'))
+    
+    # Capturar pago PayPal pendiente si el usuario llegó aquí sin pasar por paypal_return
+    _capturar_paypal_pendiente(owner_uid, client_id, invoice_id, sandbox)
         
     invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
     if not invoice or invoice.get('clientId') != client_id:
         return "Documento no encontrado o acceso denegado.", 404
         
-    # Excluir cotizaciones en borrador
+    # Excluir cotizaciones en borrador y facturas eliminadas
     if invoice.get('isQuotation') and invoice.get('status') == 'Borrador':
+        return "Documento no disponible.", 404
+    if invoice.get('status') == 'Eliminada':
         return "Documento no disponible.", 404
         
     from app.web.invoices import _enrich_invoice_totals

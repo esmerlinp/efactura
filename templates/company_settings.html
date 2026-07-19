@@ -1023,6 +1023,11 @@
                                     </select>
                                 </div>
                                 <div>
+                                    <label style="font-size: 0.75rem; font-weight: 500;">Webhook ID <span style="color: var(--text-muted); font-weight: 400;">(para verificación de firma)</span></label>
+                                    <input type="text" name="paypalWebhookId" class="form-input" style="font-size: 0.8rem; padding: 6px 10px; font-family: monospace;"
+                                        placeholder="ID del webhook en PayPal Developer" value="{{ profile.paypalWebhookId or '' }}">
+                                </div>
+                                <div>
                                     <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; cursor: pointer;">
                                         <input type="checkbox" name="paypalSandbox" value="true" {% if profile.paypalSandbox or profile.paypalSandbox is not defined %}checked{% endif %} style="width: 16px; height: 16px;">
                                         <span>Sandbox (pruebas)</span>
