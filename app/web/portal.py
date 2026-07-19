@@ -1128,7 +1128,9 @@ def paypal_create_order(invoice_id):
     if not access_token:
         return jsonify({"success": False, "error": "Error de autenticación con PayPal. Verifica las credenciales."}), 500
 
-    return_url = url_for('portal.paypal_return', invoice_id=invoice_id, _external=True)
+    return_url = url_for('portal.paypal_return', invoice_id=invoice_id,
+                         owner_uid=owner_uid, client_id=client_id,
+                         sandbox='true' if sandbox else 'false', _external=True)
     cancel_url = url_for('portal.portal_document_detail', invoice_id=invoice_id, _external=True)
 
     result = PayPalService.create_order(
@@ -1263,9 +1265,10 @@ def paypal_capture_order(invoice_id):
 
 @portal_bp.route('/portal/pago/<invoice_id>/paypal/return', methods=['GET'])
 def paypal_return(invoice_id):
-    owner_uid = session.get('portal_owner_uid')
-    client_id = session.get('portal_client_id')
-    sandbox = session.get('portal_sandbox', True)
+    owner_uid = request.args.get('owner_uid') or session.get('portal_owner_uid')
+    client_id = request.args.get('client_id') or session.get('portal_client_id')
+    sandbox_str = request.args.get('sandbox')
+    sandbox = (sandbox_str.lower() == 'true') if sandbox_str else session.get('portal_sandbox', True)
     if not owner_uid or not client_id:
         return redirect(url_for('portal.portal_entry'))
 
@@ -1350,6 +1353,7 @@ def paypal_return(invoice_id):
 
 @portal_bp.route('/webhooks/paypal', methods=['POST'])
 def paypal_webhook():
+    print("Webhook called")
     webhook_body = request.get_data(as_text=True)
     webhook_json = request.get_json(silent=True)
     if not webhook_json:
