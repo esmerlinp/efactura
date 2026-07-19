@@ -974,6 +974,102 @@
         </form>
     </div>
 
+    <!-- SECCIÓN: PASARELA DE PAGOS PAYPAL -->
+    <div style="margin-bottom: 24px; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; background: white;">
+        <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)" style="width: 100%;">
+            <div class="accordion-title">
+                <i class="fa-brands fa-paypal"></i>
+                <span>Integración Pasarela de Pagos PayPal</span>
+            </div>
+            <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+        </button>
+        <div class="accordion-content">
+            <div class="accordion-body">
+                <form method="POST" action="{{ url_for('web_company.save_paypal_settings') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <p style="color: var(--text-secondary); font-size: 0.82rem; line-height: 1.4; margin-bottom: 18px;">
+                        Configura tus credenciales de PayPal para que tus clientes puedan pagar sus facturas directamente desde el portal usando su cuenta de PayPal o tarjeta de crédito/débito. La <strong>Clave Secreta</strong> se almacena cifrada en la base de datos. Esta sección es independiente del formulario general de configuración.
+                    </p>
+
+                    <details style="margin-bottom: 18px; border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; background: #f8fafc;">
+                        <summary style="cursor: pointer; font-weight: 600; font-size: 0.82rem; color: var(--primary);">
+                            <i class="fa-solid fa-circle-question"></i> ¿Cómo obtener el ID de Cliente y la Clave Secreta?
+                        </summary>
+                        <div style="margin-top: 12px; font-size: 0.78rem; line-height: 1.6; color: var(--text-secondary);">
+                            <ol style="padding-left: 20px; margin: 0;">
+                                <li style="margin-bottom: 8px;">
+                                    <strong>Crea una cuenta Business en PayPal</strong> si aún no la tienes. Verifica el correo y completa la información de la empresa.
+                                </li>
+                                <li style="margin-bottom: 8px;">
+                                    <strong>Ingresa al portal de desarrolladores</strong> en <a href="https://developer.paypal.com/dashboard/applications" target="_blank" rel="noopener">developer.paypal.com</a> e inicia sesión con la misma cuenta.
+                                </li>
+                                <li style="margin-bottom: 8px;">
+                                    <strong>Crea una aplicación:</strong> ve a <em>Apps & Credentials</em>, selecciona <em>Sandbox</em> (pruebas), haz clic en <em>Create App</em>, asígnale un nombre (ej. "Portal de Pagos") y guarda. PayPal generará automáticamente el <strong>ID de Cliente</strong> y la <strong>Clave Secreta</strong>.
+                                </li>
+                                <li style="margin-bottom: 8px;">
+                                    <strong>Para producción:</strong> cuando estés listo para cobros reales, cambia de <em>Sandbox</em> a <em>Live</em> en la misma pantalla y crea una aplicación en vivo. Obtén el ID de Cliente y Clave Secreta de producción y actualiza esta configuración.
+                                </li>
+                                <li style="margin-bottom: 8px;">
+                                    <strong>Importante para República Dominicana:</strong> PayPal permite recibir pagos internacionales, pero la disponibilidad de ciertas funciones depende del país de la cuenta. Verifica que tu cuenta Business pueda recibir pagos y retirar fondos. La moneda recomendada es USD.
+                                </li>
+                            </ol>
+                        </div>
+                    </details>
+
+                    <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 20px; display: grid;">
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label for="paypalClientId">ID de Cliente (Client ID)</label>
+                            <input type="text" id="paypalClientId" name="paypalClientId" class="form-input"
+                                placeholder="Ej: Ab12CD3EfGH4iJ5kLmN6oPqR7sTUVwX" value="{{ profile.paypalClientId or '' }}">
+                            <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px; display: block;">
+                                Identificador público de tu aplicación PayPal. Se obtiene en <a href="https://developer.paypal.com/dashboard/applications" target="_blank" rel="noopener">developer.paypal.com</a>.
+                            </small>
+                        </div>
+                        <div class="form-group">
+                            <label for="paypalClientSecret">Clave Secreta (Client Secret) — se cifra automáticamente</label>
+                            <input type="password" id="paypalClientSecret" name="paypalClientSecret" class="form-input"
+                                placeholder="Dejar en blanco para mantener la actual" value="">
+                            <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px; display: block;">
+                                Clave secreta de tu aplicación PayPal. Se almacena cifrada. Solo se actualiza si ingresas un valor nuevo.
+                            </small>
+                        </div>
+                        <div class="form-group">
+                            <label for="paypalCurrency">Moneda</label>
+                                    <select id="paypalCurrency" name="paypalCurrency" class="form-input">
+                                        <option value="USD" {% if profile.paypalCurrency == 'USD' %}selected{% endif %}>USD - Dólar Estadounidense</option>
+                                        <option value="EUR" {% if profile.paypalCurrency == 'EUR' %}selected{% endif %}>EUR - Euro</option>
+                                    </select>
+                                    <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px; display: block;">
+                                        Moneda en la que PayPal procesará los cobros. Debe coincidir con la moneda de la factura. <a href="https://developer.paypal.com/docs/integration/direct/rest/currency-codes/" target="_blank" rel="noopener">Ver monedas soportadas por PayPal</a>.
+                                    </small>
+                        </div>
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label class="checkbox-label" style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer;">
+                                <input type="checkbox" name="paypalSandbox" value="true" {% if profile.paypalSandbox or profile.paypalSandbox is not defined %}checked{% endif %} style="width: 18px; height: 18px;">
+                                <span>Modo Sandbox (pruebas)</span>
+                            </label>
+                            <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px; display: block;">
+                                Activar para usar el entorno de pruebas de PayPal. Desactivar cuando estés listo para cobros reales.
+                            </small>
+                            <div style="margin-top: 12px; padding: 12px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; font-size: 0.8rem; color: #166534;">
+                                <strong><i class="fa-solid fa-circle-info"></i> URL del Webhook:</strong>
+                                <code style="font-size: 0.75rem; word-break: break-all;">{{ url_for('portal.paypal_webhook', _external=True) }}</code>
+                                <br>
+                                <span style="font-size: 0.75rem;">Configura esta URL en el panel de <strong>Notificaciones Webhooks</strong> de tu aplicación en <a href="https://developer.paypal.com/dashboard/applications" target="_blank" rel="noopener" style="color: #166534;">developer.paypal.com</a>.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end;">
+                        <button type="submit" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 6px;">
+                            <i class="fa-brands fa-paypal"></i> Guardar Configuración PayPal
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Gestión de Sucursales -->
     <div class="card-table-wrapper" style="margin-bottom: 24px; padding: 28px;">
         <h3

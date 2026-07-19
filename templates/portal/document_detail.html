@@ -328,7 +328,7 @@
         }
 
         .modal-content {
-            background: var(--bg-card);
+            background: #ffffff;
             border-radius: 12px;
             box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
             max-width: 500px;
@@ -678,6 +678,10 @@
                 box-shadow: none;
                 padding: 0;
             }
+
+            .payment-actions {
+                display: none !important;
+            }
         }
 
         /* ---- Portal Comments Section ---- */
@@ -821,6 +825,12 @@
                     <span>Descargar XML</span>
                 </a>
                 {% endif %}
+                {% if invoice.remainingBalance > 0.01 and invoice.status != 'Borrador' and invoice.status != 'Revisión de Pago' %}
+                <button class="btn btn-success" onclick="openPaymentOptionsModal()" title="Procesar Pago">
+                    <i class="fa-solid fa-credit-card"></i>
+                    <span>Procesar Pago</span>
+                </button>
+                {% endif %}
             {% endif %}
 
             <!-- Action depending on state -->
@@ -834,17 +844,6 @@
                         <i class="fa-solid fa-circle-xmark"></i>
                         <span>Rechazar Propuesta</span>
                     </button>
-                {% endif %}
-            {% else %}
-                {% if invoice.remainingBalance > 0.01 and invoice.status != 'Borrador' and invoice.status != 'Revisión de Pago' %}
-                    <button class="btn btn-success" onclick="openPaymentModal()">
-                        <i class="fa-solid fa-upload"></i>
-                        <span>Reportar Pago</span>
-                    </button>
-                {% elif invoice.status == 'Revisión de Pago' %}
-                    <span class="badge badge-info" style="background-color: rgba(59, 130, 246, 0.1); color: #2563eb; display: inline-flex; align-items: center; gap: 4px; padding: 10px 16px;">
-                        <i class="fa-solid fa-clock-rotate-left"></i> Pago En Revisión
-                    </span>
                 {% endif %}
             {% endif %}
         </div>
@@ -1190,57 +1189,36 @@
         </div>
     </div>
 
-    <!-- Modal de Reportar Pago -->
+    <!-- Modal de Selección de Pago -->
     <div id="payment-modal" class="modal">
         <div class="modal-backdrop" onclick="closePaymentModal()"></div>
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 440px;">
             <div class="modal-header">
-                <h3 class="modal-title"><i class="fa-solid fa-file-invoice-dollar" style="color: var(--accent-emerald);"></i> Reportar Pago de Factura</h3>
+                <h3 class="modal-title"><i class="fa-solid fa-credit-card" style="color: var(--accent-emerald);"></i> Procesar Pago</h3>
                 <button class="modal-close" onclick="closePaymentModal()">&times;</button>
             </div>
-            <form id="payment-form" onsubmit="submitPaymentProof(event)" enctype="multipart/form-data">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                
-                <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">Monto Pagado (RD$)</label>
-                    <input type="number" id="pay-amount" name="amount" value="{{ invoice.remainingBalance }}" class="form-input" step="0.01" required style="text-align: right; font-weight: bold;">
-                </div>
-
-                <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">Método de Pago</label>
-                    <select id="pay-method" name="paymentMethod" required class="form-input">
-                        <option value="Transferencia Bancaria">Transferencia Bancaria</option>
-                        <option value="Cheque">Cheque</option>
-                        <option value="Depósito Bancario">Depósito Bancario</option>
-                        <option value="Otro">Otro</option>
-                    </select>
-                </div>
-
-                <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">Banco Origen / Referencia</label>
-                    <input type="text" id="pay-bank" name="bank" placeholder="Ej: Banco Popular / Referencia #9910" required class="form-input">
-                </div>
-
-                <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">Número de Transacción / Referencia</label>
-                    <input type="text" id="pay-reference" name="referenceNumber" placeholder="Número de confirmación del pago" required class="form-input">
-                </div>
-
-                <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">Fecha de Pago</label>
-                    <input type="date" id="pay-date" name="paymentDate" required class="form-input" value="{{ today_str }}">
-                </div>
-
-                <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">Comprobante Digital (PDF o Imagen)</label>
-                    <input type="file" id="pay-proof" name="paymentProofFile" accept="image/*,.pdf" required class="form-input">
-                </div>
-
-                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;">
-                    <button type="button" class="btn btn-secondary" onclick="closePaymentModal()">Cancelar</button>
-                    <button type="submit" id="pay-submit-btn" class="btn btn-success"><i class="fa-solid fa-paper-plane"></i> Enviar Comprobante</button>
-                </div>
-            </form>
+            <p style="font-size:0.85rem;color:var(--text-secondary);margin:0 0 16px 0;">Selecciona el método de pago:</p>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                {% if paypal_configured %}
+                <a href="{{ url_for('portal.payment_page', invoice_id=invoice.id, method='paypal') }}" style="flex:1;min-width:180px;padding:20px;border:2px solid var(--border-color);border-radius:10px;background:white;cursor:pointer;text-align:center;transition:all 0.15s;display:flex;flex-direction:column;align-items:center;gap:8px;text-decoration:none;color:inherit;font-family:inherit;"
+                        onmouseover="this.style.borderColor='#0070ba';this.style.boxShadow='0 2px 8px rgba(0,112,186,0.12)'"
+                        onmouseout="this.style.borderColor='var(--border-color)';this.style.boxShadow='none'">
+                    <img src="https://www.paypalobjects.com/webstatic/icon/pp258.png" alt="PayPal" style="height:36px;">
+                    <span style="font-weight:700;font-size:0.9rem;color:#0f172a;">PayPal</span>
+                    <span style="font-size:0.75rem;color:#64748b;">Pago online instantáneo</span>
+                </a>
+                {% endif %}
+                <a href="{{ url_for('portal.payment_page', invoice_id=invoice.id, method='proof') }}" style="flex:1;min-width:180px;padding:20px;border:2px solid var(--border-color);border-radius:10px;background:white;cursor:pointer;text-align:center;transition:all 0.15s;display:flex;flex-direction:column;align-items:center;gap:8px;text-decoration:none;color:inherit;font-family:inherit;"
+                        onmouseover="this.style.borderColor='#10b981';this.style.boxShadow='0 2px 8px rgba(16,185,129,0.12)'"
+                        onmouseout="this.style.borderColor='var(--border-color)';this.style.boxShadow='none'">
+                    <i class="fa-solid fa-upload" style="font-size:28px;color:#10b981;"></i>
+                    <span style="font-weight:700;font-size:0.9rem;color:#0f172a;">Cargar Comprobante</span>
+                    <span style="font-size:0.75rem;color:#64748b;">Transferencia, depósito o cheque</span>
+                </a>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px;">
+                <button type="button" class="btn btn-secondary" onclick="closePaymentModal()">Cancelar</button>
+            </div>
         </div>
     </div>
 
@@ -1260,12 +1238,10 @@
         }
 
         // Payment Modal controls
-        function openPaymentModal() {
-            document.getElementById('pay-bank').value = '';
-            document.getElementById('pay-reference').value = '';
-            document.getElementById('pay-proof').value = '';
+        function openPaymentOptionsModal() {
             document.getElementById('payment-modal').style.display = 'flex';
         }
+
         function closePaymentModal() {
             document.getElementById('payment-modal').style.display = 'none';
         }
@@ -1339,60 +1315,6 @@
             }
         }
 
-        // Submit Payment Proof
-        function submitPaymentProof(e) {
-            e.preventDefault();
-            const amount = document.getElementById('pay-amount').value;
-            const method = document.getElementById('pay-method').value;
-            const bank = document.getElementById('pay-bank').value;
-            const ref = document.getElementById('pay-reference').value;
-            const date = document.getElementById('pay-date').value;
-            const proofFile = document.getElementById('pay-proof').files[0];
-
-            if (!proofFile) {
-                alert('Debe cargar el archivo del comprobante.');
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('amount', amount);
-            formData.append('paymentMethod', method);
-            formData.append('bank', bank);
-            formData.append('referenceNumber', ref);
-            formData.append('paymentDate', date);
-            formData.append('paymentProofFile', proofFile);
-
-            const url = `/portal/pago/${invoiceId}/reportar?sandbox=${sandbox}`;
-            const submitBtn = document.getElementById('pay-submit-btn');
-            const originalBtnText = submitBtn.innerHTML;
-
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Subiendo...';
-
-            fetch(url, {
-                method: 'POST',
-                body: formData
-            })
-            .then(res => res.json())
-            .then(data => {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalBtnText;
-                if (data.success) {
-                    alert(data.message || 'Comprobante reportado exitosamente. Se encuentra bajo revisión de contabilidad.');
-                    closePaymentModal();
-                    location.reload();
-                } else {
-                    alert('Error: ' + data.error);
-                }
-            })
-            .catch(err => {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalBtnText;
-                console.error(err);
-                alert('Error de red al intentar reportar el pago.');
-            });
-        }
-
         function submitClientComment() {
             const textarea = document.getElementById('portal-comment-textarea');
             const content = textarea.value.trim();
@@ -1449,6 +1371,8 @@
                 alert('Error de red al enviar el comentario.');
             });
         }
+
+
     </script>
 </body>
 
