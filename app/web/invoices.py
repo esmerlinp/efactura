@@ -7254,6 +7254,7 @@ def company_settings():
             "azulMerchantId": request.form.get('azulMerchantId', '').strip(),
             "azulAuth1": request.form.get('azulAuth1', '').strip(),
             "azulAuth2": request.form.get('azulAuth2', '').strip(),
+
             "consolidationEnabled": request.form.get('consolidationEnabled') == 'true',
             "consolidationThreshold": float(request.form.get('consolidationThreshold') or 250000.0),
             "ruiEnabled": request.form.get('ruiEnabled') == 'true',

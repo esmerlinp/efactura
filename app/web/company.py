@@ -1,8 +1,9 @@
 import base64
-from flask import Blueprint, session, jsonify, request
+from flask import Blueprint, session, jsonify, request, flash, redirect, url_for
 from app.services.db_service import DatabaseService
 from app.services.ecf_readiness_service import EcfReadinessService
 from app.utils.decorators import check_permission
+from app.utils.security import encrypt_field
 
 web_company_bp = Blueprint('web_company', __name__)
 
@@ -61,3 +62,35 @@ def upload_certificate():
         return jsonify({"error": "No se pudo guardar el certificado"}), 500
 
     return jsonify({"success": True})
+
+
+@web_company_bp.route('/company/paypal-settings', methods=['POST'])
+def save_paypal_settings():
+    if 'user' not in session:
+        return jsonify({"error": "No autorizado"}), 401
+    if not check_permission('canModifySettings'):
+        return jsonify({"error": "Sin permisos"}), 403
+
+    owner_uid = session['user']['ownerUID']
+    existing = DatabaseService.get_company_profile(owner_uid)
+    if not existing:
+        return jsonify({"error": "Perfil de empresa no encontrado"}), 404
+
+    paypal_client_id = request.form.get('paypalClientId', '').strip()
+    paypal_secret_raw = request.form.get('paypalClientSecret', '').strip()
+    paypal_currency = request.form.get('paypalCurrency', 'USD').strip()
+    paypal_sandbox = request.form.get('paypalSandbox') == 'true'
+
+    existing['paypalClientId'] = paypal_client_id
+    if paypal_secret_raw:
+        existing['paypalClientSecretEncrypted'] = encrypt_field(paypal_secret_raw)
+    existing['paypalCurrency'] = paypal_currency
+    existing['paypalSandbox'] = paypal_sandbox
+
+    saved = DatabaseService.save_company_profile(owner_uid, existing)
+    if saved:
+        flash('Configuración de PayPal guardada correctamente.', 'success')
+    else:
+        flash('Error al guardar la configuración de PayPal.', 'error')
+
+    return redirect(url_for('web_invoices.company_settings'))
