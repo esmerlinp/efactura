@@ -88,6 +88,7 @@ def save_paypal_settings():
     existing['paypalSandbox'] = paypal_sandbox
     existing['paypalBankAccountId'] = request.form.get('paypalBankAccountId', '').strip()
     existing['paypalAccountingAccountId'] = request.form.get('paypalAccountingAccountId', '').strip()
+    existing['paypalCostCenterId'] = request.form.get('paypalCostCenterId', '').strip()
     existing['paypalWebhookId'] = request.form.get('paypalWebhookId', '').strip()
 
     saved = DatabaseService.save_company_profile(owner_uid, existing)
@@ -116,6 +117,7 @@ def save_azul_settings():
     existing['azulAuth2'] = request.form.get('azulAuth2', '').strip()
     existing['azulBankAccountId'] = request.form.get('azulBankAccountId', '').strip()
     existing['azulAccountingAccountId'] = request.form.get('azulAccountingAccountId', '').strip()
+    existing['azulCostCenterId'] = request.form.get('azulCostCenterId', '').strip()
 
     saved = DatabaseService.save_company_profile(owner_uid, existing)
     if saved:

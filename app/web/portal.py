@@ -1234,6 +1234,7 @@ def _paypal_capture_and_process(invoice_id, order_id, owner_uid, client_id, sand
 
     paypal_bank_account_id = company.get('paypalBankAccountId') or None
     paypal_accounting_account_id = company.get('paypalAccountingAccountId') or None
+    paypal_cost_center_id = company.get('paypalCostCenterId') or None
 
     ok = _process_payment_record(
         owner_uid=owner_uid,
@@ -1247,6 +1248,7 @@ def _paypal_capture_and_process(invoice_id, order_id, owner_uid, client_id, sand
         gateway_data=gateway_data,
         bank_account_id=paypal_bank_account_id,
         accounting_account_id=paypal_accounting_account_id,
+        cost_center_id=paypal_cost_center_id,
     )
 
     if not ok:
@@ -1551,7 +1553,7 @@ def paypal_webhook():
     return jsonify({"success": True})
 
 
-def _process_payment_record(owner_uid, invoice_id, amount, reference, gateway, method_label, bank, sandbox, gateway_data=None, bank_account_id=None, accounting_account_id=None):
+def _process_payment_record(owner_uid, invoice_id, amount, reference, gateway, method_label, bank, sandbox, gateway_data=None, bank_account_id=None, accounting_account_id=None, cost_center_id=None):
     coll_inv = "sandbox_invoices" if sandbox else "invoices"
 
     invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
@@ -1601,6 +1603,7 @@ def _process_payment_record(owner_uid, invoice_id, amount, reference, gateway, m
         "gatewayOrderId": gateway_data.get("gatewayOrderId") if gateway_data else None,
         "gatewayResponse": gateway_data.get("gatewayResponse") if gateway_data else None,
         "createTime": gateway_data.get("createTime") if gateway_data else None,
+        "costCenterId": cost_center_id or "",
     }
 
     db_firestore.collection("users").document(owner_uid).collection(coll_inv).document(invoice_id).collection("payments").document(payment_id).set(payment_dict)
@@ -1626,6 +1629,7 @@ def _process_payment_record(owner_uid, invoice_id, amount, reference, gateway, m
         bank_account_id=bank_account_id,
         accounting_account_id=accounting_account_id,
         sandbox=sandbox,
+        cost_center_id=cost_center_id,
     )
     if entry:
         print(f"✅ Asiento contable {entry.get('number', '')} generado para pago {payment_id}")
@@ -1653,6 +1657,7 @@ def _process_azul_payment_record(result):
     company = DatabaseService.get_company_profile(owner_uid)
     bank_account_id = company.get('azulBankAccountId') or None
     accounting_account_id = company.get('azulAccountingAccountId') or None
+    cost_center_id = company.get('azulCostCenterId') or None
     return _process_payment_record(
         owner_uid=owner_uid,
         invoice_id=result['invoice_id'],
@@ -1670,6 +1675,7 @@ def _process_azul_payment_record(result):
         },
         bank_account_id=bank_account_id,
         accounting_account_id=accounting_account_id,
+        cost_center_id=cost_center_id,
     )
 
 
