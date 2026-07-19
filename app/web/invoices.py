@@ -7251,9 +7251,6 @@ def company_settings():
             "openaiApiKey": request.form.get('openaiApiKey', ''),
 
             "theme": request.form.get('theme', existing_profile.get('theme', 'moderno')),
-            "azulMerchantId": request.form.get('azulMerchantId', '').strip(),
-            "azulAuth1": request.form.get('azulAuth1', '').strip(),
-            "azulAuth2": request.form.get('azulAuth2', '').strip(),
 
             "consolidationEnabled": request.form.get('consolidationEnabled') == 'true',
             "consolidationThreshold": float(request.form.get('consolidationThreshold') or 250000.0),
@@ -7347,7 +7344,10 @@ def company_settings():
     onboarding_success = request.args.get('onboarding_success') == 'true'
     show_wizard = False
     has_issued_documents = _company_has_issued_documents(owner_uid, sandbox=session.get('is_sandbox_mode', True))
-    return render_template('company_settings.html', active_page='settings', profile=profile, branches=branches, projects_list=projects, available_branches=branches, show_wizard=show_wizard, onboarding_success=onboarding_success, has_issued_documents=has_issued_documents, e_cf_provider=Config.E_CF_PROVIDER.lower())
+    sandbox = session.get('is_sandbox_mode', True)
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
+    accounts_db = DatabaseService.get_chart_of_accounts(owner_uid)
+    return render_template('company_settings.html', active_page='settings', profile=profile, branches=branches, projects_list=projects, available_branches=branches, show_wizard=show_wizard, onboarding_success=onboarding_success, has_issued_documents=has_issued_documents, e_cf_provider=Config.E_CF_PROVIDER.lower(), bank_accounts=bank_accounts, accounts=accounts_db)
 
 @web_invoices_bp.route('/onboarding', methods=['GET', 'POST'])
 def onboarding_wizard():
