@@ -2109,7 +2109,7 @@ def invoice_detail(invoice_id):
         dias_retraso = 0
         mora_cuota = 0.0
         
-        if inst.get("status") == "Pendiente" and inst_due_str:
+        if inst.get("status") == "Pendiente" and inst_due_str and not inst.get("moraForgiven"):
             try:
                 due_date_dt = datetime.strptime(inst_due_str[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
                 if hoy > due_date_dt:
@@ -2861,6 +2861,92 @@ def pay_invoice_route(invoice_id):
         except Exception as e:
             flash(f'Error al registrar el cobro: {str(e)}', 'error')
             
+    return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+
+@web_invoices_bp.route('/invoices/<invoice_id>/forgive-mora', methods=['POST'])
+def forgive_mora_route(invoice_id):
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canInvoice'):
+        return render_template('auth/restricted.html', feature_name="Perdonar Mora", required_permission="canInvoice")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice:
+        flash('Factura no encontrada.', 'error')
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+
+    agreement = invoice.get("paymentAgreement") or {"enabled": False, "lateFeePercentage": 5.0}
+    late_fee_percentage = float(agreement.get("lateFeePercentage", 5.0))
+    hoy = datetime.now(timezone.utc)
+    total_mora = 0.0
+    updated_installments = []
+
+    for inst in invoice.get("installments", []):
+        inst_rem = float(inst.get("remainingBalance", 0.0))
+        inst_due_str = inst.get("dueDate", "")
+
+        if inst.get("status") == "Pendiente" and inst_due_str and not inst.get("moraForgiven"):
+            try:
+                due_date_dt = datetime.strptime(inst_due_str[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                if hoy > due_date_dt:
+                    dias_retraso = (hoy - due_date_dt).days
+                    tasa_diaria = (late_fee_percentage / 100.0) / 30.0
+                    mora_cuota = round(inst_rem * tasa_diaria * dias_retraso, 2)
+                    total_mora += mora_cuota
+            except Exception:
+                pass
+
+        if inst.get("status") == "Pendiente":
+            inst["moraForgiven"] = True
+            inst["moraForgivenAt"] = datetime.now(timezone.utc).isoformat()
+
+        updated_installments.append(inst)
+
+    if total_mora <= 0:
+        flash('No hay mora acumulada para perdonar.', 'info')
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+
+    from app.services.db_service import db_firestore
+    coll_inv = "sandbox_invoices" if sandbox else "invoices"
+    inv_ref = db_firestore.collection("users").document(owner_uid).collection(coll_inv).document(invoice_id)
+
+    payment_id = str(uuid.uuid4())
+    payment_dict = {
+        "id": payment_id,
+        "ownerUID": owner_uid,
+        "amount": 0.0,
+        "paymentMethod": "Perdón de Mora",
+        "bank": "",
+        "referenceNumber": "Mora perdonada",
+        "paymentDate": datetime.now(timezone.utc).isoformat(),
+        "registeredBy": session['user']['email'],
+        "moraAction": "perdonado",
+        "moraForgiven": round(total_mora, 2),
+        "moraForgivenNote": request.form.get('moraNote', '').strip() or 'Mora perdonada por acuerdo comercial (sin cobro)'
+    }
+
+    inv_ref.update({"installments": updated_installments})
+    inv_ref.collection("payments").document(payment_id).set(payment_dict)
+
+    try:
+        updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_FACTURAS
+        AuditService.log_from_request(
+            owner_uid=owner_uid,
+            action="PAYMENT",
+            module=MODULE_FACTURAS,
+            entity_id=invoice_id,
+            entity_label=f"Mora perdonada: RD$ {total_mora:,.2f} (sin cobro)",
+            user_session=session.get('user', {}),
+            before=invoice,
+            after=updated_invoice,
+            sandbox=sandbox
+        )
+    except Exception as ae:
+        print(f"Error al registrar auditoría de perdón de mora: {ae}")
+
+    flash(f'🤝 Mora de RD$ {total_mora:,.2f} perdonada exitosamente.', 'success')
     return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
 @web_invoices_bp.route('/invoices/<invoice_id>/pay/advanced', methods=['GET', 'POST'])
@@ -7347,7 +7433,9 @@ def company_settings():
     sandbox = session.get('is_sandbox_mode', True)
     bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
     accounts_db = DatabaseService.get_chart_of_accounts(owner_uid)
-    return render_template('company_settings.html', active_page='settings', profile=profile, branches=branches, projects_list=projects, available_branches=branches, show_wizard=show_wizard, onboarding_success=onboarding_success, has_issued_documents=has_issued_documents, e_cf_provider=Config.E_CF_PROVIDER.lower(), bank_accounts=bank_accounts, accounts=accounts_db)
+    cost_centers = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox)
+    active_cost_centers = [cc for cc in cost_centers if cc.get('isActive', True)]
+    return render_template('company_settings.html', active_page='settings', profile=profile, branches=branches, projects_list=projects, available_branches=branches, show_wizard=show_wizard, onboarding_success=onboarding_success, has_issued_documents=has_issued_documents, e_cf_provider=Config.E_CF_PROVIDER.lower(), bank_accounts=bank_accounts, accounts=accounts_db, cost_centers=active_cost_centers)
 
 @web_invoices_bp.route('/onboarding', methods=['GET', 'POST'])
 def onboarding_wizard():

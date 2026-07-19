@@ -714,7 +714,7 @@ class AccountingService:
             return None
 
     @classmethod
-    def auto_generate_payment_entry(cls, owner_uid, invoice, amount, payment_id, bank_account_id=None, accounting_account_id=None, sandbox=True, country="DO"):
+    def auto_generate_payment_entry(cls, owner_uid, invoice, amount, payment_id, bank_account_id=None, accounting_account_id=None, sandbox=True, country="DO", cost_center_id=None):
         if _accounting_entry_exists(owner_uid, "payment", payment_id):
             return None
         accounts = DatabaseService.get_chart_of_accounts(owner_uid)
@@ -758,7 +758,7 @@ class AccountingService:
                 "contactId": invoice.get("clientId", ""),
                 "contactName": client_name,
                 "branchId": branch_id,
-                "costCenterId": "",
+                "costCenterId": cost_center_id or "",
                 "currency": invoice_currency,
             },
             {
@@ -771,7 +771,7 @@ class AccountingService:
                 "contactId": invoice.get("clientId", ""),
                 "contactName": client_name,
                 "branchId": branch_id,
-                "costCenterId": "",
+                "costCenterId": cost_center_id or "",
                 "currency": invoice_currency,
             },
         ]
