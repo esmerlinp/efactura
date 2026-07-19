@@ -1231,6 +1231,9 @@ def paypal_capture_order(invoice_id):
     else:
         invoice_amount = captured_amount
 
+    paypal_bank_account_id = company.get('paypalBankAccountId') or None
+    paypal_accounting_account_id = company.get('paypalAccountingAccountId') or None
+
     ok = _process_payment_record(
         owner_uid=owner_uid,
         invoice_id=invoice_id,
@@ -1241,6 +1244,8 @@ def paypal_capture_order(invoice_id):
         bank="PayPal",
         sandbox=sandbox,
         gateway_data=gateway_data,
+        bank_account_id=paypal_bank_account_id,
+        accounting_account_id=paypal_accounting_account_id,
     )
 
     if ok:
@@ -1319,6 +1324,9 @@ def paypal_return(invoice_id):
     else:
         invoice_amount = captured_amount
 
+    paypal_bank_account_id = company.get('paypalBankAccountId') or None
+    paypal_accounting_account_id = company.get('paypalAccountingAccountId') or None
+
     ok = _process_payment_record(
         owner_uid=owner_uid,
         invoice_id=invoice_id,
@@ -1329,6 +1337,8 @@ def paypal_return(invoice_id):
         bank="PayPal",
         sandbox=sandbox,
         gateway_data=gateway_data,
+        bank_account_id=paypal_bank_account_id,
+        accounting_account_id=paypal_accounting_account_id,
     )
 
     return render_template('portal/payment_success_paypal.html',
@@ -1418,7 +1428,7 @@ def paypal_webhook():
     return jsonify({"success": True})
 
 
-def _process_payment_record(owner_uid, invoice_id, amount, reference, gateway, method_label, bank, sandbox, gateway_data=None):
+def _process_payment_record(owner_uid, invoice_id, amount, reference, gateway, method_label, bank, sandbox, gateway_data=None, bank_account_id=None, accounting_account_id=None):
     coll_inv = "sandbox_invoices" if sandbox else "invoices"
 
     invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
@@ -1468,12 +1478,37 @@ def _process_payment_record(owner_uid, invoice_id, amount, reference, gateway, m
     invoice['paymentDate'] = payment_dict['paymentDate']
 
     PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+
+    # Generar asiento contable
+    from app.services.accounting_service import AccountingService
+    AccountingService.auto_generate_payment_entry(
+        owner_uid=owner_uid,
+        invoice=invoice,
+        amount=amount,
+        payment_id=payment_id,
+        bank_account_id=bank_account_id,
+        accounting_account_id=accounting_account_id,
+        sandbox=sandbox,
+    )
+
+    # Actualizar saldo de la cuenta bancaria
+    if bank_account_id:
+        bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox)
+        if bank_acc:
+            new_balance = float(bank_acc.get("currentBalance", 0.0)) + amount
+            bank_acc["currentBalance"] = new_balance
+            DatabaseService.save_bank_account(owner_uid, bank_account_id, bank_acc, sandbox=sandbox)
+
     return True
 
 
 def _process_azul_payment_record(result):
+    owner_uid = result['owner_uid']
+    company = DatabaseService.get_company_profile(owner_uid)
+    bank_account_id = company.get('azulBankAccountId') or None
+    accounting_account_id = company.get('azulAccountingAccountId') or None
     return _process_payment_record(
-        owner_uid=result['owner_uid'],
+        owner_uid=owner_uid,
         invoice_id=result['invoice_id'],
         amount=result['amount'],
         reference=result['reference'],
@@ -1486,7 +1521,9 @@ def _process_azul_payment_record(result):
             "gatewayOrderId": result.get('order'),
             "gatewayResponse": {},
             "createTime": None,
-        }
+        },
+        bank_account_id=bank_account_id,
+        accounting_account_id=accounting_account_id,
     )
 
 

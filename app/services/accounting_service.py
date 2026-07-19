@@ -714,6 +714,86 @@ class AccountingService:
             return None
 
     @classmethod
+    def auto_generate_payment_entry(cls, owner_uid, invoice, amount, payment_id, bank_account_id=None, accounting_account_id=None, sandbox=True, country="DO"):
+        if _accounting_entry_exists(owner_uid, "payment", payment_id):
+            return None
+        accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+        if not accounts:
+            cls.seed_default_accounts(owner_uid, country=country)
+            accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+
+        # Resolver cuenta de débito (banco)
+        debit_acc = None
+        if bank_account_id:
+            bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox)
+            if bank_acc:
+                linked_id = accounting_account_id or bank_acc.get("accountingAccountId")
+                if linked_id:
+                    for a in accounts:
+                        if a["id"] == linked_id:
+                            debit_acc = a
+                            break
+        if not debit_acc:
+            debit_acc = _find_account_by_usages(accounts, ["banco", "transferencias_bancarias", "efectivo"])
+        if not debit_acc:
+            return None
+
+        # Resolver cuenta de crédito (CxC)
+        credit_acc = _find_account_by_usage(accounts, "cxc")
+        if not credit_acc:
+            return None
+
+        invoice_currency = invoice.get("currency", "DOP")
+        invoice_number = invoice.get("invoiceNumber", "")
+        client_name = invoice.get("clientName", "")
+        branch_id = invoice.get("branchId", "")
+        lines = [
+            {
+                "accountId": debit_acc["id"],
+                "accountCode": debit_acc.get("code", ""),
+                "accountName": debit_acc.get("name", ""),
+                "debit": round(amount, 2),
+                "credit": 0.00,
+                "description": f"Cobro factura {invoice_number} - {client_name}",
+                "contactId": invoice.get("clientId", ""),
+                "contactName": client_name,
+                "branchId": branch_id,
+                "costCenterId": "",
+                "currency": invoice_currency,
+            },
+            {
+                "accountId": credit_acc["id"],
+                "accountCode": credit_acc.get("code", ""),
+                "accountName": credit_acc.get("name", ""),
+                "debit": 0.00,
+                "credit": round(amount, 2),
+                "description": f"Cobro factura {invoice_number} - {client_name}",
+                "contactId": invoice.get("clientId", ""),
+                "contactName": client_name,
+                "branchId": branch_id,
+                "costCenterId": "",
+                "currency": invoice_currency,
+            },
+        ]
+        try:
+            entry = cls.generate_entry(owner_uid, {
+                "entryType": "payment",
+                "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                "concept": f"Cobro factura {invoice_number} - {client_name}",
+                "referenceType": "payment",
+                "referenceId": payment_id,
+                "referenceNumber": invoice_number,
+                "lines": lines,
+                "createdBy": "portal_gateway",
+                "prefix": "A",
+            }, sandbox=sandbox)
+            return entry
+        except ValueError as e:
+            from flask import current_app
+            current_app.logger.warning(f"auto_generate_payment_entry desbalanceado ({payment_id}): {e}")
+            return None
+
+    @classmethod
     def auto_generate_advance_application_entry(cls, owner_uid, invoice, advances, sandbox=True, country="DO"):
         invoice_id = invoice.get("id", "")
         accounts = DatabaseService.get_chart_of_accounts(owner_uid)
