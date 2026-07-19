@@ -505,42 +505,60 @@
 
     <!-- Tab: Herramientas Asignadas -->
     <div id="tab-herramientas" class="tab-content" style="display:none;">
-        {% if herramientas_asignadas %}
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Herramienta</th>
-                    <th>Código</th>
-                    <th>Fecha Asignación</th>
-                    <th>Estado</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for ha in herramientas_asignadas %}
-                <tr>
-                    <td><strong>{{ ha.herramientaName or '—' }}</strong></td>
-                    <td style="font-family:var(--font-mono); font-size:0.82rem;">{{ ha.herramientaCode or '—' }}</td>
-                    <td>{{ ha.assignedDate[:10] if ha.assignedDate else '—' }}</td>
-                    <td>
-                        {% if ha.status == 'activa' %}
-                        <span class="badge badge-success">Asignada</span>
+        <div class="card-table-wrapper" style="margin-bottom:0;">
+            <div class="table-header-row">
+                <div>
+                    <h3 style="font-size:1rem; font-family:var(--font-heading);">
+                        <i class="fa-solid fa-tools" style="color:var(--accent-emerald); margin-right:8px;"></i>
+                        Herramientas Asignadas
+                    </h3>
+                    <p style="color:var(--text-secondary); font-size:0.85rem; margin:4px 0 0 0;">
+                        Registro de herramientas asignadas al empleado.
+                    </p>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table-premium">
+                    <thead>
+                        <tr>
+                            <th>Herramienta</th>
+                            <th>Código</th>
+                            <th>Fecha Asignación</th>
+                            <th>Estado</th>
+                            <th style="width:50px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ha in herramientas_asignadas %}
+                        <tr>
+                            <td><strong>{{ ha.herramientaName or '—' }}</strong></td>
+                            <td><strong style="font-family:monospace;">{{ ha.herramientaCode or '—' }}</strong></td>
+                            <td>{{ ha.assignedDate[:10] if ha.assignedDate else '—' }}</td>
+                            <td>
+                                {% if ha.status == 'activa' %}
+                                <span class="badge badge-success">Asignada</span>
+                                {% else %}
+                                <span class="badge badge-secondary">Devuelta</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('web_herramientas.detail_herramienta', herramienta_id=ha.herramientaId) }}" class="btn btn-sm btn-ghost" title="Ver herramienta">
+                                    <i class="fa-solid fa-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
                         {% else %}
-                        <span class="badge badge-secondary">Devuelta</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <a href="{{ url_for('web_herramientas.detail_herramienta', herramienta_id=ha.herramientaId) }}" class="btn btn-sm btn-ghost" title="Ver herramienta">
-                            <i class="fa-solid fa-eye"></i>
-                        </a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <p style="color:var(--text-muted); padding:20px;">Este empleado no tiene herramientas asignadas.</p>
-        {% endif %}
+                        <tr>
+                            <td colspan="5" style="text-align:center; padding:60px 0; color:var(--text-secondary);">
+                                <i class="fa-solid fa-tools" style="font-size:3rem; color:var(--text-muted); margin-bottom:16px; opacity:0.5; display:block;"></i>
+                                No hay herramientas asignadas a este empleado.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 
