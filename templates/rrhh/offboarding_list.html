@@ -1,0 +1,140 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Offboarding — Salida de Empleados{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+
+<div class="hr-page-header">
+    <h1><i class="fa-solid fa-door-open"></i> Offboarding</h1>
+    <div>
+        <a href="{{ url_for('web_rrhh.offboarding_new') }}" class="btn btn-success btn-sm">
+            <i class="fa-solid fa-plus"></i> Nueva solicitud
+        </a>
+        <a href="{{ url_for('web_rrhh.offboarding_dashboard') }}" class="btn btn-ghost btn-sm">
+            <i class="fa-solid fa-gauge"></i> Dashboard
+        </a>
+    </div>
+</div>
+
+{% set all_statuses = ['draft', 'pending_supervisor_approval', 'pending_hr_approval', 'approved', 'pending_settlement', 'pending_assets', 'pending_payment', 'pending_documents', 'pending_tss', 'completed', 'cancelled'] %}
+
+<div class="card-table-wrapper hr-document-sheet" style="padding:24px; margin-bottom:20px;">
+    <div class="hr-summary-grid">
+        <div class="stat-box">
+            <span class="stat-label">Total solicitudes</span>
+            <span class="stat-value">{{ total }}</span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-label">En proceso</span>
+            <span class="stat-value" style="color:var(--accent-blue);">{{ summary.pending }}</span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-label">Completadas</span>
+            <span class="stat-value" style="color:var(--accent-emerald);">{{ summary.completed }}</span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-label">Canceladas</span>
+            <span class="stat-value" style="color:var(--danger);">{{ summary.cancelled }}</span>
+        </div>
+    </div>
+</div>
+
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-header-row">
+        <div>
+            <h3>Solicitudes de offboarding</h3>
+            <p>{{ total }} registros{% if status_filter %} · Filtro: {{ states.get(status_filter, {}).label or status_filter }}{% endif %}</p>
+        </div>
+    </div>
+
+    <form method="GET" style="display:flex; gap:10px; flex-wrap:wrap; padding:0 20px 16px; align-items:flex-end;">
+        <div class="form-group" style="margin:0; flex:2; min-width:200px;">
+            <input type="text" name="search" class="form-input" placeholder="Buscar por nombre o # solicitud..."
+                   value="{{ search }}" style="border-radius:20px;">
+        </div>
+        {% if status_filter %}<input type="hidden" name="status" value="{{ status_filter }}">{% endif %}
+        <button type="submit" class="btn btn-secondary btn-sm"><i class="fa-solid fa-search"></i> Buscar</button>
+        {% if search or status_filter %}
+        <a href="{{ url_for('web_rrhh.offboarding_list') }}" class="btn btn-ghost btn-sm" style="color:var(--danger);">
+            <i class="fa-solid fa-xmark"></i> Limpiar
+        </a>
+        {% endif %}
+    </form>
+
+    <div style="display:flex; gap:6px; padding:0 20px 16px; flex-wrap:wrap;">
+        <a href="{{ url_for('web_rrhh.offboarding_list') }}" class="btn btn-sm {% if not status_filter %}btn-primary{% else %}btn-ghost{% endif %}"
+           style="border-radius:20px;">
+            Todas {% if not search %}<span style="opacity:0.6;">({{ counts.values()|sum }})</span>{% endif %}
+        </a>
+        {% for key in all_statuses %}
+        {% set st = states.get(key, {}) %}
+        {% set count = counts.get(key, 0) %}
+        {% if count > 0 %}
+        <a href="{{ url_for('web_rrhh.offboarding_list', status=key, search=search) }}" class="btn btn-sm {% if status_filter == key %}btn-primary{% else %}btn-ghost{% endif %}"
+           style="border-radius:20px;">
+            {{ st.label or key }}
+            {% if not search %}<span style="opacity:0.6;">({{ count }})</span>{% endif %}
+        </a>
+        {% endif %}
+        {% endfor %}
+    </div>
+
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th># Solicitud</th>
+                    <th>Empleado</th>
+                    <th>Tipo</th>
+                    <th>Fecha Efectiva</th>
+                    <th>Estado</th>
+                    <th>Creada</th>
+                    <th style="width:50px;">Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in requests %}
+                {% set st = states.get(r.status, {}) %}
+                <tr>
+                    <td><code>{{ r.requestNumber or r.id[:8] }}</code></td>
+                    <td>
+                        <strong>
+                            <a href="{{ url_for('web_rrhh.offboarding_detail', request_id=r.id) }}" style="color:var(--text-primary); text-decoration:none;">
+                                {{ r.employeeName or '—' }}
+                            </a>
+                        </strong>
+                    </td>
+                    <td><span style="font-size:0.82rem; color:var(--text-secondary);">{{ r.terminationType or '—' }}</span></td>
+                    <td>{{ r.effectiveDate[:10] if r.effectiveDate else '—' }}</td>
+                    <td>
+                        <span class="badge badge-{{ st.color or 'secondary' }}">{{ st.label or r.status }}</span>
+                    </td>
+                    <td><span style="font-size:0.78rem; color:var(--text-muted);">{{ r.createdAt[:10] if r.createdAt else '—' }}</span></td>
+                    <td>
+                        <a href="{{ url_for('web_rrhh.offboarding_detail', request_id=r.id) }}" class="btn btn-sm btn-ghost" title="Ver solicitud">
+                            <i class="fa-regular fa-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" style="text-align:center; padding:48px 20px; color:var(--text-secondary);">
+                        <i class="fa-regular fa-inbox" style="font-size:2.5rem; display:block; margin-bottom:12px; opacity:0.4;"></i>
+                        {% if search or status_filter %}
+                        <div style="font-size:0.95rem;">No se encontraron solicitudes con los filtros aplicados.</div>
+                        <a href="{{ url_for('web_rrhh.offboarding_list') }}" class="btn btn-ghost btn-sm" style="margin-top:8px;">
+                            <i class="fa-solid fa-xmark"></i> Limpiar filtros
+                        </a>
+                        {% else %}
+                        <div style="font-size:0.95rem;">No hay solicitudes de offboarding</div>
+                        <a href="{{ url_for('web_rrhh.offboarding_new') }}" class="btn btn-primary btn-sm" style="margin-top:8px;">
+                            <i class="fa-solid fa-plus"></i> Crear primera solicitud
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

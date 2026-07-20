@@ -388,6 +388,17 @@ def employee_view(employee_id):
 
     herramientas_asignadas = get_asignaciones_por_empleado(owner_uid, employee_id, sandbox=sandbox)
 
+    offboarding_requests = []
+    offboarding_states = {}
+    try:
+        from app.services.offboarding_data_service import list_requests as _list_offboard_reqs
+        from app.models.offboarding import OFFBOARDING_STATES as _off_states
+        offboarding_requests = _list_offboard_reqs(owner_uid, sandbox, limit=5)
+        offboarding_requests = [r for r in offboarding_requests if r.get("employeeId") == employee_id]
+        offboarding_states = _off_states
+    except Exception:
+        pass
+
     branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
     return render_template("rrhh/employee_view.html", active_page="rrhh_employees",
                            employee=_sanitize_for_role(employee), vacation_days=vacation_days,
@@ -399,5 +410,7 @@ def employee_view(employee_id):
                            dependents=dependents, dep_minor=dep_minor, dep_adult=dep_adult,
                            dep_financial=dep_financial, dep_student=dep_student,
                            relationship_catalog=RELATIONSHIP_CATALOG,
-                           herramientas_asignadas=herramientas_asignadas)
+                           herramientas_asignadas=herramientas_asignadas,
+                           offboarding_requests=offboarding_requests,
+                           states=offboarding_states)
 

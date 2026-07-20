@@ -131,6 +131,82 @@ JOURNAL_ENTRY_STATES = {
 }
 
 
+OFFBOARDING_STATES = {
+    "draft": {
+        "label": "Borrador",
+        "transitions": ["pending_supervisor_approval", "cancelled"],
+        "color": "secondary",
+        "description": "Inicia el proceso de offboarding. Complete los datos preliminares antes de enviar a revisión.",
+    },
+    "pending_supervisor_approval": {
+        "label": "Pendiente aprobación supervisor",
+        "transitions": ["pending_hr_approval", "rejected", "cancelled"],
+        "color": "info",
+        "description": "Enviar al supervisor inmediato para que revise y apruebe la solicitud de desvinculación.",
+    },
+    "pending_hr_approval": {
+        "label": "Pendiente aprobación RRHH",
+        "transitions": ["pending_settlement", "rejected", "cancelled"],
+        "color": "warning",
+        "description": "El supervisor aprobó. Ahora RRHH debe revisar y validar la solicitud.",
+    },
+    "approved": {
+        "label": "Aprobada",
+        "transitions": ["pending_settlement", "cancelled"],
+        "color": "primary",
+        "description": "Solicitud aprobada por RRHH. Estado histórico — la transición a Pendiente liquidación es automática.",
+    },
+    "pending_settlement": {
+        "label": "Pendiente liquidación",
+        "transitions": ["pending_assets", "pending_payment", "cancelled"],
+        "color": "info",
+        "description": "Calcular liquidación: cesantía, preaviso, vacaciones proporcionales y salarios adeudados.",
+    },
+    "pending_assets": {
+        "label": "Pendiente activos",
+        "transitions": ["pending_payment", "cancelled"],
+        "color": "warning",
+        "description": "Gestionar devolución de activos asignados: laptop, teléfono, uniformes, accesos, etc.",
+    },
+    "pending_payment": {
+        "label": "Pendiente pago",
+        "transitions": ["pending_documents", "cancelled"],
+        "color": "warning",
+        "description": "Procesar el pago de la liquidación y cualquier monto pendiente con el empleado.",
+    },
+    "pending_documents": {
+        "label": "Pendiente documentos",
+        "transitions": ["pending_tss", "cancelled"],
+        "color": "info",
+        "description": "Preparar y gestionar la firma de documentos legales de desvinculación (finiquito, carta de renuncia, etc.).",
+    },
+    "pending_tss": {
+        "label": "Pendiente baja TSS",
+        "transitions": ["completed", "cancelled"],
+        "color": "info",
+        "description": "Realizar la baja del empleado en TSS (AFP, SFS, ARL) y notificar a las entidades correspondientes.",
+    },
+    "completed": {
+        "label": "Completada",
+        "transitions": [],
+        "color": "success",
+        "description": "Proceso de offboarding finalizado. El empleado queda marcado como inactivo en el sistema.",
+    },
+    "cancelled": {
+        "label": "Cancelada",
+        "transitions": [],
+        "color": "danger",
+        "description": "Cancela la solicitud. El empleado permanece activo y el proceso se descarta.",
+    },
+    "rejected": {
+        "label": "Rechazada",
+        "transitions": [],
+        "color": "danger",
+        "description": "Solicitud rechazada. El empleado continúa activo y no se realiza ninguna acción adicional.",
+    },
+}
+
+
 class StateMachineValidator:
     def __init__(self, state_map: dict):
         self.state_map = state_map
@@ -177,3 +253,7 @@ class StateMachineValidator:
     @staticmethod
     def for_mass_actions():
         return StateMachineValidator(MASS_ACTION_STATES)
+
+    @staticmethod
+    def for_offboarding():
+        return StateMachineValidator(OFFBOARDING_STATES)

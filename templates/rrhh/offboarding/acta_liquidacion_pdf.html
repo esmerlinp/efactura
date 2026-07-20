@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+    @page { size: letter; margin: 2cm; }
+    @page { @bottom-right { content: "Página " counter(page); font-size: 9px; color: #999; } }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10pt; line-height: 1.5; color: #222; margin: 0; padding: 0; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 2px solid #1e40af; padding-bottom: 15px; }
+    .logo-img { max-height: 60px; }
+    .company-info { text-align: right; font-size: 8pt; color: #555; }
+    .title { text-align: center; font-size: 13pt; font-weight: 700; color: #1e40af; margin: 20px 0; text-transform: uppercase; }
+    .ref-line { text-align: right; font-size: 8pt; color: #666; margin-bottom: 15px; }
+    .section { margin: 15px 0; }
+    .section h3 { font-size: 10pt; color: #1e40af; border-bottom: 1px solid #ddd; padding-bottom: 4px; margin-bottom: 10px; }
+    table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 9pt; }
+    th { background: #f3f4f6; text-align: left; padding: 6px 8px; border: 1px solid #d1d5db; font-weight: 600; }
+    td { padding: 5px 8px; border: 1px solid #d1d5db; }
+    .total-row td { font-weight: 700; background: #fef3c7; }
+    .amount { text-align: right; font-family: monospace; }
+    .signatures { margin-top: 40px; display: flex; justify-content: space-between; gap: 30px; }
+    .sig-box { flex: 1; text-align: center; }
+    .sig-line { border-top: 1px solid #333; margin-top: 45px; padding-top: 6px; font-size: 8pt; color: #555; }
+    .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 7pt; color: #999; border-top: 1px solid #ddd; padding-top: 4px; }
+    .qr-code { position: fixed; bottom: 30px; right: 15px; width: 50px; height: 50px; }
+    .text-right { text-align: right; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .info-label { font-size: 8pt; color: #666; }
+    .info-value { font-weight: 600; font-size: 10pt; }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <div>
+        {% if company.logoBase64 %}
+        <img src="data:image/png;base64,{{ company.logoBase64 }}" class="logo-img" alt="Logo">
+        {% endif %}
+    </div>
+    <div class="company-info">
+        <strong>{{ company.companyName }}</strong><br>
+        RNC: {{ company.rnc }}<br>
+        {{ company.city }}<br>
+        Tel: {{ company.phone }}
+    </div>
+</div>
+
+<div class="title">Acta de Liquidación y Finiquito</div>
+
+<div class="ref-line">
+    Ref: {{ request_data.requestNumber or request_data.id[:8] }}<br>
+    Fecha: {{ today_es }}
+</div>
+
+<div class="section">
+    <h3>Datos del Colaborador</h3>
+    <div class="grid-2">
+        <div><span class="info-label">Nombre:</span><br><span class="info-value">{{ employee.fullName }}</span></div>
+        <div><span class="info-label">Cédula:</span><br><span class="info-value">{{ employee.cedula or employee.idNumber }}</span></div>
+        <div><span class="info-label">Fecha de ingreso:</span><br><span class="info-value">{{ format_date_es(employee.hireDate) }}</span></div>
+        <div><span class="info-label">Fecha de salida:</span><br><span class="info-value">{{ format_date_es(settlement.terminationDate) }}</span></div>
+        <div><span class="info-label">Tipo de salida:</span><br><span class="info-value">{{ settlement.terminationType | replace('_', ' ') | title }}</span></div>
+        <div><span class="info-label">Salario base mensual:</span><br><span class="info-value">RD$ {{ "{:,.2f}".format(settlement.baseSalary|float) }}</span></div>
+    </div>
+</div>
+
+{% if settlement.conceptos %}
+<div class="section">
+    <h3>Detalle de Conceptos</h3>
+    <table>
+        <thead>
+            <tr><th style="width:60%;">Concepto</th><th style="width:40%;" class="text-right">Monto (RD$)</th></tr>
+        </thead>
+        <tbody>
+            {% for key, val in settlement.conceptos.items() %}
+            <tr><td>{{ key | replace('_', ' ') | title }}</td><td class="amount">{{ "{:,.2f}".format(val|float) }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if settlement.totales %}
+<div class="section">
+    <h3>Totales</h3>
+    <table>
+        <tbody>
+            {% for key, val in settlement.totales.items() %}
+            <tr class="{% if key in ('montoTotal', 'totalPrestaciones', 'totalVacaciones', 'totalRegalias', 'totalSalario') %}total-row{% endif %}">
+                <td style="width:60%;">{{ key | replace('_', ' ') | title }}</td>
+                <td class="amount">{{ "{:,.2f}".format(val|float) if val is number else val }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if settlement.montoNetoAPagar %}
+<div class="section" style="text-align:center; padding:12px; border:2px solid #1e40af; border-radius:6px; margin-top:12px;">
+    <div style="font-size:9pt; color:#555;">MONTO NETO A PAGAR</div>
+    <div style="font-size:16pt; font-weight:700; color:#1e40af;">RD$ {{ "{:,.2f}".format(settlement.montoNetoAPagar|float) }}</div>
+</div>
+{% endif %}
+
+<p style="margin-top:16px; font-size:9pt; text-align:justify;">
+    Recibí de {{ company.companyName }} la suma arriba indicada como pago total y definitivo de todas las prestaciones laborales, derechos adquiridos, vacaciones, salarios pendientes, y cualquier otra suma que pudiera corresponderme por la relación laboral que mantuve con la empresa, declarando que no tengo nada más que reclamar a la empresa por concepto laboral alguno.
+</p>
+
+<div class="signatures">
+    <div class="sig-box">
+        <div class="sig-line">
+            <strong>{{ company.companyName }}</strong><br>
+            {{ company.rnc }}
+        </div>
+    </div>
+    <div class="sig-box">
+        <div class="sig-line">
+            <strong>{{ employee.fullName }}</strong><br>
+            {{ employee.cedula or employee.idNumber }}
+        </div>
+    </div>
+    <div class="sig-box">
+        <div class="sig-line">
+            <strong>Testigo</strong><br>
+            RRHH
+        </div>
+    </div>
+</div>
+
+{% if qr_base64 %}
+<img src="data:image/png;base64,{{ qr_base64 }}" class="qr-code">
+{% endif %}
+
+<div class="footer">
+    Código de verificación: {{ verification_code }} | Documento generado electrónicamente
+</div>
+
+</body>
+</html>

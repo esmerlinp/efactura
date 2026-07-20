@@ -1,0 +1,1520 @@
+openapi: "3.0.3"
+info:
+  title: VykOne Offboarding API
+  description: |
+    API REST del módulo de Offboarding de VykOne ERP.
+    Permite gestionar el ciclo de vida completo de una desvinculación de empleados,
+    desde la solicitud hasta el cierre del expediente.
+  version: "1.0.0"
+  contact:
+    name: VykOne ERP Team
+
+servers:
+  - url: https://api.vykone.com/api/v1/offboarding
+    description: Producción
+  - url: https://sandbox.vykone.com/api/v1/offboarding
+    description: Sandbox (pruebas)
+
+security:
+  - apiKey: []
+
+paths:
+  # ═══════════════════════════════════════════════════════════
+  # TERMINATION REQUESTS
+  # ═══════════════════════════════════════════════════════════
+
+  /requests:
+    post:
+      operationId: createTerminationRequest
+      summary: Crear solicitud de offboarding
+      description: |
+        Crea una nueva solicitud de desvinculación.
+        La solicitud se crea en estado "draft".
+        Requiere rol: supervisor o hr.
+      tags: [Requests]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTerminationRequestInput"
+      responses:
+        "201":
+          description: Solicitud creada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TerminationRequestResponse"
+        "400":
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Sin permisos suficientes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    get:
+      operationId: listTerminationRequests
+      summary: Listar solicitudes de offboarding
+      description: |
+        Lista las solicitudes de desvinculación según filtros.
+        Los resultados varían según el rol del usuario:
+        - Supervisor: solo sus solicitudes o de su equipo
+        - RRHH: todas las solicitudes
+        - Finance: solicitudes pendientes de pago
+        - Legal: casos de alto riesgo
+      tags: [Requests]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - draft
+              - pending_supervisor_approval
+              - pending_hr_approval
+              - approved
+              - pending_settlement
+              - pending_assets
+              - pending_payment
+              - pending_documents
+              - pending_tss
+              - completed
+              - cancelled
+              - rejected
+          description: Filtrar por estado
+        - name: employeeId
+          in: query
+          schema:
+            type: string
+          description: Filtrar por empleado
+        - name: terminationType
+          in: query
+          schema:
+            $ref: "#/components/schemas/TerminationType"
+          description: Filtrar por tipo de salida
+        - name: fromDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Fecha de inicio (requestDate >= fromDate)
+        - name: toDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Fecha de fin (requestDate <= toDate)
+        - name: riskLevel
+          in: query
+          schema:
+            $ref: "#/components/schemas/LegalRiskLevel"
+          description: Filtrar por nivel de riesgo
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: Número de página
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Elementos por página
+      responses:
+        "200":
+          description: Lista de solicitudes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TerminationRequestSummary"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+
+  /requests/{requestId}:
+    get:
+      operationId: getTerminationRequest
+      summary: Obtener detalle de solicitud
+      description: |
+        Obtiene el detalle completo de una solicitud de offboarding,
+        incluyendo liquidación, checklist, documentos, pagos y expediente legal.
+      tags: [Requests]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Detalle de la solicitud
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TerminationRequestFull"
+
+    patch:
+      operationId: updateTerminationRequest
+      summary: Actualizar solicitud
+      description: |
+        Actualiza los campos editables de una solicitud en estado "draft".
+        Una vez enviada a aprobación, solo se pueden actualizar campos no críticos.
+      tags: [Requests]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTerminationRequestInput"
+      responses:
+        "200":
+          description: Solicitud actualizada
+
+    delete:
+      operationId: deleteTerminationRequest
+      summary: Eliminar solicitud (solo draft)
+      description: |
+        Elimina una solicitud en estado "draft". No se puede eliminar
+        una solicitud que ya fue enviada a aprobación.
+      tags: [Requests]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Solicitud eliminada
+
+  # ═══════════════════════════════════════════════════════════
+  # STATE TRANSITIONS
+  # ═══════════════════════════════════════════════════════════
+
+  /requests/{requestId}/transitions:
+    get:
+      operationId: getAvailableTransitions
+      summary: Obtener transiciones disponibles
+      description: |
+        Retorna las transiciones de estado permitidas para la solicitud actual,
+        basadas en el estado actual y el rol del usuario autenticado.
+      tags: [Workflow]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Transiciones disponibles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  currentState:
+                    type: string
+                  availableTransitions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        action:
+                          type: string
+                          description: Código de la acción
+                        label:
+                          type: string
+                          description: Etiqueta para UI
+                        targetState:
+                          type: string
+                          description: Estado destino
+                        requiresComment:
+                          type: boolean
+                          default: false
+                        preconditions:
+                          type: array
+                          items:
+                            type: string
+
+    post:
+      operationId: executeTransition
+      summary: Ejecutar transición de estado
+      description: |
+        Ejecuta una transición de estado válida.
+        Valida precondiciones, reglas SOD y publica eventos de dominio.
+      tags: [Workflow]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  description: Código de la acción a ejecutar
+                  example: approve
+                comment:
+                  type: string
+                  description: Comentario obligatorio para rechazos/cancelaciones
+      responses:
+        "200":
+          description: Transición ejecutada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TerminationRequestResponse"
+        "400":
+          description: Transición inválida o precondición fallida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Violación de regla de negocio o SOD
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ═══════════════════════════════════════════════════════════
+  # SETTLEMENTS
+  # ═══════════════════════════════════════════════════════════
+
+  /requests/{requestId}/settlement:
+    get:
+      operationId: getSettlement
+      summary: Obtener liquidación
+      description: |
+        Obtiene el cálculo de liquidación asociado a la solicitud,
+        incluyendo todas las versiones disponibles.
+      tags: [Settlement]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: version
+          in: query
+          schema:
+            type: integer
+          description: Versión específica (última si no se especifica)
+      responses:
+        "200":
+          description: Liquidación
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TerminationSettlementResponse"
+
+    put:
+      operationId: calculateSettlement
+      summary: Calcular liquidación
+      description: |
+        Calcula la liquidación de prestaciones laborales.
+        Crea una nueva versión si ya existe una anterior.
+        Requiere estado "pending_settlement" y rol HR.
+      tags: [Settlement]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettlementInput"
+      responses:
+        "200":
+          description: Liquidación calculada
+
+    post:
+      operationId: approveSettlement
+      summary: Aprobar liquidación
+      description: |
+        Aprueba la liquidación calculada.
+        Requiere rol Finance y que el aprobador sea distinto al calculador.
+        Si el monto excede los límites del rol, requiere aprobación adicional.
+      tags: [Settlement]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - decision
+              properties:
+                decision:
+                  type: string
+                  enum: [approved, rejected]
+                comment:
+                  type: string
+      responses:
+        "200":
+          description: Decisión registrada
+
+  # ═══════════════════════════════════════════════════════════
+  # CHECKLIST / ASSETS
+  # ═══════════════════════════════════════════════════════════
+
+  /requests/{requestId}/checklist:
+    get:
+      operationId: getChecklist
+      summary: Obtener checklist de activos
+      tags: [Checklist]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Checklist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChecklistResponse"
+
+    patch:
+      operationId: updateChecklistItem
+      summary: Actualizar ítem del checklist
+      description: |
+        Marca un ítem como completado o registra un incidente.
+      tags: [Checklist]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - itemId
+                - completed
+              properties:
+                itemId:
+                  type: string
+                completed:
+                  type: boolean
+                notes:
+                  type: string
+                hasIncident:
+                  type: boolean
+                incidentType:
+                  type: string
+                  enum: [lost, damaged, not_returned]
+                incidentValue:
+                  type: number
+                  format: float
+      responses:
+        "200":
+          description: Ítem actualizado
+
+  # ═══════════════════════════════════════════════════════════
+  # INTERVIEW
+  # ═══════════════════════════════════════════════════════════
+
+  /requests/{requestId}/interview:
+    get:
+      operationId: getInterview
+      summary: Obtener entrevista de salida
+      tags: [Interview]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Entrevista
+
+    put:
+      operationId: saveInterview
+      summary: Guardar entrevista de salida
+      tags: [Interview]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InterviewInput"
+      responses:
+        "200":
+          description: Entrevista guardada
+
+  # ═══════════════════════════════════════════════════════════
+  # DOCUMENTS
+  # ═══════════════════════════════════════════════════════════
+
+  /requests/{requestId}/documents:
+    get:
+      operationId: listDocuments
+      summary: Listar documentos generados
+      tags: [Documents]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Lista de documentos
+
+    post:
+      operationId: generateDocument
+      summary: Generar documento
+      description: |
+        Genera un documento automáticamente según el tipo especificado.
+        El documento se genera en PDF con código QR y URL de verificación.
+      tags: [Documents]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - documentType
+              properties:
+                documentType:
+                  $ref: "#/components/schemas/DocumentType"
+                signNow:
+                  type: boolean
+                  default: false
+                  description: Generar y preparar para firma digital
+      responses:
+        "201":
+          description: Documento generado
+
+  /requests/{requestId}/documents/{documentId}/verify:
+    get:
+      operationId: verifyDocument
+      summary: Verificar documento por código QR
+      description: |
+        Endpoint público para verificar la autenticidad de un documento.
+        No requiere autenticación.
+      tags: [Documents]
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Documento verificado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                  documentType:
+                    type: string
+                  employeeName:
+                    type: string
+                  generatedAt:
+                    type: string
+                    format: date-time
+
+  # ═══════════════════════════════════════════════════════════
+  # PAYMENTS
+  # ═══════════════════════════════════════════════════════════
+
+  /requests/{requestId}/payments:
+    get:
+      operationId: listPayments
+      summary: Listar pagos
+      tags: [Payments]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Lista de pagos
+
+    post:
+      operationId: registerPayment
+      summary: Registrar pago
+      description: |
+        Registra un pago de liquidación.
+        Si el método es "payroll", crea una nómina especial de liquidación.
+        Si es "transfer" o "check", registra la referencia bancaria.
+      tags: [Payments]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterPaymentInput"
+      responses:
+        "201":
+          description: Pago registrado
+
+  # ═══════════════════════════════════════════════════════════
+  # LEGAL
+  # ═══════════════════════════════════════════════════════════
+
+  /requests/{requestId}/legal-case:
+    get:
+      operationId: getLegalCase
+      summary: Obtener expediente legal
+      tags: [Legal]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Expediente legal
+
+    put:
+      operationId: saveLegalCase
+      summary: Actualizar expediente legal
+      tags: [Legal]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LegalCaseInput"
+      responses:
+        "200":
+          description: Expediente actualizado
+
+  /requests/{requestId}/risk-assessment:
+    get:
+      operationId: getRiskAssessment
+      summary: Obtener evaluación de riesgo
+      tags: [Legal]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Evaluación de riesgo
+
+    post:
+      operationId: assessRisk
+      summary: Evaluar riesgo legal
+      description: |
+        Calcula y registra la evaluación de riesgo legal de la desvinculación.
+        El cálculo considera tipo de salida, antigüedad, salario, historial disciplinario
+        y factores contextuales.
+      tags: [Legal]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Riesgo evaluado
+
+  # ═══════════════════════════════════════════════════════════
+  # TSS
+  # ═══════════════════════════════════════════════════════════
+
+  /requests/{requestId}/tss:
+    post:
+      operationId: generateTSSData
+      summary: Generar datos para novedad TSS
+      description: |
+        Genera la información necesaria para reportar la baja del empleado
+        en la próxima autoliquidación TSS.
+      tags: [TSS]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "201":
+          description: Datos TSS generados
+
+    patch:
+      operationId: confirmTSSNotified
+      summary: Confirmar notificación TSS
+      tags: [TSS]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tssRecordId:
+                  type: string
+                notes:
+                  type: string
+      responses:
+        "200":
+          description: Baja TSS confirmada
+
+  # ═══════════════════════════════════════════════════════════
+  # ACCESS REVOCATION
+  # ═══════════════════════════════════════════════════════════
+
+  /requests/{requestId}/access-revocation:
+    post:
+      operationId: requestAccessRevocation
+      summary: Solicitar revocación de accesos
+      tags: [Access]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "201":
+          description: Revocación solicitada
+
+    patch:
+      operationId: confirmAccessRevoked
+      summary: Confirmar accesos revocados
+      tags: [Access]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                systemsRevoked:
+                  type: array
+                  items:
+                    type: string
+                  example: ["portal", "email", "vpn", "erp"]
+                notes:
+                  type: string
+      responses:
+        "200":
+          description: Accesos revocados
+
+  # ═══════════════════════════════════════════════════════════
+  # REHIRE
+  # ═══════════════════════════════════════════════════════════
+
+  /rehire:
+    post:
+      operationId: createRehireRequest
+      summary: Crear solicitud de recontratación
+      description: |
+        Crea una solicitud de recontratación para un empleado
+        previamente desvinculado. Preserva el historial anterior
+        y permite definir si la antigüedad es continua.
+      tags: [Rehire]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRehireInput"
+      responses:
+        "201":
+          description: Solicitud de recontratación creada
+
+  /rehire/{rehireId}:
+    get:
+      operationId: getRehireRequest
+      summary: Obtener solicitud de recontratación
+      tags: [Rehire]
+      parameters:
+        - name: rehireId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Solicitud de recontratación
+
+    post:
+      operationId: executeRehire
+      summary: Ejecutar recontratación
+      description: |
+        Ejecuta la recontratación: crea el nuevo empleado (o reactiva el anterior),
+        preserva el historial y registra la nueva antigüedad.
+      tags: [Rehire]
+      parameters:
+        - name: rehireId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Recontratación ejecutada
+
+  # ═══════════════════════════════════════════════════════════
+  # AUDIT
+  # ═══════════════════════════════════════════════════════════
+
+  /requests/{requestId}/audit-log:
+    get:
+      operationId: getAuditLog
+      summary: Obtener bitácora de auditoría
+      description: |
+        Retorna el historial completo de cambios de la solicitud,
+        incluyendo versionado de liquidación y cambios de estado.
+      tags: [Audit]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Bitácora de auditoría
+
+  /requests/{requestId}/versions:
+    get:
+      operationId: listVersions
+      summary: Listar versiones de TerminationRequest
+      tags: [Audit]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Lista de versiones
+
+  /requests/{requestId}/versions/{version}:
+    get:
+      operationId: getVersion
+      summary: Obtener versión específica
+      tags: [Audit]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Snapshot de la versión
+
+  # ═══════════════════════════════════════════════════════════
+  # DASHBOARD & REPORTS
+  # ═══════════════════════════════════════════════════════════
+
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      summary: Obtener resumen del dashboard
+      description: |
+        Retorta indicadores clave del módulo de offboarding:
+        - Solicitudes por estado
+        - Rotación por período
+        - Riesgo legal por tipo
+        - Montos de liquidación
+      tags: [Dashboard]
+      responses:
+        "200":
+          description: Resumen del dashboard
+
+  /reports/offboarding:
+    get:
+      operationId: exportOffboardingReport
+      summary: Exportar reporte de offboarding
+      description: |
+        Exporta un reporte completo de desvinculaciones en formato
+        Excel o CSV para auditorías e inspecciones laborales.
+      tags: [Reports]
+      parameters:
+        - name: fromDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: toDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [xlsx, csv]
+            default: xlsx
+      responses:
+        "200":
+          description: Archivo de reporte
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  schemas:
+    # ── ENUMS ──
+
+    TerminationType:
+      type: string
+      enum:
+        - renuncia_voluntaria
+        - desahucio_empleador
+        - dimision_justificada
+        - despido_justificado
+        - despido_injustificado
+        - mutuo_acuerdo
+        - jubilacion
+        - fallecimiento
+        - fin_contrato_temporal
+        - abandono
+        - otro
+
+    TerminationStatus:
+      type: string
+      enum:
+        - draft
+        - pending_supervisor_approval
+        - pending_hr_approval
+        - approved
+        - pending_settlement
+        - pending_assets
+        - pending_payment
+        - pending_documents
+        - pending_tss
+        - completed
+        - cancelled
+        - rejected
+
+    LegalRiskLevel:
+      type: string
+      enum:
+        - low
+        - medium
+        - high
+        - critical
+
+    DocumentType:
+      type: string
+      enum:
+        - termination_letter
+        - dismissal_letter
+        - resignation_acceptance
+        - settlement_acta
+        - payment_receipt
+        - work_certificate
+        - asset_return_acta
+        - non_disclosure
+        - settlement_agreement
+        - interview_summary
+
+    PaymentMethod:
+      type: string
+      enum:
+        - payroll
+        - transfer
+        - check
+        - cash
+        - mixed
+
+    # ── REQUEST BODIES ──
+
+    CreateTerminationRequestInput:
+      type: object
+      required:
+        - employeeId
+        - terminationType
+        - effectiveDate
+      properties:
+        employeeId:
+          type: string
+          description: ID del empleado
+        terminationType:
+          $ref: "#/components/schemas/TerminationType"
+        effectiveDate:
+          type: string
+          format: date
+          description: Fecha efectiva de salida
+        lastWorkDate:
+          type: string
+          format: date
+          description: Último día trabajado
+        terminationReason:
+          type: string
+          maxLength: 500
+        detailedReason:
+          type: string
+          maxLength: 2000
+        initiatedByRole:
+          type: string
+          enum: [supervisor, hr]
+          default: hr
+        tags:
+          type: array
+          items:
+            type: string
+
+    UpdateTerminationRequestInput:
+      type: object
+      properties:
+        effectiveDate:
+          type: string
+          format: date
+        lastWorkDate:
+          type: string
+          format: date
+        terminationReason:
+          type: string
+        detailedReason:
+          type: string
+
+    SettlementInput:
+      type: object
+      properties:
+        baseSalary:
+          type: number
+          format: float
+        salaryFrequency:
+          type: string
+          enum: [mensual, quincenal, semanal, diario]
+          default: mensual
+        monthlySalariesLast12:
+          type: array
+          items:
+            type: number
+            format: float
+          description: Salarios de los últimos 12 meses
+        monthlySalariesYTD:
+          type: array
+          items:
+            type: number
+            format: float
+          description: Salarios del año en curso
+        preavisoTrabajado:
+          type: boolean
+          default: false
+        vacationPendingCompleteYears:
+          type: integer
+          default: 0
+        vacationTakenCurrentPeriod:
+          type: integer
+          default: 0
+        unpaidDays:
+          type: integer
+          default: 0
+        pendingCommissions:
+          type: number
+          format: float
+          default: 0
+        pendingBonuses:
+          type: number
+          format: float
+          default: 0
+        pendingOvertime:
+          type: number
+          format: float
+          default: 0
+        loanDeductions:
+          type: number
+          format: float
+          default: 0
+        advanceDeductions:
+          type: number
+          format: float
+          default: 0
+        otherDeductions:
+          type: number
+          format: float
+          default: 0
+
+    InterviewInput:
+      type: object
+      properties:
+        interviewDate:
+          type: string
+          format: date
+        interviewerName:
+          type: string
+        primaryReason:
+          type: string
+        secondaryReasons:
+          type: array
+          items:
+            type: string
+        workEnvironment:
+          type: integer
+          minimum: 1
+          maximum: 5
+          default: 3
+        compensation:
+          type: integer
+          minimum: 1
+          maximum: 5
+          default: 3
+        management:
+          type: integer
+          minimum: 1
+          maximum: 5
+          default: 3
+        growth:
+          type: integer
+          minimum: 1
+          maximum: 5
+          default: 3
+        workLifeBalance:
+          type: integer
+          minimum: 1
+          maximum: 5
+          default: 3
+        whatWentWell:
+          type: string
+        whatCouldImprove:
+          type: string
+        wouldReturn:
+          type: boolean
+          default: true
+        wouldRecommend:
+          type: boolean
+          default: true
+        recommendations:
+          type: string
+
+    RegisterPaymentInput:
+      type: object
+      required:
+        - paymentMethod
+        - totalAmount
+      properties:
+        paymentMethod:
+          $ref: "#/components/schemas/PaymentMethod"
+        totalAmount:
+          type: number
+          format: float
+        paymentDate:
+          type: string
+          format: date
+        paymentReference:
+          type: string
+        bankName:
+          type: string
+        accountNumber:
+          type: string
+        transferReference:
+          type: string
+        notes:
+          type: string
+
+    LegalCaseInput:
+      type: object
+      properties:
+        hasLawsuit:
+          type: boolean
+        lawsuitDetails:
+          type: string
+        lawsuitNumber:
+          type: string
+        lawsuitCourt:
+          type: string
+        lawsuitStatus:
+          type: string
+          enum: [filed, in_process, resolved, dismissed]
+        legalCounselName:
+          type: string
+        legalCounselEmail:
+          type: string
+        evidenceFiles:
+          type: array
+          items:
+            type: object
+            properties:
+              fileName:
+                type: string
+              fileType:
+                type: string
+              fileContent:
+                type: string
+                format: base64
+              description:
+                type: string
+              category:
+                type: string
+                enum: [disciplinary, communication, agreement, other]
+
+    CreateRehireInput:
+      type: object
+      required:
+        - originalRequestId
+        - newHireDate
+      properties:
+        originalRequestId:
+          type: string
+          format: uuid
+        newHireDate:
+          type: string
+          format: date
+        newPosition:
+          type: string
+        newDepartment:
+          type: string
+        newSalary:
+          type: number
+          format: float
+        newContractType:
+          type: string
+        preservesSeniority:
+          type: boolean
+          default: false
+        resetBenefits:
+          type: boolean
+          default: true
+
+    # ── RESPONSES ──
+
+    TerminationRequestResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        requestNumber:
+          type: string
+          example: OFF-2026-00001
+        employeeId:
+          type: string
+        employeeName:
+          type: string
+        terminationType:
+          $ref: "#/components/schemas/TerminationType"
+        status:
+          $ref: "#/components/schemas/TerminationStatus"
+        requestDate:
+          type: string
+          format: date
+        effectiveDate:
+          type: string
+          format: date
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    TerminationRequestSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        requestNumber:
+          type: string
+        employeeName:
+          type: string
+        department:
+          type: string
+        terminationType:
+          $ref: "#/components/schemas/TerminationType"
+        status:
+          $ref: "#/components/schemas/TerminationStatus"
+        riskLevel:
+          $ref: "#/components/schemas/LegalRiskLevel"
+        effectiveDate:
+          type: string
+          format: date
+        createdAt:
+          type: string
+          format: date-time
+
+    TerminationRequestFull:
+      type: object
+      properties:
+        request:
+          $ref: "#/components/schemas/TerminationRequestResponse"
+        settlement:
+          $ref: "#/components/schemas/TerminationSettlementResponse"
+        checklist:
+          $ref: "#/components/schemas/ChecklistResponse"
+        interview:
+          type: object
+        documents:
+          type: array
+        payments:
+          type: array
+        legalCase:
+          type: object
+        riskAssessment:
+          type: object
+        auditLog:
+          type: array
+
+    TerminationSettlementResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        version:
+          type: integer
+        status:
+          type: string
+          enum: [borrador, calculada, aprobada, pagada]
+        antiguedad:
+          type: object
+          properties:
+            years:
+              type: integer
+            months:
+              type: integer
+            days:
+              type: integer
+        salarioDiarioPromedio:
+          type: number
+        conceptos:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              aplica:
+                type: boolean
+              dias:
+                type: number
+              monto:
+                type: number
+              exentoTSS:
+                type: boolean
+              exentoISR:
+                type: boolean
+              baseLegal:
+                type: string
+        totales:
+          type: object
+          properties:
+            montoPrestaciones:
+              type: number
+            montoDerechosAdquiridos:
+              type: number
+            montoSalarioPendiente:
+              type: number
+            montoBruto:
+              type: number
+            montoNeto:
+              type: number
+            montoGravableTSS:
+              type: number
+            montoGravableISR:
+              type: number
+        calculatedBy:
+          type: string
+        calculatedAt:
+          type: string
+        approvedBy:
+          type: string
+        approvedAt:
+          type: string
+
+    ChecklistResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        totalItems:
+          type: integer
+        completedItems:
+          type: integer
+        allCompleted:
+          type: boolean
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              task:
+                type: string
+              category:
+                type: string
+              isMandatory:
+                type: boolean
+              completed:
+                type: boolean
+              completedBy:
+                type: string
+              completedAt:
+                type: string
+              hasIncident:
+                type: boolean
+              incidentType:
+                type: string
+              incidentValue:
+                type: number
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        totalItems:
+          type: integer
+        totalPages:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string

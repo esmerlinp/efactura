@@ -222,6 +222,40 @@
             </div>
         </div>
     </div>
+
+    <!-- Offboarding Pipeline -->
+    <div class="card-table-wrapper" style="padding:20px 24px; margin-top:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h3 style="font-size:0.95rem; font-weight:700; margin:0;">
+                <i class="fa-solid fa-door-open" style="color:var(--danger);"></i> Offboarding Pipeline
+            </h3>
+            <a href="{{ url_for('web_rrhh.offboarding_list') }}" class="btn btn-sm btn-ghost">
+                <i class="fa-solid fa-arrow-right"></i> Ver todas
+            </a>
+        </div>
+        {% if offboarding_pipeline %}
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px;">
+            {% for item in offboarding_pipeline %}
+            <div style="text-align:center; padding:14px 8px; border:1px solid var(--border-color); border-radius:var(--radius-md); background:var(--bg-card);">
+                <div style="font-size:1.6rem; font-weight:700; color:var(--accent-{{ item.color }});">{{ item.count }}</div>
+                <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:4px;">{{ item.label }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        <div style="margin-top:12px;">
+            <div style="display:flex; gap:4px; height:8px; border-radius:4px; overflow:hidden;">
+                {% for item in offboarding_pipeline %}
+                {% set pct = (item.count / offboarding_pipeline_total * 100) if offboarding_pipeline_total > 0 else 0 %}
+                {% if pct > 0 %}
+                <div style="flex:{{ pct }}; background:var(--accent-{{ item.color }});" title="{{ item.label }}: {{ item.count }}"></div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <p style="color:var(--text-muted); font-size:0.88rem; margin:0;">No hay solicitudes de offboarding activas.</p>
+        {% endif %}
+    </div>
 </div>
 
 <script>

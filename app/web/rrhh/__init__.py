@@ -132,3 +132,4 @@ from app.web.rrhh import recurring           # noqa: E402, F401
 from app.web.rrhh import legal_parameters    # noqa: E402, F401
 from app.web.rrhh import overtime            # noqa: E402, F401
 from app.web.rrhh import work_certificate    # noqa: E402, F401
+from app.web.rrhh import offboarding         # noqa: E402, F401

@@ -138,53 +138,8 @@ def employee_liquidacion(employee_id):
                            "montoTotal": resultado["totales"]["montoTotal"],
                        }, sandbox=sandbox)
 
-            # Desvincular empleado
-            if employee.get("status") != "inactivo":
-                employee["status"] = "inactivo"
-                employee["terminationDate"] = termination_date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
-                employee["terminationType"] = termination_type
-                employee["terminationReason"] = notes
-                hr.save_employee(owner_uid, employee_id, employee, sandbox=sandbox)
-                log_action(owner_uid, "terminate", "employee", employee_id,
-                           session.get("user", {}).get("email", ""),
-                           changes={"status": "inactivo", "reason": notes}, sandbox=sandbox)
-
-                # Crear registro en historial de acciones de personal
-                from uuid import uuid4
-                now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-                termination_action = {
-                    "id": str(uuid4()),
-                    "actionType": "desvinculacion",
-                    "createdAt": now_iso,
-                    "createdBy": session.get("user", {}).get("email", ""),
-                    "processedAt": now_iso,
-                    "status": "completed",
-                    "totalEmployees": 1,
-                    "successCount": 1,
-                    "errorCount": 0,
-                    "selectionCriteria": {"employeeIds": [employee_id]},
-                    "payload": {"terminationType": termination_type,
-                                "terminationDate": termination_date},
-                    "results": [{
-                        "employeeId": employee_id,
-                        "employeeName": employee.get("fullName", ""),
-                        "status": "success",
-                        "changes": {
-                            "before": {"status": "activo"},
-                            "after": {"status": "inactivo",
-                                      "terminationDate": termination_date,
-                                      "terminationType": termination_type},
-                        },
-                        "processedAt": now_iso,
-                    }],
-                    "statusHistory": [{"from": None, "to": "completed",
-                                       "at": now_iso,
-                                       "by": session.get("user", {}).get("email", "")}],
-                }
-                hr.save_mass_action(owner_uid, termination_action["id"], termination_action, sandbox=sandbox)
-
-            flash("Liquidación guardada y empleado desvinculado.", "success")
-            return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
+            flash("Liquidación calculada y guardada. Use el módulo Offboarding para completar la desvinculación.", "info")
+            return redirect(url_for("web_rrhh.offboarding_new", employee_id=employee_id))
 
     return render_template("rrhh/employee_liquidacion.html",
                            active_page="rrhh_employees",

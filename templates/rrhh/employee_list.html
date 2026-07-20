@@ -196,18 +196,7 @@
                                onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
                                 <i class="fa-solid fa-pen-to-square" style="color:#6b7280; width:16px;"></i> Editar
                             </a>
-                            {% if emp.status == 'activo' %}
-                            <form method="POST" action="{{ url_for('web_rrhh.employee_terminate', employee_id=emp.id) }}"
-                                  onsubmit="return confirm('¿Desvincular a {{ emp.fullName }}?')" style="display:contents;">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <input type="hidden" name="reason" value="">
-                                <button type="submit"
-                                        style="display:flex; align-items:center; gap:8px; width:100%; padding:8px 12px; border:none; background:none; cursor:pointer; color:var(--danger); font-size:0.82rem; text-align:left; transition:background 0.15s;"
-                                        onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
-                                    <i class="fa-solid fa-user-slash" style="width:16px;"></i> Desvincular
-                                </button>
-                            </form>
-                            {% endif %}
+
                         </div>
                     </div>
                 </td>
