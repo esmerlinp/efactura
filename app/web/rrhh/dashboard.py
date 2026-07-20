@@ -198,6 +198,40 @@ def payroll_dashboard():
                 "suggestedPeriod": expected_key,
             })
 
+    # ── Offboarding pipeline ──
+    offboarding_pipeline = []
+    offboarding_pipeline_total = 0
+    try:
+        from app.services.offboarding_service import OffboardingService
+        from app.models.offboarding import OFFBOARDING_STATES
+        osvc = OffboardingService(owner_uid, sandbox)
+        all_offboard = osvc.list_requests(limit=200)
+        non_terminal = [r for r in all_offboard if r.get("status") not in ("completed", "cancelled", "rejected")]
+        pipeline_statuses = [
+            ("draft", "secondary"),
+            ("pending_supervisor_approval", "info"),
+            ("pending_hr_approval", "warning"),
+            ("approved", "primary"),
+            ("pending_settlement", "info"),
+            ("pending_assets", "warning"),
+            ("pending_payment", "warning"),
+            ("pending_documents", "info"),
+            ("pending_tss", "info"),
+        ]
+        for s_key, s_color in pipeline_statuses:
+            count = len([r for r in non_terminal if r.get("status") == s_key])
+            if count > 0 or True:
+                st_cfg = OFFBOARDING_STATES.get(s_key, {})
+                offboarding_pipeline.append({
+                    "label": st_cfg.get("label", s_key),
+                    "count": count,
+                    "color": s_color,
+                    "key": s_key,
+                })
+        offboarding_pipeline_total = len(non_terminal)
+    except Exception:
+        offboarding_pipeline = []
+
     # ── Periodos procesados este mes ──
     month_periods = [p for p in periods if p.get("year") == current_year and p.get("month") == current_month]
     month_total_net = sum(p.get("totalNet", 0) for p in month_periods)
@@ -218,7 +252,9 @@ def payroll_dashboard():
                            payroll_groups=payroll_groups, payroll_frequency=frequency,
                            pending_groups=pending_groups, month_periods=month_periods,
                            month_total_net=month_total_net, month_total_gross=month_total_gross,
-                           current_month_name=MONTHS_ES[current_month - 1])
+                            current_month_name=MONTHS_ES[current_month - 1],
+                            offboarding_pipeline=offboarding_pipeline,
+                            offboarding_pipeline_total=offboarding_pipeline_total)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

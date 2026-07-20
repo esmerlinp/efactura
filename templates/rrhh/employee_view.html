@@ -45,10 +45,15 @@
                    onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
                     <i class="fa-solid fa-clock-rotate-left" style="color:#2563eb; width:16px; text-align:center;"></i> Cálculo retroactivo
                 </a>
-                <a href="{{ url_for('web_rrhh.employee_liquidacion', employee_id=employee.id) }}"
-                   style="display:flex; align-items:center; gap:8px; padding:10px 14px; text-decoration:none; color:var(--danger); font-size:0.85rem; transition:background 0.15s;"
+                <a href="{{ url_for('web_rrhh.offboarding_new') }}?employee_id={{ employee.id }}"
+                   style="display:flex; align-items:center; gap:8px; padding:10px 14px; text-decoration:none; color:var(--danger); font-size:0.85rem; border-bottom:1px solid var(--border-color); transition:background 0.15s;"
                    onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
-                    <i class="fa-solid fa-user-slash" style="color:var(--danger); width:16px; text-align:center;"></i> Desvinculación
+                    <i class="fa-solid fa-door-open" style="color:var(--danger); width:16px; text-align:center;"></i> Desvinculación
+                </a>
+                <a href="{{ url_for('web_rrhh.employee_liquidacion', employee_id=employee.id) }}"
+                   style="display:flex; align-items:center; gap:8px; padding:10px 14px; text-decoration:none; color:var(--text-primary); font-size:0.85rem; transition:background 0.15s;"
+                   onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
+                    <i class="fa-solid fa-calculator" style="color:#2563eb; width:16px; text-align:center;"></i> Liquidación (cálculo)
                 </a>
             </div>
         </div>
@@ -58,11 +63,6 @@
         <a href="{{ url_for('web_rrhh.employee_certificate', employee_id=employee.id) }}" class="btn btn-primary btn-sm">
             <i class="fa-solid fa-file-signature"></i> Carta de Trabajo
         </a>
-        {% if employee.status == 'inactivo' %}
-        <a href="{{ url_for('web_rrhh.employee_checklist', employee_id=employee.id, checklist_type='offboarding') }}" class="btn btn-ghost btn-sm">
-            <i class="fa-solid fa-door-open"></i> Offboarding
-        </a>
-        {% endif %}
         <a href="{{ url_for('web_rrhh.employee_list') }}" class="btn btn-ghost">
             <i class="fa-solid fa-arrow-left"></i> Volver
         </a>
@@ -560,6 +560,7 @@
             </div>
         </div>
     </div>
+
 </div>
 
 <!-- Modal: Agregar dependiente -->

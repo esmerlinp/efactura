@@ -1,0 +1,998 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Offboarding — {{ req.employeeName }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="hr-page-header" style="margin-bottom:0;">
+    <div>
+        <h1><i class="fa-solid fa-door-open" style="color:var(--danger);"></i> Offboarding</h1>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:4px;">
+            <strong style="font-size:1.05rem;">{{ req.employeeName }}</strong>
+            <span style="color:var(--text-muted);">|</span>
+            {% set st = states.get(req.status, {}) %}
+            <span class="badge badge-{{ st.color or 'secondary' }}" style="font-size:0.8rem; padding:4px 14px;">{{ st.label or req.status }}</span>
+            <span style="font-size:0.82rem; color:var(--text-secondary);">{{ req.terminationType or '—' }}</span>
+            <span style="font-size:0.78rem; color:var(--text-muted);"><code>{{ req.requestNumber or req.id[:8] }}</code></span>
+        </div>
+    </div>
+    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        {% if req.status == 'draft' %}
+        <a href="{{ url_for('web_rrhh.offboarding_edit', request_id=req.id) }}" class="btn btn-primary btn-sm">
+            <i class="fa-solid fa-pen"></i> Editar
+        </a>
+        {% endif %}
+        {% set terminal_statuses = ['completed', 'cancelled', 'rejected'] %}
+        {% if req.status not in terminal_statuses %}
+        <button type="button" class="btn btn-danger btn-sm" onclick="document.getElementById('cancelModal').style.display='flex'">
+            <i class="fa-solid fa-ban"></i> Cancelar
+        </button>
+        {% endif %}
+        <a href="{{ url_for('web_rrhh.offboarding_list') }}" class="btn btn-ghost btn-sm">
+            <i class="fa-solid fa-arrow-left"></i> Volver
+        </a>
+    </div>
+</div>
+
+{% if allowed_transitions %}
+<div class="card-table-wrapper" style="margin-top:12px;">
+    <div class="table-header-row" style="margin-bottom:0;">
+        <div style="font-size:0.82rem; color:var(--text-secondary);">
+            <i class="fa-solid fa-arrow-right-arrow-left"></i> Transiciones disponibles
+        </div>
+    </div>
+    <form method="POST" action="{{ url_for('web_rrhh.offboarding_transition', request_id=req.id) }}" style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; padding:0 0 16px;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group" style="margin:0; min-width:180px; flex:1;">
+            <label style="font-size:0.72rem; font-weight:600; color:var(--text-muted);">Nuevo estado</label>
+            <select name="newStatus" class="form-select" style="width:100%;" onchange="document.getElementById('transition-desc').textContent=this.options[this.selectedIndex].dataset.description||''">
+                {% for t in allowed_transitions %}
+                <option value="{{ t }}" data-description="{{ states.get(t, {}).description or '' }}">{{ states.get(t, {}).label or t }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin:0; min-width:200px; flex:2;">
+            <label style="font-size:0.72rem; font-weight:600; color:var(--text-muted);">Comentario</label>
+            <input type="text" name="comment" class="form-input" style="width:100%;" placeholder="Motivo de la transición (opcional)">
+        </div>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-arrow-right"></i> Ejecutar transición</button>
+        <div id="transition-desc" style="font-size:0.72rem; color:var(--text-secondary); margin-top:2px; line-height:1.3; flex:0 0 100%;">&nbsp;</div>
+    </form>
+    <script>document.addEventListener('DOMContentLoaded',function(){var s=document.querySelector('select[name="newStatus"]');if(s){var e=document.getElementById('transition-desc');if(e&&s.selectedIndex>=0)e.textContent=s.options[s.selectedIndex].dataset.description||'';}});</script>
+</div>
+{% endif %}
+
+<!-- Tabs -->
+<div style="display:flex; gap:4px; margin-top:16px; border-bottom:2px solid var(--border-color);">
+    {% set tabs = [
+        ('overview', 'fa-solid fa-info-circle', 'Resumen'),
+        ('settlement', 'fa-solid fa-calculator', 'Liquidación'),
+        ('checklist', 'fa-solid fa-clipboard-list', 'Checklist'),
+        ('documents', 'fa-solid fa-file-lines', 'Documentos'),
+        ('payment', 'fa-solid fa-money-bill', 'Pago'),
+        ('interview', 'fa-solid fa-comments', 'Entrevista'),
+        ('risk', 'fa-solid fa-shield', 'Riesgo Legal'),
+        ('tss', 'fa-solid fa-shield-halved', 'TSS'),
+        ('legal', 'fa-solid fa-gavel', 'Caso Legal'),
+        ('history', 'fa-regular fa-clock', 'Historial'),
+    ] %}
+    {% for key, icon, label in tabs %}
+    <a href="{{ url_for('web_rrhh.offboarding_detail', request_id=req.id, tab=key) }}"
+       class="btn btn-sm {% if tab == key %}btn-primary{% else %}btn-ghost{% endif %}"
+       style="border-radius:4px 4px 0 0;">
+        <i class="{{ icon }}"></i> {{ label }}
+    </a>
+    {% endfor %}
+</div>
+
+<div style="margin-top:16px;">
+{% if tab == 'overview' %}
+    <div class="hr-section-card">
+        <h3><i class="fa-solid fa-user"></i> Información del empleado</h3>
+        <div class="hr-info-grid">
+            <div class="hr-info-item"><span class="hr-info-label">Nombre</span><span class="hr-info-value">{{ req.employeeName or '—' }}</span></div>
+            <div class="hr-info-item"><span class="hr-info-label">Cédula</span><span class="hr-info-value">{{ req.cedula or '—' }}</span></div>
+            <div class="hr-info-item"><span class="hr-info-label">Tipo de salida</span><span class="hr-info-value">{{ req.terminationType or '—' }}</span></div>
+            <div class="hr-info-item"><span class="hr-info-label">Motivo</span><span class="hr-info-value">{{ req.terminationReason or '—' }}</span></div>
+            <div class="hr-info-item"><span class="hr-info-label">Fecha efectiva</span><span class="hr-info-value">{{ req.effectiveDate or '—' }}</span></div>
+            <div class="hr-info-item"><span class="hr-info-label">Último día</span><span class="hr-info-value">{{ req.lastWorkDate or '—' }}</span></div>
+        </div>
+    </div>
+
+    <div class="hr-section-card" style="margin-top:16px;">
+        <h3><i class="fa-regular fa-clock"></i> Línea de tiempo</h3>
+        {% if req.statusHistory %}
+        {% set history = req.statusHistory | sort(attribute='changedAt', reverse=True) %}
+        <div style="margin-top:12px; position:relative; padding-left:28px;">
+            <div style="position:absolute; left:10px; top:4px; bottom:4px; width:2px; background:var(--border-color); border-radius:2px;"></div>
+            {% for entry in history %}
+            {% set st = states.get(entry.toStatus, {}) %}
+            {% set is_current = loop.first %}
+            <div style="position:relative; padding:0 0 18px 0;">
+                <div style="position:absolute; left:-22px; top:4px; width:14px; height:14px; border-radius:50%;
+                            border:3px solid var(--accent-{{ st.color or 'secondary' }});
+                            background:{% if is_current %}var(--accent-{{ st.color or 'secondary' }}){% else %}var(--bg-card){% endif %};
+                            z-index:1; box-shadow:{% if is_current %}0 0 0 4px var(--accent-{{ st.color or 'secondary' }}-light, rgba(99,102,241,0.15)){% else %}none{% endif %};"></div>
+                <div style="display:flex; align-items:flex-start; gap:8px; flex-wrap:wrap;">
+                    <span class="badge badge-{{ st.color or 'secondary' }}" style="font-size:0.72rem; padding:3px 10px;">{{ st.label or entry.toStatus }}</span>
+                    {% if entry.fromStatus %}
+                    {% set from_st = states.get(entry.fromStatus, {}) %}
+                    <span style="font-size:0.72rem; color:var(--text-muted);"><i class="fa-solid fa-arrow-right" style="font-size:0.6rem;"></i> desde {{ from_st.label or entry.fromStatus }}</span>
+                    {% endif %}
+                    <span style="font-size:0.7rem; color:var(--text-muted); margin-left:auto;">
+                        <i class="fa-regular fa-user"></i> {{ entry.changedBy or '—' }} &middot;
+                        <i class="fa-regular fa-clock"></i> {{ (entry.changedAt or '')[:16] }}
+                    </span>
+                </div>
+                <div style="font-size:0.78rem; color:var(--text-secondary); margin-top:2px; padding-left:2px;">
+                    <em>{{ entry.comment or '' }}</em>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="margin-top:12px; padding:14px; background:var(--bg-secondary); border-radius:6px; font-size:0.85rem; color:var(--text-muted); text-align:center;">
+            Sin historial de cambios.
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="hr-section-card" style="margin-top:16px;">
+        <h3><i class="fa-regular fa-note-sticky"></i> Detalle</h3>
+        <p style="color:var(--text-secondary);">{{ req.detailedReason or 'Sin detalle adicional' }}</p>
+        <div style="margin-top:8px; font-size:0.85rem; color:var(--text-secondary);">
+            Creada por: {{ req.createdBy or '—' }} &middot; {{ req.createdAt[:16] if req.createdAt else '' }}
+        </div>
+    </div>
+
+    {% if req.status not in ('draft', 'cancelled', 'rejected') %}
+    <div class="hr-section-card" style="margin-top:16px;">
+        <h3><i class="fa-solid fa-shield-halved"></i> Control de accesos</h3>
+        <div style="display:flex; align-items:center; gap:12px; margin-top:8px; flex-wrap:wrap;">
+            {% if req.accessRevokedAt %}
+            <span style="display:inline-flex; align-items:center; gap:6px; padding:6px 14px; background:#ecfdf5; border:1px solid #6ee7b7; border-radius:6px; font-size:0.82rem; color:var(--accent-emerald);">
+                <i class="fa-solid fa-check-circle"></i> Accesos desactivados el {{ req.accessRevokedAt[:16] }}
+                {% if req.accessRevokedBy %}<span style="color:var(--text-muted); font-size:0.72rem;">por {{ req.accessRevokedBy }}</span>{% endif %}
+            </span>
+            <form method="POST" action="{{ url_for('web_rrhh.offboarding_revoke_access', request_id=req.id) }}" style="display:inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="restore">
+                <button type="submit" class="btn btn-sm btn-outline" style="font-size:0.75rem;"><i class="fa-solid fa-rotate-left"></i> Revertir</button>
+            </form>
+            {% else %}
+            <span style="display:inline-flex; align-items:center; gap:6px; padding:6px 14px; background:#fffbeb; border:1px solid #fde68a; border-radius:6px; font-size:0.82rem; color:#b45309;">
+                <i class="fa-solid fa-triangle-exclamation"></i> Accesos aún activos
+            </span>
+            <form method="POST" action="{{ url_for('web_rrhh.offboarding_revoke_access', request_id=req.id) }}" style="display:inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="revoke">
+                <button type="submit" class="btn btn-sm btn-warning" style="font-size:0.75rem;" onclick="return confirm('¿Desactivar todos los accesos del empleado (usuario, correo, VPN, aplicaciones)?');">
+                    <i class="fa-solid fa-ban"></i> Desactivar accesos
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if req.status == 'completed' %}
+    <div class="hr-section-card" style="margin-top:16px; border:2px solid var(--accent-emerald); background:rgba(16,185,129,0.04);">
+        <h3><i class="fa-solid fa-user-plus" style="color:var(--accent-emerald);"></i> Recontratación</h3>
+        {% if req.rehireId %}
+        <div class="alert alert-success" style="padding:10px 14px; background:#ecfdf5; border:1px solid #6ee7b7; border-radius:6px;">
+            <i class="fa-solid fa-check-circle" style="color:var(--accent-emerald);"></i>
+            Este empleado ha sido recontratado.
+        </div>
+        {% else %}
+        <p>¿Deseas recontratar a este empleado?</p>
+        <a href="{{ url_for('web_rrhh.offboarding_rehire', request_id=req.id) }}" class="btn btn-success">
+            <i class="fa-solid fa-user-plus"></i> Recontratar
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+{% elif tab == 'settlement' %}
+
+    {% if settlement %}
+    {# ── Resumen económico ── #}
+    <div class="hr-section-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <h3 style="margin:0;"><i class="fa-solid fa-calculator" style="color:var(--accent-emerald);"></i> Liquidación</h3>
+            {% set s_status = settlement.status %}
+            {% if s_status == 'aprobada' %}
+            <span class="badge badge-success" style="font-size:0.72rem; padding:4px 12px;"><i class="fa-solid fa-check-circle"></i> Aprobada</span>
+            {% elif s_status == 'calculada' %}
+            <span class="badge badge-warning" style="font-size:0.72rem; padding:4px 12px;"><i class="fa-solid fa-clock"></i> Calculada</span>
+            {% elif s_status == 'pagada' %}
+            <span class="badge badge-success" style="font-size:0.72rem; padding:4px 12px;"><i class="fa-solid fa-check-double"></i> Pagada</span>
+            {% else %}
+            <span class="badge badge-secondary" style="font-size:0.72rem; padding:4px 12px;">{{ s_status }}</span>
+            {% endif %}
+        </div>
+
+        {# ── Totales destacados ── #}
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:12px; margin-top:16px;">
+            <div style="padding:16px; background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.2); border-radius:var(--radius-sm); text-align:center;">
+                <div style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); margin-bottom:4px;">Monto Bruto</div>
+                <div style="font-size:1.1rem; font-weight:700; color:var(--text-primary);">RD$ {{ "{:,.2f}".format(settlement.totales.montoBruto|float) if settlement.totales else "{:,.2f}".format(settlement.montoNetoAPagar|float) }}</div>
+            </div>
+            <div style="padding:16px; background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.2); border-radius:var(--radius-sm); text-align:center;">
+                <div style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); margin-bottom:4px;">Descuentos</div>
+                <div style="font-size:1.1rem; font-weight:700; color:var(--danger);">RD$ {{ "{:,.2f}".format(settlement.descuentos|float) }}</div>
+            </div>
+            <div style="padding:16px; background:rgba(16,185,129,0.08); border:2px solid var(--accent-emerald); border-radius:var(--radius-sm); text-align:center;">
+                <div style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); margin-bottom:4px;">NETO A PAGAR</div>
+                <div style="font-size:1.3rem; font-weight:800; color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(settlement.montoNetoAPagar|float) }}</div>
+            </div>
+        </div>
+
+        {# ── Info adicional ── #}
+        <div style="display:flex; flex-wrap:wrap; gap:16px; margin-top:12px; padding:10px 14px; background:var(--bg-secondary); border-radius:var(--radius-sm); font-size:0.8rem; color:var(--text-secondary);">
+            <span><i class="fa-regular fa-user"></i> Calculada por: <strong>{{ settlement.calculatedBy or '—' }}</strong></span>
+            <span><i class="fa-regular fa-calendar"></i> Fecha: <strong>{{ (settlement.calculatedAt or '')[:10] or '—' }}</strong></span>
+            {% if settlement.approvedBy %}
+            <span><i class="fa-regular fa-circle-check"></i> Aprobada por: <strong>{{ settlement.approvedBy }}</strong></span>
+            {% endif %}
+        </div>
+    </div>
+
+    {# ── Conceptos ── #}
+    {% if settlement.conceptos %}
+    <div class="hr-section-card" style="margin-top:16px;">
+        <h4 style="margin:0 0 12px; font-size:0.9rem;"><i class="fa-solid fa-list"></i> Conceptos</h4>
+        <div class="table-responsive">
+            <table class="table-premium">
+                <thead>
+                    <tr>
+                        <th>Concepto</th>
+                        <th style="text-align:center;">Aplica</th>
+                        <th style="text-align:right;">Días</th>
+                        <th style="text-align:right;">Monto</th>
+                        <th>Detalle</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for key, val in settlement.conceptos.items() %}
+                    <tr>
+                        <td><strong style="font-size:0.85rem;">{{ key }}</strong></td>
+                        <td style="text-align:center;">
+                            {% if val.aplica %}
+                            <span style="display:inline-flex; align-items:center; gap:4px; color:var(--accent-emerald); font-size:0.82rem;"><i class="fa-solid fa-circle-check"></i> Sí</span>
+                            {% else %}
+                            <span style="color:var(--text-muted); font-size:0.82rem;">—</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align:right; font-size:0.85rem;">{{ val.dias or '—' }}</td>
+                        <td style="text-align:right; font-weight:600; font-size:0.9rem;">RD$ {{ "{:,.2f}".format(val.monto|float) }}</td>
+                        <td style="font-size:0.78rem; color:var(--text-secondary); max-width:200px; white-space:normal;">{{ val.detalle or '' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {# ── Totales desglosados ── #}
+    {% if settlement.totales %}
+    {% set t = settlement.totales %}
+    <div class="hr-section-card" style="margin-top:16px;">
+        <h4 style="margin:0 0 12px; font-size:0.9rem;"><i class="fa-solid fa-receipt"></i> Resumen de totales</h4>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:8px;">
+            {% if t.montoPrestaciones %}<div class="hr-info-item"><span class="hr-info-label">Prestaciones</span><span class="hr-info-value" style="font-weight:600;">RD$ {{ "{:,.2f}".format(t.montoPrestaciones|float) }}</span></div>{% endif %}
+            {% if t.montoDerechosAdquiridos %}<div class="hr-info-item"><span class="hr-info-label">Derechos adquiridos</span><span class="hr-info-value">RD$ {{ "{:,.2f}".format(t.montoDerechosAdquiridos|float) }}</span></div>{% endif %}
+            {% if t.montoSalarioPendiente %}<div class="hr-info-item"><span class="hr-info-label">Salario pendiente</span><span class="hr-info-value">RD$ {{ "{:,.2f}".format(t.montoSalarioPendiente|float) }}</span></div>{% endif %}
+            {% if t.montoComisiones %}<div class="hr-info-item"><span class="hr-info-label">Comisiones</span><span class="hr-info-value">RD$ {{ "{:,.2f}".format(t.montoComisiones|float) }}</span></div>{% endif %}
+            {% if t.montoBonificaciones %}<div class="hr-info-item"><span class="hr-info-label">Bonificaciones</span><span class="hr-info-value">RD$ {{ "{:,.2f}".format(t.montoBonificaciones|float) }}</span></div>{% endif %}
+            {% if t.montoHorasExtras %}<div class="hr-info-item"><span class="hr-info-label">Horas extras</span><span class="hr-info-value">RD$ {{ "{:,.2f}".format(t.montoHorasExtras|float) }}</span></div>{% endif %}
+            {% if t.montoDescuentos %}<div class="hr-info-item"><span class="hr-info-label">Descuentos</span><span class="hr-info-value" style="color:var(--danger);">RD$ {{ "{:,.2f}".format(t.montoDescuentos|float) }}</span></div>{% endif %}
+        </div>
+        <div style="margin-top:12px; padding-top:12px; border-top:2px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;">
+            <span style="font-size:0.85rem; color:var(--text-secondary);">
+                {% if t.montoGravableTSS %}TSS: RD$ {{ "{:,.2f}".format(t.montoGravableTSS|float) }} &middot;{% endif %}
+                {% if t.montoGravableISR %}ISR: RD$ {{ "{:,.2f}".format(t.montoGravableISR|float) }}{% endif %}
+                {% if t.montoExento %} &middot; Exento: RD$ {{ "{:,.2f}".format(t.montoExento|float) }}{% endif %}
+            </span>
+            <span style="font-size:1rem; font-weight:800; color:var(--accent-emerald);">Neto: RD$ {{ "{:,.2f}".format(t.montoNeto|float) }}</span>
+        </div>
+    </div>
+    {% endif %}
+
+    {# ── Acciones ── #}
+    <div class="hr-section-card" style="margin-top:16px;">
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+            {% if settlement.status != 'aprobada' %}
+            <form method="POST" action="{{ url_for('web_rrhh.offboarding_settlement_approve', request_id=req.id) }}" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="settlementId" value="{{ settlement.id }}">
+                <input type="text" name="comment" placeholder="Comentario (opcional)" class="form-control" style="width:200px; font-size:0.82rem;">
+                <button type="submit" class="btn btn-success btn-sm"><i class="fa-solid fa-check"></i> Aprobar liquidación</button>
+            </form>
+            {% endif %}
+            <div style="display:flex; gap:6px; margin-left:auto;">
+                <a href="{{ url_for('web_rrhh.offboarding_pdf_settlement', request_id=req.id) }}" class="btn btn-primary btn-sm" target="_blank">
+                    <i class="fa-solid fa-file-pdf"></i> Acta liquidación
+                </a>
+                <a href="{{ url_for('web_rrhh.offboarding_pdf_letter', request_id=req.id) }}" class="btn btn-outline btn-sm" target="_blank">
+                    <i class="fa-solid fa-file-pdf"></i> Carta desvinculación
+                </a>
+                {% if settlement.status != 'aprobada' %}
+                <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('recalc-form').style.display=document.getElementById('recalc-form').style.display==='none'?'block':'none'">
+                    <i class="fa-solid fa-rotate"></i> Recalcular
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        {% if settlement.status != 'aprobada' %}
+        <div id="recalc-form" style="display:none; margin-top:14px; padding-top:14px; border-top:1px solid var(--border-color);">
+            <h5 style="margin:0 0 10px; font-size:0.85rem; color:var(--text-secondary);"><i class="fa-solid fa-calculator"></i> Recalcular liquidación</h5>
+            <form method="POST" action="{{ url_for('web_rrhh.offboarding_settlement_calculate', request_id=req.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+                    <div class="form-group">
+                        <label style="font-size:0.78rem; font-weight:600; color:var(--text-muted); display:flex; align-items:center; gap:4px;">
+                            <i class="fa-solid fa-briefcase" style="font-size:0.7rem;"></i> ¿Preaviso trabajado?
+                        </label>
+                        <select name="preavisoTrabajado" class="form-control" style="font-size:0.82rem;">
+                            <option value="">No</option>
+                            <option value="on">Sí</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size:0.78rem; font-weight:600; color:var(--text-muted); display:flex; align-items:center; gap:4px;">
+                            <i class="fa-solid fa-calendar-days" style="font-size:0.7rem;"></i> Años vac. completos pend.
+                        </label>
+                        <input type="number" name="vacationPendingCompleteYears" class="form-control" value="0" min="0" style="font-size:0.82rem;">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size:0.78rem; font-weight:600; color:var(--text-muted); display:flex; align-items:center; gap:4px;">
+                            <i class="fa-solid fa-sun" style="font-size:0.7rem;"></i> Días vac. tomados período actual
+                        </label>
+                        <input type="number" name="vacationTakenCurrentPeriod" class="form-control" value="0" min="0" style="font-size:0.82rem;">
+                    </div>
+                </div>
+                <div style="margin-top:10px; display:flex; gap:8px;">
+                    <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-calculator"></i> Calcular y reemplazar</button>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('recalc-form').style.display='none'">Cancelar</button>
+                </div>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+
+    {% else %}
+    {# ── Sin liquidación ── #}
+    <div class="hr-section-card">
+        <div style="text-align:center; padding:40px 20px;">
+            <div style="font-size:2.5rem; color:var(--text-muted); opacity:0.3; margin-bottom:12px;">
+                <i class="fa-solid fa-calculator"></i>
+            </div>
+            <h3 style="margin:0 0 6px;">Liquidación no calculada</h3>
+            <p style="font-size:0.85rem; color:var(--text-secondary); margin:0 0 20px;">
+                Complete los parámetros para calcular la liquidación del empleado.
+            </p>
+        </div>
+        <form method="POST" action="{{ url_for('web_rrhh.offboarding_settlement_calculate', request_id=req.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:14px;">
+                <div class="form-group">
+                    <label style="font-size:0.78rem; font-weight:600; color:var(--text-muted); display:flex; align-items:center; gap:4px;">
+                        <i class="fa-solid fa-briefcase" style="font-size:0.7rem;"></i> ¿Preaviso trabajado?
+                    </label>
+                    <select name="preavisoTrabajado" class="form-control">
+                        <option value="">No</option>
+                        <option value="on">Sí</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label style="font-size:0.78rem; font-weight:600; color:var(--text-muted); display:flex; align-items:center; gap:4px;">
+                        <i class="fa-solid fa-calendar-days" style="font-size:0.7rem;"></i> Años vac. completos pend.
+                    </label>
+                    <input type="number" name="vacationPendingCompleteYears" class="form-control" value="0" min="0">
+                </div>
+                <div class="form-group">
+                    <label style="font-size:0.78rem; font-weight:600; color:var(--text-muted); display:flex; align-items:center; gap:4px;">
+                        <i class="fa-solid fa-sun" style="font-size:0.7rem;"></i> Días vac. tomados período actual
+                    </label>
+                    <input type="number" name="vacationTakenCurrentPeriod" class="form-control" value="0" min="0">
+                </div>
+            </div>
+            <div style="margin-top:16px; display:flex; justify-content:center;">
+                <button type="submit" class="btn btn-primary" style="padding:12px 36px;">
+                    <i class="fa-solid fa-calculator"></i> Calcular liquidación
+                </button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+
+{% elif tab == 'checklist' %}
+    <div class="hr-section-card">
+        <h3><i class="fa-solid fa-clipboard-list"></i> Checklist de salida</h3>
+        {% if checklist %}
+        {% set pct = (checklist.completedItems / checklist.totalItems * 100) if checklist.totalItems else 0 %}
+        <div style="margin:12px 0 16px; display:flex; align-items:center; gap:14px;">
+            <div style="flex:1;">
+                <div style="height:8px; background:var(--bg-secondary); border-radius:99px; overflow:hidden;">
+                    <div style="height:100%; width:{{ pct }}%; background:linear-gradient(90deg, var(--accent-emerald), #34d399); border-radius:99px; transition:width 0.4s ease;"></div>
+                </div>
+            </div>
+            <div style="font-size:0.82rem; color:var(--text-secondary); white-space:nowrap;">
+                <strong style="font-size:1rem; color:{% if pct == 100 %}var(--accent-emerald){% else %}var(--text-primary){% endif %};">{{ checklist.completedItems }}</strong>
+                / {{ checklist.totalItems }}
+                <span style="color:var(--text-muted);">({{ '{:.0f}'.format(pct) }}%)</span>
+            </div>
+        </div>
+
+        {% set categories = checklist.get('items', []) | map(attribute='category') | unique | list %}
+        {% for cat in categories %}
+        {% set cat_items = checklist.get('items', []) | selectattr('category', 'equalto', cat) | list %}
+        {% set cat_done = cat_items | selectattr('completed', 'equalto', true) | list | length %}
+        <div style="margin-bottom:12px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                <span class="badge badge-info" style="font-size:0.7rem; padding:2px 10px;">{{ cat }}</span>
+                <span style="font-size:0.72rem; color:var(--text-muted);">{{ cat_done }}/{{ cat_items|length }}</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px;">
+                {% for item in cat_items %}
+                <div style="display:flex; align-items:center; gap:10px; padding:10px 14px;
+                            border:1px solid var(--border-color); border-radius:var(--radius-sm);
+                            background:{% if item.completed %}rgba(16,185,129,0.04){% else %}var(--bg-card){% endif %};
+                            transition:background 0.15s;">
+                    <form method="POST" action="{{ url_for('web_rrhh.offboarding_checklist_toggle', request_id=req.id) }}" style="margin:0; display:flex; align-items:center;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="checklistId" value="{{ checklist.id }}">
+                        <input type="hidden" name="itemId" value="{{ item.id }}">
+                        <input type="hidden" name="completed" value="{% if item.completed %}0{% else %}1{% endif %}">
+                        <button type="submit" style="background:none; border:none; cursor:pointer; padding:0; display:flex; align-items:center;">
+                            <div style="width:22px; height:22px; border-radius:50%;
+                                        border:2px solid {% if item.completed %}var(--accent-emerald){% else %}var(--border-color){% endif %};
+                                        background:{% if item.completed %}var(--accent-emerald){% else %}transparent{% endif %};
+                                        display:flex; align-items:center; justify-content:center;
+                                        transition:all 0.15s; flex-shrink:0;">
+                                {% if item.completed %}<i class="fa-solid fa-check" style="font-size:0.55rem; color:#fff;"></i>{% endif %}
+                            </div>
+                        </button>
+                    </form>
+                    <div style="flex:1;">
+                        <div style="font-size:0.85rem; {% if item.completed %}text-decoration:line-through; color:var(--text-muted);{% else %}color:var(--text-primary);{% endif %}">
+                            {{ item.task }}
+                        </div>
+                        {% if item.category == 'assets' and item.description %}
+                        <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">
+                            <i class="fa-solid fa-tag"></i> {{ item.description }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <form method="POST" action="{{ url_for('web_rrhh.offboarding_checklist_toggle', request_id=req.id) }}" style="margin:0;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="checklistId" value="{{ checklist.id }}">
+                        <input type="hidden" name="itemId" value="{{ item.id }}">
+                        <input type="hidden" name="completed" value="{% if item.completed %}0{% else %}1{% endif %}">
+                        <button type="submit" class="btn btn-sm {% if item.completed %}btn-ghost{% else %}btn-success{% endif %}" style="font-size:0.72rem;">
+                            {% if item.completed %}<i class="fa-solid fa-rotate-left"></i>{% else %}<i class="fa-solid fa-check"></i> Completar{% endif %}
+                        </button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div style="text-align:center; padding:40px 0; color:var(--text-secondary);">
+            <i class="fa-solid fa-clipboard-list" style="font-size:2rem; color:var(--text-muted); opacity:0.4; display:block; margin-bottom:8px;"></i>
+            No hay checklist disponible.
+        </div>
+        {% endif %}
+    </div>
+
+{% elif tab == 'documents' %}
+    <div class="hr-section-card">
+        <h3><i class="fa-solid fa-file-lines"></i> Documentos generados</h3>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+            <a href="{{ url_for('web_rrhh.offboarding_pdf_letter', request_id=req.id) }}" class="btn btn-primary btn-sm" target="_blank">
+                <i class="fa-solid fa-file-pdf"></i> Carta de desvinculación
+            </a>
+            {% if req.settlementId %}
+            <a href="{{ url_for('web_rrhh.offboarding_pdf_settlement', request_id=req.id) }}" class="btn btn-primary btn-sm" target="_blank">
+                <i class="fa-solid fa-file-pdf"></i> Acta de liquidación
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="hr-section-card" style="margin-top:16px;">
+        <h3><i class="fa-solid fa-upload"></i> Subir documento firmado</h3>
+        <form method="POST" action="{{ url_for('web_rrhh.offboarding_upload_document', request_id=req.id) }}" enctype="multipart/form-data" style="margin-top:12px;" id="uploadForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="hr-form-grid">
+                <div class="form-group">
+                    <label>Tipo de documento</label>
+                    <select name="documentType" class="form-select" style="width:100%;">
+                        <option value="termination_letter">Carta de desvinculación firmada</option>
+                        <option value="settlement_acta">Acta de liquidación firmada</option>
+                        <option value="payment_receipt">Recibo de pago firmado</option>
+                        <option value="asset_return_acta">Acta de devolución de activos</option>
+                        <option value="other">Otro</option>
+                    </select>
+                </div>
+                <div class="form-group" style="grid-column:1/-1;">
+                    <label>Archivo</label>
+                    <label for="fileInput" style="display:block; border:2px dashed var(--border-color); border-radius:var(--radius-md); padding:32px 20px; text-align:center; cursor:pointer; background:rgba(0,0,0,0.01); transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent-emerald)'; this.style.background='rgba(16,185,129,0.03)';" onmouseout="this.style.borderColor='var(--border-color)'; this.style.background='rgba(0,0,0,0.01)';">
+                        <i class="fa-solid fa-cloud-arrow-up" style="font-size:2rem; color:var(--text-muted); display:block; margin-bottom:8px;"></i>
+                        <span style="font-size:0.88rem; color:var(--text-secondary);">Haz clic para seleccionar archivo (PDF, JPG, PNG)</span>
+                        <input id="fileInput" type="file" name="file" accept=".pdf,.jpg,.png" required style="display:none;" onchange="this.closest('label').querySelector('span').textContent = this.files[0] ? this.files[0].name : 'Haz clic para seleccionar archivo (PDF, JPG, PNG)';">
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label" style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                        <input type="checkbox" name="signedByEmployee" value="1"> <i class="fa-regular fa-file-signature" style="color:var(--accent-emerald);"></i> Firmado por empleado
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label" style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                        <input type="checkbox" name="signedByEmployer" value="1"> <i class="fa-regular fa-file-signature" style="color:var(--accent-blue);"></i> Firmado por empleador
+                    </label>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-success btn-sm" style="margin-top:8px;"><i class="fa-solid fa-upload"></i> Subir documento</button>
+        </form>
+    </div>
+
+    <div class="hr-section-card" style="margin-top:16px;">
+        <h3><i class="fa-solid fa-folder-open"></i> Documentos almacenados</h3>
+        {% if documents %}
+        <div style="display:flex; flex-direction:column; gap:6px; margin-top:12px;">
+            {% for d in documents %}
+            <div style="display:flex; align-items:center; gap:12px; padding:12px 16px; border:1px solid var(--border-color); border-radius:var(--radius-sm); transition:background 0.15s;" onmouseover="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
+                <div style="width:36px; height:36px; border-radius:var(--radius-sm); background:rgba(239,68,68,0.1); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                    <i class="fa-solid fa-file-pdf" style="color:var(--accent-red); font-size:1rem;"></i>
+                </div>
+                <div style="flex:1; min-width:0;">
+                    <div style="font-size:0.85rem; font-weight:600; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ d.title or 'Documento' }}</div>
+                    <div style="display:flex; gap:8px; align-items:center; font-size:0.72rem; color:var(--text-muted); margin-top:2px;">
+                        <span class="badge badge-secondary" style="font-size:0.6rem;">{{ (d.documentType or '') | replace('_', ' ') }}</span>
+                        <span>{{ "%.1f KB" | format((d.fileSize|float or 0) / 1024) }}</span>
+                        <span>{{ (d.uploadedAt or d.generatedAt or '')[:10] }}</span>
+                    </div>
+                </div>
+                <div style="display:flex; gap:4px; align-items:center; flex-shrink:0;">
+                    {% if d.signedByEmployee %}<span class="badge badge-success" style="font-size:0.6rem;" title="Firmado por empleado"><i class="fa-solid fa-check"></i> Emp.</span>{% endif %}
+                    {% if d.signedByEmployer %}<span class="badge badge-primary" style="font-size:0.6rem;" title="Firmado por empleador"><i class="fa-solid fa-check"></i> Emp.</span>{% endif %}
+                </div>
+                <a href="{{ url_for('web_rrhh.offboarding_download_document', request_id=req.id, doc_id=d.id) }}" class="btn btn-sm btn-ghost" title="Descargar" style="flex-shrink:0;">
+                    <i class="fa-solid fa-download"></i>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="text-align:center; padding:40px 0; color:var(--text-secondary);">
+            <i class="fa-solid fa-folder-open" style="font-size:2rem; color:var(--text-muted); opacity:0.4; display:block; margin-bottom:8px;"></i>
+            No hay documentos almacenados.
+        </div>
+        {% endif %}
+    </div>
+
+{% elif tab == 'payment' %}
+    {% if payments %}
+    <div class="hr-section-card">
+        <h3><i class="fa-solid fa-money-bill"></i> Pagos registrados</h3>
+        <div class="table-responsive" style="margin-top:12px;">
+            <table class="table-premium">
+                <thead><tr><th>Referencia</th><th>Método</th><th>Monto</th><th>Fecha</th><th>Estado</th></tr></thead>
+                <tbody>
+                    {% for p in payments %}
+                    <tr>
+                        <td><code>{{ p.paymentReference or '—' }}</code></td>
+                        <td>{{ p.paymentMethod or '—' }}</td>
+                        <td><strong>RD$ {{ "{:,.2f}".format(p.totalAmount|float) }}</strong></td>
+                        <td>{{ (p.paymentDate or '')[:10] }}</td>
+                        <td><span class="badge badge-success"><i class="fa-solid fa-check-circle"></i> Pagado</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="hr-section-card" {% if payments %}style="margin-top:16px;"{% endif %}>
+        <h3><i class="fa-solid fa-plus-circle"></i> Registrar nuevo pago</h3>
+        <form method="POST" action="{{ url_for('web_rrhh.offboarding_payment', request_id=req.id) }}" style="margin-top:12px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="hr-form-grid">
+                <div class="form-group">
+                    <label>Método de pago <span style="color:var(--danger);">*</span></label>
+                    <select name="paymentMethod" class="form-select" style="width:100%;">
+                        <option value="payroll">Nómina</option>
+                        <option value="transfer">Transferencia</option>
+                        <option value="check">Cheque</option>
+                        <option value="cash">Efectivo</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Monto total <span style="color:var(--danger);">*</span></label>
+                    <input type="number" name="totalAmount" class="form-input" style="width:100%;" step="0.01" placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label>Fecha de pago</label>
+                    <input type="date" name="paymentDate" class="form-input" style="width:100%;">
+                </div>
+                <div class="form-group">
+                    <label>Referencia</label>
+                    <input type="text" name="paymentReference" class="form-input" style="width:100%;" placeholder="N° de transacción o recibo">
+                </div>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:12px;">
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Registrar pago</button>
+            </div>
+        </form>
+    </div>
+
+{% elif tab == 'interview' %}
+    {% if interviews %}
+    <div class="hr-section-card">
+        <h3><i class="fa-solid fa-comments"></i> Entrevista de salida</h3>
+        {% for iv in interviews %}
+        <div style="margin-top:12px; padding:16px; border:1px solid var(--border-color); border-radius:var(--radius-sm); background:var(--bg-secondary);">
+            <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:12px;">
+                <div><span style="font-size:0.72rem; color:var(--text-muted);">Entrevistador</span><div style="font-size:0.88rem; font-weight:600; margin-top:2px;"><i class="fa-regular fa-user" style="margin-right:4px;"></i>{{ iv.interviewerName or '—' }}</div></div>
+                <div><span style="font-size:0.72rem; color:var(--text-muted);">Fecha</span><div style="font-size:0.88rem; margin-top:2px;"><i class="fa-regular fa-calendar" style="margin-right:4px;"></i>{{ (iv.interviewDate or '')[:10] }}</div></div>
+                <div><span style="font-size:0.72rem; color:var(--text-muted);">Motivo</span><div style="font-size:0.88rem; margin-top:2px;">{{ iv.primaryReason or '—' }}</div></div>
+            </div>
+            {% if iv.whatWentWell %}
+            <div style="margin-bottom:8px;">
+                <div style="font-size:0.75rem; font-weight:600; color:var(--accent-emerald); margin-bottom:4px;"><i class="fa-solid fa-thumbs-up"></i> ¿Qué fue bien?</div>
+                <p style="font-size:0.83rem; color:var(--text-secondary); margin:0;">{{ iv.whatWentWell }}</p>
+            </div>
+            {% endif %}
+            {% if iv.whatCouldImprove %}
+            <div>
+                <div style="font-size:0.75rem; font-weight:600; color:var(--accent-orange); margin-bottom:4px;"><i class="fa-solid fa-lightbulb"></i> ¿Qué podría mejorar?</div>
+                <p style="font-size:0.83rem; color:var(--text-secondary); margin:0;">{{ iv.whatCouldImprove }}</p>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="hr-section-card" {% if interviews %}style="margin-top:16px;"{% endif %}>
+        <h3><i class="fa-solid fa-pen-to-square"></i> {% if interviews %}Nueva entrevista{% else %}Registrar entrevista de salida{% endif %}</h3>
+        <form method="POST" action="{{ url_for('web_rrhh.offboarding_interview', request_id=req.id) }}" style="margin-top:12px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="hr-form-grid">
+                <div class="form-group">
+                    <label>Entrevistador <span style="color:var(--danger);">*</span></label>
+                    <input type="text" name="interviewerName" class="form-input" style="width:100%;" placeholder="Nombre del entrevistador">
+                </div>
+                <div class="form-group">
+                    <label>Fecha</label>
+                    <input type="date" name="interviewDate" class="form-input" style="width:100%;">
+                </div>
+                <div class="form-group">
+                    <label>Motivo principal</label>
+                    <input type="text" name="primaryReason" class="form-input" style="width:100%;" placeholder="Ej: Renuncia voluntaria, despido...">
+                </div>
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+                <label>¿Qué fue bien?</label>
+                <textarea name="whatWentWell" class="form-textarea" rows="2" placeholder="Aspectos positivos del empleado..." style="width:100%; resize:vertical;"></textarea>
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+                <label>¿Qué podría mejorar?</label>
+                <textarea name="whatCouldImprove" class="form-textarea" rows="2" placeholder="Áreas de oportunidad..." style="width:100%; resize:vertical;"></textarea>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Guardar entrevista</button>
+            </div>
+        </form>
+    </div>
+
+{% elif tab == 'risk' %}
+    {% set risk_colors = {'low': 'success', 'medium': 'warning', 'high': 'orange', 'critical': 'danger'} %}
+    {% if risk %}
+    <div class="hr-section-card">
+        <h3><i class="fa-solid fa-shield"></i> Evaluación de Riesgo Legal</h3>
+        <div style="margin-top:12px; display:flex; gap:20px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:160px; padding:16px; border:1px solid var(--border-color); border-radius:var(--radius-sm); text-align:center;">
+                <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">Nivel de riesgo</div>
+                <div style="margin-top:6px;">
+                    {% set rc = risk_colors.get(risk.riskLevel, 'secondary') %}
+                    <span class="badge badge-{{ rc }}" style="font-size:0.85rem; padding:6px 18px;">
+                        <i class="fa-solid fa-{% if risk.riskLevel == 'low' %}shield{% elif risk.riskLevel == 'medium' %}exclamation-triangle{% elif risk.riskLevel == 'high' %}bolt{% elif risk.riskLevel == 'critical' %}skull{% else %}shield{% endif %}"></i>
+                        {{ risk.riskLevel or '—' | capitalize }}
+                    </span>
+                </div>
+            </div>
+            <div style="flex:1; min-width:120px; padding:16px; border:1px solid var(--border-color); border-radius:var(--radius-sm); text-align:center;">
+                <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">Score</div>
+                <div style="margin-top:6px; font-size:1.5rem; font-weight:800; color:{% if risk.riskScore and risk.riskScore|int >= 70 %}var(--danger){% elif risk.riskScore and risk.riskScore|int >= 40 %}var(--accent-orange){% else %}var(--accent-emerald){% endif %};">{{ risk.riskScore or '—' }}</div>
+            </div>
+        </div>
+        {% if risk.reviewNotes %}
+        <div style="margin-top:12px; padding:12px 16px; background:var(--bg-secondary); border-radius:var(--radius-sm);">
+            <div style="font-size:0.75rem; font-weight:600; margin-bottom:4px;">Notas de revisión</div>
+            <p style="font-size:0.85rem; color:var(--text-secondary); margin:0;">{{ risk.reviewNotes }}</p>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="hr-section-card" {% if risk %}style="margin-top:16px;"{% endif %}>
+        <h3><i class="fa-solid fa-pen-to-square"></i> {% if risk %}Actualizar evaluación{% else %}Realizar evaluación de riesgo{% endif %}</h3>
+        <form method="POST" action="{{ url_for('web_rrhh.offboarding_risk', request_id=req.id) }}" style="margin-top:12px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="hr-form-grid">
+                <div class="form-group">
+                    <label>Nivel de riesgo <span style="color:var(--danger);">*</span></label>
+                    <select name="riskLevel" class="form-select" style="width:100%;">
+                        <option value="low" {% if risk and risk.riskLevel == 'low' %}selected{% endif %}>🟢 Bajo</option>
+                        <option value="medium" {% if risk and risk.riskLevel == 'medium' %}selected{% endif %}>🟡 Medio</option>
+                        <option value="high" {% if risk and risk.riskLevel == 'high' %}selected{% endif %}>🟠 Alto</option>
+                        <option value="critical" {% if risk and risk.riskLevel == 'critical' %}selected{% endif %}>🔴 Crítico</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Score (0-100)</label>
+                    <input type="number" name="riskScore" class="form-input" style="width:100%;" min="0" max="100" placeholder="0" value="{{ risk.riskScore if risk else '' }}">
+                </div>
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+                <label>Notas de revisión</label>
+                <textarea name="reviewNotes" class="form-textarea" rows="3" placeholder="Observaciones, fundamentos legales, recomendaciones..." style="width:100%; resize:vertical;">{{ risk.reviewNotes if risk else '' }}</textarea>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Guardar evaluación</button>
+            </div>
+        </form>
+    </div>
+
+{% elif tab == 'tss' %}
+    <div class="hr-section-card">
+        <div style="display:flex; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:200px;">
+                <h3 style="margin:0 0 6px;"><i class="fa-solid fa-shield-halved"></i> Notificación TSS</h3>
+                <p style="color:var(--text-secondary); margin:0; font-size:0.85rem; line-height:1.5;">
+                    La Tesorería de la Seguridad Social (TSS) debe ser notificada del egreso del empleado.
+                    Descargue el archivo de texto en formato <strong>SUIRPLUS v6.0</strong> para cargarlo al portal de la TSS.
+                </p>
+            </div>
+            <div style="flex-shrink:0;">
+                {% if req.tssNotifiedAt %}
+                <div style="padding:10px 16px; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.25); border-radius:var(--radius-sm); display:flex; align-items:center; gap:8px; white-space:nowrap;">
+                    <i class="fa-solid fa-check-circle" style="color:var(--accent-emerald); font-size:1.1rem;"></i>
+                    <div>
+                        <div style="font-size:0.72rem; color:var(--text-muted);">Notificada el</div>
+                        <div style="font-size:0.88rem; font-weight:600; color:var(--accent-emerald);">{{ req.tssNotifiedAt[:16] if req.tssNotifiedAt else '' }}</div>
+                    </div>
+                </div>
+                {% else %}
+                <div style="padding:10px 16px; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.25); border-radius:var(--radius-sm); display:flex; align-items:center; gap:8px; white-space:nowrap;">
+                    <i class="fa-solid fa-clock" style="color:var(--accent-orange); font-size:1.1rem;"></i>
+                    <div>
+                        <div style="font-size:0.72rem; color:var(--text-muted);">Estado</div>
+                        <div style="font-size:0.88rem; font-weight:600; color:var(--accent-orange);">Pendiente</div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="hr-section-card" style="margin-top:16px;">
+        <h3><i class="fa-solid fa-download"></i> Descargar archivo de baja</h3>
+        <div style="margin-top:12px; display:flex; gap:12px; flex-wrap:wrap;">
+            <a href="{{ url_for('web_rrhh.offboarding_tss_download', request_id=req.id) }}" class="btn btn-primary" style="display:inline-flex; align-items:center; gap:8px; padding:12px 24px;">
+                <i class="fa-solid fa-file-arrow-down" style="font-size:1.1rem;"></i>
+                <span>Descargar archivo SUIRPLUS</span>
+            </a>
+        </div>
+        {% if not req.tssNotifiedAt %}
+        <div style="margin-top:12px; padding:12px 16px; background:var(--bg-secondary); border-radius:var(--radius-sm); font-size:0.82rem; color:var(--text-secondary);">
+            <i class="fa-solid fa-info-circle" style="color:var(--accent-blue); margin-right:6px;"></i>
+            Al descargar el archivo, la solicitud se marcará automáticamente como <strong>notificada a la TSS</strong>.
+        </div>
+        {% endif %}
+        <div style="margin-top:12px; padding:12px 16px; border:1px solid var(--border-color); border-radius:var(--radius-sm);">
+            <div style="font-size:0.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Pasos siguientes</div>
+            <ol style="margin:0; padding-left:18px; font-size:0.82rem; color:var(--text-secondary); line-height:1.7;">
+                <li>Descargue el archivo de texto generado automáticamente.</li>
+                <li>Ingrese al portal de la TSS (<a href="https://www.tss.gov.do" target="_blank" style="color:var(--accent-blue);">tss.gov.do</a>).</li>
+                <li>Vaya a la sección de <strong>Notificación de Egreso</strong> (SUIRPLUS).</li>
+                <li>Cargue el archivo descargado y confirme la notificación.</li>
+            </ol>
+        </div>
+    </div>
+
+{% elif tab == 'legal' %}
+    {% if legal %}
+    <div class="hr-section-card">
+        <h3><i class="fa-solid fa-gavel"></i> Caso Legal</h3>
+        <div style="margin-top:12px; display:flex; gap:16px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:160px; padding:14px 16px; border:1px solid var(--border-color); border-radius:var(--radius-sm);">
+                <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">Estado del caso</div>
+                <div style="margin-top:4px; font-size:0.9rem; font-weight:600;">
+                    {% if legal.hasLawsuit %}
+                    <span style="color:var(--danger);"><i class="fa-solid fa-scale-balanced"></i> {{ legal.lawsuitStatus or 'En proceso' }}</span>
+                    {% else %}
+                    <span style="color:var(--accent-emerald);"><i class="fa-solid fa-check-circle"></i> Sin demanda</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div style="flex:1; min-width:160px; padding:14px 16px; border:1px solid var(--border-color); border-radius:var(--radius-sm);">
+                <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">Abogado asignado</div>
+                <div style="margin-top:4px; font-size:0.9rem; font-weight:600;">
+                    {% if legal.legalCounselName %}
+                    <i class="fa-regular fa-user" style="margin-right:4px;"></i>{{ legal.legalCounselName }}
+                    {% else %}—{% endif %}
+                </div>
+                {% if legal.legalCounselEmail %}
+                <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:2px;">{{ legal.legalCounselEmail }}</div>
+                {% endif %}
+            </div>
+            {% if legal.hasLawsuit and legal.lawsuitNumber %}
+            <div style="flex:1; min-width:160px; padding:14px 16px; border:1px solid var(--border-color); border-radius:var(--radius-sm);">
+                <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">Expediente</div>
+                <div style="margin-top:4px; font-size:0.9rem; font-weight:600;"><code>{{ legal.lawsuitNumber }}</code></div>
+                {% if legal.lawsuitCourt %}
+                <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:2px;">{{ legal.lawsuitCourt }}</div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        {% if legal.hasLawsuit and legal.lawsuitDetails %}
+        <div style="margin-top:12px; padding:12px 16px; background:var(--bg-secondary); border-radius:var(--radius-sm);">
+            <div style="font-size:0.75rem; font-weight:600; margin-bottom:4px;">Detalles de la demanda</div>
+            <p style="font-size:0.85rem; color:var(--text-secondary); margin:0;">{{ legal.lawsuitDetails }}</p>
+        </div>
+        {% endif %}
+        {% if legal.resolutionNotes %}
+        <div style="margin-top:12px; padding:12px 16px; border:1px solid var(--border-color); border-radius:var(--radius-sm);">
+            <div style="font-size:0.75rem; font-weight:600; margin-bottom:4px;">Resolución</div>
+            <p style="font-size:0.85rem; color:var(--text-secondary); margin:0;">{{ legal.resolutionNotes }}</p>
+            {% if legal.resolutionDate %}
+            <div style="font-size:0.78rem; color:var(--text-muted); margin-top:4px;"><i class="fa-regular fa-calendar"></i> {{ legal.resolutionDate[:10] }}</div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="hr-section-card" {% if legal %}style="margin-top:16px;"{% endif %}>
+        <h3><i class="fa-solid fa-pen-to-square"></i> {% if legal %}Editar caso legal{% else %}Registrar caso legal{% endif %}</h3>
+        <p style="font-size:0.82rem; color:var(--text-secondary); margin:4px 0 12px;">Complete la información del caso legal asociado a esta desvinculación.</p>
+        <form method="POST" action="{{ url_for('web_rrhh.offboarding_legal_save', request_id=req.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="hr-form-grid">
+                <div class="form-group">
+                    <label><i class="fa-solid fa-scale-balanced"></i> ¿Tiene demanda?</label>
+                    <select name="hasLawsuit" class="form-select" style="width:100%;" onchange="document.getElementById('lawsuitFields').style.display=this.value=='1'?'block':'none'">
+                        <option value="0" {% if legal and not legal.hasLawsuit %}selected{% endif %}>No</option>
+                        <option value="1" {% if legal and legal.hasLawsuit %}selected{% endif %}>Sí</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Estado del caso</label>
+                    <input type="text" name="lawsuitStatus" class="form-input" style="width:100%;" placeholder="Ej: En proceso, Cerrado..." value="{{ legal.lawsuitStatus if legal else '' }}">
+                </div>
+                <div class="form-group">
+                    <label>Abogado asignado</label>
+                    <input type="text" name="legalCounselName" class="form-input" style="width:100%;" placeholder="Nombre del abogado" value="{{ legal.legalCounselName if legal else '' }}">
+                </div>
+                <div class="form-group">
+                    <label>Email del abogado</label>
+                    <input type="email" name="legalCounselEmail" class="form-input" style="width:100%;" placeholder="abogado@ejemplo.com" value="{{ legal.legalCounselEmail if legal else '' }}">
+                </div>
+            </div>
+            <div id="lawsuitFields" style="{% if not legal or not legal.hasLawsuit %}display:none;{% endif %}">
+                <div class="hr-form-grid" style="margin-top:8px;">
+                    <div class="form-group">
+                        <label>Número de expediente</label>
+                        <input type="text" name="lawsuitNumber" class="form-input" style="width:100%;" placeholder="Ej: 2026-00123" value="{{ legal.lawsuitNumber if legal else '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Juzgado / Corte</label>
+                        <input type="text" name="lawsuitCourt" class="form-input" style="width:100%;" placeholder="Ej: Juzgado de Trabajo del DN" value="{{ legal.lawsuitCourt if legal else '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha de demanda</label>
+                        <input type="date" name="lawsuitDate" class="form-input" style="width:100%;" value="{{ legal.lawsuitDate if legal else '' }}">
+                    </div>
+                </div>
+                <div class="form-group" style="grid-column:1/-1;">
+                    <label>Detalles de la demanda</label>
+                    <textarea name="lawsuitDetails" class="form-textarea" rows="2" placeholder="Describa los detalles de la demanda..." style="width:100%; resize:vertical;">{{ legal.lawsuitDetails if legal else '' }}</textarea>
+                </div>
+            </div>
+            <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border-color);">
+                <div style="font-size:0.82rem; font-weight:600; margin-bottom:8px;">Resolución</div>
+                <div class="hr-form-grid">
+                    <div class="form-group">
+                        <label>Fecha de resolución</label>
+                        <input type="date" name="resolutionDate" class="form-input" style="width:100%;" value="{{ legal.resolutionDate if legal else '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Monto de resolución (RD$)</label>
+                        <input type="number" name="resolutionAmount" class="form-input" style="width:100%;" step="0.01" min="0" placeholder="0.00" value="{{ legal.resolutionAmount if legal else '' }}">
+                    </div>
+                </div>
+                <div class="form-group" style="grid-column:1/-1;">
+                    <label>Notas de resolución</label>
+                    <textarea name="resolutionNotes" class="form-textarea" rows="2" placeholder="Detalles del acuerdo o sentencia..." style="width:100%; resize:vertical;">{{ legal.resolutionNotes if legal else '' }}</textarea>
+                </div>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:12px;">
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Guardar caso legal</button>
+            </div>
+        </form>
+    </div>
+    <script>
+    document.querySelector('[name="hasLawsuit"]')?.addEventListener('change', function() {
+        document.getElementById('lawsuitFields').style.display = this.value === '1' ? 'block' : 'none';
+    });
+    </script>
+
+{% elif tab == 'history' %}
+    <div class="hr-section-card">
+        <h3><i class="fa-regular fa-clock"></i> Historial de cambios</h3>
+        {% if req.statusHistory %}
+        {% set history = req.statusHistory | sort(attribute='changedAt', reverse=True) %}
+        <div class="table-responsive" style="margin-top:12px;">
+            <table class="table-premium">
+                <thead><tr><th style="width:40px;"></th><th>Desde</th><th>Hasta</th><th>Fecha</th><th>Usuario</th><th>Comentario</th></tr></thead>
+                <tbody>
+                    {% for h in history %}
+                    {% set from_st = states.get(h.fromStatus, {}) %}
+                    {% set to_st = states.get(h.toStatus, {}) %}
+                    <tr>
+                        <td style="text-align:center;">
+                            <div style="width:10px; height:10px; border-radius:50%; background:var(--accent-{{ to_st.color or 'secondary' }}); display:inline-block;"></div>
+                        </td>
+                        <td><span class="badge badge-{{ from_st.color or 'secondary' }}" style="font-size:0.68rem;">{{ from_st.label or h.fromStatus or '—' }}</span></td>
+                        <td><span class="badge badge-{{ to_st.color or 'secondary' }}" style="font-size:0.68rem;">{{ to_st.label or h.toStatus }}</span></td>
+                        <td style="font-size:0.82rem; white-space:nowrap;">{{ h.changedAt[:16] if h.changedAt else '—' }}</td>
+                        <td style="font-size:0.82rem;"><i class="fa-regular fa-user" style="margin-right:4px;"></i>{{ h.changedBy or '—' }}</td>
+                        <td style="font-size:0.82rem; color:var(--text-secondary);"><em>{{ h.comment or '—' }}</em></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="text-align:center; padding:40px 0; color:var(--text-secondary);">
+            <i class="fa-regular fa-clock" style="font-size:2rem; color:var(--text-muted); opacity:0.4; display:block; margin-bottom:8px;"></i>
+            Sin cambios registrados.
+        </div>
+        {% endif %}
+    </div>
+{% endif %}
+</div>
+
+<!-- Cancel Modal -->
+<div id="cancelModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.55); backdrop-filter:blur(6px); align-items:center; justify-content:center;" onclick="if(event.target===this)this.style.display='none'">
+    <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-xl); width:100%; max-width:420px; max-height:90vh; display:flex; flex-direction:column; box-shadow:var(--shadow-xl); animation:fadeInUp 0.3s ease;" onclick="event.stopPropagation()">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--border-color);">
+            <h2 style="margin:0; font-size:1rem; font-weight:700;"><i class="fa-solid fa-ban" style="color:var(--danger);"></i> Cancelar solicitud</h2>
+            <button type="button" class="btn btn-sm btn-ghost" onclick="document.getElementById('cancelModal').style.display='none'">
+                <i class="fa-solid fa-times" style="font-size:1.1rem;"></i>
+            </button>
+        </div>
+        <form method="POST" action="{{ url_for('web_rrhh.offboarding_cancel', request_id=req.id) }}" style="padding:20px; display:flex; flex-direction:column; gap:14px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <p style="color:var(--text-secondary); font-size:0.9rem; margin:0;">
+                ¿Estás seguro de cancelar esta solicitud de offboarding?
+                Esta acción no puede deshacerse.
+            </p>
+            <div class="form-group" style="margin:0;">
+                <label style="font-size:0.78rem; font-weight:600;">Motivo de cancelación *</label>
+                <textarea name="reason" class="form-control" rows="3" required placeholder="Explique por qué se cancela..."></textarea>
+            </div>
+            <div style="display:flex; gap:8px; justify-content:flex-end;">
+                <button type="button" class="btn btn-ghost" onclick="document.getElementById('cancelModal').style.display='none'">Volver</button>
+                <button type="submit" class="btn btn-danger"><i class="fa-solid fa-ban"></i> Confirmar cancelación</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

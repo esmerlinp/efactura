@@ -1,0 +1,258 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Dashboard Offboarding — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+    .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:20px; }
+    .kpi-card { border:1px solid var(--border-color); border-radius:var(--radius-md); padding:18px 20px; background:var(--bg-card); }
+    .kpi-card .kpi-value { font-size:1.6rem; font-weight:700; margin:4px 0 0; }
+    .kpi-card .kpi-label { font-size:0.78rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; }
+    .dashboard-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }
+    @media (max-width:800px) { .dashboard-grid { grid-template-columns:1fr; } }
+    .dashboard-grid .card { padding:20px 24px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="dashboard-container">
+    <div class="page-title-container" style="margin-bottom:16px; padding-left:4px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:16px; flex-wrap:wrap;">
+            <div>
+                <h1 class="page-title" style="font-size:1.6rem; font-weight:800; margin:0;">
+                    <i class="fa-solid fa-door-open" style="color:var(--danger);"></i> Dashboard Offboarding
+                </h1>
+                <p style="color:var(--text-secondary); margin:6px 0 0; font-size:0.88rem;">
+                    Resumen de solicitudes de salida de empleados
+                </p>
+            </div>
+            <div style="display:flex; gap:8px;">
+                <a href="{{ url_for('web_rrhh.offboarding_new') }}" class="btn btn-danger">
+                    <i class="fa-solid fa-plus"></i> Nueva solicitud
+                </a>
+                <a href="{{ url_for('web_rrhh.offboarding_list') }}" class="btn btn-ghost">
+                    <i class="fa-solid fa-list"></i> Ver todas
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <div class="kpi-label">Solicitudes activas</div>
+            <div class="kpi-value" style="color:var(--danger);">{{ active_count }}</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Completadas este mes</div>
+            <div class="kpi-value" style="color:var(--accent-emerald);">{{ this_month_completed }}</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Creadas este mes</div>
+            <div class="kpi-value" style="color:var(--accent-purple);">{{ month_active }}</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Costo total liquidaciones</div>
+            <div class="kpi-value" style="color:#1e40af;">RD$ {{ "{:,.0f}".format(total_cost|float) }}</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Total solicitudes</div>
+            <div class="kpi-value">{{ total_requests }}</div>
+        </div>
+    </div>
+
+    <div class="dashboard-grid">
+        <div class="card-table-wrapper">
+            <h3 style="font-size:0.95rem; font-weight:700; margin:0 0 16px;">
+                <i class="fa-solid fa-chart-pie"></i> Solicitudes por tipo
+            </h3>
+            {% if reason_labels %}
+            <div style="position:relative; height:200px;"><canvas id="reasonChart"></canvas></div>
+            {% else %}
+            <p style="color:var(--text-muted); font-size:0.88rem;">Sin datos para mostrar.</p>
+            {% endif %}
+        </div>
+
+        <div class="card-table-wrapper">
+            <h3 style="font-size:0.95rem; font-weight:700; margin:0 0 16px;">
+                <i class="fa-solid fa-chart-line"></i> Completadas por mes
+            </h3>
+            {% if trend_labels %}
+            <div style="position:relative; height:200px;"><canvas id="trendChart"></canvas></div>
+            {% else %}
+            <p style="color:var(--text-muted); font-size:0.88rem;">Sin datos para mostrar.</p>
+            {% endif %}
+        </div>
+
+        <div class="card-table-wrapper">
+            <h3 style="font-size:0.95rem; font-weight:700; margin:0 0 16px;">
+                <i class="fa-solid fa-circle-dollar"></i> Costo promedio por tipo
+            </h3>
+            {% if cost_labels %}
+            <div style="position:relative; height:200px;"><canvas id="costChart"></canvas></div>
+            {% else %}
+            <p style="color:var(--text-muted); font-size:0.88rem;">Sin datos para mostrar.</p>
+            {% endif %}
+        </div>
+
+        <div class="card-table-wrapper">
+            <h3 style="font-size:0.95rem; font-weight:700; margin:0 0 16px;">
+                <i class="fa-solid fa-door-open"></i> Pipeline
+            </h3>
+            {% if pipeline %}
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                {% for p in pipeline %}
+                {% set st = states.get(p.key, {}) %}
+                <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem;">
+                    <span><span class="badge badge-{{ st.color or 'secondary' }}" style="width:8px; height:8px; display:inline-block; border-radius:50%; margin-right:6px;"></span> {{ st.label or p.key }}</span>
+                    <span style="font-weight:700;">{{ p.count }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p style="color:var(--text-muted); font-size:0.88rem;">Sin solicitudes.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card-table-wrapper" style="margin-top:20px;">
+        <div class="table-header-row">
+            <div>
+                <h3 style="font-size:1rem; font-family:var(--font-heading); margin:0;">
+                    <i class="fa-solid fa-clock-rotate-left"></i> Solicitudes recientes
+                </h3>
+            </div>
+        </div>
+        {% if recent %}
+        <div class="table-responsive">
+            <table class="table-premium">
+                <thead><tr><th>#</th><th>Empleado</th><th>Tipo</th><th>Estado</th><th>Fecha</th><th style="width:50px;"></th></tr></thead>
+                <tbody>
+                    {% for r in recent %}
+                    {% set st = states.get(r.status, {}) %}
+                    <tr>
+                        <td><code>{{ r.requestNumber or r.id[:8] }}</code></td>
+                        <td><strong>{{ r.employeeName or '—' }}</strong></td>
+                        <td>{{ (r.terminationType or '') | replace('_', ' ') | title }}</td>
+                        <td><span class="badge badge-{{ st.color or 'secondary' }}">{{ st.label or r.status }}</span></td>
+                        <td>{{ (r.createdAt or '')[:10] }}</td>
+                        <td><a href="{{ url_for('web_rrhh.offboarding_detail', request_id=r.id) }}" class="btn btn-sm btn-ghost"><i class="fa-regular fa-eye"></i></a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="text-align:center; padding:60px 0; color:var(--text-secondary);">
+            <i class="fa-solid fa-clock-rotate-left" style="font-size:2.5rem; color:var(--text-muted); opacity:0.5; display:block; margin-bottom:12px;"></i>
+            No hay solicitudes registradas.
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="card-table-wrapper" style="margin-top:16px;">
+        <div class="table-header-row">
+            <div>
+                <h3 style="font-size:1rem; font-family:var(--font-heading); margin:0;">
+                    <i class="fa-solid fa-database"></i> Migración de empleados inactivos
+                </h3>
+            </div>
+        </div>
+        <p style="font-size:0.85rem; color:var(--text-secondary); margin:0 0 12px;">
+            Crea registros de offboarding para empleados que fueron desvinculados antes de la existencia de este módulo.
+        </p>
+        <div style="display:flex; gap:8px; padding:0 0 12px;">
+            <form method="POST" action="{{ url_for('web_rrhh.offboarding_migrate') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="dry_run" value="1">
+                <button type="submit" class="btn btn-ghost btn-sm"><i class="fa-solid fa-eye"></i> Simular migración</button>
+            </form>
+            <form method="POST" action="{{ url_for('web_rrhh.offboarding_migrate') }}" onsubmit="return confirm('¿Estás seguro de migrar todos los empleados inactivos sin registro de offboarding?')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-warning btn-sm"><i class="fa-solid fa-play"></i> Ejecutar migración</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card-table-wrapper" style="margin-top:16px;">
+        <div class="table-header-row">
+            <div>
+                <h3 style="font-size:1rem; font-family:var(--font-heading); margin:0;">
+                    <i class="fa-solid fa-user-check"></i> Corregir estado de empleados
+                </h3>
+            </div>
+        </div>
+        <p style="font-size:0.85rem; color:var(--text-secondary); margin:0 0 12px;">
+            Marca como inactivos los empleados cuya solicitud de offboarding está completada pero su estado quedó activo.
+        </p>
+        <div style="display:flex; gap:8px; padding:0 0 12px;">
+            <form method="POST" action="{{ url_for('web_rrhh.offboarding_fix_status') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="dry_run" value="1">
+                <button type="submit" class="btn btn-ghost btn-sm"><i class="fa-solid fa-eye"></i> Simular corrección</button>
+            </form>
+            <form method="POST" action="{{ url_for('web_rrhh.offboarding_fix_status') }}" onsubmit="return confirm('¿Corregir el estado de todos los empleados con offboarding completado?')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-warning btn-sm"><i class="fa-solid fa-play"></i> Corregir estados</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    {% if reason_labels %}
+    new Chart(document.getElementById('reasonChart'), {
+        type: 'pie',
+        data: {
+            labels: {{ reason_labels | tojson }},
+            datasets: [{
+                data: {{ reason_data | tojson }},
+                backgroundColor: ['#ef4444','#f59e0b','#3b82f6','#10b981','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316','#6366f1','#14b8a6'],
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 8, font: { size: 10 } } } }
+        }
+    });
+    {% endif %}
+
+    {% if trend_labels %}
+    new Chart(document.getElementById('trendChart'), {
+        type: 'line',
+        data: {
+            labels: {{ trend_labels | tojson }},
+            datasets: [{
+                label: 'Completadas',
+                data: {{ trend_data | tojson }},
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16,185,129,0.1)',
+                fill: true,
+                tension: 0.3,
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+            plugins: { legend: { display: false } }
+        }
+    });
+    {% endif %}
+
+    {% if cost_labels %}
+    new Chart(document.getElementById('costChart'), {
+        type: 'bar',
+        data: {
+            labels: {{ cost_labels | tojson }},
+            datasets: [{
+                label: 'Costo promedio',
+                data: {{ cost_data | tojson }},
+                backgroundColor: 'rgba(59,130,246,0.6)',
+                borderRadius: 3,
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true, ticks: { callback: function(v) { return 'RD$ '+v.toLocaleString(); } } } },
+            plugins: { legend: { display: false } }
+        }
+    });
+    {% endif %}
+});
+</script>
+{% endblock %}
