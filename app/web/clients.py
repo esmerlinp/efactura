@@ -154,7 +154,8 @@ def new_client():
             "accessPin": access_pin,
             "priceListId": request.form.get('priceListId', ''),
             "projectId": request.form.get('projectId') or None,
-            "customer_category": request.form.get('customer_category', 'NORMAL')
+            "customer_category": request.form.get('customer_category', 'NORMAL'),
+            "creditLimit": float(request.form.get('creditLimit', 0) or 0),
         }
         
         DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)

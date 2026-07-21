@@ -25,4 +25,5 @@ COPY . .
 
 # Comando de arranque para Cloud Run
 # Cloud Run por defecto inyecta la variable de entorno $PORT (usualmente 8080)
-CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 "app:create_app()"
+# WEB_CONCURRENCY controla número de workers (default: 4)
+CMD exec gunicorn --bind :$PORT --workers ${WEB_CONCURRENCY:-4} --threads 8 --timeout 0 "app:create_app()"

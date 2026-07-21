@@ -430,6 +430,7 @@ class LiquidacionService:
         preaviso_trabajado: bool = False,
         vacation_pending_complete_years: int = 0,
         vacation_taken_current_period: int = 0,
+        recurring_movements: list = None,
         notes: str = "",
         created_by: str = "",
     ) -> dict:
@@ -450,6 +451,8 @@ class LiquidacionService:
             monthly_salaries_last_12 = []
         if monthly_salaries_ytd is None:
             monthly_salaries_ytd = []
+        if recurring_movements is None:
+            recurring_movements = []
 
         # Si no se proveyeron salarios variables, usar el último salario base repetido
         if not monthly_salaries_last_12:
@@ -534,6 +537,29 @@ class LiquidacionService:
             if not c["exentoISR"]:
                 monto_gravable_isr += c["monto"]
 
+        # 6. Deducciones recurrentes (Préstamos, Adelantos)
+        loan_deductions = 0.0
+        advance_deductions = 0.0
+        other_deductions = 0.0
+
+        for mv in recurring_movements:
+            status = mv.get("status", "")
+            if status not in ("active", "scheduled"):
+                continue
+            
+            # Préstamos (se cobra el balance restante)
+            if mv.get("isLoan"):
+                loan_deductions += float(mv.get("remainingBalance", 0.0))
+            # Adelantos (si conceptCode sugiere adelanto)
+            elif mv.get("conceptCode") in ("ADELANTO", "ADVANCE"):
+                advance_deductions += float(mv.get("remainingBalance", mv.get("amount", 0.0)))
+            # Otras deducciones recurrentes (opcional incluirlas, el negocio indicó enfocarse en préstamos y adelantos)
+            elif mv.get("movementType") == "deduction" and mv.get("remainingBalance", 0) > 0:
+                other_deductions += float(mv.get("remainingBalance", 0.0))
+        
+        descuentos_totales = loan_deductions + advance_deductions + other_deductions
+        monto_neto_a_pagar = max(0.0, monto_total - descuentos_totales)
+
         totales = {
             "montoPrestaciones": round(monto_prestaciones, 2),
             "montoDerechosAdquiridos": round(monto_derechos, 2),
@@ -541,6 +567,11 @@ class LiquidacionService:
             "montoGravableTSS": round(monto_gravable_tss, 2),
             "montoGravableISR": round(monto_gravable_isr, 2),
             "montoExento": round(monto_exento, 2),
+            "loanDeductions": round(loan_deductions, 2),
+            "advanceDeductions": round(advance_deductions, 2),
+            "otherDeductions": round(other_deductions, 2),
+            "montoDescuentos": round(descuentos_totales, 2),
+            "montoNetoAPagar": round(monto_neto_a_pagar, 2),
         }
 
         from uuid import uuid4

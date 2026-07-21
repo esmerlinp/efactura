@@ -589,7 +589,8 @@ class PayrollService:
         return round((base_salary / 12.0) * months_worked, 2)
 
     @classmethod
-    def calculate_vacation_days(cls, hire_date_str: str, today: Optional[date] = None) -> int:
+    def calculate_vacation_days(cls, hire_date_str: str, today: Optional[date] = None,
+                                taken_days: int = 0) -> int:
         """
         Calcula días de vacaciones acumulados según Ley 16-92.
 
@@ -597,8 +598,13 @@ class PayrollService:
         - Más de 5 años: 18 días hábiles por año
         - Proporcional si no ha cumplido el año
 
+        Args:
+            hire_date_str: Fecha de contratación (YYYY-MM-DD).
+            today: Fecha de referencia (por defecto hoy).
+            taken_days: Días ya tomados y aprobados a descontar.
+
         Returns:
-            Días hábiles acumulados disponibles.
+            Días hábiles disponibles (acumulados - tomados).
         """
         if today is None:
             today = date.today()
@@ -632,7 +638,8 @@ class PayrollService:
         days_proportional = max(0, round(((today - last_anniversary).days / 365.0) * days_per_year))
         total += days_proportional
 
-        return total
+        total -= taken_days
+        return max(0, total)
 
     @classmethod
     def calculate_severance(cls, base_salary: float, hire_date_str: str, termination_date_str: str = "") -> dict:
@@ -856,16 +863,35 @@ class PayrollService:
 
         retroactive_gross = round(salary_diff * months_retroactive, 2)
 
-        # Calcular el neto retroactivo (aproximado, sin recálculo mes a mes)
-        monthly_diff_line = cls.calculate_payroll_line(
-            base_salary=new_salary,
-            tax_rates=tax_rates,
-        )
-        original_line = cls.calculate_payroll_line(
-            base_salary=base_salary,
-            tax_rates=tax_rates,
-        )
-        monthly_net_diff = round(monthly_diff_line["netSalary"] - original_line["netSalary"], 2)
+        from app.services.concept_engine import ConceptEngine, TSSContext, ISRContext
+        params = {
+            "afp_salary_cap": r.get("afp_salary_cap", 464460.0),
+            "sfs_salary_cap": r.get("sfs_salary_cap", 232230.0),
+            "afp_employee_rate": r.get("afp_employee_rate", 0.0287),
+            "sfs_employee_rate": r.get("sfs_employee_rate", 0.0304),
+            "afp_employer_rate": r.get("afp_employer_rate", 0.0710),
+            "sfs_employer_rate": r.get("sfs_employer_rate", 0.0709),
+            "srl_employer_rate": r.get("srl_employer_rate", 0.0120),
+            "infotep_rate": r.get("infotep_rate", 0.01),
+            "min_salary": r.get("min_salary", 23223.0),
+            "education_deduction": r.get("education_deduction", 50000.0),
+            "isr_table": r.get("isr_table", []),
+        }
+        is_q = employee.get("paymentFrequency", "mensual") in ("quincenal", "semanal")
+
+        def _calc_net_for_salary(sal):
+            tss_ctx = TSSContext(base_salary=sal, gross_income=sal, is_quincenal=is_q)
+            afp_emp = ConceptEngine.resolve_employee_tss("AFP_EMPLEADO", tss_ctx, params)
+            sfs_emp = ConceptEngine.resolve_employee_tss("SFS_EMPLEADO", tss_ctx, params)
+            gross_after_tss = max(0, sal - afp_emp - sfs_emp)
+            isr_ctx = ISRContext(gross_income=gross_after_tss, is_quincenal=is_q,
+                                 afp_deduction=afp_emp, sfs_deduction=sfs_emp)
+            isr = ConceptEngine.resolve_isr(isr_ctx, params)
+            return round(sal - afp_emp - sfs_emp - isr, 2), round(afp_emp + sfs_emp + isr, 2)
+
+        old_net, _ = _calc_net_for_salary(base_salary)
+        new_net, _ = _calc_net_for_salary(new_salary)
+        monthly_net_diff = round(new_net - old_net, 2)
         retroactive_net = round(monthly_net_diff * months_retroactive, 2)
 
         details = []
@@ -1167,6 +1193,124 @@ class PayrollService:
             })
 
         return lines
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # PROVISIONES CONTABLES DE NÓMINA (DEVENGADO)
+    # ═══════════════════════════════════════════════════════════════════════
+
+    @classmethod
+    def build_vacation_provision_lines(cls, employees: list, tax_rates: dict = None,
+                                       month_label: str = "") -> list:
+        lines = []
+        r = cls.get_rates(tax_rates)
+        total_provision = 0.0
+        for emp in employees:
+            base = float(emp.get("baseSalary", emp.get("salary", 0)))
+            if base <= 0:
+                continue
+            monthly_provision = round(base / 12.0, 2)
+            total_provision += monthly_provision
+        if total_provision <= 0:
+            return lines
+        lines.append({
+            "accountCode": r.get("account_vacation_expense", "6.1.1.05"),
+            "accountName": "Provisión vacaciones",
+            "debit": round(total_provision, 2), "credit": 0.00,
+            "description": f"Provisión mensual de vacaciones {month_label}",
+        })
+        lines.append({
+            "accountCode": r.get("account_vacation_payable", "2.1.2.1.03"),
+            "accountName": "Vacaciones por pagar (provisión)",
+            "debit": 0.00, "credit": round(total_provision, 2),
+            "description": f"Provisión mensual de vacaciones {month_label}",
+        })
+        return lines
+
+    @classmethod
+    def build_christmas_bonus_provision_lines(cls, employees: list, tax_rates: dict = None,
+                                              month_label: str = "") -> list:
+        lines = []
+        r = cls.get_rates(tax_rates)
+        total_provision = 0.0
+        for emp in employees:
+            base = float(emp.get("baseSalary", emp.get("salary", 0)))
+            if base <= 0:
+                continue
+            monthly_provision = round(base / 12.0, 2)
+            total_provision += monthly_provision
+        if total_provision <= 0:
+            return lines
+        lines.append({
+            "accountCode": r.get("account_christmas_expense", "6.1.1.02"),
+            "accountName": "Provisión salario de navidad",
+            "debit": round(total_provision, 2), "credit": 0.00,
+            "description": f"Provisión mensual de regalía pascual {month_label}",
+        })
+        lines.append({
+            "accountCode": r.get("account_christmas_payable", "2.1.2.1.01"),
+            "accountName": "Regalía pascual por pagar (provisión)",
+            "debit": 0.00, "credit": round(total_provision, 2),
+            "description": f"Provisión mensual de regalía pascual {month_label}",
+        })
+        return lines
+
+    @classmethod
+    def generate_monthly_provisions(cls, owner_uid: str, month_label: str = "",
+                                     sandbox: bool = True) -> dict:
+        from app.services.accounting_service import AccountingService
+        from app.services import hr_data_service as hr
+        from app.services.db_service import DatabaseService
+
+        employees = [e for e in hr.get_employees(owner_uid, sandbox=sandbox) if e.get("status") == "activo"]
+        if not employees:
+            return {"vacationEntry": None, "christmasEntry": None, "note": "Sin empleados activos"}
+
+        tax_rates = hr.get_tax_rates(owner_uid, sandbox=sandbox)
+        AccountingService.seed_default_accounts(owner_uid)
+        accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+
+        results = {}
+        vac_lines = cls.build_vacation_provision_lines(employees, tax_rates, month_label)
+        if vac_lines:
+            vac_full = []
+            for al in vac_lines:
+                acc = next((a for a in accounts if a.get("code") == al["accountCode"]), None)
+                if acc:
+                    vac_full.append({
+                        "accountId": acc["id"], "accountCode": al["accountCode"],
+                        "accountName": al["accountName"], "debit": al["debit"],
+                        "credit": al["credit"], "description": al["description"],
+                    })
+            if vac_full:
+                results["vacationEntry"] = AccountingService.generate_entry(owner_uid, {
+                    "entryType": "provision",
+                    "date": "", "concept": f"Provisión mensual de vacaciones {month_label}",
+                    "referenceType": "payroll_provision", "referenceId": f"vac-{month_label}",
+                    "referenceNumber": month_label, "lines": vac_full,
+                    "createdBy": "system",
+                }, sandbox=sandbox)
+
+        chr_lines = cls.build_christmas_bonus_provision_lines(employees, tax_rates, month_label)
+        if chr_lines:
+            chr_full = []
+            for al in chr_lines:
+                acc = next((a for a in accounts if a.get("code") == al["accountCode"]), None)
+                if acc:
+                    chr_full.append({
+                        "accountId": acc["id"], "accountCode": al["accountCode"],
+                        "accountName": al["accountName"], "debit": al["debit"],
+                        "credit": al["credit"], "description": al["description"],
+                    })
+            if chr_full:
+                results["christmasEntry"] = AccountingService.generate_entry(owner_uid, {
+                    "entryType": "provision",
+                    "date": "", "concept": f"Provisión mensual de regalía pascual {month_label}",
+                    "referenceType": "payroll_provision", "referenceId": f"chr-{month_label}",
+                    "referenceNumber": month_label, "lines": chr_full,
+                    "createdBy": "system",
+                }, sandbox=sandbox)
+
+        return results
 
     # ═══════════════════════════════════════════════════════════════════════
     # VALIDACIONES PRE-CIERRE FISCAL

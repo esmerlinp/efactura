@@ -616,20 +616,78 @@ def reconcile_complete(recon_id):
         return render_template('auth/restricted.html', feature_name="Conciliación Bancaria", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    user = session.get('user', {})
 
     recon = DatabaseService.get_reconciliation(owner_uid, recon_id, sandbox=sandbox)
     if not recon:
         flash('Conciliación no encontrada.', 'error')
         return redirect(url_for('web_banks.reconcile_list'))
 
-    if recon.get("difference", 0) == 0.0:
+    diff = recon.get("difference", 0.0)
+
+    if diff == 0.0:
         recon["status"] = "conciliada"
         flash('¡Conciliación completada con éxito! El saldo cuadra perfectamente.', 'success')
     else:
         recon["status"] = "con_diferencias"
-        flash(f'Conciliación marcada como completada con una diferencia de RD$ {recon["difference"]:,.2f}. Revisa las discrepancias.', 'warning')
+        flash(f'Conciliación marcada como completada con una diferencia de RD$ {diff:,.2f}. Revisa las discrepancias.', 'warning')
 
     DatabaseService.save_reconciliation(owner_uid, recon_id, recon, sandbox=sandbox)
+
+    if abs(diff) > 0.01:
+        try:
+            from app.services.accounting_service import AccountingService, _find_account_by_usage, _find_account_by_usages
+            from app.services.db_service import DatabaseService as DBS
+            DBSr = DatabaseService
+            accounts_list = DBSr.get_chart_of_accounts(owner_uid)
+            diff_account = next((a for a in accounts_list if a.get("code") == "6.4.03"), None) or \
+                           _find_account_by_usage(accounts_list, "ajuste_inventario") or \
+                           next((a for a in accounts_list if "ajuste" in (a.get("name") or "").lower()), None)
+            bank_account = _find_account_by_usage(accounts_list, "banco") or \
+                           _find_account_by_usages(accounts_list, ["banco", "efectivo"])
+            if diff_account and bank_account:
+                lines = []
+                if diff > 0:
+                    lines.append({
+                        "accountId": bank_account.get("id"), "accountCode": bank_account.get("code", ""),
+                        "accountName": bank_account.get("name", "Banco"),
+                        "debit": round(diff, 2), "credit": 0.00,
+                        "description": f"Ajuste por conciliación bancaria — diferencia positiva"
+                    })
+                    lines.append({
+                        "accountId": diff_account.get("id"), "accountCode": diff_account.get("code", ""),
+                        "accountName": diff_account.get("name", "Ajuste conciliación"),
+                        "debit": 0.00, "credit": round(diff, 2),
+                        "description": f"Conciliación {recon.get('accountName', '')} — {recon_id}"
+                    })
+                else:
+                    lines.append({
+                        "accountId": diff_account.get("id"), "accountCode": diff_account.get("code", ""),
+                        "accountName": diff_account.get("name", "Ajuste conciliación"),
+                        "debit": round(abs(diff), 2), "credit": 0.00,
+                        "description": f"Ajuste por conciliación bancaria — diferencia negativa"
+                    })
+                    lines.append({
+                        "accountId": bank_account.get("id"), "accountCode": bank_account.get("code", ""),
+                        "accountName": bank_account.get("name", "Banco"),
+                        "debit": 0.00, "credit": round(abs(diff), 2),
+                        "description": f"Conciliación {recon.get('accountName', '')} — {recon_id}"
+                    })
+                AccountingService.generate_entry(owner_uid, {
+                    "entryType": "adjustment",
+                    "date": recon.get("endDate", ""),
+                    "concept": f"Ajuste por conciliación bancaria de {recon.get('accountName', '')} — diferencia RD$ {abs(diff):,.2f}",
+                    "referenceType": "bank_reconciliation",
+                    "referenceId": recon_id,
+                    "referenceNumber": recon.get("accountName", ""),
+                    "lines": lines,
+                    "createdBy": user.get("email", "system"),
+                }, sandbox=sandbox)
+                flash('Asiento de ajuste por diferencia de conciliación generado automáticamente.', 'info')
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Error generando asiento de conciliación: {e}")
+
     return redirect(url_for('web_banks.reconcile_detail', recon_id=recon_id))
 
 @web_banks_bp.route('/banks/reconcile/<recon_id>/delete', methods=['POST'])

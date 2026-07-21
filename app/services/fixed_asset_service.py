@@ -196,9 +196,25 @@ class FixedAssetService:
         diff = disposal_amount - book_value
         if abs(diff) > 0.01:
             if diff > 0:
-                gain_account = _find_account_by_usage(accounts, None) or None
+                gain_account = next((a for a in accounts if a.get("code") == "4.2.2"), None) or \
+                               next((a for a in accounts if "ingreso" in (a.get("name") or "").lower()), None)
+                if gain_account:
+                    lines.append({
+                        "accountId": gain_account.get("id"), "accountCode": gain_account.get("code", ""),
+                        "accountName": f"Ganancia por venta de {asset.get('name', 'Activo')}",
+                        "debit": 0.00, "credit": round(diff, 2),
+                        "description": f"Utilidad en disposición de {asset.get('name')}"
+                    })
             else:
-                loss_account = _find_account_by_usage(accounts, None) or None
+                loss_account = next((a for a in accounts if a.get("code") == "6.4.04"), None) or \
+                               next((a for a in accounts if "pérdida" in (a.get("name") or "").lower()), None)
+                if loss_account:
+                    lines.append({
+                        "accountId": loss_account.get("id"), "accountCode": loss_account.get("code", ""),
+                        "accountName": f"Pérdida por venta de {asset.get('name', 'Activo')}",
+                        "debit": round(abs(diff), 2), "credit": 0.00,
+                        "description": f"Pérdida en disposición de {asset.get('name')}"
+                    })
         if disposal_amount > 0:
             bank_account = _find_account_by_usage(accounts, "banco") or _find_account_by_usage(accounts, "efectivo")
             if bank_account:

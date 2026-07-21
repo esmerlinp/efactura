@@ -399,6 +399,113 @@ class AccountingService:
         return {"rows": rows, "totalDebit": round(total_debit, 2), "totalCredit": round(total_credit, 2)}
 
     @classmethod
+    def get_cash_flow(cls, owner_uid, date_from=None, date_to=None, accounts=None, entries=None, country="DO"):
+        if accounts is None:
+            accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+            if not accounts:
+                cls.seed_default_accounts(owner_uid, country=country)
+                accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+        if entries is None:
+            entries_container = DatabaseService.get_accounting_entries(owner_uid)
+        else:
+            entries_container = entries
+
+        account_map = {a["id"]: a for a in accounts}
+
+        def _balance_by_usage(usage_list, at_date=None):
+            total = 0.0
+            ids = {a["id"] for a in accounts if a.get("usage") in usage_list}
+            for e in (entries_container or []):
+                e_date = e.get("date", "")
+                if at_date and e_date > at_date:
+                    break
+                for line in e.get("lines", []):
+                    if line.get("accountId") in ids:
+                        total += float(line.get("debit", 0)) - float(line.get("credit", 0))
+            return round(total, 2)
+
+        bs = cls.get_balance_sheet(owner_uid, date=date_to, accounts=accounts, entries=entries_container, country=country)
+        is_stmt = cls.get_income_statement(owner_uid, date_from=date_from, date_to=date_to, accounts=accounts, entries=entries_container, country=country)
+        net_income = is_stmt.get("netIncome", 0)
+
+        cash_ids = {a["id"] for a in accounts if a.get("usage") in ("efectivo", "banco")}
+        cash_start = _balance_by_usage(("efectivo", "banco"), at_date=date_from) if date_from else 0
+        cash_end = _balance_by_usage(("efectivo", "banco"), at_date=date_to) if date_to else _balance_by_usage(("efectivo", "banco"))
+
+        depreciation_ids = {a["id"] for a in accounts if a.get("usage") == "depreciacion_acumulada"}
+        depreciation = 0.0
+        if depreciation_ids:
+            for e in (entries_container or []):
+                e_date = e.get("date", "")
+                if date_to and e_date > date_to:
+                    break
+                if date_from and e_date < date_from:
+                    continue
+                for line in e.get("lines", []):
+                    if line.get("accountId") in depreciation_ids:
+                        depreciation += float(line.get("credit", 0))
+
+        cxc_start = _balance_by_usage(("cxc",), at_date=date_from) if date_from else 0
+        cxc_end = _balance_by_usage(("cxc",), at_date=date_to) if date_to else _balance_by_usage(("cxc",))
+        cxc_change = cxc_start - cxc_end
+
+        inv_start = _balance_by_usage(("inventario",), at_date=date_from) if date_from else 0
+        inv_end = _balance_by_usage(("inventario",), at_date=date_to) if date_to else _balance_by_usage(("inventario",))
+        inv_change = inv_start - inv_end
+
+        cxp_start = _balance_by_usage(("cxp",), at_date=date_from) if date_from else 0
+        cxp_end = _balance_by_usage(("cxp",), at_date=date_to) if date_to else _balance_by_usage(("cxp",))
+        cxp_change = cxp_end - cxp_start
+
+        operating = round(net_income + depreciation + cxc_change + inv_change + cxp_change, 2)
+
+        ppe_ids = {a["id"] for a in accounts if a.get("usage") in ("ppye",)}
+        ppe_purchases = 0.0
+        if ppe_ids:
+            for e in (entries_container or []):
+                e_date = e.get("date", "")
+                if date_to and e_date > date_to:
+                    break
+                if date_from and e_date < date_from:
+                    continue
+                for line in e.get("lines", []):
+                    if line.get("accountId") in ppe_ids:
+                        ppe_purchases -= float(line.get("debit", 0))
+        ppe_purchases = round(ppe_purchases, 2)
+
+        investing = ppe_purchases
+
+        financing = 0.0
+
+        net_cash_change = round(operating + investing + financing, 2)
+
+        detail = [
+            {"label": "Utilidad neta del ejercicio", "amount": net_income},
+            {"label": "Depreciación y amortización", "amount": depreciation},
+            {"label": "Cambio en cuentas por cobrar", "amount": cxc_change},
+            {"label": "Cambio en inventarios", "amount": inv_change},
+            {"label": "Cambio en cuentas por pagar", "amount": cxp_change},
+        ]
+
+        return {
+            "netIncome": net_income,
+            "operatingCashFlow": operating,
+            "investingCashFlow": investing,
+            "financingCashFlow": financing,
+            "netCashChange": net_cash_change,
+            "cashStart": cash_start,
+            "cashEnd": cash_end,
+            "depreciation": depreciation,
+            "cxcChange": cxc_change,
+            "inventoryChange": inv_change,
+            "cxpChange": cxp_change,
+            "ppePurchases": ppe_purchases,
+            "detail": detail,
+            "dateFrom": date_from,
+            "dateTo": date_to,
+        }
+
+    @classmethod
     def void_entry(cls, owner_uid, entry_id, reason="", user_id="", sandbox=True):
         entry = DatabaseService.get_accounting_entry(owner_uid, entry_id, sandbox=sandbox)
         if not entry:

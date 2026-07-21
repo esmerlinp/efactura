@@ -296,3 +296,105 @@ class DGTService:
                     break
 
         return reinst_id
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # TSS-3-01 y TSS-3-02 — Planillas de Pago a la Tesorería de Seguridad Social
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    @staticmethod
+    def get_tss_3_01_data(owner_uid: str, period_key: str, sandbox: bool = True) -> dict:
+        """Genera los datos para la planilla TSS-3-01 (Resumen de Pago).
+        
+        Formato requerido por TSS para pago mensual de seguridad social.
+        """
+        periods = get_payroll_periods(owner_uid, sandbox=sandbox)
+        period = next((p for p in periods if p.get("periodKey") == period_key), None)
+        if not period:
+            return {"error": "Período no encontrado"}
+
+        lines = period.get("lines", [])
+        employees = {e["id"]: e for e in get_employees(owner_uid, sandbox=sandbox)}
+
+        total_afp_empleado = sum(float(l.get("afpEmployee", 0)) for l in lines)
+        total_sfs_empleado = sum(float(l.get("sfsEmployee", 0)) for l in lines)
+        total_afp_empleador = sum(float(l.get("afpEmployer", 0)) for l in lines)
+        total_sfs_empleador = sum(float(l.get("sfsEmployer", 0)) for l in lines)
+        total_srl = sum(float(l.get("srlEmployer", 0)) for l in lines)
+        total_infotep = sum(float(l.get("infotepEmployer", 0)) for l in lines)
+        total_isr = sum(float(l.get("isrRetention", 0)) for l in lines)
+        total_empleados = sum(1 for l in lines if l.get("employeeId") in employees)
+        total_salarios = sum(float(l.get("grossSalary", 0)) for l in lines)
+
+        return {
+            "periodKey": period_key,
+            "totalEmployees": total_empleados,
+            "totalSalaries": round(total_salarios, 2),
+            "afpEmployee": round(total_afp_empleado, 2),
+            "sfsEmployee": round(total_sfs_empleado, 2),
+            "afpEmployer": round(total_afp_empleador, 2),
+            "sfsEmployer": round(total_sfs_empleador, 2),
+            "srlEmployer": round(total_srl, 2),
+            "infotepEmployer": round(total_infotep, 2),
+            "isrRetention": round(total_isr, 2),
+            "totalEmployee": round(total_afp_empleado + total_sfs_empleado + total_isr, 2),
+            "totalEmployer": round(total_afp_empleador + total_sfs_empleador + total_srl + total_infotep, 2),
+            "grandTotal": round(total_afp_empleado + total_sfs_empleado + total_isr + 
+                               total_afp_empleador + total_sfs_empleador + total_srl + total_infotep, 2),
+        }
+
+    @staticmethod
+    def get_tss_3_02_data(owner_uid: str, period_key: str, sandbox: bool = True) -> list:
+        """Genera los datos para la planilla TSS-3-02 (Relación de Empleados).
+        
+        Lista cada empleado con sus aportes individuales.
+        """
+        periods = get_payroll_periods(owner_uid, sandbox=sandbox)
+        period = next((p for p in periods if p.get("periodKey") == period_key), None)
+        if not period:
+            return []
+
+        lines = period.get("lines", [])
+        employees = {e["id"]: e for e in get_employees(owner_uid, sandbox=sandbox)}
+        rows = []
+
+        for l in lines:
+            emp_id = l.get("employeeId", "")
+            emp = employees.get(emp_id, {})
+            rows.append({
+                "cedula": (emp.get("cedula") or emp.get("idNumber", "")).replace("-", ""),
+                "nombre": emp.get("fullName", ""),
+                "tssKey": emp.get("tssKey", ""),
+                "salary": float(l.get("baseSalary", 0)),
+                "grossSalary": float(l.get("grossSalary", 0)),
+                "afpEmployee": float(l.get("afpEmployee", 0)),
+                "sfsEmployee": float(l.get("sfsEmployee", 0)),
+                "isrRetention": float(l.get("isrRetention", 0)),
+                "afpEmployer": float(l.get("afpEmployer", 0)),
+                "sfsEmployer": float(l.get("sfsEmployer", 0)),
+                "srlEmployer": float(l.get("srlEmployer", 0)),
+                "infotepEmployer": float(l.get("infotepEmployer", 0)),
+                "netSalary": float(l.get("netSalary", 0)),
+            })
+
+        return rows
+
+    @staticmethod
+    def export_tss_txt(owner_uid: str, period_key: str, sandbox: bool = True) -> str:
+        """Exporta datos TSS en formato TXT de columna fija para envío a TSS."""
+        summary = DGTService.get_tss_3_01_data(owner_uid, period_key, sandbox)
+        if "error" in summary:
+            return ""
+
+        lines = []
+        lines.append(f"TSS310|{period_key}|{summary['totalEmployees']}|{summary['totalSalaries']:.2f}|{summary['grandTotal']:.2f}")
+
+        details = DGTService.get_tss_3_02_data(owner_uid, period_key, sandbox)
+        for row in details:
+            lines.append(
+                f"TSS320|{row['cedula'][:15]:<15}|{row['nombre'][:60]:<60}|"
+                f"{row['tssKey'][:12]:<12}|{row['grossSalary']:>10.2f}|"
+                f"{row['afpEmployee']:>8.2f}|{row['sfsEmployee']:>8.2f}|"
+                f"{row['isrRetention']:>8.2f}|{row['netSalary']:>10.2f}"
+            )
+
+        return "\n".join(lines)

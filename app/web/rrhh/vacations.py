@@ -47,7 +47,11 @@ def vacation_new():
         start_date = request.form.get("startDate", "")
         end_date = request.form.get("endDate", "")
         business_days = PayrollService.calculate_business_days(start_date, end_date)
-        remaining = PayrollService.calculate_vacation_days(employee.get("hireDate", ""))
+        taken_days = sum(
+            r.get("days", 0) for r in hr.get_vacation_requests(owner_uid, sandbox=sandbox)
+            if r.get("employeeId") == emp_id and r.get("status") == "aprobada"
+        )
+        remaining = PayrollService.calculate_vacation_days(employee.get("hireDate", ""), taken_days=taken_days)
 
         req_id = str(uuid.uuid4())
         hr.save_vacation_request(owner_uid, req_id, {
