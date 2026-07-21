@@ -50,11 +50,25 @@ IMMUTABLE_STATUSES = ("cerrada", "cancelled")
 
 def _transition(period, to_status, comment="", owner_uid="", sandbox=True):
     user_email = session.get("user", {}).get("email", "")
+    user_uid = session.get("user", {}).get("uid", "")
     now_iso = datetime.now(timezone.utc).isoformat()
     from_status = period.get("status", "borrador")
 
     if to_status not in _VALID_TRANSITIONS.get(from_status, []):
         return False, f"Transición inválida: no se puede pasar de «{STATUS_LABELS.get(from_status, from_status)}» a «{STATUS_LABELS.get(to_status, to_status)}»."
+
+    if to_status == "aprobada":
+        calculator = period.get("calculatedBy", "")
+        if calculator and calculator == user_email:
+            return False, "Conflicto SoD: quien calculó la nómina no puede aprobarla. Otro miembro del equipo debe aprobar."
+    elif to_status == "contabilizada":
+        approver = period.get("approvedBy", "")
+        if approver and approver == user_email:
+            return False, "Conflicto SoD: quien aprobó la nómina no puede contabilizarla. Otro miembro del equipo debe contabilizar."
+    elif to_status == "pagada":
+        poster = period.get("postedBy", "")
+        if poster and poster == user_email:
+            return False, "Conflicto SoD: quien contabilizó la nómina no puede autorizar el pago. Otro miembro del equipo debe ejecutar el pago."
 
     period["status"] = to_status
     history = period.get("statusHistory", [])

@@ -1645,6 +1645,30 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             if request.form.get("referencedInvoiceTotal"):
                 invoice_dict["referencedInvoiceTotal"] = float(request.form.get("referencedInvoiceTotal", 0.0))
 
+        if invoice_dict.get("paymentType") == "Crédito" and not is_quotation:
+            client = DatabaseService.get_client(owner_uid, client_id, sandbox=sandbox)
+            credit_limit = float(client.get("creditLimit", 0) or 0) if client else 0
+            if credit_limit > 0:
+                all_client_invs = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, include_all=True)
+                open_cxc = sum(
+                    float(inv.get("remainingBalance", inv.get("netPayable", 0)))
+                    for inv in all_client_invs
+                    if inv.get("clientId") == client_id
+                    and inv.get("status") in ("Emitida", "Vencida", "Parcialmente Cobrada", "Revisión de Pago")
+                    and inv.get("paymentType") == "Crédito"
+                    and inv.get("id") != target_invoice_id
+                )
+                projected = open_cxc + invoice_dict.get("netPayable", 0)
+                if projected > credit_limit:
+                    flash(
+                        f'⚠️ El cliente {client_name} excedería su límite de crédito. '
+                        f'Límite: RD$ {credit_limit:,.2f} | CxC actual: RD$ {open_cxc:,.2f} | '
+                        f'Esta factura: RD$ {invoice_dict.get("netPayable", 0):,.2f} | '
+                        f'Total proyectado: RD$ {projected:,.2f}',
+                        'error'
+                    )
+                    return redirect(request.path)
+
         DatabaseService.save_invoice(owner_uid, target_invoice_id, invoice_dict, sandbox=sandbox)
         if idempotency_key:
             DatabaseService.save_idempotency_record(owner_uid, idempotency_key, {
@@ -1671,7 +1695,11 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             after=invoice_dict,
             sandbox=sandbox
         )
-        
+
+        if not existing_invoice and not is_quotation:
+            from app.utils.decorators import record_sod_from_session
+            record_sod_from_session('canInvoice', target_invoice_id, 'invoice')
+
         action = request.form.get('action')
         
         if is_quotation:
@@ -2744,123 +2772,147 @@ def pay_invoice_route(invoice_id):
         return redirect(url_for('web_invoices.list_invoices'))
         
     before_invoice = invoice.copy()
-    try:
-        amount = float(request.form.get('amount', invoice.get('remainingBalance', 0.0)))
-    except ValueError:
-        amount = 0.0
-        
     remaining_balance = float(invoice.get('remainingBalance', invoice.get('netPayable', 0.0) if invoice.get('status') == 'Cobrada' else 0.0))
-    
-    if amount <= 0.0:
-        flash('El monto a abonar debe ser mayor a cero.', 'error')
-        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
-        
-    payment_method = request.form.get('paymentMethod', 'Cheque / Transferencia')
-    
-    if payment_method == 'Efectivo':
-        bank = 'Caja Efectivo'
-        reference_number = 'Pago en Efectivo'
-    else:
-        bank = request.form.get('bank', 'Banco Popular Dominicano')
-        reference_number = request.form.get('referenceNumber', 'Abono Registrado')
-        
+
     mora_action = request.form.get('moraAction', 'perdonar')
     try:
         mora_amount = float(request.form.get('moraAmount', 0.0))
     except ValueError:
         mora_amount = 0.0
 
-    bank_account_id = request.form.get('bankAccountId', '')
+    use_split = request.form.get('splitPayment') == '1'
+    payments = []
 
-    payment_dict = {
-        "paymentMethod": payment_method,
-        "bank": bank,
-        "referenceNumber": reference_number,
-        "paymentDate": datetime.now(timezone.utc).isoformat(),
-        "registeredBy": session['user']['email'],
-        "bankAccountId": bank_account_id
-    }
+    if use_split:
+        idx = 0
+        while True:
+            p_key = f"payments[{idx}]"
+            p_amount_str = request.form.get(f"{p_key}[amount]", "")
+            if not p_amount_str:
+                break
+            try:
+                p_amount = float(p_amount_str)
+            except ValueError:
+                p_amount = 0.0
+            if p_amount <= 0:
+                idx += 1
+                continue
+            p_method = request.form.get(f"{p_key}[paymentMethod]", "Cheque / Transferencia")
+            p_bank = request.form.get(f"{p_key}[bank]", "Banco Popular Dominicano") if p_method != 'Efectivo' else 'Caja Efectivo'
+            p_ref = request.form.get(f"{p_key}[referenceNumber]", "Abono Registrado") if p_method != 'Efectivo' else 'Pago en Efectivo'
+            p_bank_id = request.form.get(f"{p_key}[bankAccountId]", "")
+            payments.append({
+                "amount": p_amount,
+                "paymentMethod": p_method,
+                "bank": p_bank,
+                "referenceNumber": p_ref,
+                "bankAccountId": p_bank_id,
+                "paymentDate": datetime.now(timezone.utc).isoformat(),
+                "registeredBy": session['user']['email'],
+            })
+            idx += 1
+    else:
+        try:
+            amount = float(request.form.get('amount', remaining_balance))
+        except ValueError:
+            amount = 0.0
+        if amount <= 0.0:
+            flash('El monto a abonar debe ser mayor a cero.', 'error')
+            return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+        payment_method = request.form.get('paymentMethod', 'Cheque / Transferencia')
+        if payment_method == 'Efectivo':
+            bank = 'Caja Efectivo'
+            reference_number = 'Pago en Efectivo'
+        else:
+            bank = request.form.get('bank', 'Banco Popular Dominicano')
+            reference_number = request.form.get('referenceNumber', 'Abono Registrado')
+        bank_account_id = request.form.get('bankAccountId', '')
+        payments.append({
+            "amount": amount,
+            "paymentMethod": payment_method,
+            "bank": bank,
+            "referenceNumber": reference_number,
+            "bankAccountId": bank_account_id,
+            "paymentDate": datetime.now(timezone.utc).isoformat(),
+            "registeredBy": session['user']['email'],
+        })
+
+    if not payments:
+        flash('No se especificaron métodos de pago.', 'error')
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+
+    total_payment = sum(p["amount"] for p in payments)
+    if total_payment <= 0.0:
+        flash('El monto total a abonar debe ser mayor a cero.', 'error')
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
     if mora_action == 'cobrar' and mora_amount > 0:
-        capital_amount = max(0.0, amount - mora_amount)
+        capital_amount = total_payment - mora_amount
         if capital_amount > remaining_balance + 0.01:
-            flash(f'El monto de capital del abono (RD$ {capital_amount:,.2f}) no puede superar el balance pendiente (RD$ {remaining_balance:,.2f}).', 'error')
+            flash(f'El monto de capital (RD$ {capital_amount:,.2f}) no puede superar el balance pendiente (RD$ {remaining_balance:,.2f}).', 'error')
             return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
-            
-        payment_dict["amount"] = capital_amount
-        payment_dict["moraAction"] = "cobrado_separado"
-        payment_dict["moraAmount"] = mora_amount
-        
-        try:
-            DatabaseService.register_invoice_payment(owner_uid, invoice_id, payment_dict, sandbox=sandbox)
-            new_balance = max(0.0, remaining_balance - capital_amount)
-            if new_balance <= 0.01:
-                flash(f'¡Abono de RD$ {capital_amount:,.2f} + RD$ {mora_amount:,.2f} de mora cobrado! ¡Factura liquidada y saldada al 100% con éxito!', 'success')
-            else:
-                flash(f'¡Abono de RD$ {capital_amount:,.2f} + RD$ {mora_amount:,.2f} de mora cobrado con éxito! Pendiente restante: RD$ {new_balance:,.2f}.', 'success')
-            flash(f'⚠️ Mora de RD$ {mora_amount:,.2f} cobrada. Debe emitir un e-CF (B02/E32) adicional por el recargo de mora.', 'warning')
-            
-            # Registrar evento de auditoría
-            try:
-                updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
-                from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_FACTURAS
-                AuditService.log_from_request(
-                    owner_uid=owner_uid,
-                    action="PAYMENT",
-                    module=MODULE_FACTURAS,
-                    entity_id=invoice_id,
-                    entity_label=f"Cobro registrado: RD$ {capital_amount:,.2f} (Capital) + RD$ {mora_amount:,.2f} (Mora) - {payment_method}",
-                    user_session=session.get('user', {}),
-                    before=before_invoice,
-                    after=updated_invoice,
-                    sandbox=sandbox
-                )
-            except Exception as ae:
-                print(f"⚠️ Error al registrar auditoría de cobro manual con mora: {ae}")
-        except Exception as e:
-            flash(f'Error al registrar el cobro: {str(e)}', 'error')
+        effective_total = capital_amount
     else:
-        if amount > remaining_balance + 0.01:
-            flash(f'El monto del abono (RD$ {amount:,.2f}) no puede superar el balance pendiente (RD$ {remaining_balance:,.2f}).', 'error')
+        if total_payment > remaining_balance + 0.01:
+            flash(f'El monto total del abono (RD$ {total_payment:,.2f}) no puede superar el balance pendiente (RD$ {remaining_balance:,.2f}).', 'error')
             return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
-            
-        payment_dict["amount"] = amount
-        if mora_amount > 0:
+        effective_total = total_payment
+
+    all_success = True
+    for p in payments:
+        payment_dict = {
+            "paymentMethod": p["paymentMethod"],
+            "bank": p["bank"],
+            "referenceNumber": p["referenceNumber"],
+            "paymentDate": p["paymentDate"],
+            "registeredBy": p["registeredBy"],
+            "bankAccountId": p.get("bankAccountId", ""),
+            "amount": p["amount"],
+        }
+        if mora_action == 'cobrar' and mora_amount > 0:
+            payment_dict["moraAction"] = "cobrado_separado"
+        elif mora_amount > 0:
             payment_dict["moraAction"] = "perdonado"
             payment_dict["moraForgiven"] = mora_amount
-            payment_dict["moraForgivenNote"] = request.form.get('moraNote', '').strip() or 'Mora perdonada por acuerdo comercial'
-            
+            payment_dict["moraForgivenNote"] = request.form.get('moraNote', '').strip() or 'Mora perdonada'
         try:
             DatabaseService.register_invoice_payment(owner_uid, invoice_id, payment_dict, sandbox=sandbox)
-            new_balance = max(0.0, remaining_balance - amount)
-            if new_balance <= 0.01:
-                flash('¡Factura liquidada y saldada al 100% con éxito!', 'success')
-            else:
-                flash(f'¡Abono de RD$ {amount:,.2f} registrado con éxito! Pendiente restante: RD$ {new_balance:,.2f}.', 'success')
-                
-            if mora_amount > 0:
-                flash(f'🤝 Mora de RD$ {mora_amount:,.2f} perdonada. Se registró solo el capital.', 'info')
-                
-            # Registrar evento de auditoría
-            try:
-                updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
-                from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_FACTURAS
-                AuditService.log_from_request(
-                    owner_uid=owner_uid,
-                    action="PAYMENT",
-                    module=MODULE_FACTURAS,
-                    entity_id=invoice_id,
-                    entity_label=f"Cobro registrado: RD$ {amount:,.2f} - {payment_method}",
-                    user_session=session.get('user', {}),
-                    before=before_invoice,
-                    after=updated_invoice,
-                    sandbox=sandbox
-                )
-            except Exception as ae:
-                print(f"⚠️ Error al registrar auditoría de cobro manual: {ae}")
         except Exception as e:
-            flash(f'Error al registrar el cobro: {str(e)}', 'error')
-            
+            all_success = False
+            flash(f'Error al registrar cobro ({p["paymentMethod"]}): {str(e)}', 'error')
+
+    if not all_success:
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+
+    new_balance = max(0.0, remaining_balance - effective_total)
+    methods_str = ', '.join(f"{p['paymentMethod']} RD$ {p['amount']:,.2f}" for p in payments)
+    if new_balance <= 0.01:
+        flash(f'¡Factura liquidada al 100%! Pagos: {methods_str}', 'success')
+    else:
+        flash(f'Abonos registrados: {methods_str}. Pendiente: RD$ {new_balance:,.2f}.', 'success')
+
+    if mora_action == 'cobrar' and mora_amount > 0:
+        flash(f'⚠️ Mora de RD$ {mora_amount:,.2f} cobrada. Debe emitir e-CF adicional por recargo.', 'warning')
+    elif mora_amount > 0:
+        flash(f'🤝 Mora de RD$ {mora_amount:,.2f} perdonada.', 'info')
+
+    try:
+        updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_FACTURAS
+        AuditService.log_from_request(
+            owner_uid=owner_uid,
+            action="PAYMENT",
+            module=MODULE_FACTURAS,
+            entity_id=invoice_id,
+            entity_label=f"Cobro registrado: {methods_str}",
+            user_session=session.get('user', {}),
+            before=before_invoice,
+            after=updated_invoice,
+            sandbox=sandbox
+        )
+    except Exception:
+        pass
+
     return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
 @web_invoices_bp.route('/invoices/<invoice_id>/forgive-mora', methods=['POST'])
@@ -4858,7 +4910,14 @@ def void_invoice_route(invoice_id):
         return render_template('auth/restricted.html', feature_name="Anular Comprobante", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
-    
+    user = session['user']
+
+    from app.utils.decorators import check_sod as check_sod_func
+    sod_ok, sod_msg = check_sod_func(owner_uid, user.get('uid', ''), 'canVoidInvoice', invoice_id, 'invoice')
+    if not sod_ok:
+        flash(sod_msg, 'error')
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+
     invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
     if not invoice:
         flash('Factura no encontrada.', 'error')
@@ -4924,6 +4983,28 @@ def void_invoice_route(invoice_id):
                 logging.getLogger(__name__).error(f"Error al generar reverso contable: {e}")
                 flash('⚠️ No se pudo generar el asiento contable reverso. Revise el diario manualmente.', 'warning')
 
+            # Revertir pagos y saldos bancarios
+            try:
+                payments = DatabaseService.get_invoice_payments(owner_uid, invoice_id, sandbox=sandbox)
+                for payment in payments:
+                    p_amount = float(payment.get("amount", 0))
+                    bank_id = payment.get("bankAccountId", "")
+                    if bank_id and p_amount > 0:
+                        bank_acc = DatabaseService.get_bank_account(owner_uid, bank_id, sandbox=sandbox)
+                        if bank_acc:
+                            new_balance = max(0, bank_acc.get("currentBalance", 0) - p_amount)
+                            DatabaseService.save_bank_account(owner_uid, bank_id, {
+                                **bank_acc,
+                                "currentBalance": new_balance
+                            }, sandbox=sandbox)
+                    payment["status"] = "reversed"
+                    payment["reversedAt"] = datetime.now(timezone.utc).isoformat()
+                if payments:
+                    invoice["payments"] = payments
+            except Exception as rev_err:
+                import logging
+                logging.getLogger(__name__).error(f"Error al revertir pagos: {rev_err}")
+
             from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_FACTURAS
             AuditService.log_from_request(
                 owner_uid=owner_uid,
@@ -4936,7 +5017,10 @@ def void_invoice_route(invoice_id):
                 after=invoice,
                 sandbox=sandbox
             )
-            
+
+            from app.utils.decorators import record_sod_from_session
+            record_sod_from_session('canVoidInvoice', invoice_id, 'invoice')
+
             # Registrar anulación local
             cancellation_code = res.get("cancellationCode", f"CAN-{uuid.uuid4().hex[:8].upper()}")
             DatabaseService.save_cancellation(owner_uid, str(uuid.uuid4()), {

@@ -284,7 +284,12 @@
             {% if t.montoComisiones %}<div class="hr-info-item"><span class="hr-info-label">Comisiones</span><span class="hr-info-value">RD$ {{ "{:,.2f}".format(t.montoComisiones|float) }}</span></div>{% endif %}
             {% if t.montoBonificaciones %}<div class="hr-info-item"><span class="hr-info-label">Bonificaciones</span><span class="hr-info-value">RD$ {{ "{:,.2f}".format(t.montoBonificaciones|float) }}</span></div>{% endif %}
             {% if t.montoHorasExtras %}<div class="hr-info-item"><span class="hr-info-label">Horas extras</span><span class="hr-info-value">RD$ {{ "{:,.2f}".format(t.montoHorasExtras|float) }}</span></div>{% endif %}
-            {% if t.montoDescuentos %}<div class="hr-info-item"><span class="hr-info-label">Descuentos</span><span class="hr-info-value" style="color:var(--danger);">RD$ {{ "{:,.2f}".format(t.montoDescuentos|float) }}</span></div>{% endif %}
+            {% if settlement.descuentos > 0 %}
+                <div class="hr-info-item"><span class="hr-info-label">Total Descuentos</span><span class="hr-info-value" style="color:var(--danger);">RD$ {{ "{:,.2f}".format(settlement.descuentos|float) }}</span></div>
+                {% if settlement.loanDeductions > 0 %}<div class="hr-info-item"><span class="hr-info-label" style="font-size:0.75rem; margin-left:8px;">↳ Préstamos</span><span class="hr-info-value" style="color:var(--danger); font-size:0.75rem;">RD$ {{ "{:,.2f}".format(settlement.loanDeductions|float) }}</span></div>{% endif %}
+                {% if settlement.advanceDeductions > 0 %}<div class="hr-info-item"><span class="hr-info-label" style="font-size:0.75rem; margin-left:8px;">↳ Adelantos</span><span class="hr-info-value" style="color:var(--danger); font-size:0.75rem;">RD$ {{ "{:,.2f}".format(settlement.advanceDeductions|float) }}</span></div>{% endif %}
+                {% if settlement.otherDeductions > 0 %}<div class="hr-info-item"><span class="hr-info-label" style="font-size:0.75rem; margin-left:8px;">↳ Otras Deducciones</span><span class="hr-info-value" style="color:var(--danger); font-size:0.75rem;">RD$ {{ "{:,.2f}".format(settlement.otherDeductions|float) }}</span></div>{% endif %}
+            {% endif %}
         </div>
         <div style="margin-top:12px; padding-top:12px; border-top:2px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;">
             <span style="font-size:0.85rem; color:var(--text-secondary);">
@@ -292,7 +297,7 @@
                 {% if t.montoGravableISR %}ISR: RD$ {{ "{:,.2f}".format(t.montoGravableISR|float) }}{% endif %}
                 {% if t.montoExento %} &middot; Exento: RD$ {{ "{:,.2f}".format(t.montoExento|float) }}{% endif %}
             </span>
-            <span style="font-size:1rem; font-weight:800; color:var(--accent-emerald);">Neto: RD$ {{ "{:,.2f}".format(t.montoNeto|float) }}</span>
+            <span style="font-size:1rem; font-weight:800; color:var(--accent-emerald);">Neto: RD$ {{ "{:,.2f}".format(settlement.montoNetoAPagar|float) }}</span>
         </div>
     </div>
     {% endif %}

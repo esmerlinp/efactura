@@ -17,6 +17,7 @@ from app.services.offboarding_service import OffboardingService
 from app.services.payroll_audit_service import log_action
 from app.models.offboarding import OFFBOARDING_STATES
 from app.services.liquidacion_service import LiquidacionService
+from app.services.recurring_service import get_recurring_movements
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
@@ -461,8 +462,11 @@ def offboarding_settlement_calculate(request_id):
         months_ytd = datetime.now().month
     salaries_ytd = [base_salary] * max(1, months_ytd)
 
+    employee_id = req.get("employeeId", "")
+    recurring_movements = get_recurring_movements(owner_uid, employee_id=employee_id, sandbox=sandbox)
+
     result = LiquidacionService.calcular_liquidacion(
-        employee_id=req.get("employeeId", ""),
+        employee_id=employee_id,
         employee_name=employee.get("fullName", ""),
         cedula=employee.get("cedula", ""),
         hire_date=hire_date,
@@ -475,13 +479,16 @@ def offboarding_settlement_calculate(request_id):
         preaviso_trabajado=preaviso_trabajado,
         vacation_pending_complete_years=vacation_pending_complete,
         vacation_taken_current_period=vacation_taken_current,
+        recurring_movements=recurring_movements,
         notes=request.form.get("notes", ""),
         created_by=_email(),
     )
 
+    totales = result.get("totales", {})
+
     settlement_data = {
         "requestId": request_id,
-        "employeeId": req.get("employeeId", ""),
+        "employeeId": employee_id,
         "hireDate": hire_date,
         "terminationDate": termination_date,
         "terminationType": termination_type,
@@ -493,15 +500,18 @@ def offboarding_settlement_calculate(request_id):
         "vacationPendingCompleteYears": vacation_pending_complete,
         "vacationTakenCurrentPeriod": vacation_taken_current,
         "conceptos": result.get("conceptos", {}),
-        "totales": result.get("totales", {}),
+        "totales": totales,
         "antiguedad": result.get("antiguedad", {}),
-        "salarioDiarioPromedio": result.get("totales", {}).get("salarioDiarioPromedio", 0),
-        "salarioPendiente": result.get("totales", {}).get("salarioPendiente", 0),
+        "salarioDiarioPromedio": totales.get("salarioDiarioPromedio", 0),
+        "salarioPendiente": totales.get("salarioPendiente", 0),
         "comisionesPendientes": 0.0,
         "bonificacionesPendientes": 0.0,
         "horasExtrasPendientes": 0.0,
-        "descuentos": 0.0,
-        "montoNetoAPagar": result.get("totales", {}).get("montoTotal", 0),
+        "loanDeductions": totales.get("loanDeductions", 0),
+        "advanceDeductions": totales.get("advanceDeductions", 0),
+        "otherDeductions": totales.get("otherDeductions", 0),
+        "descuentos": totales.get("montoDescuentos", 0),
+        "montoNetoAPagar": totales.get("montoNetoAPagar", 0),
         "status": "calculada",
     }
 

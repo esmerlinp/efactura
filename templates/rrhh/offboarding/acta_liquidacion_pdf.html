@@ -86,11 +86,22 @@
     <table>
         <tbody>
             {% for key, val in settlement.totales.items() %}
-            <tr class="{% if key in ('montoTotal', 'totalPrestaciones', 'totalVacaciones', 'totalRegalias', 'totalSalario') %}total-row{% endif %}">
-                <td style="width:60%;">{{ key | replace('_', ' ') | title }}</td>
+            {% if key not in ('loanDeductions', 'advanceDeductions', 'otherDeductions', 'montoNetoAPagar') %}
+            <tr class="{% if key in ('montoTotal', 'totalPrestaciones', 'totalVacaciones', 'totalRegalias', 'totalSalario', 'montoDescuentos') %}total-row{% endif %}">
+                <td style="width:60%;">{{ key | replace('monto', 'Monto ') | replace('_', ' ') | title }}</td>
                 <td class="amount">{{ "{:,.2f}".format(val|float) if val is number else val }}</td>
             </tr>
+            {% endif %}
             {% endfor %}
+            {% if settlement.loanDeductions %}
+            <tr><td style="width:60%; padding-left:16px;">↳ Deducción Préstamos</td><td class="amount" style="color:#e11d48;">- {{ "{:,.2f}".format(settlement.loanDeductions|float) }}</td></tr>
+            {% endif %}
+            {% if settlement.advanceDeductions %}
+            <tr><td style="width:60%; padding-left:16px;">↳ Deducción Adelantos</td><td class="amount" style="color:#e11d48;">- {{ "{:,.2f}".format(settlement.advanceDeductions|float) }}</td></tr>
+            {% endif %}
+            {% if settlement.otherDeductions %}
+            <tr><td style="width:60%; padding-left:16px;">↳ Otras Deducciones</td><td class="amount" style="color:#e11d48;">- {{ "{:,.2f}".format(settlement.otherDeductions|float) }}</td></tr>
+            {% endif %}
         </tbody>
     </table>
 </div>

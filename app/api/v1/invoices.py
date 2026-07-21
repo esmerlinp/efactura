@@ -1218,3 +1218,74 @@ def get_company_plan_consumption():
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@api_invoices_bp.route('/invoices/<invoice_id>/payments', methods=['POST'])
+@require_api_key
+def register_payment(invoice_id):
+    try:
+        data = request.get_json(force=True) or {}
+        amount = float(data.get("amount", 0))
+        if amount <= 0:
+            return jsonify({"success": False, "error": "El monto debe ser mayor a cero."}), 400
+        payment_dict = {
+            "amount": amount,
+            "paymentMethod": data.get("paymentMethod", "Transferencia"),
+            "bank": data.get("bank", "Banco"),
+            "referenceNumber": data.get("referenceNumber", ""),
+            "bankAccountId": data.get("bankAccountId", ""),
+            "paymentDate": datetime.now(timezone.utc).isoformat(),
+            "registeredBy": g.user_email if hasattr(g, 'user_email') else "API",
+        }
+        from app.services.db_service import DatabaseService
+        DatabaseService.register_invoice_payment(g.owner_uid, invoice_id, payment_dict, sandbox=g.sandbox_mode)
+        return jsonify({"success": True, "message": "Pago registrado exitosamente."})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@api_invoices_bp.route('/invoices/<invoice_id>/credit-notes', methods=['POST'])
+@require_api_key
+def create_credit_note(invoice_id):
+    try:
+        from app.services.db_service import DatabaseService
+        original = DatabaseService.get_invoice(g.owner_uid, invoice_id, sandbox=g.sandbox_mode)
+        if not original:
+            return jsonify({"success": False, "error": "Factura original no encontrada."}), 404
+        data = request.get_json(force=True) or {}
+        note_amount = float(data.get("netPayable", 0) or data.get("total", 0))
+        if note_amount <= 0:
+            return jsonify({"success": False, "error": "El monto de la nota de crédito debe ser mayor a cero."}), 400
+        note_id = str(uuid.uuid4())
+        note_dict = {
+            "invoiceNumber": f"NC-{original.get('invoiceNumber', invoice_id)}",
+            "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "dueDate": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "clientId": original.get("clientId", ""),
+            "clientName": original.get("clientName", ""),
+            "clientRNC": original.get("clientRNC", ""),
+            "status": "Borrador",
+            "ecfType": "Nota de Crédito (E34)",
+            "netPayable": note_amount,
+            "total": note_amount,
+            "subtotal": note_amount,
+            "totalITBIS": 0,
+            "isQuotation": False,
+            "paymentType": "Crédito",
+            "currency": original.get("currency", "DOP"),
+            "items": data.get("items", original.get("items", [])),
+            "totalPaid": 0,
+            "remainingBalance": note_amount,
+            "informationReference": {
+                "modificationCode": 3,
+                "ncfModified": original.get("encf", ""),
+                "ncfModifiedDate": original.get("date", "")[:10],
+                "reasonForModification": data.get("reason", "Corrección de importes"),
+            },
+            "notes": data.get("notes", ""),
+            "branchId": original.get("branchId", "default-sucursal-principal"),
+        }
+        DatabaseService.save_invoice(g.owner_uid, note_id, note_dict, sandbox=g.sandbox_mode)
+        return jsonify({"success": True, "creditNoteId": note_id, "message": "Nota de crédito creada."})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500

@@ -4,37 +4,25 @@ from app.utils.module_gate import module_enabled
 
 # ═════════════════════════════════════════════════════════════════════
 # MATRIZ DE SEGREGACIÓN DE FUNCIONES (SoD)
-# Define conflictos de interés que aplican incluso al rol owner.
-# Formato: permission_name -> {conflicts: [permisos en conflicto]}
-# Cuando un usuario owner ya ha ejercido un permiso, los permisos
-# en conflicto se bloquean a menos que otro miembro los ejecute.
+# Define conflictos de interés. Un mismo usuario no puede ejecutar
+# ambos lados de un conflicto sobre la misma entidad.
 # ═════════════════════════════════════════════════════════════════════
 
 SOD_CONFLICT_MATRIX = {
-    # Crear proveedor vs aprobar pago
     "canCreateSupplier": {"conflicts": ["canApprovePayments"], "label": "crear proveedores"},
     "canApprovePayments": {"conflicts": ["canCreateSupplier"], "label": "aprobar pagos"},
-    # Emitir factura vs anular factura
     "canInvoice": {"conflicts": ["canVoidInvoice"], "label": "emitir facturas"},
     "canVoidInvoice": {"conflicts": ["canInvoice"], "label": "anular facturas"},
-    # Registrar nómina vs autorizar pago de nómina
     "canHR": {"conflicts": ["canApprovePayroll"], "label": "gestionar nómina"},
     "canApprovePayroll": {"conflicts": ["canHR"], "label": "autorizar pagos de nómina"},
-    # Registrar gasto vs aprobar gasto
     "canExpenses": {"conflicts": ["canApproveExpenses"], "label": "registrar gastos"},
     "canApproveExpenses": {"conflicts": ["canExpenses"], "label": "aprobar gastos"},
-    # Modificar configuración vs auditar
     "canModifySettings": {"conflicts": ["canViewAuditLog"], "label": "modificar configuración"},
     "canViewAuditLog": {"conflicts": ["canModifySettings"], "label": "ver pistas de auditoría"},
 }
 
 
 def check_permission(permission_name):
-    """
-    Retorna True si el usuario tiene el permiso granular solicitado.
-    Para el rol owner, aplica matriz SoD: si ya tiene un permiso en conflicto,
-    se deniega (a menos que se haya delegado explícitamente a otro miembro).
-    """
     if 'user' not in session:
         return False
     if permission_name == 'canManagePOS' and not session.get('company_profile_pos_enabled', True):
@@ -46,6 +34,53 @@ def check_permission(permission_name):
         return True
     default_val = False if permission_name in ('isPosSupervisor', 'canSupervisePOS', 'canUseChatbot') else True
     return user.get('permissions', {}).get(permission_name, default_val)
+
+
+def check_sod(owner_uid, user_uid, permission, entity_id, entity_type):
+    conflict_info = SOD_CONFLICT_MATRIX.get(permission)
+    if not conflict_info:
+        return True, ""
+    from app.services.db_service import DatabaseService
+    conflicting_perms = conflict_info.get("conflicts", [])
+    actions = DatabaseService.get_sod_actions(owner_uid, user_uid, entity_id, entity_type)
+    for action in actions:
+        if action.get("permission") in conflicting_perms:
+            label = conflict_info.get("label", permission)
+            return False, f"Conflicto de segregación de funciones: ya ejerció «{label}» sobre esta entidad. Otro miembro del equipo debe ejecutar esta acción."
+    return True, ""
+
+
+def record_sod_action(owner_uid, user_uid, user_email, permission, entity_id, entity_type):
+    conflict_info = SOD_CONFLICT_MATRIX.get(permission)
+    if not conflict_info:
+        return
+    from app.services.db_service import DatabaseService
+    import uuid
+    from datetime import datetime, timezone
+    action = {
+        "id": str(uuid.uuid4()),
+        "ownerUID": owner_uid,
+        "userUID": user_uid,
+        "userEmail": user_email,
+        "permission": permission,
+        "entityId": entity_id,
+        "entityType": entity_type,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    DatabaseService.save_sod_action(owner_uid, action)
+
+
+def record_sod_from_session(permission, entity_id, entity_type):
+    """Helper que extrae datos de sesión y registra acción SoD."""
+    if 'user' not in session:
+        return
+    user = session['user']
+    owner_uid = user.get('ownerUID', '')
+    user_uid = user.get('uid', '')
+    user_email = user.get('email', '')
+    if owner_uid and user_uid:
+        record_sod_action(owner_uid, user_uid, user_email, permission, entity_id, entity_type)
+
 
 def require_permission(permission_name, feature_name="esta sección"):
     """Decorador para obligar a tener un permiso granular en vistas web Flask."""

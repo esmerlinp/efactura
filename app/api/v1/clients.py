@@ -111,3 +111,48 @@ def delete_client_route(client_id):
         return jsonify({"success": True, "message": "Cliente eliminado exitosamente."})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@api_clients_bp.route('/clients/<client_id>/statement', methods=['GET'])
+@require_api_key
+def client_statement(client_id):
+    try:
+        client = DatabaseService.get_client(g.owner_uid, client_id, sandbox=g.sandbox_mode)
+        if not client:
+            return jsonify({"success": False, "error": "Cliente no encontrado."}), 404
+        invoices = DatabaseService.get_invoices(g.owner_uid, sandbox=g.sandbox_mode, include_all=True)
+        client_invoices = [inv for inv in invoices if inv.get("clientId") == client_id]
+        open_invoices = [inv for inv in client_invoices
+                         if inv.get("status") in ("Emitida", "Vencida", "Parcialmente Cobrada", "Revisión de Pago")]
+        total_cxc = sum(float(inv.get("remainingBalance", inv.get("netPayable", 0))) for inv in open_invoices)
+        total_facturado = sum(float(inv.get("total", 0)) for inv in client_invoices)
+        today = datetime.now().strftime("%Y-%m-%d")
+        aging = {"current": 0, "days1_30": 0, "days31_60": 0, "days61_90": 0, "days91_plus": 0}
+        for inv in open_invoices:
+            due = inv.get("dueDate", "")[:10]
+            balance = float(inv.get("remainingBalance", inv.get("netPayable", 0)))
+            if not due or due >= today:
+                aging["current"] += balance
+            else:
+                days_overdue = (datetime.now() - datetime.strptime(due, "%Y-%m-%d")).days
+                if days_overdue <= 30:
+                    aging["days1_30"] += balance
+                elif days_overdue <= 60:
+                    aging["days31_60"] += balance
+                elif days_overdue <= 90:
+                    aging["days61_90"] += balance
+                else:
+                    aging["days91_plus"] += balance
+        return jsonify({
+            "success": True,
+            "clientName": client.get("razonSocial", ""),
+            "clientRNC": client.get("rnc", ""),
+            "totalCxC": round(total_cxc, 2),
+            "totalFacturado": round(total_facturado, 2),
+            "invoiceCount": len(client_invoices),
+            "openInvoiceCount": len(open_invoices),
+            "aging": {k: round(v, 2) for k, v in aging.items()},
+            "creditLimit": float(client.get("creditLimit", 0) or 0),
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500

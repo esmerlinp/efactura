@@ -165,7 +165,7 @@ def _cached_clients(owner_uid, sandbox):
     if firebase_initialized:
         try:
             coll_name = "sandbox_clients" if sandbox else "clients"
-            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).limit(1000).get()
             for doc in docs:
                 data = doc.to_dict()
                 client_dict = {
@@ -203,7 +203,7 @@ def _cached_expenses(owner_uid, sandbox):
     if firebase_initialized:
         try:
             coll_name = "sandbox_expenses" if sandbox else "expenses"
-            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).limit(1000).get()
             for doc in docs:
                 data = doc.to_dict()
                 dgii_status = data.get("dgiiStatus")
@@ -297,7 +297,7 @@ def _cached_items(owner_uid, sandbox):
     if firebase_initialized:
         try:
             coll_name = "sandbox_items" if sandbox else "items"
-            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).limit(1000).get()
             for doc in docs:
                 data = doc.to_dict()
                 items.append({
@@ -382,9 +382,9 @@ def _cached_invoices(owner_uid, sandbox, quotations_only, include_all):
             coll_name = "sandbox_invoices" if sandbox else "invoices"
             coll_ref = db_firestore.collection("users").document(owner_uid).collection(coll_name)
             if include_all:
-                docs = coll_ref.get()
+                docs = coll_ref.limit(1000).get()
             else:
-                docs = coll_ref.where(filter=firestore.FieldFilter("isQuotation", "==", quotations_only)).get()
+                docs = coll_ref.where(filter=firestore.FieldFilter("isQuotation", "==", quotations_only)).limit(1000).get()
 
             for doc in docs:
                 data = doc.to_dict()
@@ -6474,3 +6474,71 @@ class DatabaseService:
             except Exception as e:
                 print(f"⚠️ Fallo al eliminar centro de costo de Firestore: {e}")
         return False
+
+    # ═════════════════════════════════════════════════════════════════
+    # SoD — Segregación de Funciones
+    # ═════════════════════════════════════════════════════════════════
+
+    @classmethod
+    def get_sod_actions(cls, owner_uid, user_uid, entity_id=None, entity_type=None):
+        """Obtiene acciones SoD de un usuario, opcionalmente filtradas por entidad."""
+        actions = []
+        if firebase_initialized:
+            try:
+                coll_ref = db_firestore.collection("users").document(owner_uid).collection("sod_actions")
+                query = coll_ref.where(filter=firestore.FieldFilter("userUID", "==", user_uid))
+                if entity_id:
+                    query = query.where(filter=firestore.FieldFilter("entityId", "==", entity_id))
+                if entity_type:
+                    query = query.where(filter=firestore.FieldFilter("entityType", "==", entity_type))
+                docs = query.get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    data["id"] = doc.id
+                    actions.append(data)
+            except Exception as e:
+                print(f"⚠️ Error obteniendo acciones SoD: {e}")
+        return actions
+
+    @classmethod
+    def save_sod_action(cls, owner_uid, action_dict):
+        """Guarda una acción SoD en Firestore."""
+        action_id = action_dict.get("id", "")
+        if not action_id:
+            return
+        if firebase_initialized:
+            try:
+                db_firestore.collection("users").document(owner_uid).collection("sod_actions").document(action_id).set(action_dict)
+            except Exception as e:
+                print(f"⚠️ Fallo al guardar acción SoD: {e}")
+
+    @classmethod
+    def get_employee_garnishments(cls, owner_uid, employee_id, sandbox=True):
+        """Obtiene embargos activos de un empleado."""
+        garnishments = []
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_garnishments" if sandbox else "garnishments"
+                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name) \
+                    .where(filter=firestore.FieldFilter("employeeId", "==", employee_id)) \
+                    .where(filter=firestore.FieldFilter("status", "==", "active")) \
+                    .get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    data["id"] = doc.id
+                    garnishments.append(data)
+            except Exception as e:
+                print(f"⚠️ Error obteniendo embargos: {e}")
+        return garnishments
+
+    @classmethod
+    def save_garnishment(cls, owner_uid, garnishment_id, garnishment_dict, sandbox=True):
+        """Guarda un embargo en Firestore."""
+        garnishment_dict["id"] = garnishment_id
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_garnishments" if sandbox else "garnishments"
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(garnishment_id).set(garnishment_dict)
+            except Exception as e:
+                print(f"⚠️ Fallo al guardar embargo: {e}")
+        return garnishment_dict

@@ -414,3 +414,61 @@ def employee_view(employee_id):
                            offboarding_requests=offboarding_requests,
                            states=offboarding_states)
 
+
+@web_rrhh_bp.route("/rrhh/employees/<employee_id>/rehire", methods=["POST"])
+def employee_rehire(employee_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    hr_serv = hr
+    employee = hr_serv.get_employee(owner_uid, employee_id, sandbox=sandbox)
+    if not employee:
+        flash("Empleado no encontrado.", "error")
+        return redirect(url_for("web_rrhh.employee_list"))
+
+    if employee.get("status") == "activo":
+        flash("El empleado ya está activo.", "warning")
+        return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
+
+    new_hire_date = request.form.get("newHireDate", "").strip()
+    new_position = request.form.get("newPosition", "").strip()
+    new_department = request.form.get("newDepartment", "").strip()
+    new_salary = float(request.form.get("newSalary", "0") or 0)
+    preserves_seniority = request.form.get("preservesSeniority") == "1"
+    reset_vacation = request.form.get("resetVacation") == "1"
+
+    employee["status"] = "activo"
+    employee["hireDate"] = new_hire_date or employee.get("hireDate", "")
+
+    if not preserves_seniority:
+        employee["originalHireDate"] = employee.get("hireDate", "")
+        employee["hireDate"] = new_hire_date or employee.get("hireDate", "")
+        employee["rehireAdjustedSeniority"] = False
+
+    if new_position:
+        employee["position"] = new_position
+    if new_department:
+        employee["departmentId"] = new_department
+    if new_salary > 0:
+        employee["baseSalary"] = new_salary
+        employee["salary"] = new_salary
+
+    employee.pop("terminationDate", None)
+    employee.pop("terminationReason", None)
+    employee["rehireDate"] = datetime.now(timezone.utc).isoformat()
+    employee["rehireCount"] = employee.get("rehireCount", 0) + 1
+
+    if reset_vacation:
+        employee["vacationGranted"] = 0
+
+    hr_serv.save_employee(owner_uid, employee_id, employee, sandbox=sandbox)
+
+    from app.services.payroll_audit_service import log_action
+    log_action(owner_uid, "rehire", "employee", employee_id,
+               session.get("user", {}).get("email", ""),
+               changes={"status": "activo", "rehireDate": employee["rehireDate"]},
+               sandbox=sandbox)
+
+    flash(f"Empleado {employee.get('fullName', '')} recontratado exitosamente.", "success")
+    return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
+

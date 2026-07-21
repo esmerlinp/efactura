@@ -85,3 +85,94 @@ class MultiCurrencyService:
             "current_rate": current_rate,
             "balance_base": round(balance_fc * current_rate, 2),
         }
+
+    @classmethod
+    def generate_revaluation_entries(cls, owner_uid: str, new_rate: float = None,
+                                      currency: str = "USD", sandbox: bool = True) -> dict:
+        from app.services.db_service import DatabaseService
+        from app.services.accounting_service import AccountingService
+
+        if new_rate is None:
+            new_rate = cls.get_rate(currency)
+        old_rate = cls.get_rate(currency)
+
+        entries = DatabaseService.get_accounting_entries(owner_uid)
+        accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+        account_map = {a["id"]: a for a in accounts}
+
+        gain_account = next((a for a in accounts if a.get("code") == "4.2.3"), None)
+        loss_account = next((a for a in accounts if a.get("code") == "6.4.02"), None)
+        if not gain_account or not loss_account:
+            return {"error": "Cuentas de ganancia/pérdida por diferencia en cambio no encontradas"}
+
+        foreign_accounts = {}
+        for entry in entries:
+            if entry.get("status") == "voided":
+                continue
+            for line in entry.get("lines", []):
+                acc_id = line.get("accountId", "")
+                acc_currency = line.get("currency", "")
+                if acc_currency and acc_currency != cls.BASE_CURRENCY and acc_id not in foreign_accounts:
+                    foreign_accounts[acc_id] = acc_currency
+
+        if not foreign_accounts:
+            return {"entries": [], "note": "No hay cuentas en moneda extranjera"}
+
+        generated_entries = []
+        for acc_id, acc_currency in foreign_accounts.items():
+            balance_fc = 0.0
+            for entry in entries:
+                if entry.get("status") == "voided":
+                    continue
+                for line in entry.get("lines", []):
+                    if line.get("accountId") == acc_id:
+                        balance_fc += float(line.get("debit", 0)) - float(line.get("credit", 0))
+
+            if abs(balance_fc) < 0.01:
+                continue
+
+            current_value = round(balance_fc * new_rate, 2)
+            previous_value = round(balance_fc * old_rate, 2)
+            diff = round(current_value - previous_value, 2)
+
+            if abs(diff) < 0.01:
+                continue
+
+            acc_info = account_map.get(acc_id, {})
+            lines = []
+            if diff > 0:
+                lines.append({"accountId": acc_id, "accountCode": acc_info.get("code", ""),
+                              "accountName": acc_info.get("name", ""),
+                              "debit": diff, "credit": 0.00,
+                              "description": f"Revaluación {acc_currency} → DOP a tasa {new_rate}"})
+                lines.append({"accountId": gain_account["id"], "accountCode": gain_account["code"],
+                              "accountName": gain_account["name"],
+                              "debit": 0.00, "credit": diff,
+                              "description": f"Ganancia por diferencia en cambio {acc_currency}"})
+            else:
+                abs_diff = abs(diff)
+                lines.append({"accountId": loss_account["id"], "accountCode": loss_account["code"],
+                              "accountName": loss_account["name"],
+                              "debit": abs_diff, "credit": 0.00,
+                              "description": f"Pérdida por diferencia en cambio {acc_currency}"})
+                lines.append({"accountId": acc_id, "accountCode": acc_info.get("code", ""),
+                              "accountName": acc_info.get("name", ""),
+                              "debit": 0.00, "credit": abs_diff,
+                              "description": f"Revaluación {acc_currency} → DOP a tasa {new_rate}"})
+
+            try:
+                entry = AccountingService.generate_entry(owner_uid, {
+                    "entryType": "adjustment",
+                    "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                    "concept": f"Revaluación cambiaria {acc_currency} a tasa {new_rate} — diferencia RD$ {abs(diff):,.2f}",
+                    "referenceType": "currency_revaluation",
+                    "referenceId": f"{acc_id}-rev",
+                    "referenceNumber": acc_currency,
+                    "lines": lines,
+                    "createdBy": "system",
+                }, sandbox=sandbox)
+                generated_entries.append(entry)
+            except Exception as e:
+                print(f"Error generando revaluación para {acc_id}: {e}")
+
+        return {"entries": generated_entries, "note": f"Revaluación completada a tasa {new_rate}"}

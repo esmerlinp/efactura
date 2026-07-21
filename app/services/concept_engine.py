@@ -67,11 +67,7 @@ class TSSResolver:
         base = context.base_salary
         is_q = context.is_quincenal
 
-        # Determinar base cotizable según el tipo de concepto
-        if "EMPLEADOR" in concept_code:
-            tss_base = base
-        else:
-            tss_base = base
+        tss_base = context.gross_income if context.gross_income > 0 else base
 
         # Aplicar topes
         afp_cap = params.get("afp_salary_cap", 464460.0)
@@ -230,6 +226,18 @@ class ISRResolver:
 
 class ConceptEngine:
     """Motor principal de evaluación de conceptos."""
+
+    @staticmethod
+    def resolve_employee_tss(concept_code: str, context: TSSContext, params: dict) -> float:
+        """Resuelve un concepto TSS individual y retorna el monto."""
+        result = TSSResolver.resolve_concept(concept_code, {"code": concept_code, "type": "deduction", "category": "tss"}, context, params)
+        return result.get("amount", 0.0)
+
+    @staticmethod
+    def resolve_isr(context: ISRContext, params: dict) -> float:
+        """Resuelve ISR y retorna el monto a retener."""
+        result = ISRResolver.resolve(context, params)
+        return result.get("retention", 0.0)
 
     @staticmethod
     def evaluate(concept: dict, context: dict,

@@ -888,6 +888,13 @@ def create_app():
         return send_from_directory(uploads_dir, filename)
 
     # =========================================================================
+    # Health Check — Para Cloud Run y balanceadores de carga
+    # =========================================================================
+    @app.route('/health')
+    def health_check():
+        return {"status": "healthy", "version": "1.0"}, 200
+
+    # =========================================================================
     # CSRF Error Handler — Muestra mensaje amigable en lugar de error 400 crudo
     # =========================================================================
     @app.errorhandler(CSRFError)

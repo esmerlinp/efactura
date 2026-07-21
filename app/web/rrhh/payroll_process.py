@@ -345,9 +345,15 @@ def payroll_new():
 
             # ── Regla pascual ──
             if request.form.get("include_christmas_bonus") == "1":
-                months_worked = emp.get("hireDate") and max(1, (date.today().month - int(emp["hireDate"][5:7]) + 1)) or 12
-                if months_worked > 12:
-                    months_worked = 12
+                months_worked = 12
+                hire_date_str = emp.get("hireDate", "")
+                if hire_date_str:
+                    try:
+                        hire_date_obj = datetime.strptime(hire_date_str[:10], "%Y-%m-%d")
+                        if hire_date_obj.year == date.today().year:
+                            months_worked = max(1, date.today().month - hire_date_obj.month + 1)
+                    except (ValueError, TypeError):
+                        pass
                 christmas = PayrollService.calculate_christmas_bonus(base, months_worked)
                 if christmas > 0:
                     christmas_concept = concept_map.get("BONIFICACION", {})
@@ -497,6 +503,47 @@ def payroll_new():
                 )
                 if tx:
                     employee_transactions.append(tx.model_dump())
+
+            # ── Embargos y pensiones ──
+            try:
+                from app.services.garnishment_service import GarnishmentService
+                from app.services.db_service import DatabaseService
+                garnishments = DatabaseService.get_employee_garnishments(owner_uid, emp_id, sandbox=sandbox)
+                if garnishments:
+                    earn_total = sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("type") == "earning")
+                    deduct_total = sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("type") == "deduction")
+                    net_before_garnishments = max(0, earn_total - deduct_total)
+                    garnish_result = GarnishmentService.process_all_garnishments(net_before_garnishments, garnishments)
+                    for detail in garnish_result.get("details", []):
+                        garnish_tx = PayrollTransaction(
+                            id=str(uuid.uuid4()),
+                            periodId=period_id, periodKey=period_key, payrollLineId=line_id,
+                            employeeId=emp_id, conceptCode=f"EMBARGO_{detail.get('type', 'JUDICIAL').upper()}",
+                            type="deduction",
+                            amount=detail.get("deduction", 0),
+                            source="garnishment", status="applied",
+                            priority=detail.get("priority", 200),
+                            conceptSnapshot={
+                                "name": f"Embargo: {detail.get('reference', '')}",
+                                "type": "deduction",
+                                "category": "garnishment",
+                                "isLegalMandatory": True
+                            },
+                            periodYear=year,
+                            createdAt=datetime.now(timezone.utc).isoformat(),
+                            updatedAt=datetime.now(timezone.utc).isoformat(),
+                        )
+                        employee_transactions.append(garnish_tx.model_dump())
+                        garn_id = detail.get("garnishmentId", "")
+                        if garn_id:
+                            existing = next((g for g in garnishments if g.get("id") == garn_id), None)
+                            if existing:
+                                existing["remainingBalance"] = detail.get("remainingBalance", 0)
+                                if detail.get("isCompleted"):
+                                    existing["status"] = "completed"
+                                DatabaseService.save_garnishment(owner_uid, garn_id, existing, sandbox=sandbox)
+            except Exception as garnish_err:
+                flash(f"[{emp.get('fullName', emp_id)}] Error procesando embargos: {garnish_err}", "warning")
 
             # ── Aplicar motor de prioridad para descuentos ──
             from app.services.deduction_priority_engine import DeductionPriorityEngine
