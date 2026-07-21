@@ -17,8 +17,26 @@ def restrict_to_do():
 @require_api_key
 def lookup_rnc(rnc):
     """
-    GET /api/v1/dgii/rnc/<rnc>
-    Consulta la información fiscal de un RNC o Cédula directamente con la DGII.
+    Consultar RNC/Cédula en DGII
+    ---
+    tags:
+      - DGII
+    summary: Consultar información fiscal de un RNC
+    description: Consulta los datos fiscales de un RNC o Cédula directamente en la DGII. Solo disponible para contribuyentes dominicanos.
+    security:
+      - ApiKeyHeader: []
+    parameters:
+      - name: rnc
+        in: path
+        required: true
+        type: string
+        description: Número de RNC o cédula
+        example: "130000000"
+    responses:
+      200:
+        description: Datos fiscales del RNC
+      500:
+        description: Error interno del servidor
     """
     try:
         res = DGIIService.validate_and_fetch_rnc(rnc)
@@ -32,8 +50,28 @@ def lookup_rnc(rnc):
 @http_cache(timeout=300)
 def get_sequences():
     """
-    GET /api/v1/dgii/sequences
-    Consulta las secuencias (rangos) de comprobantes fiscales autorizadas.
+    Listar secuencias fiscales autorizadas
+    ---
+    tags:
+      - DGII
+    summary: Consultar secuencias autorizadas
+    description: Retorna los rangos de secuencias de comprobantes fiscales electrónicos autorizados por la DGII.
+    security:
+      - ApiKeyHeader: []
+    responses:
+      200:
+        description: Lista de secuencias
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+            sequences:
+              type: array
+              items:
+                type: object
+      500:
+        description: Error interno del servidor
     """
     try:
         sequences = DatabaseService.get_sequences(g.owner_uid, sandbox=g.sandbox_mode)
@@ -47,8 +85,28 @@ def get_sequences():
 @http_cache(timeout=60)
 def get_sequence_audit():
     """
-    GET /api/v1/dgii/audit
-    Consulta los logs de auditoría de secuencias usadas y su estado en DGII.
+    Consultar logs de auditoría de secuencias
+    ---
+    tags:
+      - DGII
+    summary: Consultar auditoría de secuencias
+    description: Retorna los logs de uso de secuencias fiscales y su estado de sincronización con la DGII.
+    security:
+      - ApiKeyHeader: []
+    responses:
+      200:
+        description: Logs de auditoría
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+            audit_logs:
+              type: array
+              items:
+                type: object
+      500:
+        description: Error interno del servidor
     """
     try:
         logs = DatabaseService.get_sequence_logs(g.owner_uid, sandbox=g.sandbox_mode)

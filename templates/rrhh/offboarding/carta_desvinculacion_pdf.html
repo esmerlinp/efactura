@@ -13,12 +13,11 @@
     .ref-line { text-align: right; font-size: 9pt; color: #666; margin-bottom: 20px; }
     .content { text-align: justify; margin: 20px 0; }
     .content p { margin: 10px 0; }
-    .signatures { margin-top: 50px; display: flex; justify-content: space-between; gap: 40px; }
-    .signature-box { flex: 1; text-align: center; }
-    .signature-line { border-top: 1px solid #333; margin-top: 50px; padding-top: 8px; font-size: 9pt; color: #555; }
+    .signature-box { margin-top: 50px; text-align: center; }
+    .signature-line { border-top: 1px solid #333; margin: 50px auto 0; padding-top: 8px; font-size: 9pt; color: #555; width: 280px; }
+    .signature-name { font-size: 11pt; font-weight: 600; color: #222; }
     .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 8pt; color: #999; border-top: 1px solid #ddd; padding-top: 6px; }
     .qr-code { position: fixed; bottom: 40px; right: 20px; width: 60px; height: 60px; }
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 8pt; }
 </style>
 </head>
 <body>
@@ -31,11 +30,11 @@
     </div>
     <div class="company-info">
         <strong>{{ company.companyName }}</strong><br>
-        RNC: {{ company.rnc }}<br>
-        {{ company.address }}<br>
-        {{ company.city }}<br>
-        Tel: {{ company.phone }}<br>
-        {{ company.email }}
+        {% if company.rnc %}RNC: {{ company.rnc }}<br>{% endif %}
+        {% if company.address %}{{ company.address }}<br>{% endif %}
+        {% if company.city %}{{ company.city }}<br>{% endif %}
+        {% if company.phone %}Tel: {{ company.phone }}<br>{% endif %}
+        {% if company.email %}{{ company.email }}{% endif %}
     </div>
 </div>
 
@@ -52,37 +51,52 @@
     {{ employee.cedula or employee.idNumber or '' }}<br>
     Presente.-</p>
 
-    <p>Por medio de la presente, {{ company.companyName }}, debidamente representada por quien suscribe, hace constar que el(la) señor(ra) <strong>{{ employee.fullName or '' }}</strong>, portador(a) de la cédula de identidad No. <strong>{{ employee.cedula or employee.idNumber or '' }}</strong>, ha finalizado su relación laboral con esta empresa en fecha <strong>{{ format_date_es(request_data.effectiveDate) }}</strong>, siendo su último día laborado el <strong>{{ format_date_es(request_data.lastWorkDate or request_data.effectiveDate) }}</strong>.</p>
+    <p>Por medio de la presente, {{ company.companyName }},
+    {% if representative_name %}
+    debidamente representada por <strong>{{ representative_name }}</strong>, <strong>{{ representative_position }}</strong>, quien suscribe,
+    {% else %}
+    debidamente representada por quien suscribe,
+    {% endif %}
+    hace constar que el(la) señor(ra) <strong>{{ employee.fullName or '' }}</strong>, portador(a) de la cédula de identidad No. <strong>{{ employee.cedula or employee.idNumber or '' }}</strong>,
+    {% set effective_date = request_data.effectiveDate %}
+    {% set last_work_date = request_data.lastWorkDate or request_data.effectiveDate %}
+    {% if effective_date == last_work_date %}
+    ha finalizado su relación laboral con esta empresa en fecha <strong>{{ format_date_es(effective_date) }}</strong>.
+    {% else %}
+    ha finalizado su relación laboral con esta empresa en fecha <strong>{{ format_date_es(effective_date) }}</strong>, siendo su último día laborado el <strong>{{ format_date_es(last_work_date) }}</strong>.
+    {% endif %}</p>
 
     <p>El tipo de desvinculación corresponde a: <strong>{{ request_data.terminationType | replace('_', ' ') | title }}</strong>.</p>
 
-    <p><strong>Motivo:</strong> {{ request_data.terminationReason or 'No especificado' }}</p>
+    {% if request_data.terminationReason %}
+    <p><strong>Motivo:</strong> {{ request_data.terminationReason }}</p>
+    {% elif request_data.terminationType == 'renuncia_voluntaria' %}
+    <p><strong>Motivo:</strong> Renuncia presentada por el colaborador.</p>
+    {% endif %}
 
     {% if request_data.detailedReason %}
     <p><strong>Detalle adicional:</strong> {{ request_data.detailedReason }}</p>
     {% endif %}
 
-    <p>La empresa ha cumplido con todas las obligaciones laborales y de seguridad social correspondientes al(la) colaborador(a), incluyendo el pago de prestaciones laborales, derechos adquiridos y cualquier otra obligación derivada de la relación laboral.</p>
+    {% if settlement_completed %}
+    <p>La empresa ha cumplido con las obligaciones laborales y de seguridad social correspondientes conforme a la legislación laboral vigente.</p>
+    {% else %}
+    <p>La empresa procederá al cumplimiento de las obligaciones laborales y de seguridad social que correspondan conforme a la legislación laboral vigente.</p>
+    {% endif %}
 
-    <p>Se extiende la presente carta de desvinculación a solicitud del(la) interesado(a) para los fines que estime pertinentes.</p>
+    <p>Se expide la presente certificación para los fines que correspondan.</p>
 
-    <p>Dios, Patria y Libertad.</p>
-</div>
 
-<div class="signatures">
-    <div class="signature-box">
-        <div class="signature-line">
-            <strong>{{ company.companyName }}</strong><br>
-            {{ company.rnc }}<br>
-            Firma y sello
-        </div>
-    </div>
-    <div class="signature-box">
-        <div class="signature-line">
-            <strong>{{ employee.fullName or '' }}</strong><br>
-            {{ employee.cedula or employee.idNumber or '' }}<br>
-            Firma del colaborador
-        </div>
+
+<div class="signature-box">
+    <p>Atentamente,</p>
+    <div class="signature-line">
+        {% if representative_name %}
+        <div class="signature-name">{{ representative_name }}</div>
+        {% endif %}
+        <div>{{ representative_position }}</div>
+        <div>{{ company.companyName }}</div>
+        {% if company.rnc %}<div>RNC: {{ company.rnc }}</div>{% endif %}
     </div>
 </div>
 

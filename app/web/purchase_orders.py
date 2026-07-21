@@ -17,7 +17,7 @@ from app.models.fiscal_document_type import by_code as _by_code
 try:
     from weasyprint import HTML as WeasyprintHTML
     WEASYPRINT_AVAILABLE = True
-except ImportError:
+except Exception:
     WeasyprintHTML = None
     WEASYPRINT_AVAILABLE = False
 

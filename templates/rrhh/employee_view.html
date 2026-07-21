@@ -618,8 +618,17 @@
                     </select>
                 </div>
                 <div class="form-group" style="margin:0;">
-                    <label style="font-size:0.78rem; font-weight:600;">Cédula/ID</label>
-                    <input type="text" name="idNumber" class="form-input" style="font-size:0.85rem;">
+                    <label style="font-size:0.78rem; font-weight:600;">Tipo documento TSS</label>
+                    <select name="docType" class="form-select" style="font-size:0.85rem;">
+                        <option value="C">Cédula</option>
+                        <option value="N">NSS</option>
+                    </select>
+                </div>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <div class="form-group" style="margin:0;">
+                    <label style="font-size:0.78rem; font-weight:600;">Cédula/NSS (11 dígitos)</label>
+                    <input type="text" name="idNumber" class="form-input" style="font-size:0.85rem;" maxlength="11" placeholder="Sin guiones">
                 </div>
             </div>
             <div style="display:flex; gap:16px; flex-wrap:wrap;">

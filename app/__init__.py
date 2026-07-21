@@ -865,6 +865,87 @@ def create_app():
                 csrf.exempt(view_func)
 
     # =========================================================================
+    # FLASGGER — Swagger/OpenAPI documentation (after all blueprints registered)
+    # =========================================================================
+    from flasgger import Swagger
+
+    swagger_config = {
+        "headers": [],
+        "specs": [
+            {
+                "endpoint": "apispec",
+                "route": "/apispec.json",
+                "rule_filter": lambda rule: True,
+                "model_filter": lambda tag: True,
+            }
+        ],
+        "static_url_path": "/flasgger_static",
+        "swagger_ui": True,
+        "specs_route": "/api-docs/",
+    }
+
+    swagger_template = {
+        "swagger": "2.0",
+        "info": {
+            "title": "VykCore API",
+            "description": (
+                "API REST para facturación electrónica (e-CF), gestión de clientes, "
+                "gastos, contabilidad, reportes DGII, liquidaciones laborales y más. "
+                "Todos los endpoints (excepto /auth/*) requieren el header **X-API-Key** "
+                "con la API Key de la compañía."
+            ),
+            "version": "1.0.0",
+            "contact": {
+                "name": "VykCore",
+                "url": "https://vykcore.com",
+            },
+        },
+        "host": "",
+        "basePath": "/api/v1",
+        "schemes": ["https"],
+        "securityDefinitions": {
+            "ApiKeyHeader": {
+                "type": "apiKey",
+                "name": "X-API-Key",
+                "in": "header",
+                "description": "API Key de la compañía. Se obtiene mediante POST /auth/login.",
+            },
+            "SandboxMode": {
+                "type": "apiKey",
+                "name": "X-Sandbox-Mode",
+                "in": "header",
+                "description": "Modo sandbox: 'true' (default) para pruebas, 'false' para producción real.",
+            },
+        },
+        "tags": [
+            {"name": "Auth", "description": "Autenticación de aplicación móvil"},
+            {"name": "Invoices", "description": "Emisión, consulta, anulación y CRUD de e-CF"},
+            {"name": "Items", "description": "Catálogo de productos y servicios"},
+            {"name": "Clients", "description": "Gestión de clientes"},
+            {"name": "Expenses", "description": "Gestión de gastos y pagos"},
+            {"name": "DGII", "description": "Consultas a la DGII (RNC, secuencias, auditoría)"},
+            {"name": "AI", "description": "Inteligencia artificial (OCR, clasificación)"},
+            {"name": "Dashboard", "description": "Métricas y resumen del negocio"},
+            {"name": "Company", "description": "Información de la compañía y plan"},
+            {"name": "Metadata", "description": "Catálogos de referencia DGII"},
+            {"name": "Prospects", "description": "CRM de prospectos"},
+            {"name": "Accounting", "description": "Contabilidad, cuentas, asientos, reportes, activos fijos"},
+            {"name": "Labor", "description": "Liquidaciones laborales"},
+            {"name": "Supplier Invoices", "description": "Facturas de proveedores (CxP)"},
+        ],
+    }
+
+    swagger = Swagger(app, config=swagger_config, template=swagger_template)
+
+    # Eximir rutas de Swagger de CSRF
+    try:
+        csrf.exempt(app.view_functions['flasgger.static'])
+        if 'apispec' in app.view_functions:
+            csrf.exempt(app.view_functions['apispec'])
+    except KeyError:
+        pass
+
+    # =========================================================================
     # RATE LIMITER — inicializar después de registrar todos los blueprints
     # =========================================================================
     from app.extensions import limiter

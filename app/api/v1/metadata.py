@@ -9,8 +9,73 @@ metadata_bp = Blueprint('metadata', __name__)
 @http_cache(timeout=3600, private=False)
 def get_catalogs():
     """
-    Retorna todos los catálogos oficiales requeridos por los clientes móviles.
-    Garantiza la centralización de datos impositivos regulados por la DGII.
+    Obtener catálogos de referencia DGII
+    ---
+    tags:
+      - Metadata
+    summary: Obtener catálogos oficiales
+    description: |
+      Retorna todos los catálogos de referencia requeridos por clientes móviles:
+      unidades de medida, monedas, tipos de pago, métodos de pago, tipos de ingreso,
+      tasas de ITBIS y tipos de comprobante fiscal electrónico (e-CF).
+    security:
+      - ApiKeyHeader: []
+    responses:
+      200:
+        description: Catálogos completos
+        schema:
+          type: object
+          properties:
+            measurement_units:
+              type: array
+              items:
+                type: string
+            currencies:
+              type: array
+              items:
+                type: object
+                properties:
+                  code:
+                    type: string
+                  label:
+                    type: string
+            payment_types:
+              type: array
+              items:
+                type: string
+            payment_methods:
+              type: array
+              items:
+                type: string
+            income_types:
+              type: array
+              items:
+                type: object
+                properties:
+                  code:
+                    type: string
+                  label:
+                    type: string
+            itbis_rates:
+              type: array
+              items:
+                type: object
+                properties:
+                  rate:
+                    type: number
+                  label:
+                    type: string
+            ecf_types:
+              type: array
+              items:
+                type: object
+                properties:
+                  code:
+                    type: string
+                  label:
+                    type: string
+                  description:
+                    type: string
     """
     measurement_units = [
         "Unidad", "Servicio", "Barril", "Bolsa", "Bote", "Bultos", "Botella",

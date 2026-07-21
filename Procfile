@@ -1,1 +1,1 @@
-web: gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 "app:create_app()"
+web: gunicorn --bind :$PORT --workers ${WEB_CONCURRENCY:-1} --threads ${THREADS:-4} --timeout ${GUNICORN_TIMEOUT:-30} --max-requests ${MAX_REQUESTS:-1000} --max-requests-jitter ${MAX_REQUESTS_JITTER:-100} "app:create_app()"

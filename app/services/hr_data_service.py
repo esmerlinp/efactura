@@ -668,7 +668,9 @@ def deactivate_employee_dependent(owner_uid: str, dep_id: str, sandbox: bool = T
 
 
 def get_dependents_for_employees(owner_uid: str, employee_ids: list, sandbox: bool = True) -> dict:
-    """Carga todos los dependientes activos para múltiples empleados en una consulta.
+    """Carga todos los dependientes activos para múltiples empleados.
+
+    Firestore limita 'in' a 30 valores. Se particiona en lotes.
 
     Returns:
         Dict {employee_id: [dependent_dict, ...]}
@@ -677,15 +679,18 @@ def get_dependents_for_employees(owner_uid: str, employee_ids: list, sandbox: bo
         return {}
     try:
         coll_path = _hr_collection(owner_uid, "employee_dependents", sandbox)
-        docs = db_firestore.collection(coll_path)\
-            .where("active", "==", True)\
-            .where("employeeId", "in", employee_ids)\
-            .get()
         result: dict[str, list] = {}
-        for d in docs:
-            dep = {"id": d.id, **d.to_dict()}
-            emp_id = dep.get("employeeId", "")
-            result.setdefault(emp_id, []).append(dep)
+        batch_size = 30
+        for i in range(0, len(employee_ids), batch_size):
+            chunk = employee_ids[i:i + batch_size]
+            docs = db_firestore.collection(coll_path)\
+                .where("active", "==", True)\
+                .where("employeeId", "in", chunk)\
+                .get()
+            for d in docs:
+                dep = {"id": d.id, **d.to_dict()}
+                emp_id = dep.get("employeeId", "")
+                result.setdefault(emp_id, []).append(dep)
         return result
     except Exception as e:
         print(f"⚠️ get_dependents_for_employees: {e}")

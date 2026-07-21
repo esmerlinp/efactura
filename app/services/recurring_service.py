@@ -8,6 +8,7 @@ Maneja:
   - Actualización de saldos de préstamos
 """
 
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
@@ -292,7 +293,10 @@ def resolve_amount(movement: dict, base_salary: float, context: dict = None) -> 
         if formula and "baseSalary" in formula:
             try:
                 simple_formula = formula.replace("baseSalary", str(base_salary))
-                return round(eval(simple_formula), 2)
+                # Solo permitir caracteres aritméticos seguros; sin builtins ni acceso a atributos
+                if not re.match(r'^[\d\s\+\-\*\/\.\(\)]+$', simple_formula):
+                    return amount
+                return round(eval(simple_formula, {"__builtins__": {}}, {}), 2)
             except Exception:
                 return amount
     return amount

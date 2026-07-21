@@ -165,7 +165,7 @@ def _cached_clients(owner_uid, sandbox):
     if firebase_initialized:
         try:
             coll_name = "sandbox_clients" if sandbox else "clients"
-            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).limit(1000).get()
+            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).limit(Config.FIRESTORE_MAX_CLIENTS).get()
             for doc in docs:
                 data = doc.to_dict()
                 client_dict = {
@@ -203,7 +203,7 @@ def _cached_expenses(owner_uid, sandbox):
     if firebase_initialized:
         try:
             coll_name = "sandbox_expenses" if sandbox else "expenses"
-            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).limit(1000).get()
+            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).limit(Config.FIRESTORE_MAX_EXPENSES).get()
             for doc in docs:
                 data = doc.to_dict()
                 dgii_status = data.get("dgiiStatus")
@@ -297,7 +297,7 @@ def _cached_items(owner_uid, sandbox):
     if firebase_initialized:
         try:
             coll_name = "sandbox_items" if sandbox else "items"
-            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).limit(1000).get()
+            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).limit(Config.FIRESTORE_MAX_CLIENTS).get()
             for doc in docs:
                 data = doc.to_dict()
                 items.append({
@@ -342,7 +342,7 @@ def _cached_sequences(owner_uid, sandbox):
     if firebase_initialized:
         try:
             coll_name = "sandbox_sequences" if sandbox else "sequences"
-            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).limit(500).get()
             for doc in docs:
                 data = doc.to_dict()
                 secuenciaInicial = int(data.get("secuenciaInicial", 1))
@@ -382,9 +382,9 @@ def _cached_invoices(owner_uid, sandbox, quotations_only, include_all):
             coll_name = "sandbox_invoices" if sandbox else "invoices"
             coll_ref = db_firestore.collection("users").document(owner_uid).collection(coll_name)
             if include_all:
-                docs = coll_ref.limit(1000).get()
+                docs = coll_ref.limit(Config.FIRESTORE_MAX_INVOICES).get()
             else:
-                docs = coll_ref.where(filter=firestore.FieldFilter("isQuotation", "==", quotations_only)).limit(1000).get()
+                docs = coll_ref.where(filter=firestore.FieldFilter("isQuotation", "==", quotations_only)).limit(Config.FIRESTORE_MAX_INVOICES).get()
 
             for doc in docs:
                 data = doc.to_dict()
@@ -550,7 +550,7 @@ def _cached_contingency_invoices(owner_uid, sandbox):
             coll_name = "sandbox_invoices" if sandbox else "invoices"
             docs = db_firestore.collection("users").document(owner_uid).collection(coll_name) \
                 .where(filter=firestore.FieldFilter("emisionMode", "==", "FALLBACK")) \
-                .get()
+                .limit(500).get()
 
             for doc in docs:
                 data = doc.to_dict()
@@ -668,6 +668,65 @@ def _cached_plan(plan_id):
         except Exception as e:
             print(f"⚠️ Error al obtener plan {plan_id} de Firestore: {e}")
     return None
+
+
+@cache.memoize(timeout=300)
+def _cached_associated_companies(uid):
+    """Cachea la lista de empresas asociadas por 5 minutos para evitar escaneos masivos de Firestore en cada request."""
+    companies = []
+    if not firebase_initialized:
+        return companies
+    try:
+        profile = DatabaseService.get_user_profile(uid)
+        if profile and profile.get("canManageOwnCompany", False):
+            own_owner_uid = profile.get("uid")
+            own_company = DatabaseService.get_company_profile(own_owner_uid)
+            companies.append({
+                "ownerUID": own_owner_uid,
+                "companyName": own_company.get("companyName") or own_company.get("tradeName", "Mi Empresa"),
+                "role": profile.get("role", "owner"),
+                "logoUrl": own_company.get("logoUrl"),
+                "logoBase64": own_company.get("logoBase64")
+            })
+    except Exception as e:
+        print(f"⚠️ Error al obtener propia empresa: {e}")
+    try:
+        doc = db_firestore.collection("users").document(uid).collection("config").document("user_profile").get()
+        if doc.exists:
+            data = doc.to_dict()
+            assoc = data.get("associated_companies", [])
+            for item in assoc:
+                owner_uid = item.get("ownerUID") if isinstance(item, dict) else item
+                if owner_uid and not any(c["ownerUID"] == owner_uid for c in companies):
+                    comp_prof = DatabaseService.get_company_profile(owner_uid)
+                    role = item.get("role", "employee") if isinstance(item, dict) else "employee"
+                    companies.append({
+                        "ownerUID": owner_uid,
+                        "companyName": comp_prof.get("companyName") or comp_prof.get("tradeName", "Empresa Asociada"),
+                        "role": role,
+                        "logoUrl": comp_prof.get("logoUrl"),
+                        "logoBase64": comp_prof.get("logoBase64")
+                    })
+    except Exception as e:
+        print(f"⚠️ Error al leer associated_companies de Firestore: {e}")
+    try:
+        team_docs = db_firestore.collection_group("team").where(filter=firestore.FieldFilter("uid", "==", uid)).get()
+        for doc in team_docs:
+            parent_ref = doc.reference.parent.parent
+            if parent_ref:
+                owner_uid = parent_ref.id
+                if not any(c["ownerUID"] == owner_uid for c in companies):
+                    comp_prof = DatabaseService.get_company_profile(owner_uid)
+                    companies.append({
+                        "ownerUID": owner_uid,
+                        "companyName": comp_prof.get("companyName") or comp_prof.get("tradeName", "Empresa Colaboradora"),
+                        "role": "employee",
+                        "logoUrl": comp_prof.get("logoUrl"),
+                        "logoBase64": comp_prof.get("logoBase64")
+                    })
+    except Exception as e:
+        print(f"⚠️ Error en consulta de grupo de colección team: {e}")
+    return companies
 
 
 def _invalidate_crm_contacts(owner_uid):
@@ -789,6 +848,14 @@ _storage_cache_ttl = 3600  # 1 hora
 def _invalidate_storage_cache(owner_uid):
     """Invalida el cache de storage para un owner después de upload/delete."""
     _storage_usage_cache.pop(owner_uid, None)
+
+
+def _prune_storage_cache():
+    """Elimina entradas expiradas del cache de storage."""
+    now = time.time()
+    expired = [k for k, v in _storage_usage_cache.items() if now - v.get("ts", 0) > _storage_cache_ttl]
+    for k in expired:
+        _storage_usage_cache.pop(k, None)
 
 
 class DatabaseService:
@@ -3455,6 +3522,7 @@ class DatabaseService:
         cached = _storage_usage_cache.get(owner_uid)
         if cached and (time.time() - cached["ts"]) < _storage_cache_ttl:
             return cached["value"]
+        _prune_storage_cache()
 
         if not firebase_initialized or not firebase_storage_bucket:
             return 15.4
@@ -5512,91 +5580,7 @@ class DatabaseService:
     @classmethod
     def get_associated_companies(cls, uid):
         """Retorna una lista de todas las empresas asociadas al usuario (UID)."""
-        companies = []
-        if not firebase_initialized:
-            return companies
-
-        try:
-            # 1. Obtener la propia empresa del usuario si es propietario de VykOne y lo tiene permitido
-            profile = cls.get_user_profile(uid)
-            if profile and profile.get("canManageOwnCompany", False):
-                own_owner_uid = profile.get("uid")
-                # Intentar obtener el nombre de su propia empresa
-                own_company = cls.get_company_profile(own_owner_uid)
-                companies.append({
-                    "ownerUID": own_owner_uid,
-                    "companyName": own_company.get("companyName") or own_company.get("tradeName", "Mi Empresa"),
-                    "role": profile.get("role", "owner"),
-                    "logoUrl": own_company.get("logoUrl"),
-                    "logoBase64": own_company.get("logoBase64")
-                })
-        except Exception as e:
-            print(f"⚠️ Error al obtener propia empresa: {e}")
-
-        try:
-            # 2. Obtener empresas desde la lista explícita associated_companies en el perfil de usuario
-            doc = db_firestore.collection("users").document(uid).collection("config").document("user_profile").get()
-            if doc.exists:
-                data = doc.to_dict()
-                assoc = data.get("associated_companies", [])
-                for item in assoc:
-                    owner_uid = item.get("ownerUID") if isinstance(item, dict) else item
-                    if owner_uid and not any(c["ownerUID"] == owner_uid for c in companies):
-                        comp_prof = cls.get_company_profile(owner_uid)
-                        role = item.get("role", "employee") if isinstance(item, dict) else "employee"
-                        companies.append({
-                            "ownerUID": owner_uid,
-                            "companyName": comp_prof.get("companyName") or comp_prof.get("tradeName", "Empresa Asociada"),
-                            "role": role,
-                            "logoUrl": comp_prof.get("logoUrl"),
-                            "logoBase64": comp_prof.get("logoBase64")
-                        })
-        except Exception as e:
-            print(f"⚠️ Error al leer associated_companies de Firestore: {e}")
-
-        try:
-            # 3. Descubrimiento automático buscando en las colecciones 'team'
-            # Consulta de grupo de colecciones 'team' donde el miembro es el UID especificado
-            team_docs = db_firestore.collection_group("team").where(filter=firestore.FieldFilter("uid", "==", uid)).get()
-            for doc in team_docs:
-                parent_ref = doc.reference.parent.parent
-                if parent_ref:
-                    owner_uid = parent_ref.id
-                    if not any(c["ownerUID"] == owner_uid for c in companies):
-                        comp_prof = cls.get_company_profile(owner_uid)
-                        companies.append({
-                            "ownerUID": owner_uid,
-                            "companyName": comp_prof.get("companyName") or comp_prof.get("tradeName", "Empresa Colaboradora"),
-                            "role": "employee",
-                            "logoUrl": comp_prof.get("logoUrl"),
-                            "logoBase64": comp_prof.get("logoBase64")
-                        })
-        except Exception as e:
-            print(f"⚠️ Error en consulta de grupo de colección team: {e}. Iniciando búsqueda de contingencia sin índices...")
-            try:
-                # Búsqueda de contingencia sin índices usando el grupo de colecciones 'config'
-                config_docs = db_firestore.collection_group("config").get()
-                for doc in config_docs:
-                    if doc.id == "user_profile":
-                        parent_ref = doc.reference.parent.parent
-                        if parent_ref:
-                            owner_uid = parent_ref.id
-                            # Evitar redundancia si ya fue agregada
-                            if not any(c["ownerUID"] == owner_uid for c in companies):
-                                team_doc = db_firestore.collection("users").document(owner_uid).collection("team").document(uid).get()
-                                if team_doc.exists:
-                                    comp_prof = cls.get_company_profile(owner_uid)
-                                    companies.append({
-                                        "ownerUID": owner_uid,
-                                        "companyName": comp_prof.get("companyName") or comp_prof.get("tradeName", "Empresa Colaboradora"),
-                                        "role": "employee",
-                                        "logoUrl": comp_prof.get("logoUrl"),
-                                        "logoBase64": comp_prof.get("logoBase64")
-                                    })
-            except Exception as ex:
-                print(f"⚠️ Fallo crítico en búsqueda de contingencia de empresas: {ex}")
-
-        return companies
+        return _cached_associated_companies(uid)
 
     @classmethod
     def get_invoice_comments(cls, owner_uid, invoice_id, sandbox=True):
@@ -6264,18 +6248,24 @@ class DatabaseService:
 
     @classmethod
     def get_next_entry_number(cls, owner_uid, prefix="A", sandbox=True):
-        """Obtiene el siguiente número de asiento contable usando un contador atómico."""
+        """Obtiene el siguiente número de asiento contable usando una transacción atómica."""
         if firebase_initialized:
             try:
-                coll_name = "sandbox_accounting_entries" if sandbox else "accounting_entries"
-                counter_ref = db_firestore.collection("users").document(owner_uid).collection("config").document("entry_counter")
-                counter = counter_ref.get()
-                if counter.exists:
-                    data = counter.to_dict()
-                    next_num = data.get("nextNumber", 1)
-                else:
-                    next_num = 1
-                counter_ref.set({"nextNumber": next_num + 1})
+                transaction = db_firestore.transaction()
+
+                @firestore.transactional
+                def run_in_transaction(transaction):
+                    counter_ref = db_firestore.collection("users").document(owner_uid).collection("config").document("entry_counter")
+                    counter = counter_ref.get(transaction=transaction)
+                    if counter.exists:
+                        data = counter.to_dict()
+                        next_num = data.get("nextNumber", 1)
+                    else:
+                        next_num = 1
+                    transaction.set(counter_ref, {"nextNumber": next_num + 1})
+                    return next_num
+
+                next_num = run_in_transaction(transaction)
                 return f"{prefix}-{next_num:05d}"
             except Exception as e:
                 print(f"⚠️ Error al obtener siguiente número de asiento: {e}")

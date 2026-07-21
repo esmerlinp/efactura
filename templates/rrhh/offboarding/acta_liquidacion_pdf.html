@@ -21,12 +21,18 @@
     .signatures { margin-top: 40px; display: flex; justify-content: space-between; gap: 30px; }
     .sig-box { flex: 1; text-align: center; }
     .sig-line { border-top: 1px solid #333; margin-top: 45px; padding-top: 6px; font-size: 8pt; color: #555; }
-    .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 7pt; color: #999; border-top: 1px solid #ddd; padding-top: 4px; }
-    .qr-code { position: fixed; bottom: 30px; right: 15px; width: 50px; height: 50px; }
+    .sig-name { font-size: 9pt; font-weight: 600; color: #222; }
+    .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 7pt; color: #999; border-top: 1px solid #ddd; padding-top: 4px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .footer-qr { width: 40px; height: 40px; }
     .text-right { text-align: right; }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .info-label { font-size: 8pt; color: #666; }
     .info-value { font-weight: 600; font-size: 10pt; }
+    .neto-box { text-align: center; padding: 12px; border: 2px solid #1e40af; border-radius: 6px; margin-top: 12px; page-break-inside: avoid; }
+    .status-badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 8pt; font-weight: 600; }
+    .status-paid { background: #d1fae5; color: #065f46; }
+    .status-pending { background: #fef3c7; color: #92400e; }
+    .keep-together { page-break-inside: avoid; }
 </style>
 </head>
 <body>
@@ -39,17 +45,25 @@
     </div>
     <div class="company-info">
         <strong>{{ company.companyName }}</strong><br>
-        RNC: {{ company.rnc }}<br>
-        {{ company.city }}<br>
-        Tel: {{ company.phone }}
+        {% if company.rnc %}RNC: {{ company.rnc }}<br>{% endif %}
+        {% if company.address %}{{ company.address }}<br>{% endif %}
+        {% if company.city %}{{ company.city }}<br>{% endif %}
+        {% if company.phone %}Tel: {{ company.phone }}<br>{% endif %}
+        {% if company.email %}{{ company.email }}{% endif %}
     </div>
 </div>
 
-<div class="title">Acta de Liquidación y Finiquito</div>
+<div class="title">Acta de Liquidación Laboral</div>
 
 <div class="ref-line">
     Ref: {{ request_data.requestNumber or request_data.id[:8] }}<br>
-    Fecha: {{ today_es }}
+    Fecha: {{ today_es }}<br>
+    Estado:
+    {% if settlement_completed %}
+    <span class="status-badge status-paid">Pagada</span>
+    {% else %}
+    <span class="status-badge status-pending">Pendiente de pago</span>
+    {% endif %}
 </div>
 
 <div class="section">
@@ -73,7 +87,10 @@
         </thead>
         <tbody>
             {% for key, val in settlement.conceptos.items() %}
-            <tr><td>{{ key | replace('_', ' ') | title }}</td><td class="amount">{{ "{:,.2f}".format(val|float) }}</td></tr>
+            <tr>
+                <td>{{ format_key_label(key) }}</td>
+                <td class="amount">{{ "{:,.2f}".format(val.monto|float) if val is mapping else "{:,.2f}".format(val|float) }}</td>
+            </tr>
             {% endfor %}
         </tbody>
     </table>
@@ -81,70 +98,90 @@
 {% endif %}
 
 {% if settlement.totales %}
-<div class="section">
+<div class="section keep-together">
     <h3>Totales</h3>
     <table>
         <tbody>
+            {% set _exclude = ('montoNeto', 'montoBruto', 'montoGravableTSS', 'montoGravableISR', 'montoExento', 'loanDeductions', 'advanceDeductions', 'otherDeductions', 'montoNetoAPagar') %}
             {% for key, val in settlement.totales.items() %}
-            {% if key not in ('loanDeductions', 'advanceDeductions', 'otherDeductions', 'montoNetoAPagar') %}
-            <tr class="{% if key in ('montoTotal', 'totalPrestaciones', 'totalVacaciones', 'totalRegalias', 'totalSalario', 'montoDescuentos') %}total-row{% endif %}">
-                <td style="width:60%;">{{ key | replace('monto', 'Monto ') | replace('_', ' ') | title }}</td>
+            {% if key not in _exclude %}
+            <tr class="{% if key in ('montoTotal', 'montoPrestaciones', 'montoDerechosAdquiridos', 'montoDescuentos') %}total-row{% endif %}">
+                <td style="width:60%;">{{ format_key_label(key) }}</td>
                 <td class="amount">{{ "{:,.2f}".format(val|float) if val is number else val }}</td>
             </tr>
             {% endif %}
             {% endfor %}
-            {% if settlement.loanDeductions %}
-            <tr><td style="width:60%; padding-left:16px;">↳ Deducción Préstamos</td><td class="amount" style="color:#e11d48;">- {{ "{:,.2f}".format(settlement.loanDeductions|float) }}</td></tr>
+            {% if settlement.loanDeductions|default(0)|float > 0 %}
+            <tr><td style="width:60%; padding-left:16px;">Deducción Préstamos</td><td class="amount" style="color:#e11d48;">- {{ "{:,.2f}".format(settlement.loanDeductions|float) }}</td></tr>
             {% endif %}
-            {% if settlement.advanceDeductions %}
-            <tr><td style="width:60%; padding-left:16px;">↳ Deducción Adelantos</td><td class="amount" style="color:#e11d48;">- {{ "{:,.2f}".format(settlement.advanceDeductions|float) }}</td></tr>
+            {% if settlement.advanceDeductions|default(0)|float > 0 %}
+            <tr><td style="width:60%; padding-left:16px;">Deducción Adelantos</td><td class="amount" style="color:#e11d48;">- {{ "{:,.2f}".format(settlement.advanceDeductions|float) }}</td></tr>
             {% endif %}
-            {% if settlement.otherDeductions %}
-            <tr><td style="width:60%; padding-left:16px;">↳ Otras Deducciones</td><td class="amount" style="color:#e11d48;">- {{ "{:,.2f}".format(settlement.otherDeductions|float) }}</td></tr>
+            {% if settlement.otherDeductions|default(0)|float > 0 %}
+            <tr><td style="width:60%; padding-left:16px;">Otras Deducciones</td><td class="amount" style="color:#e11d48;">- {{ "{:,.2f}".format(settlement.otherDeductions|float) }}</td></tr>
             {% endif %}
         </tbody>
     </table>
 </div>
 {% endif %}
 
-{% if settlement.montoNetoAPagar %}
-<div class="section" style="text-align:center; padding:12px; border:2px solid #1e40af; border-radius:6px; margin-top:12px;">
+{% set neto_a_pagar = settlement.montoNetoAPagar|default(0)|float %}
+{% if not neto_a_pagar %}
+{% set neto_a_pagar = settlement.totales.montoNetoAPagar|default(0)|float %}
+{% endif %}
+{% if neto_a_pagar > 0 %}
+<div class="neto-box keep-together">
     <div style="font-size:9pt; color:#555;">MONTO NETO A PAGAR</div>
-    <div style="font-size:16pt; font-weight:700; color:#1e40af;">RD$ {{ "{:,.2f}".format(settlement.montoNetoAPagar|float) }}</div>
+    <div style="font-size:16pt; font-weight:700; color:#1e40af;">RD$ {{ "{:,.2f}".format(neto_a_pagar) }}</div>
+</div>
+{% endif %}
+
+{% if settlement_completed %}
+<div class="section" style="margin-top:16px; font-size:9pt;">
+    <h3>Información del Pago</h3>
+    <div class="grid-2">
+        <div><span class="info-label">Fecha de pago:</span><br><span class="info-value">{% if settlement.paidAt %}{{ format_date_es(settlement.paidAt) }}{% else %}---{% endif %}</span></div>
+        {% if settlement.paymentMethod %}
+        <div><span class="info-label">Forma de pago:</span><br><span class="info-value">{{ settlement.paymentMethod | replace('_', ' ') | title }}</span></div>
+        {% endif %}
+        {% if settlement.paymentReference %}
+        <div><span class="info-label">Referencia:</span><br><span class="info-value">{{ settlement.paymentReference }}</span></div>
+        {% endif %}
+    </div>
 </div>
 {% endif %}
 
 <p style="margin-top:16px; font-size:9pt; text-align:justify;">
-    Recibí de {{ company.companyName }} la suma arriba indicada como pago total y definitivo de todas las prestaciones laborales, derechos adquiridos, vacaciones, salarios pendientes, y cualquier otra suma que pudiera corresponderme por la relación laboral que mantuve con la empresa, declarando que no tengo nada más que reclamar a la empresa por concepto laboral alguno.
+    Las partes dejan constancia de los valores liquidados conforme a los registros de la empresa y la normativa laboral vigente.
 </p>
 
 <div class="signatures">
     <div class="sig-box">
         <div class="sig-line">
-            <strong>{{ company.companyName }}</strong><br>
-            {{ company.rnc }}
+            {% if representative_name %}
+            <div class="sig-name">{{ representative_name }}</div>
+            {% endif %}
+            {% if representative_position %}
+            <div>{{ representative_position }}</div>
+            {% endif %}
+            <div><strong>{{ company.companyName }}</strong></div>
+            {% if company.rnc %}<div>{{ company.rnc }}</div>{% endif %}
         </div>
     </div>
     <div class="sig-box">
         <div class="sig-line">
-            <strong>{{ employee.fullName }}</strong><br>
-            {{ employee.cedula or employee.idNumber }}
-        </div>
-    </div>
-    <div class="sig-box">
-        <div class="sig-line">
-            <strong>Testigo</strong><br>
-            RRHH
+            <div class="sig-name">{{ employee.fullName }}</div>
+            <div>{{ employee.cedula or employee.idNumber }}</div>
+            <div>Colaborador</div>
         </div>
     </div>
 </div>
 
-{% if qr_base64 %}
-<img src="data:image/png;base64,{{ qr_base64 }}" class="qr-code">
-{% endif %}
-
 <div class="footer">
     Código de verificación: {{ verification_code }} | Documento generado electrónicamente
+    {% if qr_base64 %}
+    <img src="data:image/png;base64,{{ qr_base64 }}" class="footer-qr">
+    {% endif %}
 </div>
 
 </body>

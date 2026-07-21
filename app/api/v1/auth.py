@@ -11,9 +11,66 @@ api_auth_bp = Blueprint('api_auth', __name__)
 @api_auth_bp.route('/auth/login', methods=['POST'])
 def login():
     """
-    POST /api/v1/auth/login
-    Inicia sesión para un usuario de la aplicación móvil.
-    Recibe email y password en JSON.
+    Autenticar usuario de la aplicación móvil
+    ---
+    tags:
+      - Auth
+    summary: Iniciar sesión
+    description: |
+      Autentica un usuario por email y contraseña.
+      Si el usuario tiene 2FA habilitado, devuelve `mfa_required: true` junto con un `mfa_token` temporal.
+      Si no tiene 2FA, devuelve directamente la API Key de la compañía.
+      Este endpoint **no requiere** el header X-API-Key.
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - email
+            - password
+          properties:
+            email:
+              type: string
+              example: usuario@correo.com
+              description: Email del usuario
+            password:
+              type: string
+              example: "********"
+              description: Contraseña del usuario
+    responses:
+      200:
+        description: Login exitoso
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            mfa_required:
+              type: boolean
+              example: true
+            mfa_token:
+              type: string
+              example: "uuid-del-token-mfa"
+            email:
+              type: string
+              example: usuario@correo.com
+            api_key:
+              type: string
+              example: "vyk_key_abc123..."
+            user:
+              type: object
+              description: Perfil completo del usuario (solo si mfa_required=false)
+      400:
+        description: Faltan email o password
+      401:
+        description: Credenciales incorrectas
+      403:
+        description: Cuenta bloqueada o error de validación
+      500:
+        description: Error interno del servidor
     """
     try:
         data = request.json or {}
@@ -66,8 +123,54 @@ def login():
 @api_auth_bp.route('/auth/verify-2fa', methods=['POST'])
 def verify_2fa():
     """
-    POST /api/v1/auth/verify-2fa
-    Verifica el código de autenticación en dos factores (TOTP o código de respaldo).
+    Verificar código 2FA
+    ---
+    tags:
+      - Auth
+    summary: Verificar segundo factor de autenticación
+    description: |
+      Valida el código TOTP o código de respaldo para completar la autenticación de dos factores.
+      Si el código es válido, devuelve la API Key de la compañía.
+      Este endpoint **no requiere** el header X-API-Key.
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - mfa_token
+            - code
+          properties:
+            mfa_token:
+              type: string
+              description: Token MFA temporal recibido en el paso de login
+              example: "uuid-del-token-mfa"
+            code:
+              type: string
+              description: Código TOTP de 6 dígitos o código de respaldo
+              example: "123456"
+    responses:
+      200:
+        description: Verificación exitosa
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            api_key:
+              type: string
+              example: "vyk_key_abc123..."
+            user:
+              type: object
+              description: Perfil completo del usuario autenticado
+      400:
+        description: Parámetros faltantes o código incorrecto
+      401:
+        description: Sesión de verificación expirada o inválida
+      500:
+        description: Error interno del servidor
     """
     try:
         data = request.json or {}

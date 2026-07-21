@@ -18,9 +18,102 @@ api_invoices_bp = Blueprint('api_invoices', __name__)
 @require_api_key
 def emit_invoice():
     """
-    POST /api/v1/invoices/emit
-    Emite un comprobante fiscal electrónico (e-CF).
-    Recibe la información de la factura en JSON.
+    Emite un comprobante fiscal electrónico (e-CF)
+    ---
+    tags:
+      - Invoices
+    summary: Emite un comprobante fiscal electronico (e-CF) ante la DGII
+    description: |
+      Recibe la informacion de la factura en JSON, calcula los impuestos
+      (ITBIS, ISC, retenciones) y emite el e-CF via el proveedor autorizado.
+      Soporta clave de idempotencia via header Idempotency-Key.
+    security:
+      - ApiKeyHeader: []
+    parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        type: string
+        description: Clave de idempotencia para evitar duplicados
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              description: Lista de articulos del documento
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: ID del articulo
+                  name:
+                    type: string
+                    description: Nombre del articulo
+                  price:
+                    type: number
+                    description: Precio unitario
+                  quantity:
+                    type: number
+                    description: Cantidad
+                  itbis_rate:
+                    type: number
+                    description: Tasa de ITBIS (default 0.18)
+                  discount_rate:
+                    type: number
+                    description: Tasa de descuento
+                  type:
+                    type: string
+                    description: Tipo (Bien/Servicio)
+                  unit:
+                    type: string
+                    description: Unidad de medida
+            client_rnc:
+              type: string
+              description: RNC del cliente
+            client_name:
+              type: string
+              description: Nombre del cliente
+            client_id:
+              type: string
+              description: ID del cliente
+            ecf_type:
+              type: string
+              description: Tipo de comprobante fiscal
+            payment_method:
+              type: string
+              description: Metodo de pago
+            due_date:
+              type: string
+              description: Fecha de vencimiento (YYYY-MM-DD)
+            discount_rate:
+              type: number
+              description: Tasa de descuento global
+            retained_isr_rate:
+              type: number
+              description: Tasa de retencion de ISR
+            retained_itbis_rate:
+              type: number
+              description: Tasa de retencion de ITBIS
+            currency:
+              type: string
+              description: Moneda (DOP)
+            income_type:
+              type: string
+              description: Tipo de ingreso segun DGII
+    responses:
+      200:
+        description: Factura emitida exitosamente
+      400:
+        description: Payload invalido
+      422:
+        description: Error del proveedor de facturacion
+      500:
+        description: Error interno del servidor
     """
     try:
         data = request.json or {}
@@ -247,8 +340,29 @@ def emit_invoice():
 @http_cache(timeout=30)
 def get_invoice_status(invoice_id):
     """
-    GET /api/v1/invoices/<invoice_id>/status
-    Consulta el estado de sincronización y validación de una factura electrónica específica.
+    Consulta el estado de una factura electronica
+    ---
+    tags:
+      - Invoices
+    summary: Consulta el estado de sincronizacion y validacion DGII de una factura
+    description: |
+      Retorna el estado actual, NCF, track ID y estado de sincronizacion con la DGII
+      para una factura electronica especifica.
+    security:
+      - ApiKeyHeader: []
+    parameters:
+      - name: invoice_id
+        in: path
+        required: true
+        type: string
+        description: ID de la factura a consultar
+    responses:
+      200:
+        description: Estado de la factura
+      404:
+        description: Factura no encontrada
+      500:
+        description: Error interno del servidor
     """
     try:
         invoices = DatabaseService.get_invoices(g.owner_uid, sandbox=g.sandbox_mode)
@@ -275,8 +389,40 @@ def get_invoice_status(invoice_id):
 @require_api_key
 def cancel_invoice(invoice_id):
     """
-    POST /api/v1/invoices/<invoice_id>/cancel
-    Anula un e-CF emitido.
+    Anula un e-CF emitido
+    ---
+    tags:
+      - Invoices
+    summary: Anula un comprobante fiscal electronico emitido
+    description: |
+      Anula un e-CF previamente emitido, enviando la solicitud de anulacion
+      al proveedor de facturacion autorizado por la DGII.
+    security:
+      - ApiKeyHeader: []
+    parameters:
+      - name: invoice_id
+        in: path
+        required: true
+        type: string
+        description: ID de la factura a anular
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          properties:
+            reason:
+              type: string
+              description: Motivo de la anulacion
+    responses:
+      200:
+        description: Factura anulada exitosamente
+      404:
+        description: Factura no encontrada
+      422:
+        description: No se pudo anular la factura
+      500:
+        description: Error interno del servidor
     """
     try:
         invoices = DatabaseService.get_invoices(g.owner_uid, sandbox=g.sandbox_mode)
@@ -331,8 +477,62 @@ def cancel_invoice(invoice_id):
 @require_api_key
 def calculate_totals():
     """
-    POST /api/v1/invoices/calculate
-    Calcula los totales de impuestos exactos (con ISC, propina, retenciones y redondeo de ley).
+    Calcula los totales de impuestos de una factura
+    ---
+    tags:
+      - Invoices
+    summary: Calcula los totales fiscales exactos (ITBIS, ISC, retenciones)
+    description: |
+      Calcula los totales de impuestos con ISC especifico, ad valorem,
+      retenciones de ISR e ITBIS y redondeo de ley segun DGII.
+    security:
+      - ApiKeyHeader: []
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              description: Lista de articulos
+              items:
+                type: object
+                properties:
+                  price:
+                    type: number
+                    description: Precio unitario
+                  quantity:
+                    type: number
+                    description: Cantidad
+                  itbisRate:
+                    type: number
+                    description: Tasa de ITBIS
+                  discountRate:
+                    type: number
+                    description: Tasa de descuento
+                  codigoImpuesto:
+                    type: string
+                    description: Codigo de impuesto ISC
+                  tasaImpuestoAdicional:
+                    type: number
+                    description: Tasa de impuesto adicional
+            discount_rate:
+              type: number
+              description: Tasa de descuento global
+            retained_isr_rate:
+              type: number
+              description: Tasa de retencion de ISR
+            retained_itbis_rate:
+              type: number
+              description: Tasa de retencion de ITBIS
+    responses:
+      200:
+        description: Calculo realizado exitosamente
+      500:
+        description: Error interno del servidor
     """
     try:
         data = request.json or {}
@@ -377,9 +577,27 @@ def calculate_totals():
 @http_cache(timeout=30)
 def get_invoices():
     """
-    GET /api/v1/invoices
-    Retorna la lista de facturas o cotizaciones para el owner de la API.
-    Filtro opcional: ?is_quotation=true/false
+    Lista las facturas de la empresa
+    ---
+    tags:
+      - Invoices
+    summary: Retorna la lista de facturas emitidas por la empresa
+    description: |
+      Retorna todas las facturas del owner autenticado. Permite filtrar
+      por cotizaciones usando el query param is_quotation.
+    security:
+      - ApiKeyHeader: []
+    parameters:
+      - name: is_quotation
+        in: query
+        required: false
+        type: string
+        description: Filtrar cotizaciones (true/false)
+    responses:
+      200:
+        description: Lista de facturas
+      500:
+        description: Error interno del servidor
     """
     try:
         is_quotation = request.args.get('is_quotation', 'false').lower() == 'true'
@@ -397,8 +615,21 @@ def get_invoices():
 @http_cache(timeout=30)
 def get_documents():
     """
-    GET /api/v1/documents
-    Retorna la lista de todos los documentos (facturas y cotizaciones) para el owner de la API.
+    Lista todos los documentos
+    ---
+    tags:
+      - Invoices
+    summary: Retorna la lista de todos los documentos (facturas y cotizaciones)
+    description: |
+      Retorna todos los documentos del owner autenticado, incluyendo
+      facturas emitidas, borradores y cotizaciones.
+    security:
+      - ApiKeyHeader: []
+    responses:
+      200:
+        description: Lista de documentos
+      500:
+        description: Error interno del servidor
     """
     try:
         documents = DatabaseService.get_invoices(g.owner_uid, sandbox=g.sandbox_mode, include_all=True)
@@ -415,8 +646,29 @@ def get_documents():
 @http_cache(timeout=30)
 def get_invoice_detail(invoice_id):
     """
-    GET /api/v1/invoices/<invoice_id>
-    Retorna el detalle completo de un documento específico.
+    Obtiene el detalle completo de un documento
+    ---
+    tags:
+      - Invoices
+    summary: Retorna el detalle completo de un documento especifico
+    description: |
+      Retorna toda la informacion de una factura o cotizacion, incluyendo
+      items, totales, estado y datos del cliente.
+    security:
+      - ApiKeyHeader: []
+    parameters:
+      - name: invoice_id
+        in: path
+        required: true
+        type: string
+        description: ID del documento a consultar
+    responses:
+      200:
+        description: Detalle del documento
+      404:
+        description: Documento no encontrado
+      500:
+        description: Error interno del servidor
     """
     try:
         invoice = DatabaseService.get_invoice(g.owner_uid, invoice_id, sandbox=g.sandbox_mode)
@@ -434,8 +686,70 @@ def get_invoice_detail(invoice_id):
 @require_api_key
 def create_draft_invoice():
     """
-    POST /api/v1/invoices
-    Crea un nuevo Borrador de Factura o una Cotización en Firestore.
+    Crea un nuevo borrador de factura o cotizacion
+    ---
+    tags:
+      - Invoices
+    summary: Crea un borrador de factura o cotizacion en Firestore
+    description: |
+      Crea un nuevo documento (factura borrador o cotizacion) con los datos
+      proporcionados. Los totales fiscales se calculan automaticamente.
+    security:
+      - ApiKeyHeader: []
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          properties:
+            items:
+              type: array
+              description: Lista de articulos del documento
+            is_quotation:
+              type: boolean
+              description: Si es true, crea una cotizacion
+            ecf_type:
+              type: string
+              description: Tipo de comprobante fiscal
+            client_rnc:
+              type: string
+              description: RNC del cliente
+            client_name:
+              type: string
+              description: Nombre del cliente
+            client_id:
+              type: string
+              description: ID del cliente
+            due_date:
+              type: string
+              description: Fecha de vencimiento
+            discount_rate:
+              type: number
+              description: Tasa de descuento global
+            currency:
+              type: string
+              description: Moneda (DOP)
+            payment_method:
+              type: string
+              description: Metodo de pago
+            notes:
+              type: string
+              description: Notas del documento
+            income_type:
+              type: string
+              description: Tipo de ingreso DGII
+            warehouse_id:
+              type: string
+              description: ID del almacen
+            branch_id:
+              type: string
+              description: ID de la sucursal
+    responses:
+      200:
+        description: Documento creado exitosamente
+      500:
+        description: Error interno del servidor
     """
     try:
         data = request.json or {}
@@ -542,8 +856,82 @@ def create_draft_invoice():
 @require_api_key
 def update_invoice(invoice_id):
     """
-    PUT /api/v1/invoices/<invoice_id>
-    Actualiza un borrador o cotización en Firestore.
+    Actualiza un borrador o cotizacion
+    ---
+    tags:
+      - Invoices
+    summary: Actualiza un borrador de factura o cotizacion existente
+    description: |
+      Actualiza los datos de un documento en estado Borrador o una cotizacion.
+      Los totales fiscales se recalculan automaticamente.
+    security:
+      - ApiKeyHeader: []
+    parameters:
+      - name: invoice_id
+        in: path
+        required: true
+        type: string
+        description: ID del documento a actualizar
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          properties:
+            items:
+              type: array
+              description: Lista de articulos del documento
+            client_rnc:
+              type: string
+              description: RNC del cliente
+            client_name:
+              type: string
+              description: Nombre del cliente
+            client_id:
+              type: string
+              description: ID del cliente
+            ecf_type:
+              type: string
+              description: Tipo de comprobante fiscal
+            due_date:
+              type: string
+              description: Fecha de vencimiento
+            discount_rate:
+              type: number
+              description: Tasa de descuento global
+            currency:
+              type: string
+              description: Moneda
+            payment_method:
+              type: string
+              description: Metodo de pago
+            payment_type:
+              type: string
+              description: Tipo de pago (Contado/Credito)
+            notes:
+              type: string
+              description: Notas del documento
+            income_type:
+              type: string
+              description: Tipo de ingreso DGII
+            warehouse_id:
+              type: string
+              description: ID del almacen
+            is_recurring:
+              type: boolean
+              description: Si es recurrente
+            recurrence_interval:
+              type: string
+              description: Intervalo de recurrencia
+    responses:
+      200:
+        description: Documento actualizado exitosamente
+      404:
+        description: Documento no encontrado
+      422:
+        description: El documento no se puede editar
+      500:
+        description: Error interno del servidor
     """
     try:
         invoice = DatabaseService.get_invoice(g.owner_uid, invoice_id, sandbox=g.sandbox_mode)
@@ -633,8 +1021,31 @@ def update_invoice(invoice_id):
 @require_api_key
 def delete_invoice(invoice_id):
     """
-    DELETE /api/v1/invoices/<invoice_id>
-    Elimina un documento Borrador o Cotización en Firestore.
+    Elimina un borrador o cotizacion
+    ---
+    tags:
+      - Invoices
+    summary: Elimina un documento en estado Borrador o una cotizacion
+    description: |
+      Elimina permanentemente un documento que este en estado Borrador,
+      Rechazada o sea una cotizacion. No se pueden eliminar documentos emitidos.
+    security:
+      - ApiKeyHeader: []
+    parameters:
+      - name: invoice_id
+        in: path
+        required: true
+        type: string
+        description: ID del documento a eliminar
+    responses:
+      200:
+        description: Documento eliminado exitosamente
+      404:
+        description: Documento no encontrado
+      422:
+        description: No se puede eliminar un documento emitido
+      500:
+        description: Error interno del servidor
     """
     try:
         invoice = DatabaseService.get_invoice(g.owner_uid, invoice_id, sandbox=g.sandbox_mode)
@@ -664,8 +1075,21 @@ def delete_invoice(invoice_id):
 @http_cache(timeout=60)
 def get_items():
     """
-    GET /api/v1/items
-    Retorna el catálogo de artículos y servicios de la empresa.
+    Lista el catalogo de articulos y servicios
+    ---
+    tags:
+      - Items
+    summary: Retorna el catalogo de articulos y servicios de la empresa
+    description: |
+      Retorna todos los articulos y servicios registrados en el catalogo
+      de la empresa autenticada.
+    security:
+      - ApiKeyHeader: []
+    responses:
+      200:
+        description: Catalogo de articulos
+      500:
+        description: Error interno del servidor
     """
     try:
         items = DatabaseService.get_items(g.owner_uid, sandbox=g.sandbox_mode)
@@ -678,8 +1102,58 @@ def get_items():
 @require_api_key
 def create_item():
     """
-    POST /api/v1/items
-    Registra un nuevo artículo o servicio en el catálogo.
+    Registra un nuevo articulo o servicio en el catalogo
+    ---
+    tags:
+      - Items
+    summary: Crea un nuevo articulo o servicio en el catalogo
+    description: |
+      Registra un nuevo articulo o servicio en el catalogo de la empresa
+      con sus propiedades fiscales y de inventario.
+    security:
+      - ApiKeyHeader: []
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required: [name]
+          properties:
+            name:
+              type: string
+              description: Nombre del articulo o servicio
+            price:
+              type: number
+              description: Precio unitario
+            code:
+              type: string
+              description: Codigo interno del articulo
+            type:
+              type: string
+              description: Tipo (Bien o Servicio)
+            unit:
+              type: string
+              description: Unidad de medida
+            itbis_rate:
+              type: number
+              description: Tasa de ITBIS (default 0.18)
+            min_stock:
+              type: number
+              description: Stock minimo
+            rack_location:
+              type: string
+              description: Ubicacion en almacen
+            total_stock:
+              type: number
+              description: Stock total inicial
+    responses:
+      200:
+        description: Articulo creado exitosamente
+      400:
+        description: El nombre del articulo es requerido
+      500:
+        description: Error interno del servidor
     """
     try:
         data = request.json or {}
@@ -718,8 +1192,62 @@ def create_item():
 @require_api_key
 def update_item(item_id):
     """
-    PUT /api/v1/items/<item_id>
-    Actualiza la información de un producto o servicio del catálogo.
+    Actualiza un articulo o servicio del catalogo
+    ---
+    tags:
+      - Items
+    summary: Actualiza la informacion de un articulo o servicio existente
+    description: |
+      Actualiza los datos de un articulo o servicio del catalogo,
+      incluyendo precio, stock, tipo y propiedades fiscales.
+    security:
+      - ApiKeyHeader: []
+    parameters:
+      - name: item_id
+        in: path
+        required: true
+        type: string
+        description: ID del articulo a actualizar
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              description: Nombre del articulo
+            price:
+              type: number
+              description: Precio unitario
+            code:
+              type: string
+              description: Codigo interno
+            type:
+              type: string
+              description: Tipo (Bien/Servicio)
+            unit:
+              type: string
+              description: Unidad de medida
+            itbis_rate:
+              type: number
+              description: Tasa de ITBIS
+            min_stock:
+              type: number
+              description: Stock minimo
+            rack_location:
+              type: string
+              description: Ubicacion en almacen
+            total_stock:
+              type: number
+              description: Stock total
+    responses:
+      200:
+        description: Articulo actualizado exitosamente
+      404:
+        description: Articulo no encontrado
+      500:
+        description: Error interno del servidor
     """
     try:
         items = DatabaseService.get_items(g.owner_uid, sandbox=g.sandbox_mode)
@@ -756,8 +1284,27 @@ def update_item(item_id):
 @require_api_key
 def delete_item_route(item_id):
     """
-    DELETE /api/v1/items/<item_id>
-    Elimina un artículo del catálogo de Firestore.
+    Elimina un articulo del catalogo
+    ---
+    tags:
+      - Items
+    summary: Elimina un articulo del catalogo de Firestore
+    description: |
+      Elimina permanentemente un articulo o servicio del catalogo
+      de la empresa.
+    security:
+      - ApiKeyHeader: []
+    parameters:
+      - name: item_id
+        in: path
+        required: true
+        type: string
+        description: ID del articulo a eliminar
+    responses:
+      200:
+        description: Articulo eliminado exitosamente
+      500:
+        description: Error interno del servidor
     """
     try:
         DatabaseService.delete_item(g.owner_uid, item_id, sandbox=g.sandbox_mode)
@@ -775,8 +1322,21 @@ def delete_item_route(item_id):
 @http_cache(timeout=30)
 def get_expenses():
     """
-    GET /api/v1/expenses
-    Retorna el histórico de gastos de la empresa.
+    Lista los gastos de la empresa
+    ---
+    tags:
+      - Expenses (CRUD)
+    summary: Retorna el historico de gastos de la empresa
+    description: |
+      Retorna todos los gastos registrados por la empresa autenticada,
+      incluyendo informacion fiscal y de cuentas por pagar.
+    security:
+      - ApiKeyHeader: []
+    responses:
+      200:
+        description: Lista de gastos
+      500:
+        description: Error interno del servidor
     """
     try:
         expenses = DatabaseService.get_expenses(g.owner_uid, sandbox=g.sandbox_mode)
@@ -789,8 +1349,82 @@ def get_expenses():
 @require_api_key
 def create_expense():
     """
-    POST /api/v1/expenses
-    Registra un nuevo gasto ante la DGII.
+    Registra un nuevo gasto
+    ---
+    tags:
+      - Expenses (CRUD)
+    summary: Registra un nuevo gasto en el sistema
+    description: |
+      Registra un nuevo gasto con su informacion fiscal, categoria,
+      datos del proveedor y estatus de cuentas por pagar.
+    security:
+      - ApiKeyHeader: []
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required: [concept, amount]
+          properties:
+            concept:
+              type: string
+              description: Concepto del gasto
+            amount:
+              type: number
+              description: Monto del gasto (mayor a cero)
+            category:
+              type: string
+              description: Categoria del gasto
+            date:
+              type: string
+              description: Fecha del gasto (ISO)
+            rnc_emisor:
+              type: string
+              description: RNC del emisor/proveedor
+            ncf:
+              type: string
+              description: NCF del comprobante
+            is_minor_expense:
+              type: boolean
+              description: Si es un gasto menor DGII
+            notes:
+              type: string
+              description: Notas adicionales
+            is_recurring:
+              type: boolean
+              description: Si el gasto es recurrente
+            recurrence_interval:
+              type: string
+              description: Intervalo de recurrencia
+            itbis_amount:
+              type: number
+              description: Monto de ITBIS del gasto
+            is_itbis_deductible:
+              type: boolean
+              description: Si el ITBIS es deducible
+            is_deductible:
+              type: boolean
+              description: Si el gasto es deducible de ISR
+            provider_name:
+              type: string
+              description: Nombre del proveedor
+            ecf_type:
+              type: string
+              description: Tipo de comprobante fiscal
+            payment_type:
+              type: string
+              description: Tipo de pago (Contado/Credito)
+            branch_id:
+              type: string
+              description: ID de la sucursal
+    responses:
+      200:
+        description: Gasto registrado exitosamente
+      400:
+        description: Concepto o monto invalido
+      500:
+        description: Error interno del servidor
     """
     try:
         data = request.json or {}
@@ -869,8 +1503,86 @@ def create_expense():
 @require_api_key
 def update_expense(expense_id):
     """
-    PUT /api/v1/expenses/<expense_id>
-    Actualiza la información de un gasto existente.
+    Actualiza un gasto existente
+    ---
+    tags:
+      - Expenses (CRUD)
+    summary: Actualiza la informacion de un gasto registrado
+    description: |
+      Actualiza los datos de un gasto existente, incluyendo concepto,
+      monto, categoria, datos del proveedor y estatus fiscal.
+    security:
+      - ApiKeyHeader: []
+    parameters:
+      - name: expense_id
+        in: path
+        required: true
+        type: string
+        description: ID del gasto a actualizar
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          properties:
+            concept:
+              type: string
+              description: Concepto del gasto
+            amount:
+              type: number
+              description: Monto del gasto
+            category:
+              type: string
+              description: Categoria del gasto
+            date:
+              type: string
+              description: Fecha del gasto (ISO)
+            rnc_emisor:
+              type: string
+              description: RNC del emisor/proveedor
+            ncf:
+              type: string
+              description: NCF del comprobante
+            is_minor_expense:
+              type: boolean
+              description: Gasto menor DGII
+            notes:
+              type: string
+              description: Notas adicionales
+            is_recurring:
+              type: boolean
+              description: Gasto recurrente
+            recurrence_interval:
+              type: string
+              description: Intervalo de recurrencia
+            itbis_amount:
+              type: number
+              description: Monto de ITBIS
+            is_itbis_deductible:
+              type: boolean
+              description: ITBIS deducible
+            is_deductible:
+              type: boolean
+              description: Gasto deducible de ISR
+            provider_name:
+              type: string
+              description: Nombre del proveedor
+            ecf_type:
+              type: string
+              description: Tipo de comprobante fiscal
+            payment_type:
+              type: string
+              description: Tipo de pago
+            approval_status:
+              type: string
+              description: Estado de aprobacion
+    responses:
+      200:
+        description: Gasto actualizado exitosamente
+      404:
+        description: Gasto no encontrado
+      500:
+        description: Error interno del servidor
     """
     try:
         expenses = DatabaseService.get_expenses(g.owner_uid, sandbox=g.sandbox_mode)
@@ -930,8 +1642,27 @@ def update_expense(expense_id):
 @require_api_key
 def api_v1_ai_receipt_ocr():
     """
-    POST /api/v1/ai/receipt-ocr
-    Procesa un recibo/factura con GPT-4o-mini usando una API Key autorizada.
+    Procesa un recibo o factura con IA (OCR)
+    ---
+    tags:
+      - AI
+    summary: Extrae datos de un recibo o factura usando GPT-4o-mini
+    description: |
+      Recibe una imagen de un recibo o factura y utiliza inteligencia artificial
+      para extraer los datos relevantes (RNC, NCF, monto, ITBIS, etc.).
+    security:
+      - ApiKeyHeader: []
+    parameters:
+      - name: file
+        in: formData
+        required: true
+        type: file
+        description: Imagen del recibo o factura (JPEG, PNG, HEIC)
+    responses:
+      200:
+        description: Datos extraidos del recibo
+      400:
+        description: No se recibio ningun archivo
     """
     file = request.files.get('file')
     if not file:
@@ -952,8 +1683,27 @@ def api_v1_ai_receipt_ocr():
 @require_api_key
 def api_v1_ai_classify_expense():
     """
-    POST /api/v1/ai/classify-expense
-    Clasifica un concepto de gasto según DGII.
+    Clasifica un concepto de gasto segun DGII
+    ---
+    tags:
+      - AI
+    summary: Clasifica un concepto de gasto usando IA segun los codigos DGII
+    description: |
+      Recibe un concepto de gasto y retorna el codigo de clasificacion
+      DGII correspondiente utilizando inteligencia artificial.
+    security:
+      - ApiKeyHeader: []
+    parameters:
+      - name: concept
+        in: query
+        required: true
+        type: string
+        description: Concepto del gasto a clasificar
+    responses:
+      200:
+        description: Codigo DGII retornado exitosamente
+      400:
+        description: El concepto es requerido
     """
     concept = request.values.get('concept', '').strip()
     if not concept and request.json:
@@ -970,8 +1720,26 @@ def api_v1_ai_classify_expense():
 @require_api_key
 def delete_expense_route(expense_id):
     """
-    DELETE /api/v1/expenses/<expense_id>
-    Elimina un gasto de la base de datos de Firestore.
+    Elimina un gasto
+    ---
+    tags:
+      - Expenses (CRUD)
+    summary: Elimina un gasto de la base de datos
+    description: |
+      Elimina permanentemente un gasto registrado en Firestore.
+    security:
+      - ApiKeyHeader: []
+    parameters:
+      - name: expense_id
+        in: path
+        required: true
+        type: string
+        description: ID del gasto a eliminar
+    responses:
+      200:
+        description: Gasto eliminado exitosamente
+      500:
+        description: Error interno del servidor
     """
     try:
         DatabaseService.delete_expense(g.owner_uid, expense_id, sandbox=g.sandbox_mode)
@@ -989,8 +1757,22 @@ def delete_expense_route(expense_id):
 @http_cache(timeout=30)
 def get_dashboard_summary():
     """
-    GET /api/v1/dashboard/summary
-    Retorna métricas consolidadas (ingresos, gastos, cuentas por cobrar, etc.) calculadas por el backend.
+    Retorna metricas consolidadas del dashboard
+    ---
+    tags:
+      - Dashboard
+    summary: Retorna metricas financieras consolidadas calculadas por el backend
+    description: |
+      Retorna metricas financieras clave: total facturado, total gastos,
+      total ITBIS, cuentas por cobrar, margen neto y utilidad neta.
+      Incluye las facturas y gastos mas recientes.
+    security:
+      - ApiKeyHeader: []
+    responses:
+      200:
+        description: Metricas del dashboard
+      500:
+        description: Error interno del servidor
     """
     try:
         invoices = DatabaseService.get_invoices(g.owner_uid, sandbox=g.sandbox_mode)
@@ -1035,8 +1817,61 @@ def get_dashboard_summary():
 @require_api_key
 def send_receipt_endpoint(invoice_id):
     """
-    POST /api/v1/invoices/<invoice_id>/send_receipt
-    Envía un Recibo de Ingreso por email al cliente.
+    Envia un recibo de ingreso por email
+    ---
+    tags:
+      - Invoices
+    summary: Envia un recibo de ingreso por email al cliente
+    description: |
+      Envia un correo electronico con el recibo de pago al cliente,
+      incluyendo datos del pago y la factura de referencia.
+    security:
+      - ApiKeyHeader: []
+    parameters:
+      - name: invoice_id
+        in: path
+        required: true
+        type: string
+        description: ID de la factura de referencia
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required: [email]
+          properties:
+            email:
+              type: string
+              description: Direccion de email del destinatario
+            paymentId:
+              type: string
+              description: ID del pago
+            paymentDate:
+              type: string
+              description: Fecha del pago
+            paymentMethod:
+              type: string
+              description: Metodo de pago
+            bank:
+              type: string
+              description: Banco
+            referenceNumber:
+              type: string
+              description: Numero de referencia
+            amount:
+              type: number
+              description: Monto del pago
+    responses:
+      200:
+        description: Recibo enviado exitosamente
+      400:
+        description: Email no especificado
+      404:
+        description: Factura no encontrada
+      500:
+        description: Error al enviar el correo
+      503:
+        description: Servidor de correo no configurado
     """
     try:
         data = request.json or {}
@@ -1104,8 +1939,41 @@ def send_receipt_endpoint(invoice_id):
 @require_api_key
 def send_invoice_email_endpoint(invoice_id):
     """
-    POST /api/v1/invoices/<invoice_id>/send_email
-    Envía la factura electrónica (XML/PDF) por email al cliente usando SMTP.
+    Envia la factura electronica por email
+    ---
+    tags:
+      - Invoices
+    summary: Envia la factura electronica (XML/PDF) por email al cliente
+    description: |
+      Envia un correo electronico al cliente con los enlaces al PDF y XML
+      de la factura electronica, ademas del XML adjunto.
+    security:
+      - ApiKeyHeader: []
+    parameters:
+      - name: invoice_id
+        in: path
+        required: true
+        type: string
+        description: ID de la factura a enviar
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required: [email]
+          properties:
+            email:
+              type: string
+              description: Direccion de email del destinatario
+    responses:
+      200:
+        description: Factura enviada exitosamente
+      400:
+        description: Email no especificado
+      404:
+        description: Factura no encontrada
+      500:
+        description: Error al enviar el correo
     """
     try:
         data = request.json or {}
@@ -1181,8 +2049,21 @@ def send_invoice_email_endpoint(invoice_id):
 @http_cache(timeout=300)
 def get_company_plan_consumption():
     """
-    GET /api/v1/company/plan-consumption
-    Retorna la información del plan activo y el consumo actual de comprobantes de la empresa.
+    Retorna el consumo del plan de la empresa
+    ---
+    tags:
+      - Company
+    summary: Retorna informacion del plan activo y consumo de comprobantes
+    description: |
+      Retorna el nombre del plan, limite de documentos, documentos utilizados
+      en el ciclo actual y porcentaje de consumo del plan contratado.
+    security:
+      - ApiKeyHeader: []
+    responses:
+      200:
+        description: Informacion de consumo del plan
+      500:
+        description: Error interno del servidor
     """
     try:
         owner_uid = g.owner_uid
@@ -1223,6 +2104,53 @@ def get_company_plan_consumption():
 @api_invoices_bp.route('/invoices/<invoice_id>/payments', methods=['POST'])
 @require_api_key
 def register_payment(invoice_id):
+    """
+    Registra un pago a una factura
+    ---
+    tags:
+      - Invoices
+    summary: Registra un pago aplicado a una factura
+    description: |
+      Registra un pago asociado a una factura especifica, actualizando
+      el balance pendiente de la misma.
+    security:
+      - ApiKeyHeader: []
+    parameters:
+      - name: invoice_id
+        in: path
+        required: true
+        type: string
+        description: ID de la factura a la que se aplica el pago
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required: [amount]
+          properties:
+            amount:
+              type: number
+              description: Monto del pago (mayor a cero)
+            paymentMethod:
+              type: string
+              description: Metodo de pago
+            bank:
+              type: string
+              description: Banco
+            referenceNumber:
+              type: string
+              description: Numero de referencia
+            bankAccountId:
+              type: string
+              description: ID de la cuenta bancaria
+    responses:
+      200:
+        description: Pago registrado exitosamente
+      400:
+        description: Monto invalido
+      500:
+        description: Error interno del servidor
+    """
     try:
         data = request.get_json(force=True) or {}
         amount = float(data.get("amount", 0))
@@ -1247,6 +2175,56 @@ def register_payment(invoice_id):
 @api_invoices_bp.route('/invoices/<invoice_id>/credit-notes', methods=['POST'])
 @require_api_key
 def create_credit_note(invoice_id):
+    """
+    Crea una nota de credito asociada a una factura
+    ---
+    tags:
+      - Invoices
+    summary: Crea una nota de credito (e-CF E34) vinculada a una factura original
+    description: |
+      Crea una nota de credito electronica asociada a una factura existente.
+      La nota de credito se genera con el tipo E34 y referencia de modificacion
+      a la factura original.
+    security:
+      - ApiKeyHeader: []
+    parameters:
+      - name: invoice_id
+        in: path
+        required: true
+        type: string
+        description: ID de la factura original
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required: [netPayable]
+          properties:
+            netPayable:
+              type: number
+              description: Monto de la nota de credito (mayor a cero)
+            total:
+              type: number
+              description: Monto total alternativo
+            items:
+              type: array
+              description: Items de la nota de credito
+            reason:
+              type: string
+              description: Motivo de la modificacion
+            notes:
+              type: string
+              description: Notas adicionales
+    responses:
+      200:
+        description: Nota de credito creada exitosamente
+      400:
+        description: Monto invalido
+      404:
+        description: Factura original no encontrada
+      500:
+        description: Error interno del servidor
+    """
     try:
         from app.services.db_service import DatabaseService
         original = DatabaseService.get_invoice(g.owner_uid, invoice_id, sandbox=g.sandbox_mode)
