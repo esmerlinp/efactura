@@ -38,11 +38,40 @@ def _safe_redirect_fallback(default_endpoint='web_dashboard.dashboard'):
 @web_auth_bp.route('/')
 def home():
     is_logged_in = 'user' in session
-    return render_template('landing.html', is_logged_in=is_logged_in)
+    plans = []
+    try:
+        plans = DatabaseService.get_visible_plans()
+    except Exception as e:
+        print(f"Error al cargar planes desde Firestore: {e}")
+    from app.utils.module_gate import MODULE_DEFS
+    return render_template('landing.html',
+                           is_logged_in=is_logged_in,
+                           plans=plans,
+                           module_definitions=MODULE_DEFS)
 
-@web_auth_bp.route('/api-docs')
-def api_docs():
-    return render_template('api_docs.html')
+@web_auth_bp.route('/precios')
+def pricing():
+    is_logged_in = 'user' in session
+    plans = []
+    try:
+        plans = DatabaseService.get_visible_plans()
+    except Exception as e:
+        print(f"Error al cargar planes desde Firestore: {e}")
+    from app.utils.module_gate import MODULE_DEFS
+    return render_template('pricing.html',
+                           is_logged_in=is_logged_in,
+                           plans=plans,
+                           module_definitions=MODULE_DEFS)
+
+@web_auth_bp.route('/modulos')
+def modules_page():
+    is_logged_in = 'user' in session
+    from app.utils.module_gate import MODULE_DEFS
+    return render_template('modules.html',
+                           is_logged_in=is_logged_in,
+                           module_definitions=MODULE_DEFS)
+
+# /api-docs es servido por Flasgger (Swagger UI) configurado en app/__init__.py
 
 @web_auth_bp.route('/faqs')
 def faqs():
@@ -60,12 +89,13 @@ def api_solicitar_demo():
         email = data.get('email')
         phone = data.get('phone')
         rnc = data.get('rnc', '')
+        plan_interest = data.get('plan_interest', 'No especificado')
         volumen = data.get('volumen_facturas', '100')
         transactions_qty = data.get('transactions_qty', 'No especificado')
         comments = data.get('comments', '')
         
         # Registrar solicitud de demo y cotización en consola
-        print(f"INFO [Landing Lead]: Nueva solicitud de demo/cotización recibida. Nombre: {name}, Email: {email}, Teléfono: {phone}, RNC: {rnc}, Volumen: {volumen} e-CF/mes, Transacciones: {transactions_qty}, Comentarios: {comments}", flush=True)
+        print(f"INFO [Landing Lead]: Nueva solicitud de demo/cotización recibida. Nombre: {name}, Email: {email}, Teléfono: {phone}, RNC: {rnc}, Plan interés: {plan_interest}, Volumen: {volumen} e-CF/mes, Transacciones: {transactions_qty}, Comentarios: {comments}", flush=True)
         
         # Enviar email internamente con la solicitud a dev.esmerlin@gmail.com
         from flask import current_app
@@ -94,6 +124,10 @@ def api_solicitar_demo():
                     <tr>
                         <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">RNC Comercial:</td>
                         <td style="padding: 8px; border-bottom: 1px solid #eee;">{rnc if rnc else 'No provisto'}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Plan de interes:</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee;">{plan_interest}</td>
                     </tr>
                     <tr>
                         <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Volumen e-CF/mes:</td>

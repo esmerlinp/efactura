@@ -52,19 +52,25 @@ class AccountingRepository(BaseRepository):
         return self._delete(entry_id, sandbox=sandbox)
 
     def get_next_entry_number(self, prefix: str = "A", sandbox: bool = True) -> str:
-        """Obtiene el siguiente número de asiento contable usando un contador atómico."""
-        from app.services.db_service import db_firestore, firebase_initialized
+        """Obtiene el siguiente número de asiento contable usando una transacción atómica."""
+        from app.services.db_service import db_firestore, firebase_initialized, firestore
         from datetime import datetime
         if firebase_initialized:
-            coll_name = "sandbox_accounting_entries" if sandbox else "accounting_entries"
-            counter_ref = db_firestore.collection("users").document(self.owner_uid).collection("config").document("entry_counter")
-            counter = counter_ref.get()
-            if counter.exists:
-                data = counter.to_dict()
-                next_num = data.get("nextNumber", 1)
-            else:
-                next_num = 1
-            counter_ref.set({"nextNumber": next_num + 1})
+            transaction = db_firestore.transaction()
+
+            @firestore.transactional
+            def run_in_transaction(transaction):
+                counter_ref = db_firestore.collection("users").document(self.owner_uid).collection("config").document("entry_counter")
+                counter = counter_ref.get(transaction=transaction)
+                if counter.exists:
+                    data = counter.to_dict()
+                    next_num = data.get("nextNumber", 1)
+                else:
+                    next_num = 1
+                transaction.set(counter_ref, {"nextNumber": next_num + 1})
+                return next_num
+
+            next_num = run_in_transaction(transaction)
             return f"{prefix}-{next_num:05d}"
         return f"{prefix}-{int(datetime.now().timestamp())}"
 

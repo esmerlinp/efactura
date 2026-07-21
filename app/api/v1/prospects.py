@@ -9,6 +9,54 @@ api_prospects_bp = Blueprint('api_prospects', __name__)
 @api_prospects_bp.route('/prospects', methods=['POST'])
 @require_api_key
 def create_prospect():
+    """
+    Crear prospecto (CRM)
+    ---
+    tags:
+      - Prospects
+    summary: Registrar un nuevo prospecto
+    description: Crea un prospecto en el CRM (se guarda como cliente con pipelineStage="Prospecto").
+    security:
+      - ApiKeyHeader: []
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - rnc
+            - razon_social
+          properties:
+            rnc:
+              type: string
+              description: RNC o cédula
+            razon_social:
+              type: string
+              description: Nombre o razón social (también acepta 'nombre')
+            email:
+              type: string
+            telefono:
+              type: string
+            direccion:
+              type: string
+            notas:
+              type: string
+              description: Notas CRM (también acepta 'crm_notes')
+            next_contact_date:
+              type: string
+              format: date
+            customer_category:
+              type: string
+              default: "NORMAL"
+    responses:
+      200:
+        description: Prospecto creado exitosamente
+      400:
+        description: Faltan campos requeridos
+      500:
+        description: Error interno del servidor
+    """
     try:
         data = request.json or {}
         rnc = data.get('rnc')

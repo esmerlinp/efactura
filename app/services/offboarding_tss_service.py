@@ -35,6 +35,39 @@ def _clean_doc(doc: str) -> str:
     return "".join(c for c in (doc or "") if c.isdigit())
 
 
+def _prorate_salary(base_salary: float, effective_date_str: str) -> float:
+    """Calcula el salario proporcional para una salida a mitad de mes.
+
+    Según el instructivo TSS, cuando un empleado sale antes de fin de mes,
+    el salario cotizable reportado debe corresponder al monto realmente
+    devengado en ese período, no al salario mensual completo.
+
+    Se usa 30 como divisor estándar (convención TSS).
+    Si la salida es el día 28 o posterior, se reporta el mes completo.
+    """
+    if not effective_date_str or not base_salary:
+        return base_salary
+    try:
+        d = datetime.strptime(effective_date_str[:10], "%Y-%m-%d")
+        day = d.day
+        if day >= 28:
+            return base_salary
+        return round(base_salary / 30 * day, 2)
+    except (ValueError, TypeError):
+        return base_salary
+
+
+def _get_period_from_date(date_str: str) -> str:
+    """Extrae el período TSS (MMAAAA) de la fecha efectiva de salida."""
+    if not date_str:
+        return datetime.now().strftime("%m%Y")
+    try:
+        d = datetime.strptime(date_str[:10], "%Y-%m-%d")
+        return d.strftime("%m%Y")
+    except ValueError:
+        return datetime.now().strftime("%m%Y")
+
+
 def generate_tss_baja(
     request_data: dict,
     employee: dict,
@@ -46,13 +79,16 @@ def generate_tss_baja(
     Formato: cabecera (1 línea) + detalle (1 línea por empleado).
 
     Returns:
-        str: Contenido del archivo de texto .
+        str: Contenido del archivo de texto.
     """
-    now = datetime.now()
-    period = period_key or now.strftime("%m%Y")
+    effective_date = request_data.get("effectiveDate", "") or employee.get("terminationDate", "")
+    period = period_key or _get_period_from_date(effective_date)
+
+    base_salary = float(employee.get("baseSalary", 0) or 0)
+    prorated_salary = _prorate_salary(base_salary, effective_date)
 
     encabezado = _generate_encabezado(company_rnc, period)
-    detalle = _generate_detalle(request_data, employee, period)
+    detalle = _generate_detalle(request_data, employee, period, prorated_salary)
 
     return encabezado + "\n" + detalle + "\n"
 
@@ -63,7 +99,7 @@ def _generate_encabezado(rnc: str, period: str) -> str:
     return "E" + rnc_clean.ljust(11) + period.ljust(6) + " " * 2
 
 
-def _generate_detalle(request_data: dict, employee: dict, period: str) -> str:
+def _generate_detalle(request_data: dict, employee: dict, period: str, salary_cotizable: float) -> str:
     """D = Detalle (356 caracteres por SUIRPLUS v6.0)."""
     emp_name = (employee.get("firstName", "") or "") + " " + (employee.get("middleName", "") or "")
     emp_surname1 = employee.get("firstLastName", "") or employee.get("lastName", "") or ""
@@ -77,7 +113,6 @@ def _generate_detalle(request_data: dict, employee: dict, period: str) -> str:
     tss_key = (employee.get("tssKey", "") or "")[:3]
     termination_type = request_data.get("terminationType", "")
     effective_date = request_data.get("effectiveDate", "") or employee.get("terminationDate", "")
-    last_salary = float(employee.get("baseSalary", 0) or 0)
 
     tipo_novedad = "2"
     if termination_type in ("fallecimiento",):
@@ -100,7 +135,7 @@ def _generate_detalle(request_data: dict, employee: dict, period: str) -> str:
     line += _clean(fecha_egreso, 8)               # 87-94: Fecha Egreso
     line += _clean(tipo_novedad, 1)               # 95:   Tipo Novedad (2=baja)
     line += _clean(period, 6)                     # 96-101: Período
-    line += f"{last_salary:010.2f}".replace(".", "")[:10]  # 102-111: Salario Cotizable
+    line += f"{salary_cotizable:010.2f}".replace(".", "")[:10]  # 102-111: Salario Cotizable
     line += "0" * 10                               # 112-121: Aporte Voluntario AFP
     line += "0" * 10                               # 122-131: Salario ISR
     line += _clean("", 30)                         # 132-161: Otras Remuneraciones

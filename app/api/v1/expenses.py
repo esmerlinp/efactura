@@ -10,7 +10,30 @@ api_expenses_bp = Blueprint('api_expenses', __name__)
 @api_expenses_bp.route('/expenses/payments', methods=['GET'])
 @require_api_key
 def list_payments():
-    """GET /api/v1/expenses/payments — Lista pagos/gastos formales."""
+    """
+    Listar pagos formales
+    ---
+    tags:
+      - Expenses
+    summary: Listar gastos y pagos formales
+    description: Retorna los gastos/pagos formales (excluye E43 y recurrentes).
+    security:
+      - ApiKeyHeader: []
+    responses:
+      200:
+        description: Lista de pagos
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+            data:
+              type: array
+              items:
+                type: object
+            count:
+              type: integer
+    """
     owner_uid = g.owner_uid
     sandbox = g.sandbox_mode
     expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
@@ -21,7 +44,19 @@ def list_payments():
 @api_expenses_bp.route('/expenses/minor', methods=['GET'])
 @require_api_key
 def list_minor():
-    """GET /api/v1/expenses/minor — Lista gastos menores (E43)."""
+    """
+    Listar gastos menores
+    ---
+    tags:
+      - Expenses
+    summary: Listar gastos menores (E43)
+    description: Retorna los gastos menores (tipo E43).
+    security:
+      - ApiKeyHeader: []
+    responses:
+      200:
+        description: Lista de gastos menores
+    """
     owner_uid = g.owner_uid
     sandbox = g.sandbox_mode
     expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
@@ -32,7 +67,19 @@ def list_minor():
 @api_expenses_bp.route('/expenses/recurring', methods=['GET'])
 @require_api_key
 def list_recurring():
-    """GET /api/v1/expenses/recurring — Lista pagos recurrentes."""
+    """
+    Listar gastos recurrentes
+    ---
+    tags:
+      - Expenses
+    summary: Listar pagos recurrentes
+    description: Retorna los gastos marcados como recurrentes.
+    security:
+      - ApiKeyHeader: []
+    responses:
+      200:
+        description: Lista de gastos recurrentes
+    """
     owner_uid = g.owner_uid
     sandbox = g.sandbox_mode
     expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
@@ -43,7 +90,37 @@ def list_recurring():
 @api_expenses_bp.route('/expenses/payments/classify', methods=['GET'])
 @require_api_key
 def classify_payment():
-    """GET /api/v1/expenses/payments/classify — Clasifica concepto de pago con IA."""
+    """
+    Clasificar concepto de pago con IA
+    ---
+    tags:
+      - Expenses
+    summary: Clasificar concepto de pago (IA)
+    description: Usa IA para clasificar un concepto de pago según las categorías DGII.
+    security:
+      - ApiKeyHeader: []
+    parameters:
+      - name: concept
+        in: query
+        required: true
+        type: string
+        description: Concepto del pago a clasificar
+        example: "Compra de materiales de oficina"
+    responses:
+      200:
+        description: Clasificación del concepto
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+            code:
+              type: string
+            category:
+              type: string
+      400:
+        description: Parámetro concepto requerido
+    """
     concept = request.args.get('concept', '')
     if not concept:
         return jsonify({'success': False, 'error': 'Parámetro concepto requerido'}), 400
@@ -59,7 +136,28 @@ def classify_payment():
 @api_expenses_bp.route('/expenses/minor/classify', methods=['GET'])
 @require_api_key
 def classify_minor():
-    """GET /api/v1/expenses/minor/classify — Clasifica concepto de gasto menor con IA."""
+    """
+    Clasificar concepto de gasto menor con IA
+    ---
+    tags:
+      - Expenses
+    summary: Clasificar gasto menor (IA)
+    description: Usa IA para clasificar un concepto de gasto menor según las categorías DGII.
+    security:
+      - ApiKeyHeader: []
+    parameters:
+      - name: concept
+        in: query
+        required: true
+        type: string
+        description: Concepto del gasto menor a clasificar
+        example: "Almuerzo de trabajo"
+    responses:
+      200:
+        description: Clasificación del concepto
+      400:
+        description: Parámetro concepto requerido
+    """
     concept = request.args.get('concept', '')
     if not concept:
         return jsonify({'success': False, 'error': 'Parámetro concepto requerido'}), 400

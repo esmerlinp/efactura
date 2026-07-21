@@ -43,8 +43,8 @@ def init_extensions(app):
     from app.web.portal import portal_bp
     csrf.exempt(portal_bp)
 
-    # Configurar CORS para APIs
-    CORS(app, resources={r"/api/*": {"origins": os.getenv('CORS_ORIGINS', '*')}})
+    # Configurar CORS para APIs — en producción debe configurarse CORS_ORIGINS explícitamente
+    CORS(app, resources={r"/api/*": {"origins": app.config.get('CORS_ORIGINS', '')}})
 
     # Registrar filtros personalizados
     app.template_filter('formatted')(formatted_filter)

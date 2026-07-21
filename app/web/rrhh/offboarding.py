@@ -808,10 +808,21 @@ def offboarding_pdf_letter(request_id):
         return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id))
 
     try:
-        from app.services.offboarding_document_service import generate_termination_letter
-        from app.services.db_service import DatabaseService
-        company = DatabaseService.get_company_profile(owner_uid) or {}
-        pdf_bytes = generate_termination_letter(req, employee, company, request.host_url)
+        from app.services.offboarding_document_service import generate_termination_letter, _company_data
+        from app.models.offboarding import SettlementStatus
+        company = _company_data(owner_uid, sandbox)
+
+        settlement_completed = False
+        settlement_id = req.get("settlementId", "")
+        if settlement_id:
+            settlement = svc.get_settlement(settlement_id)
+            if settlement and settlement.get("status") == SettlementStatus.PAGADA.value:
+                settlement_completed = True
+
+        pdf_bytes = generate_termination_letter(
+            req, employee, company, request.host_url,
+            settlement_completed=settlement_completed,
+        )
         filename = f"carta_desvinculacion_{request_id[:8]}.pdf"
         return send_file(io.BytesIO(pdf_bytes), mimetype="application/pdf",
                          as_attachment=True, download_name=filename)
@@ -844,10 +855,16 @@ def offboarding_pdf_settlement(request_id):
         return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id))
 
     try:
-        from app.services.offboarding_document_service import generate_settlement_acta
-        from app.services.db_service import DatabaseService
-        company = DatabaseService.get_company_profile(owner_uid) or {}
-        pdf_bytes = generate_settlement_acta(req, settlement, employee, company, request.host_url)
+        from app.services.offboarding_document_service import generate_settlement_acta, _company_data
+        from app.models.offboarding import SettlementStatus
+        company = _company_data(owner_uid, sandbox)
+
+        settlement_completed = settlement.get("status") == SettlementStatus.PAGADA.value if settlement else False
+
+        pdf_bytes = generate_settlement_acta(
+            req, settlement, employee, company, request.host_url,
+            settlement_completed=settlement_completed,
+        )
         filename = f"acta_liquidacion_{request_id[:8]}.pdf"
         return send_file(io.BytesIO(pdf_bytes), mimetype="application/pdf",
                          as_attachment=True, download_name=filename)

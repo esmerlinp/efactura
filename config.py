@@ -73,10 +73,22 @@ class Config:
     # Nombre del producto (marca)
     PRODUCT_NAME = os.getenv('PRODUCT_NAME', 'VykOne')
 
+    # --- Gunicorn / Memoria (usado desde Dockerfile) ---
+    WEB_CONCURRENCY = int(os.getenv('WEB_CONCURRENCY', '2'))
+    THREADS = int(os.getenv('THREADS', '4'))
+    GUNICORN_TIMEOUT = int(os.getenv('GUNICORN_TIMEOUT', '30'))
+    MAX_REQUESTS = int(os.getenv('MAX_REQUESTS', '1000'))
+    MAX_REQUESTS_JITTER = int(os.getenv('MAX_REQUESTS_JITTER', '100'))
+
     # Flask-Caching
     CACHE_TYPE = os.getenv('CACHE_TYPE', 'SimpleCache')
     CACHE_DEFAULT_TIMEOUT = int(os.getenv('CACHE_DEFAULT_TIMEOUT', '300'))
     CACHE_THRESHOLD = int(os.getenv('CACHE_THRESHOLD', '200'))
+
+    # Límites de consultas Firestore (previene cargas masivas en memoria)
+    FIRESTORE_MAX_INVOICES = int(os.getenv('FIRESTORE_MAX_INVOICES', '500'))
+    FIRESTORE_MAX_CLIENTS = int(os.getenv('FIRESTORE_MAX_CLIENTS', '500'))
+    FIRESTORE_MAX_EXPENSES = int(os.getenv('FIRESTORE_MAX_EXPENSES', '500'))
 
     # Uploads fuera de static/ (seguridad: no servir directamente sin auth)
     UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER',
@@ -88,8 +100,8 @@ class Config:
     WTF_CSRF_SSL_STRICT = False  # En desarrollo, puede no haber HTTPS
     WTF_CSRF_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE']
 
-    # CORS
-    CORS_ORIGINS = os.getenv('CORS_ORIGINS', '*')
+    # CORS — restrict to specific origins in production; never use wildcard * as default
+    CORS_ORIGINS = os.getenv('CORS_ORIGINS', '')
 
     # Rate Limiting
     RATELIMIT_ENABLED = os.getenv('RATELIMIT_ENABLED', 'true').lower() in ('true', '1', 'yes')
@@ -105,7 +117,7 @@ class Config:
 
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
-    SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'false').lower() in ('true', '1', 'yes')
+    SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'true').lower() in ('true', '1', 'yes')
     SESSION_PERMANENT = True
     PERMANENT_SESSION_LIFETIME = 28800  # 8 horas en segundos
 

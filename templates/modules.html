@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="es-DO">
+<head>
+    <meta charset="UTF-8">
+    <meta name="theme-color" content="#0a0e1a">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modulos ERP | {{ product_name }}</title>
+    <meta name="description" content="Explora todos los modulos del ERP {{ product_name }}: facturacion electronica, nomina, contabilidad, inventario, CRM, POS y reportes fiscales DGII.">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Sora', 'sans-serif'],
+                        body: ['DM Sans', 'sans-serif'],
+                    },
+                    colors: {
+                        midnight: {
+                            900: '#0a0e1a',
+                            800: '#0f1629',
+                            700: '#151d35',
+                            600: '#1c2541',
+                        },
+                        amber: {
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                            600: '#d97706',
+                        },
+                        teal: {
+                            400: '#2dd4bf',
+                            500: '#14b8a6',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/landing_dgmax.css') }}?v={{ static_hash('css/landing_dgmax.css') }}">
+</head>
+<body class="bg-midnight-900 text-white antialiased">
+    <nav class="fixed top-0 left-0 right-0 z-50 glass">
+        <div class="max-w-7xl mx-auto px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <a href="{{ url_for('web_auth.home') }}" class="flex items-center gap-3 group">
+                    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="{{ product_name }}" class="w-10 h-10 object-contain">
+                    <span class="font-display text-2xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">{{ product_name }}</span>
+                </a>
+                <div class="flex items-center gap-4">
+                    <a href="{{ url_for('web_auth.home') }}" class="text-gray-300 hover:text-white transition-colors">Inicio</a>
+                    <a href="{{ url_for('web_auth.pricing') }}" class="text-gray-300 hover:text-white transition-colors">Precios</a>
+                    {% if is_logged_in %}
+                    <a href="{{ url_for('web_dashboard.dashboard') }}" class="btn-primary bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900 px-6 py-2.5 rounded-xl font-semibold">Ir al Dashboard</a>
+                    {% else %}
+                    <a href="{{ url_for('web_auth.home') }}#contacto" class="btn-primary bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900 px-6 py-2.5 rounded-xl font-semibold">Comenzar Gratis</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <section class="relative pt-28 pb-16 hero-gradient">
+        <div class="max-w-6xl mx-auto px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <span class="inline-block px-4 py-1.5 rounded-full text-sm font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 mb-6">ERP Completo</span>
+                <h1 class="font-display text-3xl sm:text-4xl md:text-5xl font-bold mb-6">
+                    Modulos de <span class="bg-gradient-to-r from-amber-400 to-teal-400 bg-clip-text text-transparent">{{ product_name }}</span>
+                </h1>
+                <p class="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto">Un ERP disenado para empresas dominicanas que necesitan cumplir con la DGII y gestionar su operacion completa.</p>
+            </div>
+
+            {% set module_groups = [
+                {
+                    "title": "Facturacion Electronica",
+                    "icon_color": "amber",
+                    "modules": [
+                        {"name": "e-CF Ventas E31/E32", "desc": "Emite facturas de credito fiscal y consumo con envio automatico a DGII, firma digital X.509 y modo contingencia."},
+                        {"name": "Notas E33/E34", "desc": "Notas de credito y debito electronicas. Ajustes, devoluciones y anulaciones con trazabilidad."},
+                        {"name": "Compras E41/E43/E47", "desc": "Registra facturas de proveedores, gastos menores y compras con soporte OCR. Controla ITBIS deducible."},
+                        {"name": "Cotizaciones", "desc": "Crea y envia cotizaciones profesionales. Convierte a factura con un clic. Control de vigencia y seguimiento."},
+                    ]
+                },
+                {
+                    "title": "Nomina y Recursos Humanos",
+                    "icon_color": "cyan",
+                    "modules": [
+                        {"name": "Nomina Completa", "desc": "Procesa nomina con TSS, ISR, AFP y SFS. Calculos automaticos con tablas legales actualizadas. Workflow de aprobacion."},
+                        {"name": "Gestion de Empleados", "desc": "Expediente digital por empleado: contratos, documentos, dependientes, historial salarial y certificaciones."},
+                        {"name": "Vacaciones y Licencias", "desc": "Solicitudes, aprobaciones y control de saldos. Calculo automatico de dias habiles. Calendario del equipo."},
+                        {"name": "DGT Forms", "desc": "Genera DGT-3, DGT-4, DGT-5, DGT-9 y DGT-12 listos para presentar al Ministerio de Trabajo."},
+                        {"name": "Liquidaciones", "desc": "Calcula cesantia, preaviso, vacaciones no gozadas y regalia proporcional. Genera acta de liquidacion y carta de desvinculacion."},
+                        {"name": "Portal del Empleado", "desc": "Tus empleados consultan sus volantes de pago, solicitan vacaciones y licencias, y ven sus evaluaciones."},
+                    ]
+                },
+                {
+                    "title": "Contabilidad",
+                    "icon_color": "green",
+                    "modules": [
+                        {"name": "Catalogo de Cuentas", "desc": "Plan de cuentas NIIF jerarquico. Cuentas de movimiento y acumulativas. Tags de uso para reportes automaticos."},
+                        {"name": "Libro Diario y Mayor", "desc": "Asientos contables con partida doble. Mayor general con saldos. Tipos de asiento configurables (facturacion, gastos, cierre)."},
+                        {"name": "Estados Financieros", "desc": "Balance general, estado de resultados y balanza de comprobacion. Comparativo interanual con porcentajes y ratios."},
+                        {"name": "Activos Fijos", "desc": "Registro de activos con depreciacion programada. Categorias, vida util, valor residual. Calculo y registro automatico de depreciacion."},
+                        {"name": "Cierre Fiscal", "desc": "Cierre mensual y anual automatizado. Checklist de tareas de cierre. Generacion de asientos de cierre de ingresos y gastos."},
+                    ]
+                },
+                {
+                    "title": "Ventas, CRM y POS",
+                    "icon_color": "rose",
+                    "modules": [
+                        {"name": "CRM y Pipeline", "desc": "Gestion de oportunidades de venta con pipeline visual. Actividades, seguimiento y conversion a cliente."},
+                        {"name": "POS Punto de Venta", "desc": "Terminal de punto de venta para ventas al contado. Multiples cajas, turnos, cierres de caja. Modo offline con contingencia."},
+                        {"name": "Contratos y Recurrencia", "desc": "Facturacion recurrente automatica. Contratos con renovacion. Ideal para SaaS, servicios y suscripciones."},
+                        {"name": "Comisiones", "desc": "Calculo de comisiones por vendedor con metas configurables. Integrado con facturacion y cobranza."},
+                    ]
+                },
+                {
+                    "title": "Inventario y Compras",
+                    "icon_color": "yellow",
+                    "modules": [
+                        {"name": "Inventario", "desc": "Control de stock en tiempo real con movimientos de entrada, salida y ajustes. Valoracion FIFO y costo promedio."},
+                        {"name": "Almacenes Multiples", "desc": "Gestiona multiples almacenes y sucursales. Transferencias entre almacenes con trazabilidad."},
+                        {"name": "Proveedores", "desc": "Directorio de proveedores con historial de compras, saldos CxP y documentos asociados."},
+                        {"name": "Ordenes de Compra", "desc": "Ciclo completo de compras: solicitud, orden, recepcion y factura del proveedor. Control de presupuesto."},
+                    ]
+                },
+                {
+                    "title": "Reportes y Cumplimiento Fiscal",
+                    "icon_color": "indigo",
+                    "modules": [
+                        {"name": "Reporte 606", "desc": "Formato 606 automatico con todas las compras registradas. Exporta a formato DGII listo para cargar."},
+                        {"name": "Reportes 607, 608, 623", "desc": "Reportes complementarios para cumplimiento fiscal segun tu tipo de operacion y regimen."},
+                        {"name": "Exportacion Contable", "desc": "Exporta tu contabilidad en formatos compatibles con otros sistemas. Respaldo para auditoria externa."},
+                        {"name": "Dashboard y KPIs", "desc": "Panel operativo con ventas, gastos, ITBIS, CxC/CxP, margenes y estado DGII en tiempo real."},
+                    ]
+                },
+                {
+                    "title": "Banca, API e Integraciones",
+                    "icon_color": "emerald",
+                    "modules": [
+                        {"name": "Bancos y Conciliacion", "desc": "Multiples cuentas bancarias. Conciliacion de movimientos. Control de flujo de caja."},
+                        {"name": "API REST", "desc": "API documentada para integrar con tu sistema actual. Emite e-CF, consulta estados y automatiza flujos."},
+                        {"name": "Pasarela de Pago", "desc": "Integracion con pasarela para cobros en linea. Tus clientes pagan sus facturas desde el portal."},
+                        {"name": "IA y BI", "desc": "Chatbot inteligente. Insights automaticos. Importacion masiva con mapeo por IA. OCR para captura de gastos."},
+                    ]
+                },
+            ] %}
+
+            <div class="space-y-20">
+                {% for group in module_groups %}
+                <div>
+                    <div class="flex items-center gap-4 mb-8">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-{{ group.icon_color }}-500/20 to-{{ group.icon_color }}-600/10 flex items-center justify-center text-{{ group.icon_color }}-400">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                            </svg>
+                        </div>
+                        <h2 class="font-display text-2xl md:text-3xl font-bold">{{ group.title }}</h2>
+                    </div>
+                    <div class="grid md:grid-cols-2 gap-6">
+                        {% for mod in group.modules %}
+                        <div class="glass-card rounded-2xl p-6">
+                            <h3 class="font-display font-semibold text-lg mb-2">{{ mod.name }}</h3>
+                            <p class="text-gray-400 text-sm leading-relaxed">{{ mod.desc }}</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="text-center mt-20">
+                <a href="{{ url_for('web_auth.home') }}#contacto" class="btn-primary inline-block bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900 px-8 py-4 rounded-xl font-semibold text-lg">Solicitar Demo Gratis</a>
+                <p class="text-gray-500 text-sm mt-4">14 dias gratis. Sin tarjeta de credito.</p>
+            </div>
+        </div>
+    </section>
+
+    <footer class="relative border-t border-white/5 bg-midnight-900">
+        <div class="max-w-7xl mx-auto px-6 lg:px-8 py-8">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-2 text-xs text-gray-500">
+                <p>&copy; 2026 VykCore Automation S.R.L. Todos los derechos reservados.</p>
+                <div class="flex gap-4">
+                    <a href="{{ url_for('web_auth.home') }}" class="text-amber-400 hover:text-amber-300 transition-colors">Inicio</a>
+                    <a href="{{ url_for('web_auth.pricing') }}" class="text-amber-400 hover:text-amber-300 transition-colors">Planes</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

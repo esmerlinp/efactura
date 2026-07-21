@@ -107,9 +107,10 @@ class Dependent(BaseModel):
     gender: str = ""  # "masculino" | "femenino" | "otro"
     isStudent: bool = False
     isFinancialDependent: bool = True
+    docType: str = "C"  # Tipo documento TSS: C=Cédula, N=NSS
     active: bool = True
     endDate: str = ""  # Fecha fin de dependencia (si aplica)
-    idNumber: str = ""  # Cédula opcional del dependiente
+    idNumber: str = ""  # Cédula/NSS del dependiente (11 dígitos sin guiones)
     notes: str = ""
     createdAt: str = ""
     createdBy: str = ""

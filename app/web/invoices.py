@@ -7194,8 +7194,10 @@ def list_sequences():
         fiscal_types=_fiscal_types,
     )
 
-@web_invoices_bp.route('/sequences/new', methods=['POST'])
+@web_invoices_bp.route('/sequences/new', methods=['GET', 'POST'])
 def new_sequence_route():
+    if request.method == 'GET':
+        return redirect(url_for('web_invoices.list_sequences'))
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canModifySettings'):
         return render_template('auth/restricted.html', feature_name="Crear Secuencia Fiscal", required_permission="canModifySettings")

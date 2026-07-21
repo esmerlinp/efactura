@@ -2,6 +2,7 @@ import uuid
 import json
 import csv
 import io
+import openpyxl
 from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, send_file, make_response
 from app.services.db_service import DatabaseService

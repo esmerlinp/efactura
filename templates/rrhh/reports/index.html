@@ -119,7 +119,7 @@
     <div class="report-category-card">
         <div class="card-header">
             <div class="icon nomina"><i class="fa-solid fa-coins"></i></div>
-            <span class="badge">8 reportes</span>
+            <span class="badge">9 reportes</span>
         </div>
         <div class="card-title">Nómina</div>
         <div class="card-desc">Desgloses, contribuciones y certificados de nómina.</div>
@@ -129,6 +129,9 @@
             </li>
             <li class="done">
                 <a href="{{ url_for('web_invoices.report_tss') }}"><i class="fa-solid fa-shield-halved" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Aportes TSS Mensuales</a>
+            </li>
+            <li class="done">
+                <a href="{{ url_for('web_rrhh.dependents_export_tss_rd') }}"><i class="fa-solid fa-file-shield" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> TSS RD — Dependientes Adicionales</a>
             </li>
             <li class="done">
                 <a href="{{ url_for('web_invoices.report_comparative') }}"><i class="fa-solid fa-scale-balanced" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Comparativa de Períodos</a>

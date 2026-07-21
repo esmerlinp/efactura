@@ -25,5 +25,14 @@ COPY . .
 
 # Comando de arranque para Cloud Run
 # Cloud Run por defecto inyecta la variable de entorno $PORT (usualmente 8080)
-# WEB_CONCURRENCY controla número de workers (default: 4)
-CMD exec gunicorn --bind :$PORT --workers ${WEB_CONCURRENCY:-4} --threads 8 --timeout 0 "app:create_app()"
+# WEB_CONCURRENCY controla número de workers (default: 2)
+# THREADS controla hilos por worker (default: 4)
+# MAX_REQUESTS fuerza reinicio periódico de workers para prevenir fugas de memoria
+CMD exec gunicorn --bind :$PORT \
+    --workers ${WEB_CONCURRENCY:-2} \
+    --threads ${THREADS:-4} \
+    --timeout ${GUNICORN_TIMEOUT:-30} \
+    --max-requests ${MAX_REQUESTS:-1000} \
+    --max-requests-jitter ${MAX_REQUESTS_JITTER:-100} \
+    --preload \
+    "app:create_app()"
