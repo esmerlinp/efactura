@@ -203,7 +203,7 @@ def new_bank():
         flash('Cuenta creada exitosamente.', 'success')
         return redirect(url_for('web_banks.list_banks'))
 
-    AccountingService.seed_default_accounts(owner_uid)
+    AccountingService.seed_default_accounts(company_id)
     accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
     return render_template('banks/form.html', active_page='banks',
                            account=None, account_types=ACCOUNT_TYPES,
@@ -247,7 +247,7 @@ def edit_bank(account_id):
         flash('Cuenta no encontrada.', 'error')
         return redirect(url_for('web_banks.list_banks'))
 
-    AccountingService.seed_default_accounts(owner_uid)
+    AccountingService.seed_default_accounts(company_id)
     accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
     return render_template('banks/form.html', active_page='banks',
                            account=account, account_types=ACCOUNT_TYPES,
@@ -688,7 +688,7 @@ def reconcile_complete(recon_id):
                         "debit": 0.00, "credit": round(abs(diff), 2),
                         "description": f"Conciliación {recon.get('accountName', '')} — {recon_id}"
                     })
-                AccountingService.generate_entry(owner_uid, {
+                AccountingService.generate_entry(company_id, {
                     "entryType": "adjustment",
                     "date": recon.get("endDate", ""),
                     "concept": f"Ajuste por conciliación bancaria de {recon.get('accountName', '')} — diferencia RD$ {abs(diff):,.2f}",

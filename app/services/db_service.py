@@ -674,61 +674,11 @@ def _cached_plan(plan_id):
 
 @cache.memoize(timeout=300)
 def _cached_associated_companies(uid):
-    """Cachea la lista de empresas asociadas por 5 minutos para evitar escaneos masivos de Firestore en cada request."""
+    """Retorna las empresas asociadas al usuario desde company_memberships (fuente de verdad).
+    Fallback: companies por owner_uid si no hay memberships."""
     companies = []
     if not firebase_initialized:
         return companies
-    try:
-        profile = DatabaseService.get_user_profile(uid)
-        if profile and profile.get("canManageOwnCompany", False):
-            own_owner_uid = profile.get("uid")
-            own_company = DatabaseService.get_company_profile(own_owner_uid)
-            companies.append({
-                "ownerUID": own_owner_uid,
-                "companyName": own_company.get("companyName") or own_company.get("tradeName", "Mi Empresa"),
-                "role": profile.get("role", "owner"),
-                "logoUrl": own_company.get("logoUrl"),
-                "logoBase64": own_company.get("logoBase64")
-            })
-    except Exception as e:
-        print(f"⚠️ Error al obtener propia empresa: {e}")
-    try:
-        doc = db_firestore.collection("users").document(uid).collection("config").document("user_profile").get()
-        if doc.exists:
-            data = doc.to_dict()
-            assoc = data.get("associated_companies", [])
-            for item in assoc:
-                owner_uid = item.get("ownerUID") if isinstance(item, dict) else item
-                if owner_uid and not any(c["ownerUID"] == owner_uid for c in companies):
-                    comp_prof = DatabaseService.get_company_profile(owner_uid)
-                    role = item.get("role", "employee") if isinstance(item, dict) else "employee"
-                    companies.append({
-                        "ownerUID": owner_uid,
-                        "companyName": comp_prof.get("companyName") or comp_prof.get("tradeName", "Empresa Asociada"),
-                        "role": role,
-                        "logoUrl": comp_prof.get("logoUrl"),
-                        "logoBase64": comp_prof.get("logoBase64")
-                    })
-    except Exception as e:
-        print(f"⚠️ Error al leer associated_companies de Firestore: {e}")
-    try:
-        team_docs = db_firestore.collection_group("team").where(filter=firestore.FieldFilter("uid", "==", uid)).get()
-        for doc in team_docs:
-            parent_ref = doc.reference.parent.parent
-            if parent_ref:
-                owner_uid = parent_ref.id
-                if not any(c["ownerUID"] == owner_uid for c in companies):
-                    comp_prof = DatabaseService.get_company_profile(owner_uid)
-                    companies.append({
-                        "ownerUID": owner_uid,
-                        "companyName": comp_prof.get("companyName") or comp_prof.get("tradeName", "Empresa Colaboradora"),
-                        "role": "employee",
-                        "logoUrl": comp_prof.get("logoUrl"),
-                        "logoBase64": comp_prof.get("logoBase64")
-                    })
-    except Exception as e:
-        print(f"⚠️ Error en consulta de grupo de colección team: {e}")
-    # También consultar company_memberships (nuevo sistema multi-company)
     try:
         mem_docs = db_firestore.collection("company_memberships") \
             .where("uid", "==", uid) \
@@ -750,6 +700,22 @@ def _cached_associated_companies(uid):
                     })
     except Exception as e:
         print(f"⚠️ Error en consulta de company_memberships: {e}")
+    if not companies:
+        try:
+            owned = DatabaseService.get_companies_by_owner(uid)
+            for comp in owned:
+                cid = comp.get("id", "")
+                if cid and not any(c.get("company_id") == cid for c in companies):
+                    companies.append({
+                        "company_id": cid,
+                        "ownerUID": comp.get("owner_uid", ""),
+                        "companyName": comp.get("name", "Empresa"),
+                        "role": "owner",
+                        "logoUrl": comp.get("logo_url", ""),
+                        "logoBase64": comp.get("logo_base64", "")
+                    })
+        except Exception as e:
+            print(f"⚠️ Error en fallback companies by owner_uid: {e}")
     return companies
 
 
@@ -900,9 +866,11 @@ def _resolve_company_id(owner_uid):
     if not owner_uid:
         return None
     try:
-        docs = db_firestore.collection("companies").where("owner_uid", "==", owner_uid).limit(1).get()
-        for d in docs:
-            return d.id
+        docs = db_firestore.collection("companies").where("owner_uid", "==", owner_uid).get()
+        companies = [(d.id, d.to_dict().get("created_at", "")) for d in docs]
+        companies.sort(key=lambda x: x[1], reverse=True)
+        if companies:
+            return companies[0][0]
     except Exception:
         pass
     return None
@@ -1052,46 +1020,14 @@ class DatabaseService:
             resolved_owner_uid = existing_data.get("ownerUID", uid)
             role = existing_data.get("role", "owner")
             
-            # Obtener nombre de la empresa invitadora
-            inviting_comp_name = "Empresa Invitadora"
-            if owner_uid:
-                comp_prof = cls.get_company_profile(owner_uid)
-                inviting_comp_name = comp_prof.get("companyName", "Empresa Invitadora")
-                
-            associated_companies = existing_data.get("associated_companies", [])
-            
-            # Obtener can_manage_own_company actual o nuevo
             current_can_manage = existing_data.get("canManageOwnCompany", can_manage_own_company)
             
-            # Si se le permite administrar su propia empresa, asegurar que esté en la lista
-            if current_can_manage:
-                if not any(c.get("ownerUID") == resolved_owner_uid for c in associated_companies):
-                    own_comp = cls.get_company_profile(resolved_owner_uid)
-                    associated_companies.insert(0, {
-                        "ownerUID": resolved_owner_uid,
-                        "companyName": own_comp.get("companyName", "Mi Empresa"),
-                        "role": role
-                    })
-            else:
-                # Si no está permitido, remover su propia empresa de la lista si está
-                associated_companies = [c for c in associated_companies if c.get("ownerUID") != resolved_owner_uid]
-                
-            # Agregar la nueva empresa invitadora a la lista si no está ya
-            if owner_uid and not any(c.get("ownerUID") == owner_uid for c in associated_companies):
-                associated_companies.append({
-                    "ownerUID": owner_uid,
-                    "companyName": inviting_comp_name,
-                    "role": "employee"
-                })
-                
             doc_ref.update({
-                "associated_companies": associated_companies,
                 "canManageOwnCompany": current_can_manage
             })
             
             profile_data = existing_data
             profile_data["uid"] = uid
-            profile_data["associated_companies"] = associated_companies
             profile_data["canManageOwnCompany"] = current_can_manage
         else:
             # Crear perfil nuevo para nuevo usuario
@@ -1128,19 +1064,12 @@ class DatabaseService:
                     "canAccounting": True
                 },
                 "createdAt": created_at,
-                "associated_companies": [],
                 "posSupervisorPin": ""
             }
             
             # Inicializar su propia empresa
             if can_manage_own_company:
                 own_comp = cls.get_company_profile(resolved_owner_uid)
-                profile_data["associated_companies"].append({
-                    "ownerUID": resolved_owner_uid,
-                    "companyName": own_comp.get("companyName", "Mi Empresa"),
-                    "role": role
-                })
-                # Crear compañía en la nueva colección (multi-company)
                 company_id = cls.create_company(resolved_owner_uid, own_comp)
                 if company_id:
                     profile_data["default_company_id"] = company_id
@@ -1154,16 +1083,9 @@ class DatabaseService:
             
             # Si fue invitado, agregar también la empresa invitadora
             if owner_uid and owner_uid != resolved_owner_uid:
-                inv_comp = cls.get_company_profile(owner_uid)
-                profile_data["associated_companies"].append({
-                    "ownerUID": owner_uid,
-                    "companyName": inv_comp.get("companyName", "Empresa Invitadora"),
-                    "role": "employee"
-                })
-                # Buscar company_id para el owner_uid y crear membresía
                 owner_companies = cls.get_companies_by_owner(owner_uid)
-                if owner_companies:
-                    inv_company_id = owner_companies[0]["id"]
+                inv_company_id = owner_companies[0]["id"] if owner_companies else _resolve_company_id(owner_uid)
+                if inv_company_id:
                     cls.create_membership(
                         uid=uid,
                         company_id=inv_company_id,
@@ -1363,7 +1285,7 @@ class DatabaseService:
         if not firebase_initialized:
             return
         try:
-            db_firestore.collection("users").document(uid).collection("config").document("user_profile").set(profile_dict)
+            db_firestore.collection("users").document(uid).collection("config").document("user_profile").set(profile_dict, merge=True)
             cache.delete_memoized(_cached_user_profile, uid)
         except Exception as e:
             print(f"⚠️ Fallo al guardar perfil en Firestore: {e}")
@@ -1677,7 +1599,13 @@ class DatabaseService:
             "default_itbis_rate": profile_dict.get("defaultItbisRate", 0.18),
             "openai_api_key": profile_dict.get("openaiApiKey", ""),
         }
-        return cls.update_company(company_id, update_data)
+        result = cls.update_company(company_id, update_data)
+        if result and owner_uid:
+            try:
+                db_firestore.collection("users").document(owner_uid).collection("config").document("profile").set(profile_dict, merge=True)
+            except Exception:
+                pass
+        return result
 
     # =========================================================================
     # GESTIÓN DE SUCURSALES (BRANCHES)
@@ -7005,7 +6933,7 @@ class DatabaseService:
 
     @classmethod
     def get_user_companies(cls, uid):
-        """Retorna todas las compañías a las que un usuario tiene acceso."""
+        """Retorna todas las compañías a las que un usuario tiene acceso (versión ligera para sesión)."""
         if not firebase_initialized:
             return []
         try:
@@ -7019,12 +6947,31 @@ class DatabaseService:
                 mem_data = mem.to_dict()
                 company = cls.get_company(mem_data["company_id"])
                 if company:
-                    company["_membership"] = {
-                        "role": mem_data.get("role"),
-                        "permissions": mem_data.get("permissions", {}),
-                        "assigned_branches": mem_data.get("assigned_branches", []),
-                    }
-                    companies.append(company)
+                    companies.append({
+                        "id": company.get("id", mem_data["company_id"]),
+                        "name": company.get("name", ""),
+                        "trade_name": company.get("trade_name", ""),
+                        "rnc": company.get("rnc", ""),
+                        "owner_uid": company.get("owner_uid", ""),
+                        "is_default": company.get("is_default", False),
+                        "configured": company.get("configured", False),
+                        "country": company.get("country", ""),
+                        "status": company.get("status", "active"),
+                        "theme": company.get("theme", ""),
+                        "plan_id": company.get("plan_id", ""),
+                        "plan_version": company.get("plan_version", 0),
+                        "logo_url": company.get("logo_url", ""),
+                        "color_marca": company.get("color_marca", ""),
+                        "regimen_fiscal": company.get("regimen_fiscal", ""),
+                        "pos_enabled": company.get("pos_enabled", True),
+                        "production_enabled": company.get("production_enabled", True),
+                        "sandbox_enabled": company.get("sandbox_enabled", True),
+                        "_membership": {
+                            "role": mem_data.get("role"),
+                            "permissions": mem_data.get("permissions", {}),
+                            "assigned_branches": mem_data.get("assigned_branches", []),
+                        },
+                    })
             return companies
         except Exception as e:
             print(f"⚠️ Error al obtener compañías del usuario {uid}: {e}")

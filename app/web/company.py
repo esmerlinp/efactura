@@ -198,11 +198,11 @@ def create_company():
         session.pop('available_branches', None)
         session.pop('selected_project_id', None)
         session.pop('available_projects', None)
-        session.pop('user_companies', None)
-        session['user_has_multiple_companies'] = False
+        user_companies = DatabaseService.get_user_companies(uid)
+        session['user_companies'] = user_companies
 
         flash(f'Empresa "{company_name}" creada con éxito. Complete la configuración inicial.', 'success')
-        return redirect(url_for('web_invoices.onboarding'))
+        return redirect(url_for('web_invoices.onboarding_wizard'))
 
     return render_template('company/create.html',
                            product_name=session.get('brand', 'e-Factura'),

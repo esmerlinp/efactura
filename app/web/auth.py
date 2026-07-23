@@ -238,18 +238,12 @@ def login():
                 session['user'] = user_profile
                 session['is_sandbox_mode'] = False  # Producción por defecto al iniciar
                 
-                # Cargar empresas asociadas
                 uid = user_profile['uid']
-                associated = DatabaseService.get_associated_companies(uid)
-                session['associated_companies'] = associated
-                session['user_has_multiple_companies'] = len(associated) > 1
-                
-                # Intentar cargar desde company_memberships (nuevo sistema)
                 user_companies = DatabaseService.get_user_companies(uid)
                 default_id = user_profile.get('default_company_id', '')
                 
+                session['user_companies'] = user_companies
                 if user_companies:
-                    session['user_companies'] = user_companies
                     if default_id and any(c['id'] == default_id for c in user_companies):
                         session['selected_company_id'] = default_id
                         default_comp = next(c for c in user_companies if c['id'] == default_id)
@@ -263,34 +257,8 @@ def login():
                         session.pop('selected_company_id', None)
                         session.pop('selected_owner_uid', None)
                 else:
-                    # Fallback al sistema legacy - construir lista compatible
-                    legacy_companies = []
-                    for comp in associated:
-                        legacy_companies.append({
-                            "id": comp.get("company_id", comp.get("ownerUID", "")),
-                            "name": comp.get("companyName", "Empresa"),
-                            "rnc": "",
-                            "owner_uid": comp.get("ownerUID", ""),
-                            "role": comp.get("role", "employee"),
-                            "logo_url": comp.get("logoUrl", ""),
-                            "logo_base64": comp.get("logoBase64", ""),
-                            "_membership": {"role": comp.get("role", "employee"), "permissions": {}}
-                        })
-                    session['user_companies'] = legacy_companies
-                    session['user_has_multiple_companies'] = len(legacy_companies) > 1
-
-                    if len(legacy_companies) > 1:
-                        session.pop('selected_company_id', None)
-                        session.pop('selected_owner_uid', None)
-                    elif len(legacy_companies) == 1:
-                        session['selected_company_id'] = legacy_companies[0]['id']
-                        session['selected_owner_uid'] = legacy_companies[0].get('owner_uid', user_profile.get('ownerUID'))
-                        session['user']['ownerUID'] = session['selected_owner_uid']
-                    else:
-                        owner_uid = user_profile.get('ownerUID')
-                        session['selected_company_id'] = owner_uid
-                        session['selected_owner_uid'] = owner_uid
-                        session['user']['ownerUID'] = owner_uid
+                    session['selected_owner_uid'] = user_profile.get('ownerUID')
+                    session['user']['ownerUID'] = session['selected_owner_uid']
 
                 # ── Cargar plan de la empresa en la sesión ──
                 try:
@@ -318,7 +286,7 @@ def login():
                 )
                 
                 flash('¡Sesión iniciada exitosamente!', 'success')
-                if session.get('user_has_multiple_companies'):
+                if len(session.get('user_companies', [])) > 1:
                     return redirect(url_for('web_auth.select_company'))
                 return redirect(url_for('web_dashboard.dashboard'))
             else:
@@ -419,15 +387,9 @@ def resolve_session_conflict():
     session['user'] = user_profile
     session['is_sandbox_mode'] = False
     
-    # Cargar empresas asociadas
-    associated = DatabaseService.get_associated_companies(user_profile['uid'])
-    session['associated_companies'] = associated
-    session['user_has_multiple_companies'] = len(associated) > 1
-
-    # Cargar companies del nuevo sistema multi-company
     user_companies = DatabaseService.get_user_companies(user_profile['uid'])
+    session['user_companies'] = user_companies
     if user_companies:
-        session['user_companies'] = user_companies
         if len(user_companies) == 1:
             session['selected_company_id'] = user_companies[0]['id']
             session['selected_owner_uid'] = user_companies[0].get('owner_uid', user_profile.get('ownerUID'))
@@ -436,34 +398,8 @@ def resolve_session_conflict():
             session.pop('selected_owner_uid', None)
             session.pop('selected_company_id', None)
     else:
-        legacy_companies = []
-        for comp in associated:
-            legacy_companies.append({
-                "id": comp.get("company_id", comp.get("ownerUID", "")),
-                "name": comp.get("companyName", "Empresa"),
-                "rnc": "",
-                "owner_uid": comp.get("ownerUID", ""),
-                "role": comp.get("role", "employee"),
-                "logo_url": comp.get("logoUrl", ""),
-                "logo_base64": comp.get("logoBase64", ""),
-                "_membership": {"role": comp.get("role", "employee"), "permissions": {}}
-            })
-        session['user_companies'] = legacy_companies
-        session['user_has_multiple_companies'] = len(legacy_companies) > 1
-
-    if len(associated) > 1:
-        session.pop('selected_owner_uid', None)
-        session.pop('selected_company_id', None)
-    elif len(associated) == 1:
-        comp = associated[0]
-        session['selected_company_id'] = comp.get('company_id', comp.get('ownerUID', user_profile.get('ownerUID')))
-        session['selected_owner_uid'] = comp['ownerUID']
+        session['selected_owner_uid'] = user_profile.get('ownerUID')
         session['user']['ownerUID'] = session['selected_owner_uid']
-    else:
-        owner_uid = user_profile.get('ownerUID')
-        session['selected_company_id'] = owner_uid
-        session['selected_owner_uid'] = owner_uid
-        session['user']['ownerUID'] = owner_uid
     
     # ── Cargar plan de la empresa en la sesión ──
     try:
@@ -491,7 +427,7 @@ def resolve_session_conflict():
     )
     
     flash('Sesión anterior cerrada. ¡Bienvenido de nuevo!', 'success')
-    if session.get('user_has_multiple_companies'):
+    if len(session.get('user_companies', [])) > 1:
         return redirect(url_for('web_auth.select_company'))
     return redirect(url_for('web_dashboard.dashboard'))
 
@@ -566,34 +502,14 @@ def verify_2fa():
             session['user'] = user_profile
             session['is_sandbox_mode'] = False
             
-            # Cargar empresas asociadas
-            associated = DatabaseService.get_associated_companies(user_profile['uid'])
-            session['associated_companies'] = associated
-
             user_companies = DatabaseService.get_user_companies(user_profile['uid'])
-            if user_companies:
-                session['user_companies'] = user_companies
-            else:
-                legacy_companies = []
-                for comp in associated:
-                    legacy_companies.append({
-                        "id": comp.get("company_id", comp.get("ownerUID", "")),
-                        "name": comp.get("companyName", "Empresa"),
-                        "rnc": "",
-                        "owner_uid": comp.get("ownerUID", ""),
-                        "role": comp.get("role", "employee"),
-                        "logo_url": comp.get("logoUrl", ""),
-                        "logo_base64": comp.get("logoBase64", ""),
-                        "_membership": {"role": comp.get("role", "employee"), "permissions": {}}
-                    })
-                session['user_companies'] = legacy_companies
-            session['user_has_multiple_companies'] = len(session['user_companies']) > 1
+            session['user_companies'] = user_companies
             
-            if len(associated) > 1:
-                session.pop('selected_owner_uid', None)
+            if len(user_companies) == 1:
+                session['selected_owner_uid'] = user_companies[0].get('owner_uid', user_profile.get('ownerUID'))
             else:
-                session['selected_owner_uid'] = associated[0]['ownerUID'] if len(associated) == 1 else user_profile.get('ownerUID')
-                session['user']['ownerUID'] = session['selected_owner_uid']
+                session.pop('selected_owner_uid', None)
+            session['user']['ownerUID'] = session.get('selected_owner_uid') or user_profile.get('ownerUID')
             
             # Limpiar estado temporal de MFA
             session.pop('mfa_pending_uid', None)
@@ -612,7 +528,7 @@ def verify_2fa():
             )
             
             flash('¡Sesión iniciada exitosamente con 2FA!', 'success')
-            if session.get('user_has_multiple_companies'):
+            if len(session.get('user_companies', [])) > 1:
                 return redirect(url_for('web_auth.select_company'))
             return redirect(url_for('web_dashboard.dashboard'))
         else:
@@ -779,9 +695,7 @@ def logout():
     session.pop('available_branches', None)
     session.pop('selected_project_id', None)
     session.pop('available_projects', None)
-    session.pop('associated_companies', None)
     session.pop('user_companies', None)
-    session.pop('user_has_multiple_companies', None)
     # Limpiar datos temporales de login pendiente
     session.pop('pending_login_profile', None)
     session.pop('pending_login_session_token', None)
@@ -796,31 +710,8 @@ def select_company():
         return redirect(url_for('web_auth.login'))
         
     uid = session['user']['uid']
-    
-    # Obtener compañías del usuario (nuevo sistema multi-company)
     user_companies = DatabaseService.get_user_companies(uid)
-    
-    # Fallback al sistema legacy si no hay compañías nuevas
-    if not user_companies:
-        associated = DatabaseService.get_associated_companies(uid)
-        session['associated_companies'] = associated
-        session['user_has_multiple_companies'] = len(associated) > 1
-        # Legacy: convertir a formato de compañía
-        user_companies = []
-        for comp in associated:
-            user_companies.append({
-                "id": comp.get("company_id", comp.get("ownerUID", "")),
-                "name": comp.get("companyName", "Empresa"),
-                "rnc": "",
-                "owner_uid": comp.get("ownerUID", ""),
-                "role": comp.get("role", "employee"),
-                "logo_url": comp.get("logoUrl", ""),
-                "logo_base64": comp.get("logoBase64", ""),
-                "_membership": {"role": comp.get("role", "employee"), "permissions": {}}
-            })
-
     session['user_companies'] = user_companies
-    session['user_has_multiple_companies'] = len(user_companies) > 1
 
     if len(user_companies) <= 1:
         if len(user_companies) == 1:
@@ -862,7 +753,7 @@ def select_company():
                     profile = DatabaseService.get_user_profile(uid, company_id=session.get('selected_company_id'))
                     if profile:
                         profile['default_company_id'] = selected_id
-                        DatabaseService.save_user_profile(uid, profile, company_id=session.get('selected_company_id'))
+                        DatabaseService.save_user_profile(uid, profile)
                 except Exception:
                     pass
             
@@ -1124,7 +1015,7 @@ def update_user_profile():
         if profile_image_url:
             updated_profile["profileImageUrl"] = profile_image_url
 
-        DatabaseService.save_user_profile(uid, updated_profile, company_id=company_id)
+        DatabaseService.save_user_profile(uid, updated_profile)
 
         # Actualizar la sesión activa para reflejar los cambios de inmediato
         session['user']['name'] = name

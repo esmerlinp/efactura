@@ -1792,7 +1792,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                         DatabaseService.register_invoice_payment(owner_uid, target_invoice_id, payment_dict, company_id=company_id, sandbox=sandbox)
                         # Generar asiento contable automático
                         from app.services.accounting_service import AccountingService
-                        entry = AccountingService.auto_generate_invoice_entry(owner_uid, invoice_dict, company_id=company_id, sandbox=sandbox)
+                        entry = AccountingService.auto_generate_invoice_entry(company_id, invoice_dict, sandbox=sandbox)
                         if entry:
                             flash(f'✅ Asiento contable {entry["number"]} generado automáticamente.', 'info')
                         else:
@@ -1820,9 +1820,9 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                         # Generar asiento contable automático para notas de crédito/débito
                         from app.services.accounting_service import AccountingService
                         if ecf_type in ["Nota de Crédito (E34)", "Nota de Débito (E33)"]:
-                            entry = AccountingService.auto_generate_credit_note_entry(owner_uid, invoice_dict, company_id=company_id, sandbox=sandbox)
+                            entry = AccountingService.auto_generate_credit_note_entry(company_id, invoice_dict, sandbox=sandbox)
                         else:
-                            entry = AccountingService.auto_generate_invoice_entry(owner_uid, invoice_dict, company_id=company_id, sandbox=sandbox)
+                            entry = AccountingService.auto_generate_invoice_entry(company_id, invoice_dict, sandbox=sandbox)
                         if entry:
                             flash(f'✅ Asiento contable {entry["number"]} generado automáticamente.', 'info')
                         else:
@@ -6126,7 +6126,7 @@ def payments_new_route():
 
         try:
             from app.services.accounting_service import AccountingService
-            AccountingService.auto_generate_expense_entry(owner_uid, expense_dict, company_id=company_id, sandbox=sandbox)
+            AccountingService.auto_generate_expense_entry(company_id, expense_dict, sandbox=sandbox)
         except Exception as acc_err:
             print(f"Error al generar asiento contable del gasto: {acc_err}")
 
@@ -6321,7 +6321,7 @@ def minor_new_route():
 
         try:
             from app.services.accounting_service import AccountingService
-            AccountingService.auto_generate_expense_entry(owner_uid, expense_dict, company_id=company_id, sandbox=sandbox)
+            AccountingService.auto_generate_expense_entry(company_id, expense_dict, sandbox=sandbox)
         except Exception as acc_err:
             print(f"Error al generar asiento contable del gasto menor: {acc_err}")
 
@@ -6563,7 +6563,7 @@ def recurring_new_route():
 
         try:
             from app.services.accounting_service import AccountingService
-            AccountingService.auto_generate_expense_entry(owner_uid, expense_dict, company_id=company_id, sandbox=sandbox)
+            AccountingService.auto_generate_expense_entry(company_id, expense_dict, sandbox=sandbox)
         except Exception as acc_err:
             print(f"Error al generar asiento contable del pago recurrente: {acc_err}")
 
@@ -6831,9 +6831,9 @@ def edit_expense_route(expense_id):
             all_entries = DatabaseService.get_accounting_entries(owner_uid, company_id=company_id, sandbox=sandbox)
             for e in all_entries:
                 if e.get("status") != "voided" and e.get("referenceType") == "expense" and e.get("referenceId") == expense_id:
-                    AccountingService.void_entry(owner_uid, e["id"], company_id=company_id, reason="Regenerado por edición", user_id=session['user']['email'], sandbox=sandbox)
+                    AccountingService.void_entry(company_id, e["id"], reason="Regenerado por edición", user_id=session['user']['email'], sandbox=sandbox)
                     break
-            AccountingService.auto_generate_expense_entry(owner_uid, expense_dict, company_id=company_id, sandbox=sandbox)
+            AccountingService.auto_generate_expense_entry(company_id, expense_dict, sandbox=sandbox)
         except Exception as acc_err:
             print(f"Error al regenerar asiento contable en edición: {acc_err}")
 
@@ -7526,7 +7526,7 @@ def company_settings():
         saved = DatabaseService.save_company_profile(owner_uid, profile_dict, company_id=company_id)
         if saved:
             # Refrescar empresas asociadas en sesión para reflejar nombre actualizado en sidebar
-            session['associated_companies'] = DatabaseService.get_associated_companies(session['user']['uid'])
+            session['user_companies'] = DatabaseService.get_user_companies(session['user']['uid'])
             flash('Ajustes y perfil de empresa actualizados correctamente.', 'success')
         else:
             flash('Error al guardar el perfil. Verifica que los datos no excedan el tamaño permitido.', 'error')
@@ -7615,6 +7615,43 @@ def onboarding_wizard():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
+
+    if not company_id:
+        uid = session['user']['uid']
+        company_data = {
+            "name": "Nueva Empresa",
+            "trade_name": "",
+            "rnc": "",
+            "type": "associated",
+            "configured": False,
+        }
+        company_id = DatabaseService.create_company(owner_uid, company_data)
+        if not company_id:
+            flash('Error al crear la empresa. Intente de nuevo.', 'error')
+            return redirect(url_for('web_dashboard.dashboard'))
+        DatabaseService.create_membership(
+            uid=uid,
+            company_id=company_id,
+            role='owner',
+            permissions={
+                'canManageSettings': True,
+                'canManageTeam': True,
+                'canManageBilling': True,
+                'canManageProducts': True,
+                'canExpenses': True,
+                'canSales': True,
+                'canPOS': True,
+            },
+            invited_by=''
+        )
+        session['selected_company_id'] = company_id
+        session['selected_owner_uid'] = owner_uid
+        session['user']['ownerUID'] = owner_uid
+        session.pop('selected_branch_id', None)
+        session.pop('available_branches', None)
+        session.pop('selected_project_id', None)
+        session.pop('available_projects', None)
+        session['user_companies'] = DatabaseService.get_user_companies(uid)
     
     if request.method == 'POST':
         existing_profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
@@ -7679,11 +7716,101 @@ def onboarding_wizard():
         if not saved:
             flash('Error al guardar el perfil durante el onboarding. Intenta de nuevo.', 'error')
             return redirect(url_for('web_invoices.onboarding_wizard'))
+        session['user_companies'] = DatabaseService.get_user_companies(session['user']['uid'])
+        session['company_context'] = {
+            'company_id': company_id,
+            'owner_uid': owner_uid,
+            'company_name': request.form['companyName'],
+            'rnc': request.form['companyRNC'],
+            'plan_id': '',
+            'plan_name': '',
+            'role': 'owner',
+            'permissions': {
+                'canManageSettings': True, 'canManageTeam': True,
+                'canManageBilling': True, 'canManageProducts': True,
+                'canExpenses': True, 'canSales': True, 'canPOS': True,
+            },
+            'is_sandbox': session.get('is_sandbox_mode', False),
+            'branch_id': session.get('selected_branch_id'),
+        }
         flash('¡Onboarding completado con éxito!', 'success')
         return redirect(url_for('web_dashboard.dashboard'))
 
     profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     return render_template('onboarding_wizard.html', profile=profile)
+
+
+@web_invoices_bp.route('/onboarding/skip', methods=['POST'])
+def onboarding_skip():
+    if 'user' not in session:
+        return jsonify({"success": False, "error": "No autorizado"}), 401
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+
+    if not company_id:
+        uid = session['user']['uid']
+        company_data = {
+            "name": "Mi Empresa",
+            "trade_name": "",
+            "rnc": "000000000",
+            "type": "associated",
+            "configured": False,
+        }
+        company_id = DatabaseService.create_company(owner_uid, company_data)
+        if not company_id:
+            return jsonify({"success": False, "error": "Error al crear la empresa."}), 500
+        DatabaseService.create_membership(
+            uid=uid,
+            company_id=company_id,
+            role='owner',
+            permissions={
+                'canManageSettings': True,
+                'canManageTeam': True,
+                'canManageBilling': True,
+                'canManageProducts': True,
+                'canExpenses': True,
+                'canSales': True,
+                'canPOS': True,
+            },
+            invited_by=''
+        )
+        session['selected_company_id'] = company_id
+        session['selected_owner_uid'] = owner_uid
+        session['user']['ownerUID'] = owner_uid
+        session.pop('selected_branch_id', None)
+        session.pop('available_branches', None)
+        session.pop('selected_project_id', None)
+        session.pop('available_projects', None)
+        session['user_companies'] = DatabaseService.get_user_companies(uid)
+
+    existing_profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+    profile_dict = dict(existing_profile)
+    body = request.get_json(silent=True) or {}
+    profile_dict.update({
+        "companyName": profile_dict.get("companyName") or body.get("companyName", "Mi Empresa"),
+        "companyRNC": profile_dict.get("companyRNC") or "000000000",
+        "companyType": "associated",
+        "country": profile_dict.get("country", "DO"),
+        "regimenFiscal": "ordinary",
+        "defaultEcfType": "E-CF (E31) – Factura de Crédito Fiscal",
+        "defaultItbisRate": 0.18,
+        "useSimulation": True,
+        "configured": True,
+    })
+
+    saved = DatabaseService.save_company_profile(owner_uid, profile_dict, company_id=company_id)
+    if not saved:
+        return jsonify({"success": False, "error": "Error al guardar el perfil."})
+    session['is_sandbox_mode'] = True
+    session['user_companies'] = DatabaseService.get_user_companies(session['user']['uid'])
+    if session.get('selected_company_id'):
+        ctx = DatabaseService.get_company_context(
+            session['user']['uid'],
+            session['selected_company_id']
+        )
+        session['company_context'] = ctx
+    return jsonify({"success": True})
+
 
 @web_invoices_bp.route('/settings/company/generate-api-key', methods=['POST'])
 def generate_company_api_key():
@@ -10040,7 +10167,7 @@ def cxc_write_off(invoice_id):
         cxc = next((a for a in accounts if a.get('usage') == 'cxc'), None)
         if cxc:
             lines.append({"accountId": cxc['id'], "accountCode": cxc.get('code',''), "accountName": cxc.get('name',''), "debit": 0, "credit": amount, "description": f"Castigo {invoice.get('invoiceNumber','')}"})
-        AccountingService.generate_entry(owner_uid, {"entryType":"standard","date":datetime.now(timezone.utc).strftime("%Y-%m-%d"),"concept":f"Castigo factura {invoice.get('invoiceNumber','')}","lines":lines,"createdBy":session.get('user',{}).get('name','')}, company_id=company_id, sandbox=sandbox)
+        AccountingService.generate_entry(company_id, {"entryType":"standard","date":datetime.now(timezone.utc).strftime("%Y-%m-%d"),"concept":f"Castigo factura {invoice.get('invoiceNumber','')}","lines":lines,"createdBy":session.get('user',{}).get('name','')}, sandbox=sandbox)
     except (ImportError, StopIteration):
         pass
     invoice['status'] = 'Castigada'
@@ -10163,7 +10290,7 @@ def cxc_advances_new():
                     advance_dict["clientRNC"] = matched[0].get("rnc", advance_dict.get("clientRNC", ""))
             DatabaseService.save_client_advance(owner_uid, advance_id, advance_dict, company_id=company_id, sandbox=sandbox)
             from app.services.accounting_service import AccountingService
-            AccountingService.auto_generate_client_advance_entry(owner_uid, advance_dict, company_id=company_id, sandbox=sandbox)
+            AccountingService.auto_generate_client_advance_entry(company_id, advance_dict, sandbox=sandbox)
             bank_account_id = advance_dict.get("bankAccountId")
             if bank_account_id:
                 try:
@@ -10362,7 +10489,7 @@ def cxc_advances_apply():
         invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
         if invoice:
             from app.services.accounting_service import AccountingService
-            AccountingService.auto_generate_advance_application_entry(owner_uid, invoice, result["appliedAdvances"], company_id=company_id, sandbox=sandbox)
+            AccountingService.auto_generate_advance_application_entry(company_id, invoice, result["appliedAdvances"], sandbox=sandbox)
         flash(f'¡{len(result["appliedAdvances"])} anticipos aplicados por RD$ {result["totalApplied"]:,.2f}! Nuevo saldo pendiente: RD$ {result["netPayable"]:,.2f}.', 'success')
     except Exception as e:
         flash(f'Error al aplicar anticipos: {str(e)}', 'error')
