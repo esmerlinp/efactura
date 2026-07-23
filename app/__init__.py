@@ -72,12 +72,6 @@ def create_app():
             # Cargar perfil fresco en tiempo real de Firestore para sincronización reactiva
             fresh_profile = DatabaseService.get_user_profile(session['user']['uid'])
             if fresh_profile:
-                # Inicializar o refrescar datos de empresas asociadas si es necesario
-                if 'associated_companies' not in session or 'user_has_multiple_companies' not in session:
-                    associated = DatabaseService.get_associated_companies(session['user']['uid'])
-                    session['associated_companies'] = associated
-                    session['user_has_multiple_companies'] = len(associated) > 1
-
                 # ── Contexto de compañía activa ──
                 # selected_company_id es la fuente de verdad.
                 # owner_uid se deriva desde la compañía para compatibilidad.
@@ -91,20 +85,12 @@ def create_app():
                             session['selected_owner_uid'] = company.get('owner_uid', fresh_profile.get('ownerUID'))
                             fresh_profile['ownerUID'] = session['selected_owner_uid']
                     else:
-                        associated = session.get('associated_companies', [])
-                        if len(associated) == 1:
-                            # Usar la única compañía disponible
-                            cid = associated[0].get('company_id', '')
-                            if not cid:
-                                # Fallback: buscar company_id por ownerUID
-                                owner_companies = DatabaseService.get_companies_by_owner(associated[0]['ownerUID'])
-                                if owner_companies:
-                                    cid = owner_companies[0]['id']
-                            if cid:
-                                session['selected_company_id'] = cid
-                                session['selected_owner_uid'] = associated[0]['ownerUID']
-                                fresh_profile['ownerUID'] = session['selected_owner_uid']
-                        elif len(associated) == 0:
+                        user_companies = DatabaseService.get_user_companies(session['user']['uid'])
+                        if len(user_companies) == 1:
+                            session['selected_company_id'] = user_companies[0]['id']
+                            session['selected_owner_uid'] = user_companies[0].get('owner_uid', fresh_profile.get('ownerUID'))
+                            fresh_profile['ownerUID'] = session['selected_owner_uid']
+                        elif len(user_companies) == 0:
                             session['selected_owner_uid'] = fresh_profile.get('ownerUID')
                 else:
                     # selected_company_id ya existe → derivar owner_uid
@@ -169,13 +155,11 @@ def create_app():
                 session.pop('is_sandbox_mode', None)
                 session.pop('selected_owner_uid', None)
                 session.pop('selected_company_id', None)
-                session.pop('associated_companies', None)
-                session.pop('user_has_multiple_companies', None)
                 flash("Tu cuenta está inhabilitada.", "error")
                 return redirect(flask_url_for('web_auth.login'))
             
             # Si tiene múltiples empresas asociadas y aún no ha seleccionado una, obligar a seleccionar
-            if 'selected_company_id' not in session and session.get('user_has_multiple_companies'):
+            if 'selected_company_id' not in session and len(session.get('user_companies', [])) > 1:
                 allowed_auth_endpoints = [
                     'web_auth.select_company',
                     'web_auth.select_branch',
@@ -527,6 +511,7 @@ def create_app():
                     # Evitar bucle de redirección en páginas esenciales
                     allowed = [
                         'web_invoices.onboarding_wizard', 
+                        'web_invoices.onboarding_skip',
                         'web_auth.logout', 
                         'web_auth.toggle_sandbox', 
                         'static', 
@@ -566,24 +551,7 @@ def create_app():
                 theme = company.theme
                 is_configured = company.is_configured
         user_companies = session.get('user_companies', [])
-        has_multiple = session.get('user_has_multiple_companies', False)
-        if not user_companies:
-            associated = session.get('associated_companies', [])
-            if associated:
-                legacy = []
-                for comp in associated:
-                    legacy.append({
-                        "id": comp.get("company_id", comp.get("ownerUID", "")),
-                        "name": comp.get("companyName", "Empresa"),
-                        "rnc": "",
-                        "owner_uid": comp.get("ownerUID", ""),
-                        "role": comp.get("role", "employee"),
-                        "logo_url": comp.get("logoUrl", ""),
-                        "logo_base64": comp.get("logoBase64", ""),
-                        "_membership": {"role": comp.get("role", "employee"), "permissions": {}}
-                    })
-                user_companies = legacy
-                has_multiple = len(legacy) > 1
+        has_multiple = len(user_companies) > 1
         return dict(
             product_name=product_name,
             company_logo_url=logo_url, 
@@ -702,8 +670,8 @@ def create_app():
         available_projects = []
         selected_project_id = None
         if has_request_context() and 'user' in session:
-            companies = session.get('associated_companies', [])
-            has_mult = session.get('user_has_multiple_companies', False)
+            companies = session.get('user_companies', [])
+            has_mult = len(companies) > 1
 
             company_ctx = session.get('company_context')
             if company_ctx:

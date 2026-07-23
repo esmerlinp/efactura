@@ -940,10 +940,13 @@
                 btnSkip.disabled = true;
                 btnSkip.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Entrando...';
 
-                fetch('/toggle-sandbox', {
+                fetch('/onboarding/skip', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sandbox: true })
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify({})
                 })
                 .then(response => response.json())
                 .then(data => {
@@ -952,7 +955,7 @@
                     } else {
                         btnSkip.disabled = false;
                         btnSkip.innerHTML = 'Omitir y entrar en Modo Pruebas';
-                        showAlert('Error', 'No se pudo activar el modo pruebas.', 'danger');
+                        showAlert('Error', data.error || 'No se pudo activar el modo pruebas.', 'danger');
                     }
                 })
                 .catch(err => {

@@ -894,7 +894,7 @@ def create_pos_sale():
             # Generar asiento contable automático para POS
             try:
                 from app.services.accounting_service import AccountingService
-                AccountingService.auto_generate_invoice_entry(owner_uid, invoice_dict, company_id=company_id, sandbox=sandbox)
+                AccountingService.auto_generate_invoice_entry(company_id, invoice_dict, sandbox=sandbox)
             except Exception as exc:
                 import logging
                 logging.getLogger(__name__).warning(f"Asiento contable POS no generado: {exc}")
@@ -922,7 +922,7 @@ def create_pos_sale():
         # Generar asiento contable incluso en contingencia
         try:
             from app.services.accounting_service import AccountingService
-            AccountingService.auto_generate_invoice_entry(owner_uid, invoice_dict, company_id=company_id, sandbox=sandbox)
+            AccountingService.auto_generate_invoice_entry(company_id, invoice_dict, sandbox=sandbox)
         except Exception as exc:
             import logging
             logging.getLogger(__name__).warning(f"Asiento contable POS (contingencia) no generado: {exc}")
