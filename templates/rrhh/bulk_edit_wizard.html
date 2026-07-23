@@ -1,0 +1,531 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Edición Masiva — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-pen-to-square"></i> Edición Masiva de Empleados</h1>
+    <div class="hr-page-actions">
+        <a href="{{ url_for('web_rrhh.employee_list') }}" class="btn btn-ghost">
+            <i class="fa-solid fa-arrow-left"></i> Volver a Empleados
+        </a>
+    </div>
+</div>
+
+<!-- Wizard Steps Indicator -->
+<div style="display:flex; gap:0; margin-bottom:32px; background:var(--card-bg); border-radius:12px; overflow:hidden; border:1px solid var(--border-color);">
+    <div class="wizard-step active" data-step="1" style="flex:1; padding:16px; text-align:center; border-right:1px solid var(--border-color);">
+        <div style="font-size:1.2rem; font-weight:700; color:var(--accent-blue);">1</div>
+        <div style="font-size:0.82rem; color:var(--text-muted);">Seleccionar Campos</div>
+    </div>
+    <div class="wizard-step" data-step="2" style="flex:1; padding:16px; text-align:center; border-right:1px solid var(--border-color); opacity:0.4;">
+        <div style="font-size:1.2rem; font-weight:700;">2</div>
+        <div style="font-size:0.82rem; color:var(--text-muted);">Confirmar Cambios</div>
+    </div>
+    <div class="wizard-step" data-step="3" style="flex:1; padding:16px; text-align:center; opacity:0.4;">
+        <div style="font-size:1.2rem; font-weight:700;">3</div>
+        <div style="font-size:0.82rem; color:var(--text-muted);">Resultado</div>
+    </div>
+</div>
+
+<div class="card-table-wrapper hr-document-sheet" style="padding:24px;">
+
+{% if employees %}
+    <!-- Step 1: Select Fields -->
+    <div id="step1">
+        <h3><i class="fa-solid fa-list-check"></i> Selecciona los campos a modificar</h3>
+        <p style="color:var(--text-muted); margin-bottom:20px;">
+            Marca los campos que deseas modificar para los <strong>{{ employees|length }}</strong> empleados seleccionados.
+        </p>
+
+        <div id="fieldsContainer">
+            {% for group_key, group in fields.items() %}
+            <div class="field-group" style="border:1px solid var(--border-color); border-radius:10px; padding:16px; margin-bottom:12px;">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; cursor:pointer;"
+                     onclick="toggleGroup('{{ group_key }}')">
+                    <i class="{{ group.icon }}" style="color:var(--accent-blue); font-size:1.1rem;"></i>
+                    <strong style="font-size:0.95rem;">{{ group.label }}</strong>
+                    <i id="groupChevron_{{ group_key }}" class="fa-solid fa-chevron-down" style="margin-left:auto; font-size:0.75rem; color:var(--text-muted); transition:transform 0.2s;"></i>
+                </div>
+                <div id="groupFields_{{ group_key }}" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px,1fr)); gap:12px;">
+                    {% for field in group.fields %}
+                    <div class="field-row" style="display:flex; flex-direction:column; gap:4px;">
+                        <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem; cursor:pointer;">
+                            <input type="checkbox" class="field-cb" data-field="{{ field.name }}" data-group="{{ group_key }}"
+                                   onchange="toggleFieldWidget(this)">
+                            {{ field.label }}
+                        </label>
+                        <div class="field-widget" id="widget_{{ field.name }}" style="display:none;">
+                            {% if field.type == 'select' %}
+                            <select class="form-select" data-field="{{ field.name }}" style="width:100%; font-size:0.82rem;">
+                                <option value="">Seleccionar...</option>
+                                {% for opt in field.options %}
+                                <option value="{{ opt }}">{{ opt }}</option>
+                                {% endfor %}
+                            </select>
+                            {% elif field.type == 'select_options' %}
+                            <select class="form-select" data-field="{{ field.name }}" style="width:100%; font-size:0.82rem;">
+                                <option value="">Seleccionar...</option>
+                                {% for opt in field.options %}
+                                <option value="{{ opt.value }}">{{ opt.label }}</option>
+                                {% endfor %}
+                            </select>
+                            {% elif field.type == 'select_search' %}
+                            <select class="form-select" data-field="{{ field.name }}" style="width:100%; font-size:0.82rem;">
+                                <option value="">Seleccionar...</option>
+                                {% for opt in field.options %}
+                                <option value="{{ opt }}">{{ opt }}</option>
+                                {% endfor %}
+                            </select>
+                            {% elif field.type in ('text', 'date') %}
+                            <input type="{{ field.type }}" class="form-input" data-field="{{ field.name }}"
+                                   style="width:100%; font-size:0.82rem;"
+                                   {% if field.placeholder %}placeholder="{{ field.placeholder }}"{% endif %}>
+                            {% elif field.type == 'number' %}
+                            <input type="number" class="form-input" data-field="{{ field.name }}"
+                                   style="width:100%; font-size:0.82rem;"
+                                   step="{{ field.step or '1' }}" min="{{ field.min or '' }}" max="{{ field.max or '' }}"
+                                   {% if field.placeholder %}placeholder="{{ field.placeholder }}"{% endif %}>
+                            {% elif field.type == 'textarea' %}
+                            <textarea class="form-input" data-field="{{ field.name }}" rows="3"
+                                      style="width:100%; font-size:0.82rem; resize:vertical;"
+                                      {% if field.placeholder %}placeholder="{{ field.placeholder }}"{% endif %}></textarea>
+                            {% elif field.type == 'checkbox' %}
+                            <select class="form-select" data-field="{{ field.name }}" style="width:100%; font-size:0.82rem;">
+                                <option value="">No cambiar</option>
+                                <option value="true">Sí</option>
+                                <option value="false">No</option>
+                            </select>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div style="display:flex; gap:8px; justify-content:flex-end; border-top:1px solid var(--border-color); padding-top:16px; margin-top:8px;">
+            <button type="button" class="btn btn-primary" id="btnToStep2" onclick="goToStep2()">
+                <i class="fa-solid fa-arrow-right"></i> Siguiente: Revisar cambios
+            </button>
+        </div>
+    </div>
+
+    <!-- Step 2: Summary & Confirm -->
+    <div id="step2" style="display:none;">
+        <h3><i class="fa-solid fa-clipboard-check"></i> Resumen de cambios</h3>
+        <p style="color:var(--text-muted); margin-bottom:20px;">Revisa los cambios antes de aplicarlos a <strong>{{ employees|length }}</strong> empleados.</p>
+
+        <div id="summaryContent">
+            <div style="text-align:center; padding:40px; color:var(--text-muted);">
+                <i class="fa-solid fa-spinner fa-spin"></i> Preparando resumen...
+            </div>
+        </div>
+
+        <div style="display:flex; gap:8px; justify-content:space-between; border-top:1px solid var(--border-color); padding-top:16px; margin-top:24px;">
+            <button type="button" class="btn btn-ghost" onclick="goToStep1()">
+                <i class="fa-solid fa-arrow-left"></i> Ajustar campos
+            </button>
+            <button type="button" class="btn btn-success" id="btnExecute" onclick="goToStep3()">
+                <i class="fa-solid fa-check"></i> Confirmar y ejecutar
+            </button>
+        </div>
+    </div>
+
+    <!-- Step 3: Progress & Result -->
+    <div id="step3" style="display:none;">
+        <h3><i class="fa-solid fa-circle-check"></i> Resultado</h3>
+
+        <!-- Progress -->
+        <div id="progressSection">
+            <div style="text-align:center; padding:24px;">
+                <div style="margin-bottom:16px;">
+                    <span id="progressCurrent" style="font-size:0.9rem; color:var(--text-muted);">Iniciando...</span>
+                </div>
+                <div class="progress-bar" style="height:12px; background:var(--border-color); border-radius:99px; overflow:hidden;">
+                    <div id="progressFill" style="height:100%; width:0%; background:linear-gradient(90deg, var(--accent-emerald), #34d399); border-radius:99px; transition:width 0.5s;"></div>
+                </div>
+                <div style="margin-top:8px; font-size:0.82rem; color:var(--text-muted);">
+                    <span id="progressCount">0</span> / <span id="progressTotal">{{ employees|length }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Result -->
+        <div id="resultSection" style="display:none;"></div>
+    </div>
+
+{% else %}
+    <div class="text-center" style="padding:60px;">
+        <i class="fa-solid fa-users-slash" style="font-size:3rem; color:var(--text-muted); margin-bottom:16px;"></i>
+        <h3>No hay empleados seleccionados</h3>
+        <p style="color:var(--text-muted);">Selecciona empleados desde la lista y vuelve a intentarlo.</p>
+        <a href="{{ url_for('web_rrhh.employee_list') }}" class="btn btn-primary">
+            <i class="fa-solid fa-arrow-left"></i> Volver a empleados
+        </a>
+    </div>
+{% endif %}
+
+</div>
+
+<!-- Selected employees summary -->
+{% if employees %}
+<div class="card-table-wrapper hr-document-sheet" style="padding:24px; margin-top:16px;">
+    <h4 style="margin-bottom:12px;"><i class="fa-solid fa-users"></i> Empleados seleccionados ({{ employees|length }})</h4>
+    <div class="table-responsive" style="max-height:300px; overflow-y:auto;">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th>Empleado</th>
+                    <th>Cédula</th>
+                    <th>Cargo</th>
+                    <th>AFP</th>
+                    <th>Contrato</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for emp in employees %}
+                <tr>
+                    <td>{{ emp.fullName }}</td>
+                    <td>{{ emp.cedula }}</td>
+                    <td>{{ emp.position }}</td>
+                    <td>{{ emp.afpProvider or '—' }}</td>
+                    <td>{{ emp.contractType or '—' }}</td>
+                    <td>
+                        {% if emp.status == 'activo' %}
+                        <span class="badge badge-success">Activo</span>
+                        {% elif emp.status == 'inactivo' %}
+                        <span class="badge badge-danger">Inactivo</span>
+                        {% else %}
+                        <span class="badge badge-warning">{{ emp.status or '—' }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<style>
+.field-group:hover {
+    border-color: var(--accent-blue) !important;
+}
+.field-group.collapsed #groupFields {
+    display: none !important;
+}
+.field-group.collapsed #groupChevron {
+    transform: rotate(-90deg);
+}
+.wizard-step.active {
+    opacity: 1 !important;
+    background: var(--accent-blue-bg, rgba(59,130,246,0.05));
+}
+.wizard-step.active div:first-child {
+    color: var(--accent-blue) !important;
+}
+.wizard-step.completed {
+    opacity: 0.7 !important;
+}
+#progressSection .progress-bar {
+    height: 12px;
+    background: var(--border-color);
+    border-radius: 99px;
+    overflow: hidden;
+}
+</style>
+
+<script>
+{% if employees %}
+var allFieldConfigs = {{ fields | tojson }};
+var employeeIds = {{ employee_ids | tojson }};
+var selectedFields = {};
+var currentJobId = null;
+var pollInterval = null;
+
+function toggleGroup(groupKey) {
+    var el = document.querySelector('.field-group:nth-of-type(' + (Object.keys(allFieldConfigs).indexOf(groupKey) + 1) + ')');
+    var allGroups = document.querySelectorAll('.field-group');
+    var idx = 0;
+    for (var k in allFieldConfigs) {
+        if (k === groupKey) break;
+        idx++;
+    }
+    el = allGroups[idx];
+    if (el) {
+        el.classList.toggle('collapsed');
+    }
+}
+
+function toggleFieldWidget(cb) {
+    var fieldName = cb.dataset.field;
+    var widget = document.getElementById('widget_' + fieldName);
+    if (!widget) return;
+
+    if (cb.checked) {
+        widget.style.display = 'block';
+        selectedFields[fieldName] = null;
+    } else {
+        widget.style.display = 'none';
+        delete selectedFields[fieldName];
+    }
+}
+
+function collectFieldValues() {
+    var changes = {};
+    var cbs = document.querySelectorAll('.field-cb:checked');
+    cbs.forEach(function(cb) {
+        var fieldName = cb.dataset.field;
+        var widget = document.getElementById('widget_' + fieldName);
+        if (!widget) return;
+
+        var input = widget.querySelector('[data-field]');
+        if (!input) return;
+
+        var value = input.value;
+        if (value === '' || value === null) return;
+
+        if (input.tagName === 'SELECT' && input.dataset.field === 'isVigilante') {
+            if (value === 'true') changes[fieldName] = true;
+            else if (value === 'false') changes[fieldName] = false;
+            else return;
+        } else if (input.type === 'number') {
+            changes[fieldName] = parseFloat(value) || 0;
+        } else {
+            changes[fieldName] = value;
+        }
+    });
+    return changes;
+}
+
+function goToStep1() {
+    showStep(1);
+}
+
+function goToStep2() {
+    var changes = collectFieldValues();
+    if (Object.keys(changes).length === 0) {
+        if (typeof showAlert === 'function') {
+            showAlert('Sin campos', 'Selecciona al menos un campo con valor para modificar.', 'warning');
+        } else {
+            alert('Selecciona al menos un campo con valor para modificar.');
+        }
+        return;
+    }
+
+    document.getElementById('summaryContent').innerHTML =
+        '<div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Validando cambios...</div>';
+    showStep(2);
+
+    fetch('{{ url_for("web_rrhh.bulk_edit_validate") }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}'},
+        body: JSON.stringify({employeeIds: employeeIds, fields: changes})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.error) {
+            document.getElementById('summaryContent').innerHTML =
+                '<div class="alert alert-danger"><i class="fa-solid fa-circle-exclamation"></i> ' + data.error + '</div>';
+            return;
+        }
+
+        if (!data.valid) {
+            var errHtml = '<div class="alert alert-danger"><i class="fa-solid fa-circle-exclamation"></i> Errores de validación:</div><ul style="color:var(--danger);">';
+            data.errors.forEach(function(e) {
+                errHtml += '<li>' + (e.field ? '<strong>' + e.field + ':</strong> ' : '') + e.message + '</li>';
+            });
+            errHtml += '</ul>';
+            document.getElementById('summaryContent').innerHTML = errHtml;
+            document.getElementById('btnExecute').disabled = true;
+            return;
+        }
+
+        document.getElementById('btnExecute').disabled = false;
+        var html = '';
+
+        html += '<div class="alert alert-success" style="margin-bottom:16px;"><i class="fa-solid fa-circle-check"></i> Validación exitosa. ' + data.affectedCount + ' empleados serán actualizados.</div>';
+
+        html += '<div class="card-table-wrapper" style="padding:16px; margin-bottom:16px; background:var(--bg-secondary); border-radius:8px;">';
+        html += '<h5 style="margin-bottom:8px;"><i class="fa-solid fa-pen"></i> Campos a modificar:</h5>';
+        html += '<table class="table-premium" style="font-size:0.85rem;">';
+        for (var fieldName in data.fields) {
+            if (data.fields.hasOwnProperty(fieldName)) {
+                var label = fieldName;
+                var val = data.fields[fieldName];
+                if (typeof val === 'boolean') val = val ? 'Sí' : 'No';
+                html += '<tr><td style="padding:6px 10px; font-weight:600;">' + label + '</td><td style="padding:6px 10px;">' + val + '</td></tr>';
+            }
+        }
+        html += '</table></div>';
+
+        if (data.employees && data.employees.length > 0) {
+            html += '<h5 style="margin:12px 0 8px;">Empleados afectados:</h5>';
+            html += '<div class="table-responsive" style="max-height:300px; overflow-y:auto;">';
+            html += '<table class="table-premium"><thead><tr><th>Empleado</th><th>Cédula</th><th>Cargo</th><th>Estado</th><th style="min-width:200px;">Valores actuales</th></tr></thead><tbody>';
+            data.employees.forEach(function(e) {
+                var currentHtml = '';
+                for (var f in e.currentValues) {
+                    if (e.currentValues.hasOwnProperty(f)) {
+                        currentHtml += '<div style="font-size:0.75rem;"><strong>' + f + ':</strong> ' + (e.currentValues[f] || '—') + '</div>';
+                    }
+                }
+                html += '<tr><td>' + e.fullName + '</td><td>' + e.cedula + '</td><td>' + e.position + '</td><td>' + e.status + '</td><td>' + currentHtml + '</td></tr>';
+            });
+            html += '</tbody></table></div>';
+        }
+
+        document.getElementById('summaryContent').innerHTML = html;
+    })
+    .catch(function(err) {
+        document.getElementById('summaryContent').innerHTML =
+            '<div class="alert alert-danger"><i class="fa-solid fa-circle-exclamation"></i> Error al validar: ' + err.message + '</div>';
+    });
+}
+
+function goToStep3() {
+    var changes = collectFieldValues();
+    if (Object.keys(changes).length === 0) return;
+
+    document.getElementById('btnExecute').disabled = true;
+    document.getElementById('btnExecute').innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Ejecutando...';
+    document.getElementById('progressSection').style.display = 'block';
+    document.getElementById('resultSection').style.display = 'none';
+    showStep(3);
+
+    fetch('{{ url_for("web_rrhh.bulk_edit_execute") }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}'},
+        body: JSON.stringify({employeeIds: employeeIds, fields: changes})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.error) {
+            document.getElementById('resultSection').style.display = 'block';
+            document.getElementById('resultSection').innerHTML =
+                '<div class="alert alert-danger"><i class="fa-solid fa-circle-exclamation"></i> ' + data.error + '</div>';
+            return;
+        }
+
+        currentJobId = data.jobId;
+        document.getElementById('progressTotal').textContent = data.total;
+        pollProgress();
+    })
+    .catch(function(err) {
+        document.getElementById('resultSection').style.display = 'block';
+        document.getElementById('resultSection').innerHTML =
+            '<div class="alert alert-danger"><i class="fa-solid fa-circle-exclamation"></i> Error: ' + err.message + '</div>';
+    });
+}
+
+function pollProgress() {
+    if (!currentJobId) return;
+
+    fetch('{{ url_for("web_rrhh.bulk_edit_progress", job_id="__JOBID__") }}'.replace('__JOBID__', currentJobId))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.error) {
+                document.getElementById('resultSection').style.display = 'block';
+                document.getElementById('resultSection').innerHTML =
+                    '<div class="alert alert-danger">' + data.error + '</div>';
+                return;
+            }
+
+            var pct = data.total > 0 ? Math.round(data.progress / data.total * 100) : 0;
+            document.getElementById('progressFill').style.width = pct + '%';
+            document.getElementById('progressCount').textContent = data.progress;
+
+            if (data.currentEmployee) {
+                document.getElementById('progressCurrent').textContent =
+                    'Procesando: ' + data.currentEmployee + ' (' + data.progress + '/' + data.total + ')';
+            } else if (data.status === 'processing') {
+                document.getElementById('progressCurrent').textContent =
+                    'Procesando... (' + data.progress + '/' + data.total + ')';
+            }
+
+            if (data.status === 'completed' || data.status === 'partial') {
+                showResult();
+                return;
+            }
+
+            if (data.status === 'failed') {
+                document.getElementById('resultSection').style.display = 'block';
+                document.getElementById('resultSection').innerHTML =
+                    '<div class="alert alert-danger"><i class="fa-solid fa-circle-exclamation"></i> El proceso falló inesperadamente.</div>';
+                return;
+            }
+
+            pollInterval = setTimeout(pollProgress, 800);
+        })
+        .catch(function(err) {
+            pollInterval = setTimeout(pollProgress, 1500);
+        });
+}
+
+function showResult() {
+    if (!currentJobId) return;
+    if (pollInterval) clearTimeout(pollInterval);
+
+    fetch('{{ url_for("web_rrhh.bulk_edit_result", job_id="__JOBID__") }}'.replace('__JOBID__', currentJobId))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            document.getElementById('progressSection').style.display = 'none';
+            document.getElementById('resultSection').style.display = 'block';
+
+            var icon = data.status === 'completed' ? 'fa-circle-check' : 'fa-triangle-exclamation';
+            var color = data.status === 'completed' ? 'var(--accent-emerald)' : 'var(--warning)';
+            var statusLabel = data.status === 'completed' ? 'Completada' : 'Parcial';
+
+            var errorCount = data.errors ? data.errors.length : 0;
+
+            var html = '';
+            html += '<div style="text-align:center; padding:24px;">';
+            html += '<i class="fa-solid ' + icon + '" style="font-size:3rem; color:' + color + '; margin-bottom:16px;"></i>';
+            html += '<h3 style="color:' + color + ';">Edición ' + statusLabel + '</h3>';
+            html += '<div style="display:flex; gap:24px; justify-content:center; margin:24px 0;">';
+            html += '<div><strong style="font-size:1.5rem;">' + data.total + '</strong><br><span style="color:var(--text-muted);">Total</span></div>';
+            html += '<div><strong style="font-size:1.5rem; color:var(--accent-emerald);">' + data.success + '</strong><br><span style="color:var(--text-muted);">Exitosos</span></div>';
+            html += '<div><strong style="font-size:1.5rem; color:var(--danger);">' + errorCount + '</strong><br><span style="color:var(--text-muted);">Errores</span></div>';
+            html += '</div>';
+
+            if (errorCount > 0) {
+                html += '<div style="text-align:left; margin-top:16px;">';
+                html += '<h5 style="margin-bottom:8px;"><i class="fa-solid fa-circle-exclamation" style="color:var(--danger);"></i> Detalle de errores:</h5>';
+                html += '<div class="table-responsive" style="max-height:200px; overflow-y:auto;">';
+                html += '<table class="table-premium"><thead><tr><th>Empleado</th><th>Error</th></tr></thead><tbody>';
+                data.errors.forEach(function(e) {
+                    html += '<tr><td>' + (e.employeeName || e.employeeId || '—') + '</td><td style="color:var(--danger);">' + e.message + '</td></tr>';
+                });
+                html += '</tbody></table></div></div>';
+            }
+
+            html += '<div style="margin-top:24px;">';
+            html += '<a href="{{ url_for("web_rrhh.employee_list") }}" class="btn btn-primary"><i class="fa-solid fa-users"></i> Volver a empleados</a>';
+            html += '</div></div>';
+
+            document.getElementById('resultSection').innerHTML = html;
+        })
+        .catch(function(err) {
+            document.getElementById('resultSection').innerHTML =
+                '<div class="alert alert-danger">Error al obtener resultados: ' + err.message + '</div>';
+        });
+}
+
+function showStep(n) {
+    for (var i = 1; i <= 3; i++) {
+        var el = document.getElementById('step' + i);
+        if (el) el.style.display = (i === n) ? 'block' : 'none';
+        var ws = document.querySelector('.wizard-step[data-step="' + i + '"]');
+        if (ws) {
+            ws.classList.toggle('active', i === n);
+            ws.classList.toggle('completed', i < n);
+            ws.style.opacity = (i <= n) ? '1' : '0.4';
+        }
+    }
+}
+{% endif %}
+</script>
+{% endblock %}

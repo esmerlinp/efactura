@@ -52,6 +52,9 @@ def legal_parameters_list():
 
     param_types = list(PARAM_TYPES.keys())
 
+    # Obtener defaults para mostrar parámetros no configurados
+    defaults = get_default_params() if not param_type or param_type == "" else {}
+
     return render_template(
         "rrhh/legal_parameters/list.html",
         active_page="rrhh_legal_params",
@@ -60,6 +63,7 @@ def legal_parameters_list():
         param_types=param_types,
         PARAM_TYPE_LABELS=PARAM_TYPE_LABELS,
         selected_type=param_type,
+        default_params=defaults,
     )
 
 

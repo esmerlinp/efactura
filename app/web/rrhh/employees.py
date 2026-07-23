@@ -63,9 +63,12 @@ def employee_list():
     # ── Paginación ──
     try:
         page = max(1, int(request.args.get("page", 1)))
-        per_page = max(10, min(100, int(request.args.get("per_page", 25))))
+        per_page = max(10, min(100000, int(request.args.get("per_page", 25))))
     except (ValueError, TypeError):
         page, per_page = 1, 25
+    if per_page >= total:
+        per_page = total
+        page = 1
     total_pages = max(1, (total + per_page - 1) // per_page)
     start = (page - 1) * per_page
     paged = employees[start:start + per_page]

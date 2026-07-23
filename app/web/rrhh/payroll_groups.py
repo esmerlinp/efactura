@@ -125,7 +125,9 @@ def payroll_groups_view(group_id):
     from datetime import date
 
     today_str = date.today().isoformat()
-    legal_params = resolve_all(company_id, today_str, sandbox=sandbox)
+    legal_params = resolve_all(company_id, today_str, sandbox=sandbox, include_defaults=True)
+    configured_only = resolve_all(company_id, today_str, sandbox=sandbox, include_defaults=False)
+    has_configured_params = bool(configured_only)
 
     default_rates = PayrollService.get_rates(global_rates)
     # Los parámetros legales vienen de resolve_all(); las cuentas contables de get_tax_rates()
@@ -158,7 +160,8 @@ def payroll_groups_view(group_id):
     return render_template("rrhh/payroll_groups_view.html", active_page="rrhh_payroll",
                            group=group, assigned=assigned, unassigned=unassigned,
                            periods=periods, global_rates=global_rates,
-                           group_overrides=group_overrides)
+                           group_overrides=group_overrides,
+                           has_configured_params=has_configured_params)
 
 
 @web_rrhh_bp.route("/rrhh/payroll/groups/<group_id>/assign", methods=["POST"])
@@ -420,11 +423,19 @@ def payroll_groups_assign_status(job_id):
         return {"status": "not_found", "error": "No autorizado"}, 401
     job_file = os.path.join(PAYROLL_JOB_DIR, f"{job_id}.json")
     if os.path.exists(job_file):
-        try:
-            with open(job_file, 'r') as jf:
-                return jsonify(json.load(jf))
-        except Exception:
-            return {"status": "not_found", "error": "Error al leer el estado"}, 500
+        import time
+        last_err = None
+        for attempt in range(3):
+            try:
+                with open(job_file, 'r') as jf:
+                    return jsonify(json.load(jf))
+            except json.JSONDecodeError:
+                last_err = "archivo corrupto o escritura concurrente"
+                time.sleep(0.1)
+            except Exception as e:
+                last_err = str(e)
+                break
+        return {"status": "not_found", "error": f"Error al leer el estado: {last_err}"}, 500
     return {"status": "not_found", "error": "Job no encontrado"}, 404
 
 

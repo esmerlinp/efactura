@@ -126,6 +126,7 @@ from app.web.rrhh import payroll_workflow    # noqa: E402, F401
 from app.web.rrhh import evaluations         # noqa: E402, F401
 from app.web.rrhh import trainings           # noqa: E402, F401
 from app.web.rrhh import mass_actions        # noqa: E402, F401
+from app.web.rrhh import bulk_edit           # noqa: E402, F401
 from app.web.rrhh import payroll_rules       # noqa: E402, F401
 from app.web.rrhh import payroll_calendar    # noqa: E402, F401
 from app.web.rrhh import dgt as _dgt         # noqa: E402, F401

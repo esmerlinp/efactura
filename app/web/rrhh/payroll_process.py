@@ -836,6 +836,8 @@ def payroll_simulate():
         total_net = 0.0
         total_employer = 0.0
         total_costo = 0.0
+        total_non_tax_deductions = 0.0
+        total_taxes = 0.0
 
         # ── PASO 1: Resolver parámetros legales ──
         from app.services.legal_parameter_resolver import resolve_all
@@ -1300,6 +1302,9 @@ def payroll_simulate():
             total_net += line["netSalary"]
             total_employer += line["totalEmployerContrib"]
             total_costo += line["totalIncome"] + line["totalEmployerContrib"]
+            line_taxes = line["afpEmployee"] + line["sfsEmployee"] + line["isrRetention"]
+            total_taxes += line_taxes
+            total_non_tax_deductions += (line["totalDeductions"] - line_taxes)
 
         all_recurring_descs = []
         all_recurring_additions_descs = []
@@ -1338,6 +1343,9 @@ def payroll_simulate():
             "total_net": round(total_net, 2),
             "total_employer": round(total_employer, 2),
             "total_costo": round(total_costo, 2),
+            "total_non_tax_deductions": round(total_non_tax_deductions, 2),
+            "total_taxes": round(total_taxes, 2),
+            "total_egresos": round(total_non_tax_deductions + total_taxes, 2),
             "recurringDeductionColumns": all_recurring_descs,
             "recurringAdditionsColumns": all_recurring_additions_descs,
             "overtimeColumns": overtime_columns,
