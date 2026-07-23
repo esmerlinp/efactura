@@ -3,7 +3,7 @@ import re
 from datetime import datetime, timezone
 
 try:
-    from app.services.db_service import db_firestore, firebase_initialized, firebase_storage_bucket, DatabaseService
+    from app.services.db_service import db_firestore, firebase_initialized, firebase_storage_bucket, DatabaseService, _company_coll
     from firebase_admin import firestore as _fstore  # needed for ArrayUnion
 except ImportError:
     db_firestore = None
@@ -11,6 +11,7 @@ except ImportError:
     firebase_storage_bucket = None
     DatabaseService = None
     _fstore = None
+    _company_coll = None
 
 
 def serialize_field(val):
@@ -36,12 +37,19 @@ class SupplierInvoiceService:
         return "sandbox_supplier_invoices" if sandbox else "supplier_invoices"
 
     @classmethod
-    def _counter_ref(cls, owner_uid):
-        return db_firestore.collection("users").document(owner_uid)\
-            .collection("config").document("supplier_invoice_counter")
+    def _coll_ref(cls, owner_uid=None, sandbox=True, company_id=None):
+        if company_id:
+            return _company_coll(company_id=company_id, coll_name=cls._coll(sandbox))
+        return _company_coll(owner_uid=owner_uid, coll_name=cls._coll(sandbox))
 
     @classmethod
-    def _get_next_counter(cls, owner_uid):
+    def _counter_ref(cls, owner_uid=None, company_id=None):
+        if company_id:
+            return _company_coll(company_id=company_id, coll_name="config").document("supplier_invoice_counter")
+        return _company_coll(owner_uid=owner_uid, coll_name="config").document("supplier_invoice_counter")
+
+    @classmethod
+    def _get_next_counter(cls, owner_uid=None, company_id=None):
         """Atomically increment the supplier invoice counter using Firestore transaction."""
         from google.cloud.firestore import Transaction
 
@@ -49,7 +57,7 @@ class SupplierInvoiceService:
 
         @firestore.transactional
         def increment(transaction):
-            ref = cls._counter_ref(owner_uid)
+            ref = cls._counter_ref(owner_uid=owner_uid, company_id=company_id)
             doc = ref.get(transaction=transaction)
             year = datetime.now(timezone.utc).strftime("%Y")
 
@@ -77,12 +85,12 @@ class SupplierInvoiceService:
             raise
 
     @classmethod
-    def get_all(cls, owner_uid, sandbox=True):
+    def get_all(cls, owner_uid=None, sandbox=True, company_id=None):
         if not firebase_initialized or db_firestore is None:
             return []
         invoices = []
         try:
-            docs = db_firestore.collection("users").document(owner_uid).collection(cls._coll(sandbox)).get()
+            docs = cls._coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).get()
             for doc in docs:
                 data = doc.to_dict()
                 data["id"] = doc.id
@@ -93,11 +101,11 @@ class SupplierInvoiceService:
         return invoices
 
     @classmethod
-    def get(cls, owner_uid, invoice_id, sandbox=True):
+    def get(cls, owner_uid=None, invoice_id=None, sandbox=True, company_id=None):
         if not firebase_initialized or db_firestore is None:
             return None
         try:
-            doc = db_firestore.collection("users").document(owner_uid).collection(cls._coll(sandbox)).document(invoice_id).get()
+            doc = cls._coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).document(invoice_id).get()
             if doc.exists:
                 data = doc.to_dict()
                 data["id"] = doc.id
@@ -107,12 +115,12 @@ class SupplierInvoiceService:
         return None
 
     @classmethod
-    def get_by_po(cls, owner_uid, po_id, sandbox=True):
+    def get_by_po(cls, owner_uid=None, po_id=None, sandbox=True, company_id=None):
         if not firebase_initialized or db_firestore is None:
             return []
         invoices = []
         try:
-            docs = db_firestore.collection("users").document(owner_uid).collection(cls._coll(sandbox))\
+            docs = cls._coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)\
                 .where("poId", "==", po_id).get()
             for doc in docs:
                 data = doc.to_dict()
@@ -124,12 +132,12 @@ class SupplierInvoiceService:
         return invoices
 
     @classmethod
-    def get_by_receipt(cls, owner_uid, receipt_id, sandbox=True):
+    def get_by_receipt(cls, owner_uid=None, receipt_id=None, sandbox=True, company_id=None):
         if not firebase_initialized or db_firestore is None:
             return []
         invoices = []
         try:
-            docs = db_firestore.collection("users").document(owner_uid).collection(cls._coll(sandbox))\
+            docs = cls._coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)\
                 .where("receiptId", "==", receipt_id).get()
             for doc in docs:
                 data = doc.to_dict()
@@ -140,13 +148,13 @@ class SupplierInvoiceService:
         return invoices
 
     @classmethod
-    def get_next_invoice_number(cls, owner_uid, sandbox=True):
+    def get_next_invoice_number(cls, owner_uid=None, sandbox=True, company_id=None):
         try:
-            next_num = cls._get_next_counter(owner_uid)
+            next_num = cls._get_next_counter(owner_uid=owner_uid, company_id=company_id)
         except Exception:
             year = datetime.now(timezone.utc).strftime("%Y")
             max_num = 0
-            invoices = cls.get_all(owner_uid, sandbox=sandbox)
+            invoices = cls.get_all(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
             for inv in invoices:
                 inv_num = inv.get("invoiceNumber", "")
                 m = re.match(rf"^FI-{year}-(\d{{4}})$", inv_num)
@@ -159,19 +167,19 @@ class SupplierInvoiceService:
         return f"FI-{year}-{next_num:04d}"
 
     @classmethod
-    def _check_ncf_unique(cls, owner_uid, ncf, sandbox=True, exclude_id=None):
+    def _check_ncf_unique(cls, owner_uid=None, ncf=None, sandbox=True, exclude_id=None, company_id=None):
         """Check if supplierInvoiceNumber or NCF already exists."""
         if not ncf or not firebase_initialized:
             return True
         try:
-            docs = db_firestore.collection("users").document(owner_uid).collection(cls._coll(sandbox))\
+            docs = cls._coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)\
                 .where("supplierInvoiceNumber", "==", ncf).get()
             for doc in docs:
                 if exclude_id and doc.id == exclude_id:
                     continue
                 return False
             if len(ncf) >= 8:
-                docs = db_firestore.collection("users").document(owner_uid).collection(cls._coll(sandbox))\
+                docs = cls._coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)\
                     .where("ncf", "==", ncf).get()
                 for doc in docs:
                     if exclude_id and doc.id == exclude_id:
@@ -182,7 +190,7 @@ class SupplierInvoiceService:
         return True
 
     @classmethod
-    def create(cls, owner_uid, data, sandbox=True):
+    def create(cls, owner_uid=None, data=None, sandbox=True, company_id=None):
         invoice_id = str(uuid.uuid4())
         data["id"] = invoice_id
         data["ownerUID"] = owner_uid
@@ -217,35 +225,38 @@ class SupplierInvoiceService:
 
         if firebase_initialized and db_firestore is not None:
             try:
-                db_firestore.collection("users").document(owner_uid).collection(cls._coll(sandbox)).document(invoice_id).set(data)
+                cls._coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).document(invoice_id).set(data)
             except Exception as e:
                 print(f"⚠️ Error al guardar factura proveedor en Firestore: {e}")
         return data
 
     @classmethod
-    def update(cls, owner_uid, invoice_id, data, sandbox=True):
+    def update(cls, owner_uid=None, invoice_id=None, data=None, sandbox=True, company_id=None):
         """Update non-fiscal fields of a supplier invoice."""
         if not firebase_initialized or db_firestore is None:
             return False
         try:
             data["updatedAt"] = serialize_field(datetime.now(timezone.utc))
-            db_firestore.collection("users").document(owner_uid).collection(cls._coll(sandbox)).document(invoice_id).update(data)
+            cls._coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).document(invoice_id).update(data)
             return True
         except Exception as e:
             print(f"⚠️ Error al actualizar factura proveedor {invoice_id}: {e}")
             return False
 
     @classmethod
-    def add_attachment(cls, owner_uid, invoice_id, file_data, file_name, mime_type, sandbox=True):
+    def add_attachment(cls, owner_uid=None, invoice_id=None, file_data=None, file_name=None, mime_type=None, sandbox=True, company_id=None):
         """Add an attachment to an existing supplier invoice."""
         if not firebase_initialized or db_firestore is None:
             return None
         try:
             safe_name = file_name.replace(" ", "_")
-            dest_path = f"users/{owner_uid}/supplier_invoices/{uuid.uuid4().hex}/{safe_name}"
+            if company_id:
+                dest_path = f"companies/{company_id}/supplier_invoices/{uuid.uuid4().hex}/{safe_name}"
+            else:
+                dest_path = f"users/{owner_uid}/supplier_invoices/{uuid.uuid4().hex}/{safe_name}"
             public_url = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type)
             if public_url:
-                doc_ref = db_firestore.collection("users").document(owner_uid).collection(cls._coll(sandbox)).document(invoice_id)
+                doc_ref = cls._coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).document(invoice_id)
                 doc_ref.update({
                     "attachmentUrls": _fstore.ArrayUnion([public_url]),
                     "updatedAt": serialize_field(datetime.now(timezone.utc)),
@@ -256,12 +267,12 @@ class SupplierInvoiceService:
             return None
 
     @classmethod
-    def save_payment(cls, owner_uid, invoice_id, payment_amount, registered_by="Usuario",
-                     sandbox=True, payment_method="", payment_reference="", bank_account_id=""):
+    def save_payment(cls, owner_uid=None, invoice_id=None, payment_amount=0, registered_by="Usuario",
+                     sandbox=True, payment_method="", payment_reference="", bank_account_id="", company_id=None):
         if not firebase_initialized or db_firestore is None:
             return False, "Firebase no inicializado."
         try:
-            doc_ref = db_firestore.collection("users").document(owner_uid).collection(cls._coll(sandbox)).document(invoice_id)
+            doc_ref = cls._coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).document(invoice_id)
             doc = doc_ref.get()
             if not doc.exists:
                 return False, "Factura proveedor no encontrada."
@@ -301,13 +312,13 @@ class SupplierInvoiceService:
             if bank_account_id:
                 try:
                     from app.services.db_service import DatabaseService
-                    bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox)
+                    bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox, company_id=company_id)
                     if bank_acc:
                         new_balance = bank_acc["currentBalance"] - payment_amount
                         DatabaseService.save_bank_account(owner_uid, bank_account_id, {
                             **bank_acc,
                             "currentBalance": new_balance
-                        }, sandbox=sandbox)
+                        }, sandbox=sandbox, company_id=company_id)
                 except Exception as bank_err:
                     print(f"⚠️ Error al actualizar saldo de cuenta bancaria en pago a proveedor: {bank_err}")
 
@@ -318,12 +329,12 @@ class SupplierInvoiceService:
             return False, str(e)
 
     @classmethod
-    def get_payments(cls, owner_uid, invoice_id, sandbox=True):
+    def get_payments(cls, owner_uid=None, invoice_id=None, sandbox=True, company_id=None):
         payments = []
         if not firebase_initialized or db_firestore is None:
             return payments
         try:
-            docs = db_firestore.collection("users").document(owner_uid).collection(cls._coll(sandbox)).document(invoice_id).collection("cxp_payments").get()
+            docs = cls._coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).document(invoice_id).collection("cxp_payments").get()
             for doc in docs:
                 data = doc.to_dict()
                 payments.append({
@@ -341,12 +352,12 @@ class SupplierInvoiceService:
         return payments
 
     @classmethod
-    def void_payment(cls, owner_uid, invoice_id, payment_id, sandbox=True):
+    def void_payment(cls, owner_uid=None, invoice_id=None, payment_id=None, sandbox=True, company_id=None):
         """Reverse a payment and recalculate invoice status."""
         if not firebase_initialized or db_firestore is None:
             return False, "Firebase no inicializado."
         try:
-            doc_ref = db_firestore.collection("users").document(owner_uid).collection(cls._coll(sandbox)).document(invoice_id)
+            doc_ref = cls._coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).document(invoice_id)
             inv_doc = doc_ref.get()
             if not inv_doc.exists:
                 return False, "Factura proveedor no encontrada."
@@ -380,11 +391,11 @@ class SupplierInvoiceService:
             return False, str(e)
 
     @classmethod
-    def delete(cls, owner_uid, invoice_id, sandbox=True):
+    def delete(cls, owner_uid=None, invoice_id=None, sandbox=True, company_id=None):
         if not firebase_initialized or db_firestore is None:
             return
         try:
-            doc_ref = db_firestore.collection("users").document(owner_uid).collection(cls._coll(sandbox)).document(invoice_id)
+            doc_ref = cls._coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).document(invoice_id)
             doc = doc_ref.get()
             if doc.exists:
                 data = doc.to_dict()
@@ -398,11 +409,13 @@ class SupplierInvoiceService:
                                 path = path[1:]
                             blob = firebase_storage_bucket.blob(path)
                             blob.delete()
-                            # Invalidar cache de storage para el owner
                             from app.services.db_service import _invalidate_storage_cache
                             parts = path.split("/")
-                            if len(parts) > 2 and parts[0] == "users":
-                                _invalidate_storage_cache(parts[1])
+                            if len(parts) > 2:
+                                if parts[0] == "users":
+                                    _invalidate_storage_cache(parts[1])
+                                elif parts[0] == "companies":
+                                    _invalidate_storage_cache(parts[1])
                         except Exception as e:
                             print(f"⚠️ Error al eliminar archivo de storage: {e}")
                 payments = doc_ref.collection("cxp_payments").get()

@@ -1,6 +1,7 @@
 import os
 import json
 import uuid
+import time
 import requests
 import traceback
 from datetime import datetime, timedelta, timezone
@@ -52,7 +53,7 @@ from app.cache import cache
 
 
 @cache.memoize(timeout=300)
-def _cached_company_profile(owner_uid):
+def _cached_company_profile(owner_uid, company_id=None):
     profile = {
         "ownerUID": owner_uid,
         "companyName": "Mi Empresa SRL",
@@ -77,7 +78,7 @@ def _cached_company_profile(owner_uid):
     }
     if firebase_initialized:
         try:
-            doc = db_firestore.collection("users").document(owner_uid).collection("config").document("profile").get()
+            doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config").document("profile").get()
             if doc.exists:
                 data = doc.to_dict()
                 profile.update(data)
@@ -124,6 +125,7 @@ def _cached_user_profile(uid):
                 "email": data.get("email", ""),
                 "phone": data.get("phone", ""),
                 "address": data.get("address", ""),
+                "default_company_id": data.get("default_company_id", ""),
                 "permissions": {
                     "canInvoice": bool(perms.get("canInvoice", True)),
                     "canExpenses": bool(perms.get("canExpenses", True)),
@@ -160,12 +162,12 @@ def _cached_user_profile(uid):
 
 
 @cache.memoize(timeout=60)
-def _cached_clients(owner_uid, sandbox):
+def _cached_clients(owner_uid, sandbox, company_id=None):
     clients = []
     if firebase_initialized:
         try:
             coll_name = "sandbox_clients" if sandbox else "clients"
-            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).limit(Config.FIRESTORE_MAX_CLIENTS).get()
+            docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).limit(Config.FIRESTORE_MAX_CLIENTS).get()
             for doc in docs:
                 data = doc.to_dict()
                 client_dict = {
@@ -198,12 +200,12 @@ def _cached_clients(owner_uid, sandbox):
 
 
 @cache.memoize(timeout=60)
-def _cached_expenses(owner_uid, sandbox):
+def _cached_expenses(owner_uid, sandbox, company_id=None):
     expenses = []
     if firebase_initialized:
         try:
             coll_name = "sandbox_expenses" if sandbox else "expenses"
-            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).limit(Config.FIRESTORE_MAX_EXPENSES).get()
+            docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).limit(Config.FIRESTORE_MAX_EXPENSES).get()
             for doc in docs:
                 data = doc.to_dict()
                 dgii_status = data.get("dgiiStatus")
@@ -292,12 +294,12 @@ def _cached_expenses(owner_uid, sandbox):
 
 
 @cache.memoize(timeout=60)
-def _cached_items(owner_uid, sandbox):
+def _cached_items(owner_uid, sandbox, company_id=None):
     items = []
     if firebase_initialized:
         try:
             coll_name = "sandbox_items" if sandbox else "items"
-            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).limit(Config.FIRESTORE_MAX_CLIENTS).get()
+            docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).limit(Config.FIRESTORE_MAX_CLIENTS).get()
             for doc in docs:
                 data = doc.to_dict()
                 items.append({
@@ -337,12 +339,12 @@ def _cached_items(owner_uid, sandbox):
 
 
 @cache.memoize(timeout=120)
-def _cached_sequences(owner_uid, sandbox):
+def _cached_sequences(owner_uid, sandbox, company_id=None):
     seqs = []
     if firebase_initialized:
         try:
             coll_name = "sandbox_sequences" if sandbox else "sequences"
-            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).limit(500).get()
+            docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).limit(500).get()
             for doc in docs:
                 data = doc.to_dict()
                 secuenciaInicial = int(data.get("secuenciaInicial", 1))
@@ -375,12 +377,12 @@ def _cached_sequences(owner_uid, sandbox):
 
 
 @cache.memoize(timeout=30)
-def _cached_invoices(owner_uid, sandbox, quotations_only, include_all):
+def _cached_invoices(owner_uid, sandbox, quotations_only, include_all, company_id=None):
     invoices = []
     if firebase_initialized:
         try:
             coll_name = "sandbox_invoices" if sandbox else "invoices"
-            coll_ref = db_firestore.collection("users").document(owner_uid).collection(coll_name)
+            coll_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name)
             if include_all:
                 docs = coll_ref.limit(Config.FIRESTORE_MAX_INVOICES).get()
             else:
@@ -543,12 +545,12 @@ def _cached_invoices(owner_uid, sandbox, quotations_only, include_all):
 
 
 @cache.memoize(timeout=60)
-def _cached_contingency_invoices(owner_uid, sandbox):
+def _cached_contingency_invoices(owner_uid, sandbox, company_id=None):
     invoices = []
     if firebase_initialized:
         try:
             coll_name = "sandbox_invoices" if sandbox else "invoices"
-            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name) \
+            docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name) \
                 .where(filter=firestore.FieldFilter("emisionMode", "==", "FALLBACK")) \
                 .limit(500).get()
 
@@ -726,6 +728,28 @@ def _cached_associated_companies(uid):
                     })
     except Exception as e:
         print(f"⚠️ Error en consulta de grupo de colección team: {e}")
+    # También consultar company_memberships (nuevo sistema multi-company)
+    try:
+        mem_docs = db_firestore.collection("company_memberships") \
+            .where("uid", "==", uid) \
+            .where("status", "==", "active") \
+            .get()
+        for mem in mem_docs:
+            mem_data = mem.to_dict()
+            cid = mem_data.get("company_id", "")
+            if cid and not any(c.get("company_id") == cid for c in companies):
+                comp = DatabaseService.get_company(cid)
+                if comp:
+                    companies.append({
+                        "company_id": cid,
+                        "ownerUID": comp.get("owner_uid", ""),
+                        "companyName": comp.get("name", "Empresa"),
+                        "role": mem_data.get("role", "employee"),
+                        "logoUrl": comp.get("logo_url", ""),
+                        "logoBase64": comp.get("logo_base64", "")
+                    })
+    except Exception as e:
+        print(f"⚠️ Error en consulta de company_memberships: {e}")
     return companies
 
 
@@ -856,6 +880,54 @@ def _prune_storage_cache():
     expired = [k for k, v in _storage_usage_cache.items() if now - v.get("ts", 0) > _storage_cache_ttl]
     for k in expired:
         _storage_usage_cache.pop(k, None)
+
+
+def require_company_id(company_id, context="unknown"):
+    """Assert de runtime: company_id debe ser un string no vacío.
+    Úselo en entry points de servicios críticos (Payroll, TSS, Inventario)
+    para detectar llamadas legacy que pasan owner_uid en lugar de company_id."""
+    if not company_id or not isinstance(company_id, str):
+        import inspect
+        caller = inspect.stack()[1]
+        raise RuntimeError(
+            f"[company_id guard] {context}: se recibió company_id={company_id!r} "
+            f"(tipo={type(company_id).__name__}) desde {caller.filename}:{caller.lineno}. "
+            "¿Estás pasando owner_uid en lugar de company_id?"
+        )
+
+def _resolve_company_id(owner_uid):
+    """Resuelve company_id desde owner_uid (lookup directo, bridge legacy→multi-company)."""
+    if not owner_uid:
+        return None
+    try:
+        docs = db_firestore.collection("companies").where("owner_uid", "==", owner_uid).limit(1).get()
+        for d in docs:
+            return d.id
+    except Exception:
+        pass
+    return None
+
+def _resolve_owner_uid(company_id):
+    """Resuelve owner_uid desde company_id (lookup directo)."""
+    if not company_id:
+        return None
+    try:
+        doc = db_firestore.collection("companies").document(company_id).get()
+        if doc.exists:
+            return doc.to_dict().get("owner_uid", "")
+    except Exception:
+        pass
+    return None
+
+def _company_coll(*, company_id=None, coll_name=None, owner_uid=None):
+    resolved_cid = company_id
+    if resolved_cid is None and owner_uid is not None:
+        resolved_cid = _resolve_company_id(owner_uid)
+    if resolved_cid:
+        return db_firestore.collection("companies").document(resolved_cid).collection(coll_name)
+    if owner_uid:
+        return db_firestore.collection("users").document(owner_uid).collection(coll_name)
+    return None
 
 
 class DatabaseService:
@@ -1068,6 +1140,17 @@ class DatabaseService:
                     "companyName": own_comp.get("companyName", "Mi Empresa"),
                     "role": role
                 })
+                # Crear compañía en la nueva colección (multi-company)
+                company_id = cls.create_company(resolved_owner_uid, own_comp)
+                if company_id:
+                    profile_data["default_company_id"] = company_id
+                    cls.create_membership(
+                        uid=uid,
+                        company_id=company_id,
+                        role=role,
+                        permissions=profile_data.get("permissions", {}),
+                        invited_by=""
+                    )
             
             # Si fue invitado, agregar también la empresa invitadora
             if owner_uid and owner_uid != resolved_owner_uid:
@@ -1077,19 +1160,33 @@ class DatabaseService:
                     "companyName": inv_comp.get("companyName", "Empresa Invitadora"),
                     "role": "employee"
                 })
+                # Buscar company_id para el owner_uid y crear membresía
+                owner_companies = cls.get_companies_by_owner(owner_uid)
+                if owner_companies:
+                    inv_company_id = owner_companies[0]["id"]
+                    cls.create_membership(
+                        uid=uid,
+                        company_id=inv_company_id,
+                        role="employee",
+                        permissions=profile_data.get("permissions", {}),
+                        invited_by=owner_uid
+                    )
                 
             doc_ref.set(profile_data)
         
-        # Guardar en team si es colaborador (alineado con la estructura iOS)
+        # Guardar en team si es colaborador (companies/{companyId}/team)
         if owner_uid:
-            db_firestore.collection("users").document(owner_uid).collection("team").document(uid).set({
+            team_data = {
                 "uid": uid,
                 "name": name,
                 "email": email,
                 "role": "employee",
                 "permissions": profile_data.get("permissions", {}),
                 "createdAt": created_at
-            })
+            }
+            ref = cls._company_team_coll(owner_uid)
+            if ref:
+                ref.document(uid).set(team_data)
             
         cache.delete_memoized(_cached_user_profile, uid)
         return profile_data
@@ -1272,60 +1369,74 @@ class DatabaseService:
             print(f"⚠️ Fallo al guardar perfil en Firestore: {e}")
 
     @classmethod
-    def get_team_members(cls, owner_uid):
-        """Retorna el listado de miembros del equipo del owner desde Firestore.
+    def _company_team_coll(cls, owner_uid, company_id=None):
+        """Retorna referencia a companies/{companyId}/team con fallback legacy."""
+        cid = company_id or _resolve_company_id(owner_uid)
+        if cid:
+            ref = db_firestore.collection("companies").document(cid).collection("team")
+            if ref.get():
+                return ref
+        if owner_uid:
+            return db_firestore.collection("users").document(owner_uid).collection("team")
+        return None
 
-        Cada miembro incluye: uid, name, email, profileImageUrl, role, status,
-        createdAt, permissions (resueltas con preset + overrides).
-        """
+    @classmethod
+    def get_team_members(cls, owner_uid, company_id=None):
+        """Retorna el listado de miembros del equipo desde companies/{companyId}/team."""
         team = []
-        if firebase_initialized:
-            try:
-                from app.web.invoices import resolve_permissions, ROLES_PRESETS
-                team_docs = db_firestore.collection("users").document(owner_uid).collection("team").get()
-                team_data_map = {d.id: d.to_dict() for d in team_docs if d.exists}
-
-                for emp_uid in team_data_map:
-                    emp_doc = db_firestore.collection("users").document(emp_uid).collection("config").document("user_profile").get()
-                    if emp_doc.exists:
-                        emp_data = emp_doc.to_dict()
-                        raw_perms = emp_data.get("permissions", {})
-                        role = emp_data.get("role", "consulta")
-                        overrides = emp_data.get("permissions_overrides", {})
-                        if isinstance(raw_perms, dict) and not overrides:
-                            overrides = raw_perms
-                        created_at = team_data_map[emp_uid].get("createdAt", emp_data.get("createdAt", ""))
-                        if hasattr(created_at, 'strftime'):
-                            created_at = created_at.strftime('%Y-%m-%dT%H:%M:%S')
-                        team.append({
-                            "uid": emp_uid,
-                            "name": emp_data.get("name", ""),
-                            "email": emp_data.get("email", ""),
-                            "profileImageUrl": emp_data.get("profileImageUrl", ""),
-                            "role": role,
-                            "status": team_data_map[emp_uid].get("status", "active"),
-                            "createdAt": created_at,
-                            "permissions": resolve_permissions(role, overrides or None),
-                        })
-            except Exception as e:
-                print(f"⚠️ Error al obtener miembros del equipo: {e}")
+        if not firebase_initialized:
+            return team
+        ref = cls._company_team_coll(owner_uid, company_id=company_id)
+        if not ref:
+            return team
+        try:
+            team_docs = ref.get()
+            team_data_map = {d.id: d.to_dict() for d in team_docs if d.exists}
+            from app.web.invoices import resolve_permissions
+            for emp_uid in team_data_map:
+                emp_doc = db_firestore.collection("users").document(emp_uid).collection("config").document("user_profile").get()
+                if emp_doc.exists:
+                    emp_data = emp_doc.to_dict()
+                    raw_perms = emp_data.get("permissions", {})
+                    role = emp_data.get("role", "consulta")
+                    overrides = emp_data.get("permissions_overrides", {})
+                    if isinstance(raw_perms, dict) and not overrides:
+                        overrides = raw_perms
+                    created_at = team_data_map[emp_uid].get("createdAt", emp_data.get("createdAt", ""))
+                    if hasattr(created_at, 'strftime'):
+                        created_at = created_at.strftime('%Y-%m-%dT%H:%M:%S')
+                    team.append({
+                        "uid": emp_uid,
+                        "name": emp_data.get("name", ""),
+                        "email": emp_data.get("email", ""),
+                        "profileImageUrl": emp_data.get("profileImageUrl", ""),
+                        "role": role,
+                        "status": team_data_map[emp_uid].get("status", "active"),
+                        "createdAt": created_at,
+                        "permissions": resolve_permissions(role, overrides or None),
+                    })
+        except Exception as e:
+            print(f"⚠️ Error al obtener miembros del equipo: {e}")
         return team
 
     @classmethod
-    def get_team_member_detail(cls, owner_uid: str, employee_uid: str) -> dict | None:
-        """Retorna detalle completo de un miembro del equipo (para la página de detalle)."""
+    def get_team_member_detail(cls, owner_uid: str, employee_uid: str, company_id=None) -> dict | None:
+        """Retorna detalle completo de un miembro del equipo desde companies/{companyId}/team."""
         if not firebase_initialized:
             return None
         try:
             from app.web.invoices import resolve_permissions
-            team_doc = db_firestore.collection("users").document(owner_uid).collection("team").document(employee_uid).get()
+            ref = cls._company_team_coll(owner_uid, company_id=company_id)
+            if not ref:
+                return None
+            team_doc = ref.document(employee_uid).get()
             if not team_doc.exists:
                 return None
+            team_data = team_doc.to_dict()
             emp_doc = db_firestore.collection("users").document(employee_uid).collection("config").document("user_profile").get()
             if not emp_doc.exists:
                 return None
             emp_data = emp_doc.to_dict()
-            team_data = team_doc.to_dict()
             raw_perms = emp_data.get("permissions", {})
             role = emp_data.get("role", "consulta")
             overrides = emp_data.get("permissions_overrides", {})
@@ -1379,146 +1490,298 @@ class DatabaseService:
             return False
 
     @classmethod
-    def update_employee_status(cls, owner_uid, employee_uid, status):
-        """Actualiza el estado de un miembro del equipo (active/suspended/pending)."""
+    def update_employee_status(cls, owner_uid, employee_uid, status, company_id=None):
+        """Actualiza el estado de un miembro del equipo en companies/{companyId}/team."""
         if not firebase_initialized:
             return False
         try:
-            db_firestore.collection("users").document(owner_uid).collection("team").document(employee_uid).update({
-                "status": status
-            })
+            ref = cls._company_team_coll(owner_uid, company_id=company_id)
+            if ref:
+                ref.document(employee_uid).update({"status": status})
             return True
         except Exception as e:
             print(f"⚠️ Error al actualizar estado del empleado: {e}")
             return False
 
     @classmethod
-    def delete_team_member(cls, owner_uid, employee_uid):
-        """Desvincula un colaborador del equipo del propietario."""
+    def delete_team_member(cls, owner_uid, employee_uid, company_id=None):
+        """Desvincula un colaborador del equipo desde companies/{companyId}/team."""
         if not firebase_initialized:
             return False
         try:
-            db_firestore.collection("users").document(owner_uid).collection("team").document(employee_uid).delete()
+            ref = cls._company_team_coll(owner_uid, company_id=company_id)
+            if ref:
+                ref.document(employee_uid).delete()
             return True
         except Exception as e:
             print(f"⚠️ Error al eliminar colaborador del equipo: {e}")
             return False
 
     @classmethod
-    def get_company_profile(cls, owner_uid):
-        """Obtiene el perfil de empresa del owner."""
-        import copy
-        profile = _cached_company_profile(owner_uid)
-        return copy.deepcopy(profile) if profile else None
+    def get_company_profile(cls, owner_uid, company_id=None):
+        """Obtiene el perfil de empresa desde companies/{companyId} con fallback a users/{ownerUID}."""
+        resolved_cid = company_id or _resolve_company_id(owner_uid)
+        company = None
+        if resolved_cid:
+            company = cls.get_company(resolved_cid)
+        if not company and owner_uid:
+            doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config").document("profile").get()
+            if not doc.exists:
+                doc = db_firestore.collection("users").document(owner_uid).collection("config").document("profile").get()
+            if doc.exists:
+                company_data = doc.to_dict()
+                company_data["id"] = owner_uid
+                company_data["owner_uid"] = owner_uid
+                company = company_data
+        if not company:
+            return None
+
+        status_str = company.get("status", "active")
+        if status_str == "active":
+            status_str = "Activo"
+        elif status_str == "cancelled":
+            status_str = "Cancelado"
+        elif status_str == "suspended":
+            status_str = "Suspendido"
+
+        return {
+            "ownerUID": company.get("owner_uid", company.get("ownerUID", owner_uid)),
+            "companyName": company.get("name", company.get("companyName", "")),
+            "tradeName": company.get("trade_name", company.get("tradeName", "")),
+            "companyRNC": company.get("rnc", company.get("companyRNC", "")),
+            "companyType": company.get("type", company.get("companyType", "associated")),
+            "companyAddress": company.get("address", company.get("companyAddress", "")),
+            "province": company.get("province", ""),
+            "municipality": company.get("municipality", ""),
+            "companyPhone": company.get("phone", company.get("companyPhone", "")),
+            "companyEmail": company.get("email", company.get("companyEmail", "")),
+            "colorMarca": company.get("color_marca", company.get("colorMarca", "#10b981")),
+            "gradientEnabled": company.get("gradient_enabled", company.get("gradientEnabled", False)),
+            "applyColorMarcaUI": company.get("apply_color_marca_ui", company.get("applyColorMarcaUI", True)),
+            "applyColorMarcaReports": company.get("apply_color_marca_reports", company.get("applyColorMarcaReports", True)),
+            "logoUrl": company.get("logo_url", company.get("logoUrl", "")),
+            "logoBase64": company.get("logo_base64", company.get("logoBase64", "")),
+            "stampUrl": company.get("stamp_url", company.get("stampUrl", "")),
+            "signatureUrl": company.get("signature_url", company.get("signatureUrl", "")),
+            "regimenFiscal": company.get("regimen_fiscal", company.get("regimenFiscal", "ordinary")),
+            "theme": company.get("theme", "moderno"),
+            "configured": company.get("configured", False),
+            "certificateName": company.get("certificate_name", company.get("certificateName", "")),
+            "certificateExtension": company.get("certificate_extension", company.get("certificateExtension", "")),
+            "certificateContent": company.get("certificate_content", company.get("certificateContent", "")),
+            "certificatePassword": company.get("certificate_password", company.get("certificatePassword", "")),
+            "planId": company.get("plan_id", company.get("planId", "")),
+            "plan_version": company.get("plan_version", company.get("planVersion", 0)),
+            "status": status_str,
+            "posEnabled": company.get("pos_enabled", company.get("posEnabled", True)),
+            "productionEnabled": company.get("production_enabled", company.get("productionEnabled", True)),
+            "sandboxEnabled": company.get("sandbox_enabled", company.get("sandboxEnabled", True)),
+            "sandboxIndefinite": company.get("sandbox_indefinite", company.get("sandboxIndefinite", True)),
+            "sandboxStartDate": company.get("sandbox_start_date", company.get("sandboxStartDate", "")),
+            "sandboxEndDate": company.get("sandbox_end_date", company.get("sandboxEndDate", "")),
+            "country": company.get("country", "DO"),
+            "billingType": company.get("billing_type", company.get("billingType", "Pago por uso")),
+            "billingDay": company.get("billing_day", company.get("billingDay", 1)),
+            "cancel_at_period_end": company.get("cancel_at_period_end", company.get("cancelAtPeriodEnd", False)),
+            "cancel_scheduled_date": company.get("cancel_scheduled_date", company.get("cancelScheduledDate", "")),
+            "previous_monthlyPayment": company.get("previous_monthly_payment", company.get("previousMonthlyPayment", 0)),
+            "previous_documentLimit": company.get("previous_document_limit", company.get("previousDocumentLimit", 0)),
+            "plan_change_date": company.get("plan_change_date", company.get("planChangeDate", "")),
+            "createdBy": company.get("created_by", company.get("createdBy", "")),
+            "createdAt": company.get("created_at", company.get("createdAt", "")),
+            "updatedBy": company.get("updated_by", company.get("updatedBy", "")),
+            "updatedAt": company.get("updated_at", ""),
+            "nextCertificateNumber": company.get("next_certificate_number", 1),
+            "certificateSignerName": company.get("certificate_signer_name", ""),
+            "certificateSignerPosition": company.get("certificate_signer_position", ""),
+            "ruiEnabled": company.get("rui_enabled", False),
+            "ruiAuthorizationNumber": company.get("rui_authorization_number", ""),
+            "ruiAutoGenerate": company.get("rui_auto_generate", False),
+            "ruiAutoGenerateHour": company.get("rui_auto_generate_hour", "23:00"),
+            "posToleranceDOP": company.get("pos_tolerance_dop", 0.0),
+            "posToleranceUSD": company.get("pos_tolerance_usd", 0.0),
+            "consolidationEnabled": company.get("consolidation_enabled", False),
+            "consolidationThreshold": company.get("consolidation_threshold", 250000.0),
+            "contribuyenteTipo": company.get("contribuyente_tipo", "empresa"),
+            "useSimulation": company.get("use_simulation", False),
+            "defaultEcfType": company.get("default_ecf_type", ""),
+            "defaultItbisRate": company.get("default_itbis_rate", 0.18),
+            "openaiApiKey": company.get("openai_api_key", ""),
+        }
 
     @classmethod
-    def save_company_profile(cls, owner_uid, profile_dict, upload_to_firestore=True):
-        """Guarda el perfil de la empresa (cifrando campos sensibles antes de Firestore).
-        Retorna True si se guardó correctamente, False en caso contrario."""
+    def save_company_profile(cls, owner_uid, profile_dict, upload_to_firestore=True, company_id=None):
+        """Guarda el perfil de empresa en companies/{companyId} usando merge.
+        Mapea camelCase legacy a snake_case del documento."""
         if not (firebase_initialized and upload_to_firestore):
             return False
-        try:
-            encrypted = dict(profile_dict)
-            if encrypted.get("certificatePassword"):
-                encrypted["certificatePassword"] = encrypt_field(encrypted["certificatePassword"])
-            if encrypted.get("certificateContent"):
-                encrypted["certificateContent"] = encrypt_field(encrypted["certificateContent"])
-            db_firestore.collection("users").document(owner_uid).collection("config").document("profile").set(encrypted)
-            cache.delete_memoized(_cached_company_profile, owner_uid)
-            return True
-        except Exception as e:
-            print(f"⚠️ Fallo al guardar perfil de empresa en Firestore: {e}")
+        if not company_id:
+            company_id = _resolve_company_id(owner_uid)
+        if not company_id:
             return False
+
+        update_data = {
+            "name": profile_dict.get("companyName", ""),
+            "trade_name": profile_dict.get("tradeName", ""),
+            "rnc": profile_dict.get("companyRNC", ""),
+            "type": profile_dict.get("companyType", "associated"),
+            "address": profile_dict.get("companyAddress", ""),
+            "province": profile_dict.get("province", ""),
+            "municipality": profile_dict.get("municipality", ""),
+            "phone": profile_dict.get("companyPhone", ""),
+            "email": profile_dict.get("companyEmail", ""),
+            "color_marca": profile_dict.get("colorMarca", "#10b981"),
+            "gradient_enabled": profile_dict.get("gradientEnabled", False),
+            "apply_color_marca_ui": profile_dict.get("applyColorMarcaUI", True),
+            "apply_color_marca_reports": profile_dict.get("applyColorMarcaReports", True),
+            "logo_url": profile_dict.get("logoUrl", ""),
+            "logo_base64": profile_dict.get("logoBase64", ""),
+            "stamp_url": profile_dict.get("stampUrl", ""),
+            "signature_url": profile_dict.get("signatureUrl", ""),
+            "regimen_fiscal": profile_dict.get("regimenFiscal", "ordinary"),
+            "theme": profile_dict.get("theme", "moderno"),
+            "configured": profile_dict.get("configured", False),
+            "certificate_name": profile_dict.get("certificateName", ""),
+            "certificate_extension": profile_dict.get("certificateExtension", ""),
+            "certificate_content": profile_dict.get("certificateContent", ""),
+            "certificate_password": profile_dict.get("certificatePassword", ""),
+            "plan_id": profile_dict.get("planId", ""),
+            "plan_version": profile_dict.get("plan_version", 0),
+            "pos_enabled": profile_dict.get("posEnabled", True),
+            "production_enabled": profile_dict.get("productionEnabled", True),
+            "sandbox_enabled": profile_dict.get("sandboxEnabled", True),
+            "sandbox_indefinite": profile_dict.get("sandboxIndefinite", True),
+            "sandbox_start_date": profile_dict.get("sandboxStartDate", ""),
+            "sandbox_end_date": profile_dict.get("sandboxEndDate", ""),
+            "country": profile_dict.get("country", "DO"),
+            "billing_type": profile_dict.get("billingType", "Pago por uso"),
+            "billing_day": profile_dict.get("billingDay", 1),
+            "cancel_at_period_end": profile_dict.get("cancel_at_period_end", False),
+            "cancel_scheduled_date": profile_dict.get("cancel_scheduled_date", ""),
+            "previous_monthly_payment": profile_dict.get("previous_monthlyPayment", 0),
+            "previous_document_limit": profile_dict.get("previous_documentLimit", 0),
+            "plan_change_date": profile_dict.get("plan_change_date", ""),
+            "certificate_signer_name": profile_dict.get("certificateSignerName", ""),
+            "certificate_signer_position": profile_dict.get("certificateSignerPosition", ""),
+            "rui_enabled": profile_dict.get("ruiEnabled", False),
+            "rui_authorization_number": profile_dict.get("ruiAuthorizationNumber", ""),
+            "rui_auto_generate": profile_dict.get("ruiAutoGenerate", False),
+            "rui_auto_generate_hour": profile_dict.get("ruiAutoGenerateHour", "23:00"),
+            "pos_tolerance_dop": profile_dict.get("posToleranceDOP", 0.0),
+            "pos_tolerance_usd": profile_dict.get("posToleranceUSD", 0.0),
+            "consolidation_enabled": profile_dict.get("consolidationEnabled", False),
+            "consolidation_threshold": profile_dict.get("consolidationThreshold", 250000.0),
+            "contribuyente_tipo": profile_dict.get("contribuyenteTipo", "empresa"),
+            "use_simulation": profile_dict.get("useSimulation", False),
+            "default_ecf_type": profile_dict.get("defaultEcfType", ""),
+            "default_itbis_rate": profile_dict.get("defaultItbisRate", 0.18),
+            "openai_api_key": profile_dict.get("openaiApiKey", ""),
+        }
+        return cls.update_company(company_id, update_data)
 
     # =========================================================================
     # GESTIÓN DE SUCURSALES (BRANCHES)
     # =========================================================================
 
+
+
     @classmethod
-    def get_branches(cls, owner_uid, sandbox=True):
-        """Retorna la lista de sucursales del owner."""
+    def _company_branches_coll(cls, owner_uid, sandbox, company_id=None):
+        """Retorna referencia a companies/{companyId}/{sandbox_}branches con fallback legacy."""
+        cid = company_id or _resolve_company_id(owner_uid)
+        coll_name = "sandbox_branches" if sandbox else "branches"
+        if cid:
+            ref = db_firestore.collection("companies").document(cid).collection(coll_name)
+            if ref.get():
+                return ref
+        if owner_uid:
+            return db_firestore.collection("users").document(owner_uid).collection(coll_name)
+        return None
+
+    @classmethod
+    def get_branches(cls, owner_uid, sandbox=True, company_id=None):
+        """Retorna la lista de sucursales desde companies/{companyId}/branches."""
         branches = []
-        if firebase_initialized:
-            try:
-                coll_name = "sandbox_branches" if sandbox else "branches"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
-                for doc in docs:
-                    data = doc.to_dict()
-                    branches.append({
-                        "id": doc.id,
-                        "name": data.get("name", ""),
-                        "code": data.get("code", ""),
-                        "address": data.get("address", ""),
-                        "isDefault": bool(data.get("isDefault", False)),
-                        "createdAt": serialize_field(data.get("createdAt"))
-                    })
-                
-                # Create a default branch if it doesn't exist
-                if not branches:
-                    default_id = "default-sucursal-principal"
-                    default_branch = {
-                        "id": default_id,
-                        "name": "Sucursal Principal",
-                        "code": "0001",
-                        "address": "Sede Principal",
-                        "isDefault": True,
-                        "createdAt": datetime.now(timezone.utc).isoformat()
-                    }
-                    cls.save_branch(owner_uid, default_id, default_branch, sandbox=sandbox, update_defaults=False)
-                    branches.append(default_branch)
-                else:
-                    branches.sort(key=lambda x: x["name"].lower())
-            except Exception as e:
-                print(f"⚠️ Error al obtener sucursales desde Firestore: {e}")
+        if not firebase_initialized:
+            return branches
+        ref = cls._company_branches_coll(owner_uid, sandbox, company_id=company_id)
+        if not ref:
+            return branches
+        try:
+            docs = ref.get()
+            for doc in docs:
+                data = doc.to_dict()
+                branches.append({
+                    "id": doc.id,
+                    "name": data.get("name", ""),
+                    "code": data.get("code", ""),
+                    "address": data.get("address", ""),
+                    "isDefault": bool(data.get("isDefault", False)),
+                    "createdAt": serialize_field(data.get("createdAt"))
+                })
+            if not branches:
+                default_id = "default-sucursal-principal"
+                default_branch = {
+                    "id": default_id,
+                    "name": "Sucursal Principal",
+                    "code": "0001",
+                    "address": "Sede Principal",
+                    "isDefault": True,
+                    "createdAt": datetime.now(timezone.utc).isoformat()
+                }
+                cls.save_branch(owner_uid, default_id, default_branch, sandbox=sandbox, update_defaults=False, company_id=company_id)
+                branches.append(default_branch)
+            else:
+                branches.sort(key=lambda x: x["name"].lower())
+        except Exception as e:
+            print(f"⚠️ Error al obtener sucursales: {e}")
         return branches
 
     @classmethod
-    def save_branch(cls, owner_uid, branch_id, branch_dict, sandbox=True, update_defaults=True):
-        """Guarda o actualiza una sucursal en Firestore."""
+    def save_branch(cls, owner_uid, branch_id, branch_dict, sandbox=True, update_defaults=True, company_id=None):
+        """Guarda o actualiza una sucursal en companies/{companyId}/branches."""
         branch_dict["id"] = branch_id
         branch_dict["ownerUID"] = owner_uid
         if "createdAt" not in branch_dict or not branch_dict["createdAt"]:
             branch_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
         branch_dict["createdAt"] = serialize_field(branch_dict["createdAt"])
-
-        # Si se establece como default, desmarcar las demas
         if branch_dict.get("isDefault") and update_defaults:
-            branches = cls.get_branches(owner_uid, sandbox=sandbox)
-            for b in branches:
+            for b in cls.get_branches(owner_uid, sandbox=sandbox, company_id=company_id):
                 if b["id"] != branch_id and b.get("isDefault"):
-                    b["isDefault"] = False
-                    try:
-                        coll_name = "sandbox_branches" if sandbox else "branches"
-                        db_firestore.collection("users").document(owner_uid).collection(coll_name).document(b["id"]).update({"isDefault": False})
-                    except Exception:
-                        pass
-
+                    ref = cls._company_branches_coll(owner_uid, sandbox, company_id=company_id)
+                    if ref:
+                        try:
+                            ref.document(b["id"]).update({"isDefault": False})
+                        except Exception:
+                            pass
         if firebase_initialized:
-            try:
-                coll_name = "sandbox_branches" if sandbox else "branches"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(branch_id).set(branch_dict)
-            except Exception as e:
-                print(f"⚠️ Fallo al guardar sucursal en Firestore: {e}")
+            ref = cls._company_branches_coll(owner_uid, sandbox, company_id=company_id)
+            if ref:
+                try:
+                    ref.document(branch_id).set(branch_dict)
+                except Exception as e:
+                    print(f"⚠️ Fallo al guardar sucursal: {e}")
         return branch_dict
 
     @classmethod
-    def delete_branch(cls, owner_uid, branch_id, sandbox=True):
-        """Elimina una sucursal en Firestore."""
+    def delete_branch(cls, owner_uid, branch_id, sandbox=True, company_id=None):
+        """Elimina una sucursal de companies/{companyId}/branches."""
         if firebase_initialized:
-            try:
-                coll_name = "sandbox_branches" if sandbox else "branches"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(branch_id).delete()
-            except Exception as e:
-                print(f"⚠️ Fallo al borrar sucursal de Firestore: {e}")
+            ref = cls._company_branches_coll(owner_uid, sandbox, company_id=company_id)
+            if ref:
+                try:
+                    ref.document(branch_id).delete()
+                except Exception as e:
+                    print(f"⚠️ Fallo al borrar sucursal: {e}")
 
     # =========================================================================
     # GESTIÓN DE CLIENTES
     # =========================================================================
 
     @classmethod
-    def get_branches_for_user(cls, owner_uid, user_uid, sandbox=True):
+    def get_branches_for_user(cls, owner_uid, user_uid, sandbox=True, company_id=None):
         """Retorna las sucursales a las que un usuario tiene acceso."""
-        branches = cls.get_branches(owner_uid, sandbox=sandbox)
+        branches = cls.get_branches(owner_uid, sandbox=sandbox, company_id=company_id)
         user_profile = cls.get_user_profile(user_uid)
         if not user_profile:
             return branches
@@ -1531,9 +1794,9 @@ class DatabaseService:
         return branches
 
     @classmethod
-    def get_default_branch(cls, owner_uid, sandbox=True):
+    def get_default_branch(cls, owner_uid, sandbox=True, company_id=None):
         """Retorna la sucursal por defecto."""
-        branches = cls.get_branches(owner_uid, sandbox=sandbox)
+        branches = cls.get_branches(owner_uid, sandbox=sandbox, company_id=company_id)
         for b in branches:
             if b.get("isDefault"):
                 return b
@@ -1546,12 +1809,12 @@ class DatabaseService:
     # =========================================================================
 
     @classmethod
-    def get_project(cls, owner_uid, project_id, sandbox=True):
+    def get_project(cls, owner_uid, project_id, sandbox=True, company_id=None):
         """Retorna un proyecto individual por su ID."""
         if firebase_initialized:
             try:
                 coll_name = "sandbox_projects" if sandbox else "projects"
-                doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(project_id).get()
+                doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(project_id).get()
                 if doc.exists:
                     data = doc.to_dict()
                     return {
@@ -1571,7 +1834,7 @@ class DatabaseService:
         return None
 
     @classmethod
-    def get_projects(cls, owner_uid, branch_id=None, sandbox=True, status_filter="open"):
+    def get_projects(cls, owner_uid, branch_id=None, sandbox=True, status_filter="open", company_id=None):
         """Retorna la lista de proyectos, opcionalmente filtrados por sucursal y estado.
         
         Args:
@@ -1584,7 +1847,7 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_projects" if sandbox else "projects"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).get()
                 for doc in docs:
                     data = doc.to_dict()
                     p_branch_id = data.get("branchId", "")
@@ -1611,7 +1874,7 @@ class DatabaseService:
         return projects
 
     @classmethod
-    def save_project(cls, owner_uid, project_id, project_dict, sandbox=True, update_defaults=True):
+    def save_project(cls, owner_uid, project_id, project_dict, sandbox=True, update_defaults=True, company_id=None):
         """Guarda o actualiza un proyecto en Firestore."""
         project_dict["id"] = project_id
         project_dict["ownerUID"] = owner_uid
@@ -1621,39 +1884,39 @@ class DatabaseService:
 
         if project_dict.get("isDefault") and update_defaults:
             branch_id = project_dict.get("branchId")
-            projects = cls.get_projects(owner_uid, branch_id=branch_id, sandbox=sandbox, status_filter=None)
+            projects = cls.get_projects(owner_uid, branch_id=branch_id, sandbox=sandbox, status_filter=None, company_id=company_id)
             for p in projects:
                 if p["id"] != project_id and p.get("isDefault"):
                     p["isDefault"] = False
                     try:
                         coll_name = "sandbox_projects" if sandbox else "projects"
-                        db_firestore.collection("users").document(owner_uid).collection(coll_name).document(p["id"]).update({"isDefault": False})
+                        _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(p["id"]).update({"isDefault": False})
                     except Exception:
                         pass
 
         if firebase_initialized:
             try:
                 coll_name = "sandbox_projects" if sandbox else "projects"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(project_id).set(project_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(project_id).set(project_dict)
             except Exception as e:
                 print(f"Fallo al guardar proyecto en Firestore: {e}")
         return project_dict
 
     @classmethod
-    def delete_project(cls, owner_uid, project_id, sandbox=True):
+    def delete_project(cls, owner_uid, project_id, sandbox=True, company_id=None):
         """Elimina un proyecto en Firestore."""
         if firebase_initialized:
             try:
                 coll_name = "sandbox_projects" if sandbox else "projects"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(project_id).delete()
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(project_id).delete()
             except Exception as e:
                 print(f"Fallo al borrar proyecto de Firestore: {e}")
 
     @classmethod
-    def get_clients(cls, owner_uid, sandbox=True, branch_id=None, project_id=None):
+    def get_clients(cls, owner_uid, sandbox=True, branch_id=None, project_id=None, company_id=None):
         """Retorna la lista de clientes del owner, filtrados por sucursal y/o proyecto."""
         import copy
-        clients = copy.deepcopy(_cached_clients(owner_uid, sandbox))
+        clients = copy.deepcopy(_cached_clients(owner_uid, sandbox, company_id=company_id))
         if branch_id:
             clients = [c for c in clients if c.get("branchId") == branch_id]
         if project_id == '__no_project__':
@@ -1663,12 +1926,12 @@ class DatabaseService:
         return clients
 
     @classmethod
-    def get_client(cls, owner_uid, client_id, sandbox=True):
+    def get_client(cls, owner_uid, client_id, sandbox=True, company_id=None):
         """Retorna un cliente específico por su ID."""
         if firebase_initialized:
             try:
                 coll_name = "sandbox_clients" if sandbox else "clients"
-                doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(client_id).get()
+                doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(client_id).get()
                 if doc.exists:
                     data = doc.to_dict()
                     client_dict = {
@@ -1698,13 +1961,13 @@ class DatabaseService:
         return None
 
     @classmethod
-    def get_client_by_rnc(cls, owner_uid, rnc, sandbox=True):
+    def get_client_by_rnc(cls, owner_uid, rnc, sandbox=True, company_id=None):
         """Busca un cliente por su RNC localmente en Firestore."""
         if firebase_initialized:
             try:
                 coll_name = "sandbox_clients" if sandbox else "clients"
                 clean_rnc = str(rnc).replace("-", "").strip()
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).where("rnc", "==", clean_rnc).get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).where("rnc", "==", clean_rnc).get()
                 for doc in docs:
                     data = doc.to_dict()
                     client_dict = {
@@ -1729,7 +1992,7 @@ class DatabaseService:
                             client_dict[k] = v
                     return client_dict
                 # Intentar también con guiones por si acaso
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).where("rnc", "==", rnc).get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).where("rnc", "==", rnc).get()
                 for doc in docs:
                     data = doc.to_dict()
                     client_dict = {
@@ -1758,7 +2021,7 @@ class DatabaseService:
         return None
 
     @classmethod
-    def save_client(cls, owner_uid, client_id, client_dict, sandbox=True):
+    def save_client(cls, owner_uid=None, client_id=None, client_dict=None, sandbox=True, company_id=None):
         """Guarda o actualiza un cliente en Firestore."""
         client_dict["id"] = client_id
         client_dict["ownerUID"] = owner_uid
@@ -1774,7 +2037,8 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_clients" if sandbox else "clients"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(client_id).set(client_dict)
+                ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name) if company_id else _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name)
+                ref.document(client_id).set(client_dict)
                 _invalidate_clients(owner_uid)
                 _invalidate_crm_contacts(owner_uid)
             except Exception as e:
@@ -1783,12 +2047,13 @@ class DatabaseService:
         return client_dict
 
     @classmethod
-    def update_client_pipeline(cls, owner_uid, client_id, pipeline_stage, sandbox=True):
+    def update_client_pipeline(cls, owner_uid=None, client_id=None, pipeline_stage=None, sandbox=True, company_id=None):
         """Actualiza la etapa del pipeline CRM de un cliente."""
         if firebase_initialized:
             try:
                 coll_name = "sandbox_clients" if sandbox else "clients"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(client_id).update({
+                ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name) if company_id else _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name)
+                ref.document(client_id).update({
                     "pipelineStage": pipeline_stage, 
                     "updatedAt": firestore.SERVER_TIMESTAMP
                 })
@@ -1798,25 +2063,25 @@ class DatabaseService:
                 print(f"⚠️ Fallo al actualizar pipeline de cliente: {e}")
 
     @classmethod
-    def delete_client(cls, owner_uid, client_id, sandbox=True):
+    def delete_client(cls, owner_uid, client_id, sandbox=True, company_id=None):
         """Elimina un cliente en Firestore."""
         if firebase_initialized:
             try:
                 coll_name = "sandbox_clients" if sandbox else "clients"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(client_id).delete()
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(client_id).delete()
                 _invalidate_clients(owner_uid)
                 _invalidate_crm_contacts(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al borrar cliente de Firestore: {e}")
 
     @classmethod
-    def get_client_interactions(cls, owner_uid, client_id, sandbox=True):
+    def get_client_interactions(cls, owner_uid, client_id, sandbox=True, company_id=None):
         """Retorna la lista de comentarios e interacciones de un cliente, ordenados por fecha."""
         interactions = []
         if firebase_initialized:
             try:
                 coll_name = "sandbox_clients" if sandbox else "clients"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(client_id).collection("interactions").get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(client_id).collection("interactions").get()
                 for doc in docs:
                     data = doc.to_dict()
                     interactions.append({
@@ -1838,7 +2103,7 @@ class DatabaseService:
         return interactions
 
     @classmethod
-    def save_client_interaction(cls, owner_uid, client_id, interaction_id, interaction_dict, sandbox=True):
+    def save_client_interaction(cls, owner_uid, client_id, interaction_id, interaction_dict, sandbox=True, company_id=None):
         """Guarda una interacción y actualiza el próximo contacto del cliente principal en Firestore."""
         interaction_dict["id"] = interaction_id
         if "createdAt" not in interaction_dict or not interaction_dict["createdAt"]:
@@ -1852,11 +2117,11 @@ class DatabaseService:
             try:
                 coll_name = "sandbox_clients" if sandbox else "clients"
                 # Guardar en la subcolección
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(client_id).collection("interactions").document(interaction_id).set(interaction_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(client_id).collection("interactions").document(interaction_id).set(interaction_dict)
                 
                 # Si es un seguimiento programado, o si se especificó nextContactDate, actualizar la ficha principal del cliente
                 if interaction_dict.get("nextContactDate") and not interaction_dict.get("completed"):
-                    db_firestore.collection("users").document(owner_uid).collection(coll_name).document(client_id).update({
+                    _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(client_id).update({
                         "nextContactDate": interaction_dict["nextContactDate"],
                         "crmNotes": interaction_dict.get("content", "")[:100]  # Resumen breve
                     })
@@ -1866,12 +2131,12 @@ class DatabaseService:
         return interaction_dict
 
     @classmethod
-    def delete_client_interaction(cls, owner_uid, client_id, interaction_id, sandbox=True):
+    def delete_client_interaction(cls, owner_uid, client_id, interaction_id, sandbox=True, company_id=None):
         """Elimina una interacción de un cliente."""
         if firebase_initialized:
             try:
                 coll_name = "sandbox_clients" if sandbox else "clients"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(client_id).collection("interactions").document(interaction_id).delete()
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(client_id).collection("interactions").document(interaction_id).delete()
             except Exception as e:
                 print(f"⚠️ Fallo al borrar interacción de Firestore: {e}")
 
@@ -1880,10 +2145,11 @@ class DatabaseService:
     # =========================================================================
 
     @classmethod
-    def get_items(cls, owner_uid, sandbox=True, branch_id=None, project_id=None):
+    def get_items(cls, owner_uid, company_id="", sandbox=True, branch_id=None, project_id=None):
         """Retorna la lista de productos del catálogo, filtrados por sucursal y/o proyecto."""
+        owner_uid = _resolve_owner_uid(company_id) or owner_uid
         import copy
-        items = copy.deepcopy(_cached_items(owner_uid, sandbox))
+        items = copy.deepcopy(_cached_items(owner_uid, sandbox, company_id=company_id))
         if branch_id:
             items = [i for i in items if i.get("branchId") == branch_id]
         if project_id == '__no_project__':
@@ -1893,8 +2159,9 @@ class DatabaseService:
         return items
 
     @classmethod
-    def save_item(cls, owner_uid, item_id, item_dict, sandbox=True):
+    def save_item(cls, owner_uid, item_id, item_dict, company_id="", sandbox=True):
         """Guarda o actualiza un producto en el catálogo en Firestore."""
+        owner_uid = _resolve_owner_uid(company_id) or owner_uid
         item_dict["id"] = item_id
         item_dict["ownerUID"] = owner_uid
         item_dict["branchId"] = item_dict.get("branchId", "default-sucursal-principal")
@@ -1921,7 +2188,7 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_items" if sandbox else "items"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(item_id).set(item_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(item_id).set(item_dict)
                 _invalidate_items(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al respaldar producto en Firestore: {e}")
@@ -1929,12 +2196,13 @@ class DatabaseService:
         return item_dict
 
     @classmethod
-    def delete_item(cls, owner_uid, item_id, sandbox=True):
+    def delete_item(cls, owner_uid, item_id, company_id="", sandbox=True):
         """Elimina un producto del catálogo en Firestore."""
+        owner_uid = _resolve_owner_uid(company_id) or owner_uid
         if firebase_initialized:
             try:
                 coll_name = "sandbox_items" if sandbox else "items"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(item_id).delete()
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(item_id).delete()
                 _invalidate_items(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al borrar producto de Firestore: {e}")
@@ -1943,13 +2211,13 @@ class DatabaseService:
     # GESTIÓN DE CATEGORÍAS (CATEGORIES)
     # =========================================================================
     @classmethod
-    def get_categories(cls, owner_uid, sandbox=True, branch_id=None, project_id=None):
+    def get_categories(cls, owner_uid, sandbox=True, branch_id=None, project_id=None, company_id=None):
         """Retorna la lista de categorías del catálogo, filtradas por sucursal y/o proyecto."""
         categories = []
         if firebase_initialized:
             try:
                 coll_name = "sandbox_categories" if sandbox else "categories"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).get()
                 for doc in docs:
                     data = doc.to_dict()
                     categories.append({
@@ -1972,7 +2240,7 @@ class DatabaseService:
                     ]
                     for cat in defaults:
                         cat["createdAt"] = datetime.now(timezone.utc).isoformat()
-                        cls.save_category(owner_uid, cat["id"], cat, sandbox=sandbox)
+                        cls.save_category(owner_uid, cat["id"], cat, sandbox=sandbox, company_id=company_id)
                         categories.append(cat)
                 
                 categories.sort(key=lambda x: x["name"].lower())
@@ -1987,7 +2255,7 @@ class DatabaseService:
         return categories
 
     @classmethod
-    def save_category(cls, owner_uid, category_id, category_dict, sandbox=True):
+    def save_category(cls, owner_uid, category_id, category_dict, sandbox=True, company_id=None):
         """Guarda o actualiza una categoría en Firestore."""
         category_dict["id"] = category_id
         category_dict["ownerUID"] = owner_uid
@@ -1998,19 +2266,19 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_categories" if sandbox else "categories"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(category_id).set(category_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(category_id).set(category_dict)
             except Exception as e:
                 print(f"⚠️ Fallo al guardar categoría en Firestore: {e}")
         return category_dict
 
     @classmethod
-    def get_or_create_category_by_name(cls, owner_uid, name, sandbox=True):
+    def get_or_create_category_by_name(cls, owner_uid, name, sandbox=True, company_id=None):
         """Busca una categoría por nombre (insensible a mayúsculas/minúsculas). Si no existe, la crea."""
         name_clean = name.strip()
         if not name_clean:
             return "general"
             
-        categories = cls.get_categories(owner_uid, sandbox=sandbox)
+        categories = cls.get_categories(owner_uid, sandbox=sandbox, company_id=company_id)
         
         # Buscar coincidencia exacta insensible a mayúsculas
         for cat in categories:
@@ -2035,20 +2303,20 @@ class DatabaseService:
             "name": name_clean,
             "createdAt": datetime.now(timezone.utc).isoformat()
         }
-        cls.save_category(owner_uid, slug, new_cat, sandbox=sandbox)
+        cls.save_category(owner_uid, slug, new_cat, sandbox=sandbox, company_id=company_id)
         return slug
 
     # =========================================================================
     # LISTAS DE PRECIOS (PRICE LISTS)
     # =========================================================================
     @classmethod
-    def get_price_lists(cls, owner_uid, sandbox=True, branch_id=None, project_id=None):
+    def get_price_lists(cls, owner_uid, sandbox=True, branch_id=None, project_id=None, company_id=None):
         """Retorna la lista de listas de precios, filtradas por sucursal y/o proyecto."""
         lists = []
         if firebase_initialized:
             try:
                 coll_name = "sandbox_price_lists" if sandbox else "price_lists"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).get()
                 for doc in docs:
                     data = doc.to_dict()
                     lists.append({
@@ -2073,12 +2341,12 @@ class DatabaseService:
         return lists
 
     @classmethod
-    def get_price_list(cls, owner_uid, list_id, sandbox=True):
+    def get_price_list(cls, owner_uid, list_id, sandbox=True, company_id=None):
         """Retorna una lista de precios específica por su ID."""
         if firebase_initialized:
             try:
                 coll_name = "sandbox_price_lists" if sandbox else "price_lists"
-                doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(list_id).get()
+                doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(list_id).get()
                 if doc.exists:
                     data = doc.to_dict()
                     return {
@@ -2094,7 +2362,7 @@ class DatabaseService:
         return None
 
     @classmethod
-    def save_price_list(cls, owner_uid, list_id, list_dict, sandbox=True):
+    def save_price_list(cls, owner_uid, list_id, list_dict, sandbox=True, company_id=None):
         """Guarda o actualiza una lista de precios en Firestore."""
         list_dict["id"] = list_id
         list_dict["ownerUID"] = owner_uid
@@ -2109,40 +2377,40 @@ class DatabaseService:
                 coll_name = "sandbox_price_lists" if sandbox else "price_lists"
                 # Si se marca como default, quitar default de las demás
                 if list_dict.get("isDefault"):
-                    existing = cls.get_price_lists(owner_uid, sandbox=sandbox)
+                    existing = cls.get_price_lists(owner_uid, sandbox=sandbox, company_id=company_id)
                     for pl in existing:
                         if pl["id"] != list_id and pl["isDefault"]:
-                            db_firestore.collection("users").document(owner_uid).collection(coll_name).document(pl["id"]).update({"isDefault": False})
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(list_id).set(list_dict)
+                            _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(pl["id"]).update({"isDefault": False})
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(list_id).set(list_dict)
             except Exception as e:
                 print(f"⚠️ Fallo al guardar lista de precios en Firestore: {e}")
         return list_dict
 
     @classmethod
-    def delete_price_list(cls, owner_uid, list_id, sandbox=True):
+    def delete_price_list(cls, owner_uid, list_id, sandbox=True, company_id=None):
         """Elimina una lista de precios y sus precios asociados en Firestore."""
         if firebase_initialized:
             try:
                 coll_name = "sandbox_price_lists" if sandbox else "price_lists"
                 # Eliminar precios de items asociados
                 items_coll = coll_name + "_items"
-                item_docs = db_firestore.collection("users").document(owner_uid).collection(items_coll).where("priceListId", "==", list_id).get()
+                item_docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=items_coll).where("priceListId", "==", list_id).get()
                 for idoc in item_docs:
                     idoc.reference.delete()
                 # Eliminar la lista
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(list_id).delete()
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(list_id).delete()
             except Exception as e:
                 print(f"⚠️ Fallo al borrar lista de precios de Firestore: {e}")
 
     @classmethod
-    def get_price_list_items(cls, owner_uid, price_list_id, sandbox=True):
+    def get_price_list_items(cls, owner_uid, price_list_id, sandbox=True, company_id=None):
         """Retorna los precios de todos los items en una lista de precios."""
         prices = {}
         if firebase_initialized:
             try:
                 coll_name = "sandbox_price_lists" if sandbox else "price_lists"
                 items_coll = coll_name + "_items"
-                docs = db_firestore.collection("users").document(owner_uid).collection(items_coll).where("priceListId", "==", price_list_id).get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=items_coll).where("priceListId", "==", price_list_id).get()
                 for doc in docs:
                     data = doc.to_dict()
                     prices[data.get("itemId")] = {
@@ -2156,7 +2424,7 @@ class DatabaseService:
         return prices
 
     @classmethod
-    def save_price_list_item(cls, owner_uid, price_list_id, item_id, price_dict, sandbox=True):
+    def save_price_list_item(cls, owner_uid, price_list_id, item_id, price_dict, sandbox=True, company_id=None):
         """Guarda o actualiza el precio de un item en una lista de precios."""
         if firebase_initialized:
             try:
@@ -2165,21 +2433,21 @@ class DatabaseService:
                 doc_id = f"{price_list_id}_{item_id}"
                 price_dict["priceListId"] = price_list_id
                 price_dict["itemId"] = item_id
-                db_firestore.collection("users").document(owner_uid).collection(items_coll).document(doc_id).set(price_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=items_coll).document(doc_id).set(price_dict)
                 return doc_id
             except Exception as e:
                 print(f"⚠️ Fallo al guardar precio de item en lista: {e}")
         return None
 
     @classmethod
-    def delete_price_list_item(cls, owner_uid, price_list_id, item_id, sandbox=True):
+    def delete_price_list_item(cls, owner_uid, price_list_id, item_id, sandbox=True, company_id=None):
         """Elimina el precio de un item en una lista de precios."""
         if firebase_initialized:
             try:
                 coll_name = "sandbox_price_lists" if sandbox else "price_lists"
                 items_coll = coll_name + "_items"
                 doc_id = f"{price_list_id}_{item_id}"
-                db_firestore.collection("users").document(owner_uid).collection(items_coll).document(doc_id).delete()
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=items_coll).document(doc_id).delete()
             except Exception as e:
                 print(f"⚠️ Fallo al borrar precio de item en lista: {e}")
 
@@ -2188,13 +2456,13 @@ class DatabaseService:
     # =========================================================================
 
     @classmethod
-    def get_sequences(cls, owner_uid, sandbox=True):
+    def get_sequences(cls, owner_uid, sandbox=True, company_id=None):
         """Retorna las secuencias fiscales del owner."""
         import copy
-        return copy.deepcopy(_cached_sequences(owner_uid, sandbox))
+        return copy.deepcopy(_cached_sequences(owner_uid, sandbox, company_id=company_id))
 
     @classmethod
-    def save_sequence(cls, owner_uid, seq_id, seq_dict, sandbox=True):
+    def save_sequence(cls, owner_uid, seq_id, seq_dict, sandbox=True, company_id=None):
         """Guarda o actualiza una secuencia fiscal."""
         seq_dict["id"] = seq_id
         seq_dict["ownerUID"] = owner_uid
@@ -2211,14 +2479,14 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_sequences" if sandbox else "sequences"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(seq_id).set(seq_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(seq_id).set(seq_dict)
                 _invalidate_sequences(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al respaldar secuencia en Firestore: {e}")
         return seq_dict
 
     @classmethod
-    def consume_next_sequence(cls, owner_uid, tipo_comprobante, usuario_email, sandbox=True):
+    def consume_next_sequence(cls, owner_uid, tipo_comprobante, usuario_email, sandbox=True, company_id=None):
         """
         Bloquea y consume el siguiente consecutivo de una secuencia fiscal en Firestore.
         Garantiza consistencia mutua usando transacciones nativas de Firestore.
@@ -2252,7 +2520,7 @@ class DatabaseService:
 
         @firestore.transactional
         def run_in_transaction(transaction):
-            seq_ref_query = db_firestore.collection("users").document(owner_uid).collection(coll_seq)\
+            seq_ref_query = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_seq)\
                 .where(filter=firestore.FieldFilter("tipoComprobante", "==", tipo_comprobante))\
                 .where(filter=firestore.FieldFilter("estado", "==", "ACTIVA"))\
                 .where(filter=firestore.FieldFilter("bloqueadaManualmente", "==", False))\
@@ -2276,7 +2544,7 @@ class DatabaseService:
                     fecha_exp_str = str(fecha_exp)[:10]
                     today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
                     if fecha_exp_str and fecha_exp_str < today_str:
-                        transaction.update(db_firestore.collection("users").document(owner_uid).collection(coll_seq).document(seq_id), {
+                        transaction.update(_company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_seq).document(seq_id), {
                             "estado": "EXPIRADA"
                         })
                         raise ValueError(f"La secuencia fiscal autorizada para {tipo_comprobante} está EXPIRADA.")
@@ -2287,7 +2555,7 @@ class DatabaseService:
 
             next_consecutivo = ultimoConsecutivoUsado + 1
             if next_consecutivo > secuenciaFinal:
-                transaction.update(db_firestore.collection("users").document(owner_uid).collection(coll_seq).document(seq_id), {
+                transaction.update(_company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_seq).document(seq_id), {
                     "estado": "AGOTADA"
                 })
                 raise ValueError(f"La secuencia fiscal autorizada para {tipo_comprobante} se ha AGOTADO.")
@@ -2298,7 +2566,7 @@ class DatabaseService:
             if next_consecutivo >= secuenciaFinal:
                 status = "AGOTADA"
             
-            transaction.update(db_firestore.collection("users").document(owner_uid).collection(coll_seq).document(seq_id), {
+            transaction.update(_company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_seq).document(seq_id), {
                 "ultimoConsecutivoUsado": next_consecutivo,
                 "estado": status
             })
@@ -2322,7 +2590,7 @@ class DatabaseService:
                 "duracionTransaccionMs": 0
             }
             
-            transaction.set(db_firestore.collection("users").document(owner_uid).collection(coll_log).document(log_id), log_data)
+            transaction.set(_company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_log).document(log_id), log_data)
             
             return encf, log_id
 
@@ -2335,23 +2603,23 @@ class DatabaseService:
             raise RuntimeError(f"Error al consumir secuencia en Firestore: {e}")
 
     @classmethod
-    def update_sequence_log(cls, owner_uid, log_id, updates, sandbox=True):
+    def update_sequence_log(cls, owner_uid, log_id, updates, sandbox=True, company_id=None):
         """Actualiza un log de secuencia específico en Firestore."""
         if firebase_initialized:
             try:
                 coll_log = "sandbox_sequence_logs" if sandbox else "sequence_logs"
-                db_firestore.collection("users").document(owner_uid).collection(coll_log).document(log_id).update(updates)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_log).document(log_id).update(updates)
             except Exception as e:
                 print(f"⚠️ Error al actualizar log de secuencia: {e}")
 
     @classmethod
-    def get_sequence_logs(cls, owner_uid, sandbox=True):
+    def get_sequence_logs(cls, owner_uid, sandbox=True, company_id=None):
         """Retorna el registro histórico inmutable de consecutivos consumidos desde Firestore."""
         logs = []
         if firebase_initialized:
             try:
                 coll_name = "sandbox_sequence_logs" if sandbox else "sequence_logs"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).get()
                 for doc in docs:
                     data = doc.to_dict()
                     logs.append({
@@ -2375,13 +2643,13 @@ class DatabaseService:
         return logs
 
     @classmethod
-    def get_cancellations(cls, owner_uid, sandbox=True):
+    def get_cancellations(cls, owner_uid, sandbox=True, company_id=None):
         """Retorna el listado de rangos anulados desde Firestore."""
         cancs = []
         if firebase_initialized:
             try:
                 coll_name = "sandbox_cancellations" if sandbox else "cancellations"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).get()
                 for doc in docs:
                     data = doc.to_dict()
                     cancs.append({
@@ -2402,7 +2670,7 @@ class DatabaseService:
         return cancs
 
     @classmethod
-    def save_cancellation(cls, owner_uid, cancellation_id, canc_dict, sandbox=True):
+    def save_cancellation(cls, owner_uid, cancellation_id, canc_dict, sandbox=True, company_id=None):
         """Registra una anulación en Firestore."""
         canc_dict["id"] = cancellation_id
         canc_dict["ownerUID"] = owner_uid
@@ -2418,7 +2686,7 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_cancellations" if sandbox else "cancellations"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(cancellation_id).set(canc_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(cancellation_id).set(canc_dict)
             except Exception as e:
                 print(f"⚠️ Fallo al respaldar anulación en Firestore: {e}")
         return canc_dict
@@ -2428,10 +2696,10 @@ class DatabaseService:
     # =========================================================================
 
     @classmethod
-    def get_invoices(cls, owner_uid, sandbox=True, quotations_only=False, include_all=False, branch_id=None, project_id=None):
+    def get_invoices(cls, owner_uid, sandbox=True, quotations_only=False, include_all=False, branch_id=None, project_id=None, company_id=None):
         """Retorna las facturas o cotizaciones de un owner, filtradas por sucursal y/o proyecto."""
         import copy
-        invoices = copy.deepcopy(_cached_invoices(owner_uid, sandbox, quotations_only, include_all))
+        invoices = copy.deepcopy(_cached_invoices(owner_uid, sandbox, quotations_only, include_all, company_id=company_id))
         if branch_id:
             invoices = [inv for inv in invoices if inv.get("branchId") == branch_id]
         if project_id == '__no_project__':
@@ -2441,18 +2709,18 @@ class DatabaseService:
         return invoices
 
     @classmethod
-    def get_contingency_invoices(cls, owner_uid, sandbox=True):
+    def get_contingency_invoices(cls, owner_uid, sandbox=True, company_id=None):
         """Retorna solo facturas en modo contingencia (FALLBACK) no sincronizadas con la DGII."""
         import copy
-        return copy.deepcopy(_cached_contingency_invoices(owner_uid, sandbox))
+        return copy.deepcopy(_cached_contingency_invoices(owner_uid, sandbox, company_id=company_id))
 
     @classmethod
-    def get_invoice(cls, owner_uid, invoice_id, sandbox=True):
+    def get_invoice(cls, owner_uid, invoice_id, sandbox=True, company_id=None):
         """Retorna una única factura por ID desde Firestore."""
         if firebase_initialized:
             try:
                 coll_name = "sandbox_invoices" if sandbox else "invoices"
-                doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(invoice_id).get()
+                doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(invoice_id).get()
                 if doc.exists:
                     data = doc.to_dict()
                     if data.get("isDeleted"):
@@ -2616,13 +2884,13 @@ class DatabaseService:
             except Exception as e:
                 print(f"⚠️ Error al obtener factura por ID desde Firestore: {e}")
     @classmethod
-    def search_invoices_by_number(cls, owner_uid, search_term, sandbox=True, limit=15):
+    def search_invoices_by_number(cls, owner_uid, search_term, sandbox=True, limit=15, company_id=None):
         """Busca facturas específicas por prefijo de número de factura o cliente sin requerir índices complejos."""
         results = []
         if firebase_initialized:
             try:
                 coll_name = "sandbox_invoices" if sandbox else "invoices"
-                coll_ref = db_firestore.collection("users").document(owner_uid).collection(coll_name)
+                coll_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name)
                 
                 search_term = search_term.strip()
                 if search_term:
@@ -2653,12 +2921,12 @@ class DatabaseService:
         return results
 
     @classmethod
-    def update_invoice_status_simple(cls, owner_uid, invoice_id, new_status, sandbox=True):
+    def update_invoice_status_simple(cls, owner_uid, invoice_id, new_status, sandbox=True, company_id=None):
         """Actualiza únicamente el estado de una factura (usado en Kanban de Cotizaciones)."""
         try:
             from app.services.state_machine import StateMachineValidator
             validator = StateMachineValidator.for_invoices()
-            current = cls.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+            current = cls.get_invoice(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id)
             if current:
                 current_status = current.get("status", "Borrador")
                 if current_status != new_status:
@@ -2668,19 +2936,19 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_invoices" if sandbox else "invoices"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(invoice_id).update({"status": new_status, "updatedAt": firestore.SERVER_TIMESTAMP})
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(invoice_id).update({"status": new_status, "updatedAt": firestore.SERVER_TIMESTAMP})
                 _invalidate_invoices(owner_uid)
                 _invalidate_crm_contacts(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al actualizar estado de la factura/cotización: {e}")
 
     @classmethod
-    def delete_invoice(cls, owner_uid, invoice_id, sandbox=True, soft_delete=True):
+    def delete_invoice(cls, owner_uid, invoice_id, sandbox=True, soft_delete=True, company_id=None):
         """Elimina una factura de forma lógica o física."""
         if firebase_initialized:
             try:
                 coll_name = "sandbox_invoices" if sandbox else "invoices"
-                doc_ref = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(invoice_id)
+                doc_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(invoice_id)
                 if soft_delete:
                     doc_ref.update({
                         "isDeleted": True,
@@ -2695,7 +2963,7 @@ class DatabaseService:
                 print(f"⚠️ Fallo al eliminar factura en Firestore: {e}")
 
     @classmethod
-    def save_invoice(cls, owner_uid, invoice_id, inv_dict, sandbox=True):
+    def save_invoice(cls, owner_uid, invoice_id, inv_dict, sandbox=True, company_id=None):
         """Guarda o actualiza una factura y sus partidas en Firestore."""
         inv_dict["id"] = invoice_id
         inv_dict["ownerUID"] = owner_uid
@@ -2763,7 +3031,7 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_invoices" if sandbox else "invoices"
-                existing_doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(invoice_id).get()
+                existing_doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(invoice_id).get()
                 if existing_doc.exists and existing_doc.to_dict().get("stockReduced"):
                     existing_stock_reduced = True
                     inv_dict["stockReduced"] = True
@@ -2773,14 +3041,14 @@ class DatabaseService:
         if not is_quotation and not is_note and is_synced and status in ["Emitida", "Cobrada", "Pagada", "Vencida"] and not inv_dict.get("stockReduced") and not existing_stock_reduced:
             wh_id = inv_dict.get("warehouseId")
             if not wh_id:
-                whs = cls.get_warehouses(owner_uid, sandbox=sandbox)
+                whs = cls.get_warehouses(owner_uid, sandbox=sandbox, company_id=company_id)
                 wh_id = whs[0]["id"] if whs else "default-almacen-principal"
                 inv_dict["warehouseId"] = wh_id
             
             for it in fs_items:
                 if it.get("type", "Bien") == "Bien" and it.get("id"):
                     # Verificar que el item existe en el catálogo para descontar su stock
-                    items_catalog = cls.get_items(owner_uid, sandbox=sandbox)
+                    items_catalog = cls.get_items(owner_uid, sandbox=sandbox, company_id=company_id)
                     catalog_ids = {cit["id"] for cit in items_catalog}
                     if it["id"] in catalog_ids:
                         tx_dict = {
@@ -2795,7 +3063,7 @@ class DatabaseService:
                             "notes": f"Venta en Factura {inv_dict.get('invoiceNumber')}",
                             "performedBy": f"Sistema {get_product_name()}"
                         }
-                        cls.register_inventory_transaction(owner_uid, tx_dict, sandbox=sandbox)
+                        cls.register_inventory_transaction(owner_uid, tx_dict, sandbox=sandbox, company_id=company_id)
             
             inv_dict["stockReduced"] = True
 
@@ -2803,13 +3071,13 @@ class DatabaseService:
             if inv_dict.get("stockReduced") and not inv_dict.get("stockReverted"):
                 wh_id = inv_dict.get("warehouseId")
                 if not wh_id:
-                    whs = cls.get_warehouses(owner_uid, sandbox=sandbox)
+                    whs = cls.get_warehouses(owner_uid, sandbox=sandbox, company_id=company_id)
                     wh_id = whs[0]["id"] if whs else "default-almacen-principal"
                     inv_dict["warehouseId"] = wh_id
                     
                 for it in fs_items:
                     if it.get("type", "Bien") == "Bien" and it.get("id"):
-                        items_catalog = cls.get_items(owner_uid, sandbox=sandbox)
+                        items_catalog = cls.get_items(owner_uid, sandbox=sandbox, company_id=company_id)
                         catalog_ids = {cit["id"] for cit in items_catalog}
                         if it["id"] in catalog_ids:
                             tx_dict = {
@@ -2824,7 +3092,7 @@ class DatabaseService:
                                 "notes": f"Reversión de Venta (Anulación de Factura {inv_dict.get('invoiceNumber')})",
                                 "performedBy": f"Sistema {get_product_name()} (Automático)"
                             }
-                            cls.register_inventory_transaction(owner_uid, tx_dict, sandbox=sandbox)
+                            cls.register_inventory_transaction(owner_uid, tx_dict, sandbox=sandbox, company_id=company_id)
                             
                 inv_dict["stockReverted"] = True
 
@@ -2832,7 +3100,7 @@ class DatabaseService:
             if firebase_initialized:
                 try:
                     coll_txs = "sandbox_cash_transactions" if sandbox else "cash_transactions"
-                    txs_ref = db_firestore.collection("users").document(owner_uid).collection(coll_txs)\
+                    txs_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_txs)\
                         .where(filter=firestore.FieldFilter("referenceId", "==", invoice_id)).get()
                     for doc in txs_ref:
                         t_data = doc.to_dict()
@@ -2850,11 +3118,11 @@ class DatabaseService:
             client_id = inv_dict.get("clientId")
             if client_id:
                 try:
-                    client = cls.get_client(owner_uid, client_id, sandbox=sandbox)
+                    client = cls.get_client(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
                     if client:
                         current_stage = client.get("pipelineStage", "Prospecto")
                         if current_stage.lower() in ["prospecto", "en negociación", "en negociacion"]:
-                            cls.update_client_pipeline(owner_uid, client_id, "Cliente Activo", sandbox=sandbox)
+                            cls.update_client_pipeline(owner_uid, client_id, "Cliente Activo", sandbox=sandbox, company_id=company_id)
                         try:
                             from app.services.crm_service import CRMService
                             CRMService.mark_contact_opportunities_won(
@@ -2872,7 +3140,7 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_invoices" if sandbox else "invoices"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(invoice_id).set(inv_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(invoice_id).set(inv_dict)
                 _invalidate_invoices(owner_uid)
                 _invalidate_crm_contacts(owner_uid)
             except Exception as e:
@@ -2882,13 +3150,13 @@ class DatabaseService:
         return inv_dict
 
     @classmethod
-    def get_invoice_payments(cls, owner_uid, invoice_id, sandbox=True):
+    def get_invoice_payments(cls, owner_uid, invoice_id, sandbox=True, company_id=None):
         """Retorna el listado de abonos registrados para una factura."""
         payments = []
         if firebase_initialized:
             try:
                 coll_inv = "sandbox_invoices" if sandbox else "invoices"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_inv).document(invoice_id).collection("payments").get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_inv).document(invoice_id).collection("payments").get()
                 for doc in docs:
                     data = doc.to_dict()
                     payments.append({
@@ -2908,7 +3176,7 @@ class DatabaseService:
         return payments
 
     @classmethod
-    def register_invoice_payment(cls, owner_uid, invoice_id, payment_dict, sandbox=True):
+    def register_invoice_payment(cls, owner_uid, invoice_id, payment_dict, sandbox=True, company_id=None):
         """Registra un nuevo abono para una factura y actualiza los balances del documento."""
         if not firebase_initialized:
             return None
@@ -2916,7 +3184,7 @@ class DatabaseService:
             coll_inv = "sandbox_invoices" if sandbox else "invoices"
             
             # Obtener factura actual
-            inv_ref = db_firestore.collection("users").document(owner_uid).collection(coll_inv).document(invoice_id)
+            inv_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_inv).document(invoice_id)
             inv_doc = inv_ref.get()
             if not inv_doc.exists:
                 raise ValueError("Factura no encontrada.")
@@ -3026,13 +3294,13 @@ class DatabaseService:
                     if not inv_data.get("stockReduced") and new_status in ["Cobrada", "Parcialmente Cobrada", "Emitida", "Vencida"]:
                         wh_id = inv_data.get("warehouseId")
                         if not wh_id:
-                            whs = cls.get_warehouses(owner_uid, sandbox=sandbox)
+                            whs = cls.get_warehouses(owner_uid, sandbox=sandbox, company_id=company_id)
                             wh_id = whs[0]["id"] if whs else "default-almacen-principal"
                             inv_ref.update({"warehouseId": wh_id})
 
                         for it in inv_data.get("items", []):
                             if it.get("type", "Bien") == "Bien" and it.get("id"):
-                                items_catalog = cls.get_items(owner_uid, sandbox=sandbox)
+                                items_catalog = cls.get_items(owner_uid, sandbox=sandbox, company_id=company_id)
                                 catalog_ids = {cit["id"] for cit in items_catalog}
                                 if it["id"] in catalog_ids:
                                     tx_dict = {
@@ -3047,7 +3315,7 @@ class DatabaseService:
                                         "notes": f"Venta en Factura {inv_data.get('invoiceNumber')}",
                                         "performedBy": f"Sistema {get_product_name()}"
                                     }
-                                    cls.register_inventory_transaction(owner_uid, tx_dict, sandbox=sandbox)
+                                    cls.register_inventory_transaction(owner_uid, tx_dict, sandbox=sandbox, company_id=company_id)
                         inv_ref.update({"stockReduced": True})
             except Exception as inv_err:
                 print(f"⚠️ Error al aplicar inventario en pago: {inv_err}")
@@ -3056,7 +3324,7 @@ class DatabaseService:
             bank_account_id = payment_dict.get("bankAccountId")
             if bank_account_id:
                 try:
-                    bank_acc = cls.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox)
+                    bank_acc = cls.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox, company_id=company_id)
                     if bank_acc:
                         new_balance = bank_acc["currentBalance"] + amount
                         cls.save_bank_account(owner_uid, bank_account_id, {
@@ -3072,7 +3340,8 @@ class DatabaseService:
                 is_note = "Nota de Crédito" in ecf_type or "Nota de Débito" in ecf_type
                 if not inv_data.get("isQuotation", False) and not is_note and new_status in ("Cobrada", "Pagado pero no emitido"):
                     from app.services.accounting_service import AccountingService
-                    entry = AccountingService.auto_generate_invoice_entry(owner_uid, inv_data, sandbox=sandbox)
+                    company_id = DatabaseService._resolve_company_id(owner_uid)
+                    entry = AccountingService.auto_generate_invoice_entry(company_id, inv_data, sandbox=sandbox)
                     if entry:
                         print(f"✅ Asiento contable {entry.get('number', '')} generado para factura {inv_data.get('invoiceNumber', '')}")
             except Exception as acc_err:
@@ -3090,7 +3359,7 @@ class DatabaseService:
     # =========================================================================
 
     @classmethod
-    def save_client_advance(cls, owner_uid, advance_id, advance_dict, sandbox=True):
+    def save_client_advance(cls, owner_uid, advance_id, advance_dict, sandbox=True, company_id=None):
         if not firebase_initialized:
             return None
         try:
@@ -3104,7 +3373,7 @@ class DatabaseService:
             advance_dict["createdAt"] = serialize_field(advance_dict["createdAt"])
             advance_dict["updatedAt"] = serialize_field(datetime.now(timezone.utc).isoformat())
             advance_dict["projectId"] = advance_dict.get("projectId")
-            db_firestore.collection("users").document(owner_uid).collection(coll_name).document(advance_id).set(advance_dict)
+            _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(advance_id).set(advance_dict)
             _invalidate_client_advances(owner_uid)
             return advance_dict
         except Exception as e:
@@ -3112,12 +3381,12 @@ class DatabaseService:
             raise e
 
     @classmethod
-    def get_client_advances(cls, owner_uid, sandbox=True, client_id=None, status=None, project_id=None, quotation_id=None):
+    def get_client_advances(cls, owner_uid, sandbox=True, client_id=None, status=None, project_id=None, quotation_id=None, company_id=None):
         advances = []
         if firebase_initialized:
             try:
                 coll_name = "sandbox_client_advances" if sandbox else "client_advances"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).get()
                 for doc in docs:
                     data = doc.to_dict()
                     if data.get("isDeleted"):
@@ -3142,12 +3411,12 @@ class DatabaseService:
         return advances
 
     @classmethod
-    def get_client_advance(cls, owner_uid, advance_id, sandbox=True):
+    def get_client_advance(cls, owner_uid, advance_id, sandbox=True, company_id=None):
         if not firebase_initialized:
             return None
         try:
             coll_name = "sandbox_client_advances" if sandbox else "client_advances"
-            doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(advance_id).get()
+            doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(advance_id).get()
             if doc.exists:
                 data = doc.to_dict()
                 data["id"] = doc.id
@@ -3159,12 +3428,12 @@ class DatabaseService:
         return None
 
     @classmethod
-    def delete_client_advance(cls, owner_uid, advance_id, sandbox=True):
+    def delete_client_advance(cls, owner_uid, advance_id, sandbox=True, company_id=None):
         if not firebase_initialized:
             return None
         try:
             coll_name = "sandbox_client_advances" if sandbox else "client_advances"
-            advance = cls.get_client_advance(owner_uid, advance_id, sandbox=sandbox)
+            advance = cls.get_client_advance(owner_uid, advance_id, sandbox=sandbox, company_id=company_id)
             if not advance:
                 return None
             advance["isDeleted"] = True
@@ -3172,7 +3441,7 @@ class DatabaseService:
             advance["updatedAt"] = serialize_field(datetime.now(timezone.utc).isoformat())
             if advance.get("bankAccountId"):
                 try:
-                    bank_acc = cls.get_bank_account(owner_uid, advance["bankAccountId"], sandbox=sandbox)
+                    bank_acc = cls.get_bank_account(owner_uid, advance["bankAccountId"], sandbox=sandbox, company_id=company_id)
                     if bank_acc:
                         new_balance = bank_acc["currentBalance"] - advance["amount"]
                         cls.save_bank_account(owner_uid, advance["bankAccountId"], {
@@ -3181,7 +3450,7 @@ class DatabaseService:
                         }, sandbox=sandbox)
                 except Exception as bank_err:
                     print(f"⚠️ Error al revertir saldo de cuenta bancaria: {bank_err}")
-            db_firestore.collection("users").document(owner_uid).collection(coll_name).document(advance_id).set(advance)
+            _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(advance_id).set(advance)
             _invalidate_client_advances(owner_uid)
             return advance
         except Exception as e:
@@ -3189,19 +3458,19 @@ class DatabaseService:
             raise e
 
     @classmethod
-    def get_client_advance_balance(cls, owner_uid, client_id, sandbox=True, project_id=None):
-        advances = cls.get_client_advances(owner_uid, sandbox=sandbox, client_id=client_id, status="Activo", project_id=project_id)
+    def get_client_advance_balance(cls, owner_uid, client_id, sandbox=True, project_id=None, company_id=None):
+        advances = cls.get_client_advances(owner_uid, sandbox=sandbox, client_id=client_id, status="Activo", project_id=project_id, company_id=company_id)
         return sum(a.get("amount", 0.0) for a in advances)
 
     @classmethod
-    def apply_client_advances_to_invoice(cls, owner_uid, invoice_id, advance_ids, sandbox=True):
-        invoice = cls.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    def apply_client_advances_to_invoice(cls, owner_uid, invoice_id, advance_ids, sandbox=True, company_id=None):
+        invoice = cls.get_invoice(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id)
         if not invoice:
             raise ValueError("Factura no encontrada.")
         applied_total = 0.0
         applied_list = []
         for aid in advance_ids:
-            advance = cls.get_client_advance(owner_uid, aid, sandbox=sandbox)
+            advance = cls.get_client_advance(owner_uid, aid, sandbox=sandbox, company_id=company_id)
             if not advance or advance.get("status") != "Activo":
                 continue
             amt = advance["amount"]
@@ -3211,13 +3480,13 @@ class DatabaseService:
             advance["appliedAmount"] = amt
             advance["appliedAt"] = datetime.now(timezone.utc).isoformat()
             advance["updatedAt"] = serialize_field(datetime.now(timezone.utc).isoformat())
-            cls.save_client_advance(owner_uid, aid, advance, sandbox=sandbox)
+            cls.save_client_advance(owner_uid, aid, advance, sandbox=sandbox, company_id=company_id)
             applied_total += amt
             applied_list.append({"advanceId": aid, "amount": amt, "clientId": advance.get("clientId", ""), "clientName": advance.get("clientName", "")})
         net_payable = float(invoice.get("netPayable", float(invoice.get("total", 0))))
         existing_applied = invoice.get("appliedAdvances", [])
         net_payable = max(0.0, net_payable - applied_total)
-        inv_ref = db_firestore.collection("users").document(owner_uid).collection("sandbox_invoices" if sandbox else "invoices").document(invoice_id)
+        inv_ref = _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name="sandbox_invoices" if sandbox else "invoices").document(invoice_id)
         inv_ref.update({
             "appliedAdvances": existing_applied + applied_list,
             "netPayable": net_payable,
@@ -3231,12 +3500,12 @@ class DatabaseService:
     # =========================================================================
 
     @classmethod
-    def get_expense(cls, owner_uid, expense_id, sandbox=True):
+    def get_expense(cls, owner_uid, expense_id, sandbox=True, company_id=None):
         """Retorna un gasto específico por ID."""
         if firebase_initialized:
             try:
                 coll_name = "sandbox_expenses" if sandbox else "expenses"
-                doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(expense_id).get()
+                doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(expense_id).get()
                 if doc.exists:
                     data = doc.to_dict()
                     data["id"] = doc.id
@@ -3293,10 +3562,10 @@ class DatabaseService:
         return None
 
     @classmethod
-    def get_expenses(cls, owner_uid, sandbox=True, branch_id=None, project_id=None):
+    def get_expenses(cls, owner_uid, sandbox=True, branch_id=None, project_id=None, company_id=None):
         """Retorna la lista de gastos desde Firestore (con caché), filtrados por sucursal y/o proyecto."""
         import copy
-        expenses = copy.deepcopy(_cached_expenses(owner_uid, sandbox))
+        expenses = copy.deepcopy(_cached_expenses(owner_uid, sandbox, company_id=company_id))
         if branch_id:
             expenses = [e for e in expenses if e.get("branchId") == branch_id]
         if project_id == '__no_project__':
@@ -3306,7 +3575,7 @@ class DatabaseService:
         return expenses
 
     @classmethod
-    def save_expense(cls, owner_uid, expense_id, exp_dict, sandbox=True):
+    def save_expense(cls, owner_uid, expense_id, exp_dict, sandbox=True, company_id=None):
         """Guarda o actualiza un gasto en Firestore."""
         exp_dict["id"] = expense_id
         exp_dict["ownerUID"] = owner_uid
@@ -3425,7 +3694,7 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_expenses" if sandbox else "expenses"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(expense_id).set(exp_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(expense_id).set(exp_dict)
                 _invalidate_expenses(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al respaldar gasto en Firestore: {e}")
@@ -3435,13 +3704,13 @@ class DatabaseService:
         return exp_dict
 
     @classmethod
-    def save_cxp_payment(cls, owner_uid, expense_id, payment_amount, registered_by="Usuario", bank_account_id=None, sandbox=True):
+    def save_cxp_payment(cls, owner_uid, expense_id, payment_amount, registered_by="Usuario", bank_account_id=None, sandbox=True, company_id=None):
         """Registra un abono/pago a una cuenta por pagar (gasto a crédito)."""
         if not firebase_initialized:
             return False, "Firebase no inicializado."
         try:
             coll_name = "sandbox_expenses" if sandbox else "expenses"
-            doc_ref = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(expense_id)
+            doc_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(expense_id)
             doc = doc_ref.get()
             if not doc.exists:
                 return False, "Gasto/Factura no encontrado."
@@ -3477,13 +3746,13 @@ class DatabaseService:
             return False, str(e)
             
     @classmethod
-    def get_cxp_payments(cls, owner_uid, expense_id, sandbox=True):
+    def get_cxp_payments(cls, owner_uid, expense_id, sandbox=True, company_id=None):
         """Retorna todos los abonos realizados a una cuenta por pagar."""
         payments = []
         if firebase_initialized:
             try:
                 coll_name = "sandbox_expenses" if sandbox else "expenses"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(expense_id).collection("cxp_payments").get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(expense_id).collection("cxp_payments").get()
                 for doc in docs:
                     data = doc.to_dict()
                     payments.append({
@@ -3499,12 +3768,12 @@ class DatabaseService:
         return payments
 
     @classmethod
-    def delete_expense(cls, owner_uid, expense_id, sandbox=True):
+    def delete_expense(cls, owner_uid, expense_id, sandbox=True, company_id=None):
         """Elimina un gasto en Firestore."""
         if firebase_initialized:
             try:
                 coll_name = "sandbox_expenses" if sandbox else "expenses"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(expense_id).delete()
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(expense_id).delete()
                 _invalidate_expenses(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al borrar gasto de Firestore: {e}")
@@ -3515,7 +3784,7 @@ class DatabaseService:
 
 
     @classmethod
-    def get_storage_usage_mb(cls, owner_uid):
+    def get_storage_usage_mb(cls, owner_uid, company_id=None):
         """Calcula el espacio consumido por la empresa en Firebase Storage en MB.
         Cacheado por 1 hora para reducir costos de list_blobs()."""
         import time
@@ -3532,6 +3801,11 @@ class DatabaseService:
             blobs = firebase_storage_bucket.list_blobs(prefix=f"users/{owner_uid}/")
             for blob in blobs:
                 total_bytes += blob.size or 0
+            company_id = _resolve_company_id(owner_uid)
+            if company_id:
+                company_blobs = firebase_storage_bucket.list_blobs(prefix=f"companies/{company_id}/")
+                for blob in company_blobs:
+                    total_bytes += blob.size or 0
             result = round(total_bytes / (1024 * 1024), 2)
             _storage_usage_cache[owner_uid] = {"ts": time.time(), "value": result}
             return result
@@ -3599,13 +3873,14 @@ class DatabaseService:
     # =========================================================================
 
     @classmethod
-    def get_warehouses(cls, owner_uid, sandbox=True):
+    def get_warehouses(cls, owner_uid, company_id="", sandbox=True):
         """Retorna la lista de almacenes del owner."""
+        owner_uid = _resolve_owner_uid(company_id) or owner_uid
         warehouses = []
         if firebase_initialized:
             try:
                 coll_name = "sandbox_warehouses" if sandbox else "warehouses"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).get()
                 for doc in docs:
                     data = doc.to_dict()
                     warehouses.append({
@@ -3629,7 +3904,7 @@ class DatabaseService:
                         "branchId": "default-sucursal-principal",
                         "createdAt": datetime.now(timezone.utc).isoformat()
                     }
-                    cls.save_warehouse(owner_uid, default_id, default_wh, sandbox=sandbox)
+                    cls.save_warehouse(owner_uid, default_id, default_wh, sandbox=sandbox, company_id=company_id)
                     warehouses.append(default_wh)
                 else:
                     warehouses.sort(key=lambda x: x["name"].lower())
@@ -3638,8 +3913,9 @@ class DatabaseService:
         return warehouses
 
     @classmethod
-    def save_warehouse(cls, owner_uid, warehouse_id, wh_dict, sandbox=True):
+    def save_warehouse(cls, owner_uid, warehouse_id, wh_dict, company_id="", sandbox=True):
         """Guarda o actualiza un almacén físico en Firestore."""
+        owner_uid = _resolve_owner_uid(company_id) or owner_uid
         wh_dict["id"] = warehouse_id
         wh_dict["ownerUID"] = owner_uid
         wh_dict["branchId"] = wh_dict.get("branchId", "default-sucursal-principal")
@@ -3651,29 +3927,31 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_warehouses" if sandbox else "warehouses"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(warehouse_id).set(wh_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(warehouse_id).set(wh_dict)
             except Exception as e:
                 print(f"⚠️ Fallo al guardar almacén en Firestore: {e}")
         return wh_dict
 
     @classmethod
-    def delete_warehouse(cls, owner_uid, warehouse_id, sandbox=True):
+    def delete_warehouse(cls, owner_uid, warehouse_id, company_id="", sandbox=True):
         """Elimina un almacén en Firestore."""
+        owner_uid = _resolve_owner_uid(company_id) or owner_uid
         if firebase_initialized:
             try:
                 coll_name = "sandbox_warehouses" if sandbox else "warehouses"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(warehouse_id).delete()
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(warehouse_id).delete()
             except Exception as e:
                 print(f"⚠️ Fallo al borrar almacén de Firestore: {e}")
 
     @classmethod
-    def get_inventory_stock(cls, owner_uid, sandbox=True):
+    def get_inventory_stock(cls, owner_uid, company_id="", sandbox=True):
         """Retorna la lista de existencias por almacén en Firestore."""
+        owner_uid = _resolve_owner_uid(company_id) or owner_uid
         stocks = []
         if firebase_initialized:
             try:
                 coll_name = "sandbox_inventory_stock" if sandbox else "inventory_stock"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).get()
                 for doc in docs:
                     data = doc.to_dict()
                     stocks.append({
@@ -3688,13 +3966,13 @@ class DatabaseService:
         return stocks
 
     @classmethod
-    def get_inventory_transactions(cls, owner_uid, sandbox=True):
+    def get_inventory_transactions(cls, owner_uid, sandbox=True, company_id=None):
         """Retorna el listado histórico de movimientos de inventario."""
         txs = []
         if firebase_initialized:
             try:
                 coll_name = "sandbox_inventory_transactions" if sandbox else "inventory_transactions"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).get()
                 for doc in docs:
                     data = doc.to_dict()
                     txs.append({
@@ -3721,7 +3999,7 @@ class DatabaseService:
         return txs
 
     @classmethod
-    def register_inventory_transaction(cls, owner_uid, tx_dict, sandbox=True):
+    def register_inventory_transaction(cls, owner_uid, tx_dict, sandbox=True, company_id=None):
         """
         Registra un movimiento físico de inventario y actualiza las existencias.
         IMPORTANTE: Todas las lecturas se hacen ANTES de cualquier escritura dentro
@@ -3745,7 +4023,7 @@ class DatabaseService:
         tx_type = tx_dict["type"]
         qty = float(tx_dict["quantity"])
 
-        whs = cls.get_warehouses(owner_uid, sandbox=sandbox)
+        whs = cls.get_warehouses(owner_uid, sandbox=sandbox, company_id=company_id)
         wh_map = {w["id"]: w.get("branchId", "default-sucursal-principal") for w in whs}
 
         if tx_dict.get("originWarehouseId"):
@@ -3849,7 +4127,7 @@ class DatabaseService:
         return None
 
     @classmethod
-    def generate_api_key(cls, owner_uid):
+    def generate_api_key(cls, owner_uid, company_id=None):
         """Genera una nueva API Key única y la guarda hasheada en api_keys y en su perfil."""
         if not firebase_initialized:
             return None
@@ -3862,7 +4140,7 @@ class DatabaseService:
                 "createdAt": datetime.now(timezone.utc).isoformat()
             })
 
-            company_profile = cls.get_company_profile(owner_uid)
+            company_profile = cls.get_company_profile(owner_uid, company_id=company_id)
 
             old_key = company_profile.get("apiKey")
             if old_key:
@@ -3873,7 +4151,7 @@ class DatabaseService:
                     pass
 
             company_profile["apiKey"] = new_key
-            cls.save_company_profile(owner_uid, company_profile)
+            cls.save_company_profile(owner_uid, company_profile, company_id=company_id)
             return new_key
         except Exception as e:
             print(f"⚠️ Error al generar API Key: {e}")
@@ -3884,13 +4162,13 @@ class DatabaseService:
     # =========================================================================
 
     @classmethod
-    def get_idempotency_record(cls, owner_uid, key, sandbox=True):
+    def get_idempotency_record(cls, owner_uid, key, sandbox=True, company_id=None):
         """Obtiene un registro de idempotencia por key."""
         if not firebase_initialized:
             return None
         try:
             coll_name = "sandbox_idempotency_keys" if sandbox else "idempotency_keys"
-            doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(key).get()
+            doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(key).get()
             if doc.exists:
                 return doc.to_dict()
         except Exception as e:
@@ -3898,14 +4176,14 @@ class DatabaseService:
         return None
 
     @classmethod
-    def save_idempotency_record(cls, owner_uid, key, payload, sandbox=True):
+    def save_idempotency_record(cls, owner_uid, key, payload, sandbox=True, company_id=None):
         """Guarda un registro de idempotencia por key con expiración a 24h."""
         if not firebase_initialized:
             return False
         try:
             coll_name = "sandbox_idempotency_keys" if sandbox else "idempotency_keys"
             now = datetime.now(timezone.utc)
-            db_firestore.collection("users").document(owner_uid).collection(coll_name).document(key).set({
+            _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(key).set({
                 "id": key,
                 **payload,
                 "createdAt": now.isoformat(),
@@ -3946,7 +4224,7 @@ class DatabaseService:
             print(f"⚠️ Error en cleanup_expired_idempotency_keys: {e}")
 
     @classmethod
-    def get_invoice_stats(cls, owner_uid, billing_day=1):
+    def get_invoice_stats(cls, owner_uid, billing_day=1, company_id=None):
         """Calcula estadísticas de facturas emitidas en producción y sandbox para el ciclo actual."""
         if not firebase_initialized:
             return {
@@ -4016,7 +4294,7 @@ class DatabaseService:
 
         # Contar facturas de producción (excluyendo cotizaciones y borradores) — usando caché
         try:
-            prod_invoices = _cached_invoices(owner_uid, sandbox=False, quotations_only=False, include_all=False)
+            prod_invoices = _cached_invoices(owner_uid, sandbox=False, quotations_only=False, include_all=False, company_id=company_id)
             for inv in prod_invoices:
                 stats['prod_total'] += 1
                 doc_date = parse_date(inv.get('date') or inv.get('createdAt'))
@@ -4027,7 +4305,7 @@ class DatabaseService:
             
         # Contar facturas de sandbox (excluyendo cotizaciones y borradores) — usando caché
         try:
-            sandbox_invoices = _cached_invoices(owner_uid, sandbox=True, quotations_only=False, include_all=False)
+            sandbox_invoices = _cached_invoices(owner_uid, sandbox=True, quotations_only=False, include_all=False, company_id=company_id)
             for inv in sandbox_invoices:
                 stats['sandbox_total'] += 1
                 doc_date = parse_date(inv.get('date') or inv.get('createdAt'))
@@ -4057,7 +4335,7 @@ class DatabaseService:
 
     @classmethod
     def get_billing_history(cls, owner_uid, billing_day=1, monthly_payment=0, additional_document_cost=0, document_limit=0, created_at=None,
-                             previous_monthly_payment=None, previous_additional_document_cost=None, previous_document_limit=None, plan_change_date=None):
+                             previous_monthly_payment=None, previous_additional_document_cost=None, previous_document_limit=None, plan_change_date=None, company_id=None):
         """
         Genera el historial de ciclos de facturación, consumo y pagos de los últimos 6 meses.
         Si plan_change_date está dentro de un ciclo, prorratea la cuota mensual.
@@ -4067,7 +4345,7 @@ class DatabaseService:
             return []
             
         history = []
-        payments_list = cls.get_payments(owner_uid)
+        payments_list = cls.get_payments(company_id)
         
         # Obtener todas las facturas de producción (excluyendo cotizaciones y borradores)
         invoices = []
@@ -4234,13 +4512,13 @@ class DatabaseService:
     # =========================================================================
 
     @classmethod
-    def get_notes(cls, owner_uid, user_uid, sandbox=True):
+    def get_notes(cls, owner_uid, user_uid, sandbox=True, company_id=None):
         """Retorna la lista de notas (compartidas + privadas del usuario)."""
         notes = []
         if firebase_initialized:
             try:
                 coll_name = "sandbox_notes" if sandbox else "notes"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).get()
                 for doc in docs:
                     data = doc.to_dict()
                     visibility = data.get("visibility", "shared")
@@ -4271,7 +4549,7 @@ class DatabaseService:
         return notes
 
     @classmethod
-    def save_note(cls, owner_uid, note_id, note_dict, sandbox=True):
+    def save_note(cls, owner_uid, note_id, note_dict, sandbox=True, company_id=None):
         """Guarda o actualiza una nota en Firestore."""
         note_dict["id"] = note_id
         note_dict["ownerUID"] = owner_uid
@@ -4295,14 +4573,14 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_notes" if sandbox else "notes"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(note_id).set(note_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(note_id).set(note_dict)
             except Exception as e:
                 print(f"⚠️ Fallo al guardar nota en Firestore: {e}")
 
         return note_dict
 
     @classmethod
-    def update_note_status(cls, owner_uid, note_id, status, sandbox=True):
+    def update_note_status(cls, owner_uid, note_id, status, sandbox=True, company_id=None):
         """Actualiza solo el estado de una nota. Si es 'done', registra completedAt."""
         if firebase_initialized:
             try:
@@ -4312,12 +4590,12 @@ class DatabaseService:
                     update_data["completedAt"] = serialize_field(datetime.now(timezone.utc).isoformat())
                 else:
                     update_data["completedAt"] = None
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(note_id).update(update_data)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(note_id).update(update_data)
             except Exception as e:
                 print(f"⚠️ Fallo al actualizar estado de nota en Firestore: {e}")
 
     @classmethod
-    def update_note(cls, owner_uid, note_id, update_dict, sandbox=True):
+    def update_note(cls, owner_uid, note_id, update_dict, sandbox=True, company_id=None):
         """Actualiza campos específicos de una nota."""
         if firebase_initialized:
             try:
@@ -4333,17 +4611,17 @@ class DatabaseService:
                 clean["updatedAt"] = serialize_field(datetime.now(timezone.utc).isoformat())
                 if clean:
                     coll_name = "sandbox_notes" if sandbox else "notes"
-                    db_firestore.collection("users").document(owner_uid).collection(coll_name).document(note_id).update(clean)
+                    _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(note_id).update(clean)
             except Exception as e:
                 print(f"⚠️ Fallo al actualizar nota en Firestore: {e}")
 
     @classmethod
-    def delete_note(cls, owner_uid, note_id, sandbox=True):
+    def delete_note(cls, owner_uid, note_id, sandbox=True, company_id=None):
         """Elimina una nota en Firestore."""
         if firebase_initialized:
             try:
                 coll_name = "sandbox_notes" if sandbox else "notes"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(note_id).delete()
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(note_id).delete()
             except Exception as e:
                 print(f"⚠️ Fallo al borrar nota de Firestore: {e}")
 
@@ -4352,13 +4630,13 @@ class DatabaseService:
     # =========================================================================
 
     @classmethod
-    def get_cash_registers(cls, owner_uid, sandbox=True, branch_id=None, project_id=None):
+    def get_cash_registers(cls, owner_uid, sandbox=True, branch_id=None, project_id=None, company_id=None):
         """Retorna la lista de cajas registradoras de la empresa."""
         registers = []
         if firebase_initialized:
             try:
                 coll_name = "sandbox_cash_registers" if sandbox else "cash_registers"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).get()
                 for doc in docs:
                     data = doc.to_dict()
                     registers.append({
@@ -4382,7 +4660,7 @@ class DatabaseService:
                         "projectId": None,
                         "createdAt": datetime.now(timezone.utc).isoformat()
                     }
-                    cls.save_cash_register(owner_uid, default_id, default_reg, sandbox=sandbox)
+                    cls.save_cash_register(owner_uid, default_id, default_reg, sandbox=sandbox, company_id=company_id)
                     registers.append(default_reg)
                 else:
                     registers.sort(key=lambda x: x["name"].lower())
@@ -4397,7 +4675,7 @@ class DatabaseService:
         return registers
 
     @classmethod
-    def save_cash_register(cls, owner_uid, register_id, reg_dict, sandbox=True):
+    def save_cash_register(cls, owner_uid, register_id, reg_dict, sandbox=True, company_id=None):
         """Guarda o actualiza una caja registradora en Firestore."""
         reg_dict["id"] = register_id
         reg_dict["ownerUID"] = owner_uid
@@ -4413,20 +4691,20 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_cash_registers" if sandbox else "cash_registers"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(register_id).set(reg_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(register_id).set(reg_dict)
             except Exception as e:
                 print(f"⚠️ Fallo al guardar caja registradora en Firestore: {e}")
         return reg_dict
 
 
     @classmethod
-    def get_cash_shifts(cls, owner_uid, sandbox=True):
+    def get_cash_shifts(cls, owner_uid, sandbox=True, company_id=None):
         """Retorna el listado completo de turnos de caja registrados."""
         shifts = []
         if firebase_initialized:
             try:
                 coll_name = "sandbox_cash_shifts" if sandbox else "cash_shifts"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).get()
                 for doc in docs:
                     data = doc.to_dict()
                     shift_item = {
@@ -4456,12 +4734,12 @@ class DatabaseService:
         return shifts
 
     @classmethod
-    def get_open_shift(cls, owner_uid, user_uid, sandbox=True):
+    def get_open_shift(cls, owner_uid, user_uid, sandbox=True, company_id=None):
         """Retorna el turno de caja abierto del usuario actual (si existe)."""
         if firebase_initialized:
             try:
                 coll_name = "sandbox_cash_shifts" if sandbox else "cash_shifts"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name)\
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name)\
                     .where(filter=firestore.FieldFilter("openedByUserId", "==", user_uid))\
                     .where(filter=firestore.FieldFilter("status", "in", ["OPEN", "CLOSING", "REOPENED"])).limit(1).get()
                 for doc in docs:
@@ -4479,7 +4757,7 @@ class DatabaseService:
         return None
 
     @classmethod
-    def open_cash_shift(cls, owner_uid, shift_dict, sandbox=True):
+    def open_cash_shift(cls, owner_uid, shift_dict, sandbox=True, company_id=None):
         """Abre un nuevo turno de caja registradora."""
         shift_id = shift_dict.get("id") or str(uuid.uuid4())
         shift_dict["id"] = shift_id
@@ -4491,11 +4769,11 @@ class DatabaseService:
             try:
                 # 1. Guardar turno de caja
                 coll_shifts = "sandbox_cash_shifts" if sandbox else "cash_shifts"
-                db_firestore.collection("users").document(owner_uid).collection(coll_shifts).document(shift_id).set(shift_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_shifts).document(shift_id).set(shift_dict)
                 
                 # 2. Actualizar estado de la caja registradora a OPEN
                 coll_regs = "sandbox_cash_registers" if sandbox else "cash_registers"
-                db_firestore.collection("users").document(owner_uid).collection(coll_regs).document(shift_dict["registerId"]).update({
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_regs).document(shift_dict["registerId"]).update({
                     "status": "OPEN"
                 })
             except Exception as e:
@@ -4504,7 +4782,7 @@ class DatabaseService:
         return shift_dict
 
     @classmethod
-    def close_cash_shift(cls, owner_uid, shift_id, declared_amount, sandbox=True, status="CLOSED", supervisor_uid=None, supervisor_email=None, declared_data=None):
+    def close_cash_shift(cls, owner_uid, shift_id, declared_amount, sandbox=True, status="CLOSED", supervisor_uid=None, supervisor_email=None, declared_data=None, company_id=None):
         """Cierra el turno de caja especificado y calcula descuadres."""
         if not firebase_initialized:
             return None
@@ -4515,7 +4793,7 @@ class DatabaseService:
             coll_invoices = "sandbox_invoices" if sandbox else "invoices"
 
             # 1. Obtener datos del turno actual
-            shift_ref = db_firestore.collection("users").document(owner_uid).collection(coll_shifts).document(shift_id)
+            shift_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_shifts).document(shift_id)
             shift_doc = shift_ref.get()
             if not shift_doc.exists:
                 return None
@@ -4525,7 +4803,7 @@ class DatabaseService:
             register_id = shift_data.get("registerId")
 
             # 2. Calcular esperado por método de pago
-            tx_docs = db_firestore.collection("users").document(owner_uid).collection(coll_txs)\
+            tx_docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_txs)\
                 .where(filter=firestore.FieldFilter("shiftId", "==", shift_id)).get()
             
             expected_cash = opening_amount
@@ -4578,7 +4856,7 @@ class DatabaseService:
             diff_usd = float(declared_data.get("declaredUSD", 0.0)) - expected_usd
 
             # 3. Consultar facturas para generar resumen fiscal (e-CF)
-            inv_docs = db_firestore.collection("users").document(owner_uid).collection(coll_invoices)\
+            inv_docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_invoices)\
                 .where(filter=firestore.FieldFilter("posShiftId", "==", shift_id)).get()
             
             fiscal_summary = {
@@ -4657,7 +4935,7 @@ class DatabaseService:
             shift_ref.update(update_data)
 
             # 5. Cambiar estado de la caja registradora física a CLOSED
-            db_firestore.collection("users").document(owner_uid).collection(coll_regs).document(register_id).update({
+            _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_regs).document(register_id).update({
                 "status": "CLOSED"
             })
 
@@ -4670,13 +4948,13 @@ class DatabaseService:
             return None
 
     @classmethod
-    def audit_cash_shift(cls, owner_uid, shift_id, audited_amount, supervisor_uid, supervisor_email, notes="", resolution_type=None, sandbox=True):
+    def audit_cash_shift(cls, owner_uid, shift_id, audited_amount, supervisor_uid, supervisor_email, notes="", resolution_type=None, sandbox=True, company_id=None):
         """Audita y finaliza un turno de caja que estaba en PENDING_AUDIT."""
         if not firebase_initialized:
             return None
         try:
             coll_shifts = "sandbox_cash_shifts" if sandbox else "cash_shifts"
-            shift_ref = db_firestore.collection("users").document(owner_uid).collection(coll_shifts).document(shift_id)
+            shift_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_shifts).document(shift_id)
             shift_doc = shift_ref.get()
             if not shift_doc.exists:
                 return None
@@ -4702,12 +4980,12 @@ class DatabaseService:
             return None
 
     @classmethod
-    def initiate_close_cash_shift(cls, owner_uid, shift_id, sandbox=True):
+    def initiate_close_cash_shift(cls, owner_uid, shift_id, sandbox=True, company_id=None):
         """Cambia el estado de un turno a CLOSING mientras se realiza el arqueo."""
         if not firebase_initialized: return False
         try:
             coll_shifts = "sandbox_cash_shifts" if sandbox else "cash_shifts"
-            shift_ref = db_firestore.collection("users").document(owner_uid).collection(coll_shifts).document(shift_id)
+            shift_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_shifts).document(shift_id)
             shift_ref.update({"status": "CLOSING"})
             return True
         except Exception as e:
@@ -4715,12 +4993,12 @@ class DatabaseService:
             return False
 
     @classmethod
-    def take_control_shift(cls, owner_uid, shift_id, supervisor_uid, supervisor_name, reason, comments, sandbox=True):
+    def take_control_shift(cls, owner_uid, shift_id, supervisor_uid, supervisor_name, reason, comments, sandbox=True, company_id=None):
         """Transfiere el control del turno al supervisor bloqueando al cajero actual."""
         if not firebase_initialized: return False
         try:
             coll_shifts = "sandbox_cash_shifts" if sandbox else "cash_shifts"
-            shift_ref = db_firestore.collection("users").document(owner_uid).collection(coll_shifts).document(shift_id)
+            shift_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_shifts).document(shift_id)
             doc = shift_ref.get()
             if not doc.exists: return False
             shift_data = doc.to_dict()
@@ -4744,13 +5022,13 @@ class DatabaseService:
             return False
 
     @classmethod
-    def force_close_shift(cls, owner_uid, shift_id, supervisor_uid, supervisor_name, reason, comments, sandbox=True):
+    def force_close_shift(cls, owner_uid, shift_id, supervisor_uid, supervisor_name, reason, comments, sandbox=True, company_id=None):
         """Cierra administrativamente un turno (ej. fallo eléctrico)."""
         if not firebase_initialized: return False
         try:
             coll_shifts = "sandbox_cash_shifts" if sandbox else "cash_shifts"
             coll_regs = "sandbox_cash_registers" if sandbox else "cash_registers"
-            shift_ref = db_firestore.collection("users").document(owner_uid).collection(coll_shifts).document(shift_id)
+            shift_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_shifts).document(shift_id)
             doc = shift_ref.get()
             if not doc.exists: return False
             shift_data = doc.to_dict()
@@ -4766,7 +5044,7 @@ class DatabaseService:
             
             # Liberar la caja
             register_id = shift_data.get("registerId")
-            db_firestore.collection("users").document(owner_uid).collection(coll_regs).document(register_id).update({
+            _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_regs).document(register_id).update({
                 "status": "CLOSED"
             })
             return True
@@ -4775,14 +5053,14 @@ class DatabaseService:
             return False
 
     @classmethod
-    def close_shift_under_review(cls, owner_uid, shift_id, supervisor_uid, supervisor_name, reason, comments, declared_amount=0.0, sandbox=True):
+    def close_shift_under_review(cls, owner_uid, shift_id, supervisor_uid, supervisor_name, reason, comments, declared_amount=0.0, sandbox=True, company_id=None):
         """Cierra el turno bajo investigación (diferencias graves)."""
         # Aprovechamos el close_cash_shift normal pero le forzamos el estado a CLOSED_UNDER_REVIEW
-        res = cls.close_cash_shift(owner_uid, shift_id, declared_amount, sandbox=sandbox, status="CLOSED_UNDER_REVIEW", supervisor_uid=supervisor_uid, supervisor_email=supervisor_name)
+        res = cls.close_cash_shift(owner_uid, shift_id, declared_amount, sandbox=sandbox, status="CLOSED_UNDER_REVIEW", supervisor_uid=supervisor_uid, supervisor_email=supervisor_name, company_id=company_id)
         if res:
             try:
                 coll_shifts = "sandbox_cash_shifts" if sandbox else "cash_shifts"
-                shift_ref = db_firestore.collection("users").document(owner_uid).collection(coll_shifts).document(shift_id)
+                shift_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_shifts).document(shift_id)
                 shift_ref.update({
                     "underReviewReason": reason,
                     "underReviewComments": comments
@@ -4792,13 +5070,13 @@ class DatabaseService:
         return res
 
     @classmethod
-    def reopen_shift(cls, owner_uid, shift_id, supervisor_uid, supervisor_name, reason, comments, sandbox=True):
+    def reopen_shift(cls, owner_uid, shift_id, supervisor_uid, supervisor_name, reason, comments, sandbox=True, company_id=None):
         """Reabre un turno (solo del mismo día y no auditado)."""
         if not firebase_initialized: return False
         try:
             coll_shifts = "sandbox_cash_shifts" if sandbox else "cash_shifts"
             coll_regs = "sandbox_cash_registers" if sandbox else "cash_registers"
-            shift_ref = db_firestore.collection("users").document(owner_uid).collection(coll_shifts).document(shift_id)
+            shift_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_shifts).document(shift_id)
             doc = shift_ref.get()
             if not doc.exists: return False
             shift_data = doc.to_dict()
@@ -4829,7 +5107,7 @@ class DatabaseService:
             
             # Ocupar la caja
             register_id = shift_data.get("registerId")
-            db_firestore.collection("users").document(owner_uid).collection(coll_regs).document(register_id).update({
+            _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_regs).document(register_id).update({
                 "status": "OPEN"
             })
             
@@ -4839,12 +5117,12 @@ class DatabaseService:
             return False
 
     @classmethod
-    def transfer_shift(cls, owner_uid, shift_id, supervisor_uid, supervisor_name, new_cashier_uid, new_cashier_email, reason, comments, sandbox=True):
+    def transfer_shift(cls, owner_uid, shift_id, supervisor_uid, supervisor_name, new_cashier_uid, new_cashier_email, reason, comments, sandbox=True, company_id=None):
         """Transfiere un turno de un cajero a otro."""
         if not firebase_initialized: return False
         try:
             coll_shifts = "sandbox_cash_shifts" if sandbox else "cash_shifts"
-            shift_ref = db_firestore.collection("users").document(owner_uid).collection(coll_shifts).document(shift_id)
+            shift_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_shifts).document(shift_id)
             doc = shift_ref.get()
             if not doc.exists: return False
             shift_data = doc.to_dict()
@@ -4867,12 +5145,12 @@ class DatabaseService:
             return False
 
     @classmethod
-    def log_shift_incident(cls, owner_uid, shift_id, supervisor_uid, supervisor_name, reason, comments, sandbox=True):
+    def log_shift_incident(cls, owner_uid, shift_id, supervisor_uid, supervisor_name, reason, comments, sandbox=True, company_id=None):
         """Registra una incidencia en el turno sin cerrarlo."""
         if not firebase_initialized: return False
         try:
             coll_shifts = "sandbox_cash_shifts" if sandbox else "cash_shifts"
-            shift_ref = db_firestore.collection("users").document(owner_uid).collection(coll_shifts).document(shift_id)
+            shift_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_shifts).document(shift_id)
             
             # Podemos agregarlo como un arreglo de incidencias
             incident = {
@@ -4891,12 +5169,12 @@ class DatabaseService:
             return False
 
     @classmethod
-    def authorize_shift_extension(cls, owner_uid, shift_id, supervisor_uid, supervisor_name, reason, comments, sandbox=True):
+    def authorize_shift_extension(cls, owner_uid, shift_id, supervisor_uid, supervisor_name, reason, comments, sandbox=True, company_id=None):
         """Autoriza extender un turno de caja."""
         if not firebase_initialized: return False
         try:
             coll_shifts = "sandbox_cash_shifts" if sandbox else "cash_shifts"
-            shift_ref = db_firestore.collection("users").document(owner_uid).collection(coll_shifts).document(shift_id)
+            shift_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_shifts).document(shift_id)
             
             update_data = {
                 "extensionAuthorizedBy": supervisor_uid,
@@ -4911,13 +5189,13 @@ class DatabaseService:
             return False
 
     @classmethod
-    def get_cash_transactions(cls, owner_uid, shift_id, sandbox=True):
+    def get_cash_transactions(cls, owner_uid, shift_id, sandbox=True, company_id=None):
         """Retorna las transacciones asociadas a un turno de caja."""
         txs = []
         if firebase_initialized:
             try:
                 coll_name = "sandbox_cash_transactions" if sandbox else "cash_transactions"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name)\
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name)\
                     .where(filter=firestore.FieldFilter("shiftId", "==", shift_id)).get()
                 for doc in docs:
                     data = doc.to_dict()
@@ -4938,7 +5216,7 @@ class DatabaseService:
         return txs
 
     @classmethod
-    def register_cash_transaction(cls, owner_uid, tx_dict, sandbox=True):
+    def register_cash_transaction(cls, owner_uid, tx_dict, sandbox=True, company_id=None):
         """Registra una transacción manual o de venta en la caja registradora."""
         tx_id = tx_dict.get("id") or str(uuid.uuid4())
         tx_dict["id"] = tx_id
@@ -4951,21 +5229,21 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_cash_transactions" if sandbox else "cash_transactions"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(tx_id).set(tx_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(tx_id).set(tx_dict)
             except Exception as e:
                 print(f"⚠️ Fallo al registrar transacción de caja: {e}")
                 return None
         return tx_dict
 
     @classmethod
-    def get_pending_consolidation_invoices(cls, owner_uid, shift_id, sandbox=True):
+    def get_pending_consolidation_invoices(cls, owner_uid, shift_id, sandbox=True, company_id=None):
         """Retorna todas las facturas con status PENDING_CONSOLIDATION del turno indicado."""
         invoices = []
         if not firebase_initialized:
             return invoices
         try:
             coll_name = "sandbox_invoices" if sandbox else "invoices"
-            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name)\
+            docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name)\
                 .where(filter=firestore.FieldFilter("posShiftId", "==", shift_id))\
                 .where(filter=firestore.FieldFilter("status", "==", "PENDING_CONSOLIDATION")).get()
             for doc in docs:
@@ -4989,7 +5267,7 @@ class DatabaseService:
         return invoices
 
     @classmethod
-    def mark_invoices_consolidated(cls, owner_uid, invoice_ids, encf_consolidado, invoice_number_consolidado, pending_invoices=None, is_synced=True, dgii_status=None, emision_mode=None, sandbox=True):
+    def mark_invoices_consolidated(cls, owner_uid, invoice_ids, encf_consolidado, invoice_number_consolidado, pending_invoices=None, is_synced=True, dgii_status=None, emision_mode=None, sandbox=True, company_id=None):
         """Marca masivamente facturas como Consolidada y guarda referencia al ENCF del consolidado."""
         if not firebase_initialized or not invoice_ids:
             return
@@ -4998,7 +5276,7 @@ class DatabaseService:
             batch = db_firestore.batch()
             synced_value = bool(is_synced)
             for inv_id in invoice_ids:
-                ref = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(inv_id)
+                ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(inv_id)
                 update_payload = {
                     "status": "Consolidada",
                     "encfConsolidado": encf_consolidado,
@@ -5020,9 +5298,9 @@ class DatabaseService:
             return
 
         try:
-            items_catalog = cls.get_items(owner_uid, sandbox=sandbox)
+            items_catalog = cls.get_items(owner_uid, sandbox=sandbox, company_id=company_id)
             catalog_ids = {cit["id"] for cit in items_catalog}
-            whs = cls.get_warehouses(owner_uid, sandbox=sandbox)
+            whs = cls.get_warehouses(owner_uid, sandbox=sandbox, company_id=company_id)
             default_wh_id = whs[0]["id"] if whs else "default-almacen-principal"
             coll_name = "sandbox_invoices" if sandbox else "invoices"
             for inv in pending_invoices:
@@ -5054,28 +5332,28 @@ class DatabaseService:
                                 "notes": f"Venta en Factura {inv.get('invoiceNumber')}",
                                 "performedBy": f"Sistema {get_product_name()}"
                             }
-                            cls.register_inventory_transaction(owner_uid, tx_dict, sandbox=sandbox)
+                            cls.register_inventory_transaction(owner_uid, tx_dict, sandbox=sandbox, company_id=company_id)
 
                 update_payload = {"stockReduced": True}
                 if not inv.get("warehouseId"):
                     update_payload["warehouseId"] = wh_id
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(inv_id).update(update_payload)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(inv_id).update(update_payload)
         except Exception as e:
             print(f"⚠️ Error al aplicar inventario en consolidación: {e}")
 
     @classmethod
-    def update_cash_register_settings(cls, owner_uid, register_id, settings_dict, sandbox=True):
+    def update_cash_register_settings(cls, owner_uid, register_id, settings_dict, sandbox=True, company_id=None):
         """Actualiza campos de configuración de una caja registradora sin sobreescribir todo el documento."""
         if not firebase_initialized:
             return
         try:
             coll_name = "sandbox_cash_registers" if sandbox else "cash_registers"
-            db_firestore.collection("users").document(owner_uid).collection(coll_name).document(register_id).update(settings_dict)
+            _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(register_id).update(settings_dict)
         except Exception as e:
             print(f"⚠️ Error al actualizar configuración de caja: {e}")
 
     @classmethod
-    def get_rui_eligible_invoices(cls, owner_uid, business_date, sandbox=True):
+    def get_rui_eligible_invoices(cls, owner_uid, business_date, sandbox=True, company_id=None):
         """Retorna facturas elegibles para RUI en una fecha fiscal específica.
         Elegible = Cobrada, includeInRui=True, ruiId vacío, consumidor final, no notas."""
         invoices = []
@@ -5084,7 +5362,7 @@ class DatabaseService:
         try:
             coll = "sandbox_invoices" if sandbox else "invoices"
             business_prefix = str(business_date)[:10]
-            docs = db_firestore.collection("users").document(owner_uid).collection(coll)\
+            docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll)\
                 .where(filter=firestore.FieldFilter("status", "==", "Cobrada"))\
                 .get()
             for doc in docs:
@@ -5112,13 +5390,13 @@ class DatabaseService:
         return invoices
 
     @classmethod
-    def get_fiscal_summary_document(cls, owner_uid, doc_id, sandbox=True):
+    def get_fiscal_summary_document(cls, owner_uid, doc_id, sandbox=True, company_id=None):
         """Obtiene un documento de resumen fiscal (RUI) por ID."""
         if not firebase_initialized:
             return None
         try:
             coll = "sandbox_rui_summaries" if sandbox else "rui_summaries"
-            doc = db_firestore.collection("users").document(owner_uid).collection(coll).document(doc_id).get()
+            doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll).document(doc_id).get()
             if doc.exists:
                 data = doc.to_dict()
                 data["id"] = doc.id
@@ -5128,14 +5406,14 @@ class DatabaseService:
         return None
 
     @classmethod
-    def get_fiscal_summary_documents(cls, owner_uid, sandbox=True, document_type=None, estado=None, business_date=None, date_from=None, date_to=None, limit_results=100):
+    def get_fiscal_summary_documents(cls, owner_uid, sandbox=True, document_type=None, estado=None, business_date=None, date_from=None, date_to=None, limit_results=100, company_id=None):
         """Obtiene lista de documentos de resumen fiscal (RUI) con filtros opcionales."""
         results = []
         if not firebase_initialized:
             return results
         try:
             coll = "sandbox_rui_summaries" if sandbox else "rui_summaries"
-            col_ref = db_firestore.collection("users").document(owner_uid).collection(coll)
+            col_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll)
             query = col_ref.order_by("businessDate", direction=firestore.Query.DESCENDING).limit(limit_results)
             docs = query.get()
             for doc in docs:
@@ -5159,7 +5437,7 @@ class DatabaseService:
         return results
 
     @classmethod
-    def save_fiscal_summary_document(cls, owner_uid, doc_dict, sandbox=True):
+    def save_fiscal_summary_document(cls, owner_uid, doc_dict, sandbox=True, company_id=None):
         """Guarda o actualiza un documento de resumen fiscal (RUI).
         Usa ID determinista RUI_{ownerUID}_{businessDate} para unicidad transaccional."""
         doc_id = doc_dict.get("id")
@@ -5174,7 +5452,7 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll = "sandbox_rui_summaries" if sandbox else "rui_summaries"
-                doc_ref = db_firestore.collection("users").document(owner_uid).collection(coll).document(doc_id)
+                doc_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll).document(doc_id)
                 doc_ref.set(doc_dict)
                 return doc_dict
             except Exception as e:
@@ -5183,13 +5461,13 @@ class DatabaseService:
         return doc_dict
 
     @classmethod
-    def cancel_fiscal_summary_document(cls, owner_uid, doc_id, cancelled_by, cancelled_by_email, cancel_reason, replacement_rui_id="", sandbox=True):
+    def cancel_fiscal_summary_document(cls, owner_uid, doc_id, cancelled_by, cancelled_by_email, cancel_reason, replacement_rui_id="", sandbox=True, company_id=None):
         """Anula un documento RUI con trazabilidad completa."""
         if not firebase_initialized:
             return None
         try:
             coll = "sandbox_rui_summaries" if sandbox else "rui_summaries"
-            doc_ref = db_firestore.collection("users").document(owner_uid).collection(coll).document(doc_id)
+            doc_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll).document(doc_id)
             doc = doc_ref.get()
             if not doc.exists:
                 return None
@@ -5211,7 +5489,7 @@ class DatabaseService:
             return None
 
     @classmethod
-    def mark_invoices_as_rui_included(cls, owner_uid, invoice_ids, rui_id, rui_ncf, sandbox=True):
+    def mark_invoices_as_rui_included(cls, owner_uid, invoice_ids, rui_id, rui_ncf, sandbox=True, company_id=None):
         """Batch: marca facturas como incluidas en un RUI."""
         if not firebase_initialized or not invoice_ids:
             return False
@@ -5220,7 +5498,7 @@ class DatabaseService:
             batch = db_firestore.batch()
             now = datetime.now(timezone.utc).isoformat()
             for inv_id in invoice_ids:
-                ref = db_firestore.collection("users").document(owner_uid).collection(coll).document(inv_id)
+                ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll).document(inv_id)
                 batch.update(ref, {
                     "ruiId": rui_id,
                     "ruiNcf": rui_ncf,
@@ -5235,18 +5513,18 @@ class DatabaseService:
             return False
 
     @classmethod
-    def release_invoices_from_rui(cls, owner_uid, rui_id, sandbox=True):
+    def release_invoices_from_rui(cls, owner_uid, rui_id, sandbox=True, company_id=None):
         """Libera facturas de un RUI anulado (resetea ruiId, ruiNcf)."""
         if not firebase_initialized:
             return False
         try:
             coll = "sandbox_invoices" if sandbox else "invoices"
-            docs = db_firestore.collection("users").document(owner_uid).collection(coll)\
+            docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll)\
                 .where(filter=firestore.FieldFilter("ruiId", "==", rui_id)).get()
             batch = db_firestore.batch()
             now = datetime.now(timezone.utc).isoformat()
             for doc in docs:
-                ref = db_firestore.collection("users").document(owner_uid).collection(coll).document(doc.id)
+                ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll).document(doc.id)
                 batch.update(ref, {
                     "ruiId": "",
                     "ruiNcf": "",
@@ -5261,13 +5539,13 @@ class DatabaseService:
             return False
 
     @classmethod
-    def get_rui_invoice_count(cls, owner_uid, rui_id, sandbox=True):
+    def get_rui_invoice_count(cls, owner_uid, rui_id, sandbox=True, company_id=None):
         """Retorna la cantidad de facturas incluidas en un RUI."""
         if not firebase_initialized:
             return 0
         try:
             coll = "sandbox_invoices" if sandbox else "invoices"
-            docs = db_firestore.collection("users").document(owner_uid).collection(coll)\
+            docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll)\
                 .where(filter=firestore.FieldFilter("ruiId", "==", rui_id)).get()
             return len(docs)
         except Exception as e:
@@ -5275,7 +5553,7 @@ class DatabaseService:
             return 0
 
     @classmethod
-    def save_payment_promise(cls, owner_uid, promise_id, promise_dict, sandbox=True):
+    def save_payment_promise(cls, owner_uid, promise_id, promise_dict, sandbox=True, company_id=None):
         """Guarda o actualiza una promesa de pago en Firestore."""
         promise_dict["id"] = promise_id
         promise_dict["ownerUID"] = owner_uid
@@ -5285,19 +5563,19 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_payment_promises" if sandbox else "payment_promises"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(promise_id).set(promise_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(promise_id).set(promise_dict)
             except Exception as e:
                 print(f"⚠️ Fallo al guardar promesa de pago: {e}")
         return promise_dict
 
     @classmethod
-    def get_payment_promises(cls, owner_uid, sandbox=True):
+    def get_payment_promises(cls, owner_uid, sandbox=True, company_id=None):
         """Retorna todas las promesas de pago del owner."""
         promises = []
         if firebase_initialized:
             try:
                 coll_name = "sandbox_payment_promises" if sandbox else "payment_promises"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).get()
                 for doc in docs:
                     data = doc.to_dict()
                     promises.append({
@@ -5322,12 +5600,12 @@ class DatabaseService:
     # =========================================================================
 
     @classmethod
-    def get_contract(cls, owner_uid, contract_id, sandbox=True):
+    def get_contract(cls, owner_uid, contract_id, sandbox=True, company_id=None):
         """Retorna un contrato específico por ID."""
         if firebase_initialized:
             try:
                 coll_name = "sandbox_contracts" if sandbox else "contracts"
-                doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(contract_id).get()
+                doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(contract_id).get()
                 if doc.exists:
                     data = doc.to_dict()
                     data["id"] = doc.id
@@ -5339,13 +5617,13 @@ class DatabaseService:
         return None
 
     @classmethod
-    def get_contracts(cls, owner_uid, sandbox=True, branch_id=None, project_id=None):
+    def get_contracts(cls, owner_uid, sandbox=True, branch_id=None, project_id=None, company_id=None):
         """Retorna todos los contratos registrados del owner."""
         contracts = []
         if firebase_initialized:
             try:
                 coll_name = "sandbox_contracts" if sandbox else "contracts"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).get()
                 for doc in docs:
                     data = doc.to_dict()
                     contracts.append({
@@ -5378,7 +5656,7 @@ class DatabaseService:
         return contracts
 
     @classmethod
-    def save_contract(cls, owner_uid, contract_id, contract_dict, sandbox=True):
+    def save_contract(cls, owner_uid, contract_id, contract_dict, sandbox=True, company_id=None):
         """Guarda o actualiza un contrato en Firestore con versionado automático."""
         contract_dict["id"] = contract_id
         contract_dict["ownerUID"] = owner_uid
@@ -5391,7 +5669,7 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_contracts" if sandbox else "contracts"
-                doc_ref = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(contract_id)
+                doc_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(contract_id)
                 
                 existing = doc_ref.get()
                 if existing.exists:
@@ -5420,18 +5698,18 @@ class DatabaseService:
         return contract_dict
 
     @classmethod
-    def get_invoices_by_contract(cls, owner_uid, contract_id, sandbox=True):
+    def get_invoices_by_contract(cls, owner_uid, contract_id, sandbox=True, company_id=None):
         """Retorna todas las facturas generadas desde un contrato específico."""
-        all_invoices = cls.get_invoices(owner_uid, sandbox=sandbox)
+        all_invoices = cls.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
         return [inv for inv in all_invoices if inv.get('contractId') == contract_id]
 
     @classmethod
-    def delete_contract(cls, owner_uid, contract_id, sandbox=True):
+    def delete_contract(cls, owner_uid, contract_id, sandbox=True, company_id=None):
         """Elimina un contrato de Firestore."""
         if firebase_initialized:
             try:
                 coll_name = "sandbox_contracts" if sandbox else "contracts"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(contract_id).delete()
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(contract_id).delete()
             except Exception as e:
                 print(f"⚠️ Fallo al eliminar contrato: {e}")
 
@@ -5440,12 +5718,12 @@ class DatabaseService:
     # =========================================================================
 
     @classmethod
-    def get_commission_settings(cls, owner_uid):
+    def get_commission_settings(cls, owner_uid, company_id=None):
         """Retorna la configuración de comisiones de la empresa."""
         settings = {"percentage": 5.0, "payOn": "cobrada"}
         if firebase_initialized:
             try:
-                doc = db_firestore.collection("users").document(owner_uid).collection("config").document("commission_settings").get()
+                doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config").document("commission_settings").get()
                 if doc.exists:
                     data = doc.to_dict()
                     settings.update(data)
@@ -5454,23 +5732,23 @@ class DatabaseService:
         return settings
 
     @classmethod
-    def save_commission_settings(cls, owner_uid, settings_dict):
+    def save_commission_settings(cls, owner_uid, settings_dict, company_id=None):
         """Guarda la configuración de comisiones."""
         if firebase_initialized:
             try:
-                db_firestore.collection("users").document(owner_uid).collection("config").document("commission_settings").set(settings_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config").document("commission_settings").set(settings_dict)
             except Exception as e:
                 print(f"⚠️ Error al guardar configuración de comisiones: {e}")
         return settings_dict
 
     @classmethod
-    def get_tax_rules(cls, owner_uid):
+    def get_tax_rules(cls, owner_uid, company_id=None):
         """Retorna la configuración general de impuestos (ITBIS, ISC, ISR, retenciones, RST)."""
         from app.countries.do.tax_rules import DEFAULT_TAX_RULES
         rules = _deepcopy_dict(DEFAULT_TAX_RULES)
         if firebase_initialized:
             try:
-                doc = db_firestore.collection("users").document(owner_uid).collection("config").document("tax_rules").get()
+                doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config").document("tax_rules").get()
                 if doc.exists:
                     data = _restore_inf_values(doc.to_dict())
                     rules.update(data)
@@ -5479,7 +5757,7 @@ class DatabaseService:
         return rules
 
     @classmethod
-    def save_tax_rules(cls, owner_uid, rules_dict):
+    def save_tax_rules(cls, owner_uid, rules_dict, company_id=None):
         """Guarda la configuración general de impuestos. Retorna (éxito, error_msg)."""
         if not firebase_initialized or db_firestore is None:
             return False, "Firebase no está inicializado"
@@ -5489,7 +5767,7 @@ class DatabaseService:
             rules_dict["updatedAt"] = datetime.now(timezone.utc).isoformat()
             safe = _sanitize_for_firestore(dict(rules_dict))
             print(f"🔧 db save_tax_rules: rst={safe.get('rst')}")
-            db_firestore.collection("users").document(owner_uid).collection("config").document("tax_rules").set(safe)
+            _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config").document("tax_rules").set(safe)
             return True, "OK"
         except Exception as e:
             import traceback
@@ -5497,12 +5775,12 @@ class DatabaseService:
             return False, str(e)[:200]
 
     @classmethod
-    def get_sales_goals(cls, owner_uid):
+    def get_sales_goals(cls, owner_uid, company_id=None):
         """Retorna las metas de venta mensuales de la empresa."""
         goals = {"monthlyGoal": 500000.0}
         if firebase_initialized:
             try:
-                doc = db_firestore.collection("users").document(owner_uid).collection("config").document("sales_goals").get()
+                doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config").document("sales_goals").get()
                 if doc.exists:
                     data = doc.to_dict()
                     data["branchId"] = data.get("branchId", "default-sucursal-principal")
@@ -5513,13 +5791,13 @@ class DatabaseService:
         return goals
 
     @classmethod
-    def save_sales_goals(cls, owner_uid, goals_dict):
+    def save_sales_goals(cls, owner_uid, goals_dict, company_id=None):
         """Guarda las metas de venta de la empresa."""
         goals_dict["branchId"] = goals_dict.get("branchId", "default-sucursal-principal")
         goals_dict["projectId"] = goals_dict.get("projectId", None)
         if firebase_initialized:
             try:
-                db_firestore.collection("users").document(owner_uid).collection("config").document("sales_goals").set(goals_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config").document("sales_goals").set(goals_dict)
             except Exception as e:
                 print(f"⚠️ Error al guardar metas de venta: {e}")
         return goals_dict
@@ -5529,13 +5807,13 @@ class DatabaseService:
     # =========================================================================
 
     @classmethod
-    def get_client_documents(cls, owner_uid, client_id, sandbox=True):
+    def get_client_documents(cls, owner_uid, client_id, sandbox=True, company_id=None):
         """Obtiene el historial documental de un cliente."""
         docs_list = []
         if firebase_initialized:
             try:
                 coll_name = "sandbox_clients" if sandbox else "clients"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(client_id).collection("documents").get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(client_id).collection("documents").get()
                 for doc in docs:
                     data = doc.to_dict()
                     docs_list.append({
@@ -5553,7 +5831,7 @@ class DatabaseService:
         return docs_list
 
     @classmethod
-    def save_client_document(cls, owner_uid, client_id, doc_id, doc_dict, sandbox=True):
+    def save_client_document(cls, owner_uid, client_id, doc_id, doc_dict, sandbox=True, company_id=None):
         """Guarda un documento clasificado para un cliente."""
         doc_dict["id"] = doc_id
         if "createdAt" not in doc_dict or not doc_dict["createdAt"]:
@@ -5562,18 +5840,18 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_clients" if sandbox else "clients"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(client_id).collection("documents").document(doc_id).set(doc_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(client_id).collection("documents").document(doc_id).set(doc_dict)
             except Exception as e:
                 print(f"⚠️ Fallo al respaldar documento de cliente: {e}")
         return doc_dict
 
     @classmethod
-    def delete_client_document(cls, owner_uid, client_id, doc_id, sandbox=True):
+    def delete_client_document(cls, owner_uid, client_id, doc_id, sandbox=True, company_id=None):
         """Elimina un documento del cliente."""
         if firebase_initialized:
             try:
                 coll_name = "sandbox_clients" if sandbox else "clients"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(client_id).collection("documents").document(doc_id).delete()
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(client_id).collection("documents").document(doc_id).delete()
             except Exception as e:
                 print(f"⚠️ Fallo al borrar documento de cliente de Firestore: {e}")
 
@@ -5583,13 +5861,13 @@ class DatabaseService:
         return _cached_associated_companies(uid)
 
     @classmethod
-    def get_invoice_comments(cls, owner_uid, invoice_id, sandbox=True):
+    def get_invoice_comments(cls, owner_uid, invoice_id, sandbox=True, company_id=None):
         """Retorna la lista de comentarios de una factura, ordenados por fecha de creación descendente."""
         comments = []
         if firebase_initialized:
             try:
                 coll_name = "sandbox_invoices" if sandbox else "invoices"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(invoice_id).collection("comments").get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(invoice_id).collection("comments").get()
                 for doc in docs:
                     data = doc.to_dict()
                     comments.append({
@@ -5611,7 +5889,7 @@ class DatabaseService:
         return comments
 
     @classmethod
-    def save_invoice_comment(cls, owner_uid, invoice_id, comment_id, comment_dict, sandbox=True):
+    def save_invoice_comment(cls, owner_uid, invoice_id, comment_id, comment_dict, sandbox=True, company_id=None):
         """Guarda o actualiza un comentario de factura en Firestore."""
         comment_dict["id"] = comment_id
         if "createdAt" not in comment_dict or not comment_dict["createdAt"]:
@@ -5624,18 +5902,18 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_invoices" if sandbox else "invoices"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(invoice_id).collection("comments").document(comment_id).set(comment_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(invoice_id).collection("comments").document(comment_id).set(comment_dict)
             except Exception as e:
                 print(f"⚠️ Fallo al guardar comentario de factura en Firestore: {e}")
         return comment_dict
 
     @classmethod
-    def delete_invoice_comment(cls, owner_uid, invoice_id, comment_id, sandbox=True):
+    def delete_invoice_comment(cls, owner_uid, invoice_id, comment_id, sandbox=True, company_id=None):
         """Elimina un comentario de factura en Firestore."""
         if firebase_initialized:
             try:
                 coll_name = "sandbox_invoices" if sandbox else "invoices"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(invoice_id).collection("comments").document(comment_id).delete()
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(invoice_id).collection("comments").document(comment_id).delete()
             except Exception as e:
                 print(f"⚠️ Fallo al borrar comentario de factura de Firestore: {e}")
 
@@ -5681,12 +5959,12 @@ class DatabaseService:
         return False
 
     @classmethod
-    def get_crm_contacts(cls, owner_uid, sandbox=True):
+    def get_crm_contacts(cls, owner_uid, sandbox=True, company_id=None):
         """Retorna los compromisos CRM agendados para hoy o clientes con cuentas por cobrar."""
         import copy
         try:
             from app.services.crm_service import CRMService
-            return copy.deepcopy(CRMService.get_global_commitments(owner_uid, sandbox=sandbox))
+            return copy.deepcopy(CRMService.get_global_commitments(owner_uid, sandbox=sandbox, company_id=company_id))
         except Exception as e:
             print(f"⚠️ Error al obtener compromisos desde CRMService, usando fallback legacy: {e}")
             return copy.deepcopy(_cached_crm_contacts(owner_uid, sandbox))
@@ -5716,7 +5994,7 @@ class DatabaseService:
         return plans
 
     @classmethod
-    def get_resource_comments(cls, owner_uid, resource_type, resource_id, sandbox=True):
+    def get_resource_comments(cls, owner_uid, resource_type, resource_id, sandbox=True, company_id=None):
         """Retorna la lista de comentarios de cualquier recurso, ordenados por fecha descendente."""
         comments = []
         if firebase_initialized:
@@ -5732,7 +6010,7 @@ class DatabaseService:
                 if not coll_name:
                     return []
                     
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(resource_id).collection("comments").get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(resource_id).collection("comments").get()
                 for doc in docs:
                     data = doc.to_dict()
                     comments.append({
@@ -5755,7 +6033,7 @@ class DatabaseService:
         return comments
 
     @classmethod
-    def save_resource_comment(cls, owner_uid, resource_type, resource_id, comment_id, comment_dict, sandbox=True):
+    def save_resource_comment(cls, owner_uid, resource_type, resource_id, comment_id, comment_dict, sandbox=True, company_id=None):
         """Guarda o actualiza un comentario de cualquier recurso en Firestore."""
         comment_dict["id"] = comment_id
         if "createdAt" not in comment_dict or not comment_dict["createdAt"]:
@@ -5776,13 +6054,13 @@ class DatabaseService:
                 }
                 coll_name = coll_map.get(resource_type)
                 if coll_name:
-                    db_firestore.collection("users").document(owner_uid).collection(coll_name).document(resource_id).collection("comments").document(comment_id).set(comment_dict)
+                    _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(resource_id).collection("comments").document(comment_id).set(comment_dict)
             except Exception as e:
                 print(f"⚠️ Fallo al guardar comentario de {resource_type} en Firestore: {e}")
         return comment_dict
 
     @classmethod
-    def toggle_comment_reaction(cls, owner_uid, resource_type, resource_id, comment_id, user_uid, emoji, sandbox=True):
+    def toggle_comment_reaction(cls, owner_uid, resource_type, resource_id, comment_id, user_uid, emoji, sandbox=True, company_id=None):
         """Alterna una reacción en un comentario."""
         if firebase_initialized:
             try:
@@ -5795,7 +6073,7 @@ class DatabaseService:
                 }
                 coll_name = coll_map.get(resource_type)
                 if coll_name:
-                    doc_ref = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(resource_id).collection("comments").document(comment_id)
+                    doc_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(resource_id).collection("comments").document(comment_id)
                     
                     # Usar una transacción simple de lectura y escritura ya que arrayRemove y arrayUnion para diccionarios
                     # anidados puede ser verboso si no sabemos si el campo existe.
@@ -5822,7 +6100,7 @@ class DatabaseService:
         return {"success": False}
 
     @classmethod
-    def delete_resource_comment(cls, owner_uid, resource_type, resource_id, comment_id, sandbox=True):
+    def delete_resource_comment(cls, owner_uid, resource_type, resource_id, comment_id, sandbox=True, company_id=None):
         """Elimina un comentario de cualquier recurso en Firestore."""
         if firebase_initialized:
             try:
@@ -5835,7 +6113,7 @@ class DatabaseService:
                 }
                 coll_name = coll_map.get(resource_type)
                 if coll_name:
-                    db_firestore.collection("users").document(owner_uid).collection(coll_name).document(resource_id).collection("comments").document(comment_id).delete()
+                    _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(resource_id).collection("comments").document(comment_id).delete()
             except Exception as e:
                 print(f"⚠️ Fallo al borrar comentario de {resource_type} de Firestore: {e}")
 
@@ -5844,13 +6122,14 @@ class DatabaseService:
     # =========================================================================
 
     @classmethod
-    def get_bank_accounts(cls, owner_uid, sandbox=True, branch_id=None, project_id=None):
+    def get_bank_accounts(cls, owner_uid, sandbox=True, branch_id=None, project_id=None, company_id=None):
         """Retorna la lista de cuentas bancarias, efectivo y tarjetas."""
+
         accounts = []
         if firebase_initialized:
             try:
                 coll_name = "sandbox_bank_accounts" if sandbox else "bank_accounts"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).get()
                 for doc in docs:
                     data = doc.to_dict()
                     accounts.append({
@@ -5881,12 +6160,13 @@ class DatabaseService:
         return accounts
 
     @classmethod
-    def get_bank_account(cls, owner_uid, account_id, sandbox=True):
+
+    def get_bank_account(cls, owner_uid, account_id, sandbox=True, company_id=None):
         """Retorna una cuenta bancaria por ID."""
         if firebase_initialized:
             try:
                 coll_name = "sandbox_bank_accounts" if sandbox else "bank_accounts"
-                doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(account_id).get()
+                doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(account_id).get()
                 if doc.exists:
                     data = doc.to_dict()
                     return {
@@ -5910,7 +6190,8 @@ class DatabaseService:
         return None
 
     @classmethod
-    def save_bank_account(cls, owner_uid, account_id, account_dict, sandbox=True):
+
+    def save_bank_account(cls, owner_uid, account_id, account_dict, sandbox=True, company_id=None):
         """Guarda o actualiza una cuenta bancaria en Firestore."""
         account_dict["id"] = account_id
         account_dict["ownerUID"] = owner_uid
@@ -5934,18 +6215,19 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_bank_accounts" if sandbox else "bank_accounts"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(account_id).set(account_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(account_id).set(account_dict)
             except Exception as e:
                 print(f"⚠️ Fallo al guardar cuenta bancaria en Firestore: {e}")
         return account_dict
 
     @classmethod
-    def delete_bank_account(cls, owner_uid, account_id, sandbox=True):
+
+    def delete_bank_account(cls, owner_uid, account_id, sandbox=True, company_id=None):
         """Elimina una cuenta bancaria de Firestore."""
         if firebase_initialized:
             try:
                 coll_name = "sandbox_bank_accounts" if sandbox else "bank_accounts"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(account_id).delete()
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(account_id).delete()
             except Exception as e:
                 print(f"⚠️ Fallo al borrar cuenta bancaria de Firestore: {e}")
 
@@ -5954,13 +6236,13 @@ class DatabaseService:
     # =========================================================================
 
     @classmethod
-    def get_bank_transfers(cls, owner_uid, sandbox=True):
+    def get_bank_transfers(cls, owner_uid, sandbox=True, company_id=None):
         """Retorna la lista de transferencias entre cuentas."""
         transfers = []
         if firebase_initialized:
             try:
                 coll_name = "sandbox_bank_transfers" if sandbox else "bank_transfers"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).order_by("date", direction=firestore.Query.DESCENDING).get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).order_by("date", direction=firestore.Query.DESCENDING).get()
                 for doc in docs:
                     data = doc.to_dict()
                     transfers.append({
@@ -5979,7 +6261,7 @@ class DatabaseService:
         return transfers
 
     @classmethod
-    def save_bank_transfer(cls, owner_uid, transfer_id, transfer_dict, sandbox=True):
+    def save_bank_transfer(cls, owner_uid, transfer_id, transfer_dict, sandbox=True, company_id=None):
         """Guarda una transferencia y ajusta los balances de las cuentas."""
         transfer_dict["id"] = transfer_id
         transfer_dict["ownerUID"] = owner_uid
@@ -5994,11 +6276,11 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_bank_transfers" if sandbox else "bank_transfers"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(transfer_id).set(transfer_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(transfer_id).set(transfer_dict)
 
                 # Ajustar balances de cuentas origen y destino
-                from_account = cls.get_bank_account(owner_uid, transfer_dict["fromAccountId"], sandbox=sandbox)
-                to_account = cls.get_bank_account(owner_uid, transfer_dict["toAccountId"], sandbox=sandbox)
+                from_account = cls.get_bank_account(owner_uid, transfer_dict["fromAccountId"], sandbox=sandbox, company_id=company_id)
+                to_account = cls.get_bank_account(owner_uid, transfer_dict["toAccountId"], sandbox=sandbox, company_id=company_id)
                 if from_account:
                     cls.save_bank_account(owner_uid, transfer_dict["fromAccountId"], {
                         **from_account,
@@ -6014,9 +6296,9 @@ class DatabaseService:
         return transfer_dict
 
     @classmethod
-    def get_bank_summary(cls, owner_uid, sandbox=True):
+    def get_bank_summary(cls, owner_uid, sandbox=True, company_id=None):
         """Retorna resumen de saldos: bancos+efectivo, deuda tarjetas, saldo total."""
-        accounts = cls.get_bank_accounts(owner_uid, sandbox=sandbox)
+        accounts = cls.get_bank_accounts(owner_uid, sandbox=sandbox, company_id=company_id)
         bank_cash_balance = 0.0
         credit_debt = 0.0
         for acc in accounts:
@@ -6035,13 +6317,13 @@ class DatabaseService:
     # =========================================================================
 
     @classmethod
-    def get_reconciliations(cls, owner_uid, sandbox=True):
+    def get_reconciliations(cls, owner_uid, sandbox=True, company_id=None):
         """Retorna la lista de conciliaciones bancarias."""
         reconciliations = []
         if firebase_initialized:
             try:
                 coll_name = "sandbox_bank_reconciliations" if sandbox else "bank_reconciliations"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).order_by("createdAt", direction=firestore.Query.DESCENDING).get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).order_by("createdAt", direction=firestore.Query.DESCENDING).get()
                 for doc in docs:
                     data = doc.to_dict()
                     reconciliations.append({
@@ -6065,12 +6347,12 @@ class DatabaseService:
         return reconciliations
 
     @classmethod
-    def get_reconciliation(cls, owner_uid, recon_id, sandbox=True):
+    def get_reconciliation(cls, owner_uid, recon_id, sandbox=True, company_id=None):
         """Retorna una conciliación completa con sus transacciones."""
         if firebase_initialized:
             try:
                 coll_name = "sandbox_bank_reconciliations" if sandbox else "bank_reconciliations"
-                doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(recon_id).get()
+                doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(recon_id).get()
                 if doc.exists:
                     data = doc.to_dict()
                     return {
@@ -6095,7 +6377,7 @@ class DatabaseService:
         return None
 
     @classmethod
-    def save_reconciliation(cls, owner_uid, recon_id, recon_dict, sandbox=True):
+    def save_reconciliation(cls, owner_uid, recon_id, recon_dict, sandbox=True, company_id=None):
         """Guarda o actualiza una conciliación bancaria."""
         recon_dict["id"] = recon_id
         recon_dict["ownerUID"] = owner_uid
@@ -6108,71 +6390,76 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_bank_reconciliations" if sandbox else "bank_reconciliations"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(recon_id).set(recon_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(recon_id).set(recon_dict)
             except Exception as e:
                 print(f"⚠️ Fallo al guardar conciliación en Firestore: {e}")
         return recon_dict
 
     @classmethod
-    def delete_reconciliation(cls, owner_uid, recon_id, sandbox=True):
+    def delete_reconciliation(cls, owner_uid, recon_id, sandbox=True, company_id=None):
         """Elimina una conciliación bancaria."""
         if firebase_initialized:
             try:
                 coll_name = "sandbox_bank_reconciliations" if sandbox else "bank_reconciliations"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(recon_id).delete()
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(recon_id).delete()
             except Exception as e:
                 print(f"⚠️ Fallo al borrar conciliación de Firestore: {e}")
 
     # =========================================================================
+
     # CONTABILIDAD — CHART OF ACCOUNTS
     # =========================================================================
     @classmethod
-    def get_chart_of_accounts(cls, owner_uid):
+    def get_chart_of_accounts(cls, owner_uid, company_id=None):
         accounts = []
         if firebase_initialized:
             try:
-                docs = db_firestore.collection("users").document(owner_uid).collection("config").document("chart_of_accounts").collection("accounts").get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config").document("chart_of_accounts").collection("accounts").get()
                 for doc in docs:
                     data = doc.to_dict()
                     data["id"] = doc.id
                     accounts.append(data)
             except Exception as e:
+
                 print(f"⚠️ Error al obtener catálogo de cuentas: {e}")
         return accounts
 
     @classmethod
-    def get_account(cls, owner_uid, account_id):
+    def get_account(cls, owner_uid, account_id, company_id=None):
         if firebase_initialized:
             try:
-                doc = db_firestore.collection("users").document(owner_uid).collection("config").document("chart_of_accounts").collection("accounts").document(account_id).get()
+                doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config").document("chart_of_accounts").collection("accounts").document(account_id).get()
                 if doc.exists:
                     data = doc.to_dict()
                     data["id"] = doc.id
                     return data
+
             except Exception as e:
                 print(f"⚠️ Error al obtener cuenta contable: {e}")
         return None
 
     @classmethod
-    def save_account(cls, owner_uid, account_id, account_dict):
+    def save_account(cls, owner_uid, account_id, account_dict, company_id=None):
         if firebase_initialized:
             try:
                 if "createdAt" not in account_dict or not account_dict["createdAt"]:
                     account_dict["createdAt"] = serialize_field(datetime.now(timezone.utc).isoformat())
                 account_dict["updatedAt"] = serialize_field(datetime.now(timezone.utc).isoformat())
-                db_firestore.collection("users").document(owner_uid).collection("config").document("chart_of_accounts").collection("accounts").document(account_id).set(account_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config").document("chart_of_accounts").collection("accounts").document(account_id).set(account_dict)
+
                 return account_id
             except Exception as e:
                 print(f"⚠️ Fallo al guardar cuenta contable: {e}")
         return None
 
     @classmethod
-    def delete_account(cls, owner_uid, account_id):
+    def delete_account(cls, owner_uid, account_id, company_id=None):
         if firebase_initialized:
             try:
-                db_firestore.collection("users").document(owner_uid).collection("config").document("chart_of_accounts").collection("accounts").document(account_id).delete()
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config").document("chart_of_accounts").collection("accounts").document(account_id).delete()
                 return True
             except Exception as e:
+
                 print(f"⚠️ Fallo al eliminar cuenta contable: {e}")
         return False
 
@@ -6180,12 +6467,12 @@ class DatabaseService:
     # CONTABILIDAD — ACCOUNTING ENTRIES (ASIENTOS CONTABLES)
     # =========================================================================
     @classmethod
-    def get_accounting_entries(cls, owner_uid, sandbox=True, branch_id=None, project_id=None):
+    def get_accounting_entries(cls, owner_uid, sandbox=True, branch_id=None, project_id=None, company_id=None):
         entries = []
         if firebase_initialized:
             try:
                 coll_name = "sandbox_accounting_entries" if sandbox else "accounting_entries"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).order_by("number", direction=firestore.Query.DESCENDING).get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).order_by("number", direction=firestore.Query.DESCENDING).get()
                 for doc in docs:
                     data = doc.to_dict()
                     data["id"] = doc.id
@@ -6195,6 +6482,7 @@ class DatabaseService:
             except Exception as e:
                 print(f"⚠️ Error al obtener asientos contables: {e}")
         if branch_id:
+
             entries = [c for c in entries if c.get("branchId") == branch_id]
         if project_id == '__no_project__':
             entries = [c for c in entries if not c.get("projectId")]
@@ -6203,13 +6491,14 @@ class DatabaseService:
         return entries
 
     @classmethod
-    def get_accounting_entry(cls, owner_uid, entry_id, sandbox=True):
+    def get_accounting_entry(cls, owner_uid, entry_id, sandbox=True, company_id=None):
         if firebase_initialized:
             try:
                 coll_name = "sandbox_accounting_entries" if sandbox else "accounting_entries"
-                doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(entry_id).get()
+                doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(entry_id).get()
                 if doc.exists:
                     data = doc.to_dict()
+
                     data["id"] = doc.id
                     data["branchId"] = data.get("branchId", "default-sucursal-principal")
                     data["projectId"] = data.get("projectId")
@@ -6219,35 +6508,37 @@ class DatabaseService:
         return None
 
     @classmethod
-    def save_accounting_entry(cls, owner_uid, entry_id, entry_dict, sandbox=True):
+    def save_accounting_entry(cls, owner_uid, entry_id, entry_dict, sandbox=True, company_id=None):
         entry_dict["ownerUID"] = owner_uid
         entry_dict["branchId"] = entry_dict.get("branchId", "default-sucursal-principal")
         entry_dict["projectId"] = entry_dict.get("projectId", None)
         if firebase_initialized:
             try:
                 coll_name = "sandbox_accounting_entries" if sandbox else "accounting_entries"
+
                 if "createdAt" not in entry_dict or not entry_dict["createdAt"]:
                     entry_dict["createdAt"] = serialize_field(datetime.now(timezone.utc).isoformat())
                 entry_dict["updatedAt"] = serialize_field(datetime.now(timezone.utc).isoformat())
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(entry_id).set(entry_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(entry_id).set(entry_dict)
                 return entry_id
             except Exception as e:
                 print(f"⚠️ Fallo al guardar asiento contable: {e}")
         return None
 
     @classmethod
-    def delete_accounting_entry(cls, owner_uid, entry_id, sandbox=True):
+
+    def delete_accounting_entry(cls, owner_uid, entry_id, sandbox=True, company_id=None):
         if firebase_initialized:
             try:
                 coll_name = "sandbox_accounting_entries" if sandbox else "accounting_entries"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(entry_id).delete()
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(entry_id).delete()
                 return True
             except Exception as e:
                 print(f"⚠️ Fallo al eliminar asiento contable: {e}")
         return False
 
     @classmethod
-    def get_next_entry_number(cls, owner_uid, prefix="A", sandbox=True):
+    def get_next_entry_number(cls, owner_uid, prefix="A", sandbox=True, company_id=None):
         """Obtiene el siguiente número de asiento contable usando una transacción atómica."""
         if firebase_initialized:
             try:
@@ -6255,7 +6546,7 @@ class DatabaseService:
 
                 @firestore.transactional
                 def run_in_transaction(transaction):
-                    counter_ref = db_firestore.collection("users").document(owner_uid).collection("config").document("entry_counter")
+                    counter_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config").document("entry_counter")
                     counter = counter_ref.get(transaction=transaction)
                     if counter.exists:
                         data = counter.to_dict()
@@ -6263,6 +6554,7 @@ class DatabaseService:
                     else:
                         next_num = 1
                     transaction.set(counter_ref, {"nextNumber": next_num + 1})
+
                     return next_num
 
                 next_num = run_in_transaction(transaction)
@@ -6275,16 +6567,17 @@ class DatabaseService:
     # CONTABILIDAD — FIXED ASSETS (ACTIVOS FIJOS)
     # =========================================================================
     @classmethod
-    def get_fixed_assets(cls, owner_uid, sandbox=True, branch_id=None, project_id=None):
+    def get_fixed_assets(cls, owner_uid, sandbox=True, branch_id=None, project_id=None, company_id=None):
         assets = []
         if firebase_initialized:
             try:
                 coll_name = "sandbox_fixed_assets" if sandbox else "fixed_assets"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).get()
                 for doc in docs:
                     data = doc.to_dict()
                     data["id"] = doc.id
                     data["branchId"] = data.get("branchId", "default-sucursal-principal")
+
                     data["projectId"] = data.get("projectId")
                     assets.append(data)
             except Exception as e:
@@ -6298,11 +6591,12 @@ class DatabaseService:
         return assets
 
     @classmethod
-    def get_fixed_asset(cls, owner_uid, asset_id, sandbox=True):
+    def get_fixed_asset(cls, owner_uid, asset_id, sandbox=True, company_id=None):
         if firebase_initialized:
+
             try:
                 coll_name = "sandbox_fixed_assets" if sandbox else "fixed_assets"
-                doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(asset_id).get()
+                doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(asset_id).get()
                 if doc.exists:
                     data = doc.to_dict()
                     data["id"] = doc.id
@@ -6314,8 +6608,9 @@ class DatabaseService:
         return None
 
     @classmethod
-    def save_fixed_asset(cls, owner_uid, asset_id, asset_dict, sandbox=True):
+    def save_fixed_asset(cls, owner_uid, asset_id, asset_dict, sandbox=True, company_id=None):
         asset_dict["ownerUID"] = owner_uid
+
         asset_dict["branchId"] = asset_dict.get("branchId", "default-sucursal-principal")
         asset_dict["projectId"] = asset_dict.get("projectId", None)
         if firebase_initialized:
@@ -6324,33 +6619,36 @@ class DatabaseService:
                 if "createdAt" not in asset_dict or not asset_dict["createdAt"]:
                     asset_dict["createdAt"] = serialize_field(datetime.now(timezone.utc).isoformat())
                 asset_dict["updatedAt"] = serialize_field(datetime.now(timezone.utc).isoformat())
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(asset_id).set(asset_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(asset_id).set(asset_dict)
                 return asset_id
             except Exception as e:
                 print(f"⚠️ Fallo al guardar activo fijo: {e}")
         return None
 
     @classmethod
-    def delete_fixed_asset(cls, owner_uid, asset_id, sandbox=True):
+
+    def delete_fixed_asset(cls, owner_uid, asset_id, sandbox=True, company_id=None):
         if firebase_initialized:
             try:
                 coll_name = "sandbox_fixed_assets" if sandbox else "fixed_assets"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(asset_id).delete()
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(asset_id).delete()
                 return True
             except Exception as e:
                 print(f"⚠️ Fallo al eliminar activo fijo: {e}")
         return False
 
     # =========================================================================
+
     # CONTABILIDAD — ENTRY TYPES (TIPOS DE ENTRADA DE DIARIO)
     # =========================================================================
     @classmethod
-    def get_entry_types(cls, owner_uid):
+    def get_entry_types(cls, owner_uid, company_id=None):
         types = []
         if firebase_initialized:
             try:
-                docs = db_firestore.collection("users").document(owner_uid).collection("config").document("entry_types").collection("types").get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config").document("entry_types").collection("types").get()
                 for doc in docs:
+
                     data = doc.to_dict()
                     data["id"] = doc.id
                     types.append(data)
@@ -6359,20 +6657,21 @@ class DatabaseService:
         return types
 
     @classmethod
-    def save_entry_type(cls, owner_uid, type_id, type_dict):
+    def save_entry_type(cls, owner_uid, type_id, type_dict, company_id=None):
         if firebase_initialized:
             try:
-                db_firestore.collection("users").document(owner_uid).collection("config").document("entry_types").collection("types").document(type_id).set(type_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config").document("entry_types").collection("types").document(type_id).set(type_dict)
+
                 return type_id
             except Exception as e:
                 print(f"⚠️ Fallo al guardar tipo de entrada: {e}")
         return None
 
     @classmethod
-    def delete_entry_type(cls, owner_uid, type_id):
+    def delete_entry_type(cls, owner_uid, type_id, company_id=None):
         if firebase_initialized:
             try:
-                db_firestore.collection("users").document(owner_uid).collection("config").document("entry_types").collection("types").document(type_id).delete()
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config").document("entry_types").collection("types").document(type_id).delete()
                 return True
             except Exception as e:
                 print(f"⚠️ Fallo al eliminar tipo de entrada: {e}")
@@ -6382,13 +6681,13 @@ class DatabaseService:
     # CENTROS DE COSTO (COST CENTERS)
     # =========================================================================
     @classmethod
-    def get_cost_centers(cls, owner_uid, sandbox=True, branch_id=None, project_id=None):
+    def get_cost_centers(cls, owner_uid, sandbox=True, branch_id=None, project_id=None, company_id=None):
         """Retorna la lista de centros de costo de la empresa."""
         centers = []
         if firebase_initialized:
             try:
                 coll_name = "sandbox_cost_centers" if sandbox else "cost_centers"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).get()
                 for doc in docs:
                     data = doc.to_dict()
                     centers.append({
@@ -6413,12 +6712,12 @@ class DatabaseService:
         return centers
 
     @classmethod
-    def get_cost_center(cls, owner_uid, center_id, sandbox=True):
+    def get_cost_center(cls, owner_uid, center_id, sandbox=True, company_id=None):
         """Retorna un centro de costo específico por su ID."""
         if firebase_initialized:
             try:
                 coll_name = "sandbox_cost_centers" if sandbox else "cost_centers"
-                doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(center_id).get()
+                doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(center_id).get()
                 if doc.exists:
                     data = doc.to_dict()
                     return {
@@ -6436,7 +6735,7 @@ class DatabaseService:
         return None
 
     @classmethod
-    def save_cost_center(cls, owner_uid, center_id, center_dict, sandbox=True):
+    def save_cost_center(cls, owner_uid, center_id, center_dict, sandbox=True, company_id=None):
         """Guarda o actualiza un centro de costo en Firestore."""
         center_dict["id"] = center_id
         center_dict["ownerUID"] = owner_uid
@@ -6448,18 +6747,18 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_cost_centers" if sandbox else "cost_centers"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(center_id).set(center_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(center_id).set(center_dict)
             except Exception as e:
                 print(f"⚠️ Fallo al guardar centro de costo en Firestore: {e}")
         return center_dict
 
     @classmethod
-    def delete_cost_center(cls, owner_uid, center_id, sandbox=True):
+    def delete_cost_center(cls, owner_uid, center_id, sandbox=True, company_id=None):
         """Elimina un centro de costo en Firestore."""
         if firebase_initialized:
             try:
                 coll_name = "sandbox_cost_centers" if sandbox else "cost_centers"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(center_id).delete()
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(center_id).delete()
                 return True
             except Exception as e:
                 print(f"⚠️ Fallo al eliminar centro de costo de Firestore: {e}")
@@ -6470,12 +6769,12 @@ class DatabaseService:
     # ═════════════════════════════════════════════════════════════════
 
     @classmethod
-    def get_sod_actions(cls, owner_uid, user_uid, entity_id=None, entity_type=None):
+    def get_sod_actions(cls, owner_uid, user_uid, entity_id=None, entity_type=None, company_id=None):
         """Obtiene acciones SoD de un usuario, opcionalmente filtradas por entidad."""
         actions = []
         if firebase_initialized:
             try:
-                coll_ref = db_firestore.collection("users").document(owner_uid).collection("sod_actions")
+                coll_ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="sod_actions")
                 query = coll_ref.where(filter=firestore.FieldFilter("userUID", "==", user_uid))
                 if entity_id:
                     query = query.where(filter=firestore.FieldFilter("entityId", "==", entity_id))
@@ -6491,25 +6790,25 @@ class DatabaseService:
         return actions
 
     @classmethod
-    def save_sod_action(cls, owner_uid, action_dict):
+    def save_sod_action(cls, owner_uid, action_dict, company_id=None):
         """Guarda una acción SoD en Firestore."""
         action_id = action_dict.get("id", "")
         if not action_id:
             return
         if firebase_initialized:
             try:
-                db_firestore.collection("users").document(owner_uid).collection("sod_actions").document(action_id).set(action_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="sod_actions").document(action_id).set(action_dict)
             except Exception as e:
                 print(f"⚠️ Fallo al guardar acción SoD: {e}")
 
     @classmethod
-    def get_employee_garnishments(cls, owner_uid, employee_id, sandbox=True):
+    def get_employee_garnishments(cls, owner_uid, employee_id, sandbox=True, company_id=None):
         """Obtiene embargos activos de un empleado."""
         garnishments = []
         if firebase_initialized:
             try:
                 coll_name = "sandbox_garnishments" if sandbox else "garnishments"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name) \
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name) \
                     .where(filter=firestore.FieldFilter("employeeId", "==", employee_id)) \
                     .where(filter=firestore.FieldFilter("status", "==", "active")) \
                     .get()
@@ -6522,13 +6821,344 @@ class DatabaseService:
         return garnishments
 
     @classmethod
-    def save_garnishment(cls, owner_uid, garnishment_id, garnishment_dict, sandbox=True):
+    def save_garnishment(cls, owner_uid, garnishment_id, garnishment_dict, sandbox=True, company_id=None):
         """Guarda un embargo en Firestore."""
         garnishment_dict["id"] = garnishment_id
         if firebase_initialized:
             try:
                 coll_name = "sandbox_garnishments" if sandbox else "garnishments"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(garnishment_id).set(garnishment_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(garnishment_id).set(garnishment_dict)
             except Exception as e:
                 print(f"⚠️ Fallo al guardar embargo: {e}")
         return garnishment_dict
+
+    # ──────────────────────────────────────────────
+    # Multi-Company API (Etapa 1)
+    # ──────────────────────────────────────────────
+
+    @classmethod
+    def create_company(cls, owner_uid, company_data):
+        """Crea una nueva compañía en la colección companies/."""
+        if not firebase_initialized:
+            return None
+        try:
+            import uuid
+            company_id = company_data.get("id") or str(uuid.uuid4())
+            now = datetime.now(timezone.utc).isoformat()
+
+            profile = {
+                "id": company_id,
+                "owner_uid": owner_uid,
+                "name": company_data.get("name", company_data.get("companyName", "Nueva Empresa")),
+                "trade_name": company_data.get("trade_name", company_data.get("tradeName", "")),
+                "rnc": company_data.get("rnc", company_data.get("companyRNC", "")),
+                "type": company_data.get("type", company_data.get("companyType", "associated")),
+                "status": "active",
+                "is_default": False,
+                "configured": company_data.get("configured", False),
+                "regimen_fiscal": company_data.get("regimen_fiscal", company_data.get("regimenFiscal", "ordinary")),
+                "country": company_data.get("country", "DO"),
+                "address": company_data.get("address", company_data.get("companyAddress", "")),
+                "province": company_data.get("province", ""),
+                "municipality": company_data.get("municipality", ""),
+                "phone": company_data.get("phone", company_data.get("companyPhone", "")),
+                "email": company_data.get("email", company_data.get("companyEmail", "")),
+                "color_marca": company_data.get("color_marca", company_data.get("colorMarca", "#10b981")),
+                "gradient_enabled": company_data.get("gradient_enabled", company_data.get("gradientEnabled", False)),
+                "logo_url": company_data.get("logo_url", company_data.get("logoUrl", "")),
+                "logo_base64": company_data.get("logo_base64", company_data.get("logoBase64", "")),
+                "stamp_url": company_data.get("stamp_url", company_data.get("stampUrl", "")),
+                "signature_url": company_data.get("signature_url", company_data.get("signatureUrl", "")),
+                "plan_id": company_data.get("plan_id", company_data.get("planId", "")),
+                "plan_version": company_data.get("plan_version", company_data.get("plan_version", 0)),
+                "pos_enabled": company_data.get("pos_enabled", company_data.get("posEnabled", True)),
+                "production_enabled": company_data.get("production_enabled", company_data.get("productionEnabled", True)),
+                "sandbox_enabled": company_data.get("sandbox_enabled", company_data.get("sandboxEnabled", True)),
+                "sandbox_indefinite": company_data.get("sandbox_indefinite", company_data.get("sandboxIndefinite", True)),
+                "sandbox_start_date": company_data.get("sandbox_start_date", ""),
+                "sandbox_end_date": company_data.get("sandbox_end_date", ""),
+                "certificate_name": company_data.get("certificate_name", company_data.get("certificateName", "")),
+                "certificate_content": company_data.get("certificate_content", company_data.get("certificateContent", "")),
+                "certificate_password": company_data.get("certificate_password", company_data.get("certificatePassword", "")),
+                "next_certificate_number": company_data.get("next_certificate_number", company_data.get("nextCertificateNumber", 1)),
+                "theme": company_data.get("theme", "moderno"),
+                "billing_type": company_data.get("billing_type", "Pago por uso"),
+                "billing_day": company_data.get("billing_day", 1),
+                "created_by": company_data.get("created_by", ""),
+                "created_at": now,
+                "updated_by": company_data.get("updated_by", ""),
+                "updated_at": now,
+            }
+
+            db_firestore.collection("companies").document(company_id).set(profile)
+            return company_id
+        except Exception as e:
+            print(f"⚠️ Error al crear compañía en Firestore: {e}")
+            return None
+
+    @classmethod
+    def get_company(cls, company_id):
+        """Obtiene el perfil de una compañía por su ID."""
+        if not firebase_initialized or not company_id:
+            return None
+        try:
+            doc = db_firestore.collection("companies").document(company_id).get()
+            if doc.exists:
+                return doc.to_dict()
+        except Exception as e:
+            print(f"⚠️ Error al obtener compañía {company_id}: {e}")
+        return None
+
+    @classmethod
+    def update_company(cls, company_id, update_data):
+        """Actualiza el perfil de una compañía usando merge (crea campos si no existen)."""
+        if not firebase_initialized:
+            return False
+        try:
+            now = datetime.now(timezone.utc).isoformat()
+            update_data["updated_at"] = now
+            db_firestore.collection("companies").document(company_id).set(update_data, merge=True)
+            return True
+        except Exception as e:
+            print(f"⚠️ Error al actualizar compañía {company_id}: {e}")
+            return False
+
+    @classmethod
+    def delete_company(cls, company_id):
+        """Desactiva una compañía (soft delete)."""
+        if not firebase_initialized:
+            return False
+        try:
+            now = datetime.now(timezone.utc).isoformat()
+            db_firestore.collection("companies").document(company_id).update({
+                "status": "cancelled",
+                "updated_at": now
+            })
+            return True
+        except Exception as e:
+            print(f"⚠️ Error al desactivar compañía {company_id}: {e}")
+            return False
+
+    @classmethod
+    def get_companies_by_owner(cls, owner_uid):
+        """Retorna todas las compañías de un owner."""
+        if not firebase_initialized:
+            return []
+        try:
+            docs = db_firestore.collection("companies") \
+                .where("owner_uid", "==", owner_uid) \
+                .get()
+            return [doc.to_dict() for doc in docs]
+        except Exception as e:
+            print(f"⚠️ Error al obtener compañías del owner {owner_uid}: {e}")
+            return []
+
+    # ──────────────────────────────────────────────
+    # Company Memberships API
+    # ──────────────────────────────────────────────
+
+    @classmethod
+    def create_membership(cls, uid, company_id, role="employee", permissions=None, invited_by=""):
+        """Crea una membresía: usuario → compañía."""
+        if not firebase_initialized:
+            return None
+        try:
+            import uuid
+            membership_id = str(uuid.uuid4())
+            now = datetime.now(timezone.utc).isoformat()
+
+            membership = {
+                "id": membership_id,
+                "uid": uid,
+                "company_id": company_id,
+                "role": role,
+                "permissions": permissions or {},
+                "assigned_branches": [],
+                "status": "active",
+                "invited_by": invited_by,
+                "created_at": now,
+                "updated_at": now,
+            }
+
+            db_firestore.collection("company_memberships").document(membership_id).set(membership)
+            return membership_id
+        except Exception as e:
+            print(f"⚠️ Error al crear membresía: {e}")
+            return None
+
+    @classmethod
+    def get_membership(cls, uid, company_id):
+        """Obtiene la membresía de un usuario en una compañía específica."""
+        if not firebase_initialized:
+            return None
+        try:
+            docs = db_firestore.collection("company_memberships") \
+                .where("uid", "==", uid) \
+                .where("company_id", "==", company_id) \
+                .limit(1) \
+                .get()
+            for doc in docs:
+                return doc.to_dict()
+        except Exception as e:
+            print(f"⚠️ Error al obtener membresía: {e}")
+        return None
+
+    @classmethod
+    def get_user_companies(cls, uid):
+        """Retorna todas las compañías a las que un usuario tiene acceso."""
+        if not firebase_initialized:
+            return []
+        try:
+            memberships = db_firestore.collection("company_memberships") \
+                .where("uid", "==", uid) \
+                .where("status", "==", "active") \
+                .get()
+
+            companies = []
+            for mem in memberships:
+                mem_data = mem.to_dict()
+                company = cls.get_company(mem_data["company_id"])
+                if company:
+                    company["_membership"] = {
+                        "role": mem_data.get("role"),
+                        "permissions": mem_data.get("permissions", {}),
+                        "assigned_branches": mem_data.get("assigned_branches", []),
+                    }
+                    companies.append(company)
+            return companies
+        except Exception as e:
+            print(f"⚠️ Error al obtener compañías del usuario {uid}: {e}")
+            return []
+
+    @classmethod
+    def get_company_members(cls, company_id):
+        """Retorna todos los miembros de una compañía."""
+        if not firebase_initialized:
+            return []
+        try:
+            docs = db_firestore.collection("company_memberships") \
+                .where("company_id", "==", company_id) \
+                .where("status", "==", "active") \
+                .get()
+            return [doc.to_dict() for doc in docs]
+        except Exception as e:
+            print(f"⚠️ Error al obtener miembros de compañía {company_id}: {e}")
+            return []
+
+    @classmethod
+    def update_membership(cls, uid, company_id, update_data):
+        """Actualiza la membresía de un usuario en una compañía."""
+        if not firebase_initialized:
+            return False
+        try:
+            now = datetime.now(timezone.utc).isoformat()
+            docs = db_firestore.collection("company_memberships") \
+                .where("uid", "==", uid) \
+                .where("company_id", "==", company_id) \
+                .limit(1) \
+                .get()
+            for doc in docs:
+                update_data["updated_at"] = now
+                db_firestore.collection("company_memberships").document(doc.id).update(update_data)
+                return True
+        except Exception as e:
+            print(f"⚠️ Error al actualizar membresía: {e}")
+        return False
+
+    @classmethod
+    def delete_membership(cls, uid, company_id):
+        """Elimina (soft delete) la membresía de un usuario en una compañía."""
+        if not firebase_initialized:
+            return False
+        try:
+            now = datetime.now(timezone.utc).isoformat()
+            docs = db_firestore.collection("company_memberships") \
+                .where("uid", "==", uid) \
+                .where("company_id", "==", company_id) \
+                .limit(1) \
+                .get()
+            for doc in docs:
+                db_firestore.collection("company_memberships").document(doc.id).update({
+                    "status": "inactive",
+                    "updated_at": now
+                })
+                return True
+        except Exception as e:
+            print(f"⚠️ Error al eliminar membresía: {e}")
+        return False
+
+    # ──────────────────────────────────────────────
+    # CompanyContext helper
+    # ──────────────────────────────────────────────
+
+    @classmethod
+    def get_company_context(cls, uid, company_id):
+        """
+        Construye un CompanyContext con la compañía activa y la membresía del usuario.
+        Con fallback a datos legacy (users/{uid}/config/profile).
+
+        Returns:
+            dict con: company_id, owner_uid, company_name, rnc, role, permissions, is_sandbox, branch_id
+            o None si no hay acceso.
+        """
+        if not company_id or not uid:
+            return None
+
+        company = cls.get_company(company_id)
+        is_legacy = False
+        if not company:
+            try:
+                legacy_ref = _company_coll(owner_uid=company_id, coll_name="config")
+                if legacy_ref:
+                    legacy_doc = legacy_ref.document("profile").get()
+                    if legacy_doc.exists:
+                        legacy_data = legacy_doc.to_dict()
+                        company = {
+                            "id": company_id,
+                            "owner_uid": legacy_data.get("ownerUID", company_id),
+                            "name": legacy_data.get("companyName", ""),
+                            "rnc": legacy_data.get("companyRNC", ""),
+                            "plan_id": legacy_data.get("planId", ""),
+                        }
+                        is_legacy = True
+            except Exception:
+                pass
+        if not company:
+            return None
+
+        membership = cls.get_membership(uid, company_id)
+        if membership and membership.get("status") == "active":
+            member_role = membership.get("role", "employee")
+            member_permissions = membership.get("permissions", {})
+            member_owner_uid = membership.get("owner_uid", company.get("owner_uid", ""))
+        elif is_legacy and uid == company_id:
+            member_role = "owner"
+            member_permissions = {"canInvoice": True, "canExpenses": True, "canClients": True, "canModifySettings": True, "canManageInventory": True, "canManagePOS": True, "canViewDashboard": True, "canManageCXC": True, "canManageCXP": True, "canManageContracts": True, "canManageCommissions": True, "canViewBI": True}
+            member_owner_uid = company_id
+        else:
+            return None
+
+        from flask import session
+
+        plan_name = ""
+        plan_id = company.get("plan_id", "")
+        if plan_id:
+            try:
+                plan_data = cls.get_plan(plan_id)
+                if plan_data:
+                    plan_name = plan_data.get("name", "")
+            except Exception:
+                pass
+
+        return {
+            "company_id": company_id,
+            "owner_uid": member_owner_uid,
+            "company_name": company.get("name", ""),
+            "rnc": company.get("rnc", ""),
+            "plan_id": plan_id,
+            "plan_name": plan_name,
+            "role": member_role,
+            "permissions": member_permissions,
+            "is_sandbox": session.get("is_sandbox_mode", False),
+            "branch_id": session.get("selected_branch_id"),
+        }

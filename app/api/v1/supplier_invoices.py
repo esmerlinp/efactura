@@ -5,6 +5,10 @@ from app.services.supplier_invoice_service import SupplierInvoiceService
 api_supplier_invoices_bp = Blueprint('api_supplier_invoices', __name__)
 
 
+def _company_kw():
+    return {"company_id": g.company_id, "owner_uid": g.owner_uid, "sandbox": g.sandbox_mode}
+
+
 @api_supplier_invoices_bp.route('/supplier-invoices', methods=['GET'])
 @require_api_key
 def list_supplier_invoices():
@@ -30,7 +34,8 @@ def list_supplier_invoices():
               items:
                 type: object
     """
-    invoices = SupplierInvoiceService.get_all(g.owner_uid, sandbox=g.sandbox_mode)
+    kw = _company_kw()
+    invoices = SupplierInvoiceService.get_all(**kw)
     return jsonify({"success": True, "data": invoices}), 200
 
 
@@ -57,7 +62,8 @@ def get_supplier_invoice(invoice_id):
       404:
         description: Factura de proveedor no encontrada
     """
-    invoice = SupplierInvoiceService.get(g.owner_uid, invoice_id, sandbox=g.sandbox_mode)
+    kw = _company_kw()
+    invoice = SupplierInvoiceService.get(invoice_id=invoice_id, **kw)
     if not invoice:
         return jsonify({"success": False, "error": "Factura proveedor no encontrada."}), 404
     return jsonify({"success": True, "data": invoice}), 200
@@ -178,8 +184,9 @@ def create_supplier_invoice():
       201:
         description: Factura de proveedor creada exitosamente
     """
+    kw = _company_kw()
     data = request.json or {}
-    invoice = SupplierInvoiceService.create(g.owner_uid, data, sandbox=g.sandbox_mode)
+    invoice = SupplierInvoiceService.create(data=data, **kw)
     return jsonify({"success": True, "data": invoice}), 201
 
 
@@ -308,14 +315,15 @@ def update_supplier_invoice(invoice_id):
       500:
         description: Error al actualizar factura de proveedor
     """
-    existing = SupplierInvoiceService.get(g.owner_uid, invoice_id, sandbox=g.sandbox_mode)
+    kw = _company_kw()
+    existing = SupplierInvoiceService.get(invoice_id=invoice_id, **kw)
     if not existing:
         return jsonify({"success": False, "error": "Factura proveedor no encontrada."}), 404
     data = request.json or {}
-    ok = SupplierInvoiceService.update(g.owner_uid, invoice_id, data, sandbox=g.sandbox_mode)
+    ok = SupplierInvoiceService.update(invoice_id=invoice_id, data=data, **kw)
     if not ok:
         return jsonify({"success": False, "error": "Error al actualizar factura proveedor."}), 500
-    updated = SupplierInvoiceService.get(g.owner_uid, invoice_id, sandbox=g.sandbox_mode)
+    updated = SupplierInvoiceService.get(invoice_id=invoice_id, **kw)
     return jsonify({"success": True, "data": updated}), 200
 
 
@@ -342,10 +350,11 @@ def delete_supplier_invoice(invoice_id):
       404:
         description: Factura de proveedor no encontrada
     """
-    existing = SupplierInvoiceService.get(g.owner_uid, invoice_id, sandbox=g.sandbox_mode)
+    kw = _company_kw()
+    existing = SupplierInvoiceService.get(invoice_id=invoice_id, **kw)
     if not existing:
         return jsonify({"success": False, "error": "Factura proveedor no encontrada."}), 404
-    SupplierInvoiceService.delete(g.owner_uid, invoice_id, sandbox=g.sandbox_mode)
+    SupplierInvoiceService.delete(invoice_id=invoice_id, **kw)
     return jsonify({"success": True, "message": "Factura proveedor eliminada."}), 200
 
 
@@ -372,10 +381,11 @@ def list_payments(invoice_id):
       404:
         description: Factura de proveedor no encontrada
     """
-    existing = SupplierInvoiceService.get(g.owner_uid, invoice_id, sandbox=g.sandbox_mode)
+    kw = _company_kw()
+    existing = SupplierInvoiceService.get(invoice_id=invoice_id, **kw)
     if not existing:
         return jsonify({"success": False, "error": "Factura proveedor no encontrada."}), 404
-    payments = SupplierInvoiceService.get_payments(g.owner_uid, invoice_id, sandbox=g.sandbox_mode)
+    payments = SupplierInvoiceService.get_payments(invoice_id=invoice_id, **kw)
     return jsonify({"success": True, "data": payments}), 200
 
 
@@ -426,7 +436,8 @@ def register_payment(invoice_id):
       404:
         description: Factura de proveedor no encontrada
     """
-    existing = SupplierInvoiceService.get(g.owner_uid, invoice_id, sandbox=g.sandbox_mode)
+    kw = _company_kw()
+    existing = SupplierInvoiceService.get(invoice_id=invoice_id, **kw)
     if not existing:
         return jsonify({"success": False, "error": "Factura proveedor no encontrada."}), 404
     body = request.json or {}
@@ -434,14 +445,14 @@ def register_payment(invoice_id):
     if amount <= 0:
         return jsonify({"success": False, "error": "El monto del pago debe ser mayor a cero."}), 400
     ok, msg = SupplierInvoiceService.save_payment(
-        g.owner_uid, invoice_id, amount,
+        invoice_id=invoice_id, payment_amount=amount,
         registered_by=body.get("registeredBy", "API"),
-        sandbox=g.sandbox_mode,
         payment_method=body.get("method", ""),
         payment_reference=body.get("reference", ""),
         bank_account_id=body.get("bankAccountId", ""),
+        **kw,
     )
     if not ok:
         return jsonify({"success": False, "error": msg}), 400
-    payments = SupplierInvoiceService.get_payments(g.owner_uid, invoice_id, sandbox=g.sandbox_mode)
+    payments = SupplierInvoiceService.get_payments(invoice_id=invoice_id, **kw)
     return jsonify({"success": True, "message": msg, "data": payments}), 200

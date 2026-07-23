@@ -16,10 +16,11 @@ import traceback
 from datetime import datetime, timezone
 
 try:
-    from app.services.db_service import db_firestore, firebase_initialized
+    from app.services.db_service import db_firestore, firebase_initialized, _company_coll
 except ImportError:
     db_firestore = None
     firebase_initialized = False
+    _company_coll = None
 
 
 # Acciones canónicas del sistema de auditoría
@@ -67,7 +68,8 @@ class AuditService:
             after: dict = None,
             sandbox: bool = True,
             ip_address: str = "",
-            user_agent: str = "") -> str:
+            user_agent: str = "",
+            company_id=None) -> str:
         """
         Registra un evento de auditoría en Firestore.
 
@@ -114,9 +116,7 @@ class AuditService:
                 "isSandbox": bool(sandbox),
             }
 
-            db_firestore.collection("users") \
-                        .document(owner_uid) \
-                        .collection("audit_logs") \
+            _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name="audit_logs") \
                         .document(log_id) \
                         .set(log_data)
 
@@ -155,7 +155,7 @@ class AuditService:
         return result
 
     @classmethod
-    def get_entity_logs(cls, owner_uid: str, entity_id: str) -> list:
+    def get_entity_logs(cls, owner_uid: str, entity_id: str, company_id=None) -> list:
         """
         Retorna logs de auditoría para una entidad específica (ej: una factura).
         Ordenados por timestamp descendente.
@@ -163,9 +163,7 @@ class AuditService:
         if not firebase_initialized or not db_firestore:
             return []
         try:
-            docs = db_firestore.collection("users") \
-                                .document(owner_uid) \
-                                .collection("audit_logs") \
+            docs = _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name="audit_logs") \
                                 .where("entityId", "==", str(entity_id)) \
                                 .get()
             logs = []
@@ -206,7 +204,8 @@ class AuditService:
                  date_from: str = None,
                  date_to: str = None,
                  entity_filter: str = None,
-                 sandbox_filter: str = None) -> dict:
+                 sandbox_filter: str = None,
+                 company_id=None) -> dict:
         """
         Retorna logs de auditoría paginados con filtros avanzados.
 
@@ -217,9 +216,7 @@ class AuditService:
             return {"logs": [], "total": 0, "pages": 0, "current_page": page}
 
         try:
-            query = db_firestore.collection("users") \
-                                .document(owner_uid) \
-                                .collection("audit_logs") \
+            query = _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name="audit_logs") \
                                 .order_by("timestamp", direction="DESCENDING")
 
             # Si no hay filtros activos, limitar a los últimos 100 registros para evitar sobrecarga en la primera carga
@@ -321,14 +318,12 @@ class AuditService:
             return {"logs": [], "total": 0, "pages": 0, "current_page": page, "is_limited": False}
 
     @classmethod
-    def get_log_detail(cls, owner_uid: str, log_id: str) -> dict:
+    def get_log_detail(cls, owner_uid: str, log_id: str, company_id=None) -> dict:
         """Retorna un log específico con snapshots before/after completos."""
         if not firebase_initialized or not db_firestore:
             return {}
         try:
-            doc = db_firestore.collection("users") \
-                              .document(owner_uid) \
-                              .collection("audit_logs") \
+            doc = _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name="audit_logs") \
                               .document(log_id) \
                               .get()
             if doc.exists:
@@ -338,12 +333,12 @@ class AuditService:
         return {}
 
     @classmethod
-    def export_to_csv_rows(cls, owner_uid: str, **filter_kwargs) -> list:
+    def export_to_csv_rows(cls, owner_uid: str, company_id=None, **filter_kwargs) -> list:
         """
         Retorna todos los logs (sin paginación) como lista de dicts para CSV.
         Se pasan los mismos kwargs que get_logs (sin page/per_page).
         """
-        result = cls.get_logs(owner_uid, page=1, per_page=99999, **filter_kwargs)
+        result = cls.get_logs(owner_uid, page=1, per_page=99999, company_id=company_id, **filter_kwargs)
         return result.get("logs", [])
 
     @classmethod
@@ -352,7 +347,7 @@ class AuditService:
                          user_session: dict = None,
                          before: dict = None, after: dict = None,
                          sandbox: bool = True,
-                         flask_request=None) -> str:
+                         flask_request=None, company_id=None) -> str:
         """
         Helper conveniente: extrae datos del usuario y request automáticamente.
         Úsalo desde las rutas Flask pasando session['user'] y request de Flask.
@@ -383,17 +378,16 @@ class AuditService:
             sandbox=sandbox,
             ip_address=ip,
             user_agent=ua,
+            company_id=company_id,
         )
 
     @classmethod
-    def get_user_recent_activity(cls, owner_uid: str, user_uid: str, limit: int = 10) -> list:
+    def get_user_recent_activity(cls, owner_uid: str, user_uid: str, limit: int = 10, company_id=None) -> list:
         """Retorna la actividad reciente de un usuario específico."""
         if not firebase_initialized or not db_firestore:
             return []
         try:
-            docs = db_firestore.collection("users") \
-                .document(owner_uid) \
-                .collection("audit_logs") \
+            docs = _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name="audit_logs") \
                 .where("performedByUID", "==", user_uid) \
                 .order_by("timestamp", direction="DESCENDING") \
                 .limit(limit) \

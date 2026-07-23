@@ -20,8 +20,8 @@ class AIExpenseClassifier:
 
     @classmethod
     def classify_expense_from_import(cls, owner_uid, supplier_name, supplier_rnc,
-                                     items_text, total, date_str, ecf_type):
-        api_key = AIService._get_api_key(owner_uid)
+                                     items_text, total, date_str, ecf_type, company_id=None):
+        api_key = AIService._get_api_key(owner_uid, company_id=company_id)
         if not api_key or api_key == "YOUR_OPENAI_API_KEY_HERE":
             return cls._fallback_classify(supplier_name, items_text)
 
@@ -143,12 +143,12 @@ Detalle: {items_text}"""
         }
 
     @classmethod
-    def detect_duplicate(cls, owner_uid, supplier_rnc, total, date_str, sandbox=True):
+    def detect_duplicate(cls, owner_uid, supplier_rnc, total, date_str, sandbox=True, company_id=None):
         rnc_clean = "".join(filter(str.isdigit, str(supplier_rnc))) if supplier_rnc else ""
         if not rnc_clean:
             return None
 
-        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, company_id=company_id)
         for exp in expenses:
             exp_rnc = "".join(filter(str.isdigit, str(exp.get("rncEmisor", ""))))
             if exp_rnc != rnc_clean:

@@ -15,10 +15,11 @@ def list_suppliers():
     if not check_permission('canManageSuppliers'):
         return render_template('auth/restricted.html', feature_name="Proveedores", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     suppliers = SupplierService.get_suppliers(owner_uid, sandbox=sandbox)
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
 
     for s in suppliers:
         sid = s['id']
@@ -109,6 +110,7 @@ def new_supplier():
     if not check_permission('canManageSuppliers'):
         return render_template('auth/restricted.html', feature_name="Nuevo Proveedor", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     if request.method == 'POST':
@@ -154,7 +156,7 @@ def new_supplier():
                     mime_type = att_file.content_type or "application/octet-stream"
                     safe_name = att_file.filename.replace(' ', '_')
                     dest_path = f"users/{owner_uid}/suppliers/{supplier_id}/{safe_name}"
-                    public_url = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type)
+                    public_url = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type, company_id=company_id)
                     att_type = attachment_types[i] if i < len(attachment_types) else 'otro'
                     attachment_urls.append(public_url)
                     attachments.append({'url': public_url, 'type': att_type, 'name': att_file.filename})
@@ -259,6 +261,7 @@ def supplier_detail(supplier_id):
     if not check_permission('canManageSuppliers'):
         return render_template('auth/restricted.html', feature_name="Detalle Proveedor", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     supplier = SupplierService.get_supplier(owner_uid, supplier_id, sandbox=sandbox)
@@ -266,7 +269,7 @@ def supplier_detail(supplier_id):
         flash('Proveedor no encontrado.', 'error')
         return redirect(url_for('web_suppliers.list_suppliers'))
 
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
     linked_expenses = [e for e in expenses if e.get('supplierId') == supplier_id]
     linked_expenses.sort(key=lambda x: x.get('date', ''), reverse=True)
 
@@ -289,6 +292,7 @@ def edit_supplier(supplier_id):
     if not check_permission('canManageSuppliers'):
         return render_template('auth/restricted.html', feature_name="Editar Proveedor", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     supplier = SupplierService.get_supplier(owner_uid, supplier_id, sandbox=sandbox)
@@ -334,7 +338,7 @@ def edit_supplier(supplier_id):
                         mime_type = att_file.content_type or "application/octet-stream"
                         safe_name = att_file.filename.replace(' ', '_')
                         dest_path = f"users/{owner_uid}/suppliers/{supplier_id}/{safe_name}"
-                        public_url = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type)
+                        public_url = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type, company_id=company_id)
                         att_type = attachment_types[i] if i < len(attachment_types) else 'otro'
                         supplier_dict["firebaseAttachmentURLs"].append(public_url)
                         supplier_dict["attachments"].append({'url': public_url, 'type': att_type, 'name': att_file.filename})

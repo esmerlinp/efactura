@@ -1,5 +1,6 @@
 """
 ContactRepository — clientes, proveedores, interacciones CRM, documentos.
+Opera sobre companies/{company_id}/...
 """
 from typing import Optional
 
@@ -8,6 +9,9 @@ from app.repositories.base import BaseRepository
 
 class ContactRepository(BaseRepository):
     """Repositorio para gestión de contactos (clientes y proveedores)."""
+
+    def _coll_name(self, sandbox: bool) -> str:
+        return "sandbox_clients" if sandbox else "clients"
 
     # ── Clients ─────────────────────────────────────────────────────────
     def get_clients(self, sandbox: bool = True) -> list:
@@ -22,14 +26,15 @@ class ContactRepository(BaseRepository):
         from app.services.db_service import db_firestore, firebase_initialized
         if not firebase_initialized:
             return None
-        coll_name = "sandbox_clients" if sandbox else "clients"
+        base_coll = db_firestore.collection("companies").document(self.company_id)
+        coll_name = self._coll_name(sandbox)
         clean_rnc = str(rnc).replace("-", "").strip()
-        docs = db_firestore.collection("users").document(self.owner_uid).collection(coll_name).where("rnc", "==", clean_rnc).get()
+        docs = base_coll.collection(coll_name).where("rnc", "==", clean_rnc).get()
         for doc in docs:
             data = doc.to_dict()
             data["id"] = doc.id
             return data
-        docs = db_firestore.collection("users").document(self.owner_uid).collection(coll_name).where("rnc", "==", rnc).get()
+        docs = base_coll.collection(coll_name).where("rnc", "==", rnc).get()
         for doc in docs:
             data = doc.to_dict()
             data["id"] = doc.id
@@ -48,8 +53,8 @@ class ContactRepository(BaseRepository):
         from app.services.db_service import db_firestore, firebase_initialized
         from firebase_admin import firestore
         if firebase_initialized:
-            coll_name = "sandbox_clients" if sandbox else "clients"
-            db_firestore.collection("users").document(self.owner_uid).collection(coll_name).document(client_id).update({
+            coll_name = self._coll_name(sandbox)
+            db_firestore.collection("companies").document(self.company_id).collection(coll_name).document(client_id).update({
                 "pipelineStage": pipeline_stage,
                 "updatedAt": firestore.SERVER_TIMESTAMP
             })
@@ -60,8 +65,9 @@ class ContactRepository(BaseRepository):
         interactions = []
         if not firebase_initialized:
             return interactions
-        coll_name = "sandbox_clients" if sandbox else "clients"
-        docs = db_firestore.collection("users").document(self.owner_uid).collection(coll_name).document(client_id).collection("interactions").get()
+        coll_name = self._coll_name(sandbox)
+        base_coll = db_firestore.collection("companies").document(self.company_id)
+        docs = base_coll.collection(coll_name).document(client_id).collection("interactions").get()
         for doc in docs:
             data = doc.to_dict()
             data["id"] = doc.id
@@ -70,17 +76,17 @@ class ContactRepository(BaseRepository):
         return interactions
 
     def save_client_interaction(self, client_id: str, interaction_id: str, data: dict, sandbox: bool = True) -> str:
-        self.collection_prefix = "clients"
         from app.services.db_service import db_firestore, firebase_initialized
         data["id"] = interaction_id
         if not data.get("createdAt"):
             from datetime import datetime, timezone
             data["createdAt"] = datetime.now(timezone.utc).isoformat()
         if firebase_initialized:
-            coll_name = "sandbox_clients" if sandbox else "clients"
-            db_firestore.collection("users").document(self.owner_uid).collection(coll_name).document(client_id).collection("interactions").document(interaction_id).set(data)
+            coll_name = self._coll_name(sandbox)
+            base_coll = db_firestore.collection("companies").document(self.company_id)
+            base_coll.collection(coll_name).document(client_id).collection("interactions").document(interaction_id).set(data)
             if data.get("nextContactDate") and not data.get("completed"):
-                db_firestore.collection("users").document(self.owner_uid).collection(coll_name).document(client_id).update({
+                base_coll.collection(coll_name).document(client_id).update({
                     "nextContactDate": data["nextContactDate"],
                     "crmNotes": data.get("content", "")[:100]
                 })
@@ -91,8 +97,9 @@ class ContactRepository(BaseRepository):
         from app.services.db_service import db_firestore, firebase_initialized
         docs_list = []
         if firebase_initialized:
-            coll_name = "sandbox_clients" if sandbox else "clients"
-            docs = db_firestore.collection("users").document(self.owner_uid).collection(coll_name).document(client_id).collection("documents").get()
+            coll_name = self._coll_name(sandbox)
+            base_coll = db_firestore.collection("companies").document(self.company_id)
+            docs = base_coll.collection(coll_name).document(client_id).collection("documents").get()
             for doc in docs:
                 data = doc.to_dict()
                 data["id"] = doc.id

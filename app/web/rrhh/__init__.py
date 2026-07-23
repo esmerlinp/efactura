@@ -19,7 +19,8 @@ web_rrhh_bp = Blueprint("web_rrhh", __name__, template_folder="templates")
 def _get_owner_uid_and_sandbox():
     uid = session.get("selected_owner_uid", "") or session.get("user", {}).get("ownerUID", "")
     sandbox = session.get("is_sandbox_mode", True)
-    return uid, sandbox
+    company_id = session.get("selected_company_id")
+    return uid, sandbox, company_id
 
 
 def _login_required():

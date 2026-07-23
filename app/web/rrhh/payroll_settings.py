@@ -42,9 +42,9 @@ def _parse_cost_center_accounts(form) -> dict:
 def payroll_settings():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
+    config = hr.get_payroll_config(company_id, sandbox=sandbox)
     config_updated = False
 
     if request.method == "POST":
@@ -53,10 +53,10 @@ def payroll_settings():
         new_freq = request.form.get("payroll_frequency", "")
         if new_freq in ("quincenal", "mensual"):
             config["payrollFrequency"] = new_freq
-            hr.save_payroll_config(owner_uid, config, sandbox=sandbox)
+            hr.save_payroll_config(company_id, config, sandbox=sandbox)
 
         if action == "save":
-            hr.save_tax_rates(owner_uid, {
+            hr.save_tax_rates(company_id, {
                 "year": date.today().year,
                 "accountSalariesPayable": request.form.get("accountSalariesPayable", "2.1.2.1.02").strip(),
                 "accountAfpEmployee": request.form.get("accountAfpEmployee", "2.1.2.1.05").strip(),
@@ -71,7 +71,7 @@ def payroll_settings():
             }, sandbox=sandbox)
         config_updated = True
 
-    rates = hr.get_tax_rates(owner_uid, sandbox=sandbox)
+    rates = hr.get_tax_rates(company_id, sandbox=sandbox)
     if not rates:
         default_rates = PayrollService.get_rates({})
         rates = {
@@ -88,11 +88,11 @@ def payroll_settings():
             "updatedBy": "",
         }
 
-    config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
+    config = hr.get_payroll_config(company_id, sandbox=sandbox)
 
-    payroll_groups = hr.get_payroll_groups(owner_uid, sandbox=sandbox)
+    payroll_groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
     payroll_groups.sort(key=lambda g: g.get("name", ""))
-    all_employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    all_employees = hr.get_employees(company_id, sandbox=sandbox)
     unassigned_employees = [e for e in all_employees if e.get("status") == "activo"
                             and not any(gid in e.get("payrollGroupIds", []) for gid in [g["id"] for g in payroll_groups])]
 
@@ -109,7 +109,7 @@ def payroll_settings():
 def tax_rates_history_view():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     from app.services.legal_parameter_resolver import get_parameter_history
     from app.models.legal_parameter import PARAM_TYPES, get_default_params
@@ -123,10 +123,10 @@ def tax_rates_history_view():
 def fiscal_closing_validation():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     year = int(request.args.get("year", date.today().year))
-    result = PayrollService.validate_payroll_for_fiscal_closing(owner_uid, year=year, sandbox=sandbox)
+    result = PayrollService.validate_payroll_for_fiscal_closing(company_id, year=year, sandbox=sandbox)
 
     return render_template("rrhh/fiscal_closing_validation.html", active_page="rrhh_reports",
                            result=result, year=year)
@@ -136,10 +136,10 @@ def fiscal_closing_validation():
 def payroll_generate_periods():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     months = int(request.form.get("months", 6))
-    result = PayrollService.generate_upcoming_periods(owner_uid, months_ahead=months, sandbox=sandbox)
+    result = PayrollService.generate_upcoming_periods(company_id, months_ahead=months, sandbox=sandbox)
 
     if result["errors"]:
         for err in result["errors"]:

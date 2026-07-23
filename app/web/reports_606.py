@@ -67,8 +67,9 @@ def _get_expenses_for_period(owner_uid, sandbox, year, month):
     all_items = []
     branch_id = g.get('branch_id')
     project_id = g.get('project_id')
+    company_id = session.get('selected_company_id')
 
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=branch_id, project_id=project_id)
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=branch_id, project_id=project_id)
     for exp in expenses:
         if exp.get("includeIn606") is False:
             continue
@@ -78,7 +79,7 @@ def _get_expenses_for_period(owner_uid, sandbox, year, month):
 
     try:
         from app.services.supplier_invoice_service import SupplierInvoiceService
-        invoices = SupplierInvoiceService.get_all(owner_uid, sandbox=sandbox)
+        invoices = SupplierInvoiceService.get_all(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
         for inv in invoices:
             if inv.get("includeIn606") is False:
                 continue
@@ -410,6 +411,7 @@ def reporte_606_export():
         return render_template("auth/restricted.html"), 403
     owner_uid = session["user"]["ownerUID"]
     sandbox = session.get("is_sandbox_mode", True)
+    company_id = session.get("selected_company_id")
 
     now = datetime.now(timezone.utc)
     year = _parse_int(request.args.get("year"), now.year)
@@ -424,7 +426,7 @@ def reporte_606_export():
     filtered = _filter_expenses(expenses, supplier_id, tipo_gasto, ecf_type, search)
     filtered.sort(key=lambda x: (x.get("date") or x.get("createdAt") or ""))
 
-    profile = DatabaseService.get_company_profile(owner_uid)
+    profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     owner_rnc = (profile or {}).get("companyRNC", "").replace("-", "")
     period = f"{year:04d}{month:02d}"
 

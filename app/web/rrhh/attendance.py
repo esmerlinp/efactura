@@ -20,7 +20,7 @@ from app.services import hr_data_service as hr
 def attendance():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
     now = datetime.now(timezone.utc)
@@ -30,8 +30,8 @@ def attendance():
     except ValueError:
         sel_month, sel_year = now.month, now.year
 
-    all_employees = [e for e in hr.get_employees(owner_uid, sandbox=sandbox) if e.get("status") == "activo"]
-    records = hr.get_attendance_records(owner_uid, sandbox=sandbox)
+    all_employees = [e for e in hr.get_employees(company_id, sandbox=sandbox) if e.get("status") == "activo"]
+    records = hr.get_attendance_records(company_id, sandbox=sandbox)
 
     # ── Filtros ──
     search = request.args.get("search", "").strip().lower()
@@ -71,7 +71,7 @@ def attendance():
             att_date = request.form.get("att_date", now.strftime("%Y-%m-%d"))
             if status:
                 rec_id = str(uuid.uuid4())
-                hr.save_attendance_record(owner_uid, rec_id, {
+                hr.save_attendance_record(company_id, rec_id, {
                     "id": rec_id,
                     "employeeId": emp_id,
                     "employeeName": emp.get("fullName", ""),

@@ -39,10 +39,10 @@ PARAM_TYPE_LABELS = {
 def legal_parameters_list():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     param_type = request.args.get("parameter_type", "")
-    parameters = hr.get_legal_parameters(owner_uid, parameter_type=param_type, sandbox=sandbox)
+    parameters = hr.get_legal_parameters(company_id, parameter_type=param_type, sandbox=sandbox)
 
     # Agrupar por tipo para vista compacta
     from collections import defaultdict
@@ -67,7 +67,7 @@ def legal_parameters_list():
 def legal_parameter_new():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     if request.method == "POST":
         param_type = request.form.get("parameterType", "")
@@ -82,7 +82,7 @@ def legal_parameter_new():
         from app.services.legal_parameter_resolver import set_parameter
         user_email = session.get("user", {}).get("email", "")
         new_id = set_parameter(
-            owner_uid=owner_uid,
+            company_id=company_id,
             parameter_type=param_type,
             value=value,
             effective_from=effective_from,
@@ -114,9 +114,9 @@ def legal_parameter_new():
 def legal_parameter_edit(param_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    parameter = hr.get_legal_parameter(owner_uid, param_id, sandbox=sandbox)
+    parameter = hr.get_legal_parameter(company_id, param_id, sandbox=sandbox)
     if not parameter:
         flash("Parámetro no encontrado.", "error")
         return redirect(url_for("web_rrhh.legal_parameters_list"))
@@ -130,7 +130,7 @@ def legal_parameter_edit(param_id):
         parameter["updatedBy"] = session.get("user", {}).get("email", "")
         parameter["updatedAt"] = datetime.now(timezone.utc).isoformat()
 
-        hr.save_legal_parameter(owner_uid, param_id, parameter, sandbox=sandbox)
+        hr.save_legal_parameter(company_id, param_id, parameter, sandbox=sandbox)
         flash("Parámetro legal actualizado.", "success")
         return redirect(url_for("web_rrhh.legal_parameters_list"))
 
@@ -155,9 +155,9 @@ def legal_parameter_edit(param_id):
 def legal_parameter_history(param_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    parameter = hr.get_legal_parameter(owner_uid, param_id, sandbox=sandbox)
+    parameter = hr.get_legal_parameter(company_id, param_id, sandbox=sandbox)
     if not parameter:
         flash("Parámetro no encontrado.", "error")
         return redirect(url_for("web_rrhh.legal_parameters_list"))
@@ -182,9 +182,9 @@ def legal_parameter_history(param_id):
 def legal_parameter_delete(param_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    parameter = hr.get_legal_parameter(owner_uid, param_id, sandbox=sandbox)
+    parameter = hr.get_legal_parameter(company_id, param_id, sandbox=sandbox)
     if not parameter:
         flash("Parámetro no encontrado.", "error")
         return redirect(url_for("web_rrhh.legal_parameters_list"))
@@ -193,7 +193,7 @@ def legal_parameter_delete(param_id):
     parameter["isActive"] = False
     parameter["updatedBy"] = session.get("user", {}).get("email", "")
     parameter["updatedAt"] = datetime.now(timezone.utc).isoformat()
-    hr.save_legal_parameter(owner_uid, param_id, parameter, sandbox=sandbox)
+    hr.save_legal_parameter(company_id, param_id, parameter, sandbox=sandbox)
 
     flash("Parámetro legal desactivado.", "success")
     return redirect(url_for("web_rrhh.legal_parameters_list"))

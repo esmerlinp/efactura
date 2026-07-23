@@ -1249,7 +1249,7 @@
         if (pollingInterval) clearInterval(pollingInterval);
         noProgressSince = Date.now();
         noProgressAlertShown = false;
-        pollingInterval = setInterval(pollStatus, 500);
+        pollingInterval = setInterval(pollStatus, 1000);
     }
 
     function stopPolling() {

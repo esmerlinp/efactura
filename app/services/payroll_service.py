@@ -128,7 +128,7 @@ class PayrollService:
         return period.get("status", "") not in cls.IMMUTABLE_STATUSES
 
     @classmethod
-    def resolve_rates(cls, owner_uid: str, group_id: str = "", employee_id: str = "",
+    def resolve_rates(cls, company_id: str, group_id: str = "", employee_id: str = "",
                       sandbox: bool = True) -> dict:
         """Resuelve tasas en cascada: Política → Grupo → Empleado → Global.
 
@@ -142,10 +142,10 @@ class PayrollService:
         from app.services import hr_data_service as hr
         from app.models.payroll_policy import PolicyOverride
 
-        base_rates = cls.get_rates(hr.get_tax_rates(owner_uid, sandbox=sandbox))
+        base_rates = cls.get_rates(hr.get_tax_rates(company_id, sandbox=sandbox))
 
         # Nivel 4: Política default
-        default_policy = hr.get_default_payroll_policy(owner_uid, sandbox=sandbox)
+        default_policy = hr.get_default_payroll_policy(company_id, sandbox=sandbox)
         if default_policy:
             policy_rates = cls.get_rates({
                 "afpEmployeeRate": default_policy.get("afpEmployeeRate"),
@@ -181,11 +181,11 @@ class PayrollService:
 
         # Nivel 3: Política asignada al grupo
         if group_id:
-            group = hr.get_payroll_group(owner_uid, group_id, sandbox=sandbox)
+            group = hr.get_payroll_group(company_id, group_id, sandbox=sandbox)
             if group:
                 policy_id = group.get("policyId", "")
                 if policy_id:
-                    policy = hr.get_payroll_policy(owner_uid, policy_id, sandbox=sandbox)
+                    policy = hr.get_payroll_policy(company_id, policy_id, sandbox=sandbox)
                     if policy:
                         group_policy_rates = cls.get_rates({
                             "afpEmployeeRate": policy.get("afpEmployeeRate"),
@@ -231,10 +231,10 @@ class PayrollService:
         return base_rates
 
     @staticmethod
-    def get_period_lines(period: dict, owner_uid: str = "", sandbox: bool = True) -> list:
+    def get_period_lines(period: dict, company_id: str = "", sandbox: bool = True) -> list:
         """Obtiene las líneas de un período desde subcolección, con fallback a embebidas."""
         from app.services import hr_data_service as _hr
-        return _hr.get_payroll_lines_unified(period, owner_uid=owner_uid, sandbox=sandbox)
+        return _hr.get_payroll_lines_unified(period, company_id=company_id, sandbox=sandbox)
 
     @staticmethod
     def merge_group_overrides(global_rates: dict, overrides: dict) -> dict:
@@ -259,7 +259,7 @@ class PayrollService:
         return merged
 
     @classmethod
-    def resolve_overtime_rates(cls, owner_uid: str, group_id: str = "",
+    def resolve_overtime_rates(cls, company_id: str, group_id: str = "",
                                 sandbox: bool = True) -> dict:
         """Resuelve tasas de horas extra desde la configuración del grupo o defaults."""
         defaults = {
@@ -271,7 +271,7 @@ class PayrollService:
             return defaults
         try:
             from app.services import hr_data_service as _hr
-            group = _hr.get_payroll_group(owner_uid, group_id, sandbox=sandbox)
+            group = _hr.get_payroll_group(company_id, group_id, sandbox=sandbox)
             if group and group.get("overtimeRules"):
                 rules = group["overtimeRules"]
                 defaults["default_rate"] = rules.get("default_rate", defaults["default_rate"])
@@ -298,7 +298,7 @@ class PayrollService:
     @classmethod
     def detect_anomalies(cls, lines: list, employees: dict,
                          previous_lines: list = None,
-                         owner_uid: str = "", sandbox: bool = True) -> dict:
+                         company_id: str = "", sandbox: bool = True) -> dict:
         """Detecta anomalías en líneas de nómina recién calculadas.
 
         Returns:
@@ -632,7 +632,10 @@ class PayrollService:
         total = years * days_per_year
 
         # Días proporcionales del año actual
-        last_anniversary = hire_date.replace(year=today.year)
+        try:
+            last_anniversary = hire_date.replace(year=today.year)
+        except ValueError:
+            last_anniversary = hire_date.replace(year=today.year, day=28)
         if last_anniversary > today:
             last_anniversary = last_anniversary.replace(year=today.year - 1)
         days_proportional = max(0, round(((today - last_anniversary).days / 365.0) * days_per_year))
@@ -1060,10 +1063,10 @@ class PayrollService:
 
     @classmethod
     def build_payroll_accounting_lines(cls, payroll_period: dict, employees: dict = None, tax_rates: dict = None,
-                                       owner_uid: str = "", sandbox: bool = True) -> list:
+                                       company_id: str = "", sandbox: bool = True) -> list:
         lines = []
         period_label = payroll_period.get("periodKey", "")
-        plines = cls.get_period_lines(payroll_period, owner_uid=owner_uid, sandbox=sandbox)
+        plines = cls.get_period_lines(payroll_period, company_id=company_id, sandbox=sandbox)
         employees = employees or {}
         from app.services.hr_data_service import get_tax_rates_snapshot
         snapshot = get_tax_rates_snapshot(payroll_period)
@@ -1255,19 +1258,20 @@ class PayrollService:
         return lines
 
     @classmethod
-    def generate_monthly_provisions(cls, owner_uid: str, month_label: str = "",
+    def generate_monthly_provisions(cls, company_id: str, month_label: str = "",
                                      sandbox: bool = True) -> dict:
         from app.services.accounting_service import AccountingService
         from app.services import hr_data_service as hr
         from app.services.db_service import DatabaseService
 
-        employees = [e for e in hr.get_employees(owner_uid, sandbox=sandbox) if e.get("status") == "activo"]
+        employees = [e for e in hr.get_employees(company_id, sandbox=sandbox) if e.get("status") == "activo"]
         if not employees:
             return {"vacationEntry": None, "christmasEntry": None, "note": "Sin empleados activos"}
 
-        tax_rates = hr.get_tax_rates(owner_uid, sandbox=sandbox)
-        AccountingService.seed_default_accounts(owner_uid)
-        accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+        tax_rates = hr.get_tax_rates(company_id, sandbox=sandbox)
+        AccountingService.seed_default_accounts(company_id)
+        owner_uid = company_id
+        accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
 
         results = {}
         vac_lines = cls.build_vacation_provision_lines(employees, tax_rates, month_label)
@@ -1282,7 +1286,7 @@ class PayrollService:
                         "credit": al["credit"], "description": al["description"],
                     })
             if vac_full:
-                results["vacationEntry"] = AccountingService.generate_entry(owner_uid, {
+                results["vacationEntry"] = AccountingService.generate_entry(company_id, {
                     "entryType": "provision",
                     "date": "", "concept": f"Provisión mensual de vacaciones {month_label}",
                     "referenceType": "payroll_provision", "referenceId": f"vac-{month_label}",
@@ -1302,7 +1306,7 @@ class PayrollService:
                         "credit": al["credit"], "description": al["description"],
                     })
             if chr_full:
-                results["christmasEntry"] = AccountingService.generate_entry(owner_uid, {
+                results["christmasEntry"] = AccountingService.generate_entry(company_id, {
                     "entryType": "provision",
                     "date": "", "concept": f"Provisión mensual de regalía pascual {month_label}",
                     "referenceType": "payroll_provision", "referenceId": f"chr-{month_label}",
@@ -1317,7 +1321,7 @@ class PayrollService:
     # ═══════════════════════════════════════════════════════════════════════
 
     @classmethod
-    def validate_payroll_for_fiscal_closing(cls, owner_uid: str, year: int = None,
+    def validate_payroll_for_fiscal_closing(cls, company_id: str, year: int = None,
                                             sandbox: bool = True) -> dict:
         """Valida que todos los períodos de nómina del año estén listos para el cierre fiscal.
 
@@ -1330,7 +1334,7 @@ class PayrollService:
         if year is None:
             year = dt_date.today().year
 
-        periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
+        periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
         year_periods = [p for p in periods if p.get("year") == year]
 
         errors = []
@@ -1342,7 +1346,7 @@ class PayrollService:
             warnings.append(f"No se encontraron períodos de nómina para el año {year}.")
             return {"isValid": False, "warnings": warnings, "errors": errors, "details": details}
 
-        employees = {e["id"]: e for e in hr.get_employees(owner_uid, sandbox=sandbox)}
+        employees = {e["id"]: e for e in hr.get_employees(company_id, sandbox=sandbox)}
 
         for p in year_periods:
             status = p.get("status", "")
@@ -1355,7 +1359,7 @@ class PayrollService:
                     f"está en estado «{status}». Debe estar «cerrada» para el cierre fiscal."
                 )
 
-            plines = cls.get_period_lines(p, owner_uid=owner_uid, sandbox=sandbox)
+            plines = cls.get_period_lines(p, company_id=company_id, sandbox=sandbox)
             for line in plines:
                 details["totalGross"] += line.get("totalIncome", 0)
                 details["totalNet"] += line.get("netSalary", 0)
@@ -1398,7 +1402,7 @@ class PayrollService:
     # ═══════════════════════════════════════════════════════════════════════
 
     @classmethod
-    def validate_ir18_readiness(cls, owner_uid: str, year: int = None,
+    def validate_ir18_readiness(cls, company_id: str, year: int = None,
                                  sandbox: bool = True) -> dict:
         """Valida que los datos de IR-18 estén listos para reporte DGII.
 
@@ -1416,9 +1420,9 @@ class PayrollService:
 
         errors = []
         warnings = []
-        employees = hr.get_employees(owner_uid, sandbox=sandbox)
+        employees = hr.get_employees(company_id, sandbox=sandbox)
         active = [e for e in employees if e.get("status") == "activo"]
-        periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
+        periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
         year_periods = [p for p in periods if p.get("year") == year]
 
         total_isr_ytd = 0.0
@@ -1441,7 +1445,7 @@ class PayrollService:
             ytd = None
             try:
                 from app.services.payroll_ytd_service import get_ytd
-                ytd = get_ytd(owner_uid, emp_id, year, sandbox=sandbox)
+                ytd = get_ytd(company_id, emp_id, year, sandbox=sandbox)
             except Exception:
                 pass
 
@@ -1456,7 +1460,7 @@ class PayrollService:
                 employees_missing.append({"name": name, "issues": issues})
 
         for p in year_periods:
-            plines = cls.get_period_lines(p, owner_uid=owner_uid, sandbox=sandbox)
+            plines = cls.get_period_lines(p, company_id=company_id, sandbox=sandbox)
             for line in plines:
                 total_isr_periods += line.get("isrRetention", 0)
 
@@ -1497,7 +1501,7 @@ class PayrollService:
     # ═══════════════════════════════════════════════════════════════════════
 
     @classmethod
-    def generate_upcoming_periods(cls, owner_uid: str, months_ahead: int = 6,
+    def generate_upcoming_periods(cls, company_id: str, months_ahead: int = 6,
                                    sandbox: bool = True) -> dict:
         """Genera automáticamente períodos futuros para todos los grupos activos.
 
@@ -1521,13 +1525,13 @@ class PayrollService:
         skipped = 0
         errors = []
 
-        groups = hr.get_payroll_groups(owner_uid, sandbox=sandbox)
+        groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
         active_groups = [g for g in groups if g.get("isActive", True)]
         if not active_groups:
             return {"created": 0, "skipped": 0, "errors": ["No hay grupos de nómina activos."]}
 
         today = dt_date.today()
-        existing_periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
+        existing_periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
         existing_keys = {(p.get("periodKey"), p.get("payrollGroupId", "")) for p in existing_periods}
 
         for g in active_groups:
@@ -1554,7 +1558,7 @@ class PayrollService:
                         continue
 
                     period_id = str(uuid.uuid4())
-                    hr.save_payroll_period(owner_uid, period_id, {
+                    hr.save_payroll_period(company_id, period_id, {
                         "id": period_id,
                         "payrollGroupId": gid,
                         "periodKey": period_key,
@@ -1598,7 +1602,7 @@ class PayrollService:
                             period_range = f"Q2: 16 {month_es} - {last_day} {month_es}"
 
                         period_id = str(uuid.uuid4())
-                        hr.save_payroll_period(owner_uid, period_id, {
+                        hr.save_payroll_period(company_id, period_id, {
                             "id": period_id,
                             "payrollGroupId": gid,
                             "periodKey": period_key,
@@ -1632,7 +1636,7 @@ class PayrollService:
 
     @classmethod
     def generate_tss_csv(cls, payroll_period: dict, employees: list,
-                         owner_uid: str = "", sandbox: bool = True) -> str:
+                         company_id: str = "", sandbox: bool = True) -> str:
         """
         Genera CSV en formato TSS (Tesorería de la Seguridad Social).
 
@@ -1653,7 +1657,7 @@ class PayrollService:
         ])
 
         period_label = payroll_period.get("periodKey", "")
-        lines = cls.get_period_lines(payroll_period, owner_uid=owner_uid, sandbox=sandbox)
+        lines = cls.get_period_lines(payroll_period, company_id=company_id, sandbox=sandbox)
         emp_map = {e.get("id", ""): e for e in employees}
 
         for pl in lines:
@@ -1691,7 +1695,7 @@ class PayrollService:
     @classmethod
     def generate_tss_autodeterminacion(cls, payroll_period: dict, employees: list,
                                         employer_rnc: str = "",
-                                        owner_uid: str = "", sandbox: bool = True) -> dict:
+                                        company_id: str = "", sandbox: bool = True) -> dict:
         """
         Genera archivo de Autodeterminación TSS en formato OFICIAL SUIRPLUS v6.0.
 
@@ -1719,7 +1723,7 @@ class PayrollService:
         periodo_mmaaaa = f"{month:02d}{year}"
         periodo_label = f"{cls._MESES[month]}_{year}"
 
-        lines = cls.get_period_lines(payroll_period, owner_uid=owner_uid, sandbox=sandbox)
+        lines = cls.get_period_lines(payroll_period, company_id=company_id, sandbox=sandbox)
         emp_map = {e.get("id", ""): e for e in employees}
 
         # Limpiar RNC: solo dígitos, quitar guiones
@@ -1880,7 +1884,7 @@ class PayrollService:
     def generate_tss_autodeterminacion_xls(cls, payroll_period: dict, employees: list,
                                             employer_rnc: str = "",
                                             tipo_archivo: str = "AM",
-                                            owner_uid: str = "", sandbox: bool = True) -> dict:
+                                            company_id: str = "", sandbox: bool = True) -> dict:
         """
         Genera el archivo Excel (.xlsx) poblado con la plantilla oficial de
         Autodeterminación TSS de la Tesorería de la Seguridad Social RD.
@@ -1920,7 +1924,7 @@ class PayrollService:
         periodo_mmaaaa = f"{month:02d}{year}"
         periodo_label = f"{cls._MESES[month]}_{year}"
 
-        lines = cls.get_period_lines(payroll_period, owner_uid=owner_uid, sandbox=sandbox)
+        lines = cls.get_period_lines(payroll_period, company_id=company_id, sandbox=sandbox)
         emp_map = {e.get("id", ""): e for e in employees}
 
         # ── Estilos ──

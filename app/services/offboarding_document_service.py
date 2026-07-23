@@ -24,10 +24,10 @@ MONTHS_ES_FULL = [
 ]
 
 
-def _company_data(owner_uid: str, sandbox: bool = True) -> dict:
+def _company_data(owner_uid: str, sandbox: bool = True, company_id=None) -> dict:
     from app.services.db_service import DatabaseService
     try:
-        profile = DatabaseService.get_company_profile(owner_uid)
+        profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
         parts = [p for p in [profile.get("municipality", ""), profile.get("province", "")] if p]
         city = ", ".join(parts)
         return {

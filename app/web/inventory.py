@@ -18,6 +18,9 @@ web_inventory_bp = Blueprint("web_inventory", __name__, template_folder="templat
 def _owner():
     return session["user"]["ownerUID"]
 
+def _company_id():
+    return session.get("selected_company_id")
+
 def _sandbox():
     return session.get("is_sandbox_mode", True)
 
@@ -37,9 +40,10 @@ def advanced_dashboard():
     from app.services.inventory_alert_service import InventoryAlertService
 
     owner_uid, sb = _owner(), _sandbox()
-    items = DatabaseService.get_items(owner_uid, sandbox=sb, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
-    warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sb)
-    stocks = DatabaseService.get_inventory_stock(owner_uid, sandbox=sb)
+    company_id = _company_id()
+    items = DatabaseService.get_items(company_id=company_id, sandbox=sb, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    warehouses = DatabaseService.get_warehouses(company_id=company_id, sandbox=sb)
+    stocks = DatabaseService.get_inventory_stock(company_id=company_id, sandbox=sb)
 
     # Total valuation
     total_cost = 0.0
@@ -49,8 +53,8 @@ def advanced_dashboard():
             cost = float(it.get("costPrice", 0))
             total_cost += qty * cost
 
-    reorder = InventoryAlertService.get_reorder_suggestions(owner_uid, sandbox=sb)
-    expirations = InventoryAlertService.get_expiration_alerts(owner_uid, sandbox=sb)
+    reorder = InventoryAlertService.get_reorder_suggestions(company_id, sandbox=sb)
+    expirations = InventoryAlertService.get_expiration_alerts(company_id, sandbox=sb)
 
     return render_template("inventario/advanced_dashboard.html",
         active_page="inventory_advanced",
@@ -70,7 +74,7 @@ def transfer_list():
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
     from app.services.warehouse_transfer_service import WarehouseTransferService
-    transfers = WarehouseTransferService.get_transfers(_owner(), sandbox=_sandbox())
+    transfers = WarehouseTransferService.get_transfers(_company_id(), sandbox=_sandbox())
     return render_template("inventario/transfer_list.html", active_page="inventory_transfers", transfers=transfers)
 
 
@@ -82,8 +86,9 @@ def transfer_new():
     from app.services.warehouse_transfer_service import WarehouseTransferService
 
     owner_uid, sb = _owner(), _sandbox()
-    warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sb)
-    items = [it for it in DatabaseService.get_items(owner_uid, sandbox=sb, branch_id=g.get('branch_id'), project_id=g.get('project_id')) if it.get("type", "Bien") == "Bien"]
+    company_id = _company_id()
+    warehouses = DatabaseService.get_warehouses(company_id=company_id, sandbox=sb)
+    items = [it for it in DatabaseService.get_items(company_id=company_id, sandbox=sb, branch_id=g.get('branch_id'), project_id=g.get('project_id')) if it.get("type", "Bien") == "Bien"]
 
     if request.method == "POST":
         lines = []
@@ -123,7 +128,7 @@ def transfer_new():
             "requestedBy": session["user"].get("email", ""),
             "notes": request.form.get("notes", ""),
         }
-        tid = WarehouseTransferService.request_transfer(owner_uid, transfer_dict, sandbox=sb)
+        tid = WarehouseTransferService.request_transfer(company_id, transfer_dict, sandbox=sb)
         if tid:
             flash("Transferencia solicitada. Pendiente de aprobación.", "success")
         else:
@@ -151,7 +156,7 @@ def transfer_reject(transfer_id):
         return redirect(url_for("web_auth.login"))
     reason = request.form.get("reason", "Sin motivo especificado")
     from app.services.warehouse_transfer_service import WarehouseTransferService
-    ok, msg = WarehouseTransferService.reject_transfer(_owner(), transfer_id, reason, sandbox=_sandbox())
+    ok, msg = WarehouseTransferService.reject_transfer(_company_id(), transfer_id, reason, sandbox=_sandbox())
     flash(msg, "success" if ok else "error")
     return redirect(url_for("web_inventory.transfer_list"))
 
@@ -165,7 +170,7 @@ def physical_count_list():
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
     from app.services.physical_count_service import PhysicalCountService
-    counts = PhysicalCountService.get_counts(_owner(), sandbox=_sandbox())
+    counts = PhysicalCountService.get_counts(_company_id(), sandbox=_sandbox())
     return render_template("inventario/physical_count_list.html", active_page="inventory_counts", counts=counts)
 
 
@@ -177,13 +182,14 @@ def physical_count_new():
     from app.services.physical_count_service import PhysicalCountService
 
     owner_uid, sb = _owner(), _sandbox()
-    warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sb)
+    company_id = _company_id()
+    warehouses = DatabaseService.get_warehouses(company_id=company_id, sandbox=sb)
 
     if request.method == "POST":
         wh_id = request.form["warehouseId"]
         wh_name = next((w["name"] for w in warehouses if w["id"] == wh_id), "")
         cid = PhysicalCountService.start_count(
-            owner_uid, wh_id, wh_name, session["user"].get("email", ""), sandbox=sb)
+            company_id, wh_id, wh_name, session["user"].get("email", ""), sandbox=sb)
         if cid:
             flash("Conteo físico iniciado.", "success")
             return redirect(url_for("web_inventory.physical_count_detail", count_id=cid))
@@ -200,7 +206,8 @@ def physical_count_detail(count_id):
     from app.services.physical_count_service import PhysicalCountService
 
     owner_uid, sb = _owner(), _sandbox()
-    count = PhysicalCountService.get_count(owner_uid, count_id, sandbox=sb)
+    company_id = _company_id()
+    count = PhysicalCountService.get_count(company_id, count_id, sandbox=sb)
     if not count:
         flash("Conteo no encontrado.", "error")
         return redirect(url_for("web_inventory.physical_count_list"))
@@ -208,7 +215,7 @@ def physical_count_detail(count_id):
     if request.method == "POST":
         if "finalize" in request.form:
             ok, result = PhysicalCountService.finalize_count(
-                owner_uid, count_id, session["user"].get("email", ""), sandbox=sb)
+                company_id, count_id, session["user"].get("email", ""), sandbox=sb)
             if ok:
                 flash(f"Conteo finalizado. {result['linesWithDifference']} líneas con diferencia, "
                       f"{result['adjustments']} ajustes generados.", "success")
@@ -223,9 +230,9 @@ def physical_count_detail(count_id):
                         qty = float(val)
                     except ValueError:
                         qty = 0.0
-                    PhysicalCountService.record_count_line(owner_uid, count_id, item_id, qty, sandbox=sb)
+                    PhysicalCountService.record_count_line(company_id, count_id, item_id, qty, sandbox=sb)
             flash("Líneas actualizadas.", "success")
-            count = PhysicalCountService.get_count(owner_uid, count_id, sandbox=sb)
+            count = PhysicalCountService.get_count(company_id, count_id, sandbox=sb)
 
     return render_template("inventario/physical_count_detail.html", active_page="inventory_counts", count=count)
 
@@ -268,8 +275,9 @@ def alert_dashboard():
     from app.services.inventory_alert_service import InventoryAlertService
 
     owner_uid, sb = _owner(), _sandbox()
-    reorder = InventoryAlertService.get_reorder_suggestions(owner_uid, sandbox=sb)
-    expirations = InventoryAlertService.get_expiration_alerts(owner_uid, sandbox=sb)
+    company_id = _company_id()
+    reorder = InventoryAlertService.get_reorder_suggestions(company_id, sandbox=sb)
+    expirations = InventoryAlertService.get_expiration_alerts(company_id, sandbox=sb)
 
     return render_template("inventario/alerts.html", active_page="inventory_alerts",
                            reorder=reorder, expirations=expirations)
@@ -286,9 +294,10 @@ def list_receipts():
     if not check_permission("canManageInventory"):
         return render_template("auth/restricted.html", feature_name="Recepciones de Mercancía", required_permission="canManageInventory")
     owner_uid = _owner()
+    company_id = _company_id()
     sandbox = _sandbox()
     from app.services.db_service import DatabaseService
-    receipts = GoodsReceiptService.get_receipts(owner_uid, sandbox=sandbox)
+    receipts = GoodsReceiptService.get_receipts(company_id, sandbox=sandbox)
     return render_template("inventario/receipts_list.html",
                            receipts=receipts, active_page="inventory_receipts")
 
@@ -300,6 +309,7 @@ def new_receipt():
     if not check_permission("canManageInventory"):
         return render_template("auth/restricted.html", feature_name="Recepciones de Mercancía", required_permission="canManageInventory")
     owner_uid = _owner()
+    company_id = _company_id()
     sandbox = _sandbox()
     from app.services.db_service import DatabaseService
 
@@ -308,7 +318,7 @@ def new_receipt():
         flash("Debe especificar una orden de compra.", "error")
         return redirect(url_for("web_inventory.list_receipts"))
 
-    po = PurchaseOrderService.get_purchase_order(owner_uid, po_id, sandbox=sandbox)
+    po = PurchaseOrderService.get_purchase_order(owner_uid=owner_uid, po_id=po_id, company_id=company_id, sandbox=sandbox)
     if not po:
         flash("Orden de compra no encontrada.", "error")
         return redirect(url_for("web_inventory.list_receipts"))
@@ -318,7 +328,7 @@ def new_receipt():
 
     if request.method == "POST":
         receipt_id = str(uuid.uuid4())
-        receipt_number = GoodsReceiptService.get_next_receipt_number(owner_uid, sandbox=sandbox)
+        receipt_number = GoodsReceiptService.get_next_receipt_number(company_id, sandbox=sandbox)
         warehouse_id = request.form.get("warehouseId", "")
         warehouse_name = request.form.get("warehouseName", "")
 
@@ -365,8 +375,8 @@ def new_receipt():
             "createdAt": datetime.now(timezone.utc).isoformat(),
         }
 
-        GoodsReceiptService.create_receipt(owner_uid, receipt_data, sandbox=sandbox)
-        GoodsReceiptService.register_receipt_inventory(owner_uid, receipt_data, sandbox=sandbox)
+        GoodsReceiptService.create_receipt(company_id, receipt_data, sandbox=sandbox)
+        GoodsReceiptService.register_receipt_inventory(company_id, receipt_data, sandbox=sandbox)
 
         po_items_map = {item["poItemId"]: item for item in receipt_items}
         for item in po.get("items", []):
@@ -382,7 +392,7 @@ def new_receipt():
         po["receivedBy"] = user
         po["receivedAt"] = datetime.now(timezone.utc).isoformat()
         po["updatedAt"] = datetime.now(timezone.utc).isoformat()
-        PurchaseOrderService.save_purchase_order(owner_uid, po_id, po, sandbox=sandbox)
+        PurchaseOrderService.save_purchase_order(owner_uid=owner_uid, po_id=po_id, po_dict=po, company_id=company_id, sandbox=sandbox)
 
         AuditService.log_from_request(
             owner_uid=owner_uid,
@@ -404,10 +414,10 @@ def new_receipt():
         flash(f"Recepción {receipt_number} registrada exitosamente.", "success")
         return redirect(url_for("web_purchase_orders.purchase_order_detail", po_id=po_id))
 
-    receipt_number = GoodsReceiptService.get_next_receipt_number(owner_uid, sandbox=sandbox)
+    receipt_number = GoodsReceiptService.get_next_receipt_number(company_id, sandbox=sandbox)
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox)
-    catalog_items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get("branch_id"), project_id=g.get("project_id"))
+    warehouses = DatabaseService.get_warehouses(company_id=company_id, sandbox=sandbox)
+    catalog_items = DatabaseService.get_items(company_id=company_id, sandbox=sandbox, branch_id=g.get("branch_id"), project_id=g.get("project_id"))
     catalog_items = [i for i in catalog_items if i.get("isActive", True)]
     return render_template("inventario/new_receipt.html",
                            order=po, receipt_number=receipt_number, today=today,
@@ -422,8 +432,9 @@ def receipt_detail(receipt_id):
     if not check_permission("canManageInventory"):
         return render_template("auth/restricted.html", feature_name="Recepciones de Mercancía", required_permission="canManageInventory")
     owner_uid = _owner()
+    company_id = _company_id()
     sandbox = _sandbox()
-    receipt = GoodsReceiptService.get_receipt(owner_uid, receipt_id, sandbox=sandbox)
+    receipt = GoodsReceiptService.get_receipt(company_id, receipt_id, sandbox=sandbox)
     if not receipt:
         flash("Recepción no encontrada.", "error")
         return redirect(url_for("web_inventory.list_receipts"))

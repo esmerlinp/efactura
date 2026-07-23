@@ -16,9 +16,9 @@ from app.services.db_service import db_firestore, firebase_initialized
 from app.models.legal_parameter import LegalParameter, PARAM_TYPES, get_default_params
 
 
-def _legal_params_collection(owner_uid: str, sandbox: bool = True) -> str:
+def _legal_params_collection(company_id: str, sandbox: bool = True) -> str:
     prefix = "sandbox_" if sandbox else ""
-    return f"users/{owner_uid}/{prefix}hr_legal_parameters"
+    return f"companies/{company_id}/{prefix}hr_legal_parameters"
 
 
 def _doc_to_param(doc) -> dict:
@@ -52,7 +52,7 @@ def _is_in_range(target_date: str, effective_from: str, effective_to: str) -> bo
         return False
 
 
-def resolve_parameter(owner_uid: str, parameter_type: str, target_date: str,
+def resolve_parameter(company_id: str, parameter_type: str, target_date: str,
                       legal_entity_id: str = "", sandbox: bool = True) -> Optional[dict]:
     """Busca el parámetro vigente en target_date.
 
@@ -62,7 +62,7 @@ def resolve_parameter(owner_uid: str, parameter_type: str, target_date: str,
         return None
 
     try:
-        coll = _legal_params_collection(owner_uid, sandbox)
+        coll = _legal_params_collection(company_id, sandbox)
         collection_ref = db_firestore.collection(coll)
 
         query = collection_ref.where(filter=FieldFilter("parameterType", "==", parameter_type))\
@@ -91,7 +91,7 @@ def resolve_parameter(owner_uid: str, parameter_type: str, target_date: str,
         return None
 
 
-def resolve_all(owner_uid: str, target_date: str,
+def resolve_all(company_id: str, target_date: str,
                 legal_entity_id: str = "", sandbox: bool = True) -> dict:
     """Resuelve TODOS los parámetros vigentes en target_date.
 
@@ -101,7 +101,7 @@ def resolve_all(owner_uid: str, target_date: str,
     result = get_default_params()
 
     for param_type in PARAM_TYPES:
-        param = resolve_parameter(owner_uid, param_type, target_date,
+        param = resolve_parameter(company_id, param_type, target_date,
                                    legal_entity_id=legal_entity_id, sandbox=sandbox)
         if param:
             value = param.get("value")
@@ -114,7 +114,7 @@ def resolve_all(owner_uid: str, target_date: str,
     return result
 
 
-def set_parameter(owner_uid: str, parameter_type: str, value: Any,
+def set_parameter(company_id: str, parameter_type: str, value: Any,
                   effective_from: str, effective_to: str = "",
                   legal_entity_id: str = "", user_email: str = "",
                   notes: str = "", sandbox: bool = True) -> Optional[str]:
@@ -126,7 +126,7 @@ def set_parameter(owner_uid: str, parameter_type: str, value: Any,
         return None
 
     try:
-        coll = _legal_params_collection(owner_uid, sandbox)
+        coll = _legal_params_collection(company_id, sandbox)
         db = db_firestore.collection(coll)
 
         # Encontrar el registro activo con el version más alto
@@ -187,14 +187,14 @@ def set_parameter(owner_uid: str, parameter_type: str, value: Any,
         return None
 
 
-def get_parameter_history(owner_uid: str, parameter_type: str,
+def get_parameter_history(company_id: str, parameter_type: str,
                           legal_entity_id: str = "", sandbox: bool = True) -> list:
     """Retorna el historial completo de versiones de un tipo de parámetro."""
     if not firebase_initialized or db_firestore is None:
         return []
 
     try:
-        coll = _legal_params_collection(owner_uid, sandbox)
+        coll = _legal_params_collection(company_id, sandbox)
         query = db_firestore.collection(coll)\
                             .where("parameterType", "==", parameter_type)\
                             .order_by("version", direction="DESCENDING")
@@ -206,14 +206,14 @@ def get_parameter_history(owner_uid: str, parameter_type: str,
         return []
 
 
-def seed_default_parameters(owner_uid: str, sandbox: bool = True):
+def seed_default_parameters(company_id: str, sandbox: bool = True):
     """Siembra los parámetros por defecto si no existen ya."""
     if not firebase_initialized or db_firestore is None:
         return
 
     today = date.today().isoformat()
     for param_type, info in PARAM_TYPE_INFO.items():
-        existing = resolve_parameter(owner_uid, param_type, today, sandbox=sandbox)
+        existing = resolve_parameter(company_id, param_type, today, sandbox=sandbox)
         if existing:
             continue
         set_parameter(

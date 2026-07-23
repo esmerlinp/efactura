@@ -19,9 +19,9 @@ from app.services.payroll_concept_engine import get_concepts
 def payroll_rules_list():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    rules = hr.get_payroll_rules(owner_uid, sandbox=sandbox)
+    rules = hr.get_payroll_rules(company_id, sandbox=sandbox)
     rules.sort(key=lambda r: (r.get("scope", "global"), r.get("priority", 0), r.get("name", "")))
 
     # Agrupar por ámbito
@@ -29,7 +29,7 @@ def payroll_rules_list():
     group_rules = [r for r in rules if r.get("scope") == "group"]
     employee_rules = [r for r in rules if r.get("scope") == "employee"]
 
-    groups = hr.get_payroll_groups(owner_uid, sandbox=sandbox)
+    groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
     group_map = {g["id"]: g["name"] for g in groups}
 
     return render_template("rrhh/payroll_rules_list.html", active_page="rrhh_settings",
@@ -46,10 +46,10 @@ def payroll_rules_list():
 def payroll_rules_new():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    groups = hr.get_payroll_groups(owner_uid, sandbox=sandbox)
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
+    employees = hr.get_employees(company_id, sandbox=sandbox)
     active_employees = sorted(
         [e for e in employees if e.get("status") == "activo"],
         key=lambda e: e.get("fullName", "")
@@ -96,7 +96,7 @@ def payroll_rules_new():
                     action["conceptCode"] = ac.strip()
                 actions.append(action)
 
-        concepts = get_concepts(owner_uid, sandbox=sandbox)
+        concepts = get_concepts(company_id, sandbox=sandbox)
         active_concepts = sorted(
             [c for c in concepts if c.get("active")],
             key=lambda c: (c.get("type", ""), c.get("priority", 99))
@@ -130,11 +130,11 @@ def payroll_rules_new():
         rule_data["createdBy"] = session.get("user", {}).get("email", "")
         rule_data["createdAt"] = now_iso
 
-        hr.save_payroll_rule(owner_uid, rule_id, rule_data, sandbox=sandbox)
+        hr.save_payroll_rule(company_id, rule_id, rule_data, sandbox=sandbox)
         flash(f"Regla «{name}» creada exitosamente.", "success")
         return redirect(url_for("web_rrhh.payroll_rules_list"))
 
-    concepts = get_concepts(owner_uid, sandbox=sandbox)
+    concepts = get_concepts(company_id, sandbox=sandbox)
     active_concepts = sorted(
         [c for c in concepts if c.get("active")],
         key=lambda c: (c.get("type", ""), c.get("priority", 99))
@@ -152,15 +152,15 @@ def payroll_rules_new():
 def payroll_rules_edit(rule_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    rule = hr.get_payroll_rule(owner_uid, rule_id, sandbox=sandbox)
+    rule = hr.get_payroll_rule(company_id, rule_id, sandbox=sandbox)
     if not rule:
         flash("Regla no encontrada.", "error")
         return redirect(url_for("web_rrhh.payroll_rules_list"))
 
-    groups = hr.get_payroll_groups(owner_uid, sandbox=sandbox)
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
+    employees = hr.get_employees(company_id, sandbox=sandbox)
     active_employees = sorted(
         [e for e in employees if e.get("status") == "activo"],
         key=lambda e: e.get("fullName", "")
@@ -210,7 +210,7 @@ def payroll_rules_edit(rule_id):
                 actions.append(action)
         rule["actions"] = actions
 
-        concepts = get_concepts(owner_uid, sandbox=sandbox)
+        concepts = get_concepts(company_id, sandbox=sandbox)
         active_concepts = sorted(
             [c for c in concepts if c.get("active")],
             key=lambda c: (c.get("type", ""), c.get("priority", 99))
@@ -228,11 +228,11 @@ def payroll_rules_edit(rule_id):
         rule["updatedBy"] = session.get("user", {}).get("email", "")
         rule["updatedAt"] = now_iso
 
-        hr.save_payroll_rule(owner_uid, rule_id, rule, sandbox=sandbox)
+        hr.save_payroll_rule(company_id, rule_id, rule, sandbox=sandbox)
         flash(f"Regla «{rule['name']}» actualizada.", "success")
         return redirect(url_for("web_rrhh.payroll_rules_list"))
 
-    concepts = get_concepts(owner_uid, sandbox=sandbox)
+    concepts = get_concepts(company_id, sandbox=sandbox)
     active_concepts = sorted(
         [c for c in concepts if c.get("active")],
         key=lambda c: (c.get("type", ""), c.get("priority", 99))
@@ -250,15 +250,15 @@ def payroll_rules_edit(rule_id):
 def payroll_rules_toggle(rule_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    rule = hr.get_payroll_rule(owner_uid, rule_id, sandbox=sandbox)
+    rule = hr.get_payroll_rule(company_id, rule_id, sandbox=sandbox)
     if not rule:
         flash("Regla no encontrada.", "error")
         return redirect(url_for("web_rrhh.payroll_rules_list"))
 
     rule["isActive"] = not rule.get("isActive", True)
-    hr.save_payroll_rule(owner_uid, rule_id, rule, sandbox=sandbox)
+    hr.save_payroll_rule(company_id, rule_id, rule, sandbox=sandbox)
     estado = "activada" if rule["isActive"] else "desactivada"
     flash(f"Regla «{rule.get('name', '')}» {estado}.", "success")
     return redirect(url_for("web_rrhh.payroll_rules_list"))
@@ -268,11 +268,11 @@ def payroll_rules_toggle(rule_id):
 def payroll_rules_delete(rule_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    rule = hr.get_payroll_rule(owner_uid, rule_id, sandbox=sandbox)
+    rule = hr.get_payroll_rule(company_id, rule_id, sandbox=sandbox)
     name = rule.get("name", "") if rule else ""
-    hr.delete_payroll_rule(owner_uid, rule_id, sandbox=sandbox)
+    hr.delete_payroll_rule(company_id, rule_id, sandbox=sandbox)
     flash(f"Regla «{name}» eliminada.", "success")
     return redirect(url_for("web_rrhh.payroll_rules_list"))
 
@@ -285,8 +285,8 @@ def payroll_rules_delete(rule_id):
 def payroll_rules_cleanup_logs():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
-    hr.delete_rule_logs_for_rule(owner_uid, sandbox=sandbox)
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    hr.delete_rule_logs_for_rule(company_id, sandbox=sandbox)
     flash("Historial de reglas limpiado. Las reglas one-shot/anuales podrán aplicarse nuevamente.", "success")
     return redirect(url_for("web_rrhh.payroll_rules_list"))
 
@@ -299,11 +299,11 @@ def payroll_rules_cleanup_logs():
 def payroll_rules_test():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    employees = hr.get_employees(company_id, sandbox=sandbox)
     active = [e for e in employees if e.get("status") == "activo"]
-    rules = hr.get_active_rules_for_scope(owner_uid, "global", sandbox=sandbox)
+    rules = hr.get_active_rules_for_scope(company_id, "global", sandbox=sandbox)
 
     test_results = None
     selected_emp = None

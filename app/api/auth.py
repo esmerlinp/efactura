@@ -28,6 +28,7 @@ def require_api_key(f):
             
         # Almacenar en el contexto global de Flask 'g' para ser accesible en las rutas
         g.company = company
+        g.company_id = company.get("id")
         g.owner_uid = company.get("ownerUID")
         g.sandbox_mode = request.headers.get('X-Sandbox-Mode', 'true').lower() == 'true'
         

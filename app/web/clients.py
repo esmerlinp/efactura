@@ -18,10 +18,11 @@ def list_clients():
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="CRM Clientes", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    invoices = DatabaseService.get_invoices(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     
     # Integrar sumas por cliente
     for client in clients:
@@ -114,6 +115,7 @@ def new_client():
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Nuevo Cliente", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     if request.method == 'POST':
@@ -158,7 +160,7 @@ def new_client():
             "creditLimit": float(request.form.get('creditLimit', 0) or 0),
         }
         
-        DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
+        DatabaseService.save_client(owner_uid, client_id, client_dict, company_id=company_id, sandbox=sandbox)
         
         from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_CLIENTES
         AuditService.log_from_request(
@@ -174,9 +176,9 @@ def new_client():
         flash('Cliente registrado exitosamente en el directorio CRM.', 'success')
         return redirect(url_for('web_clients.list_clients'))
         
-    collaborators = DatabaseService.get_team_members(owner_uid) or []
-    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
-    projects = DatabaseService.get_projects(owner_uid, branch_id=g.get('branch_id'), sandbox=sandbox) if g.get('branch_id') else DatabaseService.get_projects(owner_uid, sandbox=sandbox)
+    collaborators = DatabaseService.get_team_members(owner_uid, company_id=company_id) or []
+    price_lists = DatabaseService.get_price_lists(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    projects = DatabaseService.get_projects(owner_uid, company_id=company_id, branch_id=g.get('branch_id'), sandbox=sandbox) if g.get('branch_id') else DatabaseService.get_projects(owner_uid, company_id=company_id, sandbox=sandbox)
     return render_template('clients/form.html', active_page='clients', client=None, collaborators=collaborators, price_lists=price_lists, projects=projects)
 
 @web_clients_bp.route('/clients/ajax_create', methods=['POST'])
@@ -188,6 +190,7 @@ def ajax_create_client():
         return jsonify({"success": False, "error": "Sin permiso para registrar clientes."}), 403
     
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     data = request.json or request.form
@@ -216,7 +219,7 @@ def ajax_create_client():
         "customer_category": (data.get('customer_category') or 'NORMAL').strip()
     }
     
-    DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
+    DatabaseService.save_client(owner_uid, client_id, client_dict, company_id=company_id, sandbox=sandbox)
     
     from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_CLIENTES
     AuditService.log_from_request(
@@ -251,9 +254,10 @@ def edit_client(client_id):
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Editar Cliente", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     client = next((c for c in clients if c['id'] == client_id), None)
     
     if not client:
@@ -303,7 +307,7 @@ def edit_client(client_id):
             "projectId": request.form.get('projectId') or None,
             "customer_category": request.form.get('customer_category', client.get('customer_category', 'NORMAL'))
         }
-        DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
+        DatabaseService.save_client(owner_uid, client_id, client_dict, company_id=company_id, sandbox=sandbox)
         
         from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_CLIENTES
         AuditService.log_from_request(
@@ -320,9 +324,9 @@ def edit_client(client_id):
         flash('Ficha CRM del cliente actualizada exitosamente.', 'success')
         return redirect(url_for('web_clients.list_clients'))
         
-    collaborators = DatabaseService.get_team_members(owner_uid) or []
-    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
-    projects = DatabaseService.get_projects(owner_uid, branch_id=g.get('branch_id'), sandbox=sandbox) if g.get('branch_id') else DatabaseService.get_projects(owner_uid, sandbox=sandbox)
+    collaborators = DatabaseService.get_team_members(owner_uid, company_id=company_id) or []
+    price_lists = DatabaseService.get_price_lists(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    projects = DatabaseService.get_projects(owner_uid, company_id=company_id, branch_id=g.get('branch_id'), sandbox=sandbox) if g.get('branch_id') else DatabaseService.get_projects(owner_uid, company_id=company_id, sandbox=sandbox)
     return render_template('clients/form.html', active_page='clients', client=client, collaborators=collaborators, price_lists=price_lists, projects=projects)
 
 @web_clients_bp.route('/clients/<client_id>/delete', methods=['POST'])
@@ -331,16 +335,17 @@ def delete_client_route(client_id):
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Eliminar Cliente", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     before_client = {}
     try:
-        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         before_client = next((c for c in clients if c['id'] == client_id), {})
     except Exception:
         pass
         
-    DatabaseService.delete_client(owner_uid, client_id, sandbox=sandbox)
+    DatabaseService.delete_client(owner_uid, client_id, company_id=company_id, sandbox=sandbox)
     
     from app.services.audit_service import AuditService, ACTION_DELETE, MODULE_CLIENTES
     AuditService.log_from_request(
@@ -364,12 +369,13 @@ def update_client_pipeline(client_id):
         return jsonify({'success': False, 'error': 'Sin permisos'}), 403
         
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     data = request.json
     new_stage = data.get('pipelineStage')
     
-    DatabaseService.update_client_pipeline(owner_uid, client_id, new_stage, sandbox=sandbox)
+    DatabaseService.update_client_pipeline(owner_uid, client_id, new_stage, company_id=company_id, sandbox=sandbox)
     return jsonify({'success': True})
 
 @web_clients_bp.route('/clients/<client_id>/toggle_reminders', methods=['POST'])
@@ -380,18 +386,19 @@ def toggle_client_reminders(client_id):
         return jsonify({"success": False, "error": "Sin permisos."}), 403
         
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     data = request.json or {}
     disable_reminders = data.get('disableAutoReminders') is True
     
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     client = next((c for c in clients if c['id'] == client_id), None)
     if not client:
         return jsonify({"success": False, "error": "Cliente no encontrado."}), 404
         
     client['disableAutoReminders'] = disable_reminders
-    DatabaseService.save_client(owner_uid, client_id, client, sandbox=sandbox)
+    DatabaseService.save_client(owner_uid, client_id, client, company_id=company_id, sandbox=sandbox)
     return jsonify({"success": True, "disableAutoReminders": disable_reminders})
 
 @web_clients_bp.route('/clients/<client_id>/send_portal_credentials', methods=['POST'])
@@ -403,12 +410,13 @@ def send_portal_credentials(client_id):
         return jsonify({"success": False, "error": "Sin permisos."}), 403
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     data = request.json or {}
     recipient_email = data.get('email', '').strip()
 
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     client = next((c for c in clients if c['id'] == client_id), None)
     if not client:
         return jsonify({"success": False, "error": "Cliente no encontrado."}), 404
@@ -427,7 +435,7 @@ def send_portal_credentials(client_id):
     token = generate_portal_token(owner_uid, client_id, sandbox=sandbox)
     portal_url = url_for('portal.portal_entry', token=token, _external=True)
 
-    company = DatabaseService.get_company_profile(owner_uid) or {}
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
     company_name = company.get('tradeName') or company.get('companyName') or get_product_name()
     brand_color = company.get('colorMarca', '#10b981')
     logo_url = company.get('logoUrl', '')
@@ -500,7 +508,7 @@ def send_portal_credentials(client_id):
                 "completed": True,
                 "createdBy": session.get('user', {}).get('email', 'Sistema')
             }
-            DatabaseService.save_client_interaction(owner_uid, client_id, interaction_id, interaction_dict, sandbox=sandbox)
+            DatabaseService.save_client_interaction(owner_uid, client_id, interaction_id, interaction_dict, company_id=company_id, sandbox=sandbox)
             return jsonify({"success": True, "message": f"Credenciales simuladas enviadas a {recipient_email} (SMTP no configurado)."})
         return jsonify({"success": False, "error": "Servidor de correo SMTP no configurado."}), 500
 
@@ -529,7 +537,7 @@ def send_portal_credentials(client_id):
         "completed": True,
         "createdBy": session.get('user', {}).get('email', 'Sistema')
     }
-    DatabaseService.save_client_interaction(owner_uid, client_id, interaction_id, interaction_dict, sandbox=sandbox)
+    DatabaseService.save_client_interaction(owner_uid, client_id, interaction_id, interaction_dict, company_id=company_id, sandbox=sandbox)
 
     return jsonify({"success": True, "message": f"Credenciales enviadas exitosamente a {recipient_email}."})
 
@@ -539,9 +547,10 @@ def client_detail(client_id):
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Ver Detalle de Cliente", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     client = next((c for c in clients if c['id'] == client_id), None)
     
     if not client:
@@ -549,7 +558,7 @@ def client_detail(client_id):
         return redirect(url_for('web_clients.list_clients'))
         
     # Obtener facturas y cotizaciones del cliente
-    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    all_invoices = DatabaseService.get_invoices(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     client_invoices = [inv for inv in all_invoices if inv['clientId'] == client_id and not inv.get('isQuotation')]
     client_quotations = [inv for inv in all_invoices if inv['clientId'] == client_id and inv.get('isQuotation')]
     
@@ -558,13 +567,13 @@ def client_detail(client_id):
     client['total_cxc'] = sum(inv['netPayable'] for inv in client_invoices if inv['status'] in ['Emitida', 'Vencida', 'Revisión de Pago'])
     
     # Obtener interacciones
-    interactions = DatabaseService.get_client_interactions(owner_uid, client_id, sandbox=sandbox)
-    documents = DatabaseService.get_client_documents(owner_uid, client_id, sandbox=sandbox)
+    interactions = DatabaseService.get_client_interactions(owner_uid, client_id, company_id=company_id, sandbox=sandbox)
+    documents = DatabaseService.get_client_documents(owner_uid, client_id, company_id=company_id, sandbox=sandbox)
     
     # Obtener todos los abonos/pagos de las facturas del cliente
     client_payments = []
     for inv in client_invoices:
-        inv_payments = DatabaseService.get_invoice_payments(owner_uid, inv['id'], sandbox=sandbox)
+        inv_payments = DatabaseService.get_invoice_payments(owner_uid, inv['id'], company_id=company_id, sandbox=sandbox)
         for pay in inv_payments:
             pay['invoiceNumber'] = inv.get('invoiceNumber', '')
             pay['invoiceId'] = inv['id']
@@ -576,7 +585,7 @@ def client_detail(client_id):
     resp_id = client.get('responsibleId')
     if resp_id:
         try:
-            colabs = DatabaseService.get_team_members(owner_uid) or []
+            colabs = DatabaseService.get_team_members(owner_uid, company_id=company_id) or []
             target_colab = next((col for col in colabs if col['uid'] == resp_id), None)
             if target_colab:
                 responsible_name = target_colab.get('name') or target_colab.get('email', '').split('@')[0]
@@ -658,15 +667,16 @@ def client_insights(client_id):
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Smart Insights", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     client = next((c for c in clients if c['id'] == client_id), None)
     if not client:
         flash('Cliente no encontrado.', 'error')
         return redirect(url_for('web_clients.list_clients'))
 
-    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    all_invoices = DatabaseService.get_invoices(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     client_invoices = [inv for inv in all_invoices if inv['clientId'] == client_id and not inv.get('isQuotation')]
 
     total_invoiced = sum(inv['total'] for inv in client_invoices if inv.get('status') not in ('Anulada', 'Borrador'))
@@ -701,6 +711,7 @@ def add_client_interaction(client_id):
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Registrar Seguimiento", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     content = request.form.get('content', '').strip()
@@ -744,7 +755,7 @@ def add_client_interaction(client_id):
         "attachmentName": attachment_name
     }
     
-    DatabaseService.save_client_interaction(owner_uid, client_id, interaction_id, interaction_dict, sandbox=sandbox)
+    DatabaseService.save_client_interaction(owner_uid, client_id, interaction_id, interaction_dict, company_id=company_id, sandbox=sandbox)
     
     from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_CRM
     AuditService.log_from_request(
@@ -760,12 +771,12 @@ def add_client_interaction(client_id):
     
     # Si agregamos un seguimiento y tiene fecha de contacto próxima, actualizar también al cliente
     if next_contact_date:
-        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         client = next((c for c in clients if c['id'] == client_id), None)
         if client:
             client['nextContactDate'] = next_contact_date
             client['crmNotes'] = content[:100]
-            DatabaseService.save_client(owner_uid, client_id, client, sandbox=sandbox)
+            DatabaseService.save_client(owner_uid, client_id, client, company_id=company_id, sandbox=sandbox)
             
     flash('Interacción registrada exitosamente.', 'success')
     return redirect(url_for('web_clients.client_detail', client_id=client_id))
@@ -776,9 +787,10 @@ def delete_client_interaction_route(client_id, interaction_id):
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Eliminar Seguimiento", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    DatabaseService.delete_client_interaction(owner_uid, client_id, interaction_id, sandbox=sandbox)
+    DatabaseService.delete_client_interaction(owner_uid, client_id, interaction_id, company_id=company_id, sandbox=sandbox)
     
     from app.services.audit_service import AuditService, ACTION_DELETE, MODULE_CRM
     AuditService.log_from_request(
@@ -799,21 +811,22 @@ def complete_client_interaction_task(client_id, interaction_id):
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Completar Seguimiento", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    interactions = DatabaseService.get_client_interactions(owner_uid, client_id, sandbox=sandbox)
+    interactions = DatabaseService.get_client_interactions(owner_uid, client_id, company_id=company_id, sandbox=sandbox)
     interaction = next((it for it in interactions if it['id'] == interaction_id), None)
     
     if interaction:
         interaction['completed'] = True
-        DatabaseService.save_client_interaction(owner_uid, client_id, interaction_id, interaction, sandbox=sandbox)
+        DatabaseService.save_client_interaction(owner_uid, client_id, interaction_id, interaction, company_id=company_id, sandbox=sandbox)
         
         # Limpiar también la fecha de próximo contacto de la ficha principal del cliente
-        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         client = next((c for c in clients if c['id'] == client_id), None)
         if client and client.get('nextContactDate') == interaction.get('nextContactDate'):
             client['nextContactDate'] = None
-            DatabaseService.save_client(owner_uid, client_id, client, sandbox=sandbox)
+            DatabaseService.save_client(owner_uid, client_id, client, company_id=company_id, sandbox=sandbox)
             
         flash('Seguimiento marcado como COMPLETADO.', 'success')
         
@@ -825,6 +838,7 @@ def add_quick_note(client_id):
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Registrar Nota CRM", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     content = request.form.get('content', '').strip()
@@ -847,15 +861,15 @@ def add_quick_note(client_id):
         "attachmentName": ""
     }
     
-    DatabaseService.save_client_interaction(owner_uid, client_id, interaction_id, interaction_dict, sandbox=sandbox)
+    DatabaseService.save_client_interaction(owner_uid, client_id, interaction_id, interaction_dict, company_id=company_id, sandbox=sandbox)
     
     if complete_task:
-        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         client = next((c for c in clients if c['id'] == client_id), None)
         if client:
             client['nextContactDate'] = None
             client['crmNotes'] = content[:100]
-            DatabaseService.save_client(owner_uid, client_id, client, sandbox=sandbox)
+            DatabaseService.save_client(owner_uid, client_id, client, company_id=company_id, sandbox=sandbox)
             
     flash('Nota rápida registrada en el historial del cliente.', 'success')
     return redirect(url_for('web_dashboard.dashboard'))
@@ -876,11 +890,12 @@ def api_clients_lookup_by_rnc():
     if not rnc:
         return jsonify({"success": False, "error": "RNC requerido"}), 400
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     from app.services.contact_service import ContactService
     contact = ContactService.get_contact_by_rnc(owner_uid, rnc, sandbox=sandbox)
     if not contact:
-        client = DatabaseService.get_client_by_rnc(owner_uid, rnc, sandbox=sandbox)
+        client = DatabaseService.get_client_by_rnc(owner_uid, rnc, company_id=company_id, sandbox=sandbox)
         if client:
             return jsonify({
                 "success": True,
@@ -917,8 +932,9 @@ def api_clients_list():
     if 'user' not in session:
         return jsonify({"success": False, "error": "No autorizado"}), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     result = []
     for c in clients:
         name = c.get('name') or c.get('tradeName') or c.get('companyName') or c.get('razonSocial') or c.get('businessName') or ''

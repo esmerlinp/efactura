@@ -74,7 +74,7 @@ def get_sequences():
         description: Error interno del servidor
     """
     try:
-        sequences = DatabaseService.get_sequences(g.owner_uid, sandbox=g.sandbox_mode)
+        sequences = DatabaseService.get_sequences(g.owner_uid, company_id=g.company_id, sandbox=g.sandbox_mode)
         return jsonify({"success": True, "sequences": sequences})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -109,7 +109,7 @@ def get_sequence_audit():
         description: Error interno del servidor
     """
     try:
-        logs = DatabaseService.get_sequence_logs(g.owner_uid, sandbox=g.sandbox_mode)
+        logs = DatabaseService.get_sequence_logs(g.owner_uid, company_id=g.company_id, sandbox=g.sandbox_mode)
         return jsonify({"success": True, "audit_logs": logs})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500

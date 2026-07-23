@@ -8,17 +8,17 @@ class PhysicalCountService:
     """Gestiona sesiones de conteo físico con snapshot y ajustes automáticos."""
 
     @classmethod
-    def _get_coll(cls, owner_uid, sandbox=True):
-        from app.services.db_service import db_firestore, firebase_initialized
+    def _get_coll(cls, company_id, sandbox=True):
+        from app.services.db_service import db_firestore, firebase_initialized, _company_coll
         if not firebase_initialized:
             return None
         coll_name = "sandbox_physical_counts" if sandbox else "physical_counts"
-        return db_firestore.collection("users").document(owner_uid).collection(coll_name)
+        return _company_coll(company_id=company_id, coll_name=coll_name)
 
     @classmethod
-    def get_counts(cls, owner_uid, sandbox=True):
+    def get_counts(cls, company_id, sandbox=True):
         counts = []
-        coll = cls._get_coll(owner_uid, sandbox)
+        coll = cls._get_coll(company_id, sandbox)
         if not coll:
             return counts
         try:
@@ -33,8 +33,8 @@ class PhysicalCountService:
         return counts
 
     @classmethod
-    def get_count(cls, owner_uid, count_id, sandbox=True):
-        coll = cls._get_coll(owner_uid, sandbox)
+    def get_count(cls, company_id, count_id, sandbox=True):
+        coll = cls._get_coll(company_id, sandbox)
         if not coll:
             return None
         try:
@@ -48,15 +48,14 @@ class PhysicalCountService:
         return None
 
     @classmethod
-    def start_count(cls, owner_uid, warehouse_id, warehouse_name, started_by, sandbox=True):
+    def start_count(cls, company_id, warehouse_id, warehouse_name, started_by, sandbox=True):
         """Inicia un conteo físico y toma snapshot del stock actual."""
         from app.services.db_service import DatabaseService
 
-        items = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+        items = DatabaseService.get_items(company_id=company_id, sandbox=sandbox)
         goods = [it for it in items if it.get("type", "Bien") == "Bien"]
-        stocks = DatabaseService.get_inventory_stock(owner_uid, sandbox=sandbox)
+        stocks = DatabaseService.get_inventory_stock(company_id=company_id, sandbox=sandbox)
 
-        # Snapshot: stock esperado por item en este almacén
         lines = []
         stock_map = {}
         for st in stocks:
@@ -94,15 +93,15 @@ class PhysicalCountService:
             "totalShortage": 0.0,
         }
 
-        coll = cls._get_coll(owner_uid, sandbox)
+        coll = cls._get_coll(company_id, sandbox)
         if coll:
             coll.document(count_id).set(data)
         return count_id
 
     @classmethod
-    def record_count_line(cls, owner_uid, count_id, item_id, counted_qty, notes="", sandbox=True):
+    def record_count_line(cls, company_id, count_id, item_id, counted_qty, notes="", sandbox=True):
         """Actualiza una línea de conteo con la cantidad contada."""
-        count = cls.get_count(owner_uid, count_id, sandbox)
+        count = cls.get_count(company_id, count_id, sandbox)
         if not count or count["status"] != "en_progreso":
             return False
 
@@ -114,20 +113,20 @@ class PhysicalCountService:
                     line["notes"] = notes
                 break
 
-        coll = cls._get_coll(owner_uid, sandbox)
+        coll = cls._get_coll(company_id, sandbox)
         if coll:
             coll.document(count_id).set(count)
         return True
 
     @classmethod
-    def finalize_count(cls, owner_uid, count_id, finalized_by, tolerance=0.01, sandbox=True):
+    def finalize_count(cls, company_id, count_id, finalized_by, tolerance=0.01, sandbox=True):
         """
         Finaliza el conteo y genera ajustes automáticos para diferencias > tolerancia.
         Retorna (success, summary_dict).
         """
         from app.services.db_service import DatabaseService
 
-        count = cls.get_count(owner_uid, count_id, sandbox)
+        count = cls.get_count(company_id, count_id, sandbox)
         if not count or count["status"] != "en_progreso":
             return False, "Conteo no encontrado o ya finalizado."
 
@@ -147,9 +146,8 @@ class PhysicalCountService:
                     shortage += abs(diff)
                 adjustments += 1
 
-                # Generar ajuste automático
                 tx_type = "ENTRADA" if diff > 0 else "SALIDA"
-                DatabaseService.register_inventory_transaction(owner_uid, {
+                DatabaseService.register_inventory_transaction(company_id, {
                     "type": tx_type,
                     "itemId": line["itemId"],
                     "itemName": line["itemName"],
@@ -174,7 +172,7 @@ class PhysicalCountService:
             try:
                 from app.services.accounting_service import AccountingService
                 AccountingService.auto_generate_inventory_entry(
-                    owner_uid, "ajuste", adjusted_items,
+                    company_id, "ajuste", adjusted_items,
                     reference_id=count_id, performed_by=finalized_by,
                     sandbox=sandbox
                 )
@@ -188,7 +186,7 @@ class PhysicalCountService:
         count["totalSurplus"] = round(surplus, 2)
         count["totalShortage"] = round(shortage, 2)
 
-        coll = cls._get_coll(owner_uid, sandbox)
+        coll = cls._get_coll(company_id, sandbox)
         if coll:
             coll.document(count_id).set(count)
 

@@ -46,7 +46,7 @@ class PayPalService:
             return None
 
     @staticmethod
-    def create_order(access_token, amount, currency, invoice_id, owner_uid, return_url, cancel_url, sandbox=True):
+    def create_order(access_token, amount, currency, invoice_id, owner_uid, return_url, cancel_url, sandbox=True, company_id=None):
         base_url = PayPalService._get_base_url(sandbox)
         order_url = f"{base_url}/v2/checkout/orders"
 

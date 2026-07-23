@@ -14,10 +14,10 @@ from app.services import hr_data_service as hr
 def training_list():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    trainings = hr.get_trainings(owner_uid, sandbox=sandbox)
+    trainings = hr.get_trainings(company_id, sandbox=sandbox)
     trainings.sort(key=lambda t: t.get("date", ""), reverse=True)
     return render_template("rrhh/training_list.html", active_page="rrhh_development", trainings=trainings)
 
@@ -26,16 +26,16 @@ def training_list():
 def training_new():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    employees = [e for e in hr.get_employees(owner_uid, sandbox=sandbox) if e.get("status") == "activo"]
+    employees = [e for e in hr.get_employees(company_id, sandbox=sandbox) if e.get("status") == "activo"]
 
     if request.method == "POST":
         emp_id = request.form.get("employeeId", "")
-        employee = hr.get_employee(owner_uid, emp_id, sandbox=sandbox)
+        employee = hr.get_employee(company_id, emp_id, sandbox=sandbox)
         train_id = str(uuid.uuid4())
-        hr.save_training(owner_uid, train_id, {
+        hr.save_training(company_id, train_id, {
             "id": train_id,
             "employeeId": emp_id,
             "employeeName": employee.get("fullName", "") if employee else "",

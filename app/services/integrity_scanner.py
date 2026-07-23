@@ -23,18 +23,18 @@ class IntegrityScanner:
     """Escáner de integridad referencial para Firestore."""
 
     @classmethod
-    def scan_all(cls, owner_uid: str, sandbox: bool = True) -> Dict:
+    def scan_all(cls, owner_uid: str, sandbox: bool = True, company_id=None) -> Dict:
         """Ejecuta todas las reglas de integridad y retorna hallazgos.
 
         Returns:
             Dict con {findings: [...], summary: {total, critical, high, medium, low}}
         """
         findings = []
-        findings.extend(cls._scan_invoice_client_integrity(owner_uid, sandbox))
-        findings.extend(cls._scan_payment_invoice_integrity(owner_uid, sandbox))
-        findings.extend(cls._scan_entry_reference_integrity(owner_uid, sandbox))
-        findings.extend(cls._scan_employee_branch_integrity(owner_uid, sandbox))
-        findings.extend(cls._scan_item_category_integrity(owner_uid, sandbox))
+        findings.extend(cls._scan_invoice_client_integrity(owner_uid, sandbox, company_id=company_id))
+        findings.extend(cls._scan_payment_invoice_integrity(owner_uid, sandbox, company_id=company_id))
+        findings.extend(cls._scan_entry_reference_integrity(owner_uid, sandbox, company_id=company_id))
+        findings.extend(cls._scan_employee_branch_integrity(owner_uid, sandbox, company_id=company_id))
+        findings.extend(cls._scan_item_category_integrity(owner_uid, sandbox, company_id=company_id))
 
         summary = {
             "total": len(findings),
@@ -48,13 +48,13 @@ class IntegrityScanner:
         return {"findings": findings, "summary": summary}
 
     @classmethod
-    def _scan_invoice_client_integrity(cls, owner_uid: str, sandbox: bool) -> List[Dict]:
+    def _scan_invoice_client_integrity(cls, owner_uid: str, sandbox: bool, company_id=None) -> List[Dict]:
         """Detecta facturas cuyo clientId no existe en la colección de clientes."""
         findings = []
         try:
             from app.services.db_service import DatabaseService
-            invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, include_all=True)
-            clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+            invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, include_all=True, company_id=company_id)
+            clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, company_id=company_id)
             client_ids = {c.get("id", "") for c in clients if c.get("id")}
             for inv in invoices[:1000]:
                 client_id = inv.get("clientId", "")
@@ -80,12 +80,12 @@ class IntegrityScanner:
         return findings
 
     @classmethod
-    def _scan_payment_invoice_integrity(cls, owner_uid: str, sandbox: bool) -> List[Dict]:
+    def _scan_payment_invoice_integrity(cls, owner_uid: str, sandbox: bool, company_id=None) -> List[Dict]:
         """Detecta pagos cuyo invoiceId no existe."""
         findings = []
         try:
             from app.services.db_service import DatabaseService
-            invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, include_all=True)
+            invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, include_all=True, company_id=company_id)
             invoice_ids = {inv.get("id", "") for inv in invoices if inv.get("id")}
             for inv in invoices[:500]:
                 for payment in inv.get("payments", []):
@@ -111,13 +111,13 @@ class IntegrityScanner:
         return findings
 
     @classmethod
-    def _scan_entry_reference_integrity(cls, owner_uid: str, sandbox: bool) -> List[Dict]:
+    def _scan_entry_reference_integrity(cls, owner_uid: str, sandbox: bool, company_id=None) -> List[Dict]:
         """Detecta asientos contables con referencias a documentos inexistentes."""
         findings = []
         try:
             from app.services.db_service import DatabaseService
-            entries = DatabaseService.get_accounting_entries(owner_uid)
-            invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, include_all=True)
+            entries = DatabaseService.get_accounting_entries(owner_uid, company_id=company_id)
+            invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, include_all=True, company_id=company_id)
             invoice_ids = {inv.get("id", "") for inv in invoices if inv.get("id")}
             for entry in entries[:500]:
                 ref_id = entry.get("referenceId", "")
@@ -143,14 +143,14 @@ class IntegrityScanner:
         return findings
 
     @classmethod
-    def _scan_employee_branch_integrity(cls, owner_uid: str, sandbox: bool) -> List[Dict]:
+    def _scan_employee_branch_integrity(cls, owner_uid: str, sandbox: bool, company_id=None) -> List[Dict]:
         """Detecta empleados con branchId inexistente."""
         findings = []
         try:
             from app.services.db_service import DatabaseService
-            branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
+            branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id)
             branch_ids = {b.get("id", "") for b in branches if b.get("id")}
-            employees = DatabaseService.get_employees(owner_uid, sandbox=sandbox) if hasattr(DatabaseService, 'get_employees') else []
+            employees = DatabaseService.get_employees(owner_uid, sandbox=sandbox, company_id=company_id) if hasattr(DatabaseService, 'get_employees') else []
             for emp in employees:
                 branch_id = emp.get("branchId", "")
                 if branch_id and branch_id != "default-sucursal-principal" and branch_id not in branch_ids:
@@ -172,13 +172,13 @@ class IntegrityScanner:
         return findings
 
     @classmethod
-    def _scan_item_category_integrity(cls, owner_uid: str, sandbox: bool) -> List[Dict]:
+    def _scan_item_category_integrity(cls, owner_uid: str, sandbox: bool, company_id=None) -> List[Dict]:
         """Detecta items con categoryId inexistente."""
         findings = []
         try:
             from app.services.db_service import DatabaseService
-            items = DatabaseService.get_items(owner_uid, sandbox=sandbox)
-            categories = DatabaseService.get_categories(owner_uid, sandbox=sandbox)
+            items = DatabaseService.get_items(owner_uid, sandbox=sandbox, company_id=company_id)
+            categories = DatabaseService.get_categories(owner_uid, sandbox=sandbox, company_id=company_id)
             category_ids = {c.get("id", "") for c in categories if c.get("id")}
             for item in items[:500]:
                 cat_id = item.get("categoryId", "")

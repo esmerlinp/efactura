@@ -3,10 +3,11 @@ import re
 from datetime import datetime, timezone
 
 try:
-    from app.services.db_service import db_firestore, firebase_initialized
+    from app.services.db_service import db_firestore, firebase_initialized, _company_coll
 except ImportError:
     db_firestore = None
     firebase_initialized = False
+    _company_coll = None
 
 
 def serialize_field(val):
@@ -44,13 +45,13 @@ CURRENCIES = ["DOP", "USD", "EUR"]
 class PurchaseOrderService:
 
     @classmethod
-    def get_purchase_orders(cls, owner_uid, sandbox=True, branch_id=None, project_id=None):
+    def get_purchase_orders(cls, owner_uid=None, sandbox=True, branch_id=None, project_id=None, company_id=None):
         if not firebase_initialized or db_firestore is None:
             return []
         orders = []
         try:
             coll_name = "sandbox_purchase_orders" if sandbox else "purchase_orders"
-            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+            docs = _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name=coll_name).get()
             for doc in docs:
                 data = doc.to_dict()
                 data["id"] = doc.id
@@ -69,12 +70,12 @@ class PurchaseOrderService:
         return orders
 
     @classmethod
-    def get_purchase_order(cls, owner_uid, po_id, sandbox=True):
+    def get_purchase_order(cls, owner_uid=None, po_id=None, sandbox=True, company_id=None):
         if not firebase_initialized or db_firestore is None:
             return None
         try:
             coll_name = "sandbox_purchase_orders" if sandbox else "purchase_orders"
-            doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(po_id).get()
+            doc = _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name=coll_name).document(po_id).get()
             if doc.exists:
                 data = doc.to_dict()
                 data["id"] = doc.id
@@ -84,7 +85,7 @@ class PurchaseOrderService:
         return None
 
     @classmethod
-    def save_purchase_order(cls, owner_uid, po_id, po_dict, sandbox=True):
+    def save_purchase_order(cls, owner_uid=None, po_id=None, po_dict=None, sandbox=True, company_id=None):
         po_dict["id"] = po_id
         po_dict["ownerUID"] = owner_uid
         po_dict["branchId"] = po_dict.get("branchId", "default-sucursal-principal")
@@ -117,6 +118,7 @@ class PurchaseOrderService:
                 from app.services.approval_service import ApprovalService
                 po_dict = ApprovalService.prepare_document_approval(
                     owner_uid=owner_uid,
+                    company_id=company_id,
                     doc_type="purchase_order",
                     doc_id=po_id,
                     document=po_dict,
@@ -130,26 +132,26 @@ class PurchaseOrderService:
         if firebase_initialized and db_firestore is not None:
             try:
                 coll_name = "sandbox_purchase_orders" if sandbox else "purchase_orders"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(po_id).set(po_dict)
+                _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name=coll_name).document(po_id).set(po_dict)
             except Exception as e:
                 print(f"⚠️ Error al guardar orden de compra en Firestore: {e}")
         return po_dict
 
     @classmethod
-    def delete_purchase_order(cls, owner_uid, po_id, sandbox=True):
+    def delete_purchase_order(cls, owner_uid=None, po_id=None, sandbox=True, company_id=None):
         if not firebase_initialized or db_firestore is None:
             return
         try:
             coll_name = "sandbox_purchase_orders" if sandbox else "purchase_orders"
-            db_firestore.collection("users").document(owner_uid).collection(coll_name).document(po_id).delete()
+            _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name=coll_name).document(po_id).delete()
         except Exception as e:
             print(f"⚠️ Error al eliminar orden de compra {po_id}: {e}")
 
     @classmethod
-    def get_next_po_number(cls, owner_uid, sandbox=True):
+    def get_next_po_number(cls, owner_uid=None, sandbox=True, company_id=None):
         year = datetime.now(timezone.utc).strftime("%Y")
         max_num = 0
-        orders = cls.get_purchase_orders(owner_uid, sandbox=sandbox)
+        orders = cls.get_purchase_orders(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
         for o in orders:
             pn = o.get("poNumber", "")
             m = re.match(rf"^OC-{year}-(\d{{4}})$", pn)
@@ -161,8 +163,8 @@ class PurchaseOrderService:
         return f"OC-{year}-{next_num:04d}"
 
     @classmethod
-    def update_status(cls, owner_uid, po_id, new_status, sandbox=True, user=""):
-        po = cls.get_purchase_order(owner_uid, po_id, sandbox=sandbox)
+    def update_status(cls, owner_uid=None, po_id=None, new_status=None, sandbox=True, user="", company_id=None):
+        po = cls.get_purchase_order(owner_uid=owner_uid, po_id=po_id, sandbox=sandbox, company_id=company_id)
         if not po:
             return None
         if new_status not in PO_STATUSES:
@@ -175,5 +177,5 @@ class PurchaseOrderService:
         elif new_status in ("recibida_parcial", "recibida_completa"):
             po["receivedBy"] = user
             po["receivedAt"] = now
-        cls.save_purchase_order(owner_uid, po_id, po, sandbox=sandbox)
+        cls.save_purchase_order(owner_uid=owner_uid, po_id=po_id, po_dict=po, sandbox=sandbox, company_id=company_id)
         return po

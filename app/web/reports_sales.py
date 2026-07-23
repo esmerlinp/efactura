@@ -16,8 +16,8 @@ MONTH_NAMES = [
 MONTH_FILTER_OPTIONS = [(0, "Todo el año")] + [(idx + 1, name) for idx, name in enumerate(MONTH_NAMES)]
 
 
-def get_sales_data(owner_uid, sandbox, year, month, warehouse_id=None, series=None):
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+def get_sales_data(owner_uid, sandbox, year, month, warehouse_id=None, series=None, company_id=None):
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
     real = [inv for inv in invoices
             if not inv.get('isQuotation')
             and inv.get('status') not in ('Anulada', 'Borrador', 'Consolidada')]
@@ -89,6 +89,7 @@ def ventas_generales():
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     now = datetime.now(timezone.utc)
 
     try:
@@ -114,8 +115,8 @@ def ventas_generales():
         (10, "Octubre"), (11, "Noviembre"), (12, "Diciembre"),
     ]
 
-    all_warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox)
-    all_sequences = DatabaseService.get_sequences(owner_uid, sandbox=sandbox)
+    all_warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox, company_id=company_id)
+    all_sequences = DatabaseService.get_sequences(owner_uid, sandbox=sandbox, company_id=company_id)
     invoice_types = ('e31', 'e32', 'e33', 'e34', 'factura de consumo', 'factura de crédito fiscal',
                      'factura gubernamental', 'factura régimen especial')
     invoice_sequences = [s for s in all_sequences
@@ -146,6 +147,7 @@ def ventas_generales_export():
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     now = datetime.now(timezone.utc)
 
     try:
@@ -186,8 +188,8 @@ def ventas_generales_export():
     )
 
 
-def get_product_sales_data(owner_uid, sandbox, year, month, item_type=None):
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+def get_product_sales_data(owner_uid, sandbox, year, month, item_type=None, company_id=None):
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
     real = [inv for inv in invoices
             if not inv.get('isQuotation')
             and inv.get('status') not in ('Anulada', 'Borrador', 'Consolidada')]
@@ -328,6 +330,7 @@ def ventas_por_producto_export():
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     now = datetime.now(timezone.utc)
 
     try:
@@ -364,8 +367,8 @@ def ventas_por_producto_export():
     )
 
 
-def get_client_sales_data(owner_uid, sandbox, year, month):
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+def get_client_sales_data(owner_uid, sandbox, year, month, company_id=None):
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
     real = [inv for inv in invoices
             if not inv.get('isQuotation')
             and inv.get('status') not in ('Anulada', 'Borrador', 'Consolidada')]
@@ -502,6 +505,7 @@ def ventas_por_cliente_export():
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     now = datetime.now(timezone.utc)
 
     try:
@@ -537,8 +541,8 @@ def ventas_por_cliente_export():
     )
 
 
-def get_profitability_data(owner_uid, sandbox, year, month, item_type=None):
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+def get_profitability_data(owner_uid, sandbox, year, month, item_type=None, company_id=None):
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
     real = [inv for inv in invoices
             if not inv.get('isQuotation')
             and inv.get('status') not in ('Anulada', 'Borrador', 'Consolidada')]
@@ -557,7 +561,7 @@ def get_profitability_data(owner_uid, sandbox, year, month, item_type=None):
     if not filtered:
         return [], 0, 0, 0
 
-    catalog_items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    catalog_items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
     cost_by_code = {}
     for item in catalog_items:
         code = item.get('code', '') or item.get('id', '')
@@ -695,6 +699,7 @@ def ventas_rentabilidad_export():
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     now = datetime.now(timezone.utc)
 
     try:
@@ -731,8 +736,8 @@ def ventas_rentabilidad_export():
     )
 
 
-def get_seller_sales_data(owner_uid, sandbox, year, month, seller_filter=None):
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+def get_seller_sales_data(owner_uid, sandbox, year, month, seller_filter=None, company_id=None):
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
     real = [inv for inv in invoices
             if not inv.get('isQuotation')
             and inv.get('status') not in ('Anulada', 'Borrador', 'Consolidada')]
@@ -751,7 +756,7 @@ def get_seller_sales_data(owner_uid, sandbox, year, month, seller_filter=None):
     if not filtered:
         return [], 0, 0, 0, []
 
-    team = DatabaseService.get_team_members(owner_uid) or []
+    team = DatabaseService.get_team_members(owner_uid, company_id=company_id) or []
     email_to_name = {}
     for m in team:
         email = m.get('email', '') or m.get('uid', '')
@@ -896,6 +901,7 @@ def ventas_por_vendedor_export():
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     now = datetime.now(timezone.utc)
 
     try:
@@ -933,8 +939,8 @@ def ventas_por_vendedor_export():
     )
 
 
-def get_client_account_data(owner_uid, sandbox, client_id, year, month, aging_filter=None, search=None):
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+def get_client_account_data(owner_uid, sandbox, client_id, year, month, aging_filter=None, search=None, company_id=None):
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
     real = [inv for inv in invoices
             if not inv.get('isQuotation')
             and inv.get('status') not in ('Anulada', 'Borrador', 'Consolidada')]
@@ -1059,6 +1065,7 @@ def ventas_estado_cuenta():
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     now = datetime.now(timezone.utc)
 
     try:
@@ -1085,7 +1092,7 @@ def ventas_estado_cuenta():
     if per_page < 1:
         per_page = 10
 
-    all_clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
+    all_clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id) or []
     clients_list = [{"id": c.get("id", ""), "name": c.get("razonSocial", ""), "rnc": c.get("rnc", "")}
                     for c in all_clients if c.get("razonSocial")]
     clients_list.sort(key=lambda x: x["name"].lower())
@@ -1103,7 +1110,7 @@ def ventas_estado_cuenta():
                 selected_client_name = c.get("razonSocial", '')
                 break
         if not selected_client_name:
-            for inv in DatabaseService.get_invoices(owner_uid, sandbox=sandbox):
+            for inv in DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id):
                 if inv.get('clientId') == client_id:
                     selected_client_name = inv.get('clientName', 'Cliente')
                     break
@@ -1178,6 +1185,7 @@ def ventas_estado_cuenta_export():
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     now = datetime.now(timezone.utc)
 
     try:
@@ -1475,9 +1483,9 @@ def serialize_node(node, depth, list_out):
         serialize_node(child_node, depth + 1, list_out)
 
 
-def _compute_admin_ingresos_compras(owner_uid, sandbox, year, month):
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox) or []
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
+def _compute_admin_ingresos_compras(owner_uid, sandbox, year, month, company_id=None):
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id) or []
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id) or []
 
     # Initialize accounting tree
     root_node = build_accounts_tree()
@@ -1730,6 +1738,7 @@ def admin_ingresos_compras_export():
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     now = datetime.now(timezone.utc)
 
     try:
@@ -1774,10 +1783,10 @@ def admin_ingresos_compras_export():
         download_name=f'ingresos_compras_{year}_{month if month else "anual"}.csv'
     )
 
-def _compute_admin_reporte_anual(owner_uid, sandbox, year):
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox) or []
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
-    team_members = DatabaseService.get_team_members(owner_uid) or []
+def _compute_admin_reporte_anual(owner_uid, sandbox, year, company_id=None):
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id) or []
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id) or []
+    team_members = DatabaseService.get_team_members(owner_uid, company_id=company_id) or []
     
     # Map team member emails/uids to names
     user_map = {}
@@ -2069,6 +2078,7 @@ def cxc_report():
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     now = datetime.now(timezone.utc)
     
     hasta_str = request.args.get('hasta', '')
@@ -2094,7 +2104,7 @@ def cxc_report():
     if per_page < 1:
         per_page = 10
 
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False)
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False, company_id=company_id)
 
     cxc_list = []
     vencidas_30_menos = 0.0
@@ -2228,6 +2238,7 @@ def cxc_report_export():
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     now = datetime.now(timezone.utc)
     
     hasta_str = request.args.get('hasta', '')
@@ -2240,7 +2251,7 @@ def cxc_report_export():
 
     query = request.args.get('q', '').strip().lower()
 
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False)
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False, company_id=company_id)
 
     cxc_list = []
     for inv in invoices:
@@ -2320,6 +2331,7 @@ def cxp_report():
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     now = datetime.now(timezone.utc)
     
     hasta_str = request.args.get('hasta', '')
@@ -2347,7 +2359,7 @@ def cxp_report():
     from app.services.supplier_invoice_service import SupplierInvoiceService
     
     purchase_invoices = SupplierInvoiceService.get_all(owner_uid, sandbox=sandbox)
-    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
 
     cxp_list = []
     vencidas_30_menos = 0.0
@@ -2543,6 +2555,7 @@ def cxp_report_export():
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     now = datetime.now(timezone.utc)
     
     hasta_str = request.args.get('hasta', '')
@@ -2558,7 +2571,7 @@ def cxp_report_export():
     from app.services.supplier_invoice_service import SupplierInvoiceService
     
     purchase_invoices = SupplierInvoiceService.get_all(owner_uid, sandbox=sandbox)
-    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
 
     cxp_list = []
 
@@ -2675,6 +2688,7 @@ def inventory_value_report():
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
 
     warehouse_id = request.args.get('warehouse_id', '').strip()
     query = request.args.get('q', '').strip().lower()
@@ -2690,9 +2704,9 @@ def inventory_value_report():
     if per_page < 1:
         per_page = 10
 
-    warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox) or []
-    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
-    stocks = DatabaseService.get_inventory_stock(owner_uid, sandbox=sandbox) or []
+    warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox, company_id=company_id) or []
+    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id) or []
+    stocks = DatabaseService.get_inventory_stock(owner_uid, sandbox=sandbox, company_id=company_id) or []
 
     wh_map = {wh['id']: wh['name'] for wh in warehouses}
     items_map = {}
@@ -2784,13 +2798,14 @@ def inventory_value_export():
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
 
     warehouse_id = request.args.get('warehouse_id', '').strip()
     query = request.args.get('q', '').strip().lower()
 
-    warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox) or []
-    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
-    stocks = DatabaseService.get_inventory_stock(owner_uid, sandbox=sandbox) or []
+    warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox, company_id=company_id) or []
+    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id) or []
+    stocks = DatabaseService.get_inventory_stock(owner_uid, sandbox=sandbox, company_id=company_id) or []
 
     wh_map = {wh['id']: wh['name'] for wh in warehouses}
     items_map = {}
@@ -2855,10 +2870,10 @@ def inventory_value_export():
     )
 
 
-def _compute_transactions(owner_uid, sandbox, year, month, query=None):
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox) or []
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
-    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox) or []
+def _compute_transactions(owner_uid, sandbox, year, month, query=None, company_id=None):
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id) or []
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id) or []
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox, company_id=company_id) or []
     
     acc_map = {acc['id']: acc['name'] for acc in bank_accounts}
     
@@ -2866,7 +2881,7 @@ def _compute_transactions(owner_uid, sandbox, year, month, query=None):
     
     # 1. ENTRADAS: Payments on invoices
     for inv in invoices:
-        payments = DatabaseService.get_invoice_payments(owner_uid, inv['id'], sandbox=sandbox) or []
+        payments = DatabaseService.get_invoice_payments(owner_uid, inv['id'], sandbox=sandbox, company_id=company_id) or []
         for pmt in payments:
             pmt_date = pmt.get('paymentDate') or inv.get('date') or ''
             if not pmt_date:
@@ -2956,7 +2971,7 @@ def _compute_transactions(owner_uid, sandbox, year, month, query=None):
                 'amount': amount
             })
         else:
-            payments = DatabaseService.get_cxp_payments(owner_uid, exp['id'], sandbox=sandbox) or []
+            payments = DatabaseService.get_cxp_payments(owner_uid, exp['id'], sandbox=sandbox, company_id=company_id) or []
             for pmt in payments:
                 pmt_date = pmt.get('paymentDate') or exp.get('date') or ''
                 if not pmt_date:
@@ -3349,6 +3364,7 @@ def cash_flow_report():
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     
     now = datetime.now(timezone.utc)
     try:
@@ -3382,16 +3398,16 @@ def cash_flow_report():
     ]
     
     # 1. Accounts initial balance sum
-    accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox) or []
+    accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox, company_id=company_id) or []
     initial_balance_all_accounts = sum(float(a.get('initialBalance', 0.0)) for a in accounts)
     
     # 2. Get all inflows (sales payments)
     inflows = []
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox) or []
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id) or []
     for inv in invoices:
         if inv.get('isQuotation') or inv.get('status') in ('Anulada', 'Borrador', 'Consolidada'):
             continue
-        pmts = DatabaseService.get_invoice_payments(owner_uid, inv['id'], sandbox=sandbox) or []
+        pmts = DatabaseService.get_invoice_payments(owner_uid, inv['id'], sandbox=sandbox, company_id=company_id) or []
         for pmt in pmts:
             pmt_date = pmt.get('paymentDate') or inv.get('date') or ''
             if pmt_date:
@@ -3409,7 +3425,7 @@ def cash_flow_report():
                 
     # 3. Get all outflows (expenses/supplier bill payments)
     outflows = []
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id) or []
     for exp in expenses:
         if exp.get('approvalStatus') == 'Rechazado':
             continue
@@ -3429,7 +3445,7 @@ def cash_flow_report():
                     'amount': float(exp.get('total') or exp.get('amount', 0.0))
                 })
         else:
-            pmts = DatabaseService.get_cxp_payments(owner_uid, exp['id'], sandbox=sandbox) or []
+            pmts = DatabaseService.get_cxp_payments(owner_uid, exp['id'], sandbox=sandbox, company_id=company_id) or []
             for pmt in pmts:
                 pmt_date = pmt.get('paymentDate') or exp.get('date') or ''
                 if pmt_date:
@@ -3508,6 +3524,7 @@ def cash_flow_export():
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     
     now = datetime.now(timezone.utc)
     try:
@@ -3539,15 +3556,15 @@ def cash_flow_export():
         (m3_yr, m3_mo)
     ]
     
-    accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox) or []
+    accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox, company_id=company_id) or []
     initial_balance_all_accounts = sum(float(a.get('initialBalance', 0.0)) for a in accounts)
     
     inflows = []
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox) or []
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id) or []
     for inv in invoices:
         if inv.get('isQuotation') or inv.get('status') in ('Anulada', 'Borrador', 'Consolidada'):
             continue
-        pmts = DatabaseService.get_invoice_payments(owner_uid, inv['id'], sandbox=sandbox) or []
+        pmts = DatabaseService.get_invoice_payments(owner_uid, inv['id'], sandbox=sandbox, company_id=company_id) or []
         for pmt in pmts:
             pmt_date = pmt.get('paymentDate') or inv.get('date') or ''
             if pmt_date:
@@ -3564,7 +3581,7 @@ def cash_flow_export():
                 })
                 
     outflows = []
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id) or []
     for exp in expenses:
         if exp.get('approvalStatus') == 'Rechazado':
             continue
@@ -3584,7 +3601,7 @@ def cash_flow_export():
                     'amount': float(exp.get('total') or exp.get('amount', 0.0))
                 })
         else:
-            pmts = DatabaseService.get_cxp_payments(owner_uid, exp['id'], sandbox=sandbox) or []
+            pmts = DatabaseService.get_cxp_payments(owner_uid, exp['id'], sandbox=sandbox, company_id=company_id) or []
             for pmt in pmts:
                 pmt_date = pmt.get('paymentDate') or exp.get('date') or ''
                 if pmt_date:
@@ -3786,6 +3803,7 @@ def it1_new_report():
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     now = datetime.now(timezone.utc)
     
     # Defaults
@@ -3813,8 +3831,8 @@ def it1_new_report():
                 return render_template('reports/it1_new.html', active_page='reports', year=year_val, month=month_val, years_range=years_range, months_list=MONTH_FILTER_OPTIONS[1:], preview_data=None)
                 
         # 1. Calculate values for that period
-        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox) or []
-        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
+        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id) or []
+        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id) or []
         
         real_invoices = []
         for inv in invoices:
@@ -3874,8 +3892,8 @@ def it1_new_report():
             year_val = int(req_year)
             month_val = int(req_month)
             
-            invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox) or []
-            expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
+            invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id) or []
+            expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id) or []
             
             real_invoices = []
             for inv in invoices:
@@ -4104,6 +4122,7 @@ def detailed_taxes_report():
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     now = datetime.now(timezone.utc)
 
     # ── Filters ──────────────────────────────────────────────────────────────
@@ -4131,8 +4150,8 @@ def detailed_taxes_report():
         per_page = 10
 
     # ── Load data ─────────────────────────────────────────────────────────────
-    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox) or []
-    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
+    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id) or []
+    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id) or []
 
     from app.services.purchase_credit_note_service import PurchaseCreditNoteService
     all_purchase_cn = PurchaseCreditNoteService.get_all(owner_uid, sandbox=sandbox) or []
@@ -4527,6 +4546,7 @@ def taxes_retentions_report():
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     now = datetime.now(timezone.utc)
 
     # ── Filters ──────────────────────────────────────────────────────────────
@@ -4554,8 +4574,8 @@ def taxes_retentions_report():
         per_page = 10
 
     # ── Load data ─────────────────────────────────────────────────────────────
-    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox) or []
-    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
+    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id) or []
+    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id) or []
 
     from app.services.purchase_credit_note_service import PurchaseCreditNoteService
     all_purchase_cn = PurchaseCreditNoteService.get_all(owner_uid, sandbox=sandbox) or []
@@ -4642,6 +4662,7 @@ def taxes_retentions_export():
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     now = datetime.now(timezone.utc)
 
     try:
@@ -4656,8 +4677,8 @@ def taxes_retentions_export():
     tax_filter = request.args.get('tax', '')
     active_tab = request.args.get('tab', 'sales')
 
-    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox) or []
-    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
+    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id) or []
+    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id) or []
     from app.services.purchase_credit_note_service import PurchaseCreditNoteService
     all_purchase_cn = PurchaseCreditNoteService.get_all(owner_uid, sandbox=sandbox) or []
 
@@ -4721,6 +4742,7 @@ def monthly_taxes_report():
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     now = datetime.now(timezone.utc)
 
     try:
@@ -4734,8 +4756,8 @@ def monthly_taxes_report():
 
     active_tab = request.args.get('tab', 'sales')
 
-    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox) or []
-    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
+    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id) or []
+    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id) or []
 
     # ── Sales tax breakdown (ventas) ──
     sales_bd = _empty_tax_breakdown()
@@ -4844,6 +4866,7 @@ def monthly_taxes_export():
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     now = datetime.now(timezone.utc)
 
     try:
@@ -4857,8 +4880,8 @@ def monthly_taxes_export():
 
     active_tab = request.args.get('tab', 'sales')
 
-    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox) or []
-    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
+    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id) or []
+    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id) or []
 
     if active_tab == 'sales_retentions':
         rows = _tr_sales_retention_rows(all_invoices, year, month)
@@ -4911,6 +4934,7 @@ def tax_reconciliation_report():
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     now = datetime.now(timezone.utc)
 
     try:
@@ -4918,8 +4942,8 @@ def tax_reconciliation_report():
     except ValueError:
         year = now.year
 
-    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox) or []
-    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
+    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id) or []
+    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id) or []
 
     # ── Build month-by-month data ──
     monthly_data = []
@@ -5044,6 +5068,7 @@ def tax_reconciliation_export():
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     now = datetime.now(timezone.utc)
 
     try:
@@ -5051,8 +5076,8 @@ def tax_reconciliation_export():
     except ValueError:
         year = now.year
 
-    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox) or []
-    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
+    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id) or []
+    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id) or []
 
     output = io.StringIO()
     writer = csv.writer(output)

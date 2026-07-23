@@ -4,18 +4,18 @@ import uuid
 import threading
 from datetime import datetime, timezone
 from typing import Callable, Optional
-from app.services.db_service import db_firestore, firebase_initialized
+from app.services.db_service import db_firestore, firebase_initialized, DatabaseService
 
 JOB_STATUSES = ("pending", "running", "completed", "failed", "cancelled")
 JOB_TTL_DAYS = 7
 
 
-def _jobs_collection(owner_uid: str, sandbox: bool = True) -> str:
+def _jobs_collection(company_id: str, sandbox: bool = True) -> str:
     prefix = "sandbox_" if sandbox else ""
-    return f"users/{owner_uid}/{prefix}hr_payroll_jobs"
+    return f"companies/{company_id}/{prefix}hr_payroll_jobs"
 
 
-def create_job(owner_uid: str, job_type: str = "payroll_calculation",
+def create_job(company_id: str, job_type: str = "payroll_calculation",
                total_items: int = 0, metadata: dict = None,
                sandbox: bool = True) -> str:
     """Crea un nuevo job asíncrono y retorna su ID."""
@@ -23,7 +23,7 @@ def create_job(owner_uid: str, job_type: str = "payroll_calculation",
         return ""
     job_id = str(uuid.uuid4())
     now_iso = datetime.now(timezone.utc).isoformat()
-    coll = _jobs_collection(owner_uid, sandbox)
+    coll = _jobs_collection(company_id, sandbox)
     db_firestore.collection(coll).document(job_id).set({
         "id": job_id,
         "type": job_type,
@@ -44,23 +44,23 @@ def create_job(owner_uid: str, job_type: str = "payroll_calculation",
     return job_id
 
 
-def update_job(owner_uid: str, job_id: str, data: dict, sandbox: bool = True):
+def update_job(company_id: str, job_id: str, data: dict, sandbox: bool = True):
     """Actualiza campos de un job (merge)."""
     if not firebase_initialized or db_firestore is None:
         return
     try:
-        coll = _jobs_collection(owner_uid, sandbox)
+        coll = _jobs_collection(company_id, sandbox)
         db_firestore.collection(coll).document(job_id).set(data, merge=True)
     except Exception as e:
         print(f"⚠️ update_job: {e}")
 
 
-def get_job(owner_uid: str, job_id: str, sandbox: bool = True) -> dict:
+def get_job(company_id: str, job_id: str, sandbox: bool = True) -> dict:
     """Obtiene datos de un job."""
     if not firebase_initialized or db_firestore is None:
         return {}
     try:
-        coll = _jobs_collection(owner_uid, sandbox)
+        coll = _jobs_collection(company_id, sandbox)
         doc = db_firestore.collection(coll).document(job_id).get()
         return doc.to_dict() if doc.exists else {}
     except Exception as e:
@@ -68,12 +68,12 @@ def get_job(owner_uid: str, job_id: str, sandbox: bool = True) -> dict:
         return {}
 
 
-def get_active_jobs(owner_uid: str, sandbox: bool = True) -> list:
+def get_active_jobs(company_id: str, sandbox: bool = True) -> list:
     """Obtiene jobs activos (pending + running)."""
     if not firebase_initialized or db_firestore is None:
         return []
     try:
-        coll = _jobs_collection(owner_uid, sandbox)
+        coll = _jobs_collection(company_id, sandbox)
         docs = db_firestore.collection(coll) \
             .where("status", "in", ["pending", "running"]) \
             .order_by("createdAt", direction="DESCENDING") \
@@ -84,12 +84,12 @@ def get_active_jobs(owner_uid: str, sandbox: bool = True) -> list:
         return []
 
 
-def cancel_job(owner_uid: str, job_id: str, sandbox: bool = True) -> bool:
+def cancel_job(company_id: str, job_id: str, sandbox: bool = True) -> bool:
     """Cancela un job pendiente o en ejecución."""
-    job = get_job(owner_uid, job_id, sandbox=sandbox)
+    job = get_job(company_id, job_id, sandbox=sandbox)
     if not job or job.get("status") not in ("pending", "running"):
         return False
-    update_job(owner_uid, job_id, {
+    update_job(company_id, job_id, {
         "status": "cancelled",
         "message": "Cancelado por el usuario",
         "completedAt": datetime.now(timezone.utc).isoformat(),
@@ -97,13 +97,13 @@ def cancel_job(owner_uid: str, job_id: str, sandbox: bool = True) -> bool:
     return True
 
 
-def delete_old_jobs(owner_uid: str, older_than_days: int = 30, sandbox: bool = True) -> int:
+def delete_old_jobs(company_id: str, older_than_days: int = 30, sandbox: bool = True) -> int:
     """Elimina jobs antiguos (completados/fallados/cancelados). Retorna cuántos eliminó."""
     if not firebase_initialized or db_firestore is None:
         return 0
     try:
         cutoff = (datetime.now(timezone.utc) - __import__("datetime").timedelta(days=older_than_days)).isoformat()
-        coll = _jobs_collection(owner_uid, sandbox)
+        coll = _jobs_collection(company_id, sandbox)
         docs = db_firestore.collection(coll) \
             .where("status", "in", ["completed", "failed", "cancelled"]) \
             .where("completedAt", "<=", cutoff) \
@@ -231,7 +231,7 @@ def run_async_batch(
     return job_id
 
 
-def run_async(owner_uid: str, job_id: str, target_func: Callable, sandbox: bool = True):
+def run_async(company_id: str, job_id: str, target_func: Callable, sandbox: bool = True):
     """Ejecuta una función simple en background (legacy wrapper)."""
     def _worker():
         system_run_id = None
@@ -239,19 +239,19 @@ def run_async(owner_uid: str, job_id: str, target_func: Callable, sandbox: bool 
             from app.services.job_service import JobService
             system_run_id = JobService.start(
                 job_id="payroll_calc",
-                name=f"payroll_calculation_{owner_uid}",
+                name=f"payroll_calculation_{company_id}",
                 metadata={"payroll_job_id": job_id, "sandbox": sandbox},
             )
         except Exception:
             pass
 
         try:
-            update_job(owner_uid, job_id, {
+            update_job(company_id, job_id, {
                 "status": "running",
                 "startedAt": datetime.now(timezone.utc).isoformat(),
             }, sandbox=sandbox)
             result = target_func()
-            update_job(owner_uid, job_id, {
+            update_job(company_id, job_id, {
                 "status": "completed",
                 "progress": 100,
                 "message": "Cálculo completado",
@@ -264,7 +264,7 @@ def run_async(owner_uid: str, job_id: str, target_func: Callable, sandbox: bool 
                 except Exception:
                     pass
         except Exception as e:
-            update_job(owner_uid, job_id, {
+            update_job(company_id, job_id, {
                 "status": "failed",
                 "error": str(e),
                 "message": f"Error: {e}",

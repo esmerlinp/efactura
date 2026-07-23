@@ -24,9 +24,10 @@ def list_fiscal_notes():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
     credit_debit = [inv for inv in invoices if inv.get('ecfType') in ('Nota de Crédito (E34)', 'Nota de Débito (E33)')]
     credit_debit.sort(key=lambda x: x.get('createdAt', ''), reverse=True)
 
@@ -40,6 +41,7 @@ def create_fiscal_note():
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     note_type = request.args.get('type', _by_code("E34").code)
@@ -50,29 +52,29 @@ def create_fiscal_note():
     ref_invoice_id = request.args.get('reference_invoice_id', '')
     ref_invoice = None
     if ref_invoice_id:
-        ref_invoice = DatabaseService.get_invoice(owner_uid, ref_invoice_id, sandbox=sandbox)
+        ref_invoice = DatabaseService.get_invoice(owner_uid, ref_invoice_id, sandbox=sandbox, company_id=company_id)
         if not ref_invoice:
             flash('❌ Factura de referencia no encontrada.', 'error')
             return redirect(url_for('web_fiscal_notes.list_fiscal_notes'))
 
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
     real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') not in ('Anulada', 'Borrador')
                      and inv.get('ecfType') not in ('Nota de Crédito (E34)', 'Nota de Débito (E33)', 'Cotización')]
 
-    catalog = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
+    catalog = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id) or []
     catalog_json = json.dumps(catalog, default=str)
 
     # Data for "Más ajustes" sidebar
-    all_sequences = DatabaseService.get_sequences(owner_uid, sandbox=sandbox) or []
+    all_sequences = DatabaseService.get_sequences(owner_uid, sandbox=sandbox, company_id=company_id) or []
     note_sequences = [s for s in all_sequences if s.get('tipoComprobante') == note_type
                       and s.get('estado', '').upper() == 'ACTIVA'
                       and not s.get('bloqueadaManualmente', False)]
-    warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox) or []
-    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
+    warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox, company_id=company_id) or []
+    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id) or []
     active_price_lists = [pl for pl in price_lists if pl.get('isActive', True)]
     default_price_list = next((pl for pl in active_price_lists if pl.get('isDefault')), None)
     default_price_list_id = default_price_list['id'] if default_price_list else ''
-    sellers = DatabaseService.get_team_members(owner_uid) or []
+    sellers = DatabaseService.get_team_members(owner_uid, company_id=company_id) or []
 
     return render_template('fiscal_notes/form.html',
                            note_type=note_type,
@@ -94,6 +96,7 @@ def save_fiscal_note():
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     user = session['user']
 
@@ -112,7 +115,7 @@ def save_fiscal_note():
         flash('❌ Debes seleccionar una factura de referencia.', 'error')
         return redirect(url_for('web_fiscal_notes.create_fiscal_note', type=note_type))
 
-    ref_invoice = DatabaseService.get_invoice(owner_uid, ref_invoice_id, sandbox=sandbox)
+    ref_invoice = DatabaseService.get_invoice(owner_uid, ref_invoice_id, sandbox=sandbox, company_id=company_id)
     if not ref_invoice:
         flash('❌ Factura de referencia no encontrada.', 'error')
         return redirect(url_for('web_fiscal_notes.list_fiscal_notes'))
@@ -140,7 +143,7 @@ def save_fiscal_note():
             if idx.isdigit():
                 item_indices.add(int(idx))
 
-    catalog = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
+    catalog = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id) or []
     catalog_types = {it['name'].lower().strip(): it.get('type', 'Bien') for it in catalog}
 
     for idx in sorted(item_indices):
@@ -252,7 +255,7 @@ def save_fiscal_note():
         "debitedAmount": calcs["net_payable"] if note_type == 'E33' else 0.0,
     }
 
-    DatabaseService.save_invoice(owner_uid, inv_id, inv_data, sandbox=sandbox)
+    DatabaseService.save_invoice(owner_uid, inv_id, inv_data, sandbox=sandbox, company_id=company_id)
 
     from app.services.audit_service import AuditService, ACTION_CREATE
     AuditService.log_from_request(
@@ -270,13 +273,14 @@ def api_credit_available(invoice_id):
     if 'user' not in session:
         return jsonify(success=False, error="No autorizado"), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id)
     if not invoice:
         return jsonify(success=False, error="Factura no encontrada"), 404
 
-    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
     total_credited = sum(
         float(inv.get('netPayable', inv.get('total', 0)))
         for inv in all_invoices

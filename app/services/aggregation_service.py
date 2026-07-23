@@ -36,14 +36,16 @@ class AggregationService:
         return db_firestore
 
     @staticmethod
-    def _summary_path(owner_uid: str, year: int, month: int) -> str:
+    def _summary_path(owner_uid: str, year: int, month: int, company_id: str = None) -> str:
+        if company_id:
+            return f"companies/{company_id}/monthly_summaries/{year}-{month:02d}"
         return f"users/{owner_uid}/monthly_summaries/{year}-{month:02d}"
 
     @staticmethod
-    def get_monthly_summary(owner_uid: str, year: int, month: int) -> Optional[dict]:
+    def get_monthly_summary(owner_uid: str, year: int, month: int, company_id: str = None) -> Optional[dict]:
         try:
             db = AggregationService._get_db()
-            doc = db.document(AggregationService._summary_path(owner_uid, year, month)).get()
+            doc = db.document(AggregationService._summary_path(owner_uid, year, month, company_id=company_id)).get()
             if doc.exists:
                 return doc.to_dict()
         except Exception as e:
@@ -51,11 +53,11 @@ class AggregationService:
         return None
 
     @staticmethod
-    def recompute_all_months(owner_uid: str, sandbox: bool = False) -> dict:
+    def recompute_all_months(owner_uid: str, sandbox: bool = False, company_id: str = None) -> dict:
         from app.services.db_service import DatabaseService
 
-        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
-        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
+        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, company_id=company_id)
 
         real_invoices = [inv for inv in invoices
                         if not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador']]
@@ -150,14 +152,17 @@ class AggregationService:
                 data['clients_with_sales'] = len(data.pop('clients_list'))
             data["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-            doc_ref = db.document(f"users/{owner_uid}/monthly_summaries/{key}")
+            if company_id:
+                doc_ref = db.document(f"companies/{company_id}/monthly_summaries/{key}")
+            else:
+                doc_ref = db.document(f"users/{owner_uid}/monthly_summaries/{key}")
             doc_ref.set(data)
             created += 1
 
         return {"created": created, "months": list(monthly_data.keys())}
 
     @staticmethod
-    def update_month_for_document(owner_uid: str, doc_date: str):
+    def update_month_for_document(owner_uid: str, doc_date: str, company_id: str = None):
         try:
             if 'T' in doc_date:
                 dt = datetime.fromisoformat(doc_date.replace('Z', '+00:00'))
@@ -167,13 +172,17 @@ class AggregationService:
             return
 
         year, month = dt.year, dt.month
-        AggregationService.recompute_all_months(owner_uid)
+        AggregationService.recompute_all_months(owner_uid, company_id=company_id)
 
     @staticmethod
-    def get_summary_range(owner_uid: str, start_key: str, end_key: str) -> dict:
+    def get_summary_range(owner_uid: str, start_key: str, end_key: str, company_id: str = None) -> dict:
         try:
             db = AggregationService._get_db()
-            docs = db.collection(f"users/{owner_uid}/monthly_summaries") \
+            if company_id:
+                _coll_path = f"companies/{company_id}/monthly_summaries"
+            else:
+                _coll_path = f"users/{owner_uid}/monthly_summaries"
+            docs = db.collection(_coll_path) \
                 .where(field_path="__name__", op_string=">=", value=start_key) \
                 .where(field_path="__name__", op_string="<=", value=end_key) \
                 .stream()

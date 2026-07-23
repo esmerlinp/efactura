@@ -3,13 +3,13 @@ from datetime import datetime, timezone
 
 class FinancialRatiosService:
     @classmethod
-    def compute_all_ratios(cls, owner_uid: str, sandbox: bool = False) -> dict:
+    def compute_all_ratios(cls, owner_uid: str, sandbox: bool = False, company_id: str = None) -> dict:
         from app.services.db_service import DatabaseService
 
-        accounts = DatabaseService.get_chart_of_accounts(owner_uid)
-        entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox)
-        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
-        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+        accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
+        entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox, company_id=company_id)
+        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
+        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, company_id=company_id)
 
         real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador']]
 

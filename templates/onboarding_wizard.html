@@ -819,6 +819,10 @@
                                 </div>
                                 <div style="flex: 1; min-width: 200px;">
                                     <input type="text" name="default_${field.id}" id="default_wizard_${cfg.type}_${field.id}" class="form-input" placeholder="Valor por defecto" style="width: 100%; padding: 8px 12px; font-size: 0.82rem;">
+                                    <label style="display: flex; align-items: center; gap: 6px; margin-top: 5px; font-size: 0.72rem; color: var(--text-muted); cursor: pointer; user-select: none;">
+                                        <input type="checkbox" name="default_all_${field.id}" id="default_all_wizard_${cfg.type}_${field.id}" style="margin: 0;">
+                                        A todos
+                                    </label>
                                 </div>
                             </div>
                         `).join('')}
@@ -889,8 +893,10 @@
                     data.target_fields.forEach(field => {
                         const select = document.getElementById(`select_wizard_${cfg.type}_${field.id}`);
                         const defaultInput = document.getElementById(`default_wizard_${cfg.type}_${field.id}`);
+                        const applyAllCheck = document.getElementById(`default_all_wizard_${cfg.type}_${field.id}`);
                         if (select) bodyData.append(`map_${field.id}`, select.value);
                         if (defaultInput) bodyData.append(`default_${field.id}`, defaultInput.value);
+                        if (applyAllCheck && applyAllCheck.checked) bodyData.append(`default_all_${field.id}`, 'on');
                     });
 
                     fetch('/import/process', {

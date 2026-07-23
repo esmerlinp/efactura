@@ -20,15 +20,15 @@ from app.services.payroll_overtime_calculator import PayrollOvertimeCalculator
 def overtime_list():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    records = OvertimeService.list_records(owner_uid, sandbox=sandbox)
+    records = OvertimeService.list_records(company_id, sandbox=sandbox)
     records.sort(key=lambda r: r.get("registeredAt", ""), reverse=True)
 
     # Seed tipos por defecto si no existen
-    types = hr.get_overtime_types(owner_uid, sandbox=sandbox)
+    types = hr.get_overtime_types(company_id, sandbox=sandbox)
     if not types:
-        OvertimeService.seed_default_types(owner_uid, sandbox=sandbox)
+        OvertimeService.seed_default_types(company_id, sandbox=sandbox)
 
     # Filtros
     status_filter = request.args.get("status", "")
@@ -39,8 +39,8 @@ def overtime_list():
     if emp_filter:
         records = [r for r in records if r.get("employeeId") == emp_filter]
 
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
-    overtime_types = hr.get_overtime_types(owner_uid, sandbox=sandbox)
+    employees = hr.get_employees(company_id, sandbox=sandbox)
+    overtime_types = hr.get_overtime_types(company_id, sandbox=sandbox)
 
     return render_template(
         "rrhh/overtime/list.html",
@@ -61,16 +61,16 @@ def overtime_list():
 def overtime_new():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     user_email = session.get("user", {}).get("email", "")
 
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    employees = hr.get_employees(company_id, sandbox=sandbox)
     active_emps = [e for e in employees if e.get("status") == "activo"]
-    overtime_types = hr.get_overtime_types(owner_uid, sandbox=sandbox)
+    overtime_types = hr.get_overtime_types(company_id, sandbox=sandbox)
 
     if request.method == "POST":
         emp_id = request.form.get("employeeId", "")
-        emp = hr.get_employee(owner_uid, emp_id, sandbox=sandbox) if emp_id else None
+        emp = hr.get_employee(company_id, emp_id, sandbox=sandbox) if emp_id else None
         if not emp:
             flash("Empleado no encontrado.", "error")
             return render_template("rrhh/overtime/form.html", ...)
@@ -109,7 +109,7 @@ def overtime_new():
             "details": details,
         }
 
-        record = OvertimeService.create_record(owner_uid, data, user_email, sandbox=sandbox)
+        record = OvertimeService.create_record(company_id, data, user_email, sandbox=sandbox)
         flash(f"Hora extra {record['number']} creada exitosamente.", "success")
         return redirect(url_for("web_rrhh.overtime_list"))
 
@@ -132,16 +132,16 @@ def overtime_new():
 def overtime_view(record_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    record = OvertimeService.get_record(owner_uid, record_id, sandbox=sandbox)
+    record = OvertimeService.get_record(company_id, record_id, sandbox=sandbox)
     if not record:
         flash("Registro no encontrado.", "error")
         return redirect(url_for("web_rrhh.overtime_list"))
 
-    employee = hr.get_employee(owner_uid, record.get("employeeId", ""), sandbox=sandbox)
-    otype = hr.get_overtime_type(owner_uid, record.get("overtimeTypeCode", ""), sandbox=sandbox)
-    payroll_links = OvertimeService.get_links_for_payroll(owner_uid, record.get("processedPayrollId", ""), sandbox=sandbox) if record.get("processedPayrollId") else []
+    employee = hr.get_employee(company_id, record.get("employeeId", ""), sandbox=sandbox)
+    otype = hr.get_overtime_type(company_id, record.get("overtimeTypeCode", ""), sandbox=sandbox)
+    payroll_links = OvertimeService.get_links_for_payroll(company_id, record.get("processedPayrollId", ""), sandbox=sandbox) if record.get("processedPayrollId") else []
 
     return render_template(
         "rrhh/overtime/view.html",
@@ -161,10 +161,10 @@ def overtime_view(record_id):
 def overtime_submit(record_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     user_email = session.get("user", {}).get("email", "")
 
-    result = OvertimeService.submit_for_approval(owner_uid, record_id, user_email, sandbox=sandbox)
+    result = OvertimeService.submit_for_approval(company_id, record_id, user_email, sandbox=sandbox)
     if isinstance(result, tuple):
         flash(result[0].get("error", "Error al enviar a aprobación."), "error")
     else:
@@ -176,10 +176,10 @@ def overtime_submit(record_id):
 def overtime_approve(record_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     user_email = session.get("user", {}).get("email", "")
 
-    result = OvertimeService.approve(owner_uid, record_id, user_email, sandbox=sandbox)
+    result = OvertimeService.approve(company_id, record_id, user_email, sandbox=sandbox)
     if isinstance(result, tuple):
         flash(result[0].get("error", "Error al aprobar."), "error")
     else:
@@ -191,11 +191,11 @@ def overtime_approve(record_id):
 def overtime_reject(record_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     user_email = session.get("user", {}).get("email", "")
     reason = request.form.get("reason", "").strip()
 
-    result = OvertimeService.reject(owner_uid, record_id, user_email, reason, sandbox=sandbox)
+    result = OvertimeService.reject(company_id, record_id, user_email, reason, sandbox=sandbox)
     if isinstance(result, tuple):
         flash(result[0].get("error", "Error al rechazar."), "error")
     else:
@@ -207,10 +207,10 @@ def overtime_reject(record_id):
 def overtime_reset(record_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     user_email = session.get("user", {}).get("email", "")
 
-    result = OvertimeService.reset_to_draft(owner_uid, record_id, user_email, sandbox=sandbox)
+    result = OvertimeService.reset_to_draft(company_id, record_id, user_email, sandbox=sandbox)
     if isinstance(result, tuple):
         flash(result[0].get("error", "Error al devolver a borrador."), "error")
     else:
@@ -226,9 +226,9 @@ def overtime_reset(record_id):
 def overtime_pending():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    pending = OvertimeService.list_by_status(owner_uid, "pending", sandbox=sandbox)
+    pending = OvertimeService.list_by_status(company_id, "pending", sandbox=sandbox)
     pending.sort(key=lambda r: r.get("registeredAt", ""), reverse=True)
 
     employees_map = {}
@@ -236,7 +236,7 @@ def overtime_pending():
         snap = r.get("employeeSnapshot", {})
         employees_map[r["employeeId"]] = snap.get("name", r["employeeId"])
 
-    overtime_types = hr.get_overtime_types(owner_uid, sandbox=sandbox)
+    overtime_types = hr.get_overtime_types(company_id, sandbox=sandbox)
     types_map = {t["code"]: t["name"] for t in overtime_types}
 
     return render_template(
@@ -256,11 +256,11 @@ def overtime_pending():
 def overtime_types_list():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    types = hr.get_overtime_types(owner_uid, sandbox=sandbox)
+    types = hr.get_overtime_types(company_id, sandbox=sandbox)
     from app.services.payroll_concept_engine import get_concepts
-    concepts = get_concepts(owner_uid, sandbox=sandbox)
+    concepts = get_concepts(company_id, sandbox=sandbox)
     concepts_map = {c["code"]: c["name"] for c in concepts}
 
     return render_template(
@@ -275,14 +275,14 @@ def overtime_types_list():
 def overtime_types_new():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     from app.services.payroll_concept_engine import get_concepts
-    concepts = get_concepts(owner_uid, sandbox=sandbox)
+    concepts = get_concepts(company_id, sandbox=sandbox)
 
     if request.method == "POST":
         code = request.form.get("code", "").strip().upper()
-        if hr.get_overtime_type(owner_uid, code, sandbox=sandbox):
+        if hr.get_overtime_type(company_id, code, sandbox=sandbox):
             flash(f"El código {code} ya existe.", "error")
             return render_template("rrhh/overtime/types/form.html", ...)
 
@@ -293,7 +293,7 @@ def overtime_types_new():
             "conceptCode": request.form.get("conceptCode", ""),
             "active": True,
         }
-        hr.save_overtime_type(owner_uid, code, data, sandbox=sandbox)
+        hr.save_overtime_type(company_id, code, data, sandbox=sandbox)
         flash(f"Tipo de hora extra {code} creado.", "success")
         return redirect(url_for("web_rrhh.overtime_types_list"))
 
@@ -309,21 +309,21 @@ def overtime_types_new():
 def overtime_types_edit(code):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    otype = hr.get_overtime_type(owner_uid, code, sandbox=sandbox)
+    otype = hr.get_overtime_type(company_id, code, sandbox=sandbox)
     if not otype:
         flash("Tipo no encontrado.", "error")
         return redirect(url_for("web_rrhh.overtime_types_list"))
 
     from app.services.payroll_concept_engine import get_concepts
-    concepts = get_concepts(owner_uid, sandbox=sandbox)
+    concepts = get_concepts(company_id, sandbox=sandbox)
 
     if request.method == "POST":
         otype["name"] = request.form.get("name", "").strip()
         otype["factor"] = float(request.form.get("factor", 1.35) or 1.35)
         otype["conceptCode"] = request.form.get("conceptCode", "")
-        hr.save_overtime_type(owner_uid, code, otype, sandbox=sandbox)
+        hr.save_overtime_type(company_id, code, otype, sandbox=sandbox)
         flash("Tipo actualizado.", "success")
         return redirect(url_for("web_rrhh.overtime_types_list"))
 
@@ -339,12 +339,12 @@ def overtime_types_edit(code):
 def overtime_types_toggle(code):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    otype = hr.get_overtime_type(owner_uid, code, sandbox=sandbox)
+    otype = hr.get_overtime_type(company_id, code, sandbox=sandbox)
     if otype:
         otype["active"] = not otype.get("active", True)
-        hr.save_overtime_type(owner_uid, code, otype, sandbox=sandbox)
+        hr.save_overtime_type(company_id, code, otype, sandbox=sandbox)
         flash(f"Tipo {'activado' if otype['active'] else 'desactivado'}.", "success")
     return redirect(url_for("web_rrhh.overtime_types_list"))
 
@@ -357,7 +357,7 @@ def overtime_types_toggle(code):
 def overtime_preview_calculation():
     if _login_required():
         return {"error": "No autorizado"}, 401
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     try:
         data = request.get_json(force=True)
@@ -368,11 +368,11 @@ def overtime_preview_calculation():
     minutes = int(data.get("minutes", 0) or 0)
     type_code = data.get("overtimeTypeCode", "")
 
-    emp = hr.get_employee(owner_uid, emp_id, sandbox=sandbox) if emp_id else None
+    emp = hr.get_employee(company_id, emp_id, sandbox=sandbox) if emp_id else None
     if not emp:
         return {"error": "Empleado no encontrado"}, 404
 
-    otype = hr.get_overtime_type(owner_uid, type_code, sandbox=sandbox) if type_code else None
+    otype = hr.get_overtime_type(company_id, type_code, sandbox=sandbox) if type_code else None
     factor = float(otype.get("factor", 1.35)) if otype else 1.35
 
     base = float(emp.get("baseSalary", emp.get("salary", 0)))

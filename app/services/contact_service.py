@@ -2,10 +2,11 @@ import uuid
 from datetime import datetime, timezone
 
 try:
-    from app.services.db_service import db_firestore, firebase_initialized, DatabaseService
+    from app.services.db_service import db_firestore, firebase_initialized, DatabaseService, _company_coll
 except ImportError:
     db_firestore = None
     firebase_initialized = False
+    _company_coll = None
 
 
 def serialize_field(val):
@@ -85,7 +86,13 @@ def _build_contact_from_doc(doc, owner_uid):
 # Sync helpers — write to legacy collections for backward compatibility
 # =========================================================================
 
-def _sync_to_legacy_clients(owner_uid, contact, sandbox):
+def _coll_ref(owner_uid=None, sandbox=True, company_id=None):
+    if company_id:
+        return _company_coll(company_id=company_id, coll_name=_coll_name(sandbox))
+    return _company_coll(owner_uid=owner_uid, coll_name=_coll_name(sandbox))
+
+
+def _sync_to_legacy_clients(owner_uid=None, contact=None, sandbox=True, company_id=None):
     """Sync contact data to legacy clients collection if type includes 'cliente'."""
     if "cliente" not in contact.get("types", []):
         return
@@ -105,10 +112,10 @@ def _sync_to_legacy_clients(owner_uid, contact, sandbox):
         "createdAt": contact.get("createdAt", datetime.now(timezone.utc).isoformat()),
         "customer_category": contact.get("customer_category", "NORMAL"),
     }
-    DatabaseService.save_client(owner_uid, contact["id"], client_dict, sandbox=sandbox)
+    DatabaseService.save_client(owner_uid, contact["id"], client_dict, sandbox=sandbox, company_id=company_id)
 
 
-def _sync_to_legacy_suppliers(owner_uid, contact, sandbox):
+def _sync_to_legacy_suppliers(owner_uid=None, contact=None, sandbox=True, company_id=None):
     """Sync contact data to legacy suppliers collection if type includes 'proveedor'."""
     if "proveedor" not in contact.get("types", []):
         return
@@ -137,27 +144,29 @@ def _sync_to_legacy_suppliers(owner_uid, contact, sandbox):
         "notes": contact.get("notes", ""),
         "createdAt": contact.get("createdAt", datetime.now(timezone.utc).isoformat()),
     }
-    SupplierService.save_supplier(owner_uid, contact["id"], supplier_dict, sandbox=sandbox)
+    SupplierService.save_supplier(owner_uid, contact["id"], supplier_dict, sandbox=sandbox, company_id=company_id)
 
 
-def _delete_from_legacy_clients(owner_uid, contact_id, sandbox):
+def _delete_from_legacy_clients(owner_uid=None, contact_id=None, sandbox=True, company_id=None):
     """Delete from legacy clients collection."""
     if not firebase_initialized or db_firestore is None:
         return
     try:
         coll_name = "sandbox_clients" if sandbox else "clients"
-        db_firestore.collection("users").document(owner_uid).collection(coll_name).document(contact_id).delete()
+        ref = _company_coll(company_id=company_id or owner_uid, coll_name=coll_name) if company_id else _company_coll(owner_uid=owner_uid, coll_name=coll_name)
+        ref.document(contact_id).delete()
     except Exception as e:
         print(f"⚠️ Error al eliminar cliente legacy {contact_id}: {e}")
 
 
-def _delete_from_legacy_suppliers(owner_uid, contact_id, sandbox):
+def _delete_from_legacy_suppliers(owner_uid=None, contact_id=None, sandbox=True, company_id=None):
     """Delete from legacy suppliers collection."""
     if not firebase_initialized or db_firestore is None:
         return
     try:
         coll_name = "sandbox_suppliers" if sandbox else "suppliers"
-        db_firestore.collection("users").document(owner_uid).collection(coll_name).document(contact_id).delete()
+        ref = _company_coll(company_id=company_id or owner_uid, coll_name=coll_name) if company_id else _company_coll(owner_uid=owner_uid, coll_name=coll_name)
+        ref.document(contact_id).delete()
     except Exception as e:
         print(f"⚠️ Error al eliminar proveedor legacy {contact_id}: {e}")
 
@@ -169,188 +178,36 @@ def _delete_from_legacy_suppliers(owner_uid, contact_id, sandbox):
 class ContactService:
 
     @classmethod
-    def get_contacts(cls, owner_uid, sandbox=True):
+    def get_contacts(cls, owner_uid=None, sandbox=True, company_id=None):
         if not firebase_initialized or db_firestore is None:
             return []
         contacts = []
-        contact_ids = set()
         try:
-            docs = db_firestore.collection("users").document(owner_uid).collection(_coll_name(sandbox)).get()
+            docs = _coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).get()
             for doc in docs:
                 c = _build_contact_from_doc(doc, owner_uid)
-                contact_ids.add(c["id"])
                 contacts.append(c)
         except Exception as e:
             print(f"⚠️ Error al obtener contactos: {e}")
-
-        # Fallback: importar clientes legacy que no existan como contacto
-        try:
-            coll_name = "sandbox_clients" if sandbox else "clients"
-            legacy_docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
-            for doc in legacy_docs:
-                if doc.id in contact_ids:
-                    continue
-                data = doc.to_dict()
-                if not data:
-                    continue
-                c = dict(CONTACT_DEFAULTS)
-                c["id"] = doc.id
-                c["ownerUID"] = owner_uid
-                c["types"] = ["cliente"]
-                c["rnc"] = data.get("rnc", "")
-                c["razonSocial"] = data.get("razonSocial", "")
-                c["email"] = data.get("email", "")
-                c["telefono"] = data.get("telefono", "")
-                c["direccion"] = data.get("direccion", "")
-                c["notes"] = data.get("crmNotes", "")
-                c["nextContactDate"] = serialize_field(data.get("nextContactDate"))
-                c["pipelineStage"] = data.get("pipelineStage", "Prospecto")
-                c["responsibleId"] = data.get("responsibleId", "")
-                c["imageUrl"] = data.get("imageUrl", "")
-                c["accessPin"] = data.get("accessPin", "")
-                c["disableAutoReminders"] = data.get("disableAutoReminders", False)
-                c["priceListId"] = data.get("priceListId", "")
-                c["createdAt"] = serialize_field(data.get("createdAt", datetime.now(timezone.utc)))
-                contact_ids.add(c["id"])
-                contacts.append(c)
-        except Exception as e:
-            print(f"⚠️ Error al importar clientes legacy: {e}")
-
-        # Fallback: importar proveedores legacy que no existan como contacto
-        try:
-            coll_name = "sandbox_suppliers" if sandbox else "suppliers"
-            legacy_docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
-            for doc in legacy_docs:
-                if doc.id in contact_ids:
-                    continue
-                data = doc.to_dict()
-                if not data:
-                    continue
-                c = dict(CONTACT_DEFAULTS)
-                c["id"] = doc.id
-                c["ownerUID"] = owner_uid
-                c["types"] = ["proveedor"]
-                c["rnc"] = data.get("rnc", "")
-                c["razonSocial"] = data.get("name", "")
-                c["email"] = data.get("email", "")
-                c["telefono"] = data.get("phone", "")
-                c["direccion"] = data.get("address", "")
-                c["municipio"] = data.get("city", "")
-                c["pais"] = data.get("country", "República Dominicana")
-                c["notes"] = data.get("notes", "")
-                c["tipoPersona"] = data.get("tipoPersona", "fisica")
-                c["supplierType"] = data.get("supplierType", "formal")
-                c["creditDays"] = data.get("creditDays", 0)
-                c["creditLimit"] = data.get("creditLimit", 0.0)
-                c["paymentMethod"] = data.get("paymentMethod", "Efectivo")
-                c["currency"] = data.get("currency", "DOP")
-                c["itbisWithholding"] = data.get("itbisWithholding", False)
-                c["isrWithholding"] = data.get("isrWithholding", False)
-                c["tipoGastoDGII"] = data.get("tipoGastoDGII", "02")
-                c["ecfTypeEmits"] = data.get("ecfTypeEmits", "E31")
-                c["estado"] = data.get("estado", "Activo")
-                c["createdAt"] = serialize_field(data.get("createdAt", datetime.now(timezone.utc)))
-                contact_ids.add(c["id"])
-                contacts.append(c)
-        except Exception as e:
-            print(f"⚠️ Error al importar proveedores legacy: {e}")
 
         contacts.sort(key=lambda x: x["razonSocial"].lower())
         return contacts
 
     @classmethod
-    def _legacy_client_to_contact(cls, owner_uid, client_id, sandbox):
-        """Convierte un cliente legacy en dict de contacto."""
-        coll_name = "sandbox_clients" if sandbox else "clients"
-        doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(client_id).get()
-        if not doc.exists:
-            return None
-        data = doc.to_dict()
-        c = dict(CONTACT_DEFAULTS)
-        c["id"] = doc.id
-        c["ownerUID"] = owner_uid
-        c["types"] = ["cliente"]
-        c["rnc"] = data.get("rnc", "")
-        c["razonSocial"] = data.get("razonSocial", "")
-        c["email"] = data.get("email", "")
-        c["telefono"] = data.get("telefono", "")
-        c["direccion"] = data.get("direccion", "")
-        c["notes"] = data.get("crmNotes", "")
-        c["nextContactDate"] = serialize_field(data.get("nextContactDate"))
-        c["pipelineStage"] = data.get("pipelineStage", "Prospecto")
-        c["responsibleId"] = data.get("responsibleId", "")
-        c["imageUrl"] = data.get("imageUrl", "")
-        c["accessPin"] = data.get("accessPin", "")
-        c["disableAutoReminders"] = data.get("disableAutoReminders", False)
-        c["priceListId"] = data.get("priceListId", "")
-        c["createdAt"] = serialize_field(data.get("createdAt", datetime.now(timezone.utc)))
-        return c
-
-    @classmethod
-    def _legacy_supplier_to_contact(cls, owner_uid, supplier_id, sandbox):
-        """Convierte un proveedor legacy en dict de contacto."""
-        coll_name = "sandbox_suppliers" if sandbox else "suppliers"
-        doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(supplier_id).get()
-        if not doc.exists:
-            return None
-        data = doc.to_dict()
-        c = dict(CONTACT_DEFAULTS)
-        c["id"] = doc.id
-        c["ownerUID"] = owner_uid
-        c["types"] = ["proveedor"]
-        c["rnc"] = data.get("rnc", "")
-        c["razonSocial"] = data.get("name", "")
-        c["email"] = data.get("email", "")
-        c["telefono"] = data.get("phone", "")
-        c["direccion"] = data.get("address", "")
-        c["municipio"] = data.get("city", "")
-        c["pais"] = data.get("country", "República Dominicana")
-        c["notes"] = data.get("notes", "")
-        c["tipoPersona"] = data.get("tipoPersona", "fisica")
-        c["supplierType"] = data.get("supplierType", "formal")
-        c["creditDays"] = data.get("creditDays", 0)
-        c["creditLimit"] = data.get("creditLimit", 0.0)
-        c["paymentMethod"] = data.get("paymentMethod", "Efectivo")
-        c["currency"] = data.get("currency", "DOP")
-        c["itbisWithholding"] = data.get("itbisWithholding", False)
-        c["isrWithholding"] = data.get("isrWithholding", False)
-        c["tipoGastoDGII"] = data.get("tipoGastoDGII", "02")
-        c["ecfTypeEmits"] = data.get("ecfTypeEmits", "E31")
-        c["estado"] = data.get("estado", "Activo")
-        c["createdAt"] = serialize_field(data.get("createdAt", datetime.now(timezone.utc)))
-        return c
-
-    @classmethod
-    def get_contact(cls, owner_uid, contact_id, sandbox=True):
+    def get_contact(cls, owner_uid=None, contact_id=None, sandbox=True, company_id=None):
         if not firebase_initialized or db_firestore is None:
             return None
         try:
-            doc = db_firestore.collection("users").document(owner_uid).collection(_coll_name(sandbox)).document(contact_id).get()
+            doc = _coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).document(contact_id).get()
             if doc.exists:
                 return _build_contact_from_doc(doc, owner_uid)
         except Exception as e:
             print(f"⚠️ Error al obtener contacto {contact_id}: {e}")
 
-        # Fallback: buscar en legacy
-        c = cls._legacy_client_to_contact(owner_uid, contact_id, sandbox)
-        if c:
-            return c
-        c = cls._legacy_supplier_to_contact(owner_uid, contact_id, sandbox)
-        if c:
-            return c
-        return None
-
-        # Fallback: buscar en legacy
-        c = cls._legacy_client_to_contact(owner_uid, contact_id, sandbox)
-        if c:
-            return c
-        c = cls._legacy_supplier_to_contact(owner_uid, contact_id, sandbox)
-        if c:
-            return c
         return None
 
     @classmethod
-    def save_contact(cls, owner_uid, contact_id, contact_dict, sandbox=True):
+    def save_contact(cls, owner_uid=None, contact_id=None, contact_dict=None, sandbox=True, company_id=None):
         contact_dict["id"] = contact_id
         contact_dict["ownerUID"] = owner_uid
         contact_dict["branchId"] = contact_dict.get("branchId", "default-sucursal-principal")
@@ -368,65 +225,47 @@ class ContactService:
 
         if firebase_initialized and db_firestore is not None:
             try:
-                db_firestore.collection("users").document(owner_uid).collection(_coll_name(sandbox)).document(contact_id).set(contact_dict)
+                _coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).document(contact_id).set(contact_dict)
             except Exception as e:
                 print(f"⚠️ Error al guardar contacto en Firestore: {e}")
 
-        _sync_to_legacy_clients(owner_uid, contact_dict, sandbox)
-        _sync_to_legacy_suppliers(owner_uid, contact_dict, sandbox)
+        _sync_to_legacy_clients(owner_uid=owner_uid, contact=contact_dict, sandbox=sandbox, company_id=company_id)
+        _sync_to_legacy_suppliers(owner_uid=owner_uid, contact=contact_dict, sandbox=sandbox, company_id=company_id)
 
         return contact_dict
 
     @classmethod
-    def delete_contact(cls, owner_uid, contact_id, sandbox=True):
-        contact = cls.get_contact(owner_uid, contact_id, sandbox)
+    def delete_contact(cls, owner_uid=None, contact_id=None, sandbox=True, company_id=None):
+        contact = cls.get_contact(owner_uid=owner_uid, contact_id=contact_id, sandbox=sandbox, company_id=company_id)
         if contact:
-            _delete_from_legacy_clients(owner_uid, contact_id, sandbox)
-            _delete_from_legacy_suppliers(owner_uid, contact_id, sandbox)
+            _delete_from_legacy_clients(owner_uid=owner_uid, contact_id=contact_id, sandbox=sandbox, company_id=company_id)
+            _delete_from_legacy_suppliers(owner_uid=owner_uid, contact_id=contact_id, sandbox=sandbox, company_id=company_id)
 
         if firebase_initialized and db_firestore is not None:
             try:
-                db_firestore.collection("users").document(owner_uid).collection(_coll_name(sandbox)).document(contact_id).delete()
+                _coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).document(contact_id).delete()
             except Exception as e:
                 print(f"⚠️ Error al eliminar contacto {contact_id}: {e}")
 
     @classmethod
-    def get_contact_by_rnc(cls, owner_uid, rnc, sandbox=True):
+    def get_contact_by_rnc(cls, owner_uid=None, rnc=None, sandbox=True, company_id=None):
         rnc_clean = "".join(filter(str.isdigit, str(rnc)))
         if not rnc_clean:
             return None
         if not firebase_initialized or db_firestore is None:
             return None
         try:
-            docs = db_firestore.collection("users").document(owner_uid).collection(_coll_name(sandbox)).where("rnc", "==", rnc_clean).limit(1).get()
+            docs = _coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).where("rnc", "==", rnc_clean).limit(1).get()
             for doc in docs:
                 return _build_contact_from_doc(doc, owner_uid)
         except Exception as e:
             print(f"⚠️ Error al buscar contacto por RNC {rnc}: {e}")
 
-        # Fallback: buscar en legacy clients
-        try:
-            coll_name = "sandbox_clients" if sandbox else "clients"
-            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).where("rnc", "==", rnc_clean).limit(1).get()
-            for doc in docs:
-                return cls._legacy_client_to_contact(owner_uid, doc.id, sandbox)
-        except Exception as e:
-            print(f"⚠️ Error al buscar en clientes legacy por RNC {rnc}: {e}")
-
-        # Fallback: buscar en legacy suppliers
-        try:
-            coll_name = "sandbox_suppliers" if sandbox else "suppliers"
-            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).where("rnc", "==", rnc_clean).limit(1).get()
-            for doc in docs:
-                return cls._legacy_supplier_to_contact(owner_uid, doc.id, sandbox)
-        except Exception as e:
-            print(f"⚠️ Error al buscar en proveedores legacy por RNC {rnc}: {e}")
-
         return None
 
     @classmethod
-    def get_or_create_contact(cls, owner_uid, rnc, razonSocial, direccion="", sandbox=True):
-        existing = cls.get_contact_by_rnc(owner_uid, rnc, sandbox=sandbox)
+    def get_or_create_contact(cls, owner_uid=None, rnc=None, razonSocial=None, direccion="", sandbox=True, company_id=None):
+        existing = cls.get_contact_by_rnc(owner_uid=owner_uid, rnc=rnc, sandbox=sandbox, company_id=company_id)
         if existing:
             return (existing["id"], False)
         contact_id = str(uuid.uuid4())
@@ -435,12 +274,12 @@ class ContactService:
             "razonSocial": razonSocial,
             "direccion": direccion,
         }
-        cls.save_contact(owner_uid, contact_id, contact_dict, sandbox=sandbox)
+        cls.save_contact(owner_uid=owner_uid, contact_id=contact_id, contact_dict=contact_dict, sandbox=sandbox, company_id=company_id)
         return (contact_id, True)
 
     @classmethod
-    def search_contacts(cls, owner_uid, query, sandbox=True):
-        contacts = cls.get_contacts(owner_uid, sandbox=sandbox)
+    def search_contacts(cls, owner_uid=None, query=None, sandbox=True, company_id=None):
+        contacts = cls.get_contacts(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
         q = query.lower().strip()
         if not q:
             return contacts
@@ -451,15 +290,15 @@ class ContactService:
         return results
 
     @classmethod
-    def update_pipeline(cls, owner_uid, contact_id, pipeline_stage, sandbox=True):
+    def update_pipeline(cls, owner_uid=None, contact_id=None, pipeline_stage=None, sandbox=True, company_id=None):
         if not firebase_initialized or db_firestore is None:
             return
         try:
-            db_firestore.collection("users").document(owner_uid).collection(_coll_name(sandbox)).document(contact_id).update({
+            _coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).document(contact_id).update({
                 "pipelineStage": pipeline_stage,
             })
-            c = cls.get_contact(owner_uid, contact_id, sandbox)
+            c = cls.get_contact(owner_uid=owner_uid, contact_id=contact_id, sandbox=sandbox, company_id=company_id)
             if c and "cliente" in c.get("types", []):
-                DatabaseService.update_client_pipeline(owner_uid, contact_id, pipeline_stage, sandbox=sandbox)
+                DatabaseService.update_client_pipeline(owner_uid, contact_id, pipeline_stage, sandbox=sandbox, company_id=company_id)
         except Exception as e:
             print(f"⚠️ Error al actualizar pipeline del contacto {contact_id}: {e}")

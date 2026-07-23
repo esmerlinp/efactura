@@ -48,12 +48,12 @@ def _safe_int(value, default=0):
         return default
 
 
-def _crm_context(owner_uid, sandbox=True):
+def _crm_context(owner_uid, sandbox=True, company_id=None):
     contacts = [c for c in ContactService.get_contacts(owner_uid, sandbox=sandbox) if "cliente" in c.get("types", [])]
-    collaborators = DatabaseService.get_team_members(owner_uid) or []
+    collaborators = DatabaseService.get_team_members(owner_uid, company_id=company_id) or []
     opportunities = CRMService.get_opportunities(owner_uid, sandbox=sandbox, include_closed=False)
-    quotations = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=True)
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False)
+    quotations = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=True, company_id=company_id)
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False, company_id=company_id)
     real_invoices = [inv for inv in invoices if not inv.get("isQuotation") and inv.get("status") not in ("Anulada", "Borrador")]
     return {
         "contacts": contacts,

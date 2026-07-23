@@ -12,11 +12,11 @@ class FiscalClosingService:
         return db_firestore
 
     @classmethod
-    def generate_closing_preview(cls, owner_uid: str, year: int, sandbox: bool = False) -> dict:
+    def generate_closing_preview(cls, owner_uid: str, year: int, sandbox: bool = False, company_id=None) -> dict:
         from app.services.db_service import DatabaseService
 
-        accounts = DatabaseService.get_chart_of_accounts(owner_uid)
-        all_entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox)
+        accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
+        all_entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox, company_id=company_id)
 
         # Filtrar entradas por el año fiscal correspondiente
         date_from = f"{year}-01-01"
@@ -123,15 +123,17 @@ class FiscalClosingService:
         }
 
     @classmethod
-    def execute_year_close(cls, owner_uid: str, year: int, performed_by: str = "", sandbox: bool = False) -> dict:
+    def execute_year_close(cls, owner_uid: str, year: int, performed_by: str = "", sandbox: bool = False, company_id=None) -> dict:
         from app.services.accounting_service import AccountingService
         from app.services.accounting_service import _accounting_entry_exists
 
+        resolved_cid = company_id
+
         # Prevenir doble cierre
-        if _accounting_entry_exists(owner_uid, "closing", f"year_{year}"):
+        if _accounting_entry_exists(resolved_cid, "closing", f"year_{year}"):
             return {"status": "already_closed", "message": f"El año fiscal {year} ya tiene un asiento de cierre."}
 
-        preview = cls.generate_closing_preview(owner_uid, year, sandbox=sandbox)
+        preview = cls.generate_closing_preview(owner_uid, year, sandbox=sandbox, company_id=company_id)
 
         lines = preview["income_lines"] + preview["expense_lines"]
         if preview["retained_line"]:
@@ -150,10 +152,10 @@ class FiscalClosingService:
             "prefix": "C",
         }
 
-        entry = AccountingService.generate_entry(owner_uid, entry_data, sandbox=sandbox)
+        entry = AccountingService.generate_entry(resolved_cid, entry_data, sandbox=sandbox)
 
         from app.services.fiscal_period_service import FiscalPeriodService
-        FiscalPeriodService.close_year(owner_uid, year, closed_by=performed_by)
+        FiscalPeriodService.close_year(owner_uid, year, closed_by=performed_by, company_id=company_id)
 
         return {"status": "success", "entry_id": entry["id"], "entry_number": entry["number"], "net_income": preview["net_income"]}
 

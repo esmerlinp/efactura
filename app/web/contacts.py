@@ -34,6 +34,7 @@ def list_contacts():
     r = _check()
     if r: return r
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     all_contacts = ContactService.get_contacts(owner_uid, sandbox=sandbox)
@@ -50,8 +51,8 @@ def list_contacts():
     else:
         contacts = all_contacts
 
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
 
     for c in contacts:
         cid = c['id']
@@ -151,6 +152,7 @@ def new_contact():
     r = _check()
     if r: return r
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     if request.method == 'POST':
@@ -182,7 +184,8 @@ def new_contact():
                 filename = f"contact_{contact_id}_{str(uuid.uuid4())[:8]}_{image_file.filename}"
                 destination_path = f"users/{owner_uid}/contacts/{filename}"
                 image_url = DatabaseService.upload_file_to_storage(
-                    file_data=file_data, destination_path=destination_path, mime_type=mime_type
+                    file_data=file_data, destination_path=destination_path, mime_type=mime_type,
+                    company_id=company_id
                 )
             except Exception as e:
                 flash(f"Advertencia: No se pudo subir la imagen: {html.escape(str(e))}", 'warning')
@@ -252,8 +255,8 @@ def new_contact():
         flash('Contacto registrado exitosamente.', 'success')
         return redirect(url_for('web_contacts.list_contacts'))
 
-    collaborators = DatabaseService.get_team_members(owner_uid) or []
-    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    collaborators = DatabaseService.get_team_members(owner_uid, company_id=company_id) or []
+    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
     _ecf_types = [t for t in _all_fiscal_types() if t.family == _Family.ECF]
     return render_template('contacts/form.html',
                            active_page='contacts',
@@ -331,6 +334,7 @@ def contact_detail(contact_id):
     r = _check()
     if r: return r
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     contact = ContactService.get_contact(owner_uid, contact_id, sandbox=sandbox)
@@ -341,25 +345,25 @@ def contact_detail(contact_id):
     is_client = 'cliente' in contact.get('types', [])
     is_supplier = 'proveedor' in contact.get('types', [])
 
-    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
     client_invoices = [inv for inv in all_invoices if inv['clientId'] == contact_id and not inv.get('isQuotation')] if is_client else []
     client_quotations = [inv for inv in all_invoices if inv['clientId'] == contact_id and inv.get('isQuotation')] if is_client else []
     contact['total_invoiced'] = sum(inv['total'] for inv in client_invoices if inv.get('status') not in ['Anulada', 'Borrador'])
     contact['total_cxc'] = sum(inv['netPayable'] for inv in client_invoices if inv['status'] in ['Emitida', 'Vencida', 'Revisión de Pago'])
 
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
     linked_expenses = [e for e in expenses if e.get('supplierId') == contact_id] if is_supplier else []
     contact['total_purchases'] = sum(float(e.get('amount', 0)) for e in linked_expenses)
     contact['cxp_balance'] = sum(float(e.get('cxpRemainingBalance', 0)) for e in linked_expenses)
 
     # Interactions stored in contact doc (subcollection)
-    interactions = DatabaseService.get_client_interactions(owner_uid, contact_id, sandbox=sandbox)
-    documents = DatabaseService.get_client_documents(owner_uid, contact_id, sandbox=sandbox)
+    interactions = DatabaseService.get_client_interactions(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
+    documents = DatabaseService.get_client_documents(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
 
     # Payments
     client_payments = []
     for inv in client_invoices:
-        inv_payments = DatabaseService.get_invoice_payments(owner_uid, inv['id'], sandbox=sandbox)
+        inv_payments = DatabaseService.get_invoice_payments(owner_uid, inv['id'], sandbox=sandbox, company_id=company_id)
         for pay in inv_payments:
             pay['invoiceNumber'] = inv.get('invoiceNumber', '')
             pay['invoiceId'] = inv['id']
@@ -370,7 +374,7 @@ def contact_detail(contact_id):
     resp_id = contact.get('responsibleId')
     if resp_id:
         try:
-            colabs = DatabaseService.get_team_members(owner_uid) or []
+            colabs = DatabaseService.get_team_members(owner_uid, company_id=company_id) or []
             target = next((col for col in colabs if col['uid'] == resp_id), None)
             if target:
                 responsible_name = target.get('name') or target.get('email', '').split('@')[0]
@@ -447,6 +451,7 @@ def edit_contact(contact_id):
     r = _check()
     if r: return r
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     contact = ContactService.get_contact(owner_uid, contact_id, sandbox=sandbox)
@@ -471,7 +476,8 @@ def edit_contact(contact_id):
                 filename = f"contact_{contact_id}_{str(uuid.uuid4())[:8]}_{image_file.filename}"
                 destination_path = f"users/{owner_uid}/contacts/{filename}"
                 image_url = DatabaseService.upload_file_to_storage(
-                    file_data=file_data, destination_path=destination_path, mime_type=mime_type
+                    file_data=file_data, destination_path=destination_path, mime_type=mime_type,
+                    company_id=company_id
                 )
             except Exception as e:
                 flash(f"Advertencia: No se pudo subir la imagen: {html.escape(str(e))}", 'warning')
@@ -543,8 +549,8 @@ def edit_contact(contact_id):
         flash('Contacto actualizado exitosamente.', 'success')
         return redirect(url_for('web_contacts.list_contacts'))
 
-    collaborators = DatabaseService.get_team_members(owner_uid) or []
-    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    collaborators = DatabaseService.get_team_members(owner_uid, company_id=company_id) or []
+    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
     _ecf_types = [t for t in _all_fiscal_types() if t.family == _Family.ECF]
     return render_template('contacts/form.html',
                            active_page='contacts',
@@ -641,6 +647,7 @@ def send_contact_portal_credentials(contact_id):
         return jsonify({"success": False, "error": "Sin permisos."}), 403
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     data = request.json or {}
@@ -663,7 +670,7 @@ def send_contact_portal_credentials(contact_id):
     token = generate_portal_token(owner_uid, contact_id, sandbox=sandbox)
     portal_url = url_for('portal.portal_entry', token=token, _external=True)
 
-    company = DatabaseService.get_company_profile(owner_uid) or {}
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
     company_name = company.get('tradeName') or company.get('companyName') or get_product_name()
     brand_color = company.get('colorMarca', '#10b981')
     logo_url = company.get('logoUrl', '')
@@ -710,7 +717,7 @@ def send_contact_portal_credentials(contact_id):
                 "date": datetime.now(timezone.utc).isoformat(), "completed": True,
                 "createdBy": session.get('user', {}).get('email', 'Sistema')
             }
-            DatabaseService.save_client_interaction(owner_uid, contact_id, interaction_id, interaction_dict, sandbox=sandbox)
+            DatabaseService.save_client_interaction(owner_uid, contact_id, interaction_id, interaction_dict, sandbox=sandbox, company_id=company_id)
             return jsonify({"success": True, "message": f"Credenciales simuladas enviadas a {recipient_email}."})
         return jsonify({"success": False, "error": "Servidor SMTP no configurado."}), 500
 
@@ -733,7 +740,7 @@ def send_contact_portal_credentials(contact_id):
         "date": datetime.now(timezone.utc).isoformat(), "completed": True,
         "createdBy": session.get('user', {}).get('email', 'Sistema')
     }
-    DatabaseService.save_client_interaction(owner_uid, contact_id, interaction_id, interaction_dict, sandbox=sandbox)
+    DatabaseService.save_client_interaction(owner_uid, contact_id, interaction_id, interaction_dict, sandbox=sandbox, company_id=company_id)
 
     return jsonify({"success": True, "message": f"Credenciales enviadas a {recipient_email}."})
 
@@ -747,6 +754,7 @@ def add_contact_interaction(contact_id):
     r = _check()
     if r: return r
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     content = request.form.get('content', '').strip()
@@ -765,7 +773,7 @@ def add_contact_interaction(contact_id):
             mime_type = file.mimetype or "application/octet-stream"
             filename = f"crm_{contact_id}_{str(uuid.uuid4())[:8]}_{file.filename}"
             destination_path = f"users/{owner_uid}/crm/{filename}"
-            attachment_url = DatabaseService.upload_file_to_storage(file_data, destination_path, mime_type)
+            attachment_url = DatabaseService.upload_file_to_storage(file_data, destination_path, mime_type, company_id=company_id)
             attachment_name = file.filename
         except Exception as e:
             flash(f"Advertencia: No se pudo cargar el archivo: {html.escape(str(e))}", 'warning')
@@ -778,7 +786,7 @@ def add_contact_interaction(contact_id):
         "completed": False, "createdBy": session['user']['email'],
         "attachmentUrl": attachment_url, "attachmentName": attachment_name,
     }
-    DatabaseService.save_client_interaction(owner_uid, contact_id, interaction_id, interaction_dict, sandbox=sandbox)
+    DatabaseService.save_client_interaction(owner_uid, contact_id, interaction_id, interaction_dict, sandbox=sandbox, company_id=company_id)
 
     from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_CRM
     AuditService.log_from_request(
@@ -803,9 +811,10 @@ def delete_contact_interaction(contact_id, interaction_id):
     r = _check()
     if r: return r
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    DatabaseService.delete_client_interaction(owner_uid, contact_id, interaction_id, sandbox=sandbox)
+    DatabaseService.delete_client_interaction(owner_uid, contact_id, interaction_id, sandbox=sandbox, company_id=company_id)
 
     from app.services.audit_service import AuditService, ACTION_DELETE, MODULE_CRM
     AuditService.log_from_request(
@@ -823,13 +832,14 @@ def complete_contact_interaction(contact_id, interaction_id):
     r = _check()
     if r: return r
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    interactions = DatabaseService.get_client_interactions(owner_uid, contact_id, sandbox=sandbox)
+    interactions = DatabaseService.get_client_interactions(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
     interaction = next((it for it in interactions if it['id'] == interaction_id), None)
     if interaction:
         interaction['completed'] = True
-        DatabaseService.save_client_interaction(owner_uid, contact_id, interaction_id, interaction, sandbox=sandbox)
+        DatabaseService.save_client_interaction(owner_uid, contact_id, interaction_id, interaction, sandbox=sandbox, company_id=company_id)
 
         contact = ContactService.get_contact(owner_uid, contact_id, sandbox=sandbox)
         if contact and contact.get('nextContactDate') == interaction.get('nextContactDate'):

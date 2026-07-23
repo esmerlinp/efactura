@@ -194,7 +194,7 @@ def client_portal_main():
     if not owner_uid or not client_id:
         return "Sesión de autogestión no válida o expirada. Por favor use el enlace oficial enviado a su correo.", 403
         
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox)
     if not client:
         return "Cliente no encontrado.", 404
@@ -247,7 +247,7 @@ def client_portal_verify_main():
     input_rnc = request.form.get('rnc', '').strip()
     input_pin = request.form.get('accessPin', '').strip()
     
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox)
     if not client:
         return "Cliente no encontrado.", 404
@@ -257,7 +257,7 @@ def client_portal_verify_main():
         import random
         db_pin = "".join([str(random.randint(0, 9)) for _ in range(6)])
         client['accessPin'] = db_pin
-        DatabaseService.save_client(owner_uid, client_id, client, sandbox=sandbox)
+        DatabaseService.save_client(owner_uid, client_id, client, company_id=company_id, sandbox=sandbox)
         
     if clean_rnc(input_rnc) == clean_rnc(client.get('rnc', '')) and input_pin == db_pin:
         session[f'verified_client_{client_id}'] = True
@@ -652,6 +652,7 @@ def reject_contract(contract_id):
 
 
 def _notify_portal_action(owner_uid, action, document_type, document_number, client, signed_at, invoice_or_contract, invoice_id, sandbox):
+    company_id = _resolve_company_id(owner_uid)
     """Helper interno: resuelve el responsable del cliente y envía email + notificación in-app."""
     try:
         from app.services.notifications import NotificationService
@@ -667,7 +668,7 @@ def _notify_portal_action(owner_uid, action, document_type, document_number, cli
         responsible_id = client.get('responsibleId')
         if responsible_id:
             try:
-                team_members = DatabaseService.get_team_members(owner_uid)
+                team_members = DatabaseService.get_team_members(owner_uid, company_id=company_id)
                 for member in team_members:
                     if member.get('uid') == responsible_id or member.get('id') == responsible_id:
                         responsible_uid = member.get('uid') or member.get('id')
@@ -706,6 +707,7 @@ def _notify_portal_action(owner_uid, action, document_type, document_number, cli
         # 4. Enviar notificación por email al responsable
         NotificationService.send_portal_action_notification(
             owner_uid=owner_uid,
+            company_id=company_id,
             action=action,
             document_type=document_type,
             document_number=document_number,
@@ -1024,7 +1026,7 @@ def azul_callback():
     if not owner_uid or not invoice_id:
         return "Respuesta de pago incompleta.", 400
         
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     result = AzulService.verify_payment_response(company, response_data)
     
     if result.get('success'):
@@ -1043,7 +1045,7 @@ def azul_webhook():
     if not owner_uid:
         return jsonify({"success": False, "error": "owner_uid no provisto"}), 400
         
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     result = AzulService.verify_payment_response(company, response_data)
     
     if result.get('success'):
@@ -1072,7 +1074,7 @@ def paypal_create_order(invoice_id):
     if remaining <= 0.01:
         return jsonify({"success": False, "error": "La factura ya está saldada."}), 400
 
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     paypal_client_id = company.get('paypalClientId', '').strip()
     paypal_secret_enc = company.get('paypalClientSecretEncrypted', '').strip()
     paypal_currency = company.get('paypalCurrency', 'USD').strip()
@@ -1174,8 +1176,9 @@ def paypal_create_order(invoice_id):
 
 
 def _paypal_capture_and_process(invoice_id, order_id, owner_uid, client_id, sandbox, exchange_rate=None):
+    company_id = _resolve_company_id(owner_uid)
     """Captura una orden PayPal y procesa el pago. Reutilizado por capture, return y captura diferida."""
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     paypal_client_id = company.get('paypalClientId', '').strip()
     paypal_secret_enc = company.get('paypalClientSecretEncrypted', '').strip()
     paypal_sandbox = company.get('paypalSandbox', True)
@@ -1355,7 +1358,7 @@ def paypal_return(invoice_id):
     if not result.get('success'):
         flash(f"Error al procesar el pago: {result.get('error', 'Error desconocido')}", "error")
         invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox) or {}
-        company = DatabaseService.get_company_profile(owner_uid) or {}
+        company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
         return render_template('portal/payment_failed.html',
             company=company, invoice=invoice, sandbox=sandbox,
             client_id=client_id,
@@ -1367,7 +1370,7 @@ def paypal_return(invoice_id):
     invoice_actualizada = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox) or {}
 
     return render_template('portal/payment_success_paypal.html',
-        company=DatabaseService.get_company_profile(owner_uid) or {},
+        company=DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {},
         invoice=invoice_actualizada, sandbox=sandbox,
         amount=result['amount'], currency=result['original_currency'],
         paypal_amount=result['paypal_amount'], paypal_currency=result['paypal_currency'],
@@ -1419,7 +1422,7 @@ def paypal_webhook():
         print(f"Webhook: owner_uid={owner_uid} invoice_id={invoice_id} no identificados")
         return jsonify({"success": False, "error": "No se pudo identificar la factura."}), 400
 
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     paypal_client_id = company.get('paypalClientId', '').strip()
     paypal_secret_enc = company.get('paypalClientSecretEncrypted', '').strip()
     paypal_sandbox_mode = company.get('paypalSandbox', True)
@@ -1623,6 +1626,7 @@ def _process_payment_record(owner_uid, invoice_id, amount, reference, gateway, m
     from app.services.accounting_service import AccountingService
     entry = AccountingService.auto_generate_payment_entry(
         owner_uid=owner_uid,
+        company_id=company_id,
         invoice=invoice,
         amount=amount,
         payment_id=payment_id,
@@ -1638,11 +1642,11 @@ def _process_payment_record(owner_uid, invoice_id, amount, reference, gateway, m
 
     # Actualizar saldo de la cuenta bancaria
     if bank_account_id:
-        bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox)
+        bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, company_id=company_id, sandbox=sandbox)
         if bank_acc:
             new_balance = float(bank_acc.get("currentBalance", 0.0)) + amount
             bank_acc["currentBalance"] = new_balance
-            DatabaseService.save_bank_account(owner_uid, bank_account_id, bank_acc, sandbox=sandbox)
+            DatabaseService.save_bank_account(owner_uid, bank_account_id, bank_acc, company_id=company_id, sandbox=sandbox)
             print(f"✅ Saldo de cuenta bancaria actualizado: +{amount:,.2f}")
         else:
             print(f"⚠️ Cuenta bancaria {bank_account_id} no encontrada, no se actualizó saldo")
@@ -1654,7 +1658,7 @@ def _process_payment_record(owner_uid, invoice_id, amount, reference, gateway, m
 
 def _process_azul_payment_record(result):
     owner_uid = result['owner_uid']
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     bank_account_id = company.get('azulBankAccountId') or None
     accounting_account_id = company.get('azulAccountingAccountId') or None
     cost_center_id = company.get('azulCostCenterId') or None
@@ -1732,11 +1736,11 @@ def portal_document_detail(invoice_id):
     from app.web.invoices import _enrich_invoice_totals
     invoice = _enrich_invoice_totals(invoice)
     
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox)
     
     # Obtener sucursal
-    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
+    branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox)
     branch = next((b for b in branches if b['id'] == invoice.get("branchId")), None)
     if not branch and branches:
         branch = branches[0]
@@ -1842,7 +1846,7 @@ def portal_document_pdf(invoice_id):
         WeasyprintHTML = None
         
     invoice = _enrich_invoice_totals(invoice)
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     
     import io
     import base64
@@ -1907,7 +1911,7 @@ def portal_document_pdf(invoice_id):
     img.save(stream, format="PNG")
     qr_base64 = base64.b64encode(stream.getvalue()).decode('utf-8')
 
-    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
+    branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox)
     branch = next((b for b in branches if b['id'] == invoice.get("branchId")), None)
     if not branch and branches:
         branch = branches[0]
@@ -1944,10 +1948,11 @@ def portal_admin():
                                required_permission='canClients')
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
-    company = DatabaseService.get_company_profile(owner_uid) or {}
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
 
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     portal_clients = []
     for c in clients:
         if c.get('accessPin'):
@@ -1996,7 +2001,7 @@ def payment_page(invoice_id):
     from app.web.invoices import _enrich_invoice_totals
     invoice = _enrich_invoice_totals(invoice)
 
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox)
 
     today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")

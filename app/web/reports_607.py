@@ -38,8 +38,8 @@ def _parse_int(val, default=0):
         return default
 
 
-def _get_invoices_for_period(owner_uid, sandbox, year, month):
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+def _get_invoices_for_period(owner_uid, sandbox, year, month, company_id=None):
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
     real = [inv for inv in invoices
             if not inv.get('isQuotation')
             and inv.get('status') not in ('Anulada', 'Borrador', 'Consolidada')
@@ -85,6 +85,7 @@ def reporte_607():
     if not check_permission("canInvoice"):
         return render_template("auth/restricted.html", active_page="reporte_607")
     owner_uid = session["user"]["ownerUID"]
+    company_id = session.get("selected_company_id")
     sandbox = session.get("is_sandbox_mode", True)
 
     now = datetime.now(timezone.utc)
@@ -95,7 +96,7 @@ def reporte_607():
     income_type = request.args.get("income_type", "").strip()
     search = request.args.get("search", "").strip()
 
-    invoices = _get_invoices_for_period(owner_uid, sandbox, year, month)
+    invoices = _get_invoices_for_period(owner_uid, sandbox, year, month, company_id=company_id)
     filtered = _filter_invoices(invoices, client_id, ecf_type, income_type, search)
     filtered.sort(key=lambda x: (x.get("date") or x.get("createdAt") or ""))
 
@@ -116,7 +117,7 @@ def reporte_607():
         if not by_client[key].get("rnc"):
             by_client[key]["rnc"] = e.get("clientRNC", "—")
 
-    clients_list = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
+    clients_list = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id) or []
 
     return render_template(
         "reports/reporte_607.html",
@@ -152,6 +153,7 @@ def reporte_607_export():
     if not check_permission("canInvoice"):
         return render_template("auth/restricted.html"), 403
     owner_uid = session["user"]["ownerUID"]
+    company_id = session.get("selected_company_id")
     sandbox = session.get("is_sandbox_mode", True)
 
     now = datetime.now(timezone.utc)
@@ -163,11 +165,11 @@ def reporte_607_export():
     search = request.args.get("search", "").strip()
     fmt = request.args.get("format", "simple")
 
-    invoices = _get_invoices_for_period(owner_uid, sandbox, year, month)
+    invoices = _get_invoices_for_period(owner_uid, sandbox, year, month, company_id=company_id)
     filtered = _filter_invoices(invoices, client_id, ecf_type, income_type, search)
     filtered.sort(key=lambda x: (x.get("date") or x.get("createdAt") or ""))
 
-    profile = DatabaseService.get_company_profile(owner_uid)
+    profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     owner_rnc = (profile or {}).get("companyRNC", "").replace("-", "")
 
     wb = Workbook()

@@ -22,15 +22,18 @@ class ClosingChecklistService:
         return db_firestore
 
     @staticmethod
-    def _path(owner_uid: str, key: str = None) -> str:
-        base = f"users/{owner_uid}/closing_checklists"
+    def _path(owner_uid: str, key: str = None, company_id: str = None) -> str:
+        if company_id:
+            base = f"companies/{company_id}/closing_checklists"
+        else:
+            base = f"users/{owner_uid}/closing_checklists"
         return f"{base}/{key}" if key else base
 
     @classmethod
-    def get_or_create_checklist(cls, owner_uid: str, year: int, month: int) -> dict:
+    def get_or_create_checklist(cls, owner_uid: str, year: int, month: int, company_id: str = None) -> dict:
         db = cls._get_db()
         key = f"{year}-{month:02d}"
-        doc = db.document(cls._path(owner_uid, key)).get()
+        doc = db.document(cls._path(owner_uid, key, company_id=company_id)).get()
         if doc.exists:
             data = doc.to_dict()
             return data
@@ -48,12 +51,12 @@ class ClosingChecklistService:
             "createdAt": datetime.now(timezone.utc).isoformat(),
             "updatedAt": datetime.now(timezone.utc).isoformat(),
         }
-        db.document(cls._path(owner_uid, key)).set(checklist)
+        db.document(cls._path(owner_uid, key, company_id=company_id)).set(checklist)
         return checklist
 
     @classmethod
-    def toggle_task(cls, owner_uid: str, year: int, month: int, task_id: str, completed_by: str = "") -> dict:
-        checklist = cls.get_or_create_checklist(owner_uid, year, month)
+    def toggle_task(cls, owner_uid: str, year: int, month: int, task_id: str, completed_by: str = "", company_id: str = None) -> dict:
+        checklist = cls.get_or_create_checklist(owner_uid, year, month, company_id=company_id)
         for task in checklist["tasks"]:
             if task["id"] == task_id:
                 task["completed"] = not task["completed"]
@@ -67,17 +70,17 @@ class ClosingChecklistService:
         checklist["updatedAt"] = datetime.now(timezone.utc).isoformat()
 
         db = cls._get_db()
-        db.document(cls._path(owner_uid, checklist["id"])).set(checklist)
+        db.document(cls._path(owner_uid, checklist["id"], company_id=company_id)).set(checklist)
         return checklist
 
     @classmethod
-    def update_task_note(cls, owner_uid: str, year: int, month: int, task_id: str, notes: str) -> dict:
-        checklist = cls.get_or_create_checklist(owner_uid, year, month)
+    def update_task_note(cls, owner_uid: str, year: int, month: int, task_id: str, notes: str, company_id: str = None) -> dict:
+        checklist = cls.get_or_create_checklist(owner_uid, year, month, company_id=company_id)
         for task in checklist["tasks"]:
             if task["id"] == task_id:
                 task["notes"] = notes
                 break
         checklist["updatedAt"] = datetime.now(timezone.utc).isoformat()
         db = cls._get_db()
-        db.document(cls._path(owner_uid, checklist["id"])).set(checklist)
+        db.document(cls._path(owner_uid, checklist["id"], company_id=company_id)).set(checklist)
         return checklist

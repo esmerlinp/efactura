@@ -8,12 +8,12 @@ class InventoryAlertService:
     """Alertas de vencimiento de lotes y sugerencias de puntos de reorden."""
 
     @staticmethod
-    def get_expiration_alerts(owner_uid, sandbox=True):
+    def get_expiration_alerts(company_id, sandbox=True):
         """
         Retorna items/lotes próximos a vencer en 30, 60 y 90 días.
         Agrupado por: {alert_30d: [...], alert_60d: [...], alert_90d: [...]}
         """
-        from app.services.db_service import db_firestore, firebase_initialized
+        from app.services.db_service import _company_coll, db_firestore, firebase_initialized
 
         alerts = {"alert_30d": [], "alert_60d": [], "alert_90d": []}
         if not firebase_initialized:
@@ -22,7 +22,7 @@ class InventoryAlertService:
         today = date.today()
         coll_name = "sandbox_inventory_lots" if sandbox else "inventory_lots"
         try:
-            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+            docs = _company_coll(company_id=company_id, coll_name=coll_name).get()
             for doc in docs:
                 data = doc.to_dict()
                 exp_str = data.get("expirationDate", "")
@@ -58,7 +58,7 @@ class InventoryAlertService:
         return alerts
 
     @staticmethod
-    def get_reorder_suggestions(owner_uid, sandbox=True):
+    def get_reorder_suggestions(company_id, sandbox=True):
         """
         Sugiere órdenes de compra basadas en consumo mensual promedio.
         Retorna lista de {itemId, itemName, currentStock, minStock, maxStock,
@@ -66,11 +66,10 @@ class InventoryAlertService:
         """
         from app.services.db_service import DatabaseService
 
-        items = DatabaseService.get_items(owner_uid, sandbox=sandbox)
-        stocks = DatabaseService.get_inventory_stock(owner_uid, sandbox=sandbox)
-        txs = DatabaseService.get_inventory_transactions(owner_uid, sandbox=sandbox)
+        items = DatabaseService.get_items(company_id=company_id, sandbox=sandbox)
+        stocks = DatabaseService.get_inventory_stock(company_id=company_id, sandbox=sandbox)
+        txs = DatabaseService.get_inventory_transactions(company_id, sandbox=sandbox)
 
-        # Calcular consumo mensual por item (últimos 3 meses)
         today = date.today()
         three_months_ago = today - timedelta(days=90)
         monthly_usage = defaultdict(float)
@@ -88,7 +87,6 @@ class InventoryAlertService:
             if tx_date >= three_months_ago:
                 monthly_usage[tx["itemId"]] += float(tx["quantity"])
 
-        # Calcular promedio mensual
         for item_id in monthly_usage:
             monthly_usage[item_id] = round(monthly_usage[item_id] / 3.0, 2)
 
@@ -107,7 +105,6 @@ class InventoryAlertService:
 
             months_of_stock = round(current_stock / consumption, 1) if consumption > 0 else float("inf")
 
-            # Sugerir orden si: stock < minStock, o si quedan menos de 2 meses
             suggested = 0.0
             if current_stock <= min_stock and max_stock > 0:
                 suggested = round(max_stock - current_stock, 2)

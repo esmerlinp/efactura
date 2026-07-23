@@ -239,16 +239,73 @@ def login():
                 session['is_sandbox_mode'] = False  # Producción por defecto al iniciar
                 
                 # Cargar empresas asociadas
-                associated = DatabaseService.get_associated_companies(user_profile['uid'])
+                uid = user_profile['uid']
+                associated = DatabaseService.get_associated_companies(uid)
                 session['associated_companies'] = associated
                 session['user_has_multiple_companies'] = len(associated) > 1
                 
-                if len(associated) > 1:
-                    session.pop('selected_owner_uid', None)
-                else:
-                    session['selected_owner_uid'] = associated[0]['ownerUID'] if len(associated) == 1 else user_profile.get('ownerUID')
-                    session['user']['ownerUID'] = session['selected_owner_uid']
+                # Intentar cargar desde company_memberships (nuevo sistema)
+                user_companies = DatabaseService.get_user_companies(uid)
+                default_id = user_profile.get('default_company_id', '')
                 
+                if user_companies:
+                    session['user_companies'] = user_companies
+                    if default_id and any(c['id'] == default_id for c in user_companies):
+                        session['selected_company_id'] = default_id
+                        default_comp = next(c for c in user_companies if c['id'] == default_id)
+                        session['selected_owner_uid'] = default_comp.get('owner_uid', user_profile.get('ownerUID'))
+                        session['user']['ownerUID'] = session['selected_owner_uid']
+                    elif len(user_companies) == 1:
+                        session['selected_company_id'] = user_companies[0]['id']
+                        session['selected_owner_uid'] = user_companies[0].get('owner_uid', user_profile.get('ownerUID'))
+                        session['user']['ownerUID'] = session['selected_owner_uid']
+                    else:
+                        session.pop('selected_company_id', None)
+                        session.pop('selected_owner_uid', None)
+                else:
+                    # Fallback al sistema legacy - construir lista compatible
+                    legacy_companies = []
+                    for comp in associated:
+                        legacy_companies.append({
+                            "id": comp.get("company_id", comp.get("ownerUID", "")),
+                            "name": comp.get("companyName", "Empresa"),
+                            "rnc": "",
+                            "owner_uid": comp.get("ownerUID", ""),
+                            "role": comp.get("role", "employee"),
+                            "logo_url": comp.get("logoUrl", ""),
+                            "logo_base64": comp.get("logoBase64", ""),
+                            "_membership": {"role": comp.get("role", "employee"), "permissions": {}}
+                        })
+                    session['user_companies'] = legacy_companies
+                    session['user_has_multiple_companies'] = len(legacy_companies) > 1
+
+                    if len(legacy_companies) > 1:
+                        session.pop('selected_company_id', None)
+                        session.pop('selected_owner_uid', None)
+                    elif len(legacy_companies) == 1:
+                        session['selected_company_id'] = legacy_companies[0]['id']
+                        session['selected_owner_uid'] = legacy_companies[0].get('owner_uid', user_profile.get('ownerUID'))
+                        session['user']['ownerUID'] = session['selected_owner_uid']
+                    else:
+                        owner_uid = user_profile.get('ownerUID')
+                        session['selected_company_id'] = owner_uid
+                        session['selected_owner_uid'] = owner_uid
+                        session['user']['ownerUID'] = owner_uid
+
+                # ── Cargar plan de la empresa en la sesión ──
+                try:
+                    cid = session.get('selected_company_id')
+                    oid = session.get('selected_owner_uid') or user_profile.get('ownerUID')
+                    if cid and oid:
+                        profile = DatabaseService.get_company_profile(oid, company_id=cid)
+                        if profile:
+                            session['company_plan_id'] = profile.get('planId', '')
+                            session['company_profile_pos_enabled'] = profile.get('posEnabled', True)
+                            session['company_production_enabled'] = profile.get('productionEnabled', True)
+                            session['company_sandbox_enabled'] = profile.get('sandboxEnabled', True)
+                except Exception:
+                    pass
+
                 from app.services.audit_service import AuditService, ACTION_LOGIN, MODULE_AUTH
                 AuditService.log_from_request(
                     owner_uid=session.get('selected_owner_uid') or user_profile.get('ownerUID'),
@@ -366,13 +423,62 @@ def resolve_session_conflict():
     associated = DatabaseService.get_associated_companies(user_profile['uid'])
     session['associated_companies'] = associated
     session['user_has_multiple_companies'] = len(associated) > 1
-    
+
+    # Cargar companies del nuevo sistema multi-company
+    user_companies = DatabaseService.get_user_companies(user_profile['uid'])
+    if user_companies:
+        session['user_companies'] = user_companies
+        if len(user_companies) == 1:
+            session['selected_company_id'] = user_companies[0]['id']
+            session['selected_owner_uid'] = user_companies[0].get('owner_uid', user_profile.get('ownerUID'))
+            session['user']['ownerUID'] = session['selected_owner_uid']
+        elif len(user_companies) > 1:
+            session.pop('selected_owner_uid', None)
+            session.pop('selected_company_id', None)
+    else:
+        legacy_companies = []
+        for comp in associated:
+            legacy_companies.append({
+                "id": comp.get("company_id", comp.get("ownerUID", "")),
+                "name": comp.get("companyName", "Empresa"),
+                "rnc": "",
+                "owner_uid": comp.get("ownerUID", ""),
+                "role": comp.get("role", "employee"),
+                "logo_url": comp.get("logoUrl", ""),
+                "logo_base64": comp.get("logoBase64", ""),
+                "_membership": {"role": comp.get("role", "employee"), "permissions": {}}
+            })
+        session['user_companies'] = legacy_companies
+        session['user_has_multiple_companies'] = len(legacy_companies) > 1
+
     if len(associated) > 1:
         session.pop('selected_owner_uid', None)
-    else:
-        session['selected_owner_uid'] = associated[0]['ownerUID'] if len(associated) == 1 else user_profile.get('ownerUID')
+        session.pop('selected_company_id', None)
+    elif len(associated) == 1:
+        comp = associated[0]
+        session['selected_company_id'] = comp.get('company_id', comp.get('ownerUID', user_profile.get('ownerUID')))
+        session['selected_owner_uid'] = comp['ownerUID']
         session['user']['ownerUID'] = session['selected_owner_uid']
+    else:
+        owner_uid = user_profile.get('ownerUID')
+        session['selected_company_id'] = owner_uid
+        session['selected_owner_uid'] = owner_uid
+        session['user']['ownerUID'] = owner_uid
     
+    # ── Cargar plan de la empresa en la sesión ──
+    try:
+        cid = session.get('selected_company_id')
+        oid = session.get('selected_owner_uid') or user_profile.get('ownerUID')
+        if cid and oid:
+            profile = DatabaseService.get_company_profile(oid, company_id=cid)
+            if profile:
+                session['company_plan_id'] = profile.get('planId', '')
+                session['company_profile_pos_enabled'] = profile.get('posEnabled', True)
+                session['company_production_enabled'] = profile.get('productionEnabled', True)
+                session['company_sandbox_enabled'] = profile.get('sandboxEnabled', True)
+    except Exception:
+        pass
+
     from app.services.audit_service import AuditService, ACTION_LOGIN, MODULE_AUTH
     AuditService.log_from_request(
         owner_uid=session.get('selected_owner_uid') or user_profile.get('ownerUID'),
@@ -463,7 +569,25 @@ def verify_2fa():
             # Cargar empresas asociadas
             associated = DatabaseService.get_associated_companies(user_profile['uid'])
             session['associated_companies'] = associated
-            session['user_has_multiple_companies'] = len(associated) > 1
+
+            user_companies = DatabaseService.get_user_companies(user_profile['uid'])
+            if user_companies:
+                session['user_companies'] = user_companies
+            else:
+                legacy_companies = []
+                for comp in associated:
+                    legacy_companies.append({
+                        "id": comp.get("company_id", comp.get("ownerUID", "")),
+                        "name": comp.get("companyName", "Empresa"),
+                        "rnc": "",
+                        "owner_uid": comp.get("ownerUID", ""),
+                        "role": comp.get("role", "employee"),
+                        "logo_url": comp.get("logoUrl", ""),
+                        "logo_base64": comp.get("logoBase64", ""),
+                        "_membership": {"role": comp.get("role", "employee"), "permissions": {}}
+                    })
+                session['user_companies'] = legacy_companies
+            session['user_has_multiple_companies'] = len(session['user_companies']) > 1
             
             if len(associated) > 1:
                 session.pop('selected_owner_uid', None)
@@ -650,11 +774,13 @@ def logout():
     session.pop('session_token', None)
     session.pop('is_sandbox_mode', None)
     session.pop('selected_owner_uid', None)
+    session.pop('selected_company_id', None)
     session.pop('selected_branch_id', None)
     session.pop('available_branches', None)
     session.pop('selected_project_id', None)
     session.pop('available_projects', None)
     session.pop('associated_companies', None)
+    session.pop('user_companies', None)
     session.pop('user_has_multiple_companies', None)
     # Limpiar datos temporales de login pendiente
     session.pop('pending_login_profile', None)
@@ -669,48 +795,83 @@ def select_company():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
         
-    # Siempre obtener de la base de datos para asegurar que los logos y nombres estén actualizados
-    associated = DatabaseService.get_associated_companies(session['user']['uid'])
-    session['associated_companies'] = associated
-    session['user_has_multiple_companies'] = len(associated) > 1
-
-    associated_companies = associated
+    uid = session['user']['uid']
     
-    if len(associated_companies) <= 1:
-        if len(associated_companies) == 1:
-            session['selected_owner_uid'] = associated_companies[0]['ownerUID']
+    # Obtener compañías del usuario (nuevo sistema multi-company)
+    user_companies = DatabaseService.get_user_companies(uid)
+    
+    # Fallback al sistema legacy si no hay compañías nuevas
+    if not user_companies:
+        associated = DatabaseService.get_associated_companies(uid)
+        session['associated_companies'] = associated
+        session['user_has_multiple_companies'] = len(associated) > 1
+        # Legacy: convertir a formato de compañía
+        user_companies = []
+        for comp in associated:
+            user_companies.append({
+                "id": comp.get("company_id", comp.get("ownerUID", "")),
+                "name": comp.get("companyName", "Empresa"),
+                "rnc": "",
+                "owner_uid": comp.get("ownerUID", ""),
+                "role": comp.get("role", "employee"),
+                "logo_url": comp.get("logoUrl", ""),
+                "logo_base64": comp.get("logoBase64", ""),
+                "_membership": {"role": comp.get("role", "employee"), "permissions": {}}
+            })
+
+    session['user_companies'] = user_companies
+    session['user_has_multiple_companies'] = len(user_companies) > 1
+
+    if len(user_companies) <= 1:
+        if len(user_companies) == 1:
+            comp = user_companies[0]
+            session['selected_company_id'] = comp['id']
+            session['selected_owner_uid'] = comp.get('owner_uid', uid)
+            session['user']['ownerUID'] = session['selected_owner_uid']
         else:
-            session['selected_owner_uid'] = session['user'].get('uid')
+            session['selected_owner_uid'] = uid
         return redirect(url_for('web_dashboard.dashboard'))
         
     if request.method == 'POST':
-        selected_uid = request.form.get('owner_uid')
-        if any(c['ownerUID'] == selected_uid for c in associated_companies):
-            session['selected_owner_uid'] = selected_uid
-            session['user']['ownerUID'] = selected_uid
+        selected_id = request.form.get('company_id')
+        selected_company = next((c for c in user_companies if c['id'] == selected_id), None)
+        if selected_company:
+            session['selected_company_id'] = selected_id
+            session['selected_owner_uid'] = selected_company.get('owner_uid', uid)
+            session['user']['ownerUID'] = session['selected_owner_uid']
             session.pop('selected_branch_id', None)
             session.pop('available_branches', None)
             session.pop('selected_project_id', None)
             session.pop('available_projects', None)
             
-            # Registrar cambio de empresa en auditoría
+            # Registrar cambio de compañía en auditoría
             from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_AUTH
             AuditService.log_from_request(
-                owner_uid=selected_uid,
+                owner_uid=session['selected_owner_uid'],
                 action=ACTION_UPDATE,
                 module=MODULE_AUTH,
-                entity_id=session['user']['uid'],
-                entity_label=f"Colaborador cambió de empresa activa a {selected_uid}",
+                entity_id=selected_id,
+                entity_label=f"Colaborador cambió a compañía {selected_company.get('name', selected_id)}",
                 user_session=session['user'],
                 sandbox=session.get('is_sandbox_mode', False)
             )
+            
+            # Guardar como default si el usuario lo pidió
+            if request.form.get('remember') == '1':
+                try:
+                    profile = DatabaseService.get_user_profile(uid, company_id=session.get('selected_company_id'))
+                    if profile:
+                        profile['default_company_id'] = selected_id
+                        DatabaseService.save_user_profile(uid, profile, company_id=session.get('selected_company_id'))
+                except Exception:
+                    pass
             
             flash('Empresa seleccionada con éxito.', 'success')
             return _safe_redirect_fallback()
         else:
             flash('Selección de empresa inválida o no autorizada.', 'error')
             
-    return render_template('auth/select_company.html', associated_companies=associated_companies)
+    return render_template('auth/select_company.html', associated_companies=user_companies)
 
 
 @web_auth_bp.route('/select-branch', methods=['GET', 'POST'])
@@ -722,7 +883,8 @@ def select_branch():
     
     owner_uid = session.get('selected_owner_uid') or session['user'].get('ownerUID')
     sandbox = session.get('is_sandbox_mode', False)
-    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
+    company_id = session.get('selected_company_id')
+    branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox)
     
     if request.method == 'POST':
         selected_branch = request.form.get('branch_id') or (request.json or {}).get('branch_id')
@@ -755,8 +917,9 @@ def select_project():
     
     owner_uid = session.get('selected_owner_uid') or session['user'].get('ownerUID')
     sandbox = session.get('is_sandbox_mode', False)
+    company_id = session.get('selected_company_id')
     selected_bid = session.get('selected_branch_id')
-    projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox)
+    projects = DatabaseService.get_projects(owner_uid, company_id=company_id, branch_id=selected_bid, sandbox=sandbox)
     
     if request.method == 'POST':
         selected_project = request.form.get('project_id') or (request.json or {}).get('project_id')
@@ -936,7 +1099,8 @@ def update_user_profile():
             filename = secure_filename(avatar_file.filename)
             unique_filename = f"{uuid.uuid4().hex}_{filename}"
             owner_uid = session['user'].get('ownerUID', uid)
-            destination_path = f"users/{owner_uid}/avatars/{unique_filename}"
+            company_id = _resolve_company_id(owner_uid)
+            destination_path = f"companies/{company_id}/avatars/{unique_filename}" if company_id else f"users/{owner_uid}/avatars/{unique_filename}"
             
             avatar_file.seek(0)
             file_bytes = avatar_file.read()
@@ -960,7 +1124,7 @@ def update_user_profile():
         if profile_image_url:
             updated_profile["profileImageUrl"] = profile_image_url
 
-        DatabaseService.save_user_profile(uid, updated_profile)
+        DatabaseService.save_user_profile(uid, updated_profile, company_id=company_id)
 
         # Actualizar la sesión activa para reflejar los cambios de inmediato
         session['user']['name'] = name

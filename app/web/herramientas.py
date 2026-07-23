@@ -47,7 +47,8 @@ def _login_required():
 def _get_owner_uid_and_sandbox():
     uid = session.get("selected_owner_uid", "") or session.get("user", {}).get("ownerUID", "")
     sandbox = session.get("is_sandbox_mode", True)
-    return uid, sandbox
+    company_id = session.get("selected_company_id")
+    return uid, sandbox, company_id
 
 
 def _check_tools_permission():
@@ -57,8 +58,8 @@ def _check_tools_permission():
     return role == "owner" or perms.get("canManageTools", True)
 
 
-def _get_all_categories(owner_uid, sandbox=True):
-    custom = get_categorias_herramienta(owner_uid, sandbox=sandbox)
+def _get_all_categories(owner_uid, sandbox=True, company_id=None):
+    custom = get_categorias_herramienta(owner_uid, sandbox=sandbox, company_id=company_id)
     combined = list(CATEGORIES)
     seen = {c["value"] for c in combined}
     for c in custom:
@@ -68,7 +69,7 @@ def _get_all_categories(owner_uid, sandbox=True):
     return combined
 
 
-def _log_movimiento(owner_uid, herramienta_id, herramienta_code, event_type, previous="", new="", notes="", sandbox=True):
+def _log_movimiento(owner_uid, herramienta_id, herramienta_code, event_type, previous="", new="", notes="", sandbox=True, company_id=None):
     user = session.get("user", {})
     save_movimiento(owner_uid, {
         "ownerUID": owner_uid,
@@ -79,7 +80,7 @@ def _log_movimiento(owner_uid, herramienta_id, herramienta_code, event_type, pre
         "newValue": new,
         "performedBy": user.get("uid", ""),
         "notes": notes,
-    }, sandbox=sandbox)
+    }, sandbox=sandbox, company_id=company_id)
 
 
 # ─── LISTADO ────────────────────────────────────────────────────────────────
@@ -90,9 +91,9 @@ def list_herramientas():
         return redirect(url_for("web_auth.login"))
     if not _check_tools_permission():
         return render_template("auth/restricted.html", feature_name="Gestión de Activos", required_permission="canManageTools")
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    herramientas = get_herramientas(owner_uid, sandbox=sandbox)
+    herramientas = get_herramientas(owner_uid, sandbox=sandbox, company_id=company_id)
     q = request.args.get("q", "").strip().lower()
     cat = request.args.get("category", "")
     op_status = request.args.get("operationalStatus", "")
@@ -110,7 +111,7 @@ def list_herramientas():
     if loc:
         herramientas = [h for h in herramientas if h.get("location") == loc]
 
-    locations = sorted(set(h.get("location", "") for h in get_herramientas(owner_uid, sandbox=sandbox) if h.get("location")))
+    locations = sorted(set(h.get("location", "") for h in get_herramientas(owner_uid, sandbox=sandbox, company_id=company_id) if h.get("location")))
 
     return render_template("herramientas/list.html", active_page="herramientas",
                            herramientas=herramientas, categories=CATEGORIES,
@@ -126,21 +127,21 @@ def new_herramienta():
         return redirect(url_for("web_auth.login"))
     if not _check_tools_permission():
         return render_template("auth/restricted.html", feature_name="Gestión de Activos", required_permission="canManageTools")
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     if request.method == "POST":
         herramienta_id = str(uuid.uuid4())
         category = request.form.get("category", "")
         code = request.form.get("code", "").strip()
         if not code:
-            code = get_next_code(owner_uid, category, sandbox=sandbox)
+            code = get_next_code(owner_uid, category, sandbox=sandbox, company_id=company_id)
 
         raw_license = request.form.get("licenseKey", "")
         encrypted = encrypt_field(raw_license) if raw_license else ""
 
         data = {
             "code": code,
-            "assetTag": request.form.get("assetTag", "").strip() or get_next_asset_tag(owner_uid, sandbox=sandbox),
+            "assetTag": request.form.get("assetTag", "").strip() or get_next_asset_tag(owner_uid, sandbox=sandbox, company_id=company_id),
             "name": request.form.get("name", "").strip(),
             "description": request.form.get("description", "").strip(),
             "category": category,
@@ -164,14 +165,14 @@ def new_herramienta():
             "nextMaintenanceDate": request.form.get("nextMaintenanceDate", "").strip(),
             "usageReading": float(request.form.get("usageReading", 0) or 0),
         }
-        save_herramienta(owner_uid, herramienta_id, data, sandbox=sandbox)
-        _log_movimiento(owner_uid, herramienta_id, code, "CREADA", notes=f"Herramienta creada: {data['name']}", sandbox=sandbox)
+        save_herramienta(owner_uid, herramienta_id, data, sandbox=sandbox, company_id=company_id)
+        _log_movimiento(owner_uid, herramienta_id, code, "CREADA", notes=f"Herramienta creada: {data['name']}", sandbox=sandbox, company_id=company_id)
         flash(f"Herramienta {code} creada exitosamente.", "success")
         return redirect(url_for("web_herramientas.list_herramientas"))
 
-    next_code = get_next_code(owner_uid, "", sandbox=sandbox)
-    cost_centers = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox)
-    all_categories = _get_all_categories(owner_uid, sandbox=sandbox)
+    next_code = get_next_code(owner_uid, "", sandbox=sandbox, company_id=company_id)
+    cost_centers = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox, company_id=company_id)
+    all_categories = _get_all_categories(owner_uid, sandbox=sandbox, company_id=company_id)
     return render_template("herramientas/form.html", active_page="herramientas",
                            herramienta=None, categories=all_categories, types=TYPES,
                            operational_statuses=OPERATIONAL_STATUSES,
@@ -187,9 +188,9 @@ def edit_herramienta(herramienta_id):
         return redirect(url_for("web_auth.login"))
     if not _check_tools_permission():
         return render_template("auth/restricted.html", feature_name="Gestión de Activos", required_permission="canManageTools")
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    herramienta = get_herramienta(owner_uid, herramienta_id, sandbox=sandbox)
+    herramienta = get_herramienta(owner_uid, herramienta_id, sandbox=sandbox, company_id=company_id)
     if not herramienta:
         flash("Herramienta no encontrada.", "error")
         return redirect(url_for("web_herramientas.list_herramientas"))
@@ -225,18 +226,18 @@ def edit_herramienta(herramienta_id):
             "nextMaintenanceDate": request.form.get("nextMaintenanceDate", "").strip(),
             "usageReading": float(request.form.get("usageReading", 0) or 0),
         })
-        save_herramienta(owner_uid, herramienta_id, data, sandbox=sandbox)
+        save_herramienta(owner_uid, herramienta_id, data, sandbox=sandbox, company_id=company_id)
         new_status = data.get("operationalStatus", "")
         if old_status != new_status:
             _log_movimiento(owner_uid, herramienta_id, data.get("code", ""), f"STATUS_{new_status.upper()}",
-                            previous=old_status, new=new_status, sandbox=sandbox)
-        _log_movimiento(owner_uid, herramienta_id, data.get("code", ""), "EDITADA", sandbox=sandbox)
+                            previous=old_status, new=new_status, sandbox=sandbox, company_id=company_id)
+        _log_movimiento(owner_uid, herramienta_id, data.get("code", ""), "EDITADA", sandbox=sandbox, company_id=company_id)
         flash("Herramienta actualizada exitosamente.", "success")
         return redirect(url_for("web_herramientas.detail_herramienta", herramienta_id=herramienta_id))
 
     herramienta["licenseKey"] = decrypt_field(herramienta.get("encryptedLicenseKey", ""))
-    cost_centers = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox)
-    all_categories = _get_all_categories(owner_uid, sandbox=sandbox)
+    cost_centers = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox, company_id=company_id)
+    all_categories = _get_all_categories(owner_uid, sandbox=sandbox, company_id=company_id)
     return render_template("herramientas/form.html", active_page="herramientas",
                            herramienta=herramienta, categories=all_categories, types=TYPES,
                            operational_statuses=OPERATIONAL_STATUSES,
@@ -252,18 +253,18 @@ def detail_herramienta(herramienta_id):
         return redirect(url_for("web_auth.login"))
     if not _check_tools_permission():
         return render_template("auth/restricted.html", feature_name="Gestión de Activos", required_permission="canManageTools")
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    herramienta = get_herramienta(owner_uid, herramienta_id, sandbox=sandbox)
+    herramienta = get_herramienta(owner_uid, herramienta_id, sandbox=sandbox, company_id=company_id)
     if not herramienta:
         flash("Herramienta no encontrada.", "error")
         return redirect(url_for("web_herramientas.list_herramientas"))
 
     herramienta["licenseKey"] = decrypt_field(herramienta.get("encryptedLicenseKey", ""))
 
-    asignaciones = get_asignaciones_por_herramienta(owner_uid, herramienta_id, sandbox=sandbox)
-    mantenimientos = get_mantenimientos_por_herramienta(owner_uid, herramienta_id, sandbox=sandbox)
-    movimientos = get_movimientos_por_herramienta(owner_uid, herramienta_id, sandbox=sandbox)
+    asignaciones = get_asignaciones_por_herramienta(owner_uid, herramienta_id, sandbox=sandbox, company_id=company_id)
+    mantenimientos = get_mantenimientos_por_herramienta(owner_uid, herramienta_id, sandbox=sandbox, company_id=company_id)
+    movimientos = get_movimientos_por_herramienta(owner_uid, herramienta_id, sandbox=sandbox, company_id=company_id)
 
     return render_template("herramientas/detail.html", active_page="herramientas",
                            herramienta=herramienta, asignaciones=asignaciones,
@@ -280,9 +281,9 @@ def delete_herramienta_route(herramienta_id):
     if not _check_tools_permission():
         flash("No tienes permiso para eliminar herramientas.", "error")
         return redirect(url_for("web_herramientas.list_herramientas"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    herramienta = get_herramienta(owner_uid, herramienta_id, sandbox=sandbox)
+    herramienta = get_herramienta(owner_uid, herramienta_id, sandbox=sandbox, company_id=company_id)
     if not herramienta:
         flash("Herramienta no encontrada.", "error")
         return redirect(url_for("web_herramientas.list_herramientas"))
@@ -290,7 +291,7 @@ def delete_herramienta_route(herramienta_id):
         flash("No se puede eliminar una herramienta asignada. Debe devolverse primero.", "error")
         return redirect(url_for("web_herramientas.detail_herramienta", herramienta_id=herramienta_id))
 
-    delete_herramienta(owner_uid, herramienta_id, sandbox=sandbox)
+    delete_herramienta(owner_uid, herramienta_id, sandbox=sandbox, company_id=company_id)
     flash(f"Herramienta {herramienta.get('code', '')} eliminada.", "success")
     return redirect(url_for("web_herramientas.list_herramientas"))
 
@@ -301,8 +302,8 @@ def delete_herramienta_route(herramienta_id):
 def change_status(herramienta_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
-    herramienta = get_herramienta(owner_uid, herramienta_id, sandbox=sandbox)
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    herramienta = get_herramienta(owner_uid, herramienta_id, sandbox=sandbox, company_id=company_id)
     if not herramienta:
         flash("Herramienta no encontrada.", "error")
         return redirect(url_for("web_herramientas.list_herramientas"))
@@ -314,9 +315,9 @@ def change_status(herramienta_id):
 
     old_status = herramienta.get("operationalStatus", "")
     herramienta["operationalStatus"] = new_status
-    save_herramienta(owner_uid, herramienta_id, herramienta, sandbox=sandbox)
+    save_herramienta(owner_uid, herramienta_id, herramienta, sandbox=sandbox, company_id=company_id)
     _log_movimiento(owner_uid, herramienta_id, herramienta.get("code", ""), f"STATUS_{new_status.upper()}",
-                    previous=old_status, new=new_status, sandbox=sandbox)
+                    previous=old_status, new=new_status, sandbox=sandbox, company_id=company_id)
     flash(f"Estado operativo cambiado a '{new_status}'.", "success")
     return redirect(url_for("web_herramientas.detail_herramienta", herramienta_id=herramienta_id))
 
@@ -329,9 +330,9 @@ def asignar_herramienta(herramienta_id):
         return redirect(url_for("web_auth.login"))
     if not _check_tools_permission():
         return render_template("auth/restricted.html", feature_name="Gestión de Activos", required_permission="canManageTools")
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    herramienta = get_herramienta(owner_uid, herramienta_id, sandbox=sandbox)
+    herramienta = get_herramienta(owner_uid, herramienta_id, sandbox=sandbox, company_id=company_id)
     if not herramienta:
         flash("Herramienta no encontrada.", "error")
         return redirect(url_for("web_herramientas.list_herramientas"))
@@ -380,13 +381,13 @@ def asignar_herramienta(herramienta_id):
             "approvedAt": now if request.form.get("approvedBy") else "",
             "assignedBy": user.get("uid", ""),
         }
-        save_asignacion(owner_uid, asignacion_id, data, sandbox=sandbox)
+        save_asignacion(owner_uid, asignacion_id, data, sandbox=sandbox, company_id=company_id)
 
         herramienta["assignmentStatus"] = "asignado"
-        save_herramienta(owner_uid, herramienta_id, herramienta, sandbox=sandbox)
+        save_herramienta(owner_uid, herramienta_id, herramienta, sandbox=sandbox, company_id=company_id)
 
         _log_movimiento(owner_uid, herramienta_id, herramienta.get("code", ""), "ASIGNADA",
-                        new=f"Empleado: {empleado_name}", sandbox=sandbox)
+                        new=f"Empleado: {empleado_name}", sandbox=sandbox, company_id=company_id)
         flash(f"Herramienta asignada a {empleado_name}.", "success")
         return redirect(url_for("web_herramientas.detail_herramienta", herramienta_id=herramienta_id))
 
@@ -403,9 +404,9 @@ def devolver_asignacion(asignacion_id):
     if not _check_tools_permission():
         flash("No tienes permiso para gestionar asignaciones.", "error")
         return redirect(url_for("web_herramientas.list_herramientas"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    asignacion = get_asignacion(owner_uid, asignacion_id, sandbox=sandbox)
+    asignacion = get_asignacion(owner_uid, asignacion_id, sandbox=sandbox, company_id=company_id)
     if not asignacion:
         flash("Asignación no encontrada.", "error")
         return redirect(url_for("web_herramientas.list_herramientas"))
@@ -417,16 +418,16 @@ def devolver_asignacion(asignacion_id):
     asignacion["returnedDate"] = ahora
     asignacion["status"] = "devuelta"
     asignacion["conditionOnReturn"] = request.form.get("conditionOnReturn", "").strip()
-    save_asignacion(owner_uid, asignacion_id, asignacion, sandbox=sandbox)
+    save_asignacion(owner_uid, asignacion_id, asignacion, sandbox=sandbox, company_id=company_id)
 
     herramienta_id = asignacion.get("herramientaId", "")
-    herramienta = get_herramienta(owner_uid, herramienta_id, sandbox=sandbox)
+    herramienta = get_herramienta(owner_uid, herramienta_id, sandbox=sandbox, company_id=company_id)
     if herramienta:
         herramienta["assignmentStatus"] = "disponible"
-        save_herramienta(owner_uid, herramienta_id, herramienta, sandbox=sandbox)
+        save_herramienta(owner_uid, herramienta_id, herramienta, sandbox=sandbox, company_id=company_id)
         _log_movimiento(owner_uid, herramienta_id, herramienta.get("code", ""), "DEVUELTA",
                         previous=f"Asignada a: {asignacion.get('empleadoName', '')}",
-                        new="Disponible", sandbox=sandbox)
+                        new="Disponible", sandbox=sandbox, company_id=company_id)
 
     flash("Herramienta devuelta exitosamente.", "success")
     return redirect(url_for("web_herramientas.list_herramientas"))
@@ -440,9 +441,9 @@ def list_asignaciones():
         return redirect(url_for("web_auth.login"))
     if not _check_tools_permission():
         return render_template("auth/restricted.html", feature_name="Gestión de Activos", required_permission="canManageTools")
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    asignaciones = get_asignaciones(owner_uid, sandbox=sandbox)
+    asignaciones = get_asignaciones(owner_uid, sandbox=sandbox, company_id=company_id)
     status_filter = request.args.get("status", "")
     if status_filter:
         asignaciones = [a for a in asignaciones if a.get("status") == status_filter]
@@ -460,9 +461,9 @@ def nuevo_mantenimiento(herramienta_id):
         return redirect(url_for("web_auth.login"))
     if not _check_tools_permission():
         return render_template("auth/restricted.html", feature_name="Gestión de Activos", required_permission="canManageTools")
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    herramienta = get_herramienta(owner_uid, herramienta_id, sandbox=sandbox)
+    herramienta = get_herramienta(owner_uid, herramienta_id, sandbox=sandbox, company_id=company_id)
     if not herramienta:
         flash("Herramienta no encontrada.", "error")
         return redirect(url_for("web_herramientas.list_herramientas"))
@@ -480,16 +481,16 @@ def nuevo_mantenimiento(herramienta_id):
             "nextMaintenanceDate": request.form.get("nextMaintenanceDate", "").strip(),
             "notes": request.form.get("notes", "").strip(),
         }
-        save_mantenimiento(owner_uid, mantenimiento_id, data, sandbox=sandbox)
+        save_mantenimiento(owner_uid, mantenimiento_id, data, sandbox=sandbox, company_id=company_id)
 
         if request.form.get("nextMaintenanceDate", "").strip():
             herramienta["nextMaintenanceDate"] = request.form.get("nextMaintenanceDate", "").strip()
         if request.form.get("usageReading", 0):
             herramienta["usageReading"] = float(request.form.get("usageReading", 0))
-        save_herramienta(owner_uid, herramienta_id, herramienta, sandbox=sandbox)
+        save_herramienta(owner_uid, herramienta_id, herramienta, sandbox=sandbox, company_id=company_id)
 
         _log_movimiento(owner_uid, herramienta_id, herramienta.get("code", ""), "MANTENIMIENTO",
-                        new=f"{data['type']}: {data['description'][:100]}", sandbox=sandbox)
+                        new=f"{data['type']}: {data['description'][:100]}", sandbox=sandbox, company_id=company_id)
         flash("Mantenimiento registrado exitosamente.", "success")
         return redirect(url_for("web_herramientas.detail_herramienta", herramienta_id=herramienta_id))
 
@@ -505,10 +506,10 @@ def list_mantenimientos():
         return redirect(url_for("web_auth.login"))
     if not _check_tools_permission():
         return render_template("auth/restricted.html", feature_name="Gestión de Activos", required_permission="canManageTools")
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    mantenimientos = get_mantenimientos(owner_uid, sandbox=sandbox)
-    herramientas_list = get_herramientas(owner_uid, sandbox=sandbox)
+    mantenimientos = get_mantenimientos(owner_uid, sandbox=sandbox, company_id=company_id)
+    herramientas_list = get_herramientas(owner_uid, sandbox=sandbox, company_id=company_id)
     h_map = {h["id"]: h for h in herramientas_list}
     for m in mantenimientos:
         h = h_map.get(m.get("herramientaId", ""))
@@ -532,14 +533,14 @@ def delete_mantenimiento_route(mantenimiento_id):
     if not _check_tools_permission():
         flash("No tienes permiso para eliminar mantenimientos.", "error")
         return redirect(url_for("web_herramientas.list_herramientas"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    mantenimiento = get_mantenimiento(owner_uid, mantenimiento_id, sandbox=sandbox)
+    mantenimiento = get_mantenimiento(owner_uid, mantenimiento_id, sandbox=sandbox, company_id=company_id)
     if not mantenimiento:
         flash("Mantenimiento no encontrado.", "error")
         return redirect(url_for("web_herramientas.list_herramientas"))
 
-    delete_mantenimiento(owner_uid, mantenimiento_id, sandbox=sandbox)
+    delete_mantenimiento(owner_uid, mantenimiento_id, sandbox=sandbox, company_id=company_id)
     flash("Mantenimiento eliminado.", "success")
     return redirect(url_for("web_herramientas.detail_herramienta", herramienta_id=mantenimiento.get("herramientaId", "")))
 
@@ -550,11 +551,11 @@ def delete_mantenimiento_route(mantenimiento_id):
 def ajax_generate_code():
     if _login_required():
         return jsonify({"success": False, "error": "No autorizado"}), 401
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     try:
         data = request.json or {}
         category = data.get("category", "")
-        code = get_next_code(owner_uid, category, sandbox=sandbox)
+        code = get_next_code(owner_uid, category, sandbox=sandbox, company_id=company_id)
         return jsonify({"success": True, "code": code})
     except Exception as e:
         print(f"⚠️ ajax_generate_code error: {e}")
@@ -567,7 +568,7 @@ def ajax_generate_code():
 def ajax_empleados():
     if _login_required():
         return jsonify({"success": False, "error": "No autorizado"}), 401
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services.hr_data_service import get_employees
     employees = get_employees(owner_uid, sandbox=sandbox)
     active = [{"id": e["id"], "name": e.get("display_name") or e.get("fullName", ""),
@@ -582,7 +583,7 @@ def ajax_empleados():
 def ajax_nueva_categoria():
     if _login_required():
         return jsonify({"success": False, "error": "No autorizado"}), 401
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     try:
         data = request.json or {}
         value = data.get("value", "").strip().lower().replace(" ", "_").replace("-", "_")
@@ -590,7 +591,7 @@ def ajax_nueva_categoria():
         if not value or not label:
             return jsonify({"success": False, "error": "Valor y etiqueta son requeridos"}), 400
         cat_id = f"cat_{value}"
-        save_categoria_herramienta(owner_uid, cat_id, {"value": value, "label": label}, sandbox=sandbox)
+        save_categoria_herramienta(owner_uid, cat_id, {"value": value, "label": label}, sandbox=sandbox, company_id=company_id)
         return jsonify({"success": True, "category": {"value": value, "label": label}})
     except Exception as e:
         print(f"⚠️ ajax_nueva_categoria error: {e}")

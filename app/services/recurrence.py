@@ -104,7 +104,7 @@ class RecurrenceService:
         return round(amount * min(ratio, 1.0), 2)
 
     @classmethod
-    def process_pending_recurrences(cls, owner_uid, sandbox=True):
+    def process_pending_recurrences(cls, owner_uid, sandbox=True, company_id=None):
         """
         Escanea y procesa todas las facturas y gastos recurrentes programados del owner
         cuya fecha de siguiente ocurrencia haya vencido (es decir, sea menor o igual a hoy).
@@ -116,7 +116,7 @@ class RecurrenceService:
         # =====================================================================
         # 1. PROCESAR FACTURAS RECURRENTES
         # =====================================================================
-        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
         recurring_invoices = [inv for inv in invoices if inv.get("isRecurring") and inv.get("nextOccurrenceDate")]
 
         for original in recurring_invoices:
@@ -199,10 +199,10 @@ class RecurrenceService:
                 # Emitir e-CF si aplica
                 if not is_quotation:
                     try:
-                        company = DatabaseService.get_company_profile(owner_uid)
+                        company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
                         user_email = company.get("companyEmail", "sistema@vykcore.com")
                         ecf_short = get_ecf_type_short_code(new_invoice["ecfType"])
-                        encf, log_id = DatabaseService.consume_next_sequence(owner_uid, ecf_short, user_email, sandbox=sandbox)
+                        encf, log_id = DatabaseService.consume_next_sequence(owner_uid, ecf_short, user_email, sandbox=sandbox, company_id=company_id)
                         new_invoice["encf"] = encf
 
                         res = EcfEmissionService.emit_electronic_comprobante(company, new_invoice, sandbox=sandbox)
@@ -223,7 +223,7 @@ class RecurrenceService:
                             new_invoice["dgiiStatus"] = "REJECTED"
                             new_invoice["errorDetail"] = res.get("error") or res.get("message")
 
-                        logs = DatabaseService.get_sequence_logs(owner_uid, sandbox=sandbox)
+                        logs = DatabaseService.get_sequence_logs(owner_uid, sandbox=sandbox, company_id=company_id)
                         log = next((l for l in logs if l.get("encf") == new_invoice.get("encf")), None)
                         if log:
                             cuadratura = DGIIService.check_tolerancia_cuadratura(new_invoice.get("items", []), new_invoice.get("total", 0.0))
@@ -235,19 +235,19 @@ class RecurrenceService:
                                 "motivo": res.get("message") or "Emisión automática por recurrencia",
                                 "xmlEnviado": "",
                                 "respuestaDGII": "",
-                            }, sandbox=sandbox)
+                            }, sandbox=sandbox, company_id=company_id)
                     except Exception as emit_err:
                         new_invoice["status"] = "Rechazada"
                         new_invoice["dgiiStatus"] = "REJECTED"
                         new_invoice["errorDetail"] = str(emit_err)
 
                 # Guardar la nueva factura
-                DatabaseService.save_invoice(owner_uid, new_id, new_invoice, sandbox=sandbox)
+                DatabaseService.save_invoice(owner_uid, new_id, new_invoice, sandbox=sandbox, company_id=company_id)
 
                 # Generar asiento contable automático para factura recurrente
                 try:
                     from app.services.accounting_service import AccountingService
-                    AccountingService.auto_generate_invoice_entry(owner_uid, new_invoice, sandbox=sandbox)
+                    AccountingService.auto_generate_invoice_entry(company_id, new_invoice, sandbox=sandbox)
                 except Exception as exc:
                     import logging
                     logging.getLogger(__name__).warning(f"Asiento contable recurrente no generado: {exc}")
@@ -273,13 +273,13 @@ class RecurrenceService:
                 original["nextOccurrenceDate"] = next_occurrence
                 
                 # Re-guardar la original con la nueva fecha programada
-                DatabaseService.save_invoice(owner_uid, original["id"], original, sandbox=sandbox)
+                DatabaseService.save_invoice(owner_uid, original["id"], original, sandbox=sandbox, company_id=company_id)
                 processed_count += 1
 
         # =====================================================================
         # 2. PROCESAR GASTOS RECURRENTES
         # =====================================================================
-        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, company_id=company_id)
         recurring_expenses = [exp for exp in expenses if exp.get("isRecurring") and exp.get("nextOccurrenceDate")]
 
         for original in recurring_expenses:
@@ -291,7 +291,7 @@ class RecurrenceService:
                     print(f"🚫 Recurrencia de gasto {original['concept']} finalizada por fecha límite: {end_date}")
                     original["isRecurring"] = False
                     original["nextOccurrenceDate"] = None
-                    DatabaseService.save_expense(owner_uid, original["id"], original, sandbox=sandbox)
+                    DatabaseService.save_expense(owner_uid, original["id"], original, sandbox=sandbox, company_id=company_id)
                     continue
 
                 print(f"🔄 Procesando gasto recurrente: {original['concept']} programado para {next_date_str}")
@@ -353,7 +353,7 @@ class RecurrenceService:
                 
                 # Guardar el nuevo gasto
                 try:
-                    DatabaseService.save_expense(owner_uid, new_id, new_expense, sandbox=sandbox)
+                    DatabaseService.save_expense(owner_uid, new_id, new_expense, sandbox=sandbox, company_id=company_id)
                 except ValueError as ve:
                     print(f"⚠️ Gasto recurrente omitido (monto inválido): {original['concept']} - {ve}")
                     continue
@@ -367,7 +367,7 @@ class RecurrenceService:
                     original["nextOccurrenceDate"] = next_occurrence
                 
                 # Re-guardar el original con la nueva fecha programada
-                DatabaseService.save_expense(owner_uid, original["id"], original, sandbox=sandbox)
+                DatabaseService.save_expense(owner_uid, original["id"], original, sandbox=sandbox, company_id=company_id)
                 processed_count += 1
 
         return processed_count
@@ -377,7 +377,7 @@ class RecurrenceService:
     # =========================================================================
 
     @classmethod
-    def _build_invoice_from_contract(cls, owner_uid, contract, sandbox=True):
+    def _build_invoice_from_contract(cls, owner_uid, contract, sandbox=True, company_id=None):
         """
         Construye y guarda una factura a partir de un contrato recurrente.
         Soporta contratos multi-línea (contractLines) y de ítem único (Fase 1).
@@ -445,7 +445,7 @@ class RecurrenceService:
                 contract_item_id = contract.get("itemId")
                 selected_item    = None
                 if contract_item_id:
-                    all_items     = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+                    all_items     = DatabaseService.get_items(owner_uid, sandbox=sandbox, company_id=company_id)
                     selected_item = next(
                         (it for it in all_items if it["id"] == contract_item_id), None
                     )
@@ -514,7 +514,7 @@ class RecurrenceService:
                 "items":             items,
             }
 
-            DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, sandbox=sandbox)
+            DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, sandbox=sandbox, company_id=company_id)
             return invoice_id
 
         except Exception as exc:
@@ -522,7 +522,7 @@ class RecurrenceService:
             return None
 
     @classmethod
-    def _send_contract_invoice_email_bg(cls, app_instance, owner_uid, invoice_id, sandbox=True):
+    def _send_contract_invoice_email_bg(cls, app_instance, owner_uid, invoice_id, sandbox=True, company_id=None):
         """
         Envía por email la factura generada desde un contrato, en un hilo separado.
         Requiere la instancia Flask para crear el contexto de aplicación.
@@ -530,13 +530,13 @@ class RecurrenceService:
         import threading
         from app.services.db_service import DatabaseService
 
-        def _send(app, o_uid, inv_id, sb):
+        def _send(app, o_uid, inv_id, sb, cid):
             with app.app_context():
                 try:
-                    invoice = DatabaseService.get_invoice(o_uid, inv_id, sandbox=sb)
+                    invoice = DatabaseService.get_invoice(o_uid, inv_id, sandbox=sb, company_id=cid)
                     if not invoice:
                         return
-                    client = DatabaseService.get_client(o_uid, invoice.get("clientId", ""), sandbox=sb)
+                    client = DatabaseService.get_client(o_uid, invoice.get("clientId", ""), sandbox=sb, company_id=cid)
                     if not client:
                         return
                     recipient = (client.get("email") or "").strip()
@@ -551,13 +551,13 @@ class RecurrenceService:
 
         t = threading.Thread(
             target=_send,
-            args=(app_instance, owner_uid, invoice_id, sandbox),
+            args=(app_instance, owner_uid, invoice_id, sandbox, company_id),
             daemon=True,
         )
         t.start()
 
     @classmethod
-    def process_pending_contracts(cls, owner_uid, sandbox=True, app_instance=None):
+    def process_pending_contracts(cls, owner_uid, sandbox=True, app_instance=None, company_id=None):
         """
         Recorre todos los contratos Activos del owner cuya nextBillingDate <= hoy
         y genera las facturas automáticamente.
@@ -567,6 +567,7 @@ class RecurrenceService:
             sandbox:      True si es entorno sandbox, False si es producción.
             app_instance: Instancia Flask (necesaria para envío de email en hilo).
                           Si es None, el envío de email se omite.
+            company_id:   ID de la compañía (multi-company).
 
         Returns:
             int: Número de contratos facturados exitosamente.
@@ -577,7 +578,7 @@ class RecurrenceService:
         today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         processed_count = 0
 
-        contracts = DatabaseService.get_contracts(owner_uid, sandbox=sandbox)
+        contracts = DatabaseService.get_contracts(owner_uid, sandbox=sandbox, company_id=company_id)
         pending = [
             c for c in contracts
             if c.get("status") == "Activo"
@@ -592,7 +593,7 @@ class RecurrenceService:
                 if contract.get("cancelRequest") is True:
                     contract["status"] = "Cancelado"
                     contract["nextBillingDate"] = None
-                    DatabaseService.save_contract(owner_uid, contract_id, contract, sandbox=sandbox)
+                    DatabaseService.save_contract(owner_uid, contract_id, contract, sandbox=sandbox, company_id=company_id)
                     print(f"⏹️ Contrato {contract.get('contractNumber')} cancelado definitivamente por solicitud del cliente (cancelRequest).")
                     continue
 
@@ -609,12 +610,12 @@ class RecurrenceService:
                         print(f"🔄 Contrato {contract.get('contractNumber')} renovado automáticamente hasta {new_end}")
                     else:
                         contract["status"] = "Expirado"
-                        DatabaseService.save_contract(owner_uid, contract_id, contract, sandbox=sandbox)
+                        DatabaseService.save_contract(owner_uid, contract_id, contract, sandbox=sandbox, company_id=company_id)
                         print(f"⏹️ Contrato {contract.get('contractNumber')} marcado como Expirado")
                         continue
 
                 # ── 2. Generar factura ────────────────────────────────────────
-                invoice_id = cls._build_invoice_from_contract(owner_uid, contract, sandbox=sandbox)
+                invoice_id = cls._build_invoice_from_contract(owner_uid, contract, sandbox=sandbox, company_id=company_id)
                 if not invoice_id:
                     continue
 
@@ -638,13 +639,13 @@ class RecurrenceService:
                         print(f"⏹️ Contrato {contract.get('contractNumber')} expirará tras esta factura")
 
                 contract["nextBillingDate"] = new_billing
-                DatabaseService.save_contract(owner_uid, contract_id, contract, sandbox=sandbox)
+                DatabaseService.save_contract(owner_uid, contract_id, contract, sandbox=sandbox, company_id=company_id)
 
                 print(f"✅ Factura {invoice_id} generada para contrato {contract.get('contractNumber')} — próxima: {new_billing}")
 
                 # ── 5. Enviar email si está configurado ───────────────────────
                 if contract.get("autoSendEmail") and app_instance:
-                    cls._send_contract_invoice_email_bg(app_instance, owner_uid, invoice_id, sandbox=sandbox)
+                    cls._send_contract_invoice_email_bg(app_instance, owner_uid, invoice_id, sandbox=sandbox, company_id=company_id)
 
                 processed_count += 1
 

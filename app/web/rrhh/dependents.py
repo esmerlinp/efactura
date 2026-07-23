@@ -15,9 +15,9 @@ from app.utils.hr_utils import RELATIONSHIP_CATALOG
 def employee_dependent_add(employee_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    employee = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
+    employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
     if not employee:
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_list"))
@@ -37,7 +37,7 @@ def employee_dependent_add(employee_id):
     user_email = session.get("user", {}).get("email", "")
 
     dep_id = str(uuid.uuid4())
-    hr.save_employee_dependent(owner_uid, {
+    hr.save_employee_dependent(company_id, {
         "id": dep_id,
         "employeeId": employee_id,
         "firstName": first_name,
@@ -69,7 +69,7 @@ def employee_dependent_add(employee_id):
 def employee_dependent_deactivate(employee_id, dep_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     user_email = session.get("user", {}).get("email", "")
 
     hr.deactivate_employee_dependent(
@@ -86,18 +86,18 @@ def dependents_export_tss_rd():
     """Descarga archivo RD (Registro de Dependientes Adicionales) formato SUIRPLUS v5.0."""
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     from app.services.dependents_tss_service import generate_tss_rd, validate_rd_export
     from app.services.db_service import DatabaseService
 
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    employees = hr.get_employees(company_id, sandbox=sandbox)
     employees = [e for e in employees if e.get("status", "") == "activo"]
 
     emp_ids = [e.get("id", "") for e in employees if e.get("id")]
-    dependents_by_employee = hr.get_dependents_for_employees(owner_uid, emp_ids, sandbox=sandbox)
+    dependents_by_employee = hr.get_dependents_for_employees(company_id, emp_ids, sandbox=sandbox)
 
-    company = DatabaseService.get_company_profile(owner_uid) or {}
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
     employer_rnc = (company.get("companyRNC", "") or "").replace("-", "").strip()
 
     errors = validate_rd_export(employees, dependents_by_employee)
@@ -110,7 +110,7 @@ def dependents_export_tss_rd():
         employees,
         employer_rnc=employer_rnc,
         dependents_by_employee=dependents_by_employee,
-        owner_uid=owner_uid,
+        company_id=company_id,
         sandbox=sandbox,
     )
 

@@ -186,23 +186,25 @@ class TaxObligationService:
         return None
 
     @classmethod
-    def _profile_ref(cls, owner_uid):
+    def _profile_ref(cls, owner_uid, company_id=None):
+        from app.services.db_service import _company_coll
         db = cls._get_db()
         if not db:
             return None
-        return db.collection("users").document(owner_uid)
+        return _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name=cls.COLLECTION)
 
     @classmethod
-    def seed_defaults(cls, owner_uid):
+    def seed_defaults(cls, owner_uid, company_id=None):
         """
         Crea las obligaciones por defecto si no existen para este owner_uid.
         """
-        config_ref = cls._profile_ref(owner_uid)
+        from app.services.db_service import _company_coll
+        config_ref = _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name=cls.COLLECTION)
         if not config_ref:
             return []
         obligations = []
         for ob in DGII_OBLIGATIONS:
-            doc_ref = config_ref.collection(cls.COLLECTION).document(ob["key"])
+            doc_ref = config_ref.document(ob["key"])
             doc = doc_ref.get()
             if not doc.exists:
                 payload = {
@@ -231,12 +233,12 @@ class TaxObligationService:
         return obligations
 
     @classmethod
-    def get_all(cls, owner_uid):
+    def get_all(cls, owner_uid, company_id=None):
         """Obtiene todas las obligaciones (con defaults si no existen)."""
-        config_ref = cls._profile_ref(owner_uid)
+        config_ref = cls._profile_ref(owner_uid, company_id=company_id)
         if not config_ref:
             return DGII_OBLIGATIONS  # fallback para modo local
-        docs = config_ref.collection(cls.COLLECTION).stream()
+        docs = config_ref.stream()
         result = []
         seen_keys = set()
         for doc in docs:
@@ -246,14 +248,14 @@ class TaxObligationService:
             seen_keys.add(doc.id)
         # Si no hay ninguna, seedear
         if not result:
-            cls.seed_defaults(owner_uid)
-            return cls.get_all(owner_uid)
+            cls.seed_defaults(owner_uid, company_id=company_id)
+            return cls.get_all(owner_uid, company_id=company_id)
         return result
 
     @classmethod
-    def save(cls, owner_uid, obligation_data):
+    def save(cls, owner_uid, obligation_data, company_id=None):
         """Guarda/actualiza una obligación. Solo actualiza los campos proporcionados."""
-        config_ref = cls._profile_ref(owner_uid)
+        config_ref = cls._profile_ref(owner_uid, company_id=company_id)
         if not config_ref:
             return False
         key = obligation_data.get("obligation_key") or obligation_data.get("key")
@@ -267,11 +269,11 @@ class TaxObligationService:
                 payload[field] = obligation_data[field]
         if "enabled" in obligation_data:
             payload["enabled"] = bool(obligation_data["enabled"])
-        config_ref.collection(cls.COLLECTION).document(key).set(payload, merge=True)
+        config_ref.document(key).set(payload, merge=True)
         return True
 
     @classmethod
-    def get_status(cls, owner_uid, reference_date=None):
+    def get_status(cls, owner_uid, reference_date=None, company_id=None):
         """
         Devuelve una lista con el estado de cada obligación:
         - status: 'ok' | 'upcoming' (≤7 días) | 'due_soon' (≤3 días) | 'overdue'
@@ -279,7 +281,7 @@ class TaxObligationService:
         - days_remaining: días hasta el vencimiento (negativo si vencido)
         """
         today = reference_date or date.today()
-        obligations = cls.get_all(owner_uid)
+        obligations = cls.get_all(owner_uid, company_id=company_id)
         result = []
         for ob in obligations:
             if not ob.get("enabled", True):
@@ -331,13 +333,13 @@ class TaxObligationService:
         return result
 
     @classmethod
-    def get_pending_alerts(cls, owner_uid, reference_date=None):
+    def get_pending_alerts(cls, owner_uid, reference_date=None, company_id=None):
         """Obligaciones que requieren alerta: due_soon, overdue, o upcoming."""
-        status_list = cls.get_status(owner_uid, reference_date)
+        status_list = cls.get_status(owner_uid, reference_date, company_id=company_id)
         return [s for s in status_list if s["status"] in ("due_soon", "overdue", "upcoming")]
 
     @classmethod
-    def process_notifications(cls, owner_uid, dry_run=False):
+    def process_notifications(cls, owner_uid, dry_run=False, company_id=None):
         """
         Verifica obligaciones, envía emails para las que vencen en ≤ 3 días,
         y actualiza last_notified_period para evitar duplicados.
@@ -348,9 +350,9 @@ class TaxObligationService:
         from app.services.db_service import DatabaseService
 
         today = date.today()
-        status_list = cls.get_status(owner_uid, today)
-        obligations = {o.get("key"): o for o in cls.get_all(owner_uid)}
-        profile = DatabaseService.get_company_profile(owner_uid) or {}
+        status_list = cls.get_status(owner_uid, today, company_id=company_id)
+        obligations = {o.get("key"): o for o in cls.get_all(owner_uid, company_id=company_id)}
+        profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
         company_email = profile.get("companyEmail", "")
         company_name = profile.get("tradeName") or profile.get("companyName") or "Empresa"
 
@@ -416,7 +418,7 @@ class TaxObligationService:
                         "description": ob.get("description", ""),
                         "first_due_date": ob.get("first_due_date", ""),
                         "recurrence": ob.get("recurrence", ""),
-                    })
+                    }, company_id=company_id)
                     sent += 1
                     logger.info(
                         f"✅ Notificación enviada: {s['label']} para {owner_uid} "

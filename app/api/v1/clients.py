@@ -38,7 +38,7 @@ def get_clients():
         description: Error interno del servidor
     """
     try:
-        clients = DatabaseService.get_clients(g.owner_uid, sandbox=g.sandbox_mode)
+        clients = DatabaseService.get_clients(g.owner_uid, company_id=g.company_id, sandbox=g.sandbox_mode)
         return jsonify({"success": True, "clients": clients})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -133,7 +133,7 @@ def create_client():
             "customer_category": data.get('customer_category', 'NORMAL')
         }
         
-        DatabaseService.save_client(g.owner_uid, client_id, client_dict, sandbox=g.sandbox_mode)
+        DatabaseService.save_client(g.owner_uid, client_id, client_dict, company_id=g.company_id, sandbox=g.sandbox_mode)
         
         return jsonify({
             "success": True,
@@ -197,7 +197,7 @@ def update_client(client_id):
         description: Error interno del servidor
     """
     try:
-        clients = DatabaseService.get_clients(g.owner_uid, sandbox=g.sandbox_mode)
+        clients = DatabaseService.get_clients(g.owner_uid, company_id=g.company_id, sandbox=g.sandbox_mode)
         client = next((c for c in clients if c['id'] == client_id), None)
         if not client:
             return jsonify({"success": False, "error": "Cliente no encontrado."}), 404
@@ -215,7 +215,7 @@ def update_client(client_id):
             "customer_category": data.get('customer_category', client.get('customer_category', 'NORMAL'))
         }
         
-        DatabaseService.save_client(g.owner_uid, client_id, client_dict, sandbox=g.sandbox_mode)
+        DatabaseService.save_client(g.owner_uid, client_id, client_dict, company_id=g.company_id, sandbox=g.sandbox_mode)
         
         return jsonify({
             "success": True,
@@ -251,7 +251,7 @@ def delete_client_route(client_id):
         description: Error interno del servidor
     """
     try:
-        DatabaseService.delete_client(g.owner_uid, client_id, sandbox=g.sandbox_mode)
+        DatabaseService.delete_client(g.owner_uid, client_id, company_id=g.company_id, sandbox=g.sandbox_mode)
         return jsonify({"success": True, "message": "Cliente eliminado exitosamente."})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -319,10 +319,10 @@ def client_statement(client_id):
          description: Error interno del servidor
     """
     try:
-        client = DatabaseService.get_client(g.owner_uid, client_id, sandbox=g.sandbox_mode)
+        client = DatabaseService.get_client(g.owner_uid, client_id, company_id=g.company_id, sandbox=g.sandbox_mode)
         if not client:
             return jsonify({"success": False, "error": "Cliente no encontrado."}), 404
-        invoices = DatabaseService.get_invoices(g.owner_uid, sandbox=g.sandbox_mode, include_all=True)
+        invoices = DatabaseService.get_invoices(g.owner_uid, company_id=g.company_id, sandbox=g.sandbox_mode, include_all=True)
         client_invoices = [inv for inv in invoices if inv.get("clientId") == client_id]
         open_invoices = [inv for inv in client_invoices
                          if inv.get("status") in ("Emitida", "Vencida", "Parcialmente Cobrada", "Revisión de Pago")]

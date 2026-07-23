@@ -13,8 +13,8 @@ from app.services import hr_data_service as hr
 def department_list():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
-    items = hr.get_catalog(owner_uid, "departments", sandbox=sandbox)
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    items = hr.get_catalog(company_id, "departments", sandbox=sandbox)
     return render_template("rrhh/departments_list.html", active_page="rrhh_departments",
                            items=items, title="Departamentos")
 
@@ -23,11 +23,11 @@ def department_list():
 def department_save():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     item_id = request.form.get("id", str(uuid.uuid4()))
     name = request.form.get("name", "").strip()
     if name:
-        hr.save_catalog_item(owner_uid, "departments", {
+        hr.save_catalog_item(company_id, "departments", {
             "id": item_id, "name": name, "active": True,
         }, sandbox=sandbox)
         flash("Departamento guardado.", "success")
@@ -38,7 +38,7 @@ def department_save():
 def department_delete(item_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
-    hr.delete_catalog_item(owner_uid, "departments", item_id, sandbox=sandbox)
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    hr.delete_catalog_item(company_id, "departments", item_id, sandbox=sandbox)
     flash("Departamento eliminado.", "success")
     return redirect(url_for("web_rrhh.department_list"))

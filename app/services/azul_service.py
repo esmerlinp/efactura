@@ -15,7 +15,7 @@ class AzulService:
         return hashlib.sha512(concat_str.encode('utf-8')).hexdigest()
 
     @staticmethod
-    def prepare_payment_request(company, invoice, return_url, sandbox=True):
+    def prepare_payment_request(company, invoice, return_url, sandbox=True, company_id=None):
         """
         Prepara los parámetros requeridos para el formulario hosted de Azul usando las credenciales de la empresa.
         """
@@ -55,7 +55,7 @@ class AzulService:
         }
 
     @staticmethod
-    def verify_payment_response(company, response_data):
+    def verify_payment_response(company, response_data, company_id=None):
         """
         Verifica la autenticidad de la respuesta de Azul y parsea los datos.
         """

@@ -17,9 +17,9 @@ from app.services import hr_data_service as hr
 def concept_list():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services.payroll_concept_engine import get_concepts
-    concepts = get_concepts(owner_uid, sandbox=sandbox)
+    concepts = get_concepts(company_id, sandbox=sandbox)
     return render_template("rrhh/concepts/list.html", active_page="rrhh_settings", concepts=concepts)
 
 
@@ -27,10 +27,10 @@ def concept_list():
 def concept_new():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services.payroll_concept_engine import save_concept
     if request.method == "POST":
-        save_concept(owner_uid, {
+        save_concept(company_id, {
             "code": request.form.get("code", "").strip().upper(),
             "name": request.form.get("name", "").strip(),
             "type": request.form.get("type", "earning"),
@@ -53,9 +53,9 @@ def concept_new():
 def concept_edit(concept_code):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services.payroll_concept_engine import get_concept, save_concept
-    concept = get_concept(owner_uid, concept_code, sandbox=sandbox)
+    concept = get_concept(company_id, concept_code, sandbox=sandbox)
     if not concept:
         flash("Concepto no encontrado.", "error")
         return redirect(url_for("web_rrhh.concept_list"))
@@ -72,7 +72,7 @@ def concept_edit(concept_code):
             "account_credit": request.form.get("account_credit", ""),
             "priority": int(request.form.get("priority", 99) or 99),
         })
-        save_concept(owner_uid, concept, sandbox=sandbox)
+        save_concept(company_id, concept, sandbox=sandbox)
         flash("Concepto actualizado.", "success")
         return redirect(url_for("web_rrhh.concept_list"))
     return render_template("rrhh/concepts/form.html", active_page="rrhh_settings", concept=concept)
@@ -82,12 +82,12 @@ def concept_edit(concept_code):
 def concept_toggle(concept_code):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services.payroll_concept_engine import get_concept, save_concept
-    concept = get_concept(owner_uid, concept_code, sandbox=sandbox)
+    concept = get_concept(company_id, concept_code, sandbox=sandbox)
     if concept:
         concept["active"] = not concept.get("active", True)
-        save_concept(owner_uid, concept, sandbox=sandbox)
+        save_concept(company_id, concept, sandbox=sandbox)
         flash(f"Concepto {'activado' if concept['active'] else 'desactivado'}.", "success")
     return redirect(url_for("web_rrhh.concept_list"))
 

@@ -45,10 +45,10 @@ def dgt3_view():
     resp = _dgt_login_check()
     if resp:
         return resp
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     now = datetime.now(timezone.utc)
     year = int(request.args.get("year", now.year))
-    data = DGTService.get_dgt3_data(owner_uid, year, sandbox=sandbox)
+    data = DGTService.get_dgt3_data(company_id, year, sandbox=sandbox)
     return render_template("rrhh/dgt/dgt3.html", data=data, year=year, now=now,
                            active_page="rrhh_dgt")
 
@@ -60,12 +60,12 @@ def dgt3_export():
     resp = _dgt_login_check()
     if resp:
         return resp
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     now = datetime.now(timezone.utc)
     year = int(request.args.get("year", now.year))
     fmt = request.args.get("format", "txt")
 
-    data = DGTService.get_dgt3_data(owner_uid, year, sandbox=sandbox)
+    data = DGTService.get_dgt3_data(company_id, year, sandbox=sandbox)
     lines = data["lines"]
     filename = f"DGT3_{year}"
 
@@ -79,7 +79,7 @@ def dgt3_export():
         return send_file(buffer, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                          as_attachment=True, download_name=f"{filename}.xlsx")
     elif fmt == "pdf":
-        profile = DatabaseService.get_company_profile(owner_uid)
+        profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
         buffer = DGTExportService.to_pdf(lines, "dgt3", f"DGT-3 {year}", owner_info=profile)
         return send_file(buffer, mimetype="application/pdf", as_attachment=True,
                          download_name=f"{filename}.pdf")
@@ -97,11 +97,11 @@ def dgt4_view():
     resp = _dgt_login_check()
     if resp:
         return resp
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     now = datetime.now(timezone.utc)
     year = int(request.args.get("year", now.year))
     month = int(request.args.get("month", now.month))
-    data = DGTService.get_dgt4_data(owner_uid, year, month, sandbox=sandbox)
+    data = DGTService.get_dgt4_data(company_id, year, month, sandbox=sandbox)
     return render_template("rrhh/dgt/dgt4.html", data=data, year=year, month=month,
                            now=now, active_page="rrhh_dgt")
 
@@ -113,13 +113,13 @@ def dgt4_export():
     resp = _dgt_login_check()
     if resp:
         return resp
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     now = datetime.now(timezone.utc)
     year = int(request.args.get("year", now.year))
     month = int(request.args.get("month", now.month))
     fmt = request.args.get("format", "txt")
 
-    data = DGTService.get_dgt4_data(owner_uid, year, month, sandbox=sandbox)
+    data = DGTService.get_dgt4_data(company_id, year, month, sandbox=sandbox)
     lines = [c["linea"] for c in data["lines"] if c.get("linea")]
     filename = f"DGT4_{year:04d}{month:02d}"
 
@@ -133,7 +133,7 @@ def dgt4_export():
         return send_file(buffer, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                          as_attachment=True, download_name=f"{filename}.xlsx")
     elif fmt == "pdf":
-        profile = DatabaseService.get_company_profile(owner_uid)
+        profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
         buffer = DGTExportService.to_pdf(lines, "dgt4", f"DGT-4 {year}-{month:02d}",
                                           owner_info=profile)
         return send_file(buffer, mimetype="application/pdf", as_attachment=True,
@@ -152,10 +152,10 @@ def dgt2_view():
     resp = _dgt_login_check()
     if resp:
         return resp
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     now = datetime.now(timezone.utc)
     year = int(request.args.get("year", now.year))
-    data = DGTService.get_dgt2_data(owner_uid, year, sandbox=sandbox)
+    data = DGTService.get_dgt2_data(company_id, year, sandbox=sandbox)
     return render_template("rrhh/dgt/dgt2.html", data=data, year=year, now=now,
                            active_page="rrhh_dgt")
 
@@ -171,9 +171,9 @@ def dgt5_view():
     resp = _dgt_login_check()
     if resp:
         return resp
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     now = datetime.now(timezone.utc)
-    data = DGTService.get_dgt5_data(owner_uid, sandbox=sandbox)
+    data = DGTService.get_dgt5_data(company_id, sandbox=sandbox)
     return render_template("rrhh/dgt/dgt5.html", data=data, now=now,
                            active_page="rrhh_dgt")
 
@@ -189,7 +189,7 @@ def dgt9_view():
     resp = _dgt_login_check()
     if resp:
         return resp
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     now = datetime.now(timezone.utc)
 
     if request.method == "POST":
@@ -211,11 +211,11 @@ def dgt9_view():
                     "nombre": nom.strip(),
                     "cargo": car.strip(),
                 })
-        DGTService.save_dgt9(owner_uid, data, sandbox=sandbox)
+        DGTService.save_dgt9(company_id, data, sandbox=sandbox)
         flash("Suspensión DGT-9 registrada exitosamente.", "success")
         return redirect(url_for("web_invoices.dgt9_view"))
 
-    employees = DGTService.get_dgt9_data(owner_uid, sandbox=sandbox)
+    employees = DGTService.get_dgt9_data(company_id, sandbox=sandbox)
     return render_template("rrhh/dgt/dgt9.html", data=employees, now=now,
                            active_page="rrhh_dgt")
 
@@ -231,7 +231,7 @@ def dgt12_view():
     resp = _dgt_login_check()
     if resp:
         return resp
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     now = datetime.now(timezone.utc)
 
     if request.method == "POST":
@@ -249,11 +249,11 @@ def dgt12_view():
                     "nombre": nom.strip(),
                     "fechaReincorporacion": request.form.get("fechaCese", ""),
                 })
-        DGTService.save_dgt12(owner_uid, data, sandbox=sandbox)
+        DGTService.save_dgt12(company_id, data, sandbox=sandbox)
         flash("Cese de suspensión DGT-12 registrado exitosamente.", "success")
         return redirect(url_for("web_invoices.dgt12_view"))
 
-    suspensions = DGTService.get_dgt9_data(owner_uid, sandbox=sandbox)
+    suspensions = DGTService.get_dgt9_data(company_id, sandbox=sandbox)
     active_suspensions = [s for s in suspensions if s.get("estado") == "activa"]
     return render_template("rrhh/dgt/dgt12.html", suspensions=active_suspensions,
                            now=now, active_page="rrhh_dgt")
@@ -276,9 +276,9 @@ def occupations_search():
 
 @web_rrhh_bp.route("/rrhh/dgt/employees/search")
 def employees_search():
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    employees = hr.get_employees(company_id, sandbox=sandbox)
     q = request.args.get("q", "").lower()
     results = []
     for e in employees:

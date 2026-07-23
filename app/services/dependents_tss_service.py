@@ -68,8 +68,6 @@ def generate_tss_rd(
     employees: list,
     employer_rnc: str,
     dependents_by_employee: Optional[dict] = None,
-    owner_uid: str = "",
-    sandbox: bool = True,
 ) -> dict:
     """Genera archivo RD — Registro de Dependientes Adicionales en formato SUIRPLUS v5.0.
 

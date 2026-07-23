@@ -3,7 +3,7 @@ import json
 import html
 from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, g, make_response
-from app.services.db_service import DatabaseService, db_firestore, firebase_initialized
+from app.services.db_service import DatabaseService, db_firestore, firebase_initialized, _company_coll
 from app.services.purchase_order_service import PurchaseOrderService
 from app.services.supplier_service import SupplierService
 from app.services.goods_receipt_service import GoodsReceiptService
@@ -34,8 +34,9 @@ def list_purchase_orders():
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', active_page='purchase_orders')
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
-    orders = PurchaseOrderService.get_purchase_orders(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    orders = PurchaseOrderService.get_purchase_orders(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
 
     total_items = len(orders)
     try:
@@ -81,6 +82,7 @@ def new_purchase_order():
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', active_page='purchase_orders')
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     if request.method == 'POST':
@@ -126,7 +128,7 @@ def new_purchase_order():
                 "receivedQuantity": 0,
             })
 
-        po_number = PurchaseOrderService.get_next_po_number(owner_uid, sandbox=sandbox)
+        po_number = PurchaseOrderService.get_next_po_number(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox)
         supplier_id = request.form.get('supplierId', '')
 
         po_dict = {
@@ -153,7 +155,7 @@ def new_purchase_order():
             "projectId": request.form.get('projectId') or g.get('project_id'),
         }
 
-        PurchaseOrderService.save_purchase_order(owner_uid, po_id, po_dict, sandbox=sandbox)
+        PurchaseOrderService.save_purchase_order(owner_uid=owner_uid, po_id=po_id, po_dict=po_dict, company_id=company_id, sandbox=sandbox)
 
         AuditService.log_from_request(
             owner_uid=owner_uid,
@@ -170,11 +172,11 @@ def new_purchase_order():
             return redirect(url_for('web_purchase_orders.new_purchase_order'))
         return redirect(url_for('web_purchase_orders.list_purchase_orders'))
 
-    po_number = PurchaseOrderService.get_next_po_number(owner_uid, sandbox=sandbox)
+    po_number = PurchaseOrderService.get_next_po_number(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox)
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     suppliers = SupplierService.get_suppliers(owner_uid, sandbox=sandbox)
     selected_bid = g.get('branch_id') or session.get('selected_branch_id')
-    projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox) if selected_bid else []
+    projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox, company_id=company_id) if selected_bid else []
     active_project_id = session.get('selected_project_id') or ''
     return render_template('purchase_orders/new.html',
                            po_number=po_number,
@@ -192,16 +194,18 @@ def purchase_order_detail(po_id):
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', active_page='purchase_orders')
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
-    order = PurchaseOrderService.get_purchase_order(owner_uid, po_id, sandbox=sandbox)
+    order = PurchaseOrderService.get_purchase_order(owner_uid=owner_uid, po_id=po_id, company_id=company_id, sandbox=sandbox)
     if not order:
         flash('❌ Orden de compra no encontrada.', 'error')
         return redirect(url_for('web_purchase_orders.list_purchase_orders'))
     receipts = GoodsReceiptService.get_receipts_by_po(owner_uid, po_id, sandbox=sandbox)
     order['receipts'] = receipts
-    supplier_invoices = SupplierInvoiceService.get_by_po(owner_uid, po_id, sandbox=sandbox)
+    supplier_invoices = SupplierInvoiceService.get_by_po(owner_uid=owner_uid, po_id=po_id, sandbox=sandbox, company_id=company_id)
     order['supplier_invoices'] = supplier_invoices
-    comments = DatabaseService.get_resource_comments(owner_uid, "purchase_orders", po_id, sandbox=sandbox)
+    comments = DatabaseService.get_resource_comments(owner_uid, "purchase_orders", po_id, sandbox=sandbox, company_id=company_id)
     taggable_users = _get_taggable_users(owner_uid)
     return render_template('purchase_orders/detail.html',
                            order=order,
@@ -215,6 +219,7 @@ def purchase_order_detail(po_id):
 def add_po_comment(po_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     content = request.form.get('content', '').strip()
@@ -230,7 +235,8 @@ def add_po_comment(po_id):
             file_data = file.read()
             mime_type = file.mimetype or "application/octet-stream"
             filename = f"comment_po_{po_id}_{str(uuid.uuid4())[:8]}_{file.filename}"
-            destination_path = f"users/{owner_uid}/comments/{filename}"
+            company_id = _resolve_company_id(owner_uid)
+            destination_path = f"companies/{company_id}/comments/{filename}" if company_id else f"users/{owner_uid}/comments/{filename}"
             attachment_url = DatabaseService.upload_file_to_storage(file_data, destination_path, mime_type)
             attachment_name = file.filename
         except Exception as e:
@@ -248,10 +254,10 @@ def add_po_comment(po_id):
         "edited": False
     }
 
-    DatabaseService.save_resource_comment(owner_uid, "purchase_orders", po_id, comment_id, comment_dict, sandbox=sandbox)
+    DatabaseService.save_resource_comment(owner_uid, "purchase_orders", po_id, comment_id, comment_dict, sandbox=sandbox, company_id=company_id)
 
     try:
-        order = PurchaseOrderService.get_purchase_order(owner_uid, po_id, sandbox=sandbox) or {}
+        order = PurchaseOrderService.get_purchase_order(owner_uid=owner_uid, po_id=po_id, company_id=company_id, sandbox=sandbox) or {}
         label = order.get('poNumber', 'OC')
         process_resource_comment_mentions(owner_uid, content, "purchase_orders", po_id, label, sandbox)
     except Exception as ex:
@@ -265,9 +271,10 @@ def add_po_comment(po_id):
 def edit_po_comment(po_id, comment_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    comments = DatabaseService.get_resource_comments(owner_uid, "purchase_orders", po_id, sandbox=sandbox)
+    comments = DatabaseService.get_resource_comments(owner_uid, "purchase_orders", po_id, sandbox=sandbox, company_id=company_id)
     comment = next((c for c in comments if c['id'] == comment_id), None)
     if not comment:
         flash('Comentario no encontrado.', 'error')
@@ -294,17 +301,18 @@ def edit_po_comment(po_id, comment_id):
             file_data = file.read()
             mime_type = file.mimetype or "application/octet-stream"
             filename = f"comment_po_{po_id}_{str(uuid.uuid4())[:8]}_{file.filename}"
-            destination_path = f"users/{owner_uid}/comments/{filename}"
+            company_id = _resolve_company_id(owner_uid)
+            destination_path = f"companies/{company_id}/comments/{filename}" if company_id else f"users/{owner_uid}/comments/{filename}"
             attachment_url = DatabaseService.upload_file_to_storage(file_data, destination_path, mime_type)
             comment['attachmentUrl'] = attachment_url
             comment['attachmentName'] = file.filename
         except Exception as e:
             flash(f"Advertencia: No se pudo cargar el archivo adjunto: {html.escape(str(e))}", 'warning')
 
-    DatabaseService.save_resource_comment(owner_uid, "purchase_orders", po_id, comment_id, comment, sandbox=sandbox)
+    DatabaseService.save_resource_comment(owner_uid, "purchase_orders", po_id, comment_id, comment, sandbox=sandbox, company_id=company_id)
 
     try:
-        order = PurchaseOrderService.get_purchase_order(owner_uid, po_id, sandbox=sandbox) or {}
+        order = PurchaseOrderService.get_purchase_order(owner_uid=owner_uid, po_id=po_id, company_id=company_id, sandbox=sandbox) or {}
         label = order.get('poNumber', 'OC')
         process_resource_comment_mentions(owner_uid, content, "purchase_orders", po_id, label, sandbox)
     except Exception as ex:
@@ -318,9 +326,10 @@ def edit_po_comment(po_id, comment_id):
 def delete_po_comment(po_id, comment_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    comments = DatabaseService.get_resource_comments(owner_uid, "purchase_orders", po_id, sandbox=sandbox)
+    comments = DatabaseService.get_resource_comments(owner_uid, "purchase_orders", po_id, sandbox=sandbox, company_id=company_id)
     comment = next((c for c in comments if c['id'] == comment_id), None)
     if not comment:
         flash('Comentario no encontrado.', 'error')
@@ -332,7 +341,7 @@ def delete_po_comment(po_id, comment_id):
         flash('No tienes permiso para eliminar este comentario.', 'error')
         return redirect(url_for('web_purchase_orders.purchase_order_detail', po_id=po_id))
 
-    DatabaseService.delete_resource_comment(owner_uid, "purchase_orders", po_id, comment_id, sandbox=sandbox)
+    DatabaseService.delete_resource_comment(owner_uid, "purchase_orders", po_id, comment_id, sandbox=sandbox, company_id=company_id)
     flash('Comentario eliminado.', 'success')
     return redirect(url_for('web_purchase_orders.purchase_order_detail', po_id=po_id))
 
@@ -342,9 +351,10 @@ def attach_po_document(po_id):
     if 'user' not in session:
         return jsonify({"success": False, "error": "No autorizado"}), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    order = PurchaseOrderService.get_purchase_order(owner_uid, po_id, sandbox=sandbox)
+    order = PurchaseOrderService.get_purchase_order(owner_uid=owner_uid, po_id=po_id, company_id=company_id, sandbox=sandbox)
     if not order:
         return jsonify({"success": False, "error": "Orden de compra no encontrada."}), 404
 
@@ -368,7 +378,8 @@ def attach_po_document(po_id):
                 file_data = att_file.read()
                 mime_type = att_file.content_type or "application/octet-stream"
                 safe_name = att_file.filename.replace(' ', '_')
-                dest_path = f"users/{owner_uid}/purchase_orders/{po_id}/{safe_name}"
+                company_id = _resolve_company_id(owner_uid)
+                dest_path = f"companies/{company_id}/purchase_orders/{po_id}/{safe_name}" if company_id else f"users/{owner_uid}/purchase_orders/{po_id}/{safe_name}"
                 public_url = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type)
                 att_type = attachment_types[i] if i < len(attachment_types) else 'otro'
                 new_urls.append(public_url)
@@ -380,7 +391,7 @@ def attach_po_document(po_id):
     if uploaded_count > 0:
         if firebase_initialized:
             coll_name = "sandbox_purchase_orders" if sandbox else "purchase_orders"
-            db_firestore.collection("users").document(owner_uid).collection(coll_name).document(po_id).update({
+            _company_coll(owner_uid=owner_uid, coll_name=coll_name).document(po_id).update({
                 "attachments": new_attachments,
                 "firebaseAttachmentURLs": new_urls
             })
@@ -406,9 +417,10 @@ def detach_po_document(po_id, att_index):
     if 'user' not in session:
         return jsonify({"success": False, "error": "No autorizado"}), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    order = PurchaseOrderService.get_purchase_order(owner_uid, po_id, sandbox=sandbox)
+    order = PurchaseOrderService.get_purchase_order(owner_uid=owner_uid, po_id=po_id, company_id=company_id, sandbox=sandbox)
     if not order:
         return jsonify({"success": False, "error": "Orden de compra no encontrada."}), 404
 
@@ -426,7 +438,7 @@ def detach_po_document(po_id, att_index):
 
     if firebase_initialized:
         coll_name = "sandbox_purchase_orders" if sandbox else "purchase_orders"
-        db_firestore.collection("users").document(owner_uid).collection(coll_name).document(po_id).update({
+        _company_coll(owner_uid=owner_uid, coll_name=coll_name).document(po_id).update({
             "attachments": existing_attachments,
             "firebaseAttachmentURLs": new_urls
         })
@@ -445,9 +457,10 @@ def edit_purchase_order(po_id):
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', active_page='purchase_orders')
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    order = PurchaseOrderService.get_purchase_order(owner_uid, po_id, sandbox=sandbox)
+    order = PurchaseOrderService.get_purchase_order(owner_uid=owner_uid, po_id=po_id, company_id=company_id, sandbox=sandbox)
     if not order:
         flash('❌ Orden de compra no encontrada.', 'error')
         return redirect(url_for('web_purchase_orders.list_purchase_orders'))
@@ -520,7 +533,7 @@ def edit_purchase_order(po_id):
             "items": items,
         })
 
-        PurchaseOrderService.save_purchase_order(owner_uid, po_id, order, sandbox=sandbox)
+        PurchaseOrderService.save_purchase_order(owner_uid=owner_uid, po_id=po_id, po_dict=order, company_id=company_id, sandbox=sandbox)
 
         AuditService.log_from_request(
             owner_uid=owner_uid,
@@ -551,15 +564,16 @@ def delete_purchase_order(po_id):
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', active_page='purchase_orders')
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    order = PurchaseOrderService.get_purchase_order(owner_uid, po_id, sandbox=sandbox)
+    order = PurchaseOrderService.get_purchase_order(owner_uid=owner_uid, po_id=po_id, company_id=company_id, sandbox=sandbox)
     if not order:
         flash('❌ Orden de compra no encontrada.', 'error')
         return redirect(url_for('web_purchase_orders.list_purchase_orders'))
 
     po_number = order.get('poNumber', '')
-    PurchaseOrderService.delete_purchase_order(owner_uid, po_id, sandbox=sandbox)
+    PurchaseOrderService.delete_purchase_order(owner_uid=owner_uid, po_id=po_id, company_id=company_id, sandbox=sandbox)
 
     AuditService.log_from_request(
         owner_uid=owner_uid,
@@ -581,10 +595,11 @@ def approve_purchase_order(po_id):
     if not check_permission('canExpenses'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     user = session['user'].get('displayName', 'Usuario')
 
-    po = PurchaseOrderService.update_status(owner_uid, po_id, 'aprobada', sandbox=sandbox, user=user)
+    po = PurchaseOrderService.update_status(owner_uid=owner_uid, po_id=po_id, new_status='aprobada', company_id=company_id, sandbox=sandbox, user=user)
     if not po:
         return jsonify(success=False, error="Orden no encontrada"), 404
 
@@ -603,9 +618,10 @@ def receive_purchase_order(po_id):
     if not check_permission('canExpenses'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    po = PurchaseOrderService.get_purchase_order(owner_uid, po_id, sandbox=sandbox)
+    po = PurchaseOrderService.get_purchase_order(owner_uid=owner_uid, po_id=po_id, company_id=company_id, sandbox=sandbox)
     if not po:
         return jsonify(success=False, error="Orden no encontrada"), 404
 
@@ -630,7 +646,7 @@ def receive_purchase_order(po_id):
     po['receivedBy'] = user
     po['receivedAt'] = datetime.now(timezone.utc).isoformat()
     po['items'] = items
-    PurchaseOrderService.save_purchase_order(owner_uid, po_id, po, sandbox=sandbox)
+    PurchaseOrderService.save_purchase_order(owner_uid=owner_uid, po_id=po_id, po_dict=po, company_id=company_id, sandbox=sandbox)
 
     AuditService.log_from_request(
         owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_PO,
@@ -647,10 +663,11 @@ def cancel_purchase_order(po_id):
     if not check_permission('canExpenses'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     user = session['user'].get('displayName', 'Usuario')
 
-    po = PurchaseOrderService.update_status(owner_uid, po_id, 'cancelada', sandbox=sandbox, user=user)
+    po = PurchaseOrderService.update_status(owner_uid=owner_uid, po_id=po_id, new_status='cancelada', company_id=company_id, sandbox=sandbox, user=user)
     if not po:
         return jsonify(success=False, error="Orden no encontrada"), 404
 
@@ -667,8 +684,9 @@ def api_next_po_number():
     if 'user' not in session:
         return jsonify(success=False, error="No autorizado"), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
-    number = PurchaseOrderService.get_next_po_number(owner_uid, sandbox=sandbox)
+    number = PurchaseOrderService.get_next_po_number(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox)
     return jsonify(success=True, poNumber=number)
 
 
@@ -677,7 +695,8 @@ def api_supplier_items():
     if 'user' not in session:
         return jsonify(success=False, error="No autorizado"), 401
     owner_uid = session['user']['ownerUID']
-    items = DatabaseService.get_items(owner_uid, sandbox=session.get('is_sandbox_mode', True), branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    company_id = session.get('selected_company_id')
+    items = DatabaseService.get_items(owner_uid, sandbox=session.get('is_sandbox_mode', True), branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
     active = [i for i in items if i.get('isActive', True)]
     return jsonify(success=True, items=active)
 
@@ -694,14 +713,16 @@ def consolidated_cxp():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     # 1. Purchase invoices
-    purchase_invoices = SupplierInvoiceService.get_all(owner_uid, sandbox=sandbox)
+    purchase_invoices = SupplierInvoiceService.get_all(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
     # 2. Expense CxP
-    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
 
     unified = []
     total_pending = 0.0
@@ -807,9 +828,11 @@ def list_purchase_cxp():
     if not check_permission('canManagePurchaseCXP'):
         return render_template('auth/restricted.html', feature_name="CxP Compras", required_permission="canManagePurchaseCXP")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    invoices = SupplierInvoiceService.get_all(owner_uid, sandbox=sandbox)
+    invoices = SupplierInvoiceService.get_all(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
 
     total_pending = 0.0
     total_overdue = 0.0
@@ -888,6 +911,8 @@ def new_supplier_invoice_direct():
     if not check_permission('canManagePurchaseCXP'):
         return render_template('auth/restricted.html', feature_name="Nueva Factura Directa", required_permission="canManagePurchaseCXP")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     po_id = request.args.get('po_id', '') or request.form.get('po_id', '')
@@ -899,7 +924,7 @@ def new_supplier_invoice_direct():
     po_exchange_rate = 1.0
     po_payment_terms = 'contado'
     if po_id:
-        po = PurchaseOrderService.get_purchase_order(owner_uid, po_id, sandbox=sandbox)
+        po = PurchaseOrderService.get_purchase_order(owner_uid=owner_uid, po_id=po_id, company_id=company_id, sandbox=sandbox)
         if po:
             po_supplier_name = po.get('supplierName', '')
             po_supplier_rnc = po.get('supplierRnc', '')
@@ -914,7 +939,7 @@ def new_supplier_invoice_direct():
             flash('El número de factura del proveedor es obligatorio.', 'error')
             return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=po_id))
 
-        if not SupplierInvoiceService._check_ncf_unique(owner_uid, invoice_number, sandbox=sandbox):
+        if not SupplierInvoiceService._check_ncf_unique(owner_uid=owner_uid, ncf=invoice_number, sandbox=sandbox, company_id=company_id):
             flash('El número de factura del proveedor ya existe. Verifique los datos.', 'error')
             return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=po_id))
 
@@ -931,7 +956,7 @@ def new_supplier_invoice_direct():
             flash('La fecha de vencimiento no puede ser anterior a la fecha de emisión.', 'error')
             return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=po_id))
 
-        if ncf and not SupplierInvoiceService._check_ncf_unique(owner_uid, ncf, sandbox=sandbox):
+        if ncf and not SupplierInvoiceService._check_ncf_unique(owner_uid=owner_uid, ncf=ncf, sandbox=sandbox, company_id=company_id):
             flash('El NCF ya está registrado en otra factura.', 'error')
             return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=po_id))
 
@@ -993,7 +1018,7 @@ def new_supplier_invoice_direct():
         cxp_status = "Pagado" if payment_type == 'Contado' else "Pendiente"
         cxp_remaining = 0.0 if payment_type == 'Contado' else total
 
-        sinv_number = SupplierInvoiceService.get_next_invoice_number(owner_uid, sandbox=sandbox)
+        sinv_number = SupplierInvoiceService.get_next_invoice_number(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
 
         supplier_id = request.form.get('supplierId', '')
         supplier_name = request.form.get('supplierName', '')
@@ -1001,7 +1026,7 @@ def new_supplier_invoice_direct():
 
         if not supplier_id and supplier_rnc:
             from app.services.contact_service import ContactService
-            contact = ContactService.get_contact_by_rnc(owner_uid, supplier_rnc, sandbox=sandbox)
+            contact = ContactService.get_contact_by_rnc(owner_uid=owner_uid, rnc=supplier_rnc, sandbox=sandbox, company_id=company_id)
             if contact:
                 supplier_id = contact["id"]
                 types = list(contact.get("types", []))
@@ -1009,14 +1034,14 @@ def new_supplier_invoice_direct():
                     types.append("proveedor")
                     contact_dict = dict(contact)
                     contact_dict["types"] = types
-                    ContactService.save_contact(owner_uid, contact["id"], contact_dict, sandbox=sandbox)
+                    ContactService.save_contact(owner_uid=owner_uid, contact_id=contact["id"], contact_dict=contact_dict, sandbox=sandbox, company_id=company_id)
             elif supplier_name:
                 supplier_id = str(uuid.uuid4())
-                ContactService.save_contact(owner_uid, supplier_id, {
+                ContactService.save_contact(owner_uid=owner_uid, contact_id=supplier_id, contact_dict={
                     "rnc": supplier_rnc,
                     "razonSocial": supplier_name,
                     "types": ["proveedor"],
-                }, sandbox=sandbox)
+                }, sandbox=sandbox, company_id=company_id)
 
         inv_data = {
             "invoiceNumber": sinv_number,
@@ -1057,7 +1082,7 @@ def new_supplier_invoice_direct():
             "costCenterId": request.form.get('costCenterId', ''),
         }
 
-        inv_data["id"] = SupplierInvoiceService.create(owner_uid, inv_data, sandbox=sandbox)["id"]
+        inv_data["id"] = SupplierInvoiceService.create(owner_uid=owner_uid, data=inv_data, sandbox=sandbox, company_id=company_id)["id"]
 
         # ── Generate accounting entry ──
         try:
@@ -1093,7 +1118,7 @@ def new_supplier_invoice_direct():
                 "isCost": False,
                 "costCenterId": inv_data.get("costCenterId", ""),
             }
-            AccountingService.auto_generate_expense_entry(owner_uid, expense_dict, sandbox=sandbox)
+            AccountingService.auto_generate_expense_entry(company_id, expense_dict, sandbox=sandbox)
         except Exception as acc_err:
             print(f"Error al generar asiento contable de factura proveedor: {acc_err}")
 
@@ -1111,8 +1136,8 @@ def new_supplier_invoice_direct():
                 else:
                     try:
                         public_url = SupplierInvoiceService.add_attachment(
-                            owner_uid, inv_data["id"], file_data,
-                            attachment_file.filename, mime_type, sandbox=sandbox
+                            owner_uid=owner_uid, invoice_id=inv_data["id"], file_data=file_data,
+                            file_name=attachment_file.filename, mime_type=mime_type, sandbox=sandbox, company_id=company_id
                         )
                         if not public_url:
                             file_upload_error = 'El archivo no pudo subirse.'
@@ -1122,21 +1147,21 @@ def new_supplier_invoice_direct():
 
         ocr_attachment_url = request.form.get('ocr_attachment_url', '').strip()
         if ocr_attachment_url:
-            inv = SupplierInvoiceService.get(owner_uid, inv_data["id"], sandbox=sandbox)
+            inv = SupplierInvoiceService.get(owner_uid=owner_uid, invoice_id=inv_data["id"], sandbox=sandbox, company_id=company_id)
             if inv:
                 urls = inv.get("attachmentUrls", [])
                 urls.append(ocr_attachment_url)
-                SupplierInvoiceService.update(owner_uid, inv_data["id"], {"attachmentUrls": urls}, sandbox=sandbox)
+                SupplierInvoiceService.update(owner_uid=owner_uid, invoice_id=inv_data["id"], data={"attachmentUrls": urls}, sandbox=sandbox, company_id=company_id)
 
         if payment_type == 'Contado' and bank_account_id:
             try:
-                bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox)
+                bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox, company_id=company_id)
                 if bank_acc:
                     new_balance = bank_acc["currentBalance"] - round(total, 2)
                     DatabaseService.save_bank_account(owner_uid, bank_account_id, {
                         **bank_acc,
                         "currentBalance": new_balance
-                    }, sandbox=sandbox)
+                    }, sandbox=sandbox, company_id=company_id)
             except Exception as bank_err:
                 print(f"Error al actualizar saldo bancario en factura directa: {bank_err}")
 
@@ -1158,15 +1183,15 @@ def new_supplier_invoice_direct():
 
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     suppliers = SupplierService.get_suppliers(owner_uid, sandbox=sandbox)
-    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
-    accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid)
-    tax_rules = DatabaseService.get_tax_rules(owner_uid)
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox, company_id=company_id)
+    accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
+    tax_rules = DatabaseService.get_tax_rules(owner_uid, company_id=company_id)
     itbis_general = tax_rules.get('itbis', {}).get('general', 0.18)
     itbis_reduced = tax_rules.get('itbis', {}).get('reduced', 0.16)
     selected_bid = g.get('branch_id') or session.get('selected_branch_id')
-    projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox) if selected_bid else []
+    projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox, company_id=company_id) if selected_bid else []
     active_project_id = session.get('selected_project_id') or ''
-    cost_centers = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox)
+    cost_centers = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox, company_id=company_id)
     active_cost_centers = [cc for cc in cost_centers if cc.get('isActive', True)]
     return render_template('purchase_orders/new_invoice.html',
                            today=today,
@@ -1196,9 +1221,11 @@ def register_supplier_invoice(po_id):
     if not check_permission('canManagePurchaseCXP'):
         return render_template('auth/restricted.html', required_permission="canManagePurchaseCXP")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    po = PurchaseOrderService.get_purchase_order(owner_uid, po_id, sandbox=sandbox)
+    po = PurchaseOrderService.get_purchase_order(owner_uid=owner_uid, po_id=po_id, company_id=company_id, sandbox=sandbox)
     if not po:
         flash('❌ Orden de compra no encontrada.', 'error')
         return redirect(url_for('web_purchase_orders.list_purchase_orders'))
@@ -1220,7 +1247,7 @@ def register_supplier_invoice(po_id):
             flash('❌ El número de factura del proveedor es obligatorio.', 'error')
             return render_template('purchase_orders/register_invoice.html', po=po, today=datetime.now(timezone.utc).strftime('%Y-%m-%d'), active_page='purchase_orders')
 
-        if not SupplierInvoiceService._check_ncf_unique(owner_uid, invoice_number, sandbox=sandbox):
+        if not SupplierInvoiceService._check_ncf_unique(owner_uid=owner_uid, ncf=invoice_number, sandbox=sandbox, company_id=company_id):
             flash('❌ El número de factura del proveedor o NCF ya existe. Verifique los datos.', 'error')
             return render_template('purchase_orders/register_invoice.html', po=po, today=datetime.now(timezone.utc).strftime('%Y-%m-%d'), active_page='purchase_orders')
 
@@ -1237,7 +1264,7 @@ def register_supplier_invoice(po_id):
             flash('❌ La fecha de vencimiento no puede ser anterior a la fecha de emisión.', 'error')
             return render_template('purchase_orders/register_invoice.html', po=po, today=today_str, active_page='purchase_orders')
 
-        if ncf and not SupplierInvoiceService._check_ncf_unique(owner_uid, ncf, sandbox=sandbox):
+        if ncf and not SupplierInvoiceService._check_ncf_unique(owner_uid=owner_uid, ncf=ncf, sandbox=sandbox, company_id=company_id):
             flash('❌ El NCF ya está registrado en otra factura.', 'error')
             return render_template('purchase_orders/register_invoice.html', po=po, today=today_str, active_page='purchase_orders')
 
@@ -1270,7 +1297,7 @@ def register_supplier_invoice(po_id):
             })
 
         total = subtotal - total_discount + total_itbis
-        sinv_number = SupplierInvoiceService.get_next_invoice_number(owner_uid, sandbox=sandbox)
+        sinv_number = SupplierInvoiceService.get_next_invoice_number(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
 
         inv_data = {
             "invoiceNumber": sinv_number,
@@ -1296,7 +1323,7 @@ def register_supplier_invoice(po_id):
             "createdBy": session['user'].get('displayName', 'Usuario'),
         }
 
-        inv_data["id"] = SupplierInvoiceService.create(owner_uid, inv_data, sandbox=sandbox)["id"]
+        inv_data["id"] = SupplierInvoiceService.create(owner_uid=owner_uid, data=inv_data, sandbox=sandbox, company_id=company_id)["id"]
 
         # ── Generate accounting entry ──
         try:
@@ -1330,7 +1357,7 @@ def register_supplier_invoice(po_id):
                 "accountItems": account_items,
                 "isCost": True,
             }
-            AccountingService.auto_generate_expense_entry(owner_uid, expense_dict, sandbox=sandbox)
+            AccountingService.auto_generate_expense_entry(company_id, expense_dict, sandbox=sandbox)
         except Exception as acc_err:
             print(f"Error al generar asiento contable de factura desde OC: {acc_err}")
 
@@ -1348,8 +1375,8 @@ def register_supplier_invoice(po_id):
                 else:
                     try:
                         public_url = SupplierInvoiceService.add_attachment(
-                            owner_uid, inv_data["id"], file_data,
-                            attachment_file.filename, mime_type, sandbox=sandbox
+                            owner_uid=owner_uid, invoice_id=inv_data["id"], file_data=file_data,
+                            file_name=attachment_file.filename, mime_type=mime_type, sandbox=sandbox, company_id=company_id
                         )
                         if not public_url:
                             file_upload_error = 'El archivo no pudo subirse.'
@@ -1382,9 +1409,11 @@ def supplier_invoice_detail(invoice_id):
     if not check_permission('canManagePurchaseCXP'):
         return render_template('auth/restricted.html', required_permission="canManagePurchaseCXP")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    invoice = SupplierInvoiceService.get(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = SupplierInvoiceService.get(owner_uid=owner_uid, invoice_id=invoice_id, sandbox=sandbox, company_id=company_id)
     if not invoice:
         flash('❌ Factura proveedor no encontrada.', 'error')
         return redirect(url_for('web_purchase_orders.list_purchase_cxp'))
@@ -1395,16 +1424,16 @@ def supplier_invoice_detail(invoice_id):
     if status in ('Pendiente', 'Abonado') and due_date and due_date < today_str:
         invoice['cxpStatus'] = 'Vencido'
 
-    payments = SupplierInvoiceService.get_payments(owner_uid, invoice_id, sandbox=sandbox)
-    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
+    payments = SupplierInvoiceService.get_payments(owner_uid=owner_uid, invoice_id=invoice_id, sandbox=sandbox, company_id=company_id)
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox, company_id=company_id)
 
-    comments = DatabaseService.get_resource_comments(owner_uid, "purchase_orders", invoice_id, sandbox=sandbox)
+    comments = DatabaseService.get_resource_comments(owner_uid, "purchase_orders", invoice_id, sandbox=sandbox, company_id=company_id)
     taggable_users = _get_taggable_users(owner_uid)
 
     is_cxp = invoice.get('paymentType') == 'Crédito'
 
     linked_entry = None
-    all_entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox)
+    all_entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox, company_id=company_id)
     for e in all_entries:
         if e.get("status") != "voided" and e.get("referenceId") == invoice_id and e.get("referenceType") in ("supplier_invoice", "expense"):
             linked_entry = e
@@ -1428,6 +1457,8 @@ def pay_supplier_invoice(invoice_id):
         flash('❌ No tienes permiso para registrar pagos.', 'error')
         return redirect(url_for('web_purchase_orders.list_purchase_cxp'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     try:
@@ -1444,10 +1475,10 @@ def pay_supplier_invoice(invoice_id):
     registered_by = session['user'].get('displayName', 'Usuario')
 
     success, message = SupplierInvoiceService.save_payment(
-        owner_uid, invoice_id, amount, registered_by=registered_by,
+        owner_uid=owner_uid, invoice_id=invoice_id, payment_amount=amount, registered_by=registered_by,
         sandbox=sandbox, payment_method=payment_method,
         payment_reference=payment_reference,
-        bank_account_id=bank_account_id
+        bank_account_id=bank_account_id, company_id=company_id
     )
 
     if success:
@@ -1468,9 +1499,11 @@ def edit_supplier_invoice(invoice_id):
     if not check_permission('canManagePurchaseCXP'):
         return render_template('auth/restricted.html', required_permission="canManagePurchaseCXP")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    invoice = SupplierInvoiceService.get(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = SupplierInvoiceService.get(owner_uid=owner_uid, invoice_id=invoice_id, sandbox=sandbox, company_id=company_id)
     if not invoice:
         flash('❌ Factura proveedor no encontrada.', 'error')
         return redirect(url_for('web_purchase_orders.list_purchase_cxp'))
@@ -1482,7 +1515,7 @@ def edit_supplier_invoice(invoice_id):
             return redirect(url_for('web_purchase_orders.edit_supplier_invoice', invoice_id=invoice_id))
 
         if inv_number != invoice.get('supplierInvoiceNumber', ''):
-            if not SupplierInvoiceService._check_ncf_unique(owner_uid, inv_number, sandbox=sandbox, exclude_id=invoice_id):
+            if not SupplierInvoiceService._check_ncf_unique(owner_uid=owner_uid, ncf=inv_number, sandbox=sandbox, exclude_id=invoice_id, company_id=company_id):
                 flash('El número de factura del proveedor ya existe. Verifique los datos.', 'error')
                 return redirect(url_for('web_purchase_orders.edit_supplier_invoice', invoice_id=invoice_id))
 
@@ -1500,7 +1533,7 @@ def edit_supplier_invoice(invoice_id):
             return redirect(url_for('web_purchase_orders.edit_supplier_invoice', invoice_id=invoice_id))
 
         if ncf and ncf != invoice.get('ncf', ''):
-            if not SupplierInvoiceService._check_ncf_unique(owner_uid, ncf, sandbox=sandbox, exclude_id=invoice_id):
+            if not SupplierInvoiceService._check_ncf_unique(owner_uid=owner_uid, ncf=ncf, sandbox=sandbox, exclude_id=invoice_id, company_id=company_id):
                 flash('El NCF ya está registrado en otra factura.', 'error')
                 return redirect(url_for('web_purchase_orders.edit_supplier_invoice', invoice_id=invoice_id))
 
@@ -1568,7 +1601,7 @@ def edit_supplier_invoice(invoice_id):
 
         if not supplier_id and supplier_rnc:
             from app.services.contact_service import ContactService
-            contact = ContactService.get_contact_by_rnc(owner_uid, supplier_rnc, sandbox=sandbox)
+            contact = ContactService.get_contact_by_rnc(owner_uid=owner_uid, rnc=supplier_rnc, sandbox=sandbox, company_id=company_id)
             if contact:
                 supplier_id = contact["id"]
                 types = list(contact.get("types", []))
@@ -1576,14 +1609,14 @@ def edit_supplier_invoice(invoice_id):
                     types.append("proveedor")
                     contact_dict = dict(contact)
                     contact_dict["types"] = types
-                    ContactService.save_contact(owner_uid, contact["id"], contact_dict, sandbox=sandbox)
+                    ContactService.save_contact(owner_uid=owner_uid, contact_id=contact["id"], contact_dict=contact_dict, sandbox=sandbox, company_id=company_id)
             elif supplier_name:
                 supplier_id = str(uuid.uuid4())
-                ContactService.save_contact(owner_uid, supplier_id, {
+                ContactService.save_contact(owner_uid=owner_uid, contact_id=supplier_id, contact_dict={
                     "rnc": supplier_rnc,
                     "razonSocial": supplier_name,
                     "types": ["proveedor"],
-                }, sandbox=sandbox)
+                }, sandbox=sandbox, company_id=company_id)
 
         cxp_status = "Pagado" if payment_type == 'Contado' else invoice.get('cxpStatus', 'Pendiente')
         if cxp_status == 'Vencido' and payment_type == 'Crédito':
@@ -1626,7 +1659,7 @@ def edit_supplier_invoice(invoice_id):
             "updatedAt": datetime.now(timezone.utc).isoformat(),
         }
 
-        SupplierInvoiceService.update(owner_uid, invoice_id, updates, sandbox=sandbox)
+        SupplierInvoiceService.update(owner_uid=owner_uid, invoice_id=invoice_id, data=updates, sandbox=sandbox, company_id=company_id)
 
         attachment_file = request.files.get('attachment')
         if attachment_file and attachment_file.filename:
@@ -1640,8 +1673,8 @@ def edit_supplier_invoice(invoice_id):
                 else:
                     try:
                         public_url = SupplierInvoiceService.add_attachment(
-                            owner_uid, invoice_id, file_data,
-                            attachment_file.filename, mime_type, sandbox=sandbox
+                            owner_uid=owner_uid, invoice_id=invoice_id, file_data=file_data,
+                            file_name=attachment_file.filename, mime_type=mime_type, sandbox=sandbox, company_id=company_id
                         )
                         if not public_url:
                             flash('El archivo no pudo subirse.', 'error')
@@ -1650,10 +1683,10 @@ def edit_supplier_invoice(invoice_id):
 
         try:
             from app.services.accounting_service import AccountingService
-            all_entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox)
+            all_entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox, company_id=company_id)
             for entry in all_entries:
                 if entry.get("status") != "voided" and entry.get("referenceId") == invoice_id:
-                    AccountingService.void_entry(owner_uid, entry["id"], sandbox=sandbox)
+                    AccountingService.void_entry(company_id, entry["id"], sandbox=sandbox)
                     break
             account_items = []
             for item in items:
@@ -1686,7 +1719,7 @@ def edit_supplier_invoice(invoice_id):
                 "isCost": False,
                 "costCenterId": request.form.get('costCenterId', ''),
             }
-            AccountingService.auto_generate_expense_entry(owner_uid, expense_dict, sandbox=sandbox)
+            AccountingService.auto_generate_expense_entry(company_id, expense_dict, sandbox=sandbox)
         except Exception as acc_err:
             print(f"Error al regenerar asiento contable en edición: {acc_err}")
 
@@ -1701,14 +1734,14 @@ def edit_supplier_invoice(invoice_id):
 
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     suppliers = SupplierService.get_suppliers(owner_uid, sandbox=sandbox)
-    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
-    accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid)
-    tax_rules = DatabaseService.get_tax_rules(owner_uid)
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox, company_id=company_id)
+    accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
+    tax_rules = DatabaseService.get_tax_rules(owner_uid, company_id=company_id)
     itbis_general = tax_rules.get('itbis', {}).get('general', 0.18)
     itbis_reduced = tax_rules.get('itbis', {}).get('reduced', 0.16)
     selected_bid = g.get('branch_id') or session.get('selected_branch_id')
-    projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox) if selected_bid else []
-    cost_centers = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox)
+    projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox, company_id=company_id) if selected_bid else []
+    cost_centers = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox, company_id=company_id)
     active_cost_centers = [cc for cc in cost_centers if cc.get('isActive', True)]
     return render_template('purchase_orders/edit_supplier_invoice.html',
                            invoice=invoice,
@@ -1730,9 +1763,11 @@ def add_invoice_attachment(invoice_id):
     if not check_permission('canManagePurchaseCXP'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    invoice = SupplierInvoiceService.get(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = SupplierInvoiceService.get(owner_uid=owner_uid, invoice_id=invoice_id, sandbox=sandbox, company_id=company_id)
     if not invoice:
         return jsonify(success=False, error="Factura no encontrada"), 404
 
@@ -1748,8 +1783,8 @@ def add_invoice_attachment(invoice_id):
     if mime_type not in ALLOWED_MIME_TYPES:
         return jsonify(success=False, error="Tipo de archivo no permitido"), 400
 
-    url = SupplierInvoiceService.add_attachment(owner_uid, invoice_id, file_data,
-                                                 attachment_file.filename, mime_type, sandbox=sandbox)
+    url = SupplierInvoiceService.add_attachment(owner_uid=owner_uid, invoice_id=invoice_id, file_data=file_data,
+                                                 file_name=attachment_file.filename, mime_type=mime_type, sandbox=sandbox, company_id=company_id)
     if url:
         return jsonify(success=True, url=url)
     return jsonify(success=False, error="Error al subir archivo"), 500
@@ -1763,9 +1798,11 @@ def void_payment(invoice_id, payment_id):
         flash('❌ No tienes permiso para revertir pagos.', 'error')
         return redirect(url_for('web_purchase_orders.list_purchase_cxp'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    success, message = SupplierInvoiceService.void_payment(owner_uid, invoice_id, payment_id, sandbox=sandbox)
+    success, message = SupplierInvoiceService.void_payment(owner_uid=owner_uid, invoice_id=invoice_id, payment_id=payment_id, sandbox=sandbox, company_id=company_id)
     if success:
         AuditService.log_from_request(
             owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_SINV,
@@ -1785,16 +1822,18 @@ def delete_supplier_invoice(invoice_id):
         flash('No tienes permiso para eliminar facturas de proveedor.', 'error')
         return redirect(url_for('web_purchase_orders.consolidated_cxp'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     inv = None
     try:
-        invoices = SupplierInvoiceService.get_all(owner_uid, sandbox=sandbox)
+        invoices = SupplierInvoiceService.get_all(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
         inv = next((i for i in invoices if i['id'] == invoice_id), None)
     except Exception:
         pass
 
-    SupplierInvoiceService.delete(owner_uid, invoice_id, sandbox=sandbox)
+    SupplierInvoiceService.delete(owner_uid=owner_uid, invoice_id=invoice_id, sandbox=sandbox, company_id=company_id)
 
     AuditService.log_from_request(
         owner_uid=owner_uid, action=ACTION_DELETE, module=MODULE_SINV,
@@ -1816,16 +1855,17 @@ def delete_cxp_expense(expense_id):
         flash('No tienes permiso para eliminar cuentas por pagar.', 'error')
         return redirect(url_for('web_purchase_orders.consolidated_cxp'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     before_expense = {}
     try:
-        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
         before_expense = next((e for e in expenses if e['id'] == expense_id), {})
     except Exception:
         pass
 
-    DatabaseService.delete_expense(owner_uid, expense_id, sandbox=sandbox)
+    DatabaseService.delete_expense(owner_uid, expense_id, sandbox=sandbox, company_id=company_id)
 
     from app.services.audit_service import ACTION_DELETE as AD, MODULE_GASTOS
     AuditService.log_from_request(
@@ -1845,8 +1885,10 @@ def api_next_supplier_invoice_number():
     if 'user' not in session:
         return jsonify(success=False, error="No autorizado"), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
-    number = SupplierInvoiceService.get_next_invoice_number(owner_uid, sandbox=sandbox)
+    number = SupplierInvoiceService.get_next_invoice_number(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
     return jsonify(success=True, invoiceNumber=number)
 
 
@@ -1864,9 +1906,11 @@ def list_credit_notes():
     if not check_permission('canManagePurchaseCXP'):
         return render_template('auth/restricted.html', feature_name=MODULE_CN, required_permission="canManagePurchaseCXP")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    notes = PurchaseCreditNoteService.get_all(owner_uid, sandbox=sandbox)
+    notes = PurchaseCreditNoteService.get_all(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
 
     search_query = request.args.get('search', '').strip().lower()
     if search_query:
@@ -1889,6 +1933,8 @@ def new_credit_note():
     if not check_permission('canManagePurchaseCXP'):
         return render_template('auth/restricted.html', feature_name=MODULE_CN, required_permission="canManagePurchaseCXP")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     if request.method == 'POST':
@@ -1905,7 +1951,7 @@ def new_credit_note():
             flash('❌ El monto debe ser mayor a 0.', 'error')
             return redirect(url_for('web_purchase_orders.new_credit_note'))
 
-        inv = SupplierInvoiceService.get(owner_uid, credited_invoice_id, sandbox=sandbox)
+        inv = SupplierInvoiceService.get(owner_uid=owner_uid, invoice_id=credited_invoice_id, sandbox=sandbox, company_id=company_id)
         if not inv:
             flash('❌ Factura de proveedor no encontrada.', 'error')
             return redirect(url_for('web_purchase_orders.new_credit_note'))
@@ -1928,7 +1974,7 @@ def new_credit_note():
             "createdBy": created_by,
         }
 
-        success, message = PurchaseCreditNoteService.create(owner_uid, note_data, sandbox=sandbox)
+        success, message = PurchaseCreditNoteService.create(owner_uid=owner_uid, note_data=note_data, sandbox=sandbox, company_id=company_id)
         flash(message, 'success' if success else 'error')
 
         if success:
@@ -1940,7 +1986,7 @@ def new_credit_note():
             )
         return redirect(url_for('web_purchase_orders.list_credit_notes'))
 
-    invoices = SupplierInvoiceService.get_all(owner_uid, sandbox=sandbox)
+    invoices = SupplierInvoiceService.get_all(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
     today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     return render_template('purchase_orders/credit_note_form.html',
                            invoices=invoices, today_str=today_str,
@@ -1954,9 +2000,11 @@ def credit_note_detail(note_id):
     if not check_permission('canManagePurchaseCXP'):
         return render_template('auth/restricted.html', feature_name=MODULE_CN, required_permission="canManagePurchaseCXP")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    note = PurchaseCreditNoteService.get(owner_uid, note_id, sandbox=sandbox)
+    note = PurchaseCreditNoteService.get(owner_uid=owner_uid, note_id=note_id, sandbox=sandbox, company_id=company_id)
     if not note:
         flash('❌ Nota de crédito no encontrada.', 'error')
         return redirect(url_for('web_purchase_orders.list_credit_notes'))
@@ -1972,10 +2020,12 @@ def void_credit_note(note_id):
         flash('❌ No tienes permiso para anular notas de crédito.', 'error')
         return redirect(url_for('web_purchase_orders.list_credit_notes'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    note = PurchaseCreditNoteService.get(owner_uid, note_id, sandbox=sandbox)
-    success, message = PurchaseCreditNoteService.void(owner_uid, note_id, sandbox=sandbox)
+    note = PurchaseCreditNoteService.get(owner_uid=owner_uid, note_id=note_id, sandbox=sandbox, company_id=company_id)
+    success, message = PurchaseCreditNoteService.void(owner_uid=owner_uid, note_id=note_id, sandbox=sandbox, company_id=company_id)
     if success:
         AuditService.log_from_request(
             owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_CN,
@@ -1993,13 +2043,15 @@ def supplier_retention_letter(invoice_id):
     if not check_permission('canManagePurchaseCXP'):
         return "Acceso denegado: requiere permiso de CxP", 403
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    invoice = SupplierInvoiceService.get(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = SupplierInvoiceService.get(owner_uid=owner_uid, invoice_id=invoice_id, sandbox=sandbox, company_id=company_id)
     if not invoice:
         return "Factura no encontrada", 404
 
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
 
     retained_isr_rate = float(invoice.get('retainedISR', 0) or 0)
     retained_itbis_rate = float(invoice.get('retainedITBIS', 0) or 0)
@@ -2072,13 +2124,15 @@ def supplier_retention_letter_email(invoice_id):
     if not check_permission('canManagePurchaseCXP'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    invoice = SupplierInvoiceService.get(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = SupplierInvoiceService.get(owner_uid=owner_uid, invoice_id=invoice_id, sandbox=sandbox, company_id=company_id)
     if not invoice:
         return jsonify(success=False, error="Factura no encontrada"), 404
 
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
 
     retained_isr_rate = float(invoice.get('retainedISR', 0) or 0)
     retained_itbis_rate = float(invoice.get('retainedITBIS', 0) or 0)

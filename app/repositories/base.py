@@ -1,14 +1,13 @@
 """
 Base Repository — abstrae Firestore con interfaz tipada.
 Cada repositorio de dominio hereda de esta clase.
+Opera exclusivamente sobre companies/{company_id}/{collection}.
 """
 import uuid
 from datetime import datetime, timezone
-from typing import Optional, TypeVar, Generic
+from typing import Optional
 
 from app.services.db_service import db_firestore, firebase_initialized
-
-T = TypeVar("T")
 
 
 def _serialize(value):
@@ -22,10 +21,10 @@ class BaseRepository:
     """Repositorio base con operaciones CRUD genéricas sobre Firestore."""
 
     collection_prefix: str = ""
-    owner_uid: str = ""
+    company_id: str = ""
 
-    def __init__(self, owner_uid: str):
-        self.owner_uid = owner_uid
+    def __init__(self, company_id: str):
+        self.company_id = company_id
 
     def _collection(self, sandbox: bool = True) -> str:
         """Retorna el nombre de la colección con prefijo sandbox si aplica."""
@@ -33,19 +32,19 @@ class BaseRepository:
         return f"{prefix}{self.collection_prefix}"
 
     def _doc_ref(self, doc_id: str, sandbox: bool = True):
-        """Retorna la referencia al documento en Firestore."""
+        """Retorna la referencia al documento en Firestore bajo companies/{company_id}/."""
         return (
-            db_firestore.collection("users")
-            .document(self.owner_uid)
+            db_firestore.collection("companies")
+            .document(self.company_id)
             .collection(self._collection(sandbox))
             .document(doc_id)
         )
 
     def _docs_ref(self, sandbox: bool = True):
-        """Retorna la referencia a la colección en Firestore."""
+        """Retorna la referencia a la colección en Firestore bajo companies/{company_id}/."""
         return (
-            db_firestore.collection("users")
-            .document(self.owner_uid)
+            db_firestore.collection("companies")
+            .document(self.company_id)
             .collection(self._collection(sandbox))
         )
 
@@ -75,7 +74,6 @@ class BaseRepository:
     def _save(self, doc_id: str, data: dict, sandbox: bool = True) -> str:
         """Guarda o actualiza un documento."""
         data["id"] = doc_id
-        data["ownerUID"] = self.owner_uid
         if "createdAt" not in data or not data.get("createdAt"):
             data["createdAt"] = datetime.now(timezone.utc).isoformat()
         data["updatedAt"] = datetime.now(timezone.utc).isoformat()

@@ -20,21 +20,21 @@ from app.services.payroll_service import PayrollService
 def payroll_dashboard():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services.payroll_static_data import DEFAULT_PAYROLL_CONFIG
 
     # Verificar onboarding
-    config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
+    config = hr.get_payroll_config(company_id, sandbox=sandbox)
     if not config.get("onboardingCompleted"):
         return redirect(url_for("web_rrhh.onboarding_guide"))
 
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
-    periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
+    employees = hr.get_employees(company_id, sandbox=sandbox)
+    periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
     user_name = session.get("user", {}).get("displayName", "")
 
     # ── Onboarding steps ──
-    positions = hr.get_catalog(owner_uid, "positions", sandbox=sandbox)
-    departments = hr.get_catalog(owner_uid, "departments", sandbox=sandbox)
+    positions = hr.get_catalog(company_id, "positions", sandbox=sandbox)
+    departments = hr.get_catalog(company_id, "departments", sandbox=sandbox)
     onboard_steps = {
         "frequency": bool(config.get("payrollFrequency")),
         "catalogs": len(positions) > 0 and len(departments) > 0,
@@ -70,7 +70,7 @@ def payroll_dashboard():
     progress_percent = int((steps / 4) * 100)
 
     # ── Grupos de nómina para dashboard ──
-    payroll_groups = hr.get_payroll_groups(owner_uid, sandbox=sandbox)
+    payroll_groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
     payroll_groups.sort(key=lambda g: g.get("name", ""))
     for g in payroll_groups:
         g["_employee_count"] = len([e for e in employees if g["id"] in e.get("payrollGroupIds", [])])
@@ -204,7 +204,7 @@ def payroll_dashboard():
     try:
         from app.services.offboarding_service import OffboardingService
         from app.models.offboarding import OFFBOARDING_STATES
-        osvc = OffboardingService(owner_uid, sandbox)
+        osvc = OffboardingService(company_id, sandbox)
         all_offboard = osvc.list_requests(limit=200)
         non_terminal = [r for r in all_offboard if r.get("status") not in ("completed", "cancelled", "rejected")]
         pipeline_statuses = [

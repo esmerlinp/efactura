@@ -24,16 +24,16 @@ from app.data.occupations_catalog import OCCUPATIONS
 def employee_list():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.db_service import DatabaseService
 
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    employees = hr.get_employees(company_id, sandbox=sandbox)
     from app.services.payroll_service import PayrollService
     for emp in employees:
         emp["vacationDays"] = PayrollService.calculate_vacation_days(emp.get("hireDate", ""))
 
-    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
+    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id)
 
     # ── Filtros ──
     search = request.args.get("search", "").strip().lower()
@@ -84,7 +84,7 @@ def employee_list():
 def employee_new():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_static_data import (
         ID_TYPES, MUNICIPIOS_RD, CONTRACT_TYPES, AREAS, WORKDAYS,
@@ -148,14 +148,14 @@ def employee_new():
             "vacationGranted": int(request.form.get("vacationGranted", 1) or 1),
             "nationality": 1,
         }
-        hr.save_employee(owner_uid, emp_id, data, sandbox=sandbox)
+        hr.save_employee(company_id, emp_id, data, sandbox=sandbox)
 
         # ── Crear entrada inicial en historial de salarios ──
         from app.services import hr_data_service as hr2
         salary = float(request.form.get("salary", 0) or 0)
         if salary > 0:
             history_id = str(uuid.uuid4())
-            hr2.save_salary_history_entry(owner_uid, {
+            hr2.save_salary_history_entry(company_id, {
                 "id": history_id,
                 "employeeId": emp_id,
                 "amount": salary,
@@ -168,7 +168,7 @@ def employee_new():
             }, sandbox=sandbox)
 
         from app.services.payroll_audit_service import log_action
-        log_action(owner_uid, "create", "employee", emp_id,
+        log_action(company_id, "create", "employee", emp_id,
                    session.get("user", {}).get("email", ""),
                    changes={"name": data["fullName"], "salary": salary}, sandbox=sandbox)
 
@@ -176,16 +176,16 @@ def employee_new():
         return redirect(url_for("web_rrhh.employee_list"))
 
     # Obtener reference data del usuario (con respaldo estático)
-    ref_data = hr.get_reference_data(owner_uid, sandbox=sandbox)
+    ref_data = hr.get_reference_data(company_id, sandbox=sandbox)
     contract_types = ref_data.get("contractTypes", CONTRACT_TYPES)
     areas = ref_data.get("areas", AREAS)
-    supervisors = [e for e in hr.get_employees(owner_uid, sandbox=sandbox) if e.get("status") == "activo"]
-    positions = hr.get_catalog(owner_uid, "positions", sandbox=sandbox)
-    departments = hr.get_catalog(owner_uid, "departments", sandbox=sandbox)
-    payroll_groups = hr.get_payroll_groups(owner_uid, sandbox=sandbox)
+    supervisors = [e for e in hr.get_employees(company_id, sandbox=sandbox) if e.get("status") == "activo"]
+    positions = hr.get_catalog(company_id, "positions", sandbox=sandbox)
+    departments = hr.get_catalog(company_id, "departments", sandbox=sandbox)
+    payroll_groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
     payroll_groups.sort(key=lambda g: g.get("name", ""))
     from app.services.db_service import DatabaseService
-    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
+    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id)
 
     from app.data.occupations_catalog import OCCUPATIONS
     return render_template("rrhh/employee_form.html", active_page="rrhh_employees", employee=None,
@@ -203,14 +203,14 @@ def employee_new():
 def employee_edit(employee_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_static_data import (
         ID_TYPES, MUNICIPIOS_RD, CONTRACT_TYPES, AREAS, WORKDAYS,
         PAYMENT_METHODS, BANCOS_RD, ACCOUNT_TYPES, PAYROLL_FREQUENCIES,
     )
 
-    employee = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
+    employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
     if not employee:
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_list"))
@@ -266,7 +266,7 @@ def employee_edit(employee_id):
             "vacationGranted": int(request.form.get("vacationGranted", 1) or 1),
             "nationality": employee.get("nationality", 1),
         })
-        hr.save_employee(owner_uid, employee_id, employee, sandbox=sandbox)
+        hr.save_employee(company_id, employee_id, employee, sandbox=sandbox)
 
         # ── Historial de cambios estructurales ──
         new_position = request.form.get("position", "").strip()
@@ -281,7 +281,7 @@ def employee_edit(employee_id):
             if new_position != old_position: changes.append(f"Cargo: {old_position} → {new_position}")
             if new_department != old_department: changes.append(f"Depto: {old_department} → {new_department}")
             if new_supervisor != old_supervisor: changes.append(f"Supervisor: {old_supervisor} → {new_supervisor}")
-            hr.save_employment_history(owner_uid, {
+            hr.save_employment_history(company_id, {
                 "id": str(uuid.uuid4()), "employeeId": employee_id,
                 "changedAt": datetime.now(timezone.utc).isoformat(),
                 "changedBy": session.get("user", {}).get("email", ""),
@@ -289,24 +289,24 @@ def employee_edit(employee_id):
             }, sandbox=sandbox)
 
         from app.services.payroll_audit_service import log_action
-        log_action(owner_uid, "update", "employee", employee_id,
+        log_action(company_id, "update", "employee", employee_id,
                    session.get("user", {}).get("email", ""),
                    changes={"position": new_position, "department": new_department, "supervisor": new_supervisor}, sandbox=sandbox)
 
         flash("Empleado actualizado exitosamente.", "success")
         return redirect(url_for("web_rrhh.employee_list"))
 
-    ref_data = hr.get_reference_data(owner_uid, sandbox=sandbox)
+    ref_data = hr.get_reference_data(company_id, sandbox=sandbox)
     contract_types = ref_data.get("contractTypes", CONTRACT_TYPES)
     areas = ref_data.get("areas", AREAS)
-    supervisors = [e for e in hr.get_employees(owner_uid, sandbox=sandbox)
+    supervisors = [e for e in hr.get_employees(company_id, sandbox=sandbox)
                    if e.get("status") == "activo" and e.get("id") != employee_id]
-    positions = hr.get_catalog(owner_uid, "positions", sandbox=sandbox)
-    departments = hr.get_catalog(owner_uid, "departments", sandbox=sandbox)
-    payroll_groups = hr.get_payroll_groups(owner_uid, sandbox=sandbox)
+    positions = hr.get_catalog(company_id, "positions", sandbox=sandbox)
+    departments = hr.get_catalog(company_id, "departments", sandbox=sandbox)
+    payroll_groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
     payroll_groups.sort(key=lambda g: g.get("name", ""))
     from app.services.db_service import DatabaseService
-    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
+    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id)
 
     from app.data.occupations_catalog import OCCUPATIONS
     return render_template("rrhh/employee_form.html", active_page="rrhh_employees", employee=employee,
@@ -324,12 +324,12 @@ def employee_edit(employee_id):
 def employee_view(employee_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_service import PayrollService
     from app.services.db_service import DatabaseService
 
-    employee = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
+    employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
     if not employee:
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_list"))
@@ -338,12 +338,12 @@ def employee_view(employee_id):
     severance = PayrollService.calculate_severance(
         employee.get("baseSalary", 0), employee.get("hireDate", "")
     )
-    evals = [e for e in hr.get_evaluations(owner_uid, sandbox=sandbox) if e.get("employeeId") == employee_id]
-    trainings = [t for t in hr.get_trainings(owner_uid, sandbox=sandbox) if t.get("employeeId") == employee_id]
-    docs = hr.get_employee_documents(owner_uid, employee_id, sandbox=sandbox)
+    evals = [e for e in hr.get_evaluations(company_id, sandbox=sandbox) if e.get("employeeId") == employee_id]
+    trainings = [t for t in hr.get_trainings(company_id, sandbox=sandbox) if t.get("employeeId") == employee_id]
+    docs = hr.get_employee_documents(company_id, employee_id, sandbox=sandbox)
 
     # Historial de pagos (últimos 24 períodos)
-    periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
+    periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
     payment_history = []
     for p in sorted(periods, key=lambda x: x.get("periodKey", ""), reverse=True)[:24]:
         for l in p.get("lines", []):
@@ -352,7 +352,7 @@ def employee_view(employee_id):
                 break
 
     # Acciones de personal masivas que afectaron a este empleado
-    mass_actions = hr.get_mass_actions(owner_uid, sandbox=sandbox)
+    mass_actions = hr.get_mass_actions(company_id, sandbox=sandbox)
     ACTION_LABELS = {
         "salary_change": "Cambio Salarial", "position_change": "Cambio de Puesto",
         "supervisor_change": "Cambio de Supervisor", "promotion": "Promoción",
@@ -374,7 +374,7 @@ def employee_view(employee_id):
                 break
     employee_actions.sort(key=lambda a: a.get("createdAt", ""), reverse=True)
 
-    dependents = hr.get_employee_dependents(owner_uid, employee_id, sandbox=sandbox)
+    dependents = hr.get_employee_dependents(company_id, employee_id, sandbox=sandbox)
     from app.utils.hr_utils import calculate_age, is_minor, RELATIONSHIP_CATALOG
     for d in dependents:
         d["_age"] = calculate_age(d.get("birthDate", ""))
@@ -393,19 +393,19 @@ def employee_view(employee_id):
     try:
         from app.services.offboarding_data_service import list_requests as _list_offboard_reqs
         from app.models.offboarding import OFFBOARDING_STATES as _off_states
-        offboarding_requests = _list_offboard_reqs(owner_uid, sandbox, limit=5)
+        offboarding_requests = _list_offboard_reqs(company_id, sandbox, limit=5)
         offboarding_requests = [r for r in offboarding_requests if r.get("employeeId") == employee_id]
         offboarding_states = _off_states
     except Exception:
         pass
 
-    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
+    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id)
     return render_template("rrhh/employee_view.html", active_page="rrhh_employees",
                            employee=_sanitize_for_role(employee), vacation_days=vacation_days,
                            severance=severance, evaluations=evals, trainings=trainings,
                            documents=docs, payment_history=payment_history,
                            employee_actions=employee_actions,
-                           payroll_groups=hr.get_payroll_groups(owner_uid, sandbox=sandbox),
+                           payroll_groups=hr.get_payroll_groups(company_id, sandbox=sandbox),
                            branches=branches,
                            dependents=dependents, dep_minor=dep_minor, dep_adult=dep_adult,
                            dep_financial=dep_financial, dep_student=dep_student,
@@ -419,9 +419,9 @@ def employee_view(employee_id):
 def employee_rehire(employee_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     hr_serv = hr
-    employee = hr_serv.get_employee(owner_uid, employee_id, sandbox=sandbox)
+    employee = hr_serv.get_employee(company_id, employee_id, sandbox=sandbox)
     if not employee:
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_list"))
@@ -461,10 +461,10 @@ def employee_rehire(employee_id):
     if reset_vacation:
         employee["vacationGranted"] = 0
 
-    hr_serv.save_employee(owner_uid, employee_id, employee, sandbox=sandbox)
+    hr_serv.save_employee(company_id, employee_id, employee, sandbox=sandbox)
 
     from app.services.payroll_audit_service import log_action
-    log_action(owner_uid, "rehire", "employee", employee_id,
+    log_action(company_id, "rehire", "employee", employee_id,
                session.get("user", {}).get("email", ""),
                changes={"status": "activo", "rehireDate": employee["rehireDate"]},
                sandbox=sandbox)

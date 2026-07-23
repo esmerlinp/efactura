@@ -1,5 +1,6 @@
 """
 AccountingRepository — acceso a datos contables: catálogo de cuentas, asientos, activos fijos, períodos fiscales.
+Opera sobre companies/{company_id}/...
 """
 from typing import Optional
 
@@ -11,14 +12,10 @@ class AccountingRepository(BaseRepository):
 
     # ── Chart of Accounts ──────────────────────────────────────────────
     def get_chart_of_accounts(self) -> list:
-        return self._get_all(sandbox=False) if self._uses_sandbox_collection("chart_of_accounts") else self._get_chart_fallback()
-
-    def _get_chart_fallback(self) -> list:
-        """El catálogo de cuentas no usa sandbox porque es configuración base."""
         from app.services.db_service import db_firestore, firebase_initialized
         if not firebase_initialized:
             return []
-        docs = db_firestore.collection("users").document(self.owner_uid).collection("chart_of_accounts").get()
+        docs = db_firestore.collection("companies").document(self.company_id).collection("chart_of_accounts").get()
         results = []
         for doc in docs:
             data = doc.to_dict()
@@ -29,9 +26,8 @@ class AccountingRepository(BaseRepository):
     def save_account(self, account_id: str, data: dict) -> str:
         from app.services.db_service import db_firestore, firebase_initialized
         data["id"] = account_id
-        data["ownerUID"] = self.owner_uid
         if firebase_initialized:
-            db_firestore.collection("users").document(self.owner_uid).collection("chart_of_accounts").document(account_id).set(data)
+            db_firestore.collection("companies").document(self.company_id).collection("chart_of_accounts").document(account_id).set(data)
         return account_id
 
     # ── Journal Entries ────────────────────────────────────────────────
@@ -60,7 +56,7 @@ class AccountingRepository(BaseRepository):
 
             @firestore.transactional
             def run_in_transaction(transaction):
-                counter_ref = db_firestore.collection("users").document(self.owner_uid).collection("config").document("entry_counter")
+                counter_ref = db_firestore.collection("companies").document(self.company_id).collection("config").document("entry_counter")
                 counter = counter_ref.get(transaction=transaction)
                 if counter.exists:
                     data = counter.to_dict()
@@ -96,7 +92,7 @@ class AccountingRepository(BaseRepository):
         from app.services.db_service import db_firestore, firebase_initialized
         if not firebase_initialized:
             return []
-        docs = db_firestore.collection("users").document(self.owner_uid).collection("fiscal_periods").get()
+        docs = db_firestore.collection("companies").document(self.company_id).collection("fiscal_periods").get()
         results = []
         for doc in docs:
             data = doc.to_dict()
@@ -108,7 +104,7 @@ class AccountingRepository(BaseRepository):
         from app.services.db_service import db_firestore, firebase_initialized
         data["id"] = period_id
         if firebase_initialized:
-            db_firestore.collection("users").document(self.owner_uid).collection("fiscal_periods").document(period_id).set(data)
+            db_firestore.collection("companies").document(self.company_id).collection("fiscal_periods").document(period_id).set(data)
         return period_id
 
     # ── Entry Types ────────────────────────────────────────────────────
@@ -116,7 +112,7 @@ class AccountingRepository(BaseRepository):
         from app.services.db_service import db_firestore, firebase_initialized
         types = []
         if firebase_initialized:
-            docs = db_firestore.collection("users").document(self.owner_uid).collection("config").document("entry_types").collection("types").get()
+            docs = db_firestore.collection("companies").document(self.company_id).collection("config").document("entry_types").collection("types").get()
             for doc in docs:
                 data = doc.to_dict()
                 data["id"] = doc.id
@@ -126,7 +122,7 @@ class AccountingRepository(BaseRepository):
     def save_entry_type(self, type_id: str, data: dict) -> str:
         from app.services.db_service import db_firestore, firebase_initialized
         if firebase_initialized:
-            db_firestore.collection("users").document(self.owner_uid).collection("config").document("entry_types").collection("types").document(type_id).set(data)
+            db_firestore.collection("companies").document(self.company_id).collection("config").document("entry_types").collection("types").document(type_id).set(data)
         return type_id
 
     # ── Cost Centers ───────────────────────────────────────────────────
@@ -145,6 +141,3 @@ class AccountingRepository(BaseRepository):
     def delete_cost_center(self, center_id: str, sandbox: bool = True) -> bool:
         self.collection_prefix = "cost_centers"
         return self._delete(center_id, sandbox=sandbox)
-
-    def _uses_sandbox_collection(self, prefix: str) -> bool:
-        return False

@@ -3,12 +3,12 @@ Ahora delegando en AuditService central para trazabilidad unificada con IP, user
 
 import uuid
 from datetime import datetime, timezone
-from app.services.db_service import db_firestore, firebase_initialized
+from app.services.db_service import db_firestore, firebase_initialized, DatabaseService
 
 
-def _audit_collection(owner_uid: str, sandbox: bool = True) -> str:
+def _audit_collection(company_id: str, sandbox: bool = True) -> str:
     prefix = "sandbox_" if sandbox else ""
-    return f"users/{owner_uid}/{prefix}hr_audit_log"
+    return f"companies/{company_id}/{prefix}hr_audit_log"
 
 
 def _get_request_context():
@@ -23,14 +23,14 @@ def _get_request_context():
         return "", "", {}
 
 
-def log_action(owner_uid: str, action: str, entity: str, entity_id: str,
+def log_action(company_id: str, action: str, entity: str, entity_id: str,
                user_email: str, changes: dict = None, comment: str = "",
                sandbox: bool = True, before: dict = None, after: dict = None):
     ip_addr, user_agent, user_session = _get_request_context()
 
     if firebase_initialized and db_firestore is not None:
         try:
-            coll = _audit_collection(owner_uid, sandbox)
+            coll = _audit_collection(company_id, sandbox)
             entry = {
                 "id": str(uuid.uuid4()),
                 "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -51,11 +51,12 @@ def log_action(owner_uid: str, action: str, entity: str, entity_id: str,
 
     try:
         from app.services.audit_service import AuditService
+        from app.services.db_service import _resolve_owner_uid
         user_session = user_session or {}
         module_label = f"RRHH — {entity}"
         entity_label = f"{action} — {entity} {entity_id}"
         AuditService.log_from_request(
-            owner_uid=owner_uid,
+            owner_uid=_resolve_owner_uid(company_id) or company_id,
             action=action,
             module=module_label,
             entity_id=entity_id,
@@ -69,12 +70,12 @@ def log_action(owner_uid: str, action: str, entity: str, entity_id: str,
         print(f"⚠️ PayrollAuditService — error delegando a AuditService: {e}")
 
 
-def get_audit_log(owner_uid: str, entity: str = None, entity_id: str = None,
+def get_audit_log(company_id: str, entity: str = None, entity_id: str = None,
                   limit: int = 200, sandbox: bool = True) -> list:
     if not firebase_initialized or db_firestore is None:
         return []
     try:
-        coll = _audit_collection(owner_uid, sandbox)
+        coll = _audit_collection(company_id, sandbox)
         query = db_firestore.collection(coll).order_by("timestamp", direction="DESCENDING")
         if entity:
             query = query.where("entity", "==", entity)

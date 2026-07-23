@@ -20,16 +20,16 @@ import os
 def employee_payslip(employee_id, period_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    employee = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
+    employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
     if not employee:
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_list"))
 
-    period = hr.get_payroll_period(owner_uid, period_id, sandbox=sandbox)
-    period["lines"] = PayrollService.get_period_lines(period, owner_uid=owner_uid, sandbox=sandbox)
+    period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
+    period["lines"] = PayrollService.get_period_lines(period, company_id=company_id, sandbox=sandbox)
     if not period:
         flash("Período no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
@@ -47,12 +47,12 @@ def employee_payslip(employee_id, period_id):
 def employee_payslip_pdf(employee_id, period_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    employee = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
-    period = hr.get_payroll_period(owner_uid, period_id, sandbox=sandbox)
-    period["lines"] = PayrollService.get_period_lines(period, owner_uid=owner_uid, sandbox=sandbox)
+    employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
+    period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
+    period["lines"] = PayrollService.get_period_lines(period, company_id=company_id, sandbox=sandbox)
     if not employee or not period:
         return "Empleado o período no encontrado.", 404
 
@@ -78,12 +78,12 @@ def employee_payslip_pdf(employee_id, period_id):
 def employee_payslip_email(employee_id, period_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    employee = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
-    period = hr.get_payroll_period(owner_uid, period_id, sandbox=sandbox)
-    period["lines"] = PayrollService.get_period_lines(period, owner_uid=owner_uid, sandbox=sandbox)
+    employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
+    period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
+    period["lines"] = PayrollService.get_period_lines(period, company_id=company_id, sandbox=sandbox)
     if not employee or not period:
         flash("Empleado o período no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
@@ -124,11 +124,11 @@ def employee_payslip_email(employee_id, period_id):
 def employee_calculate_payroll(employee_id):
     if _login_required():
         return jsonify({"error": "No autorizado"}), 401
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_service import PayrollService
 
-    employee = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
+    employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
     if not employee:
         return jsonify({"error": "Empleado no encontrado"}), 404
 
@@ -140,7 +140,7 @@ def employee_calculate_payroll(employee_id):
     other_income = float(request.form.get("other_income", 0) or 0)
     other_deductions = float(request.form.get("other_deductions", 0) or 0)
 
-    tax_rates_data = hr.get_tax_rates(owner_uid, sandbox=sandbox)
+    tax_rates_data = hr.get_tax_rates(company_id, sandbox=sandbox)
     rates = PayrollService.get_rates(tax_rates_data)
 
     calc = PayrollService.calculate_payroll_line(

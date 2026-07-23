@@ -40,10 +40,10 @@ def _parse_int(val, default=0):
         return default
 
 
-def _get_annulled_invoices(owner_uid, sandbox, year, month):
+def _get_annulled_invoices(owner_uid, sandbox, year, month, company_id=None):
     prefix = f"{year:04d}-{month:02d}"
     invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox,
-        branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
     filtered = []
     for inv in invoices:
         if inv.get('status') != 'Anulada':
@@ -76,6 +76,7 @@ def reporte_608():
     if not check_permission("canReports"):
         return render_template("auth/restricted.html", active_page="reporte_608")
     owner_uid = session["user"]["ownerUID"]
+    company_id = session.get("selected_company_id")
     sandbox = session.get("is_sandbox_mode", True)
 
     now = datetime.now(timezone.utc)
@@ -84,7 +85,7 @@ def reporte_608():
     cancellation_type = request.args.get("cancellation_type", "").strip()
     search = request.args.get("search", "").strip()
 
-    invoices = _get_annulled_invoices(owner_uid, sandbox, year, month)
+    invoices = _get_annulled_invoices(owner_uid, sandbox, year, month, company_id=company_id)
     filtered = _filter_annulled(invoices, cancellation_type, search)
     filtered.sort(key=lambda x: (x.get("cancelledAt") or x.get("updatedAt") or x.get("date") or x.get("createdAt") or ""))
 
@@ -95,7 +96,7 @@ def reporte_608():
         ct = e.get("cancellationType", "04")
         by_type[ct] += 1
 
-    profile = DatabaseService.get_company_profile(owner_uid)
+    profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     owner_rnc = (profile or {}).get("companyRNC", "")
 
     return render_template(
@@ -273,6 +274,7 @@ def reporte_608_export():
     if not check_permission("canReports"):
         return render_template("auth/restricted.html"), 403
     owner_uid = session["user"]["ownerUID"]
+    company_id = session.get("selected_company_id")
     sandbox = session.get("is_sandbox_mode", True)
 
     now = datetime.now(timezone.utc)
@@ -282,11 +284,11 @@ def reporte_608_export():
     search = request.args.get("search", "").strip()
     fmt = request.args.get("format", "simple")
 
-    invoices = _get_annulled_invoices(owner_uid, sandbox, year, month)
+    invoices = _get_annulled_invoices(owner_uid, sandbox, year, month, company_id=company_id)
     filtered = _filter_annulled(invoices, cancellation_type, search)
     filtered.sort(key=lambda x: (x.get("cancelledAt") or x.get("updatedAt") or x.get("date") or x.get("createdAt") or ""))
 
-    profile = DatabaseService.get_company_profile(owner_uid)
+    profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     owner_rnc = (profile or {}).get("companyRNC", "")
 
     if fmt == "xlsx":

@@ -59,15 +59,15 @@ STATUS_LABELS = {
 def payroll_calendar_view():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
     now = date.today()
     year = int(request.args.get("year", now.year))
 
-    periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
+    periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
     year_periods = [p for p in periods if p.get("year") == year]
-    groups = hr.get_payroll_groups(owner_uid, sandbox=sandbox)
+    groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
     group_map = {g["id"]: g for g in groups}
 
     holidays = _get_dominican_holidays(year)

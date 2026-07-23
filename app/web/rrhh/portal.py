@@ -14,10 +14,10 @@ from app.services import hr_data_service as hr
 # PORTAL DEL EMPLEADO (Self-Service)
 # ═══════════════════════════════════════════════════════════════════════════
 
-def _get_my_employee(owner_uid, sandbox):
+def _get_my_employee(company_id, sandbox):
     from app.services import hr_data_service as hr
     email = session.get("user", {}).get("email", "")
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    employees = hr.get_employees(company_id, sandbox=sandbox)
     for emp in employees:
         if emp.get("email", "").strip().lower() == email.strip().lower():
             return emp
@@ -28,9 +28,9 @@ def _get_my_employee(owner_uid, sandbox):
 def employee_portal_dashboard():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services.payroll_service import PayrollService
-    employee = _get_my_employee(owner_uid, sandbox)
+    employee = _get_my_employee(company_id, sandbox)
     if not employee:
         flash("No se encontró tu perfil de empleado. Contacta a RRHH.", "error")
         return redirect(url_for("web_rrhh.payroll_dashboard"))
@@ -43,14 +43,14 @@ def employee_portal_dashboard():
 def employee_portal_payslips():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
-    employee = _get_my_employee(owner_uid, sandbox)
+    employee = _get_my_employee(company_id, sandbox)
     if not employee:
         flash("Perfil no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_dashboard"))
 
-    periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
+    periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
     my_payslips = []
     for p in sorted(periods, key=lambda x: x.get("periodKey", ""), reverse=True)[:24]:
         for l in p.get("lines", []):
@@ -65,13 +65,13 @@ def employee_portal_payslips():
 def employee_portal_payslip_detail(period_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
-    employee = _get_my_employee(owner_uid, sandbox)
+    employee = _get_my_employee(company_id, sandbox)
     if not employee:
         flash("Perfil no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_dashboard"))
-    period = hr.get_payroll_period(owner_uid, period_id, sandbox=sandbox)
+    period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
     if not period:
         flash("Período no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_portal_payslips"))
@@ -90,10 +90,10 @@ def employee_portal_payslip_detail(period_id):
 def employee_portal_vacation_new():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_service import PayrollService
-    employee = _get_my_employee(owner_uid, sandbox)
+    employee = _get_my_employee(company_id, sandbox)
     if not employee:
         flash("Perfil no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_dashboard"))
@@ -103,7 +103,7 @@ def employee_portal_vacation_new():
         business_days = PayrollService.calculate_business_days(start_date, end_date)
         remaining = PayrollService.calculate_vacation_days(employee.get("hireDate", ""))
         req_id = str(uuid.uuid4())
-        hr.save_vacation_request(owner_uid, req_id, {
+        hr.save_vacation_request(company_id, req_id, {
             "id": req_id, "employeeId": employee["id"],
             "employeeName": employee.get("fullName", ""),
             "startDate": start_date, "endDate": end_date,
@@ -122,13 +122,13 @@ def employee_portal_vacation_new():
 def employee_portal_evaluations():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
-    employee = _get_my_employee(owner_uid, sandbox)
+    employee = _get_my_employee(company_id, sandbox)
     if not employee:
         flash("Perfil no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_dashboard"))
-    evals = [e for e in hr.get_evaluations(owner_uid, sandbox=sandbox) if e.get("employeeId") == employee["id"]]
+    evals = [e for e in hr.get_evaluations(company_id, sandbox=sandbox) if e.get("employeeId") == employee["id"]]
     return render_template("rrhh/portal/evaluations.html", employee=employee, evaluations=evals)
 
 
@@ -136,13 +136,13 @@ def employee_portal_evaluations():
 def employee_portal_trainings():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
-    employee = _get_my_employee(owner_uid, sandbox)
+    employee = _get_my_employee(company_id, sandbox)
     if not employee:
         flash("Perfil no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_dashboard"))
-    trainings = [t for t in hr.get_trainings(owner_uid, sandbox=sandbox) if t.get("employeeId") == employee["id"]]
+    trainings = [t for t in hr.get_trainings(company_id, sandbox=sandbox) if t.get("employeeId") == employee["id"]]
     return render_template("rrhh/portal/trainings.html", employee=employee, trainings=trainings)
 
 
@@ -150,9 +150,9 @@ def employee_portal_trainings():
 def employee_portal_leave_new():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
-    employee = _get_my_employee(owner_uid, sandbox)
+    employee = _get_my_employee(company_id, sandbox)
     if not employee:
         flash("Perfil no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_dashboard"))
@@ -161,7 +161,7 @@ def employee_portal_leave_new():
         end_date = request.form.get("endDate", "")
         days = (datetime.strptime(end_date, "%Y-%m-%d") - datetime.strptime(start_date, "%Y-%m-%d")).days + 1
         req_id = str(uuid.uuid4())
-        hr.save_leave_request(owner_uid, req_id, {
+        hr.save_leave_request(company_id, req_id, {
             "id": req_id, "employeeId": employee["id"],
             "employeeName": employee.get("fullName", ""),
             "leaveType": request.form.get("leaveType", "otro"),

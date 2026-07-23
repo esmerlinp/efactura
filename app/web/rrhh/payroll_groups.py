@@ -8,7 +8,9 @@ from app.web.rrhh import (
     _filter_employees_by_period, _generate_periods,
 )
 from app.services import hr_data_service as hr
+from app.extensions import limiter
 from uuid import uuid4
+import os, json, threading
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -19,11 +21,11 @@ from uuid import uuid4
 def payroll_groups_list():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
-    groups = hr.get_payroll_groups(owner_uid, sandbox=sandbox)
+    groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
     groups.sort(key=lambda g: g.get("name", ""))
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    employees = hr.get_employees(company_id, sandbox=sandbox)
     group_employee_counts = {}
     for g in groups:
         gid = g["id"]
@@ -36,7 +38,7 @@ def payroll_groups_list():
 def payroll_groups_new():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
     if request.method == "POST":
@@ -56,7 +58,7 @@ def payroll_groups_new():
             "createdAt": now_iso, "updatedAt": now_iso,
             "createdBy": session.get("user", {}).get("email", ""),
         }
-        hr.save_payroll_group(owner_uid, gid, data, sandbox=sandbox)
+        hr.save_payroll_group(company_id, gid, data, sandbox=sandbox)
         flash(f"Grupo de nómina «{name}» creado.", "success")
         return redirect(url_for("web_rrhh.payroll_groups_list"))
     return render_template("rrhh/payroll_groups_form.html", active_page="rrhh_payroll", group=None)
@@ -66,10 +68,10 @@ def payroll_groups_new():
 def payroll_groups_edit(group_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    group = hr.get_payroll_group(owner_uid, group_id, sandbox=sandbox)
+    group = hr.get_payroll_group(company_id, group_id, sandbox=sandbox)
     if not group:
         flash("Grupo no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_groups_list"))
@@ -80,7 +82,7 @@ def payroll_groups_edit(group_id):
         group["frequency"] = request.form.get("frequency", "mensual").strip()
         group["isActive"] = request.form.get("isActive") == "on"
         group["updatedAt"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        hr.save_payroll_group(owner_uid, group_id, group, sandbox=sandbox)
+        hr.save_payroll_group(company_id, group_id, group, sandbox=sandbox)
         flash(f"Grupo «{group['name']}» actualizado.", "success")
         return redirect(url_for("web_rrhh.payroll_groups_list"))
     return render_template("rrhh/payroll_groups_form.html", active_page="rrhh_payroll", group=group)
@@ -90,9 +92,9 @@ def payroll_groups_edit(group_id):
 def payroll_groups_delete(group_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
-    hr.delete_payroll_group(owner_uid, group_id, sandbox=sandbox)
+    hr.delete_payroll_group(company_id, group_id, sandbox=sandbox)
     flash("Grupo eliminado.", "success")
     return redirect(url_for("web_rrhh.payroll_groups_list"))
 
@@ -101,29 +103,29 @@ def payroll_groups_delete(group_id):
 def payroll_groups_view(group_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    group = hr.get_payroll_group(owner_uid, group_id, sandbox=sandbox)
+    group = hr.get_payroll_group(company_id, group_id, sandbox=sandbox)
     if not group:
         flash("Grupo no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_groups_list"))
 
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    employees = hr.get_employees(company_id, sandbox=sandbox)
     assigned = [e for e in employees if group_id in e.get("payrollGroupIds", [])]
     unassigned = [e for e in employees if group_id not in e.get("payrollGroupIds", []) and e.get("status") == "activo"]
 
-    periods = [p for p in hr.get_payroll_periods(owner_uid, sandbox=sandbox)
+    periods = [p for p in hr.get_payroll_periods(company_id, sandbox=sandbox)
                if p.get("payrollGroupId") == group_id]
     periods.sort(key=lambda p: p.get("periodKey", ""), reverse=True)
 
-    global_rates = hr.get_tax_rates(owner_uid, sandbox=sandbox) or {}
+    global_rates = hr.get_tax_rates(company_id, sandbox=sandbox) or {}
     from app.services.payroll_service import PayrollService
     from app.services.legal_parameter_resolver import resolve_all
     from datetime import date
 
     today_str = date.today().isoformat()
-    legal_params = resolve_all(owner_uid, today_str, sandbox=sandbox)
+    legal_params = resolve_all(company_id, today_str, sandbox=sandbox)
 
     default_rates = PayrollService.get_rates(global_rates)
     # Los parámetros legales vienen de resolve_all(); las cuentas contables de get_tax_rates()
@@ -163,10 +165,10 @@ def payroll_groups_view(group_id):
 def payroll_groups_assign(group_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    group = hr.get_payroll_group(owner_uid, group_id, sandbox=sandbox)
+    group = hr.get_payroll_group(company_id, group_id, sandbox=sandbox)
     if not group:
         flash("Grupo no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_groups_list"))
@@ -174,14 +176,14 @@ def payroll_groups_assign(group_id):
     employee_ids = request.form.getlist("employee_ids")
     count = 0
     for emp_id in employee_ids:
-        emp = hr.get_employee(owner_uid, emp_id, sandbox=sandbox)
+        emp = hr.get_employee(company_id, emp_id, sandbox=sandbox)
         if not emp:
             continue
         current = emp.get("payrollGroupIds", [])
         if group_id not in current:
             current = list(current) + [group_id]
             emp["payrollGroupIds"] = current
-            hr.save_employee(owner_uid, emp_id, emp, sandbox=sandbox)
+            hr.save_employee(company_id, emp_id, emp, sandbox=sandbox)
             count += 1
 
     flash(f"{count} empleado(s) asignado(s) al grupo «{group.get('name', '')}».", "success")
@@ -192,10 +194,10 @@ def payroll_groups_assign(group_id):
 def payroll_groups_assign_async(group_id):
     if _login_required():
         return {"success": False, "message": "No autenticado."}, 401
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    group = hr.get_payroll_group(owner_uid, group_id, sandbox=sandbox)
+    group = hr.get_payroll_group(company_id, group_id, sandbox=sandbox)
     if not group:
         return {"success": False, "message": "Grupo no encontrado."}, 404
 
@@ -206,14 +208,14 @@ def payroll_groups_assign_async(group_id):
 
     count = 0
     for emp_id in employee_ids:
-        emp = hr.get_employee(owner_uid, emp_id, sandbox=sandbox)
+        emp = hr.get_employee(company_id, emp_id, sandbox=sandbox)
         if not emp:
             continue
         current = emp.get("payrollGroupIds", [])
         if group_id not in current:
             current = list(current) + [group_id]
             emp["payrollGroupIds"] = current
-            hr.save_employee(owner_uid, emp_id, emp, sandbox=sandbox)
+            hr.save_employee(company_id, emp_id, emp, sandbox=sandbox)
             count += 1
 
     return {"success": True, "count": count, "message": f"{count} empleado(s) asignado(s)."}
@@ -223,10 +225,10 @@ def payroll_groups_assign_async(group_id):
 def payroll_groups_unassign_async(group_id):
     if _login_required():
         return {"success": False, "message": "No autenticado."}, 401
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    group = hr.get_payroll_group(owner_uid, group_id, sandbox=sandbox)
+    group = hr.get_payroll_group(company_id, group_id, sandbox=sandbox)
     if not group:
         return {"success": False, "message": "Grupo no encontrado."}, 404
 
@@ -235,7 +237,7 @@ def payroll_groups_unassign_async(group_id):
     if isinstance(employee_ids, str):
         employee_ids = [employee_ids]
 
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    employees = hr.get_employees(company_id, sandbox=sandbox)
     if employee_ids:
         employees = [e for e in employees if e["id"] in employee_ids]
 
@@ -245,7 +247,7 @@ def payroll_groups_unassign_async(group_id):
         if group_id in current:
             current = [g for g in current if g != group_id]
             emp["payrollGroupIds"] = current
-            hr.save_employee(owner_uid, emp["id"], emp, sandbox=sandbox)
+            hr.save_employee(company_id, emp["id"], emp, sandbox=sandbox)
             count += 1
 
     return {"success": True, "count": count, "message": f"{count} empleado(s) removido(s)."}
@@ -255,16 +257,16 @@ def payroll_groups_unassign_async(group_id):
 def payroll_groups_unassign(group_id, employee_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    emp = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
+    emp = hr.get_employee(company_id, employee_id, sandbox=sandbox)
     if emp:
         current = emp.get("payrollGroupIds", [])
         if group_id in current:
             current = [g for g in current if g != group_id]
             emp["payrollGroupIds"] = current
-            hr.save_employee(owner_uid, employee_id, emp, sandbox=sandbox)
+            hr.save_employee(company_id, employee_id, emp, sandbox=sandbox)
 
     flash("Empleado removido del grupo.", "success")
     return redirect(url_for("web_rrhh.payroll_groups_view", group_id=group_id))
@@ -274,15 +276,15 @@ def payroll_groups_unassign(group_id, employee_id):
 def payroll_groups_assign_all(group_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    group = hr.get_payroll_group(owner_uid, group_id, sandbox=sandbox)
+    group = hr.get_payroll_group(company_id, group_id, sandbox=sandbox)
     if not group:
         flash("Grupo no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_groups_list"))
 
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    employees = hr.get_employees(company_id, sandbox=sandbox)
     count = 0
     for emp in employees:
         if emp.get("status") != "activo":
@@ -291,7 +293,7 @@ def payroll_groups_assign_all(group_id):
         if group_id not in current:
             current = list(current) + [group_id]
             emp["payrollGroupIds"] = current
-            hr.save_employee(owner_uid, emp["id"], emp, sandbox=sandbox)
+            hr.save_employee(company_id, emp["id"], emp, sandbox=sandbox)
             count += 1
 
     flash(f"{count} empleado(s) asignado(s) al grupo «{group.get('name', '')}».", "success")
@@ -302,16 +304,16 @@ def payroll_groups_assign_all(group_id):
 def payroll_groups_unassign_all(group_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    group = hr.get_payroll_group(owner_uid, group_id, sandbox=sandbox)
+    group = hr.get_payroll_group(company_id, group_id, sandbox=sandbox)
     if not group:
         flash("Grupo no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_groups_list"))
 
     specific_ids = request.form.getlist("employee_ids")
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    employees = hr.get_employees(company_id, sandbox=sandbox)
     if specific_ids:
         employees = [e for e in employees if e["id"] in specific_ids]
 
@@ -321,11 +323,109 @@ def payroll_groups_unassign_all(group_id):
         if group_id in current:
             current = [g for g in current if g != group_id]
             emp["payrollGroupIds"] = current
-            hr.save_employee(owner_uid, emp["id"], emp, sandbox=sandbox)
+            hr.save_employee(company_id, emp["id"], emp, sandbox=sandbox)
             count += 1
 
     flash(f"{count} empleado(s) removido(s) del grupo «{group.get('name', '')}».", "success")
     return redirect(url_for("web_rrhh.payroll_groups_view", group_id=group_id))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ASIGNACIÓN MASIVA ASÍNCRONA CON PROGRESS DIALOG (Job + Polling)
+# ═══════════════════════════════════════════════════════════════════════════
+
+PAYROLL_JOB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                                'uploads', 'temp_imports', 'payroll_jobs')
+
+
+def _write_payroll_job(job_file, state):
+    os.makedirs(PAYROLL_JOB_DIR, exist_ok=True)
+    with open(job_file, 'w') as jf:
+        json.dump(state, jf, default=str)
+
+
+@web_rrhh_bp.route("/rrhh/payroll/groups/<group_id>/assign-all-async", methods=["POST"])
+def payroll_groups_assign_all_async(group_id):
+    if _login_required():
+        return {"success": False, "message": "No autenticado."}, 401
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+
+    group = hr.get_payroll_group(company_id, group_id, sandbox=sandbox)
+    if not group:
+        return {"success": False, "message": "Grupo no encontrado."}, 404
+
+    employees = hr.get_employees(company_id, sandbox=sandbox)
+    candidates = [e for e in employees
+                  if e.get("status") == "activo"
+                  and group_id not in e.get("payrollGroupIds", [])]
+
+    if not candidates:
+        return {"success": False, "message": "No hay empleados activos sin asignar a este grupo."}, 400
+
+    job_id = str(uuid4())
+    job_file = os.path.join(PAYROLL_JOB_DIR, f"{job_id}.json")
+    total = len(candidates)
+
+    state = {
+        "job_id": job_id, "status": "processing", "total": total,
+        "processed": 0, "assigned": 0, "errors": [],
+        "group_name": group.get("name", ""),
+    }
+    _write_payroll_job(job_file, state)
+
+    def process():
+        assigned = 0
+        errors = []
+        for idx, emp in enumerate(candidates):
+            try:
+                current = emp.get("payrollGroupIds", [])
+                if group_id not in current:
+                    emp["payrollGroupIds"] = list(current) + [group_id]
+                    hr.save_employee(company_id, emp["id"], emp, sandbox=sandbox)
+                    assigned += 1
+            except Exception as e:
+                errors.append({
+                    "employee": emp.get("fullName", emp.get("id", "")),
+                    "reason": str(e),
+                })
+
+            processed = idx + 1
+            if processed % max(1, total // 20) == 0 or processed == total:
+                _write_payroll_job(job_file, {
+                    "job_id": job_id, "status": "processing",
+                    "total": total, "processed": processed,
+                    "assigned": assigned, "errors": errors[-20:],
+                    "group_name": group.get("name", ""),
+                })
+
+        _write_payroll_job(job_file, {
+            "job_id": job_id, "status": "completed",
+            "total": total, "processed": total,
+            "assigned": assigned, "errors": errors,
+            "group_name": group.get("name", ""),
+        })
+
+    thread = threading.Thread(target=process)
+    thread.daemon = True
+    thread.start()
+
+    return {"success": True, "job_id": job_id, "total": total,
+            "message": f"Iniciando asignación de {total} empleado(s) al grupo «{group.get('name', '')}»."}
+
+
+@web_rrhh_bp.route("/rrhh/payroll/groups/assign-status/<job_id>")
+@limiter.exempt
+def payroll_groups_assign_status(job_id):
+    if _login_required():
+        return {"status": "not_found", "error": "No autorizado"}, 401
+    job_file = os.path.join(PAYROLL_JOB_DIR, f"{job_id}.json")
+    if os.path.exists(job_file):
+        try:
+            with open(job_file, 'r') as jf:
+                return jsonify(json.load(jf))
+        except Exception:
+            return {"status": "not_found", "error": "Error al leer el estado"}, 500
+    return {"status": "not_found", "error": "Job no encontrado"}, 404
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -336,10 +436,10 @@ def payroll_groups_unassign_all(group_id):
 def payroll_groups_save_settings(group_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    group = hr.get_payroll_group(owner_uid, group_id, sandbox=sandbox)
+    group = hr.get_payroll_group(company_id, group_id, sandbox=sandbox)
     if not group:
         flash("Grupo no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_groups_list"))
@@ -380,7 +480,7 @@ def payroll_groups_save_settings(group_id):
 
     group["groupOverrides"] = group_overrides
     group["updatedAt"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    hr.save_payroll_group(owner_uid, group_id, group, sandbox=sandbox)
+    hr.save_payroll_group(company_id, group_id, group, sandbox=sandbox)
 
     flash(f"Configuración guardada para el grupo «{group.get('name', '')}».", "success")
     return redirect(url_for("web_rrhh.payroll_groups_view", group_id=group_id))
@@ -394,12 +494,12 @@ def payroll_groups_save_settings(group_id):
 def payroll_groups_assign_salary(group_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from datetime import datetime, timezone
     import uuid
 
-    group = hr.get_payroll_group(owner_uid, group_id, sandbox=sandbox)
+    group = hr.get_payroll_group(company_id, group_id, sandbox=sandbox)
     if not group:
         flash("Grupo no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_groups_list"))
@@ -435,7 +535,7 @@ def payroll_groups_assign_salary(group_id):
     }
 
     try:
-        hr._save(owner_uid, "contract_group_assignments", assignment_id, data, sandbox)
+        hr._save(company_id, "contract_group_assignments", assignment_id, data, sandbox)
     except Exception as e:
         flash(f"Error al guardar asignación: {e}", "error")
         return redirect(url_for("web_rrhh.payroll_groups_view", group_id=group_id))

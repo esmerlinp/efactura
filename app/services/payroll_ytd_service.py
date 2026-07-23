@@ -13,12 +13,12 @@ Método de retención acumulada DGII 08-04:
 """
 
 from datetime import date
-from app.services.db_service import db_firestore, firebase_initialized
+from app.services.db_service import db_firestore, firebase_initialized, DatabaseService
 
 
-def _ytd_collection(owner_uid: str, sandbox: bool = True) -> str:
+def _ytd_collection(company_id: str, sandbox: bool = True) -> str:
     prefix = "sandbox_" if sandbox else ""
-    return f"users/{owner_uid}/{prefix}hr_ytd_accumulations"
+    return f"companies/{company_id}/{prefix}hr_ytd_accumulations"
 
 
 YTD_FIELDS = [
@@ -29,13 +29,13 @@ YTD_FIELDS = [
 ]
 
 
-def get_ytd(owner_uid: str, employee_id: str, year: int,
+def get_ytd(company_id: str, employee_id: str, year: int,
             contract_id: str = "", sandbox: bool = True) -> dict:
     """Obtiene los acumulados YTD de un empleado/contrato para un año."""
     if not firebase_initialized or db_firestore is None:
         return _empty_ytd(employee_id, year, contract_id)
     try:
-        coll = _ytd_collection(owner_uid, sandbox)
+        coll = _ytd_collection(company_id, sandbox)
         doc_id = _ytd_doc_id(employee_id, year, contract_id)
         doc = db_firestore.collection(coll).document(doc_id).get()
         if doc.exists:
@@ -45,13 +45,13 @@ def get_ytd(owner_uid: str, employee_id: str, year: int,
     return _empty_ytd(employee_id, year, contract_id)
 
 
-def get_employee_ytd(owner_uid: str, employee_id: str, year: int,
+def get_employee_ytd(company_id: str, employee_id: str, year: int,
                      sandbox: bool = True) -> dict:
     """Obtiene YTD consolidado de todos los contratos de un empleado."""
     if not firebase_initialized or db_firestore is None:
         return _empty_ytd(employee_id, year)
     try:
-        coll = _ytd_collection(owner_uid, sandbox)
+        coll = _ytd_collection(company_id, sandbox)
         docs = db_firestore.collection(coll)\
             .where("employeeId", "==", employee_id)\
             .where("year", "==", year).get()
@@ -83,12 +83,12 @@ def get_employee_ytd(owner_uid: str, employee_id: str, year: int,
         return _empty_ytd(employee_id, year)
 
 
-def save_ytd(owner_uid: str, employee_id: str, year: int,
+def save_ytd(company_id: str, employee_id: str, year: int,
              data: dict, contract_id: str = "", sandbox: bool = True):
     if not firebase_initialized or db_firestore is None:
         return
     try:
-        coll = _ytd_collection(owner_uid, sandbox)
+        coll = _ytd_collection(company_id, sandbox)
         doc_id = _ytd_doc_id(employee_id, year, contract_id)
         data["employeeId"] = employee_id
         data["year"] = year

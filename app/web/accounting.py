@@ -113,15 +113,15 @@ def dashboard():
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
     sandbox = _sandbox()
-    AccountingService.seed_default_accounts(owner_uid, country=get_current_country())
-    AccountingService.seed_default_entry_types(owner_uid)
-    tree, accounts = AccountingService.get_accounts_tree(owner_uid)
+    AccountingService.seed_default_accounts(owner_uid, company_id=company_id, country=get_current_country())
+    AccountingService.seed_default_entry_types(owner_uid, company_id=company_id)
+    tree, accounts = AccountingService.get_accounts_tree(owner_uid, company_id=company_id)
     # Obtener entradas UNA sola vez y pasarlas a todos los reportes
-    entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox)
+    entries = DatabaseService.get_accounting_entries(owner_uid, company_id=company_id, sandbox=sandbox)
     active_entries = [e for e in entries if e.get("status") != "voided"]
-    balance = AccountingService.get_balance_sheet(owner_uid, accounts=accounts, entries=entries)
-    income = AccountingService.get_income_statement(owner_uid, accounts=accounts, entries=entries)
-    trial = AccountingService.get_trial_balance(owner_uid, accounts=accounts, entries=entries)
+    balance = AccountingService.get_balance_sheet(owner_uid, company_id=company_id, accounts=accounts, entries=entries)
+    income = AccountingService.get_income_statement(owner_uid, company_id=company_id, accounts=accounts, entries=entries)
+    trial = AccountingService.get_trial_balance(owner_uid, company_id=company_id, accounts=accounts, entries=entries)
     total_assets = balance["activos"]["total"]
     total_liabilities = balance["pasivos"]["total"]
     total_equity = balance["patrimonio"]["total"]
@@ -149,7 +149,7 @@ def chart_of_accounts():
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
-    tree_data, all_accounts = AccountingService.get_accounts_tree(owner_uid)
+    tree_data, all_accounts = AccountingService.get_accounts_tree(owner_uid, company_id=company_id)
     account_groups = ACCOUNT_GROUPS
     flat_list = _flatten_tree(tree_data, all_accounts)
     return render_template('accounting/chart_of_accounts.html',
@@ -168,8 +168,8 @@ def api_accounts():
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
     owner_uid = _owner_uid()
-    AccountingService.seed_default_accounts(owner_uid, country=get_current_country())
-    accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+    AccountingService.seed_default_accounts(owner_uid, company_id=company_id, country=get_current_country())
+    accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
     return jsonify(success=True, accounts=accounts)
 
 
@@ -180,8 +180,8 @@ def api_accounts_tree():
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
     owner_uid = _owner_uid()
-    AccountingService.seed_default_accounts(owner_uid, country=get_current_country())
-    tree, accounts = AccountingService.get_accounts_tree(owner_uid)
+    AccountingService.seed_default_accounts(owner_uid, company_id=company_id, country=get_current_country())
+    tree, accounts = AccountingService.get_accounts_tree(owner_uid, company_id=company_id)
     return jsonify(success=True, tree=tree)
 
 
@@ -218,10 +218,10 @@ def create_account():
     }
     # Calcular nivel basado en padre
     if parent_id:
-        parent = DatabaseService.get_account(owner_uid, parent_id)
+        parent = DatabaseService.get_account(owner_uid, parent_id, company_id=company_id)
         if parent:
             account["level"] = parent.get("level", 1) + 1
-    result = DatabaseService.save_account(owner_uid, account_id, account)
+    result = DatabaseService.save_account(owner_uid, account_id, account, company_id=company_id)
     if result:
         flash('✅ Cuenta contable creada exitosamente.', 'success')
     else:
@@ -238,7 +238,7 @@ def edit_account(account_id):
     if not check_permission('canAccounting'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = _owner_uid()
-    account = DatabaseService.get_account(owner_uid, account_id)
+    account = DatabaseService.get_account(owner_uid, account_id, company_id=company_id)
     if not account:
         flash('❌ Cuenta contable no encontrada.', 'error')
         return redirect(url_for('web_accounting.chart_of_accounts'))
@@ -251,7 +251,7 @@ def edit_account(account_id):
     account['description'] = request.form.get('description', '').strip()
     account['showByThirdParty'] = request.form.get('showByThirdParty') == 'on'
     account['updatedAt'] = datetime.now(timezone.utc).isoformat()
-    DatabaseService.save_account(owner_uid, account_id, account)
+    DatabaseService.save_account(owner_uid, account_id, account, company_id=company_id)
     flash('✅ Cuenta contable actualizada.', 'success')
     return redirect(url_for('web_accounting.chart_of_accounts'))
 
@@ -265,14 +265,14 @@ def delete_account(account_id):
     if not check_permission('canAccounting'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = _owner_uid()
-    account = DatabaseService.get_account(owner_uid, account_id)
+    account = DatabaseService.get_account(owner_uid, account_id, company_id=company_id)
     if not account:
         return jsonify(success=False, error="Cuenta no encontrada"), 404
     if account.get('isSystem'):
         return jsonify(success=False, error="No puedes eliminar una cuenta regla del sistema"), 400
     reclassify_to = request.form.get('reclassifyTo')
     if reclassify_to:
-        entries = DatabaseService.get_accounting_entries(owner_uid)
+        entries = DatabaseService.get_accounting_entries(owner_uid, company_id=company_id)
         for entry in entries:
             modified = False
             for line in entry.get("lines", []):
@@ -280,8 +280,8 @@ def delete_account(account_id):
                     line["accountId"] = reclassify_to
                     modified = True
             if modified:
-                DatabaseService.save_accounting_entry(owner_uid, entry["id"], entry)
-    DatabaseService.delete_account(owner_uid, account_id)
+                DatabaseService.save_accounting_entry(owner_uid, entry["id"], entry, company_id=company_id)
+    DatabaseService.delete_account(owner_uid, account_id, company_id=company_id)
     return jsonify(success=True, message="Cuenta eliminada correctamente. Los movimientos han sido reclasificados.")
 
 
@@ -294,16 +294,16 @@ def account_movements(account_id):
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
-    account = DatabaseService.get_account(owner_uid, account_id)
+    account = DatabaseService.get_account(owner_uid, account_id, company_id=company_id)
     if not account:
         flash('❌ Cuenta contable no encontrada.', 'error')
         return redirect(url_for('web_accounting.chart_of_accounts'))
     date_from = request.args.get('dateFrom', '')
     date_to = request.args.get('dateTo', '')
     # Obtener entradas una sola vez para movimientos y balance
-    all_entries = DatabaseService.get_accounting_entries(owner_uid)
-    movements = AccountingService.get_account_movements(owner_uid, account_id, date_from=date_from, date_to=date_to, entries=all_entries)
-    balance = AccountingService.get_account_balance(owner_uid, account_id, date_from=date_from, date_to=date_to, entries=all_entries)
+    all_entries = DatabaseService.get_accounting_entries(owner_uid, company_id=company_id)
+    movements = AccountingService.get_account_movements(owner_uid, account_id, company_id=company_id, date_from=date_from, date_to=date_to, entries=all_entries)
+    balance = AccountingService.get_account_balance(owner_uid, account_id, company_id=company_id, date_from=date_from, date_to=date_to, entries=all_entries)
     return render_template('accounting/account_movements.html',
                            active_page='acc_chart',
                            account=account,
@@ -326,10 +326,10 @@ def journal_entries():
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
     sandbox = _sandbox()
-    AccountingService.seed_default_accounts(owner_uid, country=get_current_country())
-    entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox)
-    entry_types = DatabaseService.get_entry_types(owner_uid)
-    accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+    AccountingService.seed_default_accounts(owner_uid, company_id=company_id, country=get_current_country())
+    entries = DatabaseService.get_accounting_entries(owner_uid, company_id=company_id, sandbox=sandbox)
+    entry_types = DatabaseService.get_entry_types(owner_uid, company_id=company_id)
+    accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
 
     q = request.args.get('q', '').strip()
     status_filter = request.args.get('status', '')
@@ -421,10 +421,10 @@ def new_journal_entry():
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
     sandbox = _sandbox()
-    AccountingService.seed_default_accounts(owner_uid, country=get_current_country())
-    AccountingService.seed_default_entry_types(owner_uid)
-    accounts = DatabaseService.get_chart_of_accounts(owner_uid)
-    entry_types = DatabaseService.get_entry_types(owner_uid)
+    AccountingService.seed_default_accounts(owner_uid, company_id=company_id, country=get_current_country())
+    AccountingService.seed_default_entry_types(owner_uid, company_id=company_id)
+    accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
+    entry_types = DatabaseService.get_entry_types(owner_uid, company_id=company_id)
     if request.method == 'POST':
         try:
             lines = []
@@ -435,7 +435,7 @@ def new_journal_entry():
             for i in range(len(line_accounts)):
                 if not line_accounts[i]:
                     continue
-                acc = DatabaseService.get_account(owner_uid, line_accounts[i])
+                acc = DatabaseService.get_account(owner_uid, line_accounts[i], company_id=company_id)
                 lines.append({
                     "accountId": line_accounts[i],
                     "accountCode": acc.get("code", "") if acc else "",
@@ -455,7 +455,7 @@ def new_journal_entry():
                 "createdBy": session['user'].get('uid', ''),
                 "prefix": request.form.get('prefix', 'ED'),
             }
-            entry = AccountingService.generate_entry(owner_uid, entry_data, sandbox=sandbox)
+            entry = AccountingService.generate_entry(owner_uid, entry_data, company_id=company_id, sandbox=sandbox)
             flash(f'✅ Entrada de diario {entry["number"]} creada exitosamente.', 'success')
             return redirect(url_for('web_accounting.journal_entries'))
         except ValueError as e:
@@ -479,7 +479,7 @@ def journal_entry_detail(entry_id):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
     sandbox = _sandbox()
-    entry = DatabaseService.get_accounting_entry(owner_uid, entry_id, sandbox=sandbox)
+    entry = DatabaseService.get_accounting_entry(owner_uid, entry_id, company_id=company_id, sandbox=sandbox)
     if not entry:
         flash('❌ Entrada de diario no encontrada.', 'error')
         return redirect(url_for('web_accounting.journal_entries'))
@@ -499,7 +499,7 @@ def void_journal_entry(entry_id):
     owner_uid = _owner_uid()
     sandbox = _sandbox()
     reason = request.form.get('reason', '')
-    AccountingService.void_entry(owner_uid, entry_id, reason=reason, user_id=session['user'].get('uid', ''), sandbox=sandbox)
+    AccountingService.void_entry(owner_uid, entry_id, company_id=company_id, reason=reason, user_id=session['user'].get('uid', ''), sandbox=sandbox)
     flash('✅ Entrada de diario anulada.', 'success')
     return redirect(url_for('web_accounting.journal_entries'))
 
@@ -514,7 +514,7 @@ def clone_journal_entry(entry_id):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = _owner_uid()
     sandbox = _sandbox()
-    new_entry = AccountingService.clone_entry(owner_uid, entry_id, sandbox=sandbox)
+    new_entry = AccountingService.clone_entry(owner_uid, entry_id, company_id=company_id, sandbox=sandbox)
     if new_entry:
         flash(f'✅ Entrada clonada como {new_entry["number"]}.', 'success')
     else:
@@ -535,7 +535,7 @@ def general_journal():
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
     sandbox = _sandbox()
-    entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox)
+    entries = DatabaseService.get_accounting_entries(owner_uid, company_id=company_id, sandbox=sandbox)
     date_from = request.args.get('dateFrom', '')
     date_to = request.args.get('dateTo', '')
     entry_type_filter = request.args.get('type', '')
@@ -566,8 +566,8 @@ def balance_sheet():
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
-    AccountingService.seed_default_accounts(owner_uid, country=get_current_country())
-    accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+    AccountingService.seed_default_accounts(owner_uid, company_id=company_id, country=get_current_country())
+    accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
 
     date_to = request.args.get('date_to', '')
     if date_to:
@@ -603,7 +603,7 @@ def balance_sheet():
                     bm[aid] = bm.get(aid, 0.0) + float(line.get("debit", 0)) - float(line.get("credit", 0))
         return bm
 
-    all_entries_bs = DatabaseService.get_accounting_entries(owner_uid)
+    all_entries_bs = DatabaseService.get_accounting_entries(owner_uid, company_id=company_id)
     curr_balance_map_bs = _bs_balance_map(all_entries_bs, curr_date_to)
     prev_balance_map_bs = _bs_balance_map(all_entries_bs, prev_date_to)
 
@@ -947,8 +947,8 @@ def income_statement():
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
-    AccountingService.seed_default_accounts(owner_uid, country=get_current_country())
-    accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+    AccountingService.seed_default_accounts(owner_uid, company_id=company_id, country=get_current_country())
+    accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
 
     # Build code_map for O(1) lookups
     code_map = {}
@@ -983,7 +983,7 @@ def income_statement():
     prev_date_to = f"{prev_y}-{date_to[4:]}"
 
     # Precompute balance maps — single Firestore call
-    all_entries = DatabaseService.get_accounting_entries(owner_uid)
+    all_entries = DatabaseService.get_accounting_entries(owner_uid, company_id=company_id)
     curr_balance_map = AccountingService._compute_balances_map(all_entries, date_from=curr_date_from, date_to=curr_date_to)
     prev_balance_map = AccountingService._compute_balances_map(all_entries, date_from=prev_date_from, date_to=prev_date_to)
 
@@ -1373,7 +1373,7 @@ def trial_balance():
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
     date = request.args.get('date', '')
-    result = AccountingService.get_trial_balance(owner_uid, date=date or None)
+    result = AccountingService.get_trial_balance(owner_uid, company_id=company_id, date=date or None)
     return render_template('accounting/trial_balance.html',
                            active_page='acc_reports',
                            rows=result["rows"],
@@ -1395,8 +1395,8 @@ def general_ledger():
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
     sandbox = _sandbox()
-    entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox)
-    all_accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+    entries = DatabaseService.get_accounting_entries(owner_uid, company_id=company_id, sandbox=sandbox)
+    all_accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
 
     # Build account lookup: id -> {code, name, type, group, nature}
     account_map = {}
@@ -1509,10 +1509,10 @@ def fixed_assets():
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
     sandbox = _sandbox()
-    AccountingService.seed_default_accounts(owner_uid, country=get_current_country())
-    assets = DatabaseService.get_fixed_assets(owner_uid, sandbox=sandbox)
+    AccountingService.seed_default_accounts(owner_uid, company_id=company_id, country=get_current_country())
+    assets = DatabaseService.get_fixed_assets(owner_uid, company_id=company_id, sandbox=sandbox)
     summary = FixedAssetService.get_assets_summary(owner_uid, sandbox=sandbox)
-    accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+    accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
     return render_template('accounting/fixed_assets.html',
                            active_page='acc_assets',
                            assets=assets,
@@ -1531,8 +1531,8 @@ def new_fixed_asset():
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
     sandbox = _sandbox()
-    AccountingService.seed_default_accounts(owner_uid, country=get_current_country())
-    accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+    AccountingService.seed_default_accounts(owner_uid, company_id=company_id, country=get_current_country())
+    accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
     if request.method == 'POST':
         try:
             asset_data = {
@@ -1574,7 +1574,7 @@ def fixed_asset_detail(asset_id):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
     sandbox = _sandbox()
-    asset = DatabaseService.get_fixed_asset(owner_uid, asset_id, sandbox=sandbox)
+    asset = DatabaseService.get_fixed_asset(owner_uid, asset_id, company_id=company_id, sandbox=sandbox)
     if not asset:
         flash('❌ Activo fijo no encontrado.', 'error')
         return redirect(url_for('web_accounting.fixed_assets'))
@@ -1639,7 +1639,7 @@ def entry_types_settings():
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
-    AccountingService.seed_default_entry_types(owner_uid)
+    AccountingService.seed_default_entry_types(owner_uid, company_id=company_id)
     if request.method == 'POST':
         type_id = str(uuid.uuid4())
         type_data = {
@@ -1651,10 +1651,10 @@ def entry_types_settings():
             "isSystem": False,
             "isActive": True,
         }
-        DatabaseService.save_entry_type(owner_uid, type_id, type_data)
+        DatabaseService.save_entry_type(owner_uid, type_id, type_data, company_id=company_id)
         flash('✅ Tipo de entrada de diario creado.', 'success')
         return redirect(url_for('web_accounting.entry_types_settings'))
-    entry_types = DatabaseService.get_entry_types(owner_uid)
+    entry_types = DatabaseService.get_entry_types(owner_uid, company_id=company_id)
     return render_template('accounting/entry_types.html',
                            active_page='acc_settings',
                            entry_types=entry_types)
@@ -1669,7 +1669,7 @@ def delete_entry_type(type_id):
     if not check_permission('canAccounting'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = _owner_uid()
-    DatabaseService.delete_entry_type(owner_uid, type_id)
+    DatabaseService.delete_entry_type(owner_uid, type_id, company_id=company_id)
     return jsonify(success=True, message="Tipo de entrada eliminado.")
 
 
@@ -1686,8 +1686,8 @@ def initial_balances():
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
     sandbox = _sandbox()
-    AccountingService.seed_default_accounts(owner_uid, country=get_current_country())
-    accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+    AccountingService.seed_default_accounts(owner_uid, company_id=company_id, country=get_current_country())
+    accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
     if request.method == 'POST':
         try:
             lines = []
@@ -1697,7 +1697,7 @@ def initial_balances():
             for i in range(len(line_accounts)):
                 if not line_accounts[i]:
                     continue
-                acc = DatabaseService.get_account(owner_uid, line_accounts[i])
+                acc = DatabaseService.get_account(owner_uid, line_accounts[i], company_id=company_id)
                 lines.append({
                     "accountId": line_accounts[i],
                     "accountCode": acc.get("code", "") if acc else "",
@@ -1714,7 +1714,7 @@ def initial_balances():
                 "createdBy": session['user'].get('uid', ''),
                 "prefix": "SI",
             }
-            entry = AccountingService.generate_entry(owner_uid, entry_data, sandbox=sandbox)
+            entry = AccountingService.generate_entry(owner_uid, entry_data, company_id=company_id, sandbox=sandbox)
             flash(f'✅ Saldos iniciales registrados como {entry["number"]}.', 'success')
             return redirect(url_for('web_accounting.initial_balances'))
         except ValueError as e:
@@ -1739,8 +1739,8 @@ def import_initial_balances():
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
     sandbox = _sandbox()
-    AccountingService.seed_default_accounts(owner_uid, country=get_current_country())
-    accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+    AccountingService.seed_default_accounts(owner_uid, company_id=company_id, country=get_current_country())
+    accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
 
     if request.method == 'POST' and 'file' in request.files:
         try:
@@ -1820,7 +1820,7 @@ def import_initial_balances():
                 "createdBy": session['user'].get('uid', ''),
                 "prefix": "SI",
             }
-            entry = AccountingService.generate_entry(owner_uid, entry_data, sandbox=sandbox)
+            entry = AccountingService.generate_entry(owner_uid, entry_data, company_id=company_id, sandbox=sandbox)
             msg = f'✅ {len(lines)} línea(s) importadas como {entry["number"]}.'
             if errors:
                 msg += f' {len(errors)} advertencia(s): ' + '; '.join(errors[:3])
@@ -1842,7 +1842,7 @@ def download_initial_balances_template():
     if not user:
         return redirect(url_for('web_auth.login'))
     owner_uid = _owner_uid()
-    accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+    accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
 
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -1898,7 +1898,7 @@ def api_import_entries():
                 "lines": entry_data.get("lines", []),
                 "createdBy": session['user'].get('uid', 'system'),
                 "prefix": entry_data.get("prefix", "ED"),
-            }, sandbox=sandbox)
+            }, company_id=company_id, sandbox=sandbox)
             results.append(entry["number"])
         return jsonify(success=True, entries_created=results)
     except ValueError as e:
@@ -1920,7 +1920,7 @@ def list_cost_centers():
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
     sandbox = _sandbox()
-    cost_centers = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox)
+    cost_centers = DatabaseService.get_cost_centers(owner_uid, company_id=company_id, sandbox=sandbox)
     return render_template('accounting/cost_centers.html',
                            active_page='acc_settings',
                            cost_centers=cost_centers)
@@ -1946,7 +1946,7 @@ def new_cost_center():
     if not center_dict["name"]:
         flash('❌ El nombre del centro de costo es obligatorio.', 'error')
         return redirect(url_for('web_accounting.list_cost_centers'))
-    DatabaseService.save_cost_center(owner_uid, center_id, center_dict, sandbox=sandbox)
+    DatabaseService.save_cost_center(owner_uid, center_id, center_dict, company_id=company_id, sandbox=sandbox)
     flash('✅ Centro de costo creado exitosamente.', 'success')
     return redirect(url_for('web_accounting.list_cost_centers'))
 
@@ -1961,7 +1961,7 @@ def edit_cost_center(center_id):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
     sandbox = _sandbox()
-    existing = DatabaseService.get_cost_center(owner_uid, center_id, sandbox=sandbox)
+    existing = DatabaseService.get_cost_center(owner_uid, center_id, company_id=company_id, sandbox=sandbox)
     if not existing:
         flash('❌ Centro de costo no encontrado.', 'error')
         return redirect(url_for('web_accounting.list_cost_centers'))
@@ -1975,7 +1975,7 @@ def edit_cost_center(center_id):
     if not center_dict["name"]:
         flash('❌ El nombre del centro de costo es obligatorio.', 'error')
         return redirect(url_for('web_accounting.list_cost_centers'))
-    DatabaseService.save_cost_center(owner_uid, center_id, center_dict, sandbox=sandbox)
+    DatabaseService.save_cost_center(owner_uid, center_id, center_dict, company_id=company_id, sandbox=sandbox)
     flash('✅ Centro de costo actualizado.', 'success')
     return redirect(url_for('web_accounting.list_cost_centers'))
 
@@ -1990,7 +1990,7 @@ def delete_cost_center_route(center_id):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
     sandbox = _sandbox()
-    DatabaseService.delete_cost_center(owner_uid, center_id, sandbox=sandbox)
+    DatabaseService.delete_cost_center(owner_uid, center_id, company_id=company_id, sandbox=sandbox)
     flash('✅ Centro de costo eliminado.', 'success')
     return redirect(url_for('web_accounting.list_cost_centers'))
 
@@ -2015,7 +2015,7 @@ def ajax_create_cost_center():
         "description": (data.get('description') or '').strip(),
         "isActive": True,
     }
-    DatabaseService.save_cost_center(owner_uid, center_id, center_dict, sandbox=sandbox)
+    DatabaseService.save_cost_center(owner_uid, center_id, center_dict, company_id=company_id, sandbox=sandbox)
     return jsonify(success=True, id=center_id, name=name, code=center_dict["code"])
 
 
@@ -2026,6 +2026,7 @@ def fiscal_periods():
         flash('No tienes permiso para acceder a esta sección.', 'error')
         return redirect(url_for('web_dashboard.dashboard'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     year = request.args.get('year', type=int, default=datetime.now(timezone.utc).year)
     from app.services.fiscal_period_service import FiscalPeriodService
     periods = FiscalPeriodService.list_periods(owner_uid, year)
@@ -2039,6 +2040,7 @@ def close_fiscal_period():
     if not check_permission('canAccounting'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     year = request.form.get('year', type=int)
     month = request.form.get('month', type=int)
     if not year or not month:
@@ -2060,6 +2062,7 @@ def open_fiscal_period():
     if not check_permission('canAccounting') or session.get('user', {}).get('role') != 'owner':
         return jsonify(success=False, error="Solo el propietario puede reabrir períodos"), 403
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     year = request.form.get('year', type=int)
     month = request.form.get('month', type=int)
     if not year or not month:
@@ -2088,6 +2091,7 @@ def year_end_close():
         flash('No tienes permiso para acceder a esta sección.', 'error')
         return redirect(url_for('web_dashboard.dashboard'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = _sandbox()
     year = request.args.get('year', type=int, default=datetime.now(timezone.utc).year)
     from app.services.fiscal_closing_service import FiscalClosingService
@@ -2102,6 +2106,7 @@ def execute_year_end_close():
     if not check_permission('canAccounting') or session.get('user', {}).get('role') != 'owner':
         return jsonify(success=False, error="Solo el propietario puede ejecutar el cierre anual"), 403
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = _sandbox()
     year = request.form.get('year', type=int)
     if not year:
@@ -2129,6 +2134,7 @@ def closing_checklist():
         flash('No tienes permiso para acceder a esta sección.', 'error')
         return redirect(url_for('web_dashboard.dashboard'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     now = datetime.now(timezone.utc)
     year = request.args.get('year', type=int, default=now.year)
     month = request.args.get('month', type=int, default=now.month)
@@ -2147,6 +2153,7 @@ def toggle_checklist_task():
     if not check_permission('canAccounting'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     year = request.form.get('year', type=int)
     month = request.form.get('month', type=int)
     task_id = request.form.get('task_id', '')

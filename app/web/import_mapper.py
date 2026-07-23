@@ -217,7 +217,7 @@ def ai_suggest_mapping():
     if not headers or not target_fields:
         return jsonify({"success": False, "message": "Datos faltantes."}), 400
         
-    res = AIService.suggest_mapping(owner_uid, headers, target_fields)
+    res = AIService.suggest_mapping(owner_uid, headers, target_fields, company_id=session.get('selected_company_id'))
     return jsonify(res)
 
 @web_import_mapper_bp.route('/import/process', methods=['POST'])
@@ -229,6 +229,7 @@ def process_import():
     
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
     
     import_type = request.form.get('import_type')
     temp_filename = request.form.get('temp_filename')
@@ -279,8 +280,13 @@ def process_import():
                     if field_id in mapping and len(row) > mapping[field_id]:
                         val = row[mapping[field_id]].strip()
                     
+                    user_default = request.form.get(f'default_{field_id}', '').strip()
+                    apply_to_all = request.form.get(f'default_all_{field_id}') == 'on'
+                    
+                    if apply_to_all and user_default != '':
+                        return user_default
+                    
                     if not val:
-                        user_default = request.form.get(f'default_{field_id}', '').strip()
                         return user_default if user_default != '' else default
                     return val
                 
@@ -308,7 +314,7 @@ def process_import():
                         "createdAt": datetime.now(timezone.utc).isoformat(),
                         "customer_category": get_val('customer_category', 'NORMAL')
                     }
-                    DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
+                    DatabaseService.save_client(owner_uid, client_id, client_dict, company_id=company_id, sandbox=sandbox)
                     results["imported"] += 1
                     
                 elif import_type == 'products':
@@ -321,7 +327,7 @@ def process_import():
                         
                     cat_name = get_val('categoryId')
                     if cat_name:
-                        category_id = DatabaseService.get_or_create_category_by_name(owner_uid, cat_name, sandbox=sandbox)
+                        category_id = DatabaseService.get_or_create_category_by_name(owner_uid, cat_name, company_id=company_id, sandbox=sandbox)
                     else:
                         category_id = "general"
 
@@ -352,7 +358,7 @@ def process_import():
                         "maxStock": sanitize_float(get_val('maxStock')),
                         "imageUrl": get_val('imageUrl')
                     }
-                    DatabaseService.save_item(owner_uid, item_id, item_dict, sandbox=sandbox)
+                    DatabaseService.save_item(owner_uid, item_id, item_dict, company_id=company_id, sandbox=sandbox)
                     results["imported"] += 1
                     
                 elif import_type == 'invoices':
@@ -451,7 +457,7 @@ def process_import():
                     }
                     if warehouse_id:
                         inv_dict["warehouseId"] = warehouse_id
-                    DatabaseService.save_invoice(owner_uid, invoice_id, inv_dict, sandbox=sandbox)
+                    DatabaseService.save_invoice(owner_uid, invoice_id, inv_dict, company_id=company_id, sandbox=sandbox)
                     results["imported"] += 1
 
         # Guardar resultados en sesión para el reporte

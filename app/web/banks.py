@@ -21,10 +21,11 @@ def list_banks():
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
-    summary = DatabaseService.get_bank_summary(owner_uid, sandbox=sandbox)
+    accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox, company_id=company_id)
+    summary = DatabaseService.get_bank_summary(owner_uid, sandbox=sandbox, company_id=company_id)
 
     return render_template('banks/list.html', active_page='banks',
                            accounts=accounts, summary=summary,
@@ -37,9 +38,10 @@ def bank_detail(account_id):
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    account = DatabaseService.get_bank_account(owner_uid, account_id, sandbox=sandbox)
+    account = DatabaseService.get_bank_account(owner_uid, account_id, sandbox=sandbox, company_id=company_id)
     if not account:
         flash('Cuenta no encontrada.', 'error')
         return redirect(url_for('web_banks.list_banks'))
@@ -72,7 +74,7 @@ def bank_detail(account_id):
                         inv_payments_by_inv[inv_id] = []
                     inv_payments_by_inv[inv_id].append(data)
             if inv_payments_by_inv:
-                invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+                invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
                 inv_map = {inv.get('id'): inv for inv in invoices}
                 for inv_id, payments in inv_payments_by_inv.items():
                     inv = inv_map.get(inv_id, {})
@@ -106,7 +108,7 @@ def bank_detail(account_id):
                         cxp_by_exp[exp_id] = []
                     cxp_by_exp[exp_id].append(data)
             if cxp_by_exp:
-                expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+                expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, company_id=company_id)
                 exp_map = {e.get('id'): e for e in expenses}
                 for exp_id, payments in cxp_by_exp.items():
                     exp = exp_map.get(exp_id, {})
@@ -125,7 +127,7 @@ def bank_detail(account_id):
 
     # 3. Gastos directos con esta cuenta bancaria
     try:
-        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, company_id=company_id)
         for exp in expenses:
             if exp.get('bankAccountId') == account_id:
                 transactions.append({
@@ -142,7 +144,7 @@ def bank_detail(account_id):
 
     # 4. Transferencias bancarias
     try:
-        transfers = DatabaseService.get_bank_transfers(owner_uid, sandbox=sandbox)
+        transfers = DatabaseService.get_bank_transfers(owner_uid, sandbox=sandbox, company_id=company_id)
         for t in transfers:
             t_date = str(t.get('date', ''))[:10]
             if t.get('fromAccountId') == account_id:
@@ -180,6 +182,7 @@ def new_bank():
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     if request.method == 'POST':
@@ -196,12 +199,12 @@ def new_bank():
             "branchId": g.get('branch_id', 'default-sucursal-principal'),
             "projectId": g.get('project_id'),
         }
-        DatabaseService.save_bank_account(owner_uid, account_id, account_dict, sandbox=sandbox)
+        DatabaseService.save_bank_account(owner_uid, account_id, account_dict, sandbox=sandbox, company_id=company_id)
         flash('Cuenta creada exitosamente.', 'success')
         return redirect(url_for('web_banks.list_banks'))
 
     AccountingService.seed_default_accounts(owner_uid)
-    accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+    accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
     return render_template('banks/form.html', active_page='banks',
                            account=None, account_types=ACCOUNT_TYPES,
                            accounting_accounts=accounting_accounts)
@@ -213,6 +216,7 @@ def edit_bank(account_id):
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     if request.method == 'POST':
@@ -228,23 +232,23 @@ def edit_bank(account_id):
             "branchId": g.get('branch_id', 'default-sucursal-principal'),
             "projectId": g.get('project_id'),
         }
-        existing = DatabaseService.get_bank_account(owner_uid, account_id, sandbox=sandbox)
+        existing = DatabaseService.get_bank_account(owner_uid, account_id, sandbox=sandbox, company_id=company_id)
         if existing:
             account_dict["currentBalance"] = existing["currentBalance"]
             account_dict["createdAt"] = existing["createdAt"]
             account_dict["branchId"] = existing.get("branchId", account_dict["branchId"])
             account_dict["projectId"] = existing.get("projectId", account_dict["projectId"])
-        DatabaseService.save_bank_account(owner_uid, account_id, account_dict, sandbox=sandbox)
+        DatabaseService.save_bank_account(owner_uid, account_id, account_dict, sandbox=sandbox, company_id=company_id)
         flash('Cuenta actualizada exitosamente.', 'success')
         return redirect(url_for('web_banks.list_banks'))
 
-    account = DatabaseService.get_bank_account(owner_uid, account_id, sandbox=sandbox)
+    account = DatabaseService.get_bank_account(owner_uid, account_id, sandbox=sandbox, company_id=company_id)
     if not account:
         flash('Cuenta no encontrada.', 'error')
         return redirect(url_for('web_banks.list_banks'))
 
     AccountingService.seed_default_accounts(owner_uid)
-    accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+    accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
     return render_template('banks/form.html', active_page='banks',
                            account=account, account_types=ACCOUNT_TYPES,
                            accounting_accounts=accounting_accounts)
@@ -256,9 +260,10 @@ def delete_bank(account_id):
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    DatabaseService.delete_bank_account(owner_uid, account_id, sandbox=sandbox)
+    DatabaseService.delete_bank_account(owner_uid, account_id, sandbox=sandbox, company_id=company_id)
     flash('Cuenta eliminada.', 'success')
     return redirect(url_for('web_banks.list_banks'))
 
@@ -269,14 +274,15 @@ def new_bank_payment(account_id):
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    account = DatabaseService.get_bank_account(owner_uid, account_id, sandbox=sandbox)
+    account = DatabaseService.get_bank_account(owner_uid, account_id, sandbox=sandbox, company_id=company_id)
     if not account:
         flash('Cuenta no encontrada.', 'error')
         return redirect(url_for('web_banks.list_banks'))
 
-    expenses = [e for e in DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    expenses = [e for e in DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
                 if e.get('cxpStatus') in ('Pendiente', 'Abonado') and e.get('cxpRemainingBalance', 0) > 0]
 
     if request.method == 'POST':
@@ -295,7 +301,8 @@ def new_bank_payment(account_id):
             success, msg = DatabaseService.save_cxp_payment(owner_uid, expense_id, amount,
                                                             registered_by=session['user']['email'],
                                                             bank_account_id=account_id,
-                                                            sandbox=sandbox)
+                                                            sandbox=sandbox,
+                                                            company_id=company_id)
             if success:
                 flash(f'✅ Pago registrado: RD$ {amount:,.2f} desde {account["name"]}. {msg}', 'success')
             else:
@@ -323,14 +330,15 @@ def new_bank_receipt(account_id):
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    account = DatabaseService.get_bank_account(owner_uid, account_id, sandbox=sandbox)
+    account = DatabaseService.get_bank_account(owner_uid, account_id, sandbox=sandbox, company_id=company_id)
     if not account:
         flash('Cuenta no encontrada.', 'error')
         return redirect(url_for('web_banks.list_banks'))
 
-    invoices = [inv for inv in DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+    invoices = [inv for inv in DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
                 if inv.get('status') in ('Emitida', 'Parcialmente Cobrada', 'Vencida')
                 and inv.get('remainingBalance', 0) > 0
                 and not inv.get('isQuotation')]
@@ -357,7 +365,7 @@ def new_bank_receipt(account_id):
                 "registeredBy": session['user']['email'],
                 "bankAccountId": account_id
             }
-            DatabaseService.register_invoice_payment(owner_uid, invoice_id, payment_dict, sandbox=sandbox)
+            DatabaseService.register_invoice_payment(owner_uid, invoice_id, payment_dict, sandbox=sandbox, company_id=company_id)
             flash(f'✅ Pago recibido: RD$ {amount:,.2f} depositado en {account["name"]}.', 'success')
         except Exception as e:
             flash(f'❌ Error al registrar pago recibido: {e}', 'error')
@@ -379,9 +387,10 @@ def new_transfer():
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
+    accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox, company_id=company_id)
 
     if request.method == 'POST':
         from_account_id = request.form['fromAccountId']
@@ -408,7 +417,7 @@ def new_transfer():
             "incomeNumbering": request.form.get('incomeNumbering', ''),
             "expenseNumbering": request.form.get('expenseNumbering', '')
         }
-        DatabaseService.save_bank_transfer(owner_uid, transfer_id, transfer_dict, sandbox=sandbox)
+        DatabaseService.save_bank_transfer(owner_uid, transfer_id, transfer_dict, sandbox=sandbox, company_id=company_id)
         flash('Transferencia realizada exitosamente.', 'success')
         return redirect(url_for('web_banks.list_banks'))
 
@@ -420,10 +429,11 @@ def banks_data():
     if 'user' not in session:
         return jsonify({"error": "Unauthorized"}), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    summary = DatabaseService.get_bank_summary(owner_uid, sandbox=sandbox)
-    accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
+    summary = DatabaseService.get_bank_summary(owner_uid, sandbox=sandbox, company_id=company_id)
+    accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox, company_id=company_id)
 
     return jsonify({
         "summary": summary,
@@ -437,10 +447,11 @@ def reconcile_list():
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Conciliación Bancaria", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
-    reconciliations = DatabaseService.get_reconciliations(owner_uid, sandbox=sandbox)
+    accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox, company_id=company_id)
+    reconciliations = DatabaseService.get_reconciliations(owner_uid, sandbox=sandbox, company_id=company_id)
 
     return render_template('banks/reconcile_list.html', active_page='bank_reconcile',
                            accounts=accounts, reconciliations=reconciliations,
@@ -453,9 +464,10 @@ def reconcile_new(account_id):
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Conciliación Bancaria", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    account = DatabaseService.get_bank_account(owner_uid, account_id, sandbox=sandbox)
+    account = DatabaseService.get_bank_account(owner_uid, account_id, sandbox=sandbox, company_id=company_id)
     if not account:
         flash('Cuenta no encontrada.', 'error')
         return redirect(url_for('web_banks.reconcile_list'))
@@ -495,9 +507,9 @@ def reconcile_new(account_id):
 
         # Auto-poblar transacciones del período (pagos recibidos en esta cuenta)
         try:
-            invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+            invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
             for inv in invoices:
-                inv_payments = DatabaseService.get_invoice_payments(owner_uid, inv.get('id'), sandbox=sandbox)
+                inv_payments = DatabaseService.get_invoice_payments(owner_uid, inv.get('id'), sandbox=sandbox, company_id=company_id)
                 for pmt in inv_payments:
                     pmt_date = str(pmt.get('paymentDate', ''))[:10]
                     if pmt.get('bankAccountId') == account_id and start_date <= pmt_date <= end_date:
@@ -514,7 +526,7 @@ def reconcile_new(account_id):
                         })
 
             # Transferencias recibidas
-            transfers = DatabaseService.get_bank_transfers(owner_uid, sandbox=sandbox)
+            transfers = DatabaseService.get_bank_transfers(owner_uid, sandbox=sandbox, company_id=company_id)
             for t in transfers:
                 t_date = str(t.get('date', ''))[:10]
                 if start_date <= t_date <= end_date:
@@ -551,7 +563,7 @@ def reconcile_new(account_id):
         except Exception as e:
             print(f"⚠️ Error al poblar transacciones: {e}")
 
-        DatabaseService.save_reconciliation(owner_uid, recon_id, recon_dict, sandbox=sandbox)
+        DatabaseService.save_reconciliation(owner_uid, recon_id, recon_dict, sandbox=sandbox, company_id=company_id)
         flash('Conciliación creada. Revisa y marca las transacciones que coinciden con tu estado de cuenta.', 'success')
         return redirect(url_for('web_banks.reconcile_detail', recon_id=recon_id))
 
@@ -565,9 +577,10 @@ def reconcile_detail(recon_id):
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Conciliación Bancaria", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    recon = DatabaseService.get_reconciliation(owner_uid, recon_id, sandbox=sandbox)
+    recon = DatabaseService.get_reconciliation(owner_uid, recon_id, sandbox=sandbox, company_id=company_id)
     if not recon:
         flash('Conciliación no encontrada.', 'error')
         return redirect(url_for('web_banks.reconcile_list'))
@@ -580,13 +593,14 @@ def reconcile_toggle(recon_id):
     if 'user' not in session:
         return jsonify({"error": "Unauthorized"}), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     tx_id = request.form.get('transactionId', '')
     if not tx_id:
         return jsonify({"error": "transactionId required"}), 400
 
-    recon = DatabaseService.get_reconciliation(owner_uid, recon_id, sandbox=sandbox)
+    recon = DatabaseService.get_reconciliation(owner_uid, recon_id, sandbox=sandbox, company_id=company_id)
     if not recon:
         return jsonify({"error": "Not found"}), 404
 
@@ -605,7 +619,7 @@ def reconcile_toggle(recon_id):
     else:
         recon["status"] = "pendiente"
 
-    DatabaseService.save_reconciliation(owner_uid, recon_id, recon, sandbox=sandbox)
+    DatabaseService.save_reconciliation(owner_uid, recon_id, recon, sandbox=sandbox, company_id=company_id)
     return jsonify({"success": True, "reconciled": tx_id, "reconciledCount": reconciled_count, "status": recon["status"]})
 
 @web_banks_bp.route('/banks/reconcile/<recon_id>/complete', methods=['POST'])
@@ -615,10 +629,11 @@ def reconcile_complete(recon_id):
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Conciliación Bancaria", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     user = session.get('user', {})
 
-    recon = DatabaseService.get_reconciliation(owner_uid, recon_id, sandbox=sandbox)
+    recon = DatabaseService.get_reconciliation(owner_uid, recon_id, sandbox=sandbox, company_id=company_id)
     if not recon:
         flash('Conciliación no encontrada.', 'error')
         return redirect(url_for('web_banks.reconcile_list'))
@@ -632,7 +647,7 @@ def reconcile_complete(recon_id):
         recon["status"] = "con_diferencias"
         flash(f'Conciliación marcada como completada con una diferencia de RD$ {diff:,.2f}. Revisa las discrepancias.', 'warning')
 
-    DatabaseService.save_reconciliation(owner_uid, recon_id, recon, sandbox=sandbox)
+    DatabaseService.save_reconciliation(owner_uid, recon_id, recon, sandbox=sandbox, company_id=company_id)
 
     if abs(diff) > 0.01:
         try:
@@ -697,9 +712,10 @@ def reconcile_delete(recon_id):
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Conciliación Bancaria", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    DatabaseService.delete_reconciliation(owner_uid, recon_id, sandbox=sandbox)
+    DatabaseService.delete_reconciliation(owner_uid, recon_id, sandbox=sandbox, company_id=company_id)
     flash('Conciliación eliminada.', 'success')
     return redirect(url_for('web_banks.reconcile_list'))
 
@@ -713,8 +729,9 @@ def import_bank_statement(account_id):
         return redirect(url_for('web_dashboard.dashboard'))
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
-    account = DatabaseService.get_bank_account(owner_uid, account_id, sandbox=sandbox)
+    account = DatabaseService.get_bank_account(owner_uid, account_id, sandbox=sandbox, company_id=company_id)
     if not account:
         flash('Cuenta bancaria no encontrada.', 'error')
         return redirect(url_for('web_banks.list_banks'))
@@ -736,10 +753,10 @@ def import_bank_statement(account_id):
             try:
                 trans_type = request.form.get('transaction_type', 'invoice_payments')
                 if trans_type == 'invoice_payments':
-                    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+                    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
                     for inv in invoices:
                         if inv.get('status') in ['Pagado', 'Parcialmente Cobrada']:
-                            payments = DatabaseService.get_invoice_payments(owner_uid, inv['id'], sandbox=sandbox)
+                            payments = DatabaseService.get_invoice_payments(owner_uid, inv['id'], sandbox=sandbox, company_id=company_id)
                             for p in payments:
                                 book_txns.append({
                                     "id": f"invpay_{p['id']}",
@@ -749,9 +766,9 @@ def import_bank_statement(account_id):
                                     "type": "income",
                                 })
                 elif trans_type == 'expense_payments':
-                    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+                    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
                     for exp in expenses:
-                        cxp_payments = DatabaseService.get_cxp_payments(owner_uid, exp['id'], sandbox=sandbox)
+                        cxp_payments = DatabaseService.get_cxp_payments(owner_uid, exp['id'], sandbox=sandbox, company_id=company_id)
                         for p in cxp_payments:
                             book_txns.append({
                                 "id": f"cxppay_{p['id']}",
@@ -781,8 +798,9 @@ def auto_match_reconciliation(recon_id):
     if 'user' not in session:
         return jsonify(success=False, error="No autenticado"), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
-    recon = DatabaseService.get_reconciliation(owner_uid, recon_id, sandbox=sandbox)
+    recon = DatabaseService.get_reconciliation(owner_uid, recon_id, sandbox=sandbox, company_id=company_id)
     if not recon:
         return jsonify(success=False, error="Conciliación no encontrada"), 404
 

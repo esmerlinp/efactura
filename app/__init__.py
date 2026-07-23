@@ -8,6 +8,7 @@ from config import Config
 from app.extensions import init_extensions, csrf
 from app.cache import cache
 from app.services.db_service import DatabaseService
+from app.services.company_context import get_current_company, _clear_ctx
 
 def create_app():
     """Application Factory de Flask."""
@@ -35,8 +36,13 @@ def create_app():
     # =========================================================================
     # LIFECYCLE HOOKS & SEGURIDAD DE PERMISOS
     # =========================================================================
+    @app.teardown_request
+    def clear_company_context(exc=None):
+        _clear_ctx()
+
     @app.before_request
     def load_fresh_user_profile():
+        _clear_ctx()
         session.permanent = True
         # Saltar carga para llamadas de archivos estáticos
         if request.endpoint == 'static':
@@ -72,28 +78,53 @@ def create_app():
                     session['associated_companies'] = associated
                     session['user_has_multiple_companies'] = len(associated) > 1
 
-                # Asignar o sobreescribir ownerUID según la selección de la sesión
-                if 'selected_owner_uid' in session:
-                    fresh_profile['ownerUID'] = session['selected_owner_uid']
+                # ── Contexto de compañía activa ──
+                # selected_company_id es la fuente de verdad.
+                # owner_uid se deriva desde la compañía para compatibilidad.
+                if 'selected_company_id' not in session:
+                    # Auto-seleccionar si hay default_company_id o única compañía
+                    default_id = fresh_profile.get('default_company_id', '')
+                    if default_id:
+                        company = DatabaseService.get_company(default_id)
+                        if company:
+                            session['selected_company_id'] = default_id
+                            session['selected_owner_uid'] = company.get('owner_uid', fresh_profile.get('ownerUID'))
+                            fresh_profile['ownerUID'] = session['selected_owner_uid']
+                    else:
+                        associated = session.get('associated_companies', [])
+                        if len(associated) == 1:
+                            # Usar la única compañía disponible
+                            cid = associated[0].get('company_id', '')
+                            if not cid:
+                                # Fallback: buscar company_id por ownerUID
+                                owner_companies = DatabaseService.get_companies_by_owner(associated[0]['ownerUID'])
+                                if owner_companies:
+                                    cid = owner_companies[0]['id']
+                            if cid:
+                                session['selected_company_id'] = cid
+                                session['selected_owner_uid'] = associated[0]['ownerUID']
+                                fresh_profile['ownerUID'] = session['selected_owner_uid']
+                        elif len(associated) == 0:
+                            session['selected_owner_uid'] = fresh_profile.get('ownerUID')
                 else:
-                    associated = session.get('associated_companies', [])
-                    if len(associated) == 1:
-                        session['selected_owner_uid'] = associated[0]['ownerUID']
+                    # selected_company_id ya existe → derivar owner_uid
+                    company = DatabaseService.get_company(session['selected_company_id'])
+                    if company:
+                        session['selected_owner_uid'] = company.get('owner_uid', fresh_profile.get('ownerUID'))
                         fresh_profile['ownerUID'] = session['selected_owner_uid']
-                    elif len(associated) == 0:
-                        session['selected_owner_uid'] = fresh_profile.get('ownerUID')
                 
                 # Validar sucursal seleccionada
                 owner_uid = session.get('selected_owner_uid') or session['user'].get('ownerUID')
+                company_id = session.get('selected_company_id')
                 if owner_uid:
-                    branches = DatabaseService.get_branches(owner_uid, sandbox=session.get('is_sandbox_mode', False))
+                    branches = DatabaseService.get_branches(owner_uid, sandbox=session.get('is_sandbox_mode', False), company_id=company_id)
                     session['available_branches'] = branches
                     if session.get('selected_branch_id'):
                         branch_ids = [b['id'] for b in branches]
                         if session['selected_branch_id'] not in branch_ids:
                             session['selected_branch_id'] = None
                     if not session.get('selected_branch_id') and branches:
-                        default_branch = DatabaseService.get_default_branch(owner_uid, sandbox=session.get('is_sandbox_mode', False))
+                        default_branch = DatabaseService.get_default_branch(owner_uid, sandbox=session.get('is_sandbox_mode', False), company_id=company_id)
                         if default_branch:
                             session['selected_branch_id'] = default_branch['id']
                     g.branch_id = session.get('selected_branch_id')
@@ -114,6 +145,16 @@ def create_app():
                         session['selected_project_id'] = None
                 g.project_id = session.get('selected_project_id')
 
+                # Establecer contexto de compañía activa para templates
+                if 'selected_company_id' in session:
+                    ctx = DatabaseService.get_company_context(
+                        session['user']['uid'],
+                        session['selected_company_id']
+                    )
+                    session['company_context'] = ctx
+                else:
+                    session.pop('company_context', None)
+
                 session['user'] = fresh_profile
                 
                 # Actualizar marca de actividad de la sesión en Firestore
@@ -127,13 +168,14 @@ def create_app():
                 session.pop('user', None)
                 session.pop('is_sandbox_mode', None)
                 session.pop('selected_owner_uid', None)
+                session.pop('selected_company_id', None)
                 session.pop('associated_companies', None)
                 session.pop('user_has_multiple_companies', None)
                 flash("Tu cuenta está inhabilitada.", "error")
                 return redirect(flask_url_for('web_auth.login'))
             
             # Si tiene múltiples empresas asociadas y aún no ha seleccionado una, obligar a seleccionar
-            if 'selected_owner_uid' not in session and session.get('user_has_multiple_companies'):
+            if 'selected_company_id' not in session and session.get('user_has_multiple_companies'):
                 allowed_auth_endpoints = [
                     'web_auth.select_company',
                     'web_auth.select_branch',
@@ -143,69 +185,137 @@ def create_app():
                 ]
                 if request.endpoint not in allowed_auth_endpoints:
                     return redirect(flask_url_for('web_auth.select_company'))
-                return
+
+            # Validar invariante #6: selected_company_id debe existir en membresías
+            # Legacy: si uid == cid (el usuario es el dueño), permitir sin membresía
+            if 'selected_company_id' in session and 'user' in session:
+                uid = session['user']['uid']
+                cid = session['selected_company_id']
+                is_legacy_owner = (uid == cid)
+                if not is_legacy_owner:
+                    membership = DatabaseService.get_membership(uid, cid)
+                    if not membership or membership.get('status') != 'active':
+                        session.pop('selected_company_id', None)
+                        session.pop('selected_owner_uid', None)
+                        flash('Tu acceso a esta compañía ha sido removido.', 'warning')
+                        allowed = ['web_auth.select_company', 'web_auth.select_branch',
+                                   'web_auth.select_project', 'web_auth.logout', 'static']
+                        if request.endpoint not in allowed:
+                            return redirect(flask_url_for('web_auth.select_company'))
             
             # Si no hay sucursal seleccionada y hay sucursales disponibles, permitir continuar
             # (selected_branch_id None = ver todas como admin)
             
-            # Obligar al propietario a configurar el perfil si no lo ha hecho (incluso en sandbox)
-            owner_uid = session['user'].get('ownerUID')
-            if owner_uid:
-                company_profile = DatabaseService.get_company_profile(owner_uid)
-                if company_profile:
-                    session['company_profile_pos_enabled'] = company_profile.get('posEnabled', True)
-                    session['company_production_enabled'] = company_profile.get('productionEnabled', True)
-                    session['company_sandbox_enabled'] = company_profile.get('sandboxEnabled', True)
-                    session['company_sandbox_indefinite'] = company_profile.get('sandboxIndefinite', True)
-                    session['company_sandbox_start_date'] = company_profile.get('sandboxStartDate', '')
-                    session['company_sandbox_end_date'] = company_profile.get('sandboxEndDate', '')
-                    session['company_plan_id'] = company_profile.get('planId', '')
-                    session['company_country'] = company_profile.get('country', 'DO')
+            # ── Cargar perfil de compañía desde companies/{company_id} ──
+            owner_uid = session.get('selected_owner_uid') or session['user'].get('ownerUID')
+            company_id = session.get('selected_company_id')
+            company_profile = {}
 
-                    plan_version = company_profile.get('plan_version', 0) or 0
-                    cached_plan_version = session.get('company_plan_version', -1)
-                    if cached_plan_version != plan_version:
-                        plan_id = company_profile.get('planId', '')
-                        if plan_id:
-                            plan_data = DatabaseService.get_plan(plan_id)
-                            if plan_data:
-                                session['company_modules'] = plan_data.get('modules', {})
-                                session['company_plan_version'] = plan_version
-                                plan_limits = {}
-                                for f in ['documentLimit','userLimit','storageLimitMB','monthlyPayment',
-                                          'additionalDocumentCost','additionalUserCost','branchLimit',
-                                          'boxLimit','additionalBoxCost','posEnabled']:
-                                    if f in plan_data:
-                                        plan_limits[f] = plan_data[f]
-                                if plan_limits:
-                                    from app.services.db_service import db_firestore, _cached_company_profile
-                                    db_firestore.collection('users').document(owner_uid)\
-                                        .collection('config').document('profile')\
-                                        .update(plan_limits)
-                                    cache.delete_memoized(_cached_company_profile, owner_uid)
-                                    company_profile.update(plan_limits)
-                            else:
-                                session.pop('company_modules', None)
+            if company_id:
+                company = DatabaseService.get_company(company_id)
+                if company:
+                    company_profile = {
+                        'ownerUID': company.get('owner_uid', owner_uid),
+                        'companyName': company.get('name', ''),
+                        'tradeName': company.get('trade_name', ''),
+                        'companyRNC': company.get('rnc', ''),
+                        'posEnabled': company.get('pos_enabled', True),
+                        'productionEnabled': company.get('production_enabled', True),
+                        'sandboxEnabled': company.get('sandbox_enabled', True),
+                        'sandboxIndefinite': company.get('sandbox_indefinite', True),
+                        'sandboxStartDate': company.get('sandbox_start_date', ''),
+                        'sandboxEndDate': company.get('sandbox_end_date', ''),
+                        'planId': company.get('plan_id', ''),
+                        'plan_version': company.get('plan_version', 0),
+                        'country': company.get('country', 'DO'),
+                        'configured': company.get('configured', False),
+                        'logoUrl': company.get('logo_url', ''),
+                        'logoBase64': company.get('logo_base64', ''),
+                        'colorMarca': company.get('color_marca', '#10b981'),
+                        'gradientEnabled': company.get('gradient_enabled', False),
+                        'theme': company.get('theme', 'moderno'),
+                        'applyColorMarcaUI': company.get('apply_color_marca_ui', True),
+                        'applyColorMarcaReports': company.get('apply_color_marca_reports', True),
+                        'certificateName': company.get('certificate_name', ''),
+                        'certificateContent': company.get('certificate_content', ''),
+                        'certificatePassword': company.get('certificate_password', ''),
+                        'regimenFiscal': company.get('regimen_fiscal', 'ordinary'),
+                        'status': 'Activo' if company.get('status', 'active') == 'active' else company.get('status', 'Activo'),
+                        'billingType': company.get('billing_type', 'Pago por uso'),
+                        'cancel_at_period_end': company.get('cancel_at_period_end', False),
+                        'cancel_scheduled_date': company.get('cancel_scheduled_date', ''),
+                    }
+                else:
+                    company_profile = {}
+            if not company_profile and owner_uid:
+                company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+                if company:
+                    company_profile = company
+
+            if company_profile and company_id and not company_profile.get('planId'):
+                try:
+                    from app.services.db_service import db_firestore, firebase_initialized
+                    if firebase_initialized:
+                        legacy_doc = db_firestore.collection("users").document(owner_uid or company_id).collection("config").document("profile").get()
+                        if legacy_doc.exists:
+                            legacy_data = legacy_doc.to_dict()
+                            if legacy_data.get('planId'):
+                                company_profile['planId'] = legacy_data.get('planId')
+                                company_profile['plan_version'] = legacy_data.get('plan_version', 0)
+                except Exception:
+                    pass
+
+            if company_profile:
+                session['company_profile_pos_enabled'] = company_profile.get('posEnabled', True)
+                session['company_production_enabled'] = company_profile.get('productionEnabled', True)
+                session['company_sandbox_enabled'] = company_profile.get('sandboxEnabled', True)
+                session['company_sandbox_indefinite'] = company_profile.get('sandboxIndefinite', True)
+                session['company_sandbox_start_date'] = company_profile.get('sandboxStartDate', '')
+                session['company_sandbox_end_date'] = company_profile.get('sandboxEndDate', '')
+                session['company_plan_id'] = company_profile.get('planId', '')
+                session['company_country'] = company_profile.get('country', 'DO')
+
+                plan_version = company_profile.get('plan_version', 0) or 0
+                cached_plan_version = session.get('company_plan_version', -1)
+                if cached_plan_version != plan_version:
+                    plan_id = company_profile.get('planId', '')
+                    if plan_id and company_id:
+                        plan_data = DatabaseService.get_plan(plan_id)
+                        if plan_data:
+                            session['company_modules'] = plan_data.get('modules', {})
+                            session['company_plan_version'] = plan_version
+                            plan_limits = {}
+                            for f in ['documentLimit','userLimit','storageLimitMB','monthlyPayment',
+                                      'additionalDocumentCost','additionalUserCost','branchLimit',
+                                      'boxLimit','additionalBoxCost','posEnabled']:
+                                if f in plan_data:
+                                    plan_limits[f] = plan_data[f]
+                            if plan_limits:
+                                DatabaseService.update_company(company_id, plan_limits)
+                                company_profile.update(plan_limits)
                         else:
                             session.pop('company_modules', None)
-                        session['company_plan_version'] = plan_version
+                    else:
+                        session.pop('company_modules', None)
+                    session['company_plan_version'] = plan_version
 
-                    # Auto-cancelación: si cancel_at_period_end y la fecha pasó, aplicar cancelación
-                    if company_profile.get('cancel_at_period_end') and company_profile.get('cancel_scheduled_date'):
-                        from datetime import datetime, timezone, timedelta
-                        try:
-                            cancel_date = datetime.strptime(company_profile['cancel_scheduled_date'], '%d/%m/%Y').date()
-                            if datetime.now(timezone.utc).date() >= cancel_date:
-                                from app.services.db_service import db_firestore, _cached_company_profile
-                                company_profile['status'] = 'Cancelado'
-                                company_profile['cancel_at_period_end'] = False
-                                company_profile.pop('cancel_scheduled_date', None)
-                                db_firestore.collection('users').document(owner_uid)\
-                                    .collection('config').document('profile')\
-                                    .update({'status': 'Cancelado', 'cancel_at_period_end': False, 'cancel_scheduled_date': ''})
-                                cache.delete_memoized(_cached_company_profile, owner_uid)
-                        except (ValueError, TypeError):
-                            pass
+                # Auto-cancelación: si cancel_at_period_end y la fecha pasó, aplicar cancelación
+                if company_profile.get('cancel_at_period_end') and company_profile.get('cancel_scheduled_date'):
+                    from datetime import datetime, timezone, timedelta
+                    try:
+                        cancel_date = datetime.strptime(company_profile['cancel_scheduled_date'], '%d/%m/%Y').date()
+                        if datetime.now(timezone.utc).date() >= cancel_date:
+                            company_profile['status'] = 'Cancelado'
+                            company_profile['cancel_at_period_end'] = False
+                            company_profile.pop('cancel_scheduled_date', None)
+                            if company_id:
+                                DatabaseService.update_company(company_id, {
+                                    'status': 'cancelled',
+                                    'cancel_at_period_end': False,
+                                    'cancel_scheduled_date': '',
+                                })
+                    except (ValueError, TypeError):
+                        pass
                 
                 # Lista de páginas permitidas para evitar bucles de redirección
                 allowed_endpoints = [
@@ -446,16 +556,34 @@ def create_app():
         theme = 'moderno'
         is_configured = True
         if has_request_context() and 'user' in session:
-            owner_uid = session['user'].get('ownerUID')
-            if owner_uid:
-                company = DatabaseService.get_company_profile(owner_uid)
-                logo_url = company.get('logoUrl', '')
-                color_marca = company.get('colorMarca', '')
-                gradient_enabled = company.get('gradientEnabled', False)
-                apply_ui = company.get('applyColorMarcaUI', True)
-                apply_reports = company.get('applyColorMarcaReports', True)
-                theme = company.get('theme', 'moderno')
-                is_configured = company.get('configured', False)
+            company = get_current_company()
+            if company:
+                logo_url = company.logo_url or ''
+                color_marca = company.color_marca
+                gradient_enabled = company.gradient_enabled
+                apply_ui = company.apply_color_marca_ui
+                apply_reports = company.apply_color_marca_reports
+                theme = company.theme
+                is_configured = company.is_configured
+        user_companies = session.get('user_companies', [])
+        has_multiple = session.get('user_has_multiple_companies', False)
+        if not user_companies:
+            associated = session.get('associated_companies', [])
+            if associated:
+                legacy = []
+                for comp in associated:
+                    legacy.append({
+                        "id": comp.get("company_id", comp.get("ownerUID", "")),
+                        "name": comp.get("companyName", "Empresa"),
+                        "rnc": "",
+                        "owner_uid": comp.get("ownerUID", ""),
+                        "role": comp.get("role", "employee"),
+                        "logo_url": comp.get("logoUrl", ""),
+                        "logo_base64": comp.get("logoBase64", ""),
+                        "_membership": {"role": comp.get("role", "employee"), "permissions": {}}
+                    })
+                user_companies = legacy
+                has_multiple = len(legacy) > 1
         return dict(
             product_name=product_name,
             company_logo_url=logo_url, 
@@ -464,7 +592,9 @@ def create_app():
             company_apply_color_marca_ui=apply_ui, 
             company_apply_color_marca_reports=apply_reports,
             company_theme=theme,
-            is_company_configured=is_configured
+            is_company_configured=is_configured,
+            user_companies=user_companies,
+            user_has_multiple_companies=has_multiple
         )
 
     @app.context_processor
@@ -474,18 +604,17 @@ def create_app():
         crm_contacts = []
         user_notifications = []
         if has_request_context() and 'user' in session:
-            owner_uid = session['user'].get('ownerUID')
             user_uid = session['user'].get('uid')
-            if owner_uid:
+            company = get_current_company()
+            if company:
                 try:
                     from app.services.db_service import DatabaseService
                     sandbox = session.get('is_sandbox_mode', False)
                     
-                    # Cargar notificaciones del usuario
                     if user_uid:
                         user_notifications = DatabaseService.get_user_notifications(user_uid, limit=10)
                         
-                    crm_contacts = DatabaseService.get_crm_contacts(owner_uid, sandbox=sandbox)
+                    crm_contacts = DatabaseService.get_crm_contacts(company.owner_uid, sandbox=sandbox, company_id=company.company_id)
                 except Exception as e:
                     print(f"⚠️ Error al inyectar compromisos CRM o notificaciones en el contexto global: {e}")
         return dict(crm_contacts=crm_contacts, user_notifications=user_notifications)
@@ -540,20 +669,22 @@ def create_app():
         plan_name_global = ''
         plan_billing_type = ''
         if has_request_context() and 'user' in session:
-            owner_uid = session['user'].get('ownerUID')
-            if owner_uid:
-                try:
-                    company = DatabaseService.get_company_profile(owner_uid)
-                    plan_id = company.get('planId')
-                    plan_billing_type = company.get('billingType', 'Pago por uso')
-                    if plan_id:
-                        plan_data = DatabaseService.get_plan(plan_id)
+            try:
+                ctx = session.get('company_context')
+                if ctx and ctx.get('plan_name'):
+                    plan_name_global = ctx['plan_name']
+                    plan_billing_type = ctx.get('billing_type', 'Pago por uso')
+                else:
+                    company = get_current_company()
+                    if company and company.plan_id:
+                        plan_data = DatabaseService.get_plan(company.plan_id)
                         if plan_data:
                             plan_name_global = plan_data.get('name', '')
-                    if not plan_name_global:
-                        plan_name_global = company.get('planName', 'Plan Activo')
-                except Exception:
-                    plan_name_global = 'Plan Activo'
+                        plan_billing_type = company.billing_type
+                    if not plan_name_global and company:
+                        plan_name_global = 'Plan Activo'
+            except Exception:
+                plan_name_global = 'Plan Activo'
         return dict(global_plan_name=plan_name_global, global_plan_billing_type=plan_billing_type)
 
     @app.context_processor
@@ -562,6 +693,7 @@ def create_app():
         from flask import has_request_context
         companies = []
         has_mult = False
+        company_ctx = None
         act_name = "Mi Empresa"
         active_branch_name = "Todas las sucursales"
         available_branches = []
@@ -572,18 +704,14 @@ def create_app():
         if has_request_context() and 'user' in session:
             companies = session.get('associated_companies', [])
             has_mult = session.get('user_has_multiple_companies', False)
-            active_owner_uid = session['user'].get('ownerUID')
-            for c in companies:
-                if c.get('ownerUID') == active_owner_uid:
-                    act_name = c.get('companyName', 'Mi Empresa')
-                    break
-            if act_name == 'Mi Empresa' and active_owner_uid:
-                try:
-                    profile = DatabaseService.get_company_profile(active_owner_uid)
-                    if profile:
-                        act_name = profile.get('companyName') or profile.get('tradeName') or 'Mi Empresa'
-                except Exception:
-                    pass
+
+            company_ctx = session.get('company_context')
+            if company_ctx:
+                act_name = company_ctx.get('company_name', 'Mi Empresa')
+            else:
+                c = get_current_company()
+                if c:
+                    act_name = c.name or 'Mi Empresa'
             active_branch_name = "Todas las sucursales"
             selected_branch_id = session.get('selected_branch_id')
             available_branches = session.get('available_branches', [])
@@ -602,10 +730,14 @@ def create_app():
                     if p['id'] == selected_project_id:
                         active_project_name = p['name']
                         break
+        act_rnc = ""
+        if company_ctx:
+            act_rnc = company_ctx.get('rnc', '')
         return dict(
             associated_companies=companies,
             user_has_multiple_companies=has_mult,
             active_company_name=act_name,
+            active_company_rnc=act_rnc,
             active_branch_name=active_branch_name,
             available_branches=available_branches,
             active_branch_id=selected_branch_id or '',

@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime, timezone
 
 from app.models.fiscal_document_type import by_code, Family
-from app.services.db_service import DatabaseService
+from app.services.db_service import DatabaseService, _company_coll
 
 
 EMITABLE_TRADITIONAL = {
@@ -31,24 +31,24 @@ class NcfTraditionalService:
         return f"sandbox_{cls.COLLECTION}" if sandbox else cls.COLLECTION
 
     @classmethod
-    def emit(cls, owner_uid: str, ncf_type: str, document_data: dict,
+    def emit(cls, company_id: str, ncf_type: str, document_data: dict,
              user_email: str, sandbox: bool = True) -> dict:
         code = ncf_type.strip().upper()
         cls._validate_type(code)
-        company = DatabaseService.get_company_profile(owner_uid)
+        company = DatabaseService.get_company_profile(company_id, company_id=company_id)
         if not company:
             raise ValueError("Perfil de empresa no encontrado.")
 
         ncf, log_id = DatabaseService.consume_next_sequence(
-            owner_uid, code, user_email, sandbox=sandbox
+            company_id, code, user_email, sandbox=sandbox
         )
 
-        doc_id = f"{code}_{owner_uid}_{uuid.uuid4().hex[:12]}"
+        doc_id = f"{code}_{company_id}_{uuid.uuid4().hex[:12]}"
         now_iso = datetime.now(timezone.utc).isoformat()
 
         doc = {
             "id": doc_id,
-            "ownerUID": owner_uid,
+            "companyId": company_id,
             "tipoComprobante": code,
             "ncf": ncf,
             "sequenceLogId": log_id,
@@ -74,21 +74,21 @@ class NcfTraditionalService:
         t = by_code(code)
         doc["razonSocial"] = t.label
 
-        saved = cls._save_document(owner_uid, doc, sandbox)
+        saved = cls._save_document(company_id, doc, sandbox)
         if not saved:
             raise RuntimeError(f"Error al guardar {code} {ncf} en Firestore.")
 
-        cls._log_audit(owner_uid, user_email, doc, sandbox)
-        cls._generate_accounting_entry(owner_uid, code, saved, sandbox)
+        cls._log_audit(company_id, user_email, doc, sandbox)
+        cls._generate_accounting_entry(company_id, code, saved, sandbox)
         return saved
 
     @classmethod
-    def cancel(cls, owner_uid: str, doc_id: str, reason: str,
+    def cancel(cls, company_id: str, doc_id: str, reason: str,
                cancelled_by_email: str, sandbox: bool = True) -> dict:
         if not reason or not reason.strip():
             raise ValueError("Motivo de anulación requerido.")
 
-        doc = cls._get_document(owner_uid, doc_id, sandbox)
+        doc = cls._get_document(company_id, doc_id, sandbox)
         if not doc:
             raise ValueError(f"Documento {doc_id} no encontrado.")
         if doc.get("estado") != "EMITIDO":
@@ -101,14 +101,14 @@ class NcfTraditionalService:
         doc["cancelledBy"] = cancelled_by_email
         doc["updatedAt"] = now_iso
 
-        cls._update_document(owner_uid, doc_id, doc, sandbox)
-        cls._log_audit(owner_uid, cancelled_by_email, doc, sandbox, action="CANCEL")
+        cls._update_document(company_id, doc_id, doc, sandbox)
+        cls._log_audit(company_id, cancelled_by_email, doc, sandbox, action="CANCEL")
         return doc
 
     @classmethod
-    def list_by_owner(cls, owner_uid: str, sandbox: bool = True,
-                      tipo: str = "", estado: str = "") -> list[dict]:
-        docs = cls._list_documents(owner_uid, sandbox)
+    def list_by_company(cls, company_id: str, sandbox: bool = True,
+                        tipo: str = "", estado: str = "") -> list[dict]:
+        docs = cls._list_documents(company_id, sandbox)
         if tipo:
             docs = [d for d in docs if d.get("tipoComprobante") == tipo.strip().upper()]
         if estado:
@@ -129,13 +129,13 @@ class NcfTraditionalService:
     # --- Persistencia (mockeable en tests) ---
 
     @classmethod
-    def _save_document(cls, owner_uid: str, doc: dict, sandbox: bool) -> dict | None:
+    def _save_document(cls, company_id: str, doc: dict, sandbox: bool) -> dict | None:
         from app.services.db_service import db_firestore, firebase_initialized
         if not firebase_initialized:
             return doc
         try:
             coll_name = cls._coll(sandbox)
-            ref = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(doc["id"])
+            ref = _company_coll(company_id=company_id, coll_name=coll_name).document(doc["id"])
             ref.set(doc)
             return doc
         except Exception as e:
@@ -143,13 +143,13 @@ class NcfTraditionalService:
             return None
 
     @classmethod
-    def _get_document(cls, owner_uid: str, doc_id: str, sandbox: bool) -> dict | None:
+    def _get_document(cls, company_id: str, doc_id: str, sandbox: bool) -> dict | None:
         from app.services.db_service import db_firestore, firebase_initialized
         if not firebase_initialized:
             return None
         try:
             coll_name = cls._coll(sandbox)
-            ref = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(doc_id)
+            ref = _company_coll(company_id=company_id, coll_name=coll_name).document(doc_id)
             snap = ref.get()
             return snap.to_dict() if snap.exists else None
         except Exception as e:
@@ -157,25 +157,25 @@ class NcfTraditionalService:
             return None
 
     @classmethod
-    def _update_document(cls, owner_uid: str, doc_id: str, doc: dict, sandbox: bool):
+    def _update_document(cls, company_id: str, doc_id: str, doc: dict, sandbox: bool):
         from app.services.db_service import db_firestore, firebase_initialized
         if not firebase_initialized:
             return
         try:
             coll_name = cls._coll(sandbox)
-            ref = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(doc_id)
+            ref = _company_coll(company_id=company_id, coll_name=coll_name).document(doc_id)
             ref.set(doc)
         except Exception as e:
             print(f"Error actualizando NCF tradicional {doc_id}: {e}")
 
     @classmethod
-    def _list_documents(cls, owner_uid: str, sandbox: bool) -> list[dict]:
+    def _list_documents(cls, company_id: str, sandbox: bool) -> list[dict]:
         from app.services.db_service import db_firestore, firebase_initialized
         if not firebase_initialized:
             return []
         try:
             coll_name = cls._coll(sandbox)
-            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+            docs = _company_coll(company_id=company_id, coll_name=coll_name).get()
             return [d.to_dict() for d in docs]
         except Exception as e:
             print(f"Error listando NCF tradicionales: {e}")
@@ -184,16 +184,16 @@ class NcfTraditionalService:
     # --- Auditoría ---
 
     @classmethod
-    def _log_audit(cls, owner_uid, user_email, doc, sandbox, action="EMIT"):
+    def _log_audit(cls, company_id, user_email, doc, sandbox, action="EMIT"):
         try:
             from app.services.audit_service import AuditService, ACTION_CREATE, ACTION_UPDATE, MODULE_INVOICES
             act = ACTION_CREATE if action == "EMIT" else ACTION_UPDATE
             AuditService.log_from_request(
-                owner_uid=owner_uid, action=act, module=MODULE_INVOICES,
+                owner_uid=company_id, action=act, module=MODULE_INVOICES,
                 entity_id=doc["id"],
                 entity_label=f"NCF {doc['tipoComprobante']} {doc['ncf']} {action} - "
                              f"RD$ {float(doc.get('total', 0)):,.2f}",
-                user_session={"email": user_email, "uid": "", "ownerUID": owner_uid},
+                user_session={"email": user_email, "uid": "", "ownerUID": company_id},
                 before={}, after=doc, sandbox=sandbox,
             )
         except Exception:
@@ -202,7 +202,7 @@ class NcfTraditionalService:
     # --- Contabilidad ---
 
     @classmethod
-    def _generate_accounting_entry(cls, owner_uid, code, doc, sandbox):
+    def _generate_accounting_entry(cls, company_id, code, doc, sandbox):
         from app.models.fiscal_document_type import by_code
         from app.services.accounting_service import AccountingService
 
@@ -222,15 +222,15 @@ class NcfTraditionalService:
         try:
             if entry_type == "invoice":
                 AccountingService.auto_generate_invoice_entry(
-                    owner_uid, data, sandbox=sandbox
+                    company_id, data, sandbox=sandbox
                 )
             elif entry_type == "expense":
                 AccountingService.auto_generate_expense_entry(
-                    owner_uid, data, sandbox=sandbox
+                    company_id, data, sandbox=sandbox
                 )
             elif entry_type == "credit_note":
                 AccountingService.auto_generate_credit_note_entry(
-                    owner_uid, data, sandbox=sandbox
+                    company_id, data, sandbox=sandbox
                 )
         except Exception:
             pass

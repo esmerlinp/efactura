@@ -160,7 +160,7 @@ def check_document_limit_exceeded(owner_uid, sandbox=True):
     if sandbox:
         return False, ""
         
-    profile = DatabaseService.get_company_profile(owner_uid)
+    profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     if not profile:
         return False, ""
         
@@ -174,7 +174,7 @@ def check_document_limit_exceeded(owner_uid, sandbox=True):
         return False, ""
         
     billing_day = profile.get('billingDay', 1)
-    stats = DatabaseService.get_invoice_stats(owner_uid, billing_day)
+    stats = DatabaseService.get_invoice_stats(owner_uid, billing_day, company_id=company_id)
     docs_used = stats['prod_current_cycle']
     
     if docs_used >= document_limit:
@@ -187,9 +187,9 @@ def check_document_limit_exceeded(owner_uid, sandbox=True):
     return False, ""
 
 
-def _company_has_issued_documents(owner_uid, sandbox=True):
+def _company_has_issued_documents(owner_uid, sandbox=True, company_id=None):
     """Retorna True si la empresa tiene al menos un documento emitido (no borrador, no cotización)."""
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    invoices = DatabaseService.get_invoices(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     for inv in invoices:
         if not inv.get('isQuotation') and inv.get('status') not in ('Borrador', 'Anulada', 'Pagado pero no emitido'):
             return True
@@ -208,9 +208,10 @@ def list_items():
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Catálogo de Productos", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    items = DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     
     if request.args.get('export') == 'csv':
         import io
@@ -253,6 +254,7 @@ def new_item():
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Nuevo Artículo", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     if request.method == 'POST':
@@ -285,11 +287,11 @@ def new_item():
             "imageUrl": request.form.get('imageUrl', '').strip()
         }
         
-        DatabaseService.save_item(owner_uid, item_id, item_dict, sandbox=sandbox)
+        DatabaseService.save_item(owner_uid, item_id, item_dict, company_id=company_id, sandbox=sandbox)
         flash('Artículo añadido al catálogo de ventas.', 'success')
         return redirect(url_for('web_invoices.list_items'))
         
-    categories = DatabaseService.get_categories(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    categories = DatabaseService.get_categories(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     return render_template('items/form.html', active_page='items', item=None, categories=categories)
 
 @web_invoices_bp.route('/items/<item_id>/edit', methods=['GET', 'POST'])
@@ -298,9 +300,10 @@ def edit_item(item_id):
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Editar Artículo", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    items = DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     item = next((it for it in items if it['id'] == item_id), None)
     
     if not item:
@@ -336,11 +339,11 @@ def edit_item(item_id):
             "maxStock": float(request.form.get('maxStock') or 0.0),
             "imageUrl": request.form.get('imageUrl', '').strip()
         }
-        DatabaseService.save_item(owner_uid, item_id, item_dict, sandbox=sandbox)
+        DatabaseService.save_item(owner_uid, item_id, item_dict, company_id=company_id, sandbox=sandbox)
         flash('Artículo del catálogo actualizado.', 'success')
         return redirect(url_for('web_invoices.list_items'))
         
-    categories = DatabaseService.get_categories(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    categories = DatabaseService.get_categories(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     return render_template('items/form.html', active_page='items', item=item, categories=categories)
 
 @web_invoices_bp.route('/items/<item_id>/delete', methods=['POST'])
@@ -349,9 +352,10 @@ def delete_item_route(item_id):
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Eliminar Artículo", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    DatabaseService.delete_item(owner_uid, item_id, sandbox=sandbox)
+    DatabaseService.delete_item(owner_uid, item_id, company_id=company_id, sandbox=sandbox)
     flash('Artículo eliminado del catálogo.', 'success')
     return redirect(url_for('web_invoices.list_items'))
 
@@ -360,6 +364,7 @@ def upload_item_image():
     if 'user' not in session: return jsonify({"success": False, "error": "No autorizado"}), 401
     
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     file = request.files.get('file')
     if not file or not file.filename:
         return jsonify({"success": False, "error": "Archivo no válido"}), 400
@@ -386,6 +391,7 @@ def import_items_csv():
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Importar Catálogo CSV", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     file = request.files.get('csv_file')
@@ -423,7 +429,7 @@ def import_items_csv():
                 "unit": unit,
                 "itbisRate": itbis_rate
             }
-            DatabaseService.save_item(owner_uid, item_id, item_dict, sandbox=sandbox)
+            DatabaseService.save_item(owner_uid, item_id, item_dict, company_id=company_id, sandbox=sandbox)
             count += 1
             
         flash(f'¡Éxito! Se importaron {count} artículos masivamente al catálogo.', 'success')
@@ -457,12 +463,13 @@ def export_stock_report():
     if not check_permission('canManageInventory'):
         return render_template('auth/restricted.html', feature_name="Reporte de Existencia", required_permission="canManageInventory")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     # Obtener almacenes, productos y existencias
-    warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox)
-    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
-    stocks = DatabaseService.get_inventory_stock(owner_uid, sandbox=sandbox)
+    warehouses = DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=sandbox)
+    items = DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    stocks = DatabaseService.get_inventory_stock(owner_uid, company_id=company_id, sandbox=sandbox)
     
     # Cruzar datos de existencias para cada item y almacén
     stock_map = {}
@@ -530,14 +537,16 @@ def export_stock_report():
 def list_price_lists():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
-    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    price_lists = DatabaseService.get_price_lists(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     return render_template('price_lists/list.html', active_page='price_lists', price_lists=price_lists)
 
 @web_invoices_bp.route('/price-lists/new', methods=['GET', 'POST'])
 def new_price_list():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     if request.method == 'POST':
@@ -552,7 +561,7 @@ def new_price_list():
             flash('El nombre de la lista de precios es obligatorio.', 'error')
             return render_template('price_lists/form.html', active_page='price_lists', price_list=None)
 
-        DatabaseService.save_price_list(owner_uid, list_id, list_dict, sandbox=sandbox)
+        DatabaseService.save_price_list(owner_uid, list_id, list_dict, company_id=company_id, sandbox=sandbox)
         flash('Lista de precios creada exitosamente.', 'success')
         return redirect(url_for('web_invoices.list_price_lists'))
 
@@ -562,9 +571,10 @@ def new_price_list():
 def edit_price_list(list_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    price_list = DatabaseService.get_price_list(owner_uid, list_id, sandbox=sandbox)
+    price_list = DatabaseService.get_price_list(owner_uid, list_id, company_id=company_id, sandbox=sandbox)
     if not price_list:
         flash('Lista de precios no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_price_lists'))
@@ -581,7 +591,7 @@ def edit_price_list(list_id):
             flash('El nombre de la lista de precios es obligatorio.', 'error')
             return render_template('price_lists/form.html', active_page='price_lists', price_list=price_list)
 
-        DatabaseService.save_price_list(owner_uid, list_id, list_dict, sandbox=sandbox)
+        DatabaseService.save_price_list(owner_uid, list_id, list_dict, company_id=company_id, sandbox=sandbox)
         flash('Lista de precios actualizada exitosamente.', 'success')
         return redirect(url_for('web_invoices.list_price_lists'))
 
@@ -591,9 +601,10 @@ def edit_price_list(list_id):
 def delete_price_list(list_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    DatabaseService.delete_price_list(owner_uid, list_id, sandbox=sandbox)
+    DatabaseService.delete_price_list(owner_uid, list_id, company_id=company_id, sandbox=sandbox)
     flash('Lista de precios eliminada.', 'success')
     return redirect(url_for('web_invoices.list_price_lists'))
 
@@ -601,9 +612,10 @@ def delete_price_list(list_id):
 def manage_price_list_items(list_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    price_list = DatabaseService.get_price_list(owner_uid, list_id, sandbox=sandbox)
+    price_list = DatabaseService.get_price_list(owner_uid, list_id, company_id=company_id, sandbox=sandbox)
     if not price_list:
         flash('Lista de precios no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_price_lists'))
@@ -614,7 +626,7 @@ def manage_price_list_items(list_id):
         if not item_id:
             flash('Debes seleccionar un producto.', 'error')
         elif request.form.get('delete_price') == '1':
-            DatabaseService.delete_price_list_item(owner_uid, list_id, item_id, sandbox=sandbox)
+            DatabaseService.delete_price_list_item(owner_uid, list_id, item_id, company_id=company_id, sandbox=sandbox)
             flash('Precio eliminado de la lista.', 'success')
         else:
             price = float(request.form.get('price') or 0.0)
@@ -625,12 +637,12 @@ def manage_price_list_items(list_id):
                 "costPrice": cost_price,
                 "wholesalePrice": wholesale_price
             }
-            DatabaseService.save_price_list_item(owner_uid, list_id, item_id, price_dict, sandbox=sandbox)
+            DatabaseService.save_price_list_item(owner_uid, list_id, item_id, price_dict, company_id=company_id, sandbox=sandbox)
             flash('Precio asignado exitosamente.', 'success')
         return redirect(url_for('web_invoices.manage_price_list_items', list_id=list_id))
 
-    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
-    price_list_items = DatabaseService.get_price_list_items(owner_uid, list_id, sandbox=sandbox)
+    items = DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    price_list_items = DatabaseService.get_price_list_items(owner_uid, list_id, company_id=company_id, sandbox=sandbox)
 
     # Combinar items con sus precios en la lista
     catalog = []
@@ -650,6 +662,7 @@ def manage_price_list_items(list_id):
 def ajax_get_price_list_price():
     if 'user' not in session: return jsonify({"success": False, "error": "No autorizado"}), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     price_list_id = request.form.get('price_list_id', '')
@@ -658,7 +671,7 @@ def ajax_get_price_list_price():
     if not price_list_id or not item_id:
         return jsonify({"success": False, "error": "Faltan parámetros"}), 400
 
-    price_list_items = DatabaseService.get_price_list_items(owner_uid, price_list_id, sandbox=sandbox)
+    price_list_items = DatabaseService.get_price_list_items(owner_uid, price_list_id, company_id=company_id, sandbox=sandbox)
     price_data = price_list_items.get(item_id, {})
 
     return jsonify({
@@ -675,6 +688,7 @@ def ajax_create_price_list():
     if 'user' not in session:
         return jsonify({'success': False, 'error': 'No autorizado'}), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     data = request.get_json(silent=True) or {}
     name = (data.get('name') or '').strip()
@@ -691,7 +705,7 @@ def ajax_create_price_list():
         'isDefault': False,
         'isActive': True,
     }
-    DatabaseService.save_price_list(owner_uid, list_id, list_dict, sandbox=sandbox)
+    DatabaseService.save_price_list(owner_uid, list_id, list_dict, company_id=company_id, sandbox=sandbox)
     return jsonify({'success': True, 'id': list_id, 'name': name, 'tipo': tipo})
 
 
@@ -701,6 +715,7 @@ def quick_create_product():
     if 'user' not in session:
         return jsonify({'success': False, 'error': 'No autorizado'}), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     data = request.get_json(silent=True) or {}
     name = (data.get('name') or '').strip()
@@ -727,7 +742,7 @@ def quick_create_product():
         'minStock': 0.0,
         'isActive': True,
     }
-    DatabaseService.save_item(owner_uid, item_id, item_dict, sandbox=sandbox)
+    DatabaseService.save_item(owner_uid, item_id, item_dict, company_id=company_id, sandbox=sandbox)
     return jsonify({'success': True, 'item': {'id': item_id, 'code': code, 'name': name, 'price': price, 'type': item_type, 'itbisRate': itbis_rate, 'costPrice': cost_price}})
 
 
@@ -740,12 +755,13 @@ def inventory_dashboard():
     if not check_permission('canManageInventory'):
         return render_template('auth/restricted.html', feature_name="Inventario y Almacén", required_permission="canManageInventory")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     # Obtener almacenes, productos y existencias
-    warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox)
-    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
-    stocks = DatabaseService.get_inventory_stock(owner_uid, sandbox=sandbox)
+    warehouses = DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=sandbox)
+    items = DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    stocks = DatabaseService.get_inventory_stock(owner_uid, company_id=company_id, sandbox=sandbox)
     
     # Cruzar datos de existencias para cada item y almacén
     stock_map = {}
@@ -783,9 +799,10 @@ def inventory_warehouses():
     if not check_permission('canManageInventory'):
         return render_template('auth/restricted.html', feature_name="Almacenes", required_permission="canManageInventory")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox)
+    warehouses = DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=sandbox)
     return render_template('inventario/almacenes.html', active_page='inventory', warehouses=warehouses)
 
 @web_invoices_bp.route('/inventory/warehouses/new', methods=['GET', 'POST'])
@@ -794,6 +811,7 @@ def new_warehouse():
     if not check_permission('canManageInventory'):
         return render_template('auth/restricted.html', feature_name="Nuevo Almacén", required_permission="canManageInventory")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     if request.method == 'POST':
@@ -805,11 +823,11 @@ def new_warehouse():
             "branchId": request.form.get('branchId', 'default-sucursal-principal'),
             "projectId": request.form.get('projectId') or session.get('selected_project_id') or None
         }
-        DatabaseService.save_warehouse(owner_uid, warehouse_id, wh_dict, sandbox=sandbox)
+        DatabaseService.save_warehouse(owner_uid, warehouse_id, wh_dict, company_id=company_id, sandbox=sandbox)
         flash('Almacén registrado exitosamente.', 'success')
         return redirect(url_for('web_invoices.inventory_warehouses'))
         
-    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
+    branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox)
     return render_template('inventario/warehouse_form.html', active_page='inventory', warehouse=None, branches=branches)
 
 @web_invoices_bp.route('/inventory/warehouses/<warehouse_id>/edit', methods=['GET', 'POST'])
@@ -818,9 +836,10 @@ def edit_warehouse(warehouse_id):
     if not check_permission('canManageInventory'):
         return render_template('auth/restricted.html', feature_name="Editar Almacén", required_permission="canManageInventory")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox)
+    warehouses = DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=sandbox)
     warehouse = next((w for w in warehouses if w['id'] == warehouse_id), None)
     if not warehouse:
         flash('Almacén no encontrado.', 'error')
@@ -835,11 +854,11 @@ def edit_warehouse(warehouse_id):
             "projectId": request.form.get('projectId') or warehouse.get('projectId') or session.get('selected_project_id') or None,
             "createdAt": warehouse["createdAt"]
         }
-        DatabaseService.save_warehouse(owner_uid, warehouse_id, wh_dict, sandbox=sandbox)
+        DatabaseService.save_warehouse(owner_uid, warehouse_id, wh_dict, company_id=company_id, sandbox=sandbox)
         flash('Almacén actualizado correctamente.', 'success')
         return redirect(url_for('web_invoices.inventory_warehouses'))
         
-    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
+    branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox)
     return render_template('inventario/warehouse_form.html', active_page='inventory', warehouse=warehouse, branches=branches)
 
 @web_invoices_bp.route('/inventory/warehouses/<warehouse_id>/delete', methods=['POST'])
@@ -848,15 +867,16 @@ def delete_warehouse_route(warehouse_id):
     if not check_permission('canManageInventory'):
         return render_template('auth/restricted.html', feature_name="Eliminar Almacén", required_permission="canManageInventory")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     # Evitar borrar el almacén predeterminado si es el único
-    warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox)
+    warehouses = DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=sandbox)
     if len(warehouses) <= 1:
         flash('Debe mantener al menos un almacén activo en el sistema.', 'error')
         return redirect(url_for('web_invoices.inventory_warehouses'))
         
-    DatabaseService.delete_warehouse(owner_uid, warehouse_id, sandbox=sandbox)
+    DatabaseService.delete_warehouse(owner_uid, warehouse_id, company_id=company_id, sandbox=sandbox)
     flash('Almacén eliminado correctamente.', 'success')
     return redirect(url_for('web_invoices.inventory_warehouses'))
 
@@ -866,11 +886,12 @@ def inventory_transactions():
     if not check_permission('canManageInventory'):
         return render_template('auth/restricted.html', feature_name="Movimientos de Inventario", required_permission="canManageInventory")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    txs = DatabaseService.get_inventory_transactions(owner_uid, sandbox=sandbox)
-    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
-    warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox)
+    txs = DatabaseService.get_inventory_transactions(owner_uid, company_id=company_id, sandbox=sandbox)
+    items = DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    warehouses = DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=sandbox)
     
     item_map = {it['id']: it['name'] for it in items}
     wh_map = {wh['id']: wh['name'] for wh in warehouses}
@@ -888,6 +909,7 @@ def new_inventory_transaction():
     if not check_permission('canManageInventory'):
         return render_template('auth/restricted.html', feature_name="Nuevo Ajuste de Inventario", required_permission="canManageInventory")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     if request.method == 'POST':
@@ -897,11 +919,11 @@ def new_inventory_transaction():
         reason = request.form['reason']
         notes = request.form.get('notes', '')
         
-        items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        items = DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         item = next((it for it in items if it['id'] == item_id), None)
         item_name = item['name'] if item else 'Producto'
         
-        warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox)
+        warehouses = DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=sandbox)
         wh_map = {wh['id']: wh['name'] for wh in warehouses}
         
         tx_dict = {
@@ -918,7 +940,7 @@ def new_inventory_transaction():
             "performedBy": session['user']['email']
         }
         
-        res = DatabaseService.register_inventory_transaction(owner_uid, tx_dict, sandbox=sandbox)
+        res = DatabaseService.register_inventory_transaction(owner_uid, tx_dict, company_id=company_id, sandbox=sandbox)
         if res:
             flash('Movimiento de inventario registrado y existencias actualizadas.', 'success')
         else:
@@ -926,9 +948,9 @@ def new_inventory_transaction():
             
         return redirect(url_for('web_invoices.inventory_dashboard'))
         
-    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    items = DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     goods = [it for it in items if it.get('type', 'Bien') == 'Bien']
-    warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox)
+    warehouses = DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=sandbox)
     
     return render_template(
         'inventario/nueva_transaccion.html',
@@ -946,6 +968,7 @@ def list_invoices():
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Documentos y Facturación", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     q = request.args.get('q', '').strip()
@@ -958,10 +981,10 @@ def list_invoices():
     except ValueError:
         page = 1
         
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), quotations_only=False)
+    invoices = DatabaseService.get_invoices(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), quotations_only=False)
     
     # Incluir gastos E41/E43 como documentos en la misma lista
-    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    all_expenses = DatabaseService.get_expenses(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     ecf_expenses = []
     for exp in all_expenses:
         if exp.get("ecfType") in ("E41", "E43") and exp.get("encf"):
@@ -1104,6 +1127,7 @@ def list_quotations():
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Cotizaciones", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     q = request.args.get('q', '').strip()
@@ -1116,7 +1140,7 @@ def list_quotations():
     except ValueError:
         page = 1
         
-    quotations = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), quotations_only=True)
+    quotations = DatabaseService.get_invoices(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), quotations_only=True)
     
     # Filtrar
     filtered = []
@@ -1213,8 +1237,9 @@ def list_quotations():
 def new_invoice_route(invoice_id=None):
     if invoice_id and 'user' in session:
         owner_uid = session['user']['ownerUID']
+        company_id = session.get('selected_company_id')
         sandbox = session.get('is_sandbox_mode', True)
-        source = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+        source = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
         if source and source.get('isProfessional'):
             return redirect(url_for('web_invoices.professional_quotation_route', clone=invoice_id))
     return _new_document_helper(invoice_id=invoice_id, is_quotation=False)
@@ -1225,8 +1250,9 @@ def new_quotation_route(invoice_id=None):
     # Redirect professional quotations to the professional wizard
     if invoice_id and 'user' in session:
         owner_uid = session['user']['ownerUID']
+        company_id = session.get('selected_company_id')
         sandbox = session.get('is_sandbox_mode', True)
-        source = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+        source = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
         if source and source.get('isProfessional'):
             return redirect(url_for('web_invoices.professional_quotation_route', clone=invoice_id))
     return _new_document_helper(invoice_id=invoice_id, is_quotation=True)
@@ -1237,6 +1263,7 @@ def update_invoice_status_ajax(invoice_id):
     if not check_permission('canInvoice'): return jsonify({'success': False, 'error': 'Sin permisos'}), 403
     
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     data = request.json
@@ -1245,7 +1272,7 @@ def update_invoice_status_ajax(invoice_id):
     if not new_status:
         return jsonify({'success': False, 'error': 'Estado no proporcionado'}), 400
         
-    DatabaseService.update_invoice_status_simple(owner_uid, invoice_id, new_status, sandbox=sandbox)
+    DatabaseService.update_invoice_status_simple(owner_uid, invoice_id, new_status, company_id=company_id, sandbox=sandbox)
     return jsonify({'success': True})
 
 def _new_document_helper(invoice_id=None, is_quotation=False):
@@ -1253,18 +1280,20 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
     # Redirect professional quotations to the professional wizard
     if invoice_id:
         owner_uid = session['user']['ownerUID']
+        company_id = session.get('selected_company_id')
         sandbox = session.get('is_sandbox_mode', True)
-        source = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+        source = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
         if source and source.get('isProfessional'):
             return redirect(url_for('web_invoices.professional_quotation_route', clone=invoice_id))
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Emisión de Documentos", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     existing_invoice = None
     if invoice_id:
-        existing_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+        existing_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
         if not existing_invoice:
             flash('Documento no encontrado.', 'error')
             return redirect(url_for('web_invoices.list_invoices'))
@@ -1275,7 +1304,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         if request.method == 'GET':
             ref_id = request.args.get('reference_invoice_id')
             if ref_id:
-                ref_inv = DatabaseService.get_invoice(owner_uid, ref_id, sandbox=sandbox)
+                ref_inv = DatabaseService.get_invoice(owner_uid, ref_id, company_id=company_id, sandbox=sandbox)
                 if ref_inv:
                     note_type = request.args.get('note_type', _by_code("E34").code)
                     ecf_type_str = "Nota de Crédito (E34)" if note_type == 'E34' else "Nota de Débito (E33)"
@@ -1305,7 +1334,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             # Clone quotation
             clone_id = request.args.get('clone')
             if clone_id:
-                source = DatabaseService.get_invoice(owner_uid, clone_id, sandbox=sandbox)
+                source = DatabaseService.get_invoice(owner_uid, clone_id, company_id=company_id, sandbox=sandbox)
                 if source:
                     existing_invoice = source.copy()
                     existing_invoice.pop('id', None)
@@ -1327,7 +1356,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
     if request.method == 'POST':
         idempotency_key = request.headers.get('Idempotency-Key') or request.form.get('idempotency_key')
         if idempotency_key:
-            record = DatabaseService.get_idempotency_record(owner_uid, idempotency_key, sandbox=sandbox)
+            record = DatabaseService.get_idempotency_record(owner_uid, idempotency_key, company_id=company_id, sandbox=sandbox)
             if record and record.get("invoiceId"):
                 return redirect(url_for('web_invoices.invoice_detail', invoice_id=record["invoiceId"]))
 
@@ -1341,7 +1370,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             return redirect(request.path)
 
         # 1. Validar régimen fiscal
-        profile = DatabaseService.get_company_profile(owner_uid)
+        profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
         regimen = DGIIService.normalize_regimen(profile.get("regimenFiscal", "ordinary")) if profile else "ordinary"
         regimen_rules = DGIIService.get_regimen_rules(regimen)
         ecf_code_from_form = request.form.get('ecfType', _by_code("E32").label_with_code)
@@ -1387,7 +1416,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         client_rnc = request.form.get('clientRNC', '')
         client_project_id = None
         if client_id:
-            clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+            clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
             client = next((c for c in clients if c['id'] == client_id), None)
             if client:
                 client_name = client['razonSocial']
@@ -1408,7 +1437,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                     item_indices.add(int(idx))
                     
         # Obtener el catálogo para resolver automáticamente si es un Bien o Servicio e Impuestos Adicionales
-        catalog = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        catalog = DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         catalog_types = {it['name'].lower().strip(): it.get('type', 'Bien') for it in catalog}
         catalog_tax_data = {
             it['name'].lower().strip(): {
@@ -1646,10 +1675,10 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                 invoice_dict["referencedInvoiceTotal"] = float(request.form.get("referencedInvoiceTotal", 0.0))
 
         if invoice_dict.get("paymentType") == "Crédito" and not is_quotation:
-            client = DatabaseService.get_client(owner_uid, client_id, sandbox=sandbox)
+            client = DatabaseService.get_client(owner_uid, client_id, company_id=company_id, sandbox=sandbox)
             credit_limit = float(client.get("creditLimit", 0) or 0) if client else 0
             if credit_limit > 0:
-                all_client_invs = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, include_all=True)
+                all_client_invs = DatabaseService.get_invoices(owner_uid, company_id=company_id, sandbox=sandbox, include_all=True)
                 open_cxc = sum(
                     float(inv.get("remainingBalance", inv.get("netPayable", 0)))
                     for inv in all_client_invs
@@ -1669,7 +1698,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                     )
                     return redirect(request.path)
 
-        DatabaseService.save_invoice(owner_uid, target_invoice_id, invoice_dict, sandbox=sandbox)
+        DatabaseService.save_invoice(owner_uid, target_invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
         if idempotency_key:
             DatabaseService.save_idempotency_record(owner_uid, idempotency_key, {
                 "response": {
@@ -1677,7 +1706,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                 },
                 "statusCode": 200,
                 "invoiceId": target_invoice_id
-            }, sandbox=sandbox)
+            }, company_id=company_id, sandbox=sandbox)
         
         from app.services.audit_service import AuditService, ACTION_CREATE, ACTION_UPDATE, MODULE_FACTURAS, MODULE_COTIZACIONES
         audit_action = ACTION_UPDATE if existing_invoice else ACTION_CREATE
@@ -1715,18 +1744,18 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
 
             from app.services.ecf_readiness_service import EcfReadinessService, EcfReadinessError
             try:
-                EcfReadinessService.validate_or_raise(owner_uid)
+                EcfReadinessService.validate_or_raise(owner_uid, company_id=company_id)
             except EcfReadinessError as e:
                 flash(f"No es posible emitir comprobantes electrónicos: {str(e)}", 'error')
                 return redirect(url_for('web_invoices.list_invoices'))
 
-            company = DatabaseService.get_company_profile(owner_uid)
+            company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
             log_id = None
             try:
                 if not invoice_dict.get("encf"):
                     ecf_short = get_ecf_type_short_code(invoice_dict["ecfType"])
                     user_email = session['user']['email']
-                    encf, log_id = DatabaseService.consume_next_sequence(owner_uid, ecf_short, user_email, sandbox=sandbox)
+                    encf, log_id = DatabaseService.consume_next_sequence(owner_uid, ecf_short, user_email, company_id=company_id, sandbox=sandbox)
                     invoice_dict["encf"] = encf
                     
                 res = EcfEmissionService.emit_electronic_comprobante(company, invoice_dict, sandbox=sandbox)
@@ -1760,10 +1789,10 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                             "registeredBy": session['user']['email']
                         }
                         # La factura se guardará al registrar el pago
-                        DatabaseService.register_invoice_payment(owner_uid, target_invoice_id, payment_dict, sandbox=sandbox)
+                        DatabaseService.register_invoice_payment(owner_uid, target_invoice_id, payment_dict, company_id=company_id, sandbox=sandbox)
                         # Generar asiento contable automático
                         from app.services.accounting_service import AccountingService
-                        entry = AccountingService.auto_generate_invoice_entry(owner_uid, invoice_dict, sandbox=sandbox)
+                        entry = AccountingService.auto_generate_invoice_entry(owner_uid, invoice_dict, company_id=company_id, sandbox=sandbox)
                         if entry:
                             flash(f'✅ Asiento contable {entry["number"]} generado automáticamente.', 'info')
                         else:
@@ -1787,13 +1816,13 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                         invoice_dict["status"] = "Pendiente DGII" if pending_dgii else "Emitida"
                         invoice_dict["totalPaid"] = 0.0
                         invoice_dict["remainingBalance"] = invoice_dict["netPayable"]
-                        DatabaseService.save_invoice(owner_uid, target_invoice_id, invoice_dict, sandbox=sandbox)
+                        DatabaseService.save_invoice(owner_uid, target_invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
                         # Generar asiento contable automático para notas de crédito/débito
                         from app.services.accounting_service import AccountingService
                         if ecf_type in ["Nota de Crédito (E34)", "Nota de Débito (E33)"]:
-                            entry = AccountingService.auto_generate_credit_note_entry(owner_uid, invoice_dict, sandbox=sandbox)
+                            entry = AccountingService.auto_generate_credit_note_entry(owner_uid, invoice_dict, company_id=company_id, sandbox=sandbox)
                         else:
-                            entry = AccountingService.auto_generate_invoice_entry(owner_uid, invoice_dict, sandbox=sandbox)
+                            entry = AccountingService.auto_generate_invoice_entry(owner_uid, invoice_dict, company_id=company_id, sandbox=sandbox)
                         if entry:
                             flash(f'✅ Asiento contable {entry["number"]} generado automáticamente.', 'info')
                         else:
@@ -1814,7 +1843,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                         except Exception:
                             pass
                     
-                    logs = DatabaseService.get_sequence_logs(owner_uid, sandbox=sandbox)
+                    logs = DatabaseService.get_sequence_logs(owner_uid, company_id=company_id, sandbox=sandbox)
                     log = next((l for l in logs if l["encf"] == res.get("encf")), None)
                     if log:
                         # Verificar cuadratura y regla de tolerancia
@@ -1831,7 +1860,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                             "motivo": motivo,
                             "xmlEnviado": json.dumps(res.get("requestPayload"), indent=2) if res.get("requestPayload") else "",
                             "respuestaDGII": json.dumps(res.get("responseBody"), indent=2) if res.get("responseBody") else ""
-                        }, sandbox=sandbox)
+                        }, company_id=company_id, sandbox=sandbox)
                         
                     msg = f"¡Comprobante emitido y cobrado con éxito! e-NCF: {res.get('encf')}"
                     if res.get("mode") == "FALLBACK":
@@ -1844,7 +1873,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                             "estado": "FAILED",
                             "motivo": f"DGII rechazó: {res.get('message', res.get('error', 'Error desconocido'))}",
                             "respuestaDGII": json.dumps(res.get("responseBody"), indent=2) if res.get("responseBody") else ""
-                        }, sandbox=sandbox)
+                        }, company_id=company_id, sandbox=sandbox)
                     flash(f"Borrador creado, pero error al emitir: {res.get('message')}", "warning")
             except Exception as e:
                 # Marcar el sequence log como FALLIDO ante excepción no manejada
@@ -1852,7 +1881,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                     DatabaseService.update_sequence_log(owner_uid, log_id, {
                         "estado": "FAILED",
                         "motivo": f"Excepción en emisión: {str(e)}"
-                    }, sandbox=sandbox)
+                    }, company_id=company_id, sandbox=sandbox)
                 flash(f"Borrador creado, pero fallo en emisión: {str(e)}", "error")
             return redirect(url_for('web_invoices.invoice_detail', invoice_id=target_invoice_id))
         else:
@@ -1860,23 +1889,23 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             return redirect(url_for('web_invoices.invoice_detail', invoice_id=target_invoice_id))
 
     # Cargar catálogo de ítems, clientes y almacenes para alimentar form
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
-    catalog = [it for it in DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) if it.get('isActive', True)]
-    warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox)
-    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
+    clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    catalog = [it for it in DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) if it.get('isActive', True)]
+    warehouses = DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=sandbox)
+    branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox)
     selected_bid = g.get('branch_id') or session.get('selected_branch_id')
-    projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox) if selected_bid else []
+    projects = DatabaseService.get_projects(owner_uid, company_id=company_id, branch_id=selected_bid, sandbox=sandbox) if selected_bid else []
     active_project_id = session.get('selected_project_id') or ''
     catalog_json = json.dumps(catalog)
     clients_json = json.dumps(clients)
 
     # Cargar listas de precios para integración en facturación
-    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    price_lists = DatabaseService.get_price_lists(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     active_price_lists = [pl for pl in price_lists if pl.get('isActive', True)]
     price_list_prices = {}
     for pl in price_lists:
         if pl.get('isActive', True):
-            prices = DatabaseService.get_price_list_items(owner_uid, pl['id'], sandbox=sandbox)
+            prices = DatabaseService.get_price_list_items(owner_uid, pl['id'], company_id=company_id, sandbox=sandbox)
             if prices:
                 price_list_prices[pl['id']] = {}
                 for item_id, price_data in prices.items():
@@ -1891,14 +1920,14 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
     default_price_list_id = default_price_list['id'] if default_price_list else ''
 
     # Cargar centros de costo para el formulario de documento
-    cost_centers = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox)
+    cost_centers = DatabaseService.get_cost_centers(owner_uid, company_id=company_id, sandbox=sandbox)
     active_cost_centers = [cc for cc in cost_centers if cc.get('isActive', True)]
 
     default_date = (existing_invoice.get('date', datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d %H:%M:%S"))[:10] if existing_invoice else datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d"))
     default_due_date = existing_invoice.get('dueDate', (datetime.now(timezone(timedelta(hours=-4))) + timedelta(days=30)).strftime("%Y-%m-%d")) if existing_invoice else (datetime.now(timezone(timedelta(hours=-4))) + timedelta(days=30)).strftime("%Y-%m-%d")
 
     # --- ECF types: intersección de tipos de factura de venta × régimen del emisor ---
-    profile = DatabaseService.get_company_profile(owner_uid)
+    profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     regimen = DGIIService.normalize_regimen(profile.get("regimenFiscal", "ordinary")) if profile else "ordinary"
     regimen_rules = DGIIService.get_regimen_rules(regimen)
     allowed_by_regimen = set(regimen_rules.get("allowed_ecf_types", []))
@@ -1944,7 +1973,7 @@ def _get_client_email(owner_uid, invoice, sandbox):
     try:
         client_id = invoice.get("clientId", "")
         if client_id:
-            clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+            clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
             client = next((c for c in clients if c["id"] == client_id), None)
             if client:
                 return client.get("email", "")
@@ -2012,7 +2041,7 @@ def format_mentions(content, users):
 
 def process_comment_mentions(owner_uid, content, entity_id, entity_name, entity_type, entity_url_path, sandbox):
     taggable_users = []
-    owner_prof = DatabaseService.get_user_profile(owner_uid)
+    owner_prof = DatabaseService.get_user_profile(owner_uid, company_id=company_id)
     if owner_prof:
         taggable_users.append({
             "uid": owner_uid,
@@ -2020,7 +2049,7 @@ def process_comment_mentions(owner_uid, content, entity_id, entity_name, entity_
             "email": owner_prof.get("email", ""),
             "role": "owner"
         })
-    team = DatabaseService.get_team_members(owner_uid) or []
+    team = DatabaseService.get_team_members(owner_uid, company_id=company_id) or []
     for member in team:
         taggable_users.append({
             "uid": member.get("uid"),
@@ -2076,7 +2105,7 @@ def process_comment_mentions(owner_uid, content, entity_id, entity_name, entity_
             from app.services.notifications import NotificationService
             
             # Obtener el nombre comercial de la empresa
-            company = DatabaseService.get_company(owner_uid) or {}
+            company = DatabaseService.get_company(owner_uid, company_id=company_id) or {}
             issuer_company_name = company.get("tradeName") or company.get("companyName") or get_product_name()
             
             NotificationService.send_mention_notification(
@@ -2105,18 +2134,19 @@ def invoice_detail(invoice_id):
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Detalle de Factura", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice:
         flash('Factura no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_invoices'))
     
     invoice = _enrich_invoice_totals(invoice)
         
-    payments = DatabaseService.get_invoice_payments(owner_uid, invoice_id, sandbox=sandbox)
-    company = DatabaseService.get_company_profile(owner_uid)
-    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
+    payments = DatabaseService.get_invoice_payments(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+    branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox)
     branch = next((b for b in branches if b['id'] == invoice.get("branchId")), None)
     if not branch and branches:
         branch = branches[0]
@@ -2158,7 +2188,7 @@ def invoice_detail(invoice_id):
     invoice["totalMora"] = round(total_mora, 2)
     invoice["overdue"] = (total_mora > 0.0)
     
-    comments = DatabaseService.get_invoice_comments(owner_uid, invoice_id, sandbox=sandbox)
+    comments = DatabaseService.get_invoice_comments(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     
     # Obtener el historial de auditoría
     try:
@@ -2170,7 +2200,7 @@ def invoice_detail(invoice_id):
         
     # Load taggable users
     taggable_users = []
-    owner_prof = DatabaseService.get_user_profile(owner_uid)
+    owner_prof = DatabaseService.get_user_profile(owner_uid, company_id=company_id)
     if owner_prof:
         taggable_users.append({
             "uid": owner_uid,
@@ -2178,7 +2208,7 @@ def invoice_detail(invoice_id):
             "email": owner_prof.get("email", ""),
             "role": "owner"
         })
-    team = DatabaseService.get_team_members(owner_uid) or []
+    team = DatabaseService.get_team_members(owner_uid, company_id=company_id) or []
     for member in team:
         taggable_users.append({
             "uid": member.get("uid"),
@@ -2187,8 +2217,8 @@ def invoice_detail(invoice_id):
             "role": member.get("role", "collaborator")
         })
         
-    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
-    projects = DatabaseService.get_projects(owner_uid, branch_id=invoice.get('branchId'), sandbox=sandbox) if invoice.get('branchId') else DatabaseService.get_projects(owner_uid, sandbox=sandbox)
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, company_id=company_id, sandbox=sandbox)
+    projects = DatabaseService.get_projects(owner_uid, company_id=company_id, branch_id=invoice.get('branchId'), sandbox=sandbox) if invoice.get('branchId') else DatabaseService.get_projects(owner_uid, company_id=company_id, sandbox=sandbox)
 
     return render_template('invoices/detail.html', active_page='quotations' if invoice.get('isQuotation') else 'invoices', invoice=invoice, company=company, branch=branch, payments=payments, client_email=_get_client_email(owner_uid, invoice, sandbox), comments=comments, taggable_users=taggable_users, format_mentions=format_mentions, history_logs=history_logs, bank_accounts=bank_accounts, projects=projects)
 
@@ -2196,6 +2226,7 @@ def invoice_detail(invoice_id):
 def add_invoice_comment(invoice_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     content = request.form.get('content', '').strip()
@@ -2238,11 +2269,11 @@ def add_invoice_comment(invoice_id):
         "visibleToClient": visible_to_client
     }
     
-    DatabaseService.save_invoice_comment(owner_uid, invoice_id, comment_id, comment_dict, sandbox=sandbox)
+    DatabaseService.save_invoice_comment(owner_uid, invoice_id, comment_id, comment_dict, company_id=company_id, sandbox=sandbox)
     
     # Process mentions
     try:
-        invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox) or {}
+        invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox) or {}
         invoice_number = invoice.get('invoiceNumber', invoice_id)
         entity_url = f"/invoices/{invoice_id}?sandbox={'true' if sandbox else 'false'}"
         process_comment_mentions(owner_uid, content, invoice_id, invoice_number, "invoice", entity_url, sandbox)
@@ -2256,9 +2287,10 @@ def add_invoice_comment(invoice_id):
 def edit_invoice_comment(invoice_id, comment_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    comments = DatabaseService.get_invoice_comments(owner_uid, invoice_id, sandbox=sandbox)
+    comments = DatabaseService.get_invoice_comments(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     comment = next((c for c in comments if c['id'] == comment_id), None)
     if not comment:
         flash('Comentario no encontrado.', 'error')
@@ -2299,11 +2331,11 @@ def edit_invoice_comment(invoice_id, comment_id):
         except Exception as e:
             flash(f"Advertencia: No se pudo cargar el archivo adjunto: {html.escape(str(e))}", 'warning')
             
-    DatabaseService.save_invoice_comment(owner_uid, invoice_id, comment_id, comment, sandbox=sandbox)
+    DatabaseService.save_invoice_comment(owner_uid, invoice_id, comment_id, comment, company_id=company_id, sandbox=sandbox)
     
     # Process mentions
     try:
-        invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox) or {}
+        invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox) or {}
         invoice_number = invoice.get('invoiceNumber', invoice_id)
         entity_url = f"/invoices/{invoice_id}?sandbox={'true' if sandbox else 'false'}"
         process_comment_mentions(owner_uid, content, invoice_id, invoice_number, "invoice", entity_url, sandbox)
@@ -2318,9 +2350,10 @@ def edit_invoice_comment(invoice_id, comment_id):
 def delete_invoice_comment(invoice_id, comment_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    comments = DatabaseService.get_invoice_comments(owner_uid, invoice_id, sandbox=sandbox)
+    comments = DatabaseService.get_invoice_comments(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     comment = next((c for c in comments if c['id'] == comment_id), None)
     if not comment:
         flash('Comentario no encontrado.', 'error')
@@ -2333,7 +2366,7 @@ def delete_invoice_comment(invoice_id, comment_id):
         flash('No tienes permiso para eliminar este comentario.', 'error')
         return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
         
-    DatabaseService.delete_invoice_comment(owner_uid, invoice_id, comment_id, sandbox=sandbox)
+    DatabaseService.delete_invoice_comment(owner_uid, invoice_id, comment_id, company_id=company_id, sandbox=sandbox)
     flash('Comentario eliminado exitosamente.', 'success')
     return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
@@ -2342,6 +2375,7 @@ def ai_polish_comment():
     if 'user' not in session:
         return jsonify({"success": False, "message": "No autenticado"}), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     data = request.get_json() or {}
     content = data.get("content", "").strip()
     if not content:
@@ -2361,9 +2395,10 @@ def update_invoice_project(invoice_id):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     project_id = request.form.get('projectId', None)
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice:
         flash('Documento no encontrado.', 'error')
         return redirect(url_for('web_invoices.list_invoices'))
@@ -2373,7 +2408,7 @@ def update_invoice_project(invoice_id):
         invoice['projectId'] = project_id
     else:
         invoice['projectId'] = None
-    DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+    DatabaseService.save_invoice(owner_uid, invoice_id, invoice, company_id=company_id, sandbox=sandbox)
     flash('Proyecto actualizado.', 'success')
     return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
@@ -2385,6 +2420,7 @@ def send_receipt_email(invoice_id):
     if 'user' not in session:
         return jsonify({"success": False, "message": "No autenticado."}), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     data = request.get_json(silent=True) or {}
@@ -2392,11 +2428,11 @@ def send_receipt_email(invoice_id):
     if not recipient_email:
         return jsonify({"success": False, "message": "Dirección de email no especificada."}), 400
 
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice:
         return jsonify({"success": False, "message": "Factura no encontrada."}), 404
 
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
 
     # Payment data sent from the client
     payment_id      = data.get("paymentId", "")
@@ -2518,7 +2554,7 @@ def send_receipt_email(invoice_id):
 def send_invoice_email(owner_uid, invoice, recipient_email, sandbox=True, base_url=None):
     """Función auxiliar para enviar factura electrónica por correo usando SMTP y Weasyprint."""
     try:
-        company = DatabaseService.get_company_profile(owner_uid)
+        company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
 
         from flask import current_app as app
         if not app.config.get("SMTP_USER") or not app.config.get("SMTP_PASSWORD"):
@@ -2605,7 +2641,7 @@ def send_invoice_email(owner_uid, invoice, recipient_email, sandbox=True, base_u
         img.save(stream, format="PNG")
         qr_base64 = base64.b64encode(stream.getvalue()).decode('utf-8')
 
-        branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
+        branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox)
         branch = next((b for b in branches if b['id'] == invoice.get("branchId")), None)
         if not branch and branches:
             branch = branches[0]
@@ -2740,6 +2776,7 @@ def notify_invoice_email(invoice_id):
     if 'user' not in session:
         return jsonify({"success": False, "message": "No autenticado."}), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     data = request.get_json(silent=True) or {}
@@ -2747,7 +2784,7 @@ def notify_invoice_email(invoice_id):
     if not recipient_email:
         return jsonify({"success": False, "message": "Dirección de correo no especificada."}), 400
 
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice:
         return jsonify({"success": False, "message": "Factura no encontrada."}), 404
 
@@ -2764,9 +2801,10 @@ def pay_invoice_route(invoice_id):
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Registrar Pago", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice:
         flash('Factura no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_invoices'))
@@ -2876,7 +2914,7 @@ def pay_invoice_route(invoice_id):
             payment_dict["moraForgiven"] = mora_amount
             payment_dict["moraForgivenNote"] = request.form.get('moraNote', '').strip() or 'Mora perdonada'
         try:
-            DatabaseService.register_invoice_payment(owner_uid, invoice_id, payment_dict, sandbox=sandbox)
+            DatabaseService.register_invoice_payment(owner_uid, invoice_id, payment_dict, company_id=company_id, sandbox=sandbox)
         except Exception as e:
             all_success = False
             flash(f'Error al registrar cobro ({p["paymentMethod"]}): {str(e)}', 'error')
@@ -2897,7 +2935,7 @@ def pay_invoice_route(invoice_id):
         flash(f'🤝 Mora de RD$ {mora_amount:,.2f} perdonada.', 'info')
 
     try:
-        updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+        updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
         from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_FACTURAS
         AuditService.log_from_request(
             owner_uid=owner_uid,
@@ -2921,9 +2959,10 @@ def forgive_mora_route(invoice_id):
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Perdonar Mora", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice:
         flash('Factura no encontrada.', 'error')
         return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
@@ -2982,7 +3021,7 @@ def forgive_mora_route(invoice_id):
     inv_ref.collection("payments").document(payment_id).set(payment_dict)
 
     try:
-        updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+        updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
         from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_FACTURAS
         AuditService.log_from_request(
             owner_uid=owner_uid,
@@ -3007,17 +3046,18 @@ def pay_advanced_route(invoice_id):
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Registrar Pago", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice:
         flash('Factura no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_invoices'))
         
-    company = DatabaseService.get_company_profile(owner_uid) or {}
-    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
-    cost_centers = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox)
-    payments = DatabaseService.get_invoice_payments(owner_uid, invoice_id, sandbox=sandbox) or []
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, company_id=company_id, sandbox=sandbox)
+    cost_centers = DatabaseService.get_cost_centers(owner_uid, company_id=company_id, sandbox=sandbox)
+    payments = DatabaseService.get_invoice_payments(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox) or []
     
     receipt_no = len(payments) + 1
     
@@ -3064,10 +3104,10 @@ def pay_advanced_route(invoice_id):
         before_invoice = invoice.copy()
         
         try:
-            DatabaseService.register_invoice_payment(owner_uid, invoice_id, payment_dict, sandbox=sandbox)
+            DatabaseService.register_invoice_payment(owner_uid, invoice_id, payment_dict, company_id=company_id, sandbox=sandbox)
             
             try:
-                updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+                updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
                 from app.services.audit_service import AuditService, MODULE_FACTURAS
                 AuditService.log_from_request(
                     owner_uid=owner_uid,
@@ -3109,9 +3149,10 @@ def approve_payment_proof(invoice_id):
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Aprobar Pago", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice:
         flash('Factura no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_invoices'))
@@ -3144,7 +3185,7 @@ def approve_payment_proof(invoice_id):
 
     try:
         # Registrar el pago oficial y recalcular balances
-        DatabaseService.register_invoice_payment(owner_uid, invoice_id, payment_dict, sandbox=sandbox)
+        DatabaseService.register_invoice_payment(owner_uid, invoice_id, payment_dict, company_id=company_id, sandbox=sandbox)
         
         # Eliminar el comprobante pendiente
         coll_inv = "sandbox_invoices" if sandbox else "invoices"
@@ -3156,7 +3197,7 @@ def approve_payment_proof(invoice_id):
         
         # Registrar evento de auditoría
         try:
-            updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+            updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
             from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_FACTURAS
             AuditService.log_from_request(
                 owner_uid=owner_uid,
@@ -3182,6 +3223,7 @@ def approve_payment_proof(invoice_id):
                 from app.services.notifications import NotificationService
                 NotificationService.send_client_payment_notification(
                     owner_uid=owner_uid,
+                    company_id=company_id,
                     action='aprobado',
                     invoice=invoice,
                     client_email=client_email,
@@ -3221,9 +3263,10 @@ def reject_payment_proof(invoice_id):
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Rechazar Pago", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice:
         flash('Factura no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_invoices'))
@@ -3247,7 +3290,7 @@ def reject_payment_proof(invoice_id):
         
         # Registrar evento de auditoría
         try:
-            updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+            updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
             from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_FACTURAS
             AuditService.log_from_request(
                 owner_uid=owner_uid,
@@ -3278,7 +3321,7 @@ def reject_payment_proof(invoice_id):
                 "edited": False,
                 "visibleToClient": False
             }
-            DatabaseService.save_invoice_comment(owner_uid, invoice_id, comment_id, comment_dict, sandbox=sandbox)
+            DatabaseService.save_invoice_comment(owner_uid, invoice_id, comment_id, comment_dict, company_id=company_id, sandbox=sandbox)
 
         # Notificar al cliente por email e in-app
         try:
@@ -3290,6 +3333,7 @@ def reject_payment_proof(invoice_id):
                 from app.services.notifications import NotificationService
                 NotificationService.send_client_payment_notification(
                     owner_uid=owner_uid,
+                    company_id=company_id,
                     action='rechazado',
                     invoice=invoice,
                     client_email=client_email,
@@ -3329,9 +3373,10 @@ def sign_invoice_route(invoice_id):
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Firmar Comprobante", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice:
         flash('Factura no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_invoices'))
@@ -3343,7 +3388,7 @@ def sign_invoice_route(invoice_id):
     elif limit_msg:
         flash(limit_msg, 'warning')
         
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     
     try:
         # Consumir el siguiente consecutivo del rango fiscal DGII si no se ha asignado
@@ -3352,7 +3397,7 @@ def sign_invoice_route(invoice_id):
             user_email = session['user']['email']
             
             # Bloquear secuencia y generar consecutivo
-            encf, log_id = DatabaseService.consume_next_sequence(owner_uid, ecf_short, user_email, sandbox=sandbox)
+            encf, log_id = DatabaseService.consume_next_sequence(owner_uid, ecf_short, user_email, company_id=company_id, sandbox=sandbox)
             invoice["encf"] = encf
             
         # Emitir a través de DGII Direct (con Fallback de contingencia)
@@ -3380,10 +3425,10 @@ def sign_invoice_route(invoice_id):
             invoice["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat() if res.get("mode") == "FALLBACK" else None
             invoice["date"] = datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d %H:%M:%S")
             
-            DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+            DatabaseService.save_invoice(owner_uid, invoice_id, invoice, company_id=company_id, sandbox=sandbox)
             
             # Sincronizar en log de auditoría
-            logs = DatabaseService.get_sequence_logs(owner_uid, sandbox=sandbox)
+            logs = DatabaseService.get_sequence_logs(owner_uid, company_id=company_id, sandbox=sandbox)
             log = next((l for l in logs if l["encf"] == res.get("encf")), None)
             if log:
                 # Verificar cuadratura y regla de tolerancia
@@ -3401,7 +3446,7 @@ def sign_invoice_route(invoice_id):
                     "motivo": motivo,
                     "xmlEnviado": json.dumps(res.get("requestPayload"), indent=2) if res.get("requestPayload") else "",
                     "respuestaDGII": json.dumps(res.get("responseBody"), indent=2) if res.get("responseBody") else ""
-                }, sandbox=sandbox)
+                }, company_id=company_id, sandbox=sandbox)
                 
             msg = f"¡Comprobante firmado digitalmente con éxito! e-NCF: {res.get('encf')} (Modo: {res.get('mode', 'API')})"
             if res.get("mode") == "FALLBACK":
@@ -3422,9 +3467,10 @@ def convert_quotation_route(invoice_id):
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Convertir Cotización", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice:
         flash('Cotización no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_quotations'))
@@ -3480,7 +3526,7 @@ def convert_quotation_route(invoice_id):
                 "isActive": True,
                 "branchId": session.get('selected_branch_id') or 'default-sucursal-principal'
             }
-            DatabaseService.save_item(owner_uid, new_item_id, new_item, sandbox=sandbox)
+            DatabaseService.save_item(owner_uid, new_item_id, new_item, company_id=company_id, sandbox=sandbox)
             new_invoice['items'][idx]['catalogId'] = new_item_id
         # If catalogId exists, the item already exists in the catalog — leave as is
 
@@ -3491,8 +3537,8 @@ def convert_quotation_route(invoice_id):
     invoice['convertedInvoiceNumber'] = new_invoice['invoiceNumber']
 
     # Guardar ambos documentos en la base de datos
-    DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
-    DatabaseService.save_invoice(owner_uid, new_invoice_id, new_invoice, sandbox=sandbox)
+    DatabaseService.save_invoice(owner_uid, invoice_id, invoice, company_id=company_id, sandbox=sandbox)
+    DatabaseService.save_invoice(owner_uid, new_invoice_id, new_invoice, company_id=company_id, sandbox=sandbox)
 
     # Registrar evento de auditoría en la cotización
     try:
@@ -3534,19 +3580,19 @@ def convert_quotation_route(invoice_id):
     if client_id:
         try:
             active_advances = DatabaseService.get_client_advances(
-                owner_uid, sandbox=sandbox, client_id=client_id, status="Activo",
+                owner_uid, company_id=company_id, sandbox=sandbox, client_id=client_id, status="Activo",
                 project_id=g.get('project_id')
             )
             if active_advances:
                 apply_ids = [a["id"] for a in active_advances]
                 result = DatabaseService.apply_client_advances_to_invoice(
-                    owner_uid, new_invoice_id, apply_ids, sandbox=sandbox
+                    owner_uid, new_invoice_id, apply_ids, company_id=company_id, sandbox=sandbox
                 )
-                updated_invoice = DatabaseService.get_invoice(owner_uid, new_invoice_id, sandbox=sandbox)
+                updated_invoice = DatabaseService.get_invoice(owner_uid, new_invoice_id, company_id=company_id, sandbox=sandbox)
                 if updated_invoice:
                     from app.services.accounting_service import AccountingService
                     AccountingService.auto_generate_advance_application_entry(
-                        owner_uid, updated_invoice, result["appliedAdvances"], sandbox=sandbox
+                        owner_uid, updated_invoice, result["appliedAdvances"], company_id=company_id, sandbox=sandbox
                     )
                 applied_msg = f" Se aplicaron {len(result['appliedAdvances'])} anticipos por RD$ {result['totalApplied']:,.2f}."
         except Exception as ae_adv:
@@ -3563,20 +3609,21 @@ def approve_quotation_route(invoice_id):
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Aprobar Cotización", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice or not invoice.get('isQuotation'):
         flash('Cotización no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_quotations'))
         
     before_invoice = invoice.copy()
     invoice['status'] = 'Aprobada'
-    DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+    DatabaseService.save_invoice(owner_uid, invoice_id, invoice, company_id=company_id, sandbox=sandbox)
     
     # Registrar evento de auditoría
     try:
-        updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+        updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
         from app.services.audit_service import AuditService, MODULE_FACTURAS
         AuditService.log_from_request(
             owner_uid=owner_uid,
@@ -3602,11 +3649,12 @@ def send_quotation_to_client(invoice_id):
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Enviar Cotización", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     recipient_email = request.form.get("email", "").strip()
     
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice or not invoice.get('isQuotation'):
         flash('Cotización no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_quotations'))
@@ -3618,7 +3666,7 @@ def send_quotation_to_client(invoice_id):
         flash('El cliente no tiene un correo registrado. Especifique un correo de destino.', 'error')
         return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
         
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     company_name = company.get("tradeName") or company.get("companyName", get_product_name())
     
     from flask import current_app as app
@@ -3631,7 +3679,7 @@ def send_quotation_to_client(invoice_id):
     
     if portal_enabled:
         # ── RUTA PORTAL: enviar enlace de aprobación ──
-        client = DatabaseService.get_client(owner_uid, invoice['clientId'], sandbox=sandbox)
+        client = DatabaseService.get_client(owner_uid, invoice['clientId'], company_id=company_id, sandbox=sandbox)
         if not client or not client.get('accessPin'):
             session['pin_missing_client'] = invoice['clientId']
             return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
@@ -3706,10 +3754,10 @@ def send_quotation_to_client(invoice_id):
 
         before_invoice = invoice.copy()
         invoice['status'] = 'Pendiente Aut. Cliente'
-        DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+        DatabaseService.save_invoice(owner_uid, invoice_id, invoice, company_id=company_id, sandbox=sandbox)
 
         try:
-            updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+            updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
             from app.services.audit_service import AuditService, MODULE_FACTURAS
             AuditService.log_from_request(owner_uid=owner_uid, action="SEND_EMAIL", module=MODULE_FACTURAS, entity_id=invoice_id, entity_label=f"Cotización enviada al correo {recipient_email} para aprobación", user_session=session.get('user', {}), before=before_invoice, after=updated_invoice, sandbox=sandbox)
         except Exception as ae:
@@ -3720,7 +3768,7 @@ def send_quotation_to_client(invoice_id):
         # ── RUTA PDF: enviar cotización como PDF adjunto (o HTML inline) ──
         import io
         invoice_enriched = _enrich_invoice_totals(invoice.copy())
-        branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
+        branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox)
         branch = next((b for b in branches if b['id'] == invoice.get("branchId")), None)
         if not branch and branches:
             branch = branches[0]
@@ -3809,6 +3857,7 @@ def contract_terms_ai_polish():
     if 'user' not in session:
         return jsonify({"success": False, "message": "No autenticado"}), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     data = request.get_json() or {}
     content = data.get("content", "").strip()
     context = data.get("context", "")
@@ -3835,9 +3884,10 @@ def prepare_contract_page(invoice_id):
                                required_permission="canManageContracts")
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox   = session.get('is_sandbox_mode', True)
 
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice:
         flash('Cotización no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_quotations'))
@@ -3926,9 +3976,10 @@ def prepare_contract_submit(invoice_id):
                                required_permission="canManageContracts")
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox   = session.get('is_sandbox_mode', True)
 
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice or not invoice.get('isQuotation') or invoice.get('status') != 'Aprobada' or invoice.get('isConvertedToContract'):
         flash('No se puede convertir esta cotización.', 'error')
         return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
@@ -4003,11 +4054,11 @@ def prepare_contract_submit(invoice_id):
         'updatedAt':       now_iso,
     }
 
-    DatabaseService.save_contract(owner_uid, contract_id, contract_dict, sandbox=sandbox)
+    DatabaseService.save_contract(owner_uid, contract_id, contract_dict, company_id=company_id, sandbox=sandbox)
 
     # ── Marcar cotización como convertida ─────────────────────────────────────
     invoice['isConvertedToContract'] = True
-    DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+    DatabaseService.save_invoice(owner_uid, invoice_id, invoice, company_id=company_id, sandbox=sandbox)
 
     flash(
         f'¡Cotización convertida exitosamente al Contrato Recurrente {contract_num}! '
@@ -4035,9 +4086,10 @@ def invoice_qr_image(invoice_id):
     if not check_permission('canInvoice'):
         return "Acceso denegado: requiere permiso de facturación", 403
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice or not invoice.get("qrCodeURL"):
         # Retornar QR vacío
         qr_url = "https://dgii.gov.do/validaecf"
@@ -4066,9 +4118,10 @@ def invoice_pdf_download(invoice_id):
     if not check_permission('canInvoice'):
         return "Acceso denegado: requiere permiso de facturación", 403
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice:
         return "Factura no encontrada", 404
 
@@ -4085,7 +4138,7 @@ def invoice_pdf_download(invoice_id):
     )
 
     invoice = _enrich_invoice_totals(invoice)
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     inv_num = invoice.get('invoiceNumber', invoice_id).replace('/', '-').replace(' ', '_')
 
     action = request.args.get('action', 'download')
@@ -4156,7 +4209,7 @@ def invoice_pdf_download(invoice_id):
     img.save(stream, format="PNG")
     qr_base64 = base64.b64encode(stream.getvalue()).decode('utf-8')
 
-    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
+    branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox)
     branch = next((b for b in branches if b['id'] == invoice.get("branchId")), None)
     if not branch and branches:
         branch = branches[0]
@@ -4184,14 +4237,15 @@ def invoice_retention_letter(invoice_id):
     if not check_permission('canInvoice'):
         return "Acceso denegado: requiere permiso de facturación", 403
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice:
         return "Factura no encontrada", 404
 
     invoice = _enrich_invoice_totals(invoice)
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
 
     retained_isr = float(invoice.get('retainedISR', 0) or 0)
     retained_itbis = float(invoice.get('retainedITBIS', 0) or 0)
@@ -4257,14 +4311,15 @@ def invoice_retention_letter_email(invoice_id):
     if not check_permission('canInvoice'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice:
         return jsonify(success=False, error="Factura no encontrada"), 404
 
     invoice = _enrich_invoice_totals(invoice)
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
 
     retained_isr = float(invoice.get('retainedISR', 0) or 0)
     retained_itbis = float(invoice.get('retainedITBIS', 0) or 0)
@@ -4360,13 +4415,14 @@ def expense_retention_letter(expense_id):
     if not check_permission('canExpenses'):
         return "Acceso denegado: requiere permiso de gastos", 403
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    expense = DatabaseService.get_expense(owner_uid, expense_id, sandbox=sandbox)
+    expense = DatabaseService.get_expense(owner_uid, expense_id, company_id=company_id, sandbox=sandbox)
     if not expense:
         return "Gasto no encontrado", 404
 
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
 
     retained_isr = float(expense.get('isrWithheld', 0) or 0)
     retained_itbis = float(expense.get('itbisWithheld', 0) or 0)
@@ -4440,13 +4496,14 @@ def expense_retention_letter_email(expense_id):
     if not check_permission('canExpenses'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    expense = DatabaseService.get_expense(owner_uid, expense_id, sandbox=sandbox)
+    expense = DatabaseService.get_expense(owner_uid, expense_id, company_id=company_id, sandbox=sandbox)
     if not expense:
         return jsonify(success=False, error="Gasto no encontrado"), 404
 
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
 
     retained_isr = float(expense.get('isrWithheld', 0) or 0)
     retained_itbis = float(expense.get('itbisWithheld', 0) or 0)
@@ -4554,12 +4611,13 @@ def invoice_preview_route():
         return "Acceso denegado: requiere permiso de facturación", 403
         
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
-    company = DatabaseService.get_company_profile(owner_uid) or {}
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
     branch_id = request.form.get('branchId')
     branch = {}
     if branch_id:
-        branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox) or []
+        branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox) or []
         branch = next((b for b in branches if b['id'] == branch_id), {})
         
     client_id = request.form.get('clientId')
@@ -4585,7 +4643,7 @@ def invoice_preview_route():
     client_phone = ""
     client_address = ""
     if client_id:
-        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         client = next((c for c in clients if c['id'] == client_id), None)
         if client:
             client_name = client.get('razonSocial', 'Consumidor Final')
@@ -4605,7 +4663,7 @@ def invoice_preview_route():
             if idx.isdigit():
                 item_indices.add(int(idx))
                 
-    catalog = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
+    catalog = DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
     catalog_types = {it['name'].lower().strip(): it.get('type', 'Bien') for it in catalog}
     catalog_tax_data = {
         it['name'].lower().strip(): {
@@ -4745,9 +4803,10 @@ def invoice_xml_download(invoice_id):
     if not check_permission('canInvoice'):
         return "Acceso denegado: requiere permiso de facturación", 403
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice:
         return "Factura no encontrada", 404
 
@@ -4770,7 +4829,7 @@ def invoice_xml_download(invoice_id):
         try:
             from app.services.dgii_xml_builder import DgiiXmlBuilder
             from app.services.dgii_signer import DgiiSigner
-            company = DatabaseService.get_company_profile(owner_uid)
+            company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
             raw_xml = DgiiXmlBuilder.build_invoice_xml(company, invoice)
             signed_xml_bytes = DgiiSigner.sign_xml(raw_xml, company)
             xml_content = signed_xml_bytes.decode('utf-8')
@@ -4800,9 +4859,10 @@ def expense_xml_download(expense_id):
     if not check_permission('canExpenses'):
         return "Acceso denegado: requiere permiso de gastos", 403
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    expense = DatabaseService.get_expense(owner_uid, expense_id, sandbox=sandbox)
+    expense = DatabaseService.get_expense(owner_uid, expense_id, company_id=company_id, sandbox=sandbox)
     if not expense:
         return "Gasto no encontrado", 404
 
@@ -4812,7 +4872,7 @@ def expense_xml_download(expense_id):
         try:
             from app.services.dgii_xml_builder import DgiiXmlBuilder
             from app.services.dgii_signer import DgiiSigner
-            company = DatabaseService.get_company_profile(owner_uid)
+            company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
             ecf_full_type = "Comprobante de Compras (E41)" if expense.get("ecfType") == "E41" else "Gastos Menores (E43)"
             invoice_payload = _build_expense_ecf_payload(expense, ecf_full_type)
             raw_xml = DgiiXmlBuilder.build_invoice_xml(company, invoice_payload)
@@ -4843,13 +4903,14 @@ def expense_pdf_download(expense_id):
     if not check_permission('canExpenses'):
         return "Acceso denegado: requiere permiso de gastos", 403
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    expense = DatabaseService.get_expense(owner_uid, expense_id, sandbox=sandbox)
+    expense = DatabaseService.get_expense(owner_uid, expense_id, company_id=company_id, sandbox=sandbox)
     if not expense:
         return "Gasto no encontrado", 404
 
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     encf = expense.get('encf') or expense.get('ncf') or expense_id
     inv_num = encf.replace('/', '-').replace(' ', '_')
 
@@ -4909,6 +4970,7 @@ def void_invoice_route(invoice_id):
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Anular Comprobante", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     user = session['user']
 
@@ -4918,12 +4980,12 @@ def void_invoice_route(invoice_id):
         flash(sod_msg, 'error')
         return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice:
         flash('Factura no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_invoices'))
         
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     
     cancellation_type = request.form.get("cancellation_type", "04").strip()
     cancellation_reason = request.form.get("cancellation_reason", "").strip()
@@ -4962,13 +5024,13 @@ def void_invoice_route(invoice_id):
             invoice["cancellationType"] = cancellation_type
             invoice["cancellationReason"] = cancellation_reason
             invoice["cancelledAt"] = datetime.now(timezone.utc).isoformat()
-            DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+            DatabaseService.save_invoice(owner_uid, invoice_id, invoice, company_id=company_id, sandbox=sandbox)
 
             # Generar asiento contable reverso automático
             try:
                 from app.services.accounting_service import AccountingService
                 rev_entry = AccountingService.auto_reverse_invoice_entry(
-                    owner_uid, before_invoice,
+                    owner_uid, before_invoice, company_id=company_id,
                     reason="Anulación de comprobante DGII",
                     user_id=session.get('user', {}).get('uid', 'system'),
                     sandbox=sandbox
@@ -4985,18 +5047,18 @@ def void_invoice_route(invoice_id):
 
             # Revertir pagos y saldos bancarios
             try:
-                payments = DatabaseService.get_invoice_payments(owner_uid, invoice_id, sandbox=sandbox)
+                payments = DatabaseService.get_invoice_payments(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
                 for payment in payments:
                     p_amount = float(payment.get("amount", 0))
                     bank_id = payment.get("bankAccountId", "")
                     if bank_id and p_amount > 0:
-                        bank_acc = DatabaseService.get_bank_account(owner_uid, bank_id, sandbox=sandbox)
+                        bank_acc = DatabaseService.get_bank_account(owner_uid, bank_id, company_id=company_id, sandbox=sandbox)
                         if bank_acc:
                             new_balance = max(0, bank_acc.get("currentBalance", 0) - p_amount)
                             DatabaseService.save_bank_account(owner_uid, bank_id, {
                                 **bank_acc,
                                 "currentBalance": new_balance
-                            }, sandbox=sandbox)
+                            }, company_id=company_id, sandbox=sandbox)
                     payment["status"] = "reversed"
                     payment["reversedAt"] = datetime.now(timezone.utc).isoformat()
                 if payments:
@@ -5031,7 +5093,7 @@ def void_invoice_route(invoice_id):
                 "status": "Aceptado",
                 "cancellationCode": cancellation_code,
                 "responseMessage": res.get("message", "")
-            }, sandbox=sandbox)
+            }, company_id=company_id, sandbox=sandbox)
             
             flash(f"Comprobante anulado y reportado a la DGII. Código: {cancellation_code}", "success")
         else:
@@ -5042,14 +5104,14 @@ def void_invoice_route(invoice_id):
         invoice["cancellationType"] = cancellation_type
         invoice["cancellationReason"] = cancellation_reason
         invoice["cancelledAt"] = datetime.now(timezone.utc).isoformat()
-        DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+        DatabaseService.save_invoice(owner_uid, invoice_id, invoice, company_id=company_id, sandbox=sandbox)
 
         # Generar asiento contable reverso para borradores si fueron emitidos previamente
         if before_invoice.get("status") not in ("Borrador", "Rechazada", "Pagado pero no emitido"):
             try:
                 from app.services.accounting_service import AccountingService
                 rev_entry = AccountingService.auto_reverse_invoice_entry(
-                    owner_uid, before_invoice,
+                    owner_uid, before_invoice, company_id=company_id,
                     reason="Anulación manual",
                     user_id=session.get('user', {}).get('uid', 'system'),
                     sandbox=sandbox
@@ -5084,9 +5146,10 @@ def delete_invoice_route(invoice_id):
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Eliminar Documento", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice:
         flash('Documento no encontrado.', 'error')
         return redirect(url_for('web_invoices.list_invoices'))
@@ -5096,7 +5159,7 @@ def delete_invoice_route(invoice_id):
         return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
     before_invoice = invoice.copy()
-    DatabaseService.delete_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    DatabaseService.delete_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
 
     from app.services.audit_service import AuditService, ACTION_DELETE, MODULE_FACTURAS, MODULE_COTIZACIONES
     audit_module = MODULE_COTIZACIONES if invoice.get('isQuotation') else MODULE_FACTURAS
@@ -5126,10 +5189,11 @@ def sync_contingency_invoices():
         return jsonify({"error": "Permiso insuficiente"}), 403
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
 
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    invoices = DatabaseService.get_invoices(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     pending = [
         inv for inv in invoices
         if inv.get('emisionMode') == 'FALLBACK' and not inv.get('isSyncedWithDGII', True)
@@ -5144,7 +5208,7 @@ def sync_contingency_invoices():
         inv_id = inv['id']
         try:
             # Re-emitir a DGII Direct con el mismo encf ya asignado
-            full_inv = DatabaseService.get_invoice(owner_uid, inv_id, sandbox=sandbox)
+            full_inv = DatabaseService.get_invoice(owner_uid, inv_id, company_id=company_id, sandbox=sandbox)
             target_invoice = full_inv or inv
             res = EcfEmissionService.emit_electronic_comprobante(company, target_invoice, sandbox=sandbox)
             if res.get("success") and res.get("mode", "API") == "API":
@@ -5158,10 +5222,10 @@ def sync_contingency_invoices():
                     target_invoice["status"] = "Cobrada"
                 elif target_invoice.get("status") == "Pendiente DGII":
                     target_invoice["status"] = "Emitida"
-                DatabaseService.save_invoice(owner_uid, inv_id, target_invoice, sandbox=sandbox)
+                DatabaseService.save_invoice(owner_uid, inv_id, target_invoice, company_id=company_id, sandbox=sandbox)
 
                 # Registrar en Log de Auditoría que pasó de FALLBACK a sincronizado
-                logs = DatabaseService.get_sequence_logs(owner_uid, sandbox=sandbox)
+                logs = DatabaseService.get_sequence_logs(owner_uid, company_id=company_id, sandbox=sandbox)
                 log = next((l for l in logs if l.get("encf") == target_invoice.get("encf")), None)
                 if log:
                     cuadratura = DGIIService.check_tolerancia_cuadratura(target_invoice.get("items", []), target_invoice.get("total", 0))
@@ -5171,12 +5235,12 @@ def sync_contingency_invoices():
                         "motivo": f"Regularizado por Sincronización Post-Contingencia. Firma: {res['xmlSignature'][:12] if res.get('xmlSignature') else 'N/A'}",
                         "xmlEnviado": json.dumps(res.get("requestPayload"), indent=2) if res.get("requestPayload") else "",
                         "respuestaDGII": json.dumps(res.get("responseBody"), indent=2) if res.get("responseBody") else ""
-                    }, sandbox=sandbox)
+                    }, company_id=company_id, sandbox=sandbox)
 
                 if target_invoice.get("isConsolidado") and target_invoice.get("consolidatedInvoiceIds"):
                     pending_children = []
                     for child_id in target_invoice.get("consolidatedInvoiceIds", []):
-                        child_inv = DatabaseService.get_invoice(owner_uid, child_id, sandbox=sandbox)
+                        child_inv = DatabaseService.get_invoice(owner_uid, child_id, company_id=company_id, sandbox=sandbox)
                         if child_inv:
                             pending_children.append(child_inv)
                     if pending_children:
@@ -5184,7 +5248,7 @@ def sync_contingency_invoices():
                             owner_uid,
                             target_invoice.get("consolidatedInvoiceIds", []),
                             target_invoice.get("encf", ""),
-                            target_invoice.get("invoiceNumber", ""),
+                            target_invoice.get("invoiceNumber", ""), company_id=company_id,
                             pending_invoices=pending_children,
                             is_synced=True,
                             dgii_status=target_invoice.get("dgiiStatus") or "ACCEPTED",
@@ -5215,14 +5279,15 @@ def sync_single_invoice_route(invoice_id):
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Sincronizar Comprobante", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice:
         flash('Factura no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_invoices'))
         
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     
     try:
         res = EcfEmissionService.emit_electronic_comprobante(company, invoice, sandbox=sandbox)
@@ -5240,12 +5305,12 @@ def sync_single_invoice_route(invoice_id):
             elif invoice.get("status") == "Pendiente DGII":
                 invoice["status"] = "Emitida"
             
-            DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+            DatabaseService.save_invoice(owner_uid, invoice_id, invoice, company_id=company_id, sandbox=sandbox)
 
             if invoice.get("isConsolidado") and invoice.get("consolidatedInvoiceIds"):
                 pending_children = []
                 for child_id in invoice.get("consolidatedInvoiceIds", []):
-                    child_inv = DatabaseService.get_invoice(owner_uid, child_id, sandbox=sandbox)
+                    child_inv = DatabaseService.get_invoice(owner_uid, child_id, company_id=company_id, sandbox=sandbox)
                     if child_inv:
                         pending_children.append(child_inv)
                 if pending_children:
@@ -5253,7 +5318,7 @@ def sync_single_invoice_route(invoice_id):
                         owner_uid,
                         invoice.get("consolidatedInvoiceIds", []),
                         invoice.get("encf", ""),
-                        invoice.get("invoiceNumber", ""),
+                        invoice.get("invoiceNumber", ""), company_id=company_id,
                         pending_invoices=pending_children,
                         is_synced=True,
                         dgii_status=invoice.get("dgiiStatus") or "ACCEPTED",
@@ -5262,7 +5327,7 @@ def sync_single_invoice_route(invoice_id):
                     )
             
             # Registrar en Log de Auditoría
-            logs = DatabaseService.get_sequence_logs(owner_uid, sandbox=sandbox)
+            logs = DatabaseService.get_sequence_logs(owner_uid, company_id=company_id, sandbox=sandbox)
             log = next((l for l in logs if l.get("encf") == invoice.get("encf")), None)
             if log:
                 cuadratura = DGIIService.check_tolerancia_cuadratura(invoice.get("items", []), invoice.get("total", 0))
@@ -5272,7 +5337,7 @@ def sync_single_invoice_route(invoice_id):
                     "motivo": f"Regularizado por Sincronización Manual. Firma: {res['xmlSignature'][:12] if res.get('xmlSignature') else 'N/A'}",
                     "xmlEnviado": json.dumps(res.get("requestPayload"), indent=2) if res.get("requestPayload") else "",
                     "respuestaDGII": json.dumps(res.get("responseBody"), indent=2) if res.get("responseBody") else ""
-                }, sandbox=sandbox)
+                }, company_id=company_id, sandbox=sandbox)
                 
             flash(f"¡Factura {invoice.get('invoiceNumber')} sincronizada con la DGII exitosamente! e-NCF: {invoice.get('encf')}", 'success')
         else:
@@ -5291,10 +5356,11 @@ def list_expenses():
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Control de Gastos", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    expenses = DatabaseService.get_expenses(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    invoices = DatabaseService.get_invoices(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     
     # Calcular márgenes y enriquecer con números de facturas
     for exp in expenses:
@@ -5428,6 +5494,7 @@ def expense_next_ecf_api():
     if 'user' not in session:
         return jsonify({"error": "No autenticado"}), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     tipo = request.args.get('tipo', '').upper().strip()
 
@@ -5435,7 +5502,7 @@ def expense_next_ecf_api():
         return jsonify({"error": "Parámetro 'tipo' requerido"}), 400
 
     try:
-        sequences = DatabaseService.get_sequences(owner_uid, sandbox=sandbox)
+        sequences = DatabaseService.get_sequences(owner_uid, company_id=company_id, sandbox=sandbox)
         # Buscar la secuencia ACTIVA para ese tipo
         seq = next(
             (s for s in sequences
@@ -5549,7 +5616,7 @@ def _update_expense_sequence_log(owner_uid, log_id, emission_res, expense_dict, 
             "motivo":       motivo,
             "xmlEnviado":   json.dumps(emission_res.get("requestPayload"), indent=2) if emission_res.get("requestPayload") else "",
             "respuestaDGII": json.dumps(emission_res.get("responseBody"), indent=2) if emission_res.get("responseBody") else ""
-        }, sandbox=sandbox)
+        }, company_id=company_id, sandbox=sandbox)
     except Exception as e:
         print(f"⚠️ Error al actualizar log de secuencia para gasto e-CF: {e}")
 
@@ -5558,6 +5625,7 @@ def _update_expense_sequence_log(owner_uid, log_id, emission_res, expense_dict, 
 def new_expense_route():
     return redirect(url_for('web_invoices.payments_new_route'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     if request.method == 'POST':
@@ -5604,8 +5672,8 @@ def new_expense_route():
         assigned_approver_name = ""
         assigned_approver_email = ""
         if assigned_approver_id:
-            team_members = DatabaseService.get_team_members(owner_uid)
-            owner_profile = DatabaseService.get_user_profile(owner_uid)
+            team_members = DatabaseService.get_team_members(owner_uid, company_id=company_id)
+            owner_profile = DatabaseService.get_user_profile(owner_uid, company_id=company_id)
             if owner_profile and not any(m.get('uid') == owner_uid for m in team_members):
                 team_members.insert(0, {
                     "uid": owner_profile.get("uid"),
@@ -5623,8 +5691,8 @@ def new_expense_route():
         assigned_approver_name = ""
         assigned_approver_email = ""
         if assigned_approver_id:
-            team_members = DatabaseService.get_team_members(owner_uid)
-            owner_profile = DatabaseService.get_user_profile(owner_uid)
+            team_members = DatabaseService.get_team_members(owner_uid, company_id=company_id)
+            owner_profile = DatabaseService.get_user_profile(owner_uid, company_id=company_id)
             if owner_profile and not any(m.get('uid') == owner_uid for m in team_members):
                 team_members.insert(0, {
                     "uid": owner_profile.get("uid"),
@@ -5693,19 +5761,19 @@ def new_expense_route():
             "projectId": request.form.get('projectId') or session.get('selected_project_id') or None
         }
         
-        DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+        DatabaseService.save_expense(owner_uid, expense_id, expense_dict, company_id=company_id, sandbox=sandbox)
 
         # Actualizar saldo de la cuenta bancaria si se especificó bankAccountId
         bank_account_id = expense_dict.get("bankAccountId")
         if bank_account_id:
             try:
-                bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox)
+                bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, company_id=company_id, sandbox=sandbox)
                 if bank_acc:
                     new_balance = bank_acc["currentBalance"] - amount
                     DatabaseService.save_bank_account(owner_uid, bank_account_id, {
                         **bank_acc,
                         "currentBalance": new_balance
-                    }, sandbox=sandbox)
+                    }, company_id=company_id, sandbox=sandbox)
             except Exception as bank_err:
                 print(f"⚠️ Error al actualizar saldo de cuenta bancaria en gasto: {bank_err}")
 
@@ -5734,14 +5802,14 @@ def new_expense_route():
 
                     # Consumir la siguiente secuencia autorizada por la DGII
                     encf, log_id = DatabaseService.consume_next_sequence(
-                        owner_uid, ecf_short, user_email, sandbox=sandbox
+                        owner_uid, ecf_short, user_email, company_id=company_id, sandbox=sandbox
                     )
                     expense_dict["encf"]      = encf
                     expense_dict["ecfNumber"] = encf
                     expense_dict["ncf"]       = encf
 
                     # Obtener perfil de la empresa emisora
-                    company = DatabaseService.get_company_profile(owner_uid)
+                    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
 
                     # Construir payload y emitir ante la DGII vía proveedor activo
                     invoice_payload = _build_expense_ecf_payload(expense_dict, ecf_full_type)
@@ -5769,7 +5837,7 @@ def new_expense_route():
                         except Exception as xml_err:
                             print(f"⚠️ Error al generar XML para gasto {expense_id}: {xml_err}")
                         # Persistir datos de la DGII en Firestore
-                        DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+                        DatabaseService.save_expense(owner_uid, expense_id, expense_dict, company_id=company_id, sandbox=sandbox)
                         # Registrar en el log de trazabilidad fiscal
                         _update_expense_sequence_log(owner_uid, log_id, res, expense_dict, sandbox)
 
@@ -5825,6 +5893,7 @@ def new_expense_route():
                         recipient_name=assigned_approver_name,
                         expense=expense_dict,
                         owner_uid=owner_uid,
+                        company_id=company_id,
                         sandbox=sandbox
                     )
             except Exception as e:
@@ -5839,8 +5908,8 @@ def new_expense_route():
         
     today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     
-    team_members = DatabaseService.get_team_members(owner_uid)
-    owner_profile = DatabaseService.get_user_profile(owner_uid)
+    team_members = DatabaseService.get_team_members(owner_uid, company_id=company_id)
+    owner_profile = DatabaseService.get_user_profile(owner_uid, company_id=company_id)
     if owner_profile and not any(m.get('uid') == owner_uid for m in team_members):
         team_members.insert(0, {
             "uid": owner_profile.get("uid"),
@@ -5848,7 +5917,7 @@ def new_expense_route():
             "email": owner_profile.get("email", "")
         })
     # Secuencias disponibles para gastos (E41, E43)
-    all_sequences = DatabaseService.get_sequences(owner_uid, sandbox=sandbox)
+    all_sequences = DatabaseService.get_sequences(owner_uid, company_id=company_id, sandbox=sandbox)
     expense_sequences = {
         s['tipoComprobante']: s
         for s in all_sequences
@@ -5856,7 +5925,7 @@ def new_expense_route():
         and s.get('estado', '').upper() == 'ACTIVA'
         and not s.get('bloqueadaManualmente', False)
     }
-    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, company_id=company_id, sandbox=sandbox)
     _ecf_types = [t for t in _all_fiscal_types() if t.family == _Family.ECF]
     return render_template(
         'expenses/new.html',
@@ -5880,9 +5949,10 @@ def payments_list():
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Pagos y Gastos", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    expenses = DatabaseService.get_expenses(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     # Filter: exclude E43 (minor) and recurring
     filtered = [e for e in expenses if e.get('ecfType') != 'E43' and not e.get('isRecurring')]
 
@@ -5947,6 +6017,7 @@ def payments_new_route():
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Nuevo Pago", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     if request.method == 'POST':
@@ -6036,7 +6107,7 @@ def payments_new_route():
             expense_dict['attachments'] = [ocr_attachment]
 
         try:
-            DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+            DatabaseService.save_expense(owner_uid, expense_id, expense_dict, company_id=company_id, sandbox=sandbox)
         except ValueError as ve:
             flash(str(ve), 'error')
             return redirect(url_for('web_invoices.payments_new_route'))
@@ -6044,18 +6115,18 @@ def payments_new_route():
         bank_account_id = expense_dict.get('bankAccountId')
         if bank_account_id:
             try:
-                bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox)
+                bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, company_id=company_id, sandbox=sandbox)
                 if bank_acc:
                     new_balance = bank_acc['currentBalance'] - amount
                     DatabaseService.save_bank_account(owner_uid, bank_account_id, {
                         **bank_acc, 'currentBalance': new_balance
-                    }, sandbox=sandbox)
+                    }, company_id=company_id, sandbox=sandbox)
             except Exception as e:
                 print(f"Error al actualizar saldo de cuenta bancaria: {e}")
 
         try:
             from app.services.accounting_service import AccountingService
-            AccountingService.auto_generate_expense_entry(owner_uid, expense_dict, sandbox=sandbox)
+            AccountingService.auto_generate_expense_entry(owner_uid, expense_dict, company_id=company_id, sandbox=sandbox)
         except Exception as acc_err:
             print(f"Error al generar asiento contable del gasto: {acc_err}")
 
@@ -6076,15 +6147,15 @@ def payments_new_route():
         return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
 
     today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
-    accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid)
-    tax_rules = DatabaseService.get_tax_rules(owner_uid)
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, company_id=company_id, sandbox=sandbox)
+    accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
+    tax_rules = DatabaseService.get_tax_rules(owner_uid, company_id=company_id)
     itbis_general = tax_rules.get('itbis', {}).get('general', 0.18)
     itbis_reduced = tax_rules.get('itbis', {}).get('reduced', 0.16)
     selected_bid = g.get('branch_id') or session.get('selected_branch_id')
-    projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox) if selected_bid else []
+    projects = DatabaseService.get_projects(owner_uid, company_id=company_id, branch_id=selected_bid, sandbox=sandbox) if selected_bid else []
     active_project_id = session.get('selected_project_id') or ''
-    cost_centers = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox)
+    cost_centers = DatabaseService.get_cost_centers(owner_uid, company_id=company_id, sandbox=sandbox)
     active_cost_centers = [cc for cc in cost_centers if cc.get('isActive', True)]
     return render_template(
         'expenses/payments_new.html',
@@ -6110,9 +6181,10 @@ def minor_list():
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Gastos Menores", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    expenses = DatabaseService.get_expenses(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     filtered = [e for e in expenses if e.get('ecfType') == 'E43']
 
     start_date = request.args.get('start_date', '').strip()
@@ -6171,6 +6243,7 @@ def minor_new_route():
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Nuevo Gasto Menor", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     if request.method == 'POST':
@@ -6241,14 +6314,14 @@ def minor_new_route():
         }
 
         try:
-            DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+            DatabaseService.save_expense(owner_uid, expense_id, expense_dict, company_id=company_id, sandbox=sandbox)
         except ValueError as ve:
             flash(str(ve), 'error')
             return redirect(url_for('web_invoices.minor_new_route'))
 
         try:
             from app.services.accounting_service import AccountingService
-            AccountingService.auto_generate_expense_entry(owner_uid, expense_dict, sandbox=sandbox)
+            AccountingService.auto_generate_expense_entry(owner_uid, expense_dict, company_id=company_id, sandbox=sandbox)
         except Exception as acc_err:
             print(f"Error al generar asiento contable del gasto menor: {acc_err}")
 
@@ -6256,13 +6329,13 @@ def minor_new_route():
             ecf_short = 'E43'
             user_email = session['user']['email']
             encf, log_id = DatabaseService.consume_next_sequence(
-                owner_uid, ecf_short, user_email, sandbox=sandbox
+                owner_uid, ecf_short, user_email, company_id=company_id, sandbox=sandbox
             )
             expense_dict['encf'] = encf
             expense_dict['ecfNumber'] = encf
             expense_dict['ncf'] = encf
 
-            company = DatabaseService.get_company_profile(owner_uid)
+            company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
             ecf_full_type = 'Gastos Menores (E43)'
             invoice_payload = _build_expense_ecf_payload(expense_dict, ecf_full_type)
             res = EcfEmissionService.emit_electronic_comprobante(
@@ -6276,7 +6349,7 @@ def minor_new_route():
                 expense_dict['isSyncedWithDGII'] = (res.get('mode', 'API') == 'API')
                 expense_dict['emisionMode'] = res.get('mode', 'API')
                 expense_dict['trackId'] = res.get('trackId', '')
-                DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+                DatabaseService.save_expense(owner_uid, expense_id, expense_dict, company_id=company_id, sandbox=sandbox)
                 _update_expense_sequence_log(owner_uid, log_id, res, expense_dict, sandbox)
                 flash(f'E43 emitido ante DGII: {expense_dict["encf"]}', 'success')
             else:
@@ -6288,12 +6361,12 @@ def minor_new_route():
         bank_account_id = expense_dict.get('bankAccountId')
         if bank_account_id:
             try:
-                bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox)
+                bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, company_id=company_id, sandbox=sandbox)
                 if bank_acc:
                     new_balance = bank_acc['currentBalance'] - amount
                     DatabaseService.save_bank_account(owner_uid, bank_account_id, {
                         **bank_acc, 'currentBalance': new_balance
-                    }, sandbox=sandbox)
+                    }, company_id=company_id, sandbox=sandbox)
             except Exception as e:
                 print(f"Error al actualizar saldo: {e}")
 
@@ -6303,13 +6376,13 @@ def minor_new_route():
         return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
 
     today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
-    accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid)
-    tax_rules = DatabaseService.get_tax_rules(owner_uid)
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, company_id=company_id, sandbox=sandbox)
+    accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
+    tax_rules = DatabaseService.get_tax_rules(owner_uid, company_id=company_id)
     itbis_general = tax_rules.get('itbis', {}).get('general', 0.18)
     itbis_reduced = tax_rules.get('itbis', {}).get('reduced', 0.16)
     selected_bid = g.get('branch_id') or session.get('selected_branch_id')
-    projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox) if selected_bid else []
+    projects = DatabaseService.get_projects(owner_uid, company_id=company_id, branch_id=selected_bid, sandbox=sandbox) if selected_bid else []
     active_project_id = session.get('selected_project_id') or ''
     return render_template(
         'expenses/minor_new.html',
@@ -6334,9 +6407,10 @@ def recurring_list():
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Pagos Recurrentes", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    expenses = DatabaseService.get_expenses(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     filtered = [e for e in expenses if e.get('isRecurring')]
 
     search_query = request.args.get('search', '').strip().lower()
@@ -6391,6 +6465,7 @@ def recurring_new_route():
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Nuevo Pago Recurrente", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     if request.method == 'POST':
@@ -6481,14 +6556,14 @@ def recurring_new_route():
         }
 
         try:
-            DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+            DatabaseService.save_expense(owner_uid, expense_id, expense_dict, company_id=company_id, sandbox=sandbox)
         except ValueError as ve:
             flash(str(ve), 'error')
             return redirect(url_for('web_invoices.recurring_new_route'))
 
         try:
             from app.services.accounting_service import AccountingService
-            AccountingService.auto_generate_expense_entry(owner_uid, expense_dict, sandbox=sandbox)
+            AccountingService.auto_generate_expense_entry(owner_uid, expense_dict, company_id=company_id, sandbox=sandbox)
         except Exception as acc_err:
             print(f"Error al generar asiento contable del pago recurrente: {acc_err}")
 
@@ -6496,13 +6571,13 @@ def recurring_new_route():
         return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
 
     today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
-    accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid)
-    tax_rules = DatabaseService.get_tax_rules(owner_uid)
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, company_id=company_id, sandbox=sandbox)
+    accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
+    tax_rules = DatabaseService.get_tax_rules(owner_uid, company_id=company_id)
     itbis_general = tax_rules.get('itbis', {}).get('general', 0.18)
     itbis_reduced = tax_rules.get('itbis', {}).get('reduced', 0.16)
     selected_bid = g.get('branch_id') or session.get('selected_branch_id')
-    projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox) if selected_bid else []
+    projects = DatabaseService.get_projects(owner_uid, company_id=company_id, branch_id=selected_bid, sandbox=sandbox) if selected_bid else []
     active_project_id = session.get('selected_project_id') or ''
     return render_template(
         'expenses/recurring_new.html',
@@ -6523,17 +6598,18 @@ def delete_expense_route(expense_id):
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Eliminar Gasto", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     # Obtener el gasto antes de eliminarlo
     before_expense = {}
     try:
-        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        expenses = DatabaseService.get_expenses(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         before_expense = next((e for e in expenses if e['id'] == expense_id), {})
     except Exception:
         pass
 
-    DatabaseService.delete_expense(owner_uid, expense_id, sandbox=sandbox)
+    DatabaseService.delete_expense(owner_uid, expense_id, company_id=company_id, sandbox=sandbox)
     
     from app.services.audit_service import AuditService, ACTION_DELETE, MODULE_GASTOS
     AuditService.log_from_request(
@@ -6555,6 +6631,7 @@ def delete_multiple_expenses_route():
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Eliminar Gasto", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     expense_ids = request.form.getlist('expense_ids')
@@ -6563,13 +6640,13 @@ def delete_multiple_expenses_route():
         return redirect(url_for('web_invoices.list_expenses'))
 
     from app.services.audit_service import AuditService, ACTION_DELETE, MODULE_GASTOS
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    expenses = DatabaseService.get_expenses(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     deleted_count = 0
 
     for expense_id in expense_ids:
         before_expense = next((e for e in expenses if e['id'] == expense_id), {})
         if before_expense:
-            DatabaseService.delete_expense(owner_uid, expense_id, sandbox=sandbox)
+            DatabaseService.delete_expense(owner_uid, expense_id, company_id=company_id, sandbox=sandbox)
             AuditService.log_from_request(
                 owner_uid=owner_uid,
                 action=ACTION_DELETE,
@@ -6591,10 +6668,11 @@ def edit_expense_route(expense_id):
         return render_template('auth/restricted.html', feature_name="Editar Gasto", required_permission="canExpenses")
         
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     # Obtener el gasto existente
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    expenses = DatabaseService.get_expenses(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     expense = None
     for exp in expenses:
         if exp['id'] == expense_id:
@@ -6673,8 +6751,8 @@ def edit_expense_route(expense_id):
         assigned_approver_name = expense.get('assignedApproverName', '')
         assigned_approver_email = expense.get('assignedApproverEmail', '')
         if assigned_approver_id:
-            _team_members = DatabaseService.get_team_members(owner_uid)
-            _owner_profile = DatabaseService.get_user_profile(owner_uid)
+            _team_members = DatabaseService.get_team_members(owner_uid, company_id=company_id)
+            _owner_profile = DatabaseService.get_user_profile(owner_uid, company_id=company_id)
             if _owner_profile and not any(m.get('uid') == owner_uid for m in _team_members):
                 _team_members.insert(0, {
                     "uid": _owner_profile.get("uid"),
@@ -6743,19 +6821,19 @@ def edit_expense_route(expense_id):
         }
         
         try:
-            DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+            DatabaseService.save_expense(owner_uid, expense_id, expense_dict, company_id=company_id, sandbox=sandbox)
         except ValueError as ve:
             flash(str(ve), 'error')
             return redirect(url_for('web_invoices.edit_expense_route', expense_id=expense_id))
 
         try:
             from app.services.accounting_service import AccountingService, _accounting_entry_exists
-            all_entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox)
+            all_entries = DatabaseService.get_accounting_entries(owner_uid, company_id=company_id, sandbox=sandbox)
             for e in all_entries:
                 if e.get("status") != "voided" and e.get("referenceType") == "expense" and e.get("referenceId") == expense_id:
-                    AccountingService.void_entry(owner_uid, e["id"], reason="Regenerado por edición", user_id=session['user']['email'], sandbox=sandbox)
+                    AccountingService.void_entry(owner_uid, e["id"], company_id=company_id, reason="Regenerado por edición", user_id=session['user']['email'], sandbox=sandbox)
                     break
-            AccountingService.auto_generate_expense_entry(owner_uid, expense_dict, sandbox=sandbox)
+            AccountingService.auto_generate_expense_entry(owner_uid, expense_dict, company_id=company_id, sandbox=sandbox)
         except Exception as acc_err:
             print(f"Error al regenerar asiento contable en edición: {acc_err}")
 
@@ -6784,13 +6862,13 @@ def edit_expense_route(expense_id):
                         flash(limit_msg_edit, 'warning')
 
                     encf_edit, log_id_edit = DatabaseService.consume_next_sequence(
-                        owner_uid, ecf_short_edit, user_email_edit, sandbox=sandbox
+                        owner_uid, ecf_short_edit, user_email_edit, company_id=company_id, sandbox=sandbox
                     )
                     expense_dict["encf"]      = encf_edit
                     expense_dict["ecfNumber"] = encf_edit
                     expense_dict["ncf"]       = encf_edit
 
-                    company_edit   = DatabaseService.get_company_profile(owner_uid)
+                    company_edit   = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
                     inv_payload_ed = _build_expense_ecf_payload(expense_dict, ecf_full_edit)
                     res_edit = EcfEmissionService.emit_electronic_comprobante(
                         company_edit, inv_payload_ed, sandbox=sandbox
@@ -6814,7 +6892,7 @@ def edit_expense_route(expense_id):
                             expense_dict["xmlContent"] = signed_xml_bytes.decode('utf-8')
                         except Exception as xml_err:
                             print(f"⚠️ Error al generar XML para gasto {expense_id}: {xml_err}")
-                        DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+                        DatabaseService.save_expense(owner_uid, expense_id, expense_dict, company_id=company_id, sandbox=sandbox)
                         _update_expense_sequence_log(owner_uid, log_id_edit, res_edit, expense_dict, sandbox)
 
                         if res_edit.get("mode") == "FALLBACK":
@@ -6852,15 +6930,15 @@ def edit_expense_route(expense_id):
         return redirect(url_for('web_invoices.list_expenses'))
          
     today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
-    accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid)
-    tax_rules = DatabaseService.get_tax_rules(owner_uid)
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, company_id=company_id, sandbox=sandbox)
+    accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
+    tax_rules = DatabaseService.get_tax_rules(owner_uid, company_id=company_id)
     itbis_general = tax_rules.get('itbis', {}).get('general', 0.18)
     itbis_reduced = tax_rules.get('itbis', {}).get('reduced', 0.16)
     selected_bid = g.get('branch_id') or session.get('selected_branch_id')
-    projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox) if selected_bid else []
+    projects = DatabaseService.get_projects(owner_uid, company_id=company_id, branch_id=selected_bid, sandbox=sandbox) if selected_bid else []
     active_project_id = session.get('selected_project_id') or ''
-    cost_centers = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox)
+    cost_centers = DatabaseService.get_cost_centers(owner_uid, company_id=company_id, sandbox=sandbox)
     active_cost_centers = [cc for cc in cost_centers if cc.get('isActive', True)]
 
     common_vars = {
@@ -6890,9 +6968,10 @@ def sync_expense_ecf_route(expense_id):
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Sincronizar e-CF Gasto", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    expense = DatabaseService.get_expense(owner_uid, expense_id, sandbox=sandbox)
+    expense = DatabaseService.get_expense(owner_uid, expense_id, company_id=company_id, sandbox=sandbox)
     if not expense:
         flash('Gasto no encontrado.', 'error')
         return redirect(url_for('web_invoices.list_expenses'))
@@ -6904,7 +6983,7 @@ def sync_expense_ecf_route(expense_id):
 
     ecf_short = "E41" if "E41" in ecf_type_raw else "E43"
     ecf_full_type = "Comprobante de Compras (E41)" if ecf_short == "E41" else "Gastos Menores (E43)"
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
 
     try:
         invoice_payload = _build_expense_ecf_payload(expense, ecf_full_type)
@@ -6926,9 +7005,9 @@ def sync_expense_ecf_route(expense_id):
                 expense["xmlContent"] = signed_xml_bytes.decode('utf-8')
             except Exception as xml_err:
                 print(f"⚠️ Error al generar XML en sync de gasto {expense_id}: {xml_err}")
-            DatabaseService.save_expense(owner_uid, expense_id, expense, sandbox=sandbox)
+            DatabaseService.save_expense(owner_uid, expense_id, expense, company_id=company_id, sandbox=sandbox)
 
-            logs = DatabaseService.get_sequence_logs(owner_uid, sandbox=sandbox)
+            logs = DatabaseService.get_sequence_logs(owner_uid, company_id=company_id, sandbox=sandbox)
             log = next((l for l in logs if l.get("encf") == expense.get("encf")), None)
             if log:
                 items = expense.get("items") or [{
@@ -6944,7 +7023,7 @@ def sync_expense_ecf_route(expense_id):
                     "motivo": f"Regularizado por Sincronización Manual. Firma: {res['xmlSignature'][:12] if res.get('xmlSignature') else 'N/A'}",
                     "xmlEnviado": json.dumps(res.get("requestPayload"), indent=2) if res.get("requestPayload") else "",
                     "respuestaDGII": json.dumps(res.get("responseBody"), indent=2) if res.get("responseBody") else ""
-                }, sandbox=sandbox)
+                }, company_id=company_id, sandbox=sandbox)
 
             if pending_dgii:
                 flash(f"Gasto {ecf_short} enviado a la DGII y pendiente de validación. e-NCF: {expense.get('encf')}", 'warning')
@@ -6984,9 +7063,10 @@ def approve_expense_route(expense_id):
     if 'user' not in session: return jsonify({'success': False, 'message': 'No autenticado'}), 401
     # Asume que si puede ver/gestionar gastos puede aprobar, ideal sería un permiso específico
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    expenses = DatabaseService.get_expenses(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     expense = next((e for e in expenses if e['id'] == expense_id), None)
     
     if not expense:
@@ -6995,7 +7075,7 @@ def approve_expense_route(expense_id):
     expense['approvalStatus'] = 'Aprobado'
     expense['approvedBy'] = session['user'].get('name', 'Usuario')
     
-    DatabaseService.save_expense(owner_uid, expense_id, expense, sandbox=sandbox)
+    DatabaseService.save_expense(owner_uid, expense_id, expense, company_id=company_id, sandbox=sandbox)
     if True:
         from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_GASTOS
         AuditService.log_from_request(
@@ -7014,9 +7094,10 @@ def list_cxp():
         return render_template('auth/restricted.html', feature_name="Cuentas por Pagar (CxP)", required_permission="canManageCXP")
         
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    expenses = DatabaseService.get_expenses(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     
     cxp_list = []
     total_cxp_pending = 0.0
@@ -7127,6 +7208,7 @@ def pay_cxp_route(expense_id):
         return jsonify({"success": False, "message": "No autorizado"}), 403
         
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     data = request.get_json(silent=True) or {}
@@ -7136,7 +7218,7 @@ def pay_cxp_route(expense_id):
         return jsonify({"success": False, "message": "Monto no válido."}), 400
         
     registered_by = session['user'].get('name', 'Usuario Admin')
-    success, message = DatabaseService.save_cxp_payment(owner_uid, expense_id, amount, registered_by=registered_by, sandbox=sandbox)
+    success, message = DatabaseService.save_cxp_payment(owner_uid, expense_id, amount, company_id=company_id, registered_by=registered_by, sandbox=sandbox)
     
     if success:
         return jsonify({"success": True, "message": message})
@@ -7152,11 +7234,12 @@ def list_sequences():
     if not check_permission('canModifySettings'):
         return render_template('auth/restricted.html', feature_name="Secuencias Fiscales", required_permission="canModifySettings")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    sequences = DatabaseService.get_sequences(owner_uid, sandbox=sandbox)
-    sequence_logs = DatabaseService.get_sequence_logs(owner_uid, sandbox=sandbox)
-    cancellations = DatabaseService.get_cancellations(owner_uid, sandbox=sandbox)
+    sequences = DatabaseService.get_sequences(owner_uid, company_id=company_id, sandbox=sandbox)
+    sequence_logs = DatabaseService.get_sequence_logs(owner_uid, company_id=company_id, sandbox=sandbox)
+    cancellations = DatabaseService.get_cancellations(owner_uid, company_id=company_id, sandbox=sandbox)
     
     default_exp_date = (datetime.now(timezone.utc) + timedelta(days=730)).strftime("%Y-%m-%d") # 2 años
     
@@ -7202,6 +7285,7 @@ def new_sequence_route():
     if not check_permission('canModifySettings'):
         return render_template('auth/restricted.html', feature_name="Crear Secuencia Fiscal", required_permission="canModifySettings")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     seq_id = str(uuid.uuid4())
@@ -7220,7 +7304,7 @@ def new_sequence_route():
         "bloqueadaManualmente": False
     }
     
-    DatabaseService.save_sequence(owner_uid, seq_id, seq_dict, sandbox=sandbox)
+    DatabaseService.save_sequence(owner_uid, seq_id, seq_dict, company_id=company_id, sandbox=sandbox)
     flash('Secuencia fiscal autorizada por la DGII registrada con éxito.', 'success')
     return redirect(url_for('web_invoices.list_sequences'))
 
@@ -7230,9 +7314,10 @@ def new_cancellation_route():
     if not check_permission('canModifySettings'):
         return render_template('auth/restricted.html', feature_name="Anulación de Rangos", required_permission="canModifySettings")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     
     canc_id = str(uuid.uuid4())
     canc_dict = {
@@ -7253,7 +7338,7 @@ def new_cancellation_route():
             "status": "Aceptado",
             "cancellationCode": res["cancellationCode"],
             "responseMessage": res["message"]
-        }, sandbox=sandbox)
+        }, company_id=company_id, sandbox=sandbox)
         flash(f"¡Anulación de rango procesada exitosamente en la DGII! Código: {res['cancellationCode']}", 'success')
     else:
         flash(f"Fallo al enviar anulación: {res.get('message')}", 'error')
@@ -7272,7 +7357,8 @@ def tax_settings():
         return render_template('auth/restricted.html', feature_name="Configuración de Impuestos",
                                required_permission="canModifySettings")
     owner_uid = session['user']['ownerUID']
-    rules = DatabaseService.get_tax_rules(owner_uid)
+    company_id = session.get('selected_company_id')
+    rules = DatabaseService.get_tax_rules(owner_uid, company_id=company_id)
     config_updated = False
 
     if request.method == 'POST':
@@ -7282,7 +7368,7 @@ def tax_settings():
             import copy
             rules = copy.deepcopy(DEFAULT_TAX_RULES)
             rules["updatedBy"] = session.get("user", {}).get("email", "")
-            success, error_msg = DatabaseService.save_tax_rules(owner_uid, rules)
+            success, error_msg = DatabaseService.save_tax_rules(owner_uid, rules, company_id=company_id)
             if not success:
                 flash(f"Error al restaurar: {error_msg}", "error")
             else:
@@ -7337,7 +7423,7 @@ def tax_settings():
                 },
                 "updatedBy": session.get("user", {}).get("email", ""),
             }
-            success, error_msg = DatabaseService.save_tax_rules(owner_uid, rules)
+            success, error_msg = DatabaseService.save_tax_rules(owner_uid, rules, company_id=company_id)
             print(f"🔧 tax_settings SAVE: success={success}, error={error_msg}")
             print(f"   rst_annual={rules.get('rst', {}).get('limit')}, brackets_len={len(rules.get('rst', {}).get('brackets', []))}")
             print(f"   rst brackets={rules.get('rst', {}).get('brackets')}")
@@ -7346,7 +7432,7 @@ def tax_settings():
             else:
                 config_updated = True
 
-    rules = DatabaseService.get_tax_rules(owner_uid)
+    rules = DatabaseService.get_tax_rules(owner_uid, company_id=company_id)
     print(f"🔧 tax_settings READ: withholding_isr={rules.get('withholding_isr')}")
     return render_template('settings/taxes.html', active_page='settings',
                            rules=rules, config_updated=config_updated)
@@ -7358,10 +7444,11 @@ def company_settings():
     if not check_permission('canModifySettings'):
         return render_template('auth/restricted.html', feature_name="Configuración de la Empresa", required_permission="canModifySettings")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     
     if request.method == 'POST':
         # Preservar logoUrl y configuraciones de marca existentes
-        existing_profile = DatabaseService.get_company_profile(owner_uid)
+        existing_profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
 
         # ── Validar cambios en RNC, Razón Social o Nombre Comercial si ya hay documentos emitidos ──
         new_rnc = request.form.get('companyRNC', '').strip()
@@ -7370,7 +7457,7 @@ def company_settings():
         old_rnc = (existing_profile.get('companyRNC') or '').strip()
         old_name = (existing_profile.get('companyName') or '').strip()
         old_trade = (existing_profile.get('tradeName') or '').strip()
-        if (new_rnc != old_rnc or new_name != old_name or new_trade != old_trade) and _company_has_issued_documents(owner_uid, sandbox=session.get('is_sandbox_mode', True)):
+        if (new_rnc != old_rnc or new_name != old_name or new_trade != old_trade) and _company_has_issued_documents(owner_uid, sandbox=session.get('is_sandbox_mode', True), company_id=company_id):
             flash(
                 'No es posible modificar el RNC ni la Razón Social porque la empresa ya tiene documentos '
                 'fiscales emitidos. Para realizar este cambio, contacta al administrador del portal '
@@ -7436,7 +7523,7 @@ def company_settings():
             "certificateSignerPosition": request.form.get('certificateSignerPosition', existing_profile.get('certificateSignerPosition', '')).strip(),
             "configured": True
         })
-        saved = DatabaseService.save_company_profile(owner_uid, profile_dict)
+        saved = DatabaseService.save_company_profile(owner_uid, profile_dict, company_id=company_id)
         if saved:
             # Refrescar empresas asociadas en sesión para reflejar nombre actualizado en sidebar
             session['associated_companies'] = DatabaseService.get_associated_companies(session['user']['uid'])
@@ -7466,7 +7553,7 @@ def company_settings():
                     "rackLocation": "",
                     "totalStock": 100.0
                 }
-                DatabaseService.save_item(owner_uid, item_id, item_dict, sandbox=sandbox)
+                DatabaseService.save_item(owner_uid, item_id, item_dict, company_id=company_id, sandbox=sandbox)
                 
             # 2. Primer Almacén / Sucursal
             w_branch_name = request.form.get('wizard_branch_name', '').strip()
@@ -7480,7 +7567,7 @@ def company_settings():
                     "address": w_branch_address,
                     "isDefault": True
                 }
-                DatabaseService.save_branch(owner_uid, branch_id, branch_dict, sandbox=sandbox)
+                DatabaseService.save_branch(owner_uid, branch_id, branch_dict, company_id=company_id, sandbox=sandbox)
                 
             # 3. Primer Cliente
             w_client_name = request.form.get('wizard_client_name', '').strip()
@@ -7498,28 +7585,28 @@ def company_settings():
                     "nextContactDate": "",
                     "customer_category": "NORMAL"
                 }
-                DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
+                DatabaseService.save_client(owner_uid, client_id, client_dict, company_id=company_id, sandbox=sandbox)
                 
             return redirect(url_for('web_invoices.company_settings', onboarding_success='true'))
 
         return redirect(url_for('web_invoices.company_settings'))
         
-    profile = DatabaseService.get_company_profile(owner_uid)
+    profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
 
     # Obtener sucursales
-    branches = DatabaseService.get_branches(owner_uid, sandbox=session.get('is_sandbox_mode', True))
+    branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=session.get('is_sandbox_mode', True))
     # Obtener proyectos
-    projects = DatabaseService.get_projects(owner_uid, sandbox=session.get('is_sandbox_mode', True), status_filter=None)
+    projects = DatabaseService.get_projects(owner_uid, company_id=company_id, sandbox=session.get('is_sandbox_mode', True), status_filter=None)
     for p in projects:
         p['branchName'] = next((b['name'] for b in branches if b['id'] == p.get('branchId')), '')
 
     onboarding_success = request.args.get('onboarding_success') == 'true'
     show_wizard = False
-    has_issued_documents = _company_has_issued_documents(owner_uid, sandbox=session.get('is_sandbox_mode', True))
+    has_issued_documents = _company_has_issued_documents(owner_uid, sandbox=session.get('is_sandbox_mode', True), company_id=company_id)
     sandbox = session.get('is_sandbox_mode', True)
-    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
-    accounts_db = DatabaseService.get_chart_of_accounts(owner_uid)
-    cost_centers = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox)
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, company_id=company_id, sandbox=sandbox)
+    accounts_db = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
+    cost_centers = DatabaseService.get_cost_centers(owner_uid, company_id=company_id, sandbox=sandbox)
     active_cost_centers = [cc for cc in cost_centers if cc.get('isActive', True)]
     return render_template('company_settings.html', active_page='settings', profile=profile, branches=branches, projects_list=projects, available_branches=branches, show_wizard=show_wizard, onboarding_success=onboarding_success, has_issued_documents=has_issued_documents, e_cf_provider=Config.E_CF_PROVIDER.lower(), bank_accounts=bank_accounts, accounts=accounts_db, cost_centers=active_cost_centers)
 
@@ -7527,9 +7614,10 @@ def company_settings():
 def onboarding_wizard():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     
     if request.method == 'POST':
-        existing_profile = DatabaseService.get_company_profile(owner_uid) or {}
+        existing_profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
         
         cert_file = request.files.get('certificateFile')
         cert_name = existing_profile.get('certificateName', '')
@@ -7587,14 +7675,14 @@ def onboarding_wizard():
             **defaults
         })
         
-        saved = DatabaseService.save_company_profile(owner_uid, profile_dict)
+        saved = DatabaseService.save_company_profile(owner_uid, profile_dict, company_id=company_id)
         if not saved:
             flash('Error al guardar el perfil durante el onboarding. Intenta de nuevo.', 'error')
             return redirect(url_for('web_invoices.onboarding_wizard'))
         flash('¡Onboarding completado con éxito!', 'success')
         return redirect(url_for('web_dashboard.dashboard'))
 
-    profile = DatabaseService.get_company_profile(owner_uid)
+    profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     return render_template('onboarding_wizard.html', profile=profile)
 
 @web_invoices_bp.route('/settings/company/generate-api-key', methods=['POST'])
@@ -7604,7 +7692,8 @@ def generate_company_api_key():
         return render_template('auth/restricted.html', feature_name="Configuración de la Empresa", required_permission="canModifySettings")
     
     owner_uid = session['user']['ownerUID']
-    new_key = DatabaseService.generate_api_key(owner_uid)
+    company_id = session.get('selected_company_id')
+    new_key = DatabaseService.generate_api_key(owner_uid, company_id=company_id)
     if new_key:
         flash('¡Nueva API Key generada con éxito!', 'success')
     else:
@@ -7618,7 +7707,8 @@ def save_company_brand_settings():
 
     try:
         owner_uid = session['user']['ownerUID']
-        existing_profile = DatabaseService.get_company_profile(owner_uid)
+        company_id = session.get('selected_company_id')
+        existing_profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
         if not existing_profile:
             return jsonify({"success": False, "error": "Perfil de empresa no encontrado."}), 404
 
@@ -7651,7 +7741,7 @@ def save_company_brand_settings():
             existing_profile['logoUrl'] = ''
             existing_profile['logoBase64'] = ''
 
-        saved = DatabaseService.save_company_profile(owner_uid, existing_profile)
+        saved = DatabaseService.save_company_profile(owner_uid, existing_profile, company_id=company_id)
         if not saved:
             return jsonify({"success": False, "error": "No se pudo guardar el perfil. Verifica el tamaño del archivo o intenta de nuevo."}), 500
 
@@ -7681,7 +7771,8 @@ def save_certification_settings():
 
     try:
         owner_uid = session['user']['ownerUID']
-        existing_profile = DatabaseService.get_company_profile(owner_uid)
+        company_id = session.get('selected_company_id')
+        existing_profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
         if not existing_profile:
             return jsonify({"success": False, "error": "Perfil de empresa no encontrado."}), 404
 
@@ -7714,7 +7805,7 @@ def save_certification_settings():
         if request.form.get('removeSignature') == 'true':
             existing_profile['signatureUrl'] = ''
 
-        saved = DatabaseService.save_company_profile(owner_uid, existing_profile)
+        saved = DatabaseService.save_company_profile(owner_uid, existing_profile, company_id=company_id)
         if not saved:
             return jsonify({"success": False, "error": "No se pudo guardar. Verifica el tamaño del archivo."}), 500
 
@@ -7742,7 +7833,8 @@ def team_settings():
         flash('No tienes permisos de propietario.', 'error')
         return redirect(url_for('web_dashboard.dashboard'))
     owner_uid = session['user']['ownerUID']
-    team = DatabaseService.get_team_members(owner_uid)
+    company_id = session.get('selected_company_id')
+    team = DatabaseService.get_team_members(owner_uid, company_id=company_id)
     return render_template('team_settings.html', active_page='team_settings', team=team,
                            ROLES_PRESETS=ROLES_PRESETS, PERMISSION_GROUPS=PERMISSION_GROUPS)
 
@@ -7754,10 +7846,11 @@ def add_team_member():
         return redirect(url_for('web_invoices.team_settings'))
     
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     
-    profile = DatabaseService.get_company_profile(owner_uid)
+    profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     user_limit = int(profile.get('userLimit', 2)) if profile else 2
-    team = DatabaseService.get_team_members(owner_uid)
+    team = DatabaseService.get_team_members(owner_uid, company_id=company_id)
     if user_limit > 0 and (len(team) + 1) >= user_limit:
         flash(f'Límite de usuarios alcanzado ({user_limit} usuarios en tu plan). Por favor, actualiza tu plan para registrar nuevos colaboradores.', 'error')
         return redirect(url_for('web_invoices.team_settings'))
@@ -7808,12 +7901,13 @@ def save_branch_route():
         return redirect(url_for('web_invoices.company_settings'))
     
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    profile = DatabaseService.get_company_profile(owner_uid)
+    profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     branch_limit = int(profile.get('branchLimit', 0)) if profile else 0
     if branch_limit > 0 and not request.form.get('id'):
-        branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
+        branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox)
         if len(branches) >= branch_limit:
             flash(f'Límite de sucursales alcanzado ({branch_limit} sucursales en tu plan). Actualiza tu plan para crear más.', 'error')
             return redirect(url_for('web_invoices.company_settings'))
@@ -7826,7 +7920,7 @@ def save_branch_route():
         "isDefault": request.form.get('isDefault') == 'true'
     }
     
-    DatabaseService.save_branch(owner_uid, branch_id, branch_dict, sandbox=sandbox)
+    DatabaseService.save_branch(owner_uid, branch_id, branch_dict, company_id=company_id, sandbox=sandbox)
     flash(f"Sucursal '{branch_dict['name']}' guardada correctamente.", 'success')
     return redirect(url_for('web_invoices.company_settings'))
 
@@ -7838,10 +7932,11 @@ def delete_branch_route(branch_id):
         return redirect(url_for('web_invoices.company_settings'))
     
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     # Prevenir eliminar la sucursal predeterminada si es la unica, o si isDefault
-    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
+    branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox)
     branch = next((b for b in branches if b['id'] == branch_id), None)
     if not branch:
         flash("Sucursal no encontrada.", 'error')
@@ -7855,7 +7950,7 @@ def delete_branch_route(branch_id):
         flash("No puedes eliminar la única sucursal.", 'error')
         return redirect(url_for('web_invoices.company_settings'))
 
-    DatabaseService.delete_branch(owner_uid, branch_id, sandbox=sandbox)
+    DatabaseService.delete_branch(owner_uid, branch_id, company_id=company_id, sandbox=sandbox)
     flash("Sucursal eliminada.", 'success')
     return redirect(url_for('web_invoices.company_settings'))
 
@@ -7867,6 +7962,7 @@ def save_project_route():
         return redirect(url_for('web_invoices.company_settings'))
     
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     is_new = not request.form.get('project_id')
@@ -7891,11 +7987,11 @@ def save_project_route():
     
     # Si es un proyecto existente, preservar el estado actual (no se cambia desde el formulario)
     if not is_new:
-        existing = DatabaseService.get_project(owner_uid, project_id, sandbox=sandbox)
+        existing = DatabaseService.get_project(owner_uid, project_id, company_id=company_id, sandbox=sandbox)
         if existing:
             project_dict['status'] = existing.get('status', 'open')
     
-    DatabaseService.save_project(owner_uid, project_id, project_dict, sandbox=sandbox)
+    DatabaseService.save_project(owner_uid, project_id, project_dict, company_id=company_id, sandbox=sandbox)
     flash(f"Proyecto '{project_dict['name']}' guardado correctamente.", 'success')
     return redirect(url_for('web_invoices.company_settings'))
 
@@ -7908,16 +8004,17 @@ def toggle_project_status(project_id):
         return redirect(url_for('web_invoices.company_settings'))
     
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    project = DatabaseService.get_project(owner_uid, project_id, sandbox=sandbox)
+    project = DatabaseService.get_project(owner_uid, project_id, company_id=company_id, sandbox=sandbox)
     if not project:
         flash('Proyecto no encontrado.', 'error')
         return redirect(url_for('web_invoices.company_settings'))
     
     new_status = 'closed' if project.get('status', 'open') == 'open' else 'open'
     project['status'] = new_status
-    DatabaseService.save_project(owner_uid, project_id, project, sandbox=sandbox)
+    DatabaseService.save_project(owner_uid, project_id, project, company_id=company_id, sandbox=sandbox)
     
     msg = f"Proyecto '{project['name']}' {'cerrado' if new_status == 'closed' else 'reabierto'} correctamente."
     flash(msg, 'success')
@@ -7931,9 +8028,10 @@ def delete_project_route(project_id):
         return redirect(url_for('web_invoices.company_settings'))
     
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    DatabaseService.delete_project(owner_uid, project_id, sandbox=sandbox)
+    DatabaseService.delete_project(owner_uid, project_id, company_id=company_id, sandbox=sandbox)
     flash("Proyecto eliminado.", 'success')
     return redirect(url_for('web_invoices.company_settings'))
 
@@ -8021,8 +8119,9 @@ def delete_team_member_route(employee_uid):
         return redirect(url_for('web_invoices.team_settings'))
     
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     
-    if DatabaseService.delete_team_member(owner_uid, employee_uid):
+    if DatabaseService.delete_team_member(owner_uid, employee_uid, company_id=company_id):
         from app.services.audit_service import AuditService, ACTION_DELETE, MODULE_USUARIOS
         AuditService.log_from_request(
             owner_uid=owner_uid,
@@ -8050,7 +8149,8 @@ def team_member_detail(employee_uid):
         flash('No tienes permisos de propietario.', 'error')
         return redirect(url_for('web_dashboard.dashboard'))
     owner_uid = session['user']['ownerUID']
-    member = DatabaseService.get_team_member_detail(owner_uid, employee_uid)
+    company_id = session.get('selected_company_id')
+    member = DatabaseService.get_team_member_detail(owner_uid, employee_uid, company_id=company_id)
     if not member:
         flash('Colaborador no encontrado.', 'error')
         return redirect(url_for('web_invoices.team_settings'))
@@ -8095,7 +8195,8 @@ def reset_team_member_password(employee_uid):
         return jsonify({"success": False, "error": "No autorizado"}), 403
 
     owner_uid = session['user']['ownerUID']
-    member = DatabaseService.get_team_member_detail(owner_uid, employee_uid)
+    company_id = session.get('selected_company_id')
+    member = DatabaseService.get_team_member_detail(owner_uid, employee_uid, company_id=company_id)
     if not member:
         return jsonify({"success": False, "error": "Colaborador no encontrado"}), 404
 
@@ -8140,11 +8241,12 @@ def toggle_team_member_status(employee_uid):
         return redirect(url_for('web_invoices.team_settings'))
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     new_status = request.form.get('status', 'active')
     if new_status not in ('active', 'suspended', 'pending'):
         new_status = 'active'
 
-    if DatabaseService.update_employee_status(owner_uid, employee_uid, new_status):
+    if DatabaseService.update_employee_status(owner_uid, employee_uid, new_status, company_id=company_id):
         from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_USUARIOS
         AuditService.log_from_request(
             owner_uid=owner_uid,
@@ -8180,6 +8282,7 @@ def export_company_data():
         return render_template('auth/restricted.html', feature_name="Exportación de Datos", required_permission="canModifySettings")
     
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     selected_sections = request.form.getlist('sections')
@@ -8196,7 +8299,7 @@ def export_company_data():
         output = io.StringIO()
         writer = csv.writer(output, quoting=csv.QUOTE_ALL)
         writer.writerow(["ID", "RNC/Cedula", "Razon Social", "Email", "Telefono", "Direccion", "Notas CRM", "Proximo Contacto", "Creado En"])
-        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         for c in clients:
             writer.writerow([
                 c.get("id", ""),
@@ -8215,7 +8318,7 @@ def export_company_data():
         output = io.StringIO()
         writer = csv.writer(output, quoting=csv.QUOTE_ALL)
         writer.writerow(["ID", "Codigo", "Tipo", "Nombre", "Precio", "Unidad", "Tasa ITBIS", "Stock Minimo", "Ubicacion Estanteria", "Stock Total", "Creado En", "Precio Costo", "Categoria", "Codigo de Barra", "Codigo Impuesto Selectivo", "Tasa Impuesto Selectivo", "Proveedor", "Precio Mayorista", "Marca", "Stock Maximo", "Imagen URL", "Estado"])
-        products = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        products = DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         for p in products:
             writer.writerow([
                 p.get("id", ""),
@@ -8247,7 +8350,7 @@ def export_company_data():
         output = io.StringIO()
         writer = csv.writer(output, quoting=csv.QUOTE_ALL)
         writer.writerow(["ID", "Numero Cotizacion", "Fecha", "Fecha Vencimiento", "ID Cliente", "Nombre Cliente", "RNC Cliente", "Estado", "Monto Neto a Pagar", "Total ITBIS", "Subtotal", "Total"])
-        quotes = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), quotations_only=True)
+        quotes = DatabaseService.get_invoices(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), quotations_only=True)
         for q in quotes:
             writer.writerow([
                 q.get("id", ""),
@@ -8269,7 +8372,7 @@ def export_company_data():
         output = io.StringIO()
         writer = csv.writer(output, quoting=csv.QUOTE_ALL)
         writer.writerow(["ID", "Concepto", "Categoria", "Monto", "Monto ITBIS", "Fecha", "RNC Emisor", "NCF", "Notas", "Recurrente", "Deducible"])
-        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        expenses = DatabaseService.get_expenses(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         for e in expenses:
             writer.writerow([
                 e.get("id", ""),
@@ -8290,7 +8393,7 @@ def export_company_data():
         output = io.StringIO()
         writer = csv.writer(output, quoting=csv.QUOTE_ALL)
         writer.writerow(["ID", "Numero Documento", "Fecha", "Fecha Vencimiento", "ID Cliente", "Nombre Cliente", "RNC Cliente", "Estado", "Tipo e-CF", "e-NCF", "Sincronizado DGII", "Monto Neto a Pagar", "Total ITBIS", "Subtotal", "Total"])
-        documents = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), quotations_only=False)
+        documents = DatabaseService.get_invoices(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), quotations_only=False)
         for d in documents:
             writer.writerow([
                 d.get("id", ""),
@@ -8622,10 +8725,11 @@ def it1_diagnostic():
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Diagnóstico de IT-1", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    invoices = DatabaseService.get_invoices(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    expenses = DatabaseService.get_expenses(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     
     real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador', 'Pagado pero no emitido']]
     
@@ -8658,36 +8762,37 @@ def backup_export():
         return render_template('auth/restricted.html', feature_name="Exportar Respaldo", required_permission="canInvoice")
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox_flag = session.get('is_sandbox_mode', True)
 
     if request.method == 'GET':
-        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        invoices = DatabaseService.get_invoices(owner_uid, company_id=company_id, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         real_invoices = [inv for inv in invoices if not inv.get('isQuotation')]
-        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
-        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
-        items = DatabaseService.get_items(owner_uid, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
-        categories = DatabaseService.get_categories(owner_uid, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
-        branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox_flag)
-        warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox_flag)
+        expenses = DatabaseService.get_expenses(owner_uid, company_id=company_id, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        items = DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        categories = DatabaseService.get_categories(owner_uid, company_id=company_id, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox_flag)
+        warehouses = DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=sandbox_flag)
 
         entries = []
         accounts = []
         price_lists = []
         cost_centers = []
         try:
-            entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox_flag)
+            entries = DatabaseService.get_accounting_entries(owner_uid, company_id=company_id, sandbox=sandbox_flag)
         except Exception:
             pass
         try:
-            accounts = DatabaseService.get_accounts(owner_uid, sandbox=sandbox_flag)
+            accounts = DatabaseService.get_accounts(owner_uid, company_id=company_id, sandbox=sandbox_flag)
         except Exception:
             pass
         try:
-            price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+            price_lists = DatabaseService.get_price_lists(owner_uid, company_id=company_id, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         except Exception:
             pass
         try:
-            cost_centers = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox_flag)
+            cost_centers = DatabaseService.get_cost_centers(owner_uid, company_id=company_id, sandbox=sandbox_flag)
         except Exception:
             pass
 
@@ -8739,48 +8844,48 @@ def backup_export():
 
     # Cargar m\u00f3dulos seleccionados
     if 'invoices' in selected:
-        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        invoices = DatabaseService.get_invoices(owner_uid, company_id=company_id, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         backup["data"]["invoices"] = [inv for inv in invoices if not inv.get('isQuotation')]
 
     if 'expenses' in selected:
-        backup["data"]["expenses"] = DatabaseService.get_expenses(owner_uid, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        backup["data"]["expenses"] = DatabaseService.get_expenses(owner_uid, company_id=company_id, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
 
     if 'clients' in selected:
-        backup["data"]["clients"] = DatabaseService.get_clients(owner_uid, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        backup["data"]["clients"] = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
 
     if 'items' in selected:
-        backup["data"]["items"] = DatabaseService.get_items(owner_uid, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        backup["data"]["items"] = DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
 
     if 'categories' in selected:
-        backup["data"]["categories"] = DatabaseService.get_categories(owner_uid, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        backup["data"]["categories"] = DatabaseService.get_categories(owner_uid, company_id=company_id, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
 
     if 'branches' in selected:
-        backup["data"]["branches"] = DatabaseService.get_branches(owner_uid, sandbox=sandbox_flag)
+        backup["data"]["branches"] = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox_flag)
 
     if 'warehouses' in selected:
-        backup["data"]["warehouses"] = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox_flag)
+        backup["data"]["warehouses"] = DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=sandbox_flag)
 
     if 'accounting_entries' in selected:
         try:
-            backup["data"]["accounting_entries"] = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox_flag)
+            backup["data"]["accounting_entries"] = DatabaseService.get_accounting_entries(owner_uid, company_id=company_id, sandbox=sandbox_flag)
         except Exception:
             backup["data"]["accounting_entries"] = []
 
     if 'accounts' in selected:
         try:
-            backup["data"]["accounts"] = DatabaseService.get_accounts(owner_uid, sandbox=sandbox_flag)
+            backup["data"]["accounts"] = DatabaseService.get_accounts(owner_uid, company_id=company_id, sandbox=sandbox_flag)
         except Exception:
             backup["data"]["accounts"] = []
 
     if 'price_lists' in selected:
         try:
-            backup["data"]["price_lists"] = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+            backup["data"]["price_lists"] = DatabaseService.get_price_lists(owner_uid, company_id=company_id, sandbox=sandbox_flag, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         except Exception:
             backup["data"]["price_lists"] = []
 
     if 'cost_centers' in selected:
         try:
-            backup["data"]["cost_centers"] = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox_flag)
+            backup["data"]["cost_centers"] = DatabaseService.get_cost_centers(owner_uid, company_id=company_id, sandbox=sandbox_flag)
         except Exception:
             backup["data"]["cost_centers"] = []
 
@@ -8862,11 +8967,12 @@ def report_607_export():
         return render_template('auth/restricted.html', feature_name="Reporte 607", required_permission="canInvoice")
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     year, month = _parse_period_args()
     fmt = request.args.get('format', 'dgii')
 
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), quotations_only=False)
+    invoices = DatabaseService.get_invoices(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), quotations_only=False)
     real_invoices = [
         inv for inv in invoices
         if inv.get('status') not in ['Borrador', 'Anulada', 'Consolidada', 'Pagado pero no emitido']
@@ -8874,12 +8980,12 @@ def report_607_export():
     ]
     filtered = _filter_docs_by_period(real_invoices, year, month)
 
-    company = DatabaseService.get_company_profile(owner_uid) or {}
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
     owner_rnc = (company.get('companyRNC') or '').replace('-', '')
 
     output = io.BytesIO()
 
-    company = DatabaseService.get_company_profile(owner_uid) or {}
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
     owner_rnc = (company.get('companyRNC') or '').replace('-', '')
 
     wb = Workbook()
@@ -9125,17 +9231,18 @@ def report_609_export():
         return render_template('auth/restricted.html', feature_name="Reporte 609", required_permission="canInvoice")
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     year, month = _parse_period_args()
 
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), quotations_only=False)
+    invoices = DatabaseService.get_invoices(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), quotations_only=False)
     contingencia = [
         inv for inv in invoices
         if inv.get('emisionMode') == 'FALLBACK' and not inv.get('isSyncedWithDGII', False)
     ]
     filtered = _filter_docs_by_period(contingencia, year, month)
 
-    company = DatabaseService.get_company_profile(owner_uid) or {}
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
     owner_rnc = (company.get('companyRNC') or '').replace('-', '')
 
     output = io.StringIO()
@@ -9176,8 +9283,9 @@ def dgii_tools():
         return render_template('auth/restricted.html', feature_name="Herramientas DGII", required_permission="canInvoice")
     
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     
     dgii_status = DgiiDirectService.check_dgii_status(company, sandbox=sandbox)
     
@@ -9194,6 +9302,7 @@ def dgii_tools():
 def check_directory_ajax():
     if 'user' not in session: return jsonify({"success": False, "message": "No autenticado"}), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     data = request.get_json(silent=True) or {}
@@ -9201,7 +9310,7 @@ def check_directory_ajax():
     if not rnc:
         return jsonify({"success": False, "message": "Debe especificar un RNC válido."}), 400
         
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     res = DGIIService.validate_and_fetch_rnc(rnc)
     return jsonify({
         "success": not res.get("error", True),
@@ -9217,13 +9326,14 @@ def check_directory_ajax():
 def check_dgii_status_ajax():
     if 'user' not in session: return jsonify({"success": False, "message": "No autenticado"}), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     data = request.get_json(silent=True) or {}
     env = data.get("environment")
     maint = data.get("maintenance")
     
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     res = DgiiDirectService.check_dgii_status(company, sandbox=sandbox)
     return jsonify(res)
 
@@ -9251,8 +9361,9 @@ def chatbot_usage_api():
     if 'user' not in session:
         return jsonify({"success": False}), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     user_uid = session['user']['uid']
-    profile = DatabaseService.get_company_profile(owner_uid)
+    profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     api_key = (profile.get("openaiApiKey") or "").strip()
     using_global_key = not api_key
     if not using_global_key:
@@ -9273,6 +9384,7 @@ def chatbot_api():
         return jsonify({"success": False, "message": "Debes iniciar sesión para interactuar con el chatbot."}), 401
     
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     user_uid = session['user']['uid']
     sandbox = session.get('is_sandbox_mode', True)
     
@@ -9292,8 +9404,9 @@ def chatbot_api():
 def client_subscription_page():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     
-    profile = DatabaseService.get_company_profile(owner_uid)
+    profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     
     plan_name = "Plan Personalizado"
     from app.services.db_service import db_firestore
@@ -9308,8 +9421,8 @@ def client_subscription_page():
         print(f"⚠️ Error al obtener plan en suscripción del cliente: {e}")
 
     billing_day = profile.get('billingDay', 1)
-    stats = DatabaseService.get_invoice_stats(owner_uid, billing_day)
-    payments = DatabaseService.get_payments(owner_uid)
+    stats = DatabaseService.get_invoice_stats(owner_uid, billing_day, company_id=company_id)
+    payments = DatabaseService.get_payments(company_id)
     user_profile = DatabaseService.get_user_profile(session['user']['uid'])
     created_at = user_profile.get('createdAt') if user_profile else None
     monthly_payment = float(profile.get('monthlyPayment', 0))
@@ -9328,14 +9441,14 @@ def client_subscription_page():
             pass
     
     billing_history = DatabaseService.get_billing_history(
-        owner_uid, billing_day=billing_day, monthly_payment=monthly_payment,
+        owner_uid, company_id=company_id, billing_day=billing_day, monthly_payment=monthly_payment,
         additional_document_cost=additional_cost, document_limit=document_limit, created_at=created_at,
         previous_monthly_payment=previous_monthly_payment,
         previous_additional_document_cost=previous_additional_document_cost,
         previous_document_limit=previous_document_limit,
         plan_change_date=plan_change_date,
     )
-    storage_used = DatabaseService.get_storage_usage_mb(owner_uid)
+    storage_used = DatabaseService.get_storage_usage_mb(owner_uid, company_id=company_id)
     storage_limit = profile.get('storageLimitMB', 512) or 512
 
     cancel_scheduled = profile.get('cancel_at_period_end', False)
@@ -9388,7 +9501,8 @@ def _update_profile_fields(owner_uid, updates):
 def change_plan_page():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
-    profile = DatabaseService.get_company_profile(owner_uid)
+    company_id = session.get('selected_company_id')
+    profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     billing_day = profile.get('billingDay', 1)
     
     if request.method == 'POST':
@@ -9413,7 +9527,7 @@ def change_plan_page():
         
         # Verificar uso actual vs límites del plan destino (anti-abuso)
         from datetime import datetime, timezone as _tz
-        stats = DatabaseService.get_invoice_stats(owner_uid, billing_day)
+        stats = DatabaseService.get_invoice_stats(owner_uid, billing_day, company_id=company_id)
         current_docs = stats.get('prod_current_cycle', 0)
         
         blocked_reasons = []
@@ -9424,27 +9538,27 @@ def change_plan_page():
         
         target_storage = plan_data.get('storageLimitMB', 0)
         if target_storage > 0:
-            storage_used = DatabaseService.get_storage_usage_mb(owner_uid)
+            storage_used = DatabaseService.get_storage_usage_mb(owner_uid, company_id=company_id)
             if storage_used > target_storage:
                 blocked_reasons.append(f'tienes {storage_used:.1f} MB de almacenamiento (límite: {target_storage} MB)')
         
         target_user_limit = plan_data.get('userLimit', 0)
         if target_user_limit > 0:
-            team = DatabaseService.get_team_members(owner_uid)
+            team = DatabaseService.get_team_members(owner_uid, company_id=company_id)
             current_team = len(team) + 1
             if current_team > target_user_limit:
                 blocked_reasons.append(f'tienes {current_team} miembros del equipo (límite: {target_user_limit})')
         
         target_branch_limit = plan_data.get('branchLimit', 0)
         if target_branch_limit > 0:
-            branches = DatabaseService.get_branches(owner_uid, sandbox=False)
+            branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=False)
             current_branches = len(branches)
             if current_branches > target_branch_limit:
                 blocked_reasons.append(f'tienes {current_branches} sucursales (límite: {target_branch_limit})')
         
         target_box_limit = plan_data.get('boxLimit', 0)
         if target_box_limit > 0:
-            boxes = DatabaseService.get_cash_registers(owner_uid, sandbox=False)
+            boxes = DatabaseService.get_cash_registers(owner_uid, company_id=company_id, sandbox=False)
             current_boxes = len(boxes)
             if current_boxes > target_box_limit:
                 blocked_reasons.append(f'tienes {current_boxes} cajas registradoras (límite: {target_box_limit})')
@@ -9483,13 +9597,13 @@ def change_plan_page():
     current_plan_id = profile.get('planId', '')
     current_plan = next((p for p in plans if p['id'] == current_plan_id), None)
     
-    stats = DatabaseService.get_invoice_stats(owner_uid, billing_day)
+    stats = DatabaseService.get_invoice_stats(owner_uid, billing_day, company_id=company_id)
     current_usage = {
         'docs': stats.get('prod_current_cycle', 0),
-        'storage': DatabaseService.get_storage_usage_mb(owner_uid),
-        'team': len(DatabaseService.get_team_members(owner_uid)) + 1,
-        'branches': len(DatabaseService.get_branches(owner_uid, sandbox=False)),
-        'boxes': len(DatabaseService.get_cash_registers(owner_uid, sandbox=False)),
+        'storage': DatabaseService.get_storage_usage_mb(owner_uid, company_id=company_id),
+        'team': len(DatabaseService.get_team_members(owner_uid, company_id=company_id)) + 1,
+        'branches': len(DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=False)),
+        'boxes': len(DatabaseService.get_cash_registers(owner_uid, company_id=company_id, sandbox=False)),
     }
     
     return render_template('change_plan.html', active_page='subscription',
@@ -9501,7 +9615,8 @@ def change_plan_page():
 def cancel_subscription():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
-    profile = DatabaseService.get_company_profile(owner_uid)
+    company_id = session.get('selected_company_id')
+    profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     
     if profile.get('status') != 'Activo':
         flash('No puedes cancelar una cuenta que no está activa.', 'error')
@@ -9541,7 +9656,8 @@ def cancel_subscription():
 def reactivate_subscription():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
-    profile = DatabaseService.get_company_profile(owner_uid)
+    company_id = session.get('selected_company_id')
+    profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     
     if not profile.get('cancel_at_period_end'):
         flash('No hay cancelación programada.', 'info')
@@ -9566,17 +9682,18 @@ def cxc_dashboard():
         return render_template('auth/restricted.html', feature_name="Dashboard CxC", required_permission="canManageCXC")
         
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     # Procesar automáticamente recordatorios programados al abrir el módulo de CxC
     try:
         from app.services.notifications import NotificationService
-        NotificationService.process_automatic_reminders(owner_uid, sandbox=sandbox)
+        NotificationService.process_automatic_reminders(owner_uid, company_id=company_id, sandbox=sandbox)
     except Exception as e:
         print(f"⚠️ Error al procesar recordatorios automáticos en CxC Dashboard: {e}")
         
     # 1. Obtener todas las facturas
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), quotations_only=False)
+    invoices = DatabaseService.get_invoices(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), quotations_only=False)
     
     # 2. Filtrar facturas pendientes o vencidas
     # Estados de cobro: Emitida, Parcialmente Cobrada, Vencida (dinámico en get_invoices)
@@ -9604,13 +9721,13 @@ def cxc_dashboard():
                 total_vencido += rem_bal
                 
     # 3. Obtener promesas de pago
-    promises = DatabaseService.get_payment_promises(owner_uid, sandbox=sandbox)
+    promises = DatabaseService.get_payment_promises(owner_uid, company_id=company_id, sandbox=sandbox)
     active_promises = [p for p in promises if p.get('estado') == 'Pendiente']
     total_prometido = sum(float(p.get('montoPrometido', 0.0)) for p in active_promises)
     
     # Obtener listado de clientes para el formulario de promesas/búsquedas si es necesario
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
-    company = DatabaseService.get_company_profile(owner_uid) or {}
+    clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
     
     # Exportar a CSV si se solicita
     if request.args.get('export') == 'csv':
@@ -9641,7 +9758,7 @@ def cxc_dashboard():
             download_name=filename
         )
 
-    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, company_id=company_id, sandbox=sandbox)
 
     return render_template(
         'cxc/dashboard.html',
@@ -9667,9 +9784,10 @@ def cxc_quick_pay(invoice_id):
         flash('No tienes permiso para registrar cobros.', 'error')
         return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice:
         flash('Factura no encontrada.', 'error')
         return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
@@ -9712,14 +9830,14 @@ def cxc_quick_pay(invoice_id):
     }
 
     try:
-        DatabaseService.register_invoice_payment(owner_uid, invoice_id, payment_dict, sandbox=sandbox)
+        DatabaseService.register_invoice_payment(owner_uid, invoice_id, payment_dict, company_id=company_id, sandbox=sandbox)
         new_balance = max(0.0, remaining_balance - amount)
         if new_balance <= 0.01:
             flash('¡Factura liquidada y saldada al 100% con éxito!', 'success')
         else:
             flash(f'¡Abono de RD$ {amount:,.2f} registrado con éxito! Pendiente: RD$ {new_balance:,.2f}.', 'success')
 
-        updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+        updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
         from app.services.audit_service import AuditService, MODULE_FACTURAS
         AuditService.log_from_request(
             owner_uid=owner_uid, action="PAYMENT", module=MODULE_FACTURAS,
@@ -9742,9 +9860,10 @@ def save_cxc_reminders_settings():
         return jsonify({"success": False, "message": "Permiso insuficiente"}), 403
         
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     data = request.get_json(silent=True) or {}
     
-    existing_profile = DatabaseService.get_company_profile(owner_uid) or {}
+    existing_profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
     existing_profile['autoRemindersEnabled'] = data.get('enabled') is True or data.get('enabled') == 'true'
     try:
         existing_profile['autoRemindersDays'] = int(data.get('days', 0))
@@ -9753,7 +9872,7 @@ def save_cxc_reminders_settings():
     existing_profile['autoRemindersMethod'] = data.get('method', 'email')
     existing_profile['autoRemindersTone'] = data.get('tone', 'formal')
     
-    DatabaseService.save_company_profile(owner_uid, existing_profile)
+    DatabaseService.save_company_profile(owner_uid, existing_profile, company_id=company_id)
     return jsonify({"success": True, "message": "Configuración de recordatorios actualizada correctamente."})
 
 @web_invoices_bp.route('/cxc/promises/add', methods=['POST'])
@@ -9764,6 +9883,7 @@ def add_payment_promise():
         return redirect(url_for('web_invoices.cxc_dashboard'))
         
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     invoice_id = request.form.get('invoiceId')
@@ -9775,7 +9895,7 @@ def add_payment_promise():
         flash("Factura y fecha de promesa son campos obligatorios.", "error")
         return redirect(url_for('web_invoices.cxc_dashboard'))
         
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice:
         flash("Factura no encontrada.", "error")
         return redirect(url_for('web_invoices.cxc_dashboard'))
@@ -9792,7 +9912,7 @@ def add_payment_promise():
         "notas": notas
     }
     
-    DatabaseService.save_payment_promise(owner_uid, promise_id, promise_dict, sandbox=sandbox)
+    DatabaseService.save_payment_promise(owner_uid, promise_id, promise_dict, company_id=company_id, sandbox=sandbox)
     
     # Registrar también en el CRM del cliente como interacción programada
     if invoice.get("clientId"):
@@ -9805,7 +9925,7 @@ def add_payment_promise():
             "completed": False,
             "registeredBy": session['user'].get('name', 'Usuario')
         }
-        DatabaseService.save_client_interaction(owner_uid, invoice["clientId"], str(uuid.uuid4()), interaction_dict, sandbox=sandbox)
+        DatabaseService.save_client_interaction(owner_uid, invoice["clientId"], str(uuid.uuid4()), interaction_dict, company_id=company_id, sandbox=sandbox)
         
     flash("Promesa de pago registrada exitosamente.", "success")
     return redirect(url_for('web_invoices.cxc_dashboard'))
@@ -9817,12 +9937,13 @@ def update_payment_promise_status(promise_id):
         return jsonify({"success": False, "message": "No autorizado"}), 403
         
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     data = request.get_json(silent=True) or {}
     new_estado = data.get("estado", "Cumplida") # Cumplida o Incumplida
     
-    promises = DatabaseService.get_payment_promises(owner_uid, sandbox=sandbox)
+    promises = DatabaseService.get_payment_promises(owner_uid, company_id=company_id, sandbox=sandbox)
     target_promise = None
     for p in promises:
         if p['id'] == promise_id:
@@ -9833,7 +9954,7 @@ def update_payment_promise_status(promise_id):
         return jsonify({"success": False, "message": "Promesa no encontrada"}), 404
         
     target_promise['estado'] = new_estado
-    DatabaseService.save_payment_promise(owner_uid, promise_id, target_promise, sandbox=sandbox)
+    DatabaseService.save_payment_promise(owner_uid, promise_id, target_promise, company_id=company_id, sandbox=sandbox)
     
     # Registrar en CRM
     if target_promise.get("clientId"):
@@ -9845,7 +9966,7 @@ def update_payment_promise_status(promise_id):
             "completed": True,
             "registeredBy": session['user'].get('name', 'Usuario')
         }
-        DatabaseService.save_client_interaction(owner_uid, target_promise["clientId"], str(uuid.uuid4()), interaction_dict, sandbox=sandbox)
+        DatabaseService.save_client_interaction(owner_uid, target_promise["clientId"], str(uuid.uuid4()), interaction_dict, company_id=company_id, sandbox=sandbox)
         
     return jsonify({"success": True, "message": f"Promesa marcada como {new_estado}."})
 
@@ -9855,9 +9976,10 @@ def send_invoice_cxc_reminder(invoice_id, method):
         return jsonify({"success": False, "message": "No autorizado"}), 401
         
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice:
         return jsonify({"success": False, "message": "Factura no encontrada"}), 404
         
@@ -9879,6 +10001,7 @@ def send_invoice_cxc_reminder(invoice_id, method):
     
     success, message = NotificationService.send_cxc_reminder(
         owner_uid=owner_uid,
+        company_id=company_id,
         invoice=invoice,
         recipient_contact=recipient,
         method=method,
@@ -9900,8 +10023,9 @@ def cxc_write_off(invoice_id):
     if not check_permission('canManageCXC'):
         return jsonify({"success": False, "message": "Permiso insuficiente"}), 403
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice:
         return jsonify({"success": False, "message": "Factura no encontrada"}), 404
     if invoice.get('status') not in ('Vencida', 'Emitida'):
@@ -9910,20 +10034,20 @@ def cxc_write_off(invoice_id):
     amount = float(request.form.get('amount', invoice.get('remainingBalance', 0)))
     try:
         from app.services.accounting_service import AccountingService
-        accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+        accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
         bad_debt = next((a for a in accounts if 'incobrable' in a.get('name','').lower()), None)
         lines = [{"accountId": bad_debt['id'], "accountCode": bad_debt.get('code',''), "accountName": bad_debt.get('name',''), "debit": amount, "credit": 0, "description": f"Castigo {invoice.get('invoiceNumber','')}"}]
         cxc = next((a for a in accounts if a.get('usage') == 'cxc'), None)
         if cxc:
             lines.append({"accountId": cxc['id'], "accountCode": cxc.get('code',''), "accountName": cxc.get('name',''), "debit": 0, "credit": amount, "description": f"Castigo {invoice.get('invoiceNumber','')}"})
-        AccountingService.generate_entry(owner_uid, {"entryType":"standard","date":datetime.now(timezone.utc).strftime("%Y-%m-%d"),"concept":f"Castigo factura {invoice.get('invoiceNumber','')}","lines":lines,"createdBy":session.get('user',{}).get('name','')}, sandbox=sandbox)
+        AccountingService.generate_entry(owner_uid, {"entryType":"standard","date":datetime.now(timezone.utc).strftime("%Y-%m-%d"),"concept":f"Castigo factura {invoice.get('invoiceNumber','')}","lines":lines,"createdBy":session.get('user',{}).get('name','')}, company_id=company_id, sandbox=sandbox)
     except (ImportError, StopIteration):
         pass
     invoice['status'] = 'Castigada'
     invoice['remainingBalance'] = 0.0
     invoice['writeOffReason'] = reason
     invoice['writeOffDate'] = datetime.now(timezone.utc).isoformat()
-    DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+    DatabaseService.save_invoice(owner_uid, invoice_id, invoice, company_id=company_id, sandbox=sandbox)
     return jsonify({"success": True, "message": "Factura castigada"})
 
 
@@ -9937,16 +10061,17 @@ def cxc_advances_list():
     if not check_permission('canManageCXC'):
         return render_template('auth/restricted.html', feature_name="Anticipos de Clientes", required_permission="canManageCXC")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     project_id = g.get('project_id')
-    advances = DatabaseService.get_client_advances(owner_uid, sandbox=sandbox, project_id=project_id)
+    advances = DatabaseService.get_client_advances(owner_uid, company_id=company_id, sandbox=sandbox, project_id=project_id)
     total_activos = sum(a.get("amount", 0.0) for a in advances if a.get("status") == "Activo")
     total_aplicados = sum(a.get("appliedAmount", 0.0) for a in advances if a.get("status") == "Aplicado")
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=project_id)
-    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
+    clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=project_id)
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, company_id=company_id, sandbox=sandbox)
     client_map = {c.get('id'): c.get('razonSocial', '') for c in clients}
     bank_map = {b.get('id'): b.get('name', '') for b in bank_accounts}
-    all_quotations = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=project_id, quotations_only=True)
+    all_quotations = DatabaseService.get_invoices(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=project_id, quotations_only=True)
     quot_map = {q.get('id'): q for q in all_quotations}
     for a in advances:
         if not a.get('clientName'):
@@ -9961,7 +10086,7 @@ def cxc_advances_list():
         if not a.get('bank') and a.get('bankAccountId') and a['bankAccountId'] in bank_map:
             a['bank'] = bank_map[a['bankAccountId']]
     active_quotations = [q for q in all_quotations if q.get("status") in ("Borrador", "Pendiente Aut. Cliente", "Aprobada") and not q.get("convertedToInvoiceId")]
-    company = DatabaseService.get_company_profile(owner_uid) or {}
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
     return render_template(
         'cxc/advances_list.html',
         active_page='cxc_advances',
@@ -9982,6 +10107,7 @@ def cxc_advances_new():
     if not check_permission('canManageCXC'):
         return render_template('auth/restricted.html', feature_name="Anticipos de Clientes", required_permission="canManageCXC")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     project_id = g.get('project_id')
     if request.method == 'POST':
@@ -9995,7 +10121,7 @@ def cxc_advances_new():
         bank_name = request.form.get('bank', '')
         if not bank_name and bank_account_id:
             try:
-                bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox)
+                bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, company_id=company_id, sandbox=sandbox)
                 if bank_acc:
                     bank_name = bank_acc.get('name', '')
             except Exception:
@@ -10004,7 +10130,7 @@ def cxc_advances_new():
         client_id = request.form.get('clientId', '')
         if not client_name and client_id:
             try:
-                client = DatabaseService.get_client(owner_uid, client_id, sandbox=sandbox)
+                client = DatabaseService.get_client(owner_uid, client_id, company_id=company_id, sandbox=sandbox)
                 if client:
                     client_name = client.get('razonSocial', '')
             except Exception:
@@ -10030,34 +10156,34 @@ def cxc_advances_new():
         }
         try:
             if advance_dict["clientName"]:
-                clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=project_id)
+                clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=project_id)
                 matched = [c for c in clients if c.get("razonSocial", "").strip().lower() == advance_dict["clientName"].strip().lower()]
                 if matched:
                     advance_dict["clientId"] = matched[0].get("id", advance_dict["clientId"])
                     advance_dict["clientRNC"] = matched[0].get("rnc", advance_dict.get("clientRNC", ""))
-            DatabaseService.save_client_advance(owner_uid, advance_id, advance_dict, sandbox=sandbox)
+            DatabaseService.save_client_advance(owner_uid, advance_id, advance_dict, company_id=company_id, sandbox=sandbox)
             from app.services.accounting_service import AccountingService
-            AccountingService.auto_generate_client_advance_entry(owner_uid, advance_dict, sandbox=sandbox)
+            AccountingService.auto_generate_client_advance_entry(owner_uid, advance_dict, company_id=company_id, sandbox=sandbox)
             bank_account_id = advance_dict.get("bankAccountId")
             if bank_account_id:
                 try:
-                    bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox)
+                    bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, company_id=company_id, sandbox=sandbox)
                     if bank_acc:
                         DatabaseService.save_bank_account(owner_uid, bank_account_id, {
                             **bank_acc,
                             "currentBalance": bank_acc["currentBalance"] + amount
-                        }, sandbox=sandbox)
+                        }, company_id=company_id, sandbox=sandbox)
                 except Exception as bank_err:
                     print(f"⚠️ Error al actualizar saldo bancario: {bank_err}")
             flash(f'¡Anticipo de RD$ {amount:,.2f} registrado con éxito!', 'success')
         except Exception as e:
             flash(f'Error al registrar el anticipo: {str(e)}', 'error')
         return redirect(url_for('web_invoices.cxc_advances_list'))
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=project_id)
-    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
-    quotations = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=project_id, quotations_only=True)
+    clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=project_id)
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, company_id=company_id, sandbox=sandbox)
+    quotations = DatabaseService.get_invoices(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=project_id, quotations_only=True)
     active_quotations = [q for q in quotations if q.get("status") in ("Borrador", "Pendiente Aut. Cliente", "Aprobada") and not q.get("convertedToInvoiceId")]
-    company = DatabaseService.get_company_profile(owner_uid) or {}
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
     return render_template(
         'cxc/advances_form.html',
         active_page='cxc_advances_new',
@@ -10075,9 +10201,10 @@ def cxc_advances_edit(advance_id):
     if not check_permission('canManageCXC'):
         return render_template('auth/restricted.html', feature_name="Anticipos de Clientes", required_permission="canManageCXC")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     project_id = g.get('project_id')
-    advance = DatabaseService.get_client_advance(owner_uid, advance_id, sandbox=sandbox)
+    advance = DatabaseService.get_client_advance(owner_uid, advance_id, company_id=company_id, sandbox=sandbox)
     if not advance:
         flash('Anticipo no encontrado.', 'error')
         return redirect(url_for('web_invoices.cxc_advances_list'))
@@ -10086,14 +10213,14 @@ def cxc_advances_edit(advance_id):
         return redirect(url_for('web_invoices.cxc_advances_list'))
     if not advance.get("clientName") and advance.get("clientId"):
         try:
-            client = DatabaseService.get_client(owner_uid, advance["clientId"], sandbox=sandbox)
+            client = DatabaseService.get_client(owner_uid, advance["clientId"], company_id=company_id, sandbox=sandbox)
             if client:
                 advance["clientName"] = client.get('razonSocial', '')
         except Exception:
             pass
     if not advance.get("bank") and advance.get("bankAccountId"):
         try:
-            bank_acc = DatabaseService.get_bank_account(owner_uid, advance["bankAccountId"], sandbox=sandbox)
+            bank_acc = DatabaseService.get_bank_account(owner_uid, advance["bankAccountId"], company_id=company_id, sandbox=sandbox)
             if bank_acc:
                 advance["bank"] = bank_acc.get('name', '')
         except Exception:
@@ -10109,7 +10236,7 @@ def cxc_advances_edit(advance_id):
         client_name = request.form.get('clientName', advance.get("clientName", ""))
         if not client_name and client_id:
             try:
-                client = DatabaseService.get_client(owner_uid, client_id, sandbox=sandbox)
+                client = DatabaseService.get_client(owner_uid, client_id, company_id=company_id, sandbox=sandbox)
                 if client:
                     client_name = client.get('razonSocial', '')
             except Exception:
@@ -10118,7 +10245,7 @@ def cxc_advances_edit(advance_id):
         bank_name = request.form.get('bank', advance.get("bank", ""))
         if not bank_name and bank_account_id:
             try:
-                bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox)
+                bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, company_id=company_id, sandbox=sandbox)
                 if bank_acc:
                     bank_name = bank_acc.get('name', '')
             except Exception:
@@ -10139,45 +10266,45 @@ def cxc_advances_edit(advance_id):
         try:
             if old_bank_account_id and old_bank_account_id != advance.get("bankAccountId"):
                 try:
-                    old_bank = DatabaseService.get_bank_account(owner_uid, old_bank_account_id, sandbox=sandbox)
+                    old_bank = DatabaseService.get_bank_account(owner_uid, old_bank_account_id, company_id=company_id, sandbox=sandbox)
                     if old_bank:
                         DatabaseService.save_bank_account(owner_uid, old_bank_account_id, {
                             **old_bank,
                             "currentBalance": max(0.0, old_bank["currentBalance"] - old_amount)
-                        }, sandbox=sandbox)
+                        }, company_id=company_id, sandbox=sandbox)
                 except Exception:
                     pass
-            DatabaseService.save_client_advance(owner_uid, advance_id, advance, sandbox=sandbox)
+            DatabaseService.save_client_advance(owner_uid, advance_id, advance, company_id=company_id, sandbox=sandbox)
             new_bank_account_id = advance.get("bankAccountId")
             if new_bank_account_id and new_bank_account_id != old_bank_account_id:
                 try:
-                    new_bank = DatabaseService.get_bank_account(owner_uid, new_bank_account_id, sandbox=sandbox)
+                    new_bank = DatabaseService.get_bank_account(owner_uid, new_bank_account_id, company_id=company_id, sandbox=sandbox)
                     if new_bank:
                         DatabaseService.save_bank_account(owner_uid, new_bank_account_id, {
                             **new_bank,
                             "currentBalance": new_bank["currentBalance"] + amount
-                        }, sandbox=sandbox)
+                        }, company_id=company_id, sandbox=sandbox)
                 except Exception:
                     pass
             elif new_bank_account_id and new_bank_account_id == old_bank_account_id and amount != old_amount:
                 try:
-                    bank_acc = DatabaseService.get_bank_account(owner_uid, new_bank_account_id, sandbox=sandbox)
+                    bank_acc = DatabaseService.get_bank_account(owner_uid, new_bank_account_id, company_id=company_id, sandbox=sandbox)
                     if bank_acc:
                         DatabaseService.save_bank_account(owner_uid, new_bank_account_id, {
                             **bank_acc,
                             "currentBalance": bank_acc["currentBalance"] - old_amount + amount
-                        }, sandbox=sandbox)
+                        }, company_id=company_id, sandbox=sandbox)
                 except Exception:
                     pass
             flash('¡Anticipo actualizado con éxito!', 'success')
         except Exception as e:
             flash(f'Error al actualizar el anticipo: {str(e)}', 'error')
         return redirect(url_for('web_invoices.cxc_advances_list'))
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=project_id)
-    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
-    quotations = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=project_id, quotations_only=True)
+    clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=project_id)
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, company_id=company_id, sandbox=sandbox)
+    quotations = DatabaseService.get_invoices(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=project_id, quotations_only=True)
     active_quotations = [q for q in quotations if q.get("status") in ("Borrador", "Pendiente Aut. Cliente", "Aprobada") and not q.get("convertedToInvoiceId")]
-    company = DatabaseService.get_company_profile(owner_uid) or {}
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
     return render_template(
         'cxc/advances_form.html',
         active_page='cxc_advances_edit',
@@ -10196,8 +10323,9 @@ def cxc_advances_delete(advance_id):
         flash('No tienes permiso para anular anticipos.', 'error')
         return redirect(url_for('web_invoices.cxc_advances_list'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
-    advance = DatabaseService.get_client_advance(owner_uid, advance_id, sandbox=sandbox)
+    advance = DatabaseService.get_client_advance(owner_uid, advance_id, company_id=company_id, sandbox=sandbox)
     if not advance:
         flash('Anticipo no encontrado.', 'error')
         return redirect(url_for('web_invoices.cxc_advances_list'))
@@ -10205,7 +10333,7 @@ def cxc_advances_delete(advance_id):
         flash('No se puede anular un anticipo que ya fue aplicado a una factura.', 'error')
         return redirect(url_for('web_invoices.cxc_advances_list'))
     try:
-        DatabaseService.delete_client_advance(owner_uid, advance_id, sandbox=sandbox)
+        DatabaseService.delete_client_advance(owner_uid, advance_id, company_id=company_id, sandbox=sandbox)
         flash('Anticipo anulado correctamente. El saldo bancario fue revertido.', 'success')
     except Exception as e:
         flash(f'Error al anular el anticipo: {str(e)}', 'error')
@@ -10219,6 +10347,7 @@ def cxc_advances_apply():
         flash('No tienes permiso para aplicar anticipos.', 'error')
         return redirect(url_for('web_invoices.cxc_advances_list'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     invoice_id = request.form.get('invoiceId', '')
     advance_ids = request.form.getlist('advanceIds')
@@ -10229,11 +10358,11 @@ def cxc_advances_apply():
         flash('Debe seleccionar al menos un anticipo.', 'error')
         return redirect(url_for('web_invoices.cxc_advances_list'))
     try:
-        result = DatabaseService.apply_client_advances_to_invoice(owner_uid, invoice_id, advance_ids, sandbox=sandbox)
-        invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+        result = DatabaseService.apply_client_advances_to_invoice(owner_uid, invoice_id, advance_ids, company_id=company_id, sandbox=sandbox)
+        invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
         if invoice:
             from app.services.accounting_service import AccountingService
-            AccountingService.auto_generate_advance_application_entry(owner_uid, invoice, result["appliedAdvances"], sandbox=sandbox)
+            AccountingService.auto_generate_advance_application_entry(owner_uid, invoice, result["appliedAdvances"], company_id=company_id, sandbox=sandbox)
         flash(f'¡{len(result["appliedAdvances"])} anticipos aplicados por RD$ {result["totalApplied"]:,.2f}! Nuevo saldo pendiente: RD$ {result["netPayable"]:,.2f}.', 'success')
     except Exception as e:
         flash(f'Error al aplicar anticipos: {str(e)}', 'error')
@@ -10247,6 +10376,7 @@ def cxp_batch_pay():
     if not check_permission('canManageCXP'):
         return jsonify({"success": False, "message": "Permiso insuficiente"}), 403
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     eids = request.form.getlist('expense_ids')
     if not eids:
@@ -10254,12 +10384,12 @@ def cxp_batch_pay():
     total, paid = 0.0, 0
     for eid in eids:
         try:
-            exp = DatabaseService.get_expense(owner_uid, eid, sandbox=sandbox)
+            exp = DatabaseService.get_expense(owner_uid, eid, company_id=company_id, sandbox=sandbox)
             if not exp:
                 continue
             rem = float(exp.get('cxpRemainingBalance', exp.get('amount', 0)))
             total += rem
-            DatabaseService.save_cxp_payment(owner_uid, eid, rem, registered_by=session.get('user',{}).get('name',''), sandbox=sandbox)
+            DatabaseService.save_cxp_payment(owner_uid, eid, rem, company_id=company_id, registered_by=session.get('user',{}).get('name',''), sandbox=sandbox)
             paid += 1
         except Exception:
             pass
@@ -10287,6 +10417,7 @@ def accounting_export_download():
     if not check_permission('canInvoice'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     export_type = request.form.get('exportType', 'sales')
@@ -10301,7 +10432,7 @@ def accounting_export_download():
     if date_to:
         real = [inv for inv in real if (inv.get('date') or '')[:10] <= date_to]
 
-    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    all_expenses = DatabaseService.get_expenses(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     real_exp = [exp for exp in all_expenses if exp.get('status') not in ('Anulada',)]
     if date_from:
         real_exp = [exp for exp in real_exp if (exp.get('date') or '')[:10] >= date_from]
@@ -10327,14 +10458,15 @@ def save_chart_of_accounts():
     if 'user' not in session:
         return jsonify(success=False, error="No autorizado"), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     coa = {}
     for key in DEFAULT_CHART_OF_ACCOUNTS:
         val = request.form.get(f'coa_{key}', '').strip()
         if val:
             coa[key] = val
-    profile = DatabaseService.get_company_profile(owner_uid) or {}
+    profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
     profile["chartOfAccounts"] = coa
-    DatabaseService.save_company_profile(owner_uid, profile)
+    DatabaseService.save_company_profile(owner_uid, profile, company_id=company_id)
     flash('✅ Plan de cuentas actualizado.', 'success')
     return redirect(url_for('web_invoices.accounting_export_page'))
 
@@ -10370,6 +10502,7 @@ def expense_import_preview():
     if not check_permission('canExpenses'):
         return jsonify({"success": False, "error": "Sin permiso"}), 403
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     xml_file = request.files.get('xml_file')
@@ -10453,6 +10586,7 @@ def expense_import_confirm():
     if not check_permission('canExpenses'):
         return jsonify({"success": False, "error": "Sin permiso"}), 403
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     import uuid
@@ -10565,7 +10699,7 @@ def expense_import_confirm():
     }
 
     try:
-        DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+        DatabaseService.save_expense(owner_uid, expense_id, expense_dict, company_id=company_id, sandbox=sandbox)
     except ValueError as ve:
         return jsonify({"success": False, "error": str(ve)}), 400
 
@@ -10592,10 +10726,11 @@ def expense_import_report(expense_id):
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Informe de Importación", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     from app.services.db_service import DatabaseService
-    expense = DatabaseService.get_expense(owner_uid, expense_id, sandbox=sandbox)
+    expense = DatabaseService.get_expense(owner_uid, expense_id, company_id=company_id, sandbox=sandbox)
 
     if not expense:
         flash('El gasto no fue encontrado.', 'error')
@@ -10660,6 +10795,7 @@ def api_ai_receipt_ocr():
         return jsonify({"success": False, "error": "No se recibió ningún archivo"}), 400
         
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     file_bytes = file.read()
     
     mime_type = file.mimetype or "image/jpeg"
@@ -10682,6 +10818,7 @@ def api_expenses_ocr_with_items():
         return jsonify({"success": False, "error": "No se recibio ningun archivo"}), 400
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     file_bytes = file.read()
 
@@ -10759,6 +10896,7 @@ def api_ai_classify_expense():
         return jsonify({"success": False, "error": "El concepto es requerido"}), 400
         
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     from app.services.ai_service import AIService
     code = AIService.classify_dgii_expense(owner_uid, concept)
     return jsonify({"success": True, "code": code})
@@ -10786,6 +10924,7 @@ def api_ai_draft_collection():
         amount = 0.00
         
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sender_name = session['user'].get('name', session['user'].get('email', 'Usuario'))
     from app.services.ai_service import AIService
     message = AIService.draft_collection_message(owner_uid, client_name, amount, due_date, status, tone, sender_name=sender_name)
@@ -10802,9 +10941,10 @@ def api_search_invoices():
         return jsonify({"success": True, "results": []})
         
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    results = DatabaseService.search_invoices_by_number(owner_uid, q, sandbox=sandbox)
+    results = DatabaseService.search_invoices_by_number(owner_uid, q, company_id=company_id, sandbox=sandbox)
     return jsonify({"success": True, "results": results})
 
 @web_invoices_bp.route('/api/dgii/rnc/<rnc>', methods=['GET'])
@@ -10820,7 +10960,7 @@ def web_lookup_rnc(rnc):
 
 def _get_taggable_users(owner_uid):
     taggable_users = []
-    owner_prof = DatabaseService.get_user_profile(owner_uid)
+    owner_prof = DatabaseService.get_user_profile(owner_uid, company_id=company_id)
     if owner_prof:
         taggable_users.append({
             "uid": owner_uid,
@@ -10828,7 +10968,7 @@ def _get_taggable_users(owner_uid):
             "email": owner_prof.get("email", ""),
             "role": "owner"
         })
-    team = DatabaseService.get_team_members(owner_uid) or []
+    team = DatabaseService.get_team_members(owner_uid, company_id=company_id) or []
     for member in team:
         taggable_users.append({
             "uid": member.get("uid"),
@@ -10895,7 +11035,7 @@ def process_resource_comment_mentions(owner_uid, content, resource_type, resourc
             from app.services.notifications import NotificationService
             
             # Obtener el nombre comercial de la empresa
-            company = DatabaseService.get_company(owner_uid) or {}
+            company = DatabaseService.get_company(owner_uid, company_id=company_id) or {}
             issuer_company_name = company.get("tradeName") or company.get("companyName") or get_product_name()
             
             NotificationService.send_mention_notification(
@@ -10917,23 +11057,24 @@ def expense_detail(expense_id):
         return render_template('auth/restricted.html', feature_name="Detalle de Gasto", required_permission="canExpenses")
         
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    expense = DatabaseService.get_expense(owner_uid, expense_id, sandbox=sandbox)
+    expense = DatabaseService.get_expense(owner_uid, expense_id, company_id=company_id, sandbox=sandbox)
     if not expense:
         flash('Gasto no encontrado.', 'error')
         return redirect(url_for('web_invoices.list_expenses'))
         
-    comments = DatabaseService.get_resource_comments(owner_uid, "expenses", expense_id, sandbox=sandbox)
+    comments = DatabaseService.get_resource_comments(owner_uid, "expenses", expense_id, company_id=company_id, sandbox=sandbox)
     taggable_users = _get_taggable_users(owner_uid)
     
     is_cxp = expense.get('paymentType') == 'Crédito'
     cxp_payments = []
     if is_cxp:
-        cxp_payments = DatabaseService.get_cxp_payments(owner_uid, expense_id, sandbox=sandbox)
+        cxp_payments = DatabaseService.get_cxp_payments(owner_uid, expense_id, company_id=company_id, sandbox=sandbox)
 
     linked_entry = None
-    all_entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox)
+    all_entries = DatabaseService.get_accounting_entries(owner_uid, company_id=company_id, sandbox=sandbox)
     for e in all_entries:
         if e.get("status") != "voided" and e.get("referenceType") == "expense" and e.get("referenceId") == expense_id:
             linked_entry = e
@@ -10958,9 +11099,10 @@ def attach_expense_document(expense_id):
     if 'user' not in session:
         return jsonify({"success": False, "error": "No autorizado"}), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    expense = DatabaseService.get_expense(owner_uid, expense_id, sandbox=sandbox)
+    expense = DatabaseService.get_expense(owner_uid, expense_id, company_id=company_id, sandbox=sandbox)
     if not expense:
         return jsonify({"success": False, "error": "Gasto no encontrado."}), 404
 
@@ -11024,9 +11166,10 @@ def detach_expense_document(expense_id, att_index):
     if 'user' not in session:
         return jsonify({"success": False, "error": "No autorizado"}), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    expense = DatabaseService.get_expense(owner_uid, expense_id, sandbox=sandbox)
+    expense = DatabaseService.get_expense(owner_uid, expense_id, company_id=company_id, sandbox=sandbox)
     if not expense:
         return jsonify({"success": False, "error": "Gasto no encontrado."}), 404
 
@@ -11061,6 +11204,7 @@ def detach_expense_document(expense_id, att_index):
 def add_expense_comment(expense_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     content = request.form.get('content', '').strip()
@@ -11094,10 +11238,10 @@ def add_expense_comment(expense_id):
         "edited": False
     }
     
-    DatabaseService.save_resource_comment(owner_uid, "expenses", expense_id, comment_id, comment_dict, sandbox=sandbox)
+    DatabaseService.save_resource_comment(owner_uid, "expenses", expense_id, comment_id, comment_dict, company_id=company_id, sandbox=sandbox)
     
     try:
-        expense = DatabaseService.get_expense(owner_uid, expense_id, sandbox=sandbox) or {}
+        expense = DatabaseService.get_expense(owner_uid, expense_id, company_id=company_id, sandbox=sandbox) or {}
         concept = expense.get('concept', 'Gasto')
         process_resource_comment_mentions(owner_uid, content, "expenses", expense_id, concept, sandbox)
     except Exception as ex:
@@ -11111,9 +11255,10 @@ def add_expense_comment(expense_id):
 def edit_expense_comment(expense_id, comment_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    comments = DatabaseService.get_resource_comments(owner_uid, "expenses", expense_id, sandbox=sandbox)
+    comments = DatabaseService.get_resource_comments(owner_uid, "expenses", expense_id, company_id=company_id, sandbox=sandbox)
     comment = next((c for c in comments if c['id'] == comment_id), None)
     if not comment:
         flash('Comentario no encontrado.', 'error')
@@ -11147,10 +11292,10 @@ def edit_expense_comment(expense_id, comment_id):
         except Exception as e:
             flash(f"Advertencia: No se pudo cargar el archivo adjunto: {html.escape(str(e))}", 'warning')
             
-    DatabaseService.save_resource_comment(owner_uid, "expenses", expense_id, comment_id, comment, sandbox=sandbox)
+    DatabaseService.save_resource_comment(owner_uid, "expenses", expense_id, comment_id, comment, company_id=company_id, sandbox=sandbox)
     
     try:
-        expense = DatabaseService.get_expense(owner_uid, expense_id, sandbox=sandbox) or {}
+        expense = DatabaseService.get_expense(owner_uid, expense_id, company_id=company_id, sandbox=sandbox) or {}
         concept = expense.get('concept', 'Gasto')
         process_resource_comment_mentions(owner_uid, content, "expenses", expense_id, concept, sandbox)
     except Exception as ex:
@@ -11164,9 +11309,10 @@ def edit_expense_comment(expense_id, comment_id):
 def delete_expense_comment(expense_id, comment_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    comments = DatabaseService.get_resource_comments(owner_uid, "expenses", expense_id, sandbox=sandbox)
+    comments = DatabaseService.get_resource_comments(owner_uid, "expenses", expense_id, company_id=company_id, sandbox=sandbox)
     comment = next((c for c in comments if c['id'] == comment_id), None)
     if not comment:
         flash('Comentario no encontrado.', 'error')
@@ -11178,7 +11324,7 @@ def delete_expense_comment(expense_id, comment_id):
         flash('No tienes permiso para eliminar este comentario.', 'error')
         return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
         
-    DatabaseService.delete_resource_comment(owner_uid, "expenses", expense_id, comment_id, sandbox=sandbox)
+    DatabaseService.delete_resource_comment(owner_uid, "expenses", expense_id, comment_id, company_id=company_id, sandbox=sandbox)
     flash('Comentario eliminado.', 'success')
     return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
 
@@ -11188,13 +11334,14 @@ def api_toggle_comment_reaction(resource_type, resource_id, comment_id):
     if 'user' not in session: return jsonify({"success": False, "error": "No autorizado"}), 401
     
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     user_uid = session['user']['uid']
     sandbox = session.get('is_sandbox_mode', True)
     
     data = request.json or {}
     emoji = data.get('emoji', '👍')
     
-    res = DatabaseService.toggle_comment_reaction(owner_uid, resource_type, resource_id, comment_id, user_uid, emoji, sandbox=sandbox)
+    res = DatabaseService.toggle_comment_reaction(owner_uid, resource_type, resource_id, comment_id, user_uid, emoji, company_id=company_id, sandbox=sandbox)
     if res and res.get("success"):
         return jsonify(res)
     
@@ -11208,13 +11355,14 @@ def professional_quotation_route():
     
     if request.method == 'GET':
         owner_uid = session['user']['ownerUID']
+        company_id = session.get('selected_company_id')
         sandbox = session.get('is_sandbox_mode', True)
-        catalog = [it for it in DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) if it.get('isActive', True)]
+        catalog = [it for it in DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) if it.get('isActive', True)]
         
         initial_data_json = 'null'
         clone_id = request.args.get('clone')
         if clone_id:
-            source = DatabaseService.get_invoice(owner_uid, clone_id, sandbox=sandbox)
+            source = DatabaseService.get_invoice(owner_uid, clone_id, company_id=company_id, sandbox=sandbox)
             if source and source.get('isProfessional'):
                 pd = source.get('professionalData', {})
                 initial_data = {
@@ -11262,6 +11410,7 @@ def professional_quotation_route():
         return jsonify({"success": False, "message": "Sin permisos"}), 403
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     data = request.json or {}
     user_display = session['user'].get('displayName', session['user'].get('email', 'Usuario'))
@@ -11355,7 +11504,7 @@ def professional_quotation_route():
     try:
         new_invoice_id = str(uuid.uuid4())
         invoice_dict['id'] = new_invoice_id
-        result = DatabaseService.save_invoice(owner_uid, new_invoice_id, invoice_dict, sandbox=sandbox)
+        result = DatabaseService.save_invoice(owner_uid, new_invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
         if result and result.get('id'):
             from app.services.audit_service import AuditService
             AuditService.log_from_request(
@@ -11377,6 +11526,7 @@ def ai_generate_quotation():
     if 'user' not in session:
         return jsonify({"success": False, "message": "No autorizado"}), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     data = request.json or {}
     context = data.get('context', '')
 
@@ -11384,7 +11534,7 @@ def ai_generate_quotation():
         return jsonify({"success": False, "message": "Debe proporcionar contexto del proyecto"}), 400
 
     from app.services.ai_quotation_service import AIQuotationService
-    company = DatabaseService.get_company_profile(owner_uid) or {}
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
     result = AIQuotationService.generate_full_quotation(owner_uid, context, company)
 
     if result.get("success"):
@@ -11396,6 +11546,7 @@ def ai_suggest_section():
     if 'user' not in session:
         return jsonify({"success": False, "message": "No autorizado"}), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     data = request.json or {}
     section = data.get('section', '')
     context_data = data.get('contextData', {})
@@ -11431,10 +11582,11 @@ def quotation_preview():
     if 'user' not in session:
         return jsonify({"error": "No autorizado"}), 401
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     data = request.json or {}
 
-    company = DatabaseService.get_company_profile(owner_uid) or {}
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
     if not company:
         company = {"companyName": "Mi Empresa", "companyRNC": "", "companyAddress": "", "companyPhone": "", "companyEmail": "", "tradeName": ""}
 
