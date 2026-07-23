@@ -18,10 +18,10 @@ from app.services.payroll_service import PayrollService
 def payroll_list():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
+    periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
     periods.sort(key=lambda p: p.get("periodKey", ""), reverse=True)
 
     # Filtrar por grupo si se especifica
@@ -29,12 +29,12 @@ def payroll_list():
     if filter_group:
         periods = [p for p in periods if p.get("payrollGroupId", "") == filter_group]
 
-    payroll_groups = hr.get_payroll_groups(owner_uid, sandbox=sandbox)
+    payroll_groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
     payroll_groups.sort(key=lambda g: g.get("name", ""))
 
     group_map = {g["id"]: g["name"] for g in payroll_groups}
 
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    employees = hr.get_employees(company_id, sandbox=sandbox)
     group_employee_counts = {
         g["id"]: len([e for e in employees if g["id"] in e.get("payrollGroupIds", [])])
         for g in payroll_groups
@@ -50,15 +50,15 @@ def payroll_list():
 def payroll_view(period_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    period = hr.get_payroll_period(owner_uid, period_id, sandbox=sandbox)
+    period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
     if not period:
         flash("Período no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_list"))
 
-    period["lines"] = PayrollService.get_period_lines(period, owner_uid=owner_uid, sandbox=sandbox)
+    period["lines"] = PayrollService.get_period_lines(period, company_id=company_id, sandbox=sandbox)
 
     return render_template("rrhh/payroll_view.html", active_page="rrhh_payroll", period=period)
 
@@ -67,17 +67,17 @@ def payroll_view(period_id):
 def payroll_tss_export(period_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_service import PayrollService
 
-    period = hr.get_payroll_period(owner_uid, period_id, sandbox=sandbox)
+    period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
     if not period:
         flash("Período no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_list"))
 
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
-    csv_content = PayrollService.generate_tss_csv(period, employees, owner_uid=owner_uid, sandbox=sandbox)
+    employees = hr.get_employees(company_id, sandbox=sandbox)
+    csv_content = PayrollService.generate_tss_csv(period, employees, company_id=company_id, sandbox=sandbox)
 
     import io
     buffer = io.BytesIO(csv_content.encode("utf-8-sig"))
@@ -89,30 +89,30 @@ def payroll_tss_export(period_id):
 def payroll_tss_autodeterminacion(period_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_service import PayrollService
     from app.services.db_service import DatabaseService
 
-    period = hr.get_payroll_period(owner_uid, period_id, sandbox=sandbox)
+    period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
     if not period:
         flash("Período no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_list"))
 
     formato = request.args.get("format", "txt").lower()
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    employees = hr.get_employees(company_id, sandbox=sandbox)
 
     if formato == "xls":
-        company = DatabaseService.get_company_profile(owner_uid)
+        company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
         employer_rnc = (company.get("companyRNC", "") or "").replace("-", "").strip() if company else ""
         resultado = PayrollService.generate_tss_autodeterminacion_xls(period, employees, employer_rnc=employer_rnc,
-                                                                       owner_uid=owner_uid, sandbox=sandbox)
+                                                                       company_id=company_id, sandbox=sandbox)
         mimetype = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     else:
-        company = DatabaseService.get_company_profile(owner_uid)
+        company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
         employer_rnc = (company.get("companyRNC", "") or "").replace("-", "").strip() if company else ""
         resultado = PayrollService.generate_tss_autodeterminacion(period, employees, employer_rnc=employer_rnc,
-                                                                   owner_uid=owner_uid, sandbox=sandbox)
+                                                                   company_id=company_id, sandbox=sandbox)
         mimetype = "text/plain"
 
     import io

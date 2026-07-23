@@ -2,8 +2,6 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from flask import current_app as app
-
-
 class MultiCurrencyService:
     BASE_CURRENCY = "DOP"
 
@@ -64,9 +62,9 @@ class MultiCurrencyService:
             return []
 
     @classmethod
-    def compute_unrealized_gain_loss(cls, owner_uid: str, account_id: str, current_rate: float) -> dict:
+    def compute_unrealized_gain_loss(cls, owner_uid: str, account_id: str, current_rate: float, company_id=None) -> dict:
         from app.services.db_service import DatabaseService
-        entries = DatabaseService.get_accounting_entries(owner_uid)
+        entries = DatabaseService.get_accounting_entries(owner_uid, company_id=company_id)
 
         debit = 0.0
         credit = 0.0
@@ -88,7 +86,7 @@ class MultiCurrencyService:
 
     @classmethod
     def generate_revaluation_entries(cls, owner_uid: str, new_rate: float = None,
-                                      currency: str = "USD", sandbox: bool = True) -> dict:
+                                       currency: str = "USD", sandbox: bool = True, company_id=None) -> dict:
         from app.services.db_service import DatabaseService
         from app.services.accounting_service import AccountingService
 
@@ -96,8 +94,8 @@ class MultiCurrencyService:
             new_rate = cls.get_rate(currency)
         old_rate = cls.get_rate(currency)
 
-        entries = DatabaseService.get_accounting_entries(owner_uid)
-        accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+        entries = DatabaseService.get_accounting_entries(owner_uid, company_id=company_id)
+        accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
         account_map = {a["id"]: a for a in accounts}
 
         gain_account = next((a for a in accounts if a.get("code") == "4.2.3"), None)
@@ -161,7 +159,7 @@ class MultiCurrencyService:
                               "description": f"Revaluación {acc_currency} → DOP a tasa {new_rate}"})
 
             try:
-                entry = AccountingService.generate_entry(owner_uid, {
+                entry = AccountingService.generate_entry(company_id, {
                     "entryType": "adjustment",
                     "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
                     "concept": f"Revaluación cambiaria {acc_currency} a tasa {new_rate} — diferencia RD$ {abs(diff):,.2f}",

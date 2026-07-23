@@ -29,10 +29,11 @@ def dashboard():
     month = min(12, max(1, month))
 
     owner_uid = session["user"]["ownerUID"]
+    company_id = session.get("selected_company_id")
     sandbox = session.get("is_sandbox_mode", True)
-    budget = BudgetService.get_budget(owner_uid, year)
-    year_variance = BudgetService.get_year_variance(owner_uid, year, sandbox=sandbox)
-    month_variance = BudgetService.get_variance(owner_uid, year, month, sandbox=sandbox)
+    budget = BudgetService.get_budget(owner_uid=owner_uid, year=year, company_id=company_id)
+    year_variance = BudgetService.get_year_variance(owner_uid=owner_uid, year=year, sandbox=sandbox, company_id=company_id)
+    month_variance = BudgetService.get_variance(owner_uid=owner_uid, year=year, month=month, sandbox=sandbox, company_id=company_id)
     years = list(range(now.year - 3, now.year + 2))
 
     return render_template(
@@ -69,9 +70,10 @@ def save_budget():
             months[key][code] = request.form.get(f"m_{month}_{code}", 0)
 
     BudgetService.save_budget(
-        session["user"]["ownerUID"],
-        year,
-        {"months": months, "updatedBy": session["user"].get("email", ""), "branchId": g.get("branch_id", "default-sucursal-principal"), "projectId": g.get("project_id")},
+        owner_uid=session["user"]["ownerUID"],
+        year=year,
+        budget_data={"months": months, "updatedBy": session["user"].get("email", ""), "branchId": g.get("branch_id", "default-sucursal-principal"), "projectId": g.get("project_id")},
+        company_id=session.get("selected_company_id"),
     )
     flash("Presupuesto guardado correctamente.", "success")
     return redirect(url_for("web_budgets.dashboard", year=year, month=request.form.get("focus_month", 1)))

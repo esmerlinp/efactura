@@ -33,6 +33,7 @@ class AccountingDimensionService:
         tax_rates: dict = None,
         owner_uid: str = "",
         sandbox: bool = True,
+        company_id: str = None,
     ) -> list:
         """Genera asientos contables segmentados por múltiples dimensiones.
 
@@ -46,7 +47,7 @@ class AccountingDimensionService:
         from app.services.payroll_service import PayrollService
 
         employees = employees or {}
-        plines = PayrollService.get_period_lines(payroll_period, owner_uid=owner_uid, sandbox=sandbox)
+        plines = PayrollService.get_period_lines(payroll_period, owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
         from app.services.hr_data_service import get_tax_rates_snapshot
         snapshot = get_tax_rates_snapshot(payroll_period)
         effective_rates = snapshot if snapshot else tax_rates
@@ -228,7 +229,7 @@ class AccountingDimensionService:
 
     @classmethod
     def get_dimension_summary(cls, payroll_lines: list, employees: dict,
-                               dimension: str = "cost_center") -> list:
+                                dimension: str = "cost_center", company_id: str = None) -> list:
         """Genera un resumen agrupado por una dimensión específica.
 
         Args:

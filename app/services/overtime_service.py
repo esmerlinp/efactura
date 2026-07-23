@@ -48,9 +48,9 @@ class OvertimeService:
         return datetime.now(timezone.utc).isoformat()
 
     @staticmethod
-    def _next_number(owner_uid: str, sandbox: bool) -> str:
+    def _next_number(company_id: str, sandbox: bool) -> str:
         """Genera el siguiente número visible HE-XXXXXX."""
-        records = hr.get_overtime_records(owner_uid, sandbox=sandbox)
+        records = hr.get_overtime_records(company_id, sandbox=sandbox)
         max_num = 0
         for r in records:
             num_str = r.get("number", "")
@@ -70,13 +70,13 @@ class OvertimeService:
     # ── CRUD ──
 
     @staticmethod
-    def create_record(owner_uid: str, data: dict, user_email: str,
+    def create_record(company_id: str, data: dict, user_email: str,
                        sandbox: bool = True) -> dict:
         """Crea un nuevo registro de hora extra en estado draft."""
         from uuid import uuid4
         now = OvertimeService._now_iso()
         record_id = str(uuid4())
-        number = OvertimeService._next_number(owner_uid, sandbox)
+        number = OvertimeService._next_number(company_id, sandbox)
 
         record = {
             "id": record_id,
@@ -110,32 +110,32 @@ class OvertimeService:
             "details": data.get("details", []),
         }
 
-        hr.save_overtime_record(owner_uid, record_id, record, sandbox=sandbox)
+        hr.save_overtime_record(company_id, record_id, record, sandbox=sandbox)
         return record
 
     @staticmethod
-    def get_record(owner_uid: str, record_id: str,
+    def get_record(company_id: str, record_id: str,
                     sandbox: bool = True) -> dict | None:
-        return hr.get_overtime_record(owner_uid, record_id, sandbox=sandbox)
+        return hr.get_overtime_record(company_id, record_id, sandbox=sandbox)
 
     @staticmethod
-    def list_records(owner_uid: str, sandbox: bool = True) -> list:
-        return hr.get_overtime_records(owner_uid, sandbox=sandbox)
+    def list_records(company_id: str, sandbox: bool = True) -> list:
+        return hr.get_overtime_records(company_id, sandbox=sandbox)
 
     @staticmethod
-    def list_by_status(owner_uid: str, status: str,
+    def list_by_status(company_id: str, status: str,
                         sandbox: bool = True) -> list:
-        return hr.get_overtime_records_by_status(owner_uid, status, sandbox=sandbox)
+        return hr.get_overtime_records_by_status(company_id, status, sandbox=sandbox)
 
     # ── Flujo de estados ──
 
     @staticmethod
-    def _transition(owner_uid: str, record_id: str, new_status: str,
+    def _transition(company_id: str, record_id: str, new_status: str,
                     user_email: str, comment: str = "",
                     extra: Optional[dict] = None,
                     sandbox: bool = True) -> dict | tuple:
         """Ejecuta una transición de estado con validación y auditoría."""
-        record = hr.get_overtime_record(owner_uid, record_id, sandbox=sandbox)
+        record = hr.get_overtime_record(company_id, record_id, sandbox=sandbox)
         if not record:
             return {"error": "Registro no encontrado."}, 404
 
@@ -158,21 +158,21 @@ class OvertimeService:
         if extra:
             record.update(extra)
 
-        hr.save_overtime_record(owner_uid, record_id, record, sandbox=sandbox)
+        hr.save_overtime_record(company_id, record_id, record, sandbox=sandbox)
         return record
 
     @staticmethod
-    def submit_for_approval(owner_uid: str, record_id: str,
+    def submit_for_approval(company_id: str, record_id: str,
                              user_email: str, sandbox: bool = True) -> dict | tuple:
         """Envía a aprobación (draft → pending). Calcula y congela hourlyRate."""
-        record = hr.get_overtime_record(owner_uid, record_id, sandbox=sandbox)
+        record = hr.get_overtime_record(company_id, record_id, sandbox=sandbox)
         if not record:
             return {"error": "Registro no encontrado."}, 404
 
         if record.get("status") != OvertimeService.DRAFT:
             return {"error": "Solo registros en borrador pueden enviarse a aprobación."}, 400
 
-        emp = hr.get_employee(owner_uid, record.get("employeeId", ""), sandbox=sandbox)
+        emp = hr.get_employee(company_id, record.get("employeeId", ""), sandbox=sandbox)
         if not emp:
             return {"error": "Empleado no encontrado."}, 400
 
@@ -180,7 +180,7 @@ class OvertimeService:
         hourly_rate = PayrollOvertimeCalculator.calculate_hourly_rate(base_salary)
 
         # Obtener factor desde el tipo de HE
-        otype = hr.get_overtime_type(owner_uid, record.get("overtimeTypeCode", ""), sandbox=sandbox)
+        otype = hr.get_overtime_type(company_id, record.get("overtimeTypeCode", ""), sandbox=sandbox)
         factor = float(otype.get("factor", 1.35)) if otype else 1.35
 
         extra = {
@@ -189,15 +189,15 @@ class OvertimeService:
         }
 
         return OvertimeService._transition(
-            owner_uid, record_id, OvertimeService.PENDING,
+            company_id, record_id, OvertimeService.PENDING,
             user_email, "Enviado a aprobación", extra, sandbox=sandbox,
         )
 
     @staticmethod
-    def approve(owner_uid: str, record_id: str, user_email: str,
+    def approve(company_id: str, record_id: str, user_email: str,
                  authorization_id: str = "", sandbox: bool = True) -> dict | tuple:
         """Aprueba el registro (pending → approved)."""
-        record = hr.get_overtime_record(owner_uid, record_id, sandbox=sandbox)
+        record = hr.get_overtime_record(company_id, record_id, sandbox=sandbox)
         if not record:
             return {"error": "Registro no encontrado."}, 404
 
@@ -212,18 +212,18 @@ class OvertimeService:
         }
 
         return OvertimeService._transition(
-            owner_uid, record_id, OvertimeService.APPROVED,
+            company_id, record_id, OvertimeService.APPROVED,
             user_email, "Aprobado", extra, sandbox=sandbox,
         )
 
     @staticmethod
-    def reject(owner_uid: str, record_id: str, user_email: str,
+    def reject(company_id: str, record_id: str, user_email: str,
                 reason: str = "", sandbox: bool = True) -> dict | tuple:
         """Rechaza el registro (pending → rejected)."""
         if not reason:
             return {"error": "Debes proporcionar un motivo de rechazo."}, 400
 
-        record = hr.get_overtime_record(owner_uid, record_id, sandbox=sandbox)
+        record = hr.get_overtime_record(company_id, record_id, sandbox=sandbox)
         if not record:
             return {"error": "Registro no encontrado."}, 404
 
@@ -231,26 +231,26 @@ class OvertimeService:
             return {"error": "Solo registros pendientes pueden rechazarse."}, 400
 
         return OvertimeService._transition(
-            owner_uid, record_id, OvertimeService.REJECTED,
+            company_id, record_id, OvertimeService.REJECTED,
             user_email, reason, sandbox=sandbox,
         )
 
     @staticmethod
-    def lock(owner_uid: str, record_id: str, user_email: str,
+    def lock(company_id: str, record_id: str, user_email: str,
               sandbox: bool = True) -> dict | tuple:
         """Bloquea el registro para procesamiento (approved → locked)."""
         return OvertimeService._transition(
-            owner_uid, record_id, OvertimeService.LOCKED,
+            company_id, record_id, OvertimeService.LOCKED,
             user_email, "Bloqueado para procesamiento en nómina",
             sandbox=sandbox,
         )
 
     @staticmethod
-    def mark_as_processed(owner_uid: str, record_id: str,
+    def mark_as_processed(company_id: str, record_id: str,
                            payroll_id: str, user_email: str,
                            sandbox: bool = True) -> dict | tuple:
         """Marca como procesado en nómina (locked → processed)."""
-        record = hr.get_overtime_record(owner_uid, record_id, sandbox=sandbox)
+        record = hr.get_overtime_record(company_id, record_id, sandbox=sandbox)
         if not record:
             return {"error": "Registro no encontrado."}, 404
 
@@ -266,28 +266,28 @@ class OvertimeService:
             "processedAt": now,
         }
         return OvertimeService._transition(
-            owner_uid, record_id, OvertimeService.PROCESSED,
+            company_id, record_id, OvertimeService.PROCESSED,
             user_email, f"Procesado en nómina {payroll_id}", extra,
             sandbox=sandbox,
         )
 
     @staticmethod
-    def reopen(owner_uid: str, record_id: str, user_email: str,
+    def reopen(company_id: str, record_id: str, user_email: str,
                 sandbox: bool = True) -> dict | tuple:
         """Reabre un registro procesado (processed → reopened).
         Útil cuando se reversa una nómina."""
         return OvertimeService._transition(
-            owner_uid, record_id, OvertimeService.REOPENED,
+            company_id, record_id, OvertimeService.REOPENED,
             user_email, "Reabierto por reversión de nómina",
             sandbox=sandbox,
         )
 
     @staticmethod
-    def reset_to_draft(owner_uid: str, record_id: str, user_email: str,
+    def reset_to_draft(company_id: str, record_id: str, user_email: str,
                         sandbox: bool = True) -> dict | tuple:
         """Vuelve un registro rechazado o reabierto a borrador."""
         return OvertimeService._transition(
-            owner_uid, record_id, OvertimeService.DRAFT,
+            company_id, record_id, OvertimeService.DRAFT,
             user_email, "Devuelto a borrador",
             sandbox=sandbox,
         )
@@ -295,11 +295,11 @@ class OvertimeService:
     # ── Integración con nómina ──
 
     @staticmethod
-    def get_approved_for_period(owner_uid: str, start_date: str,
+    def get_approved_for_period(company_id: str, start_date: str,
                                  end_date: str,
                                  sandbox: bool = True) -> list:
         """Retorna registros aprobados (no procesados) en el rango de fechas."""
-        all_records = hr.get_overtime_records(owner_uid, sandbox=sandbox)
+        all_records = hr.get_overtime_records(company_id, sandbox=sandbox)
         filtered = []
         for r in all_records:
             status = r.get("status", "")
@@ -346,7 +346,7 @@ class OvertimeService:
         return result
 
     @staticmethod
-    def create_payroll_link(owner_uid: str, overtime_id: str,
+    def create_payroll_link(company_id: str, overtime_id: str,
                              payroll_id: str, period_key: str,
                              transaction_id: str, concept_code: str,
                              amount: float, sandbox: bool = True) -> dict:
@@ -363,29 +363,29 @@ class OvertimeService:
             "amount": amount,
             "createdAt": now,
         }
-        hr.save_overtime_payroll_link(owner_uid, link_id, link, sandbox=sandbox)
+        hr.save_overtime_payroll_link(company_id, link_id, link, sandbox=sandbox)
         return link
 
     @staticmethod
-    def get_links_for_payroll(owner_uid: str, payroll_id: str,
+    def get_links_for_payroll(company_id: str, payroll_id: str,
                                sandbox: bool = True) -> list:
-        return hr.get_overtime_payroll_links(owner_uid, payroll_id, sandbox=sandbox)
+        return hr.get_overtime_payroll_links(company_id, payroll_id, sandbox=sandbox)
 
     @staticmethod
-    def validate_no_duplicate_processing(owner_uid: str, record_ids: list,
+    def validate_no_duplicate_processing(company_id: str, record_ids: list,
                                           payroll_id: str,
                                           sandbox: bool = True) -> list:
         """Valida que ningún registro esté ya procesado. Retorna errores."""
         errors = []
         for rid in record_ids:
-            record = hr.get_overtime_record(owner_uid, rid, sandbox=sandbox)
+            record = hr.get_overtime_record(company_id, rid, sandbox=sandbox)
             if record and record.get("processedPayrollId"):
                 errors.append(
                     f"HE {record.get('number', rid)} ya procesada en nómina "
                     f"{record['processedPayrollId']}"
                 )
             # Segunda barrera: verificar vínculo
-            links = hr.get_overtime_payroll_links(owner_uid, "", sandbox=sandbox)
+            links = hr.get_overtime_payroll_links(company_id, "", sandbox=sandbox)
             for link in links:
                 if link.get("overtimeId") == rid and link.get("payrollId") == payroll_id:
                     errors.append(
@@ -404,12 +404,12 @@ class OvertimeService:
     ]
 
     @staticmethod
-    def seed_default_types(owner_uid: str, sandbox: bool = True):
+    def seed_default_types(company_id: str, sandbox: bool = True):
         """Crea los tipos de HE por defecto si no existen."""
-        existing = hr.get_overtime_types(owner_uid, sandbox=sandbox)
+        existing = hr.get_overtime_types(company_id, sandbox=sandbox)
         existing_codes = {t["code"] for t in existing}
         for ot in OvertimeService.DEFAULT_OVERTIME_TYPES:
             if ot["code"] not in existing_codes:
                 data = dict(ot)
                 data["active"] = True
-                hr.save_overtime_type(owner_uid, ot["code"], data, sandbox=sandbox)
+                hr.save_overtime_type(company_id, ot["code"], data, sandbox=sandbox)

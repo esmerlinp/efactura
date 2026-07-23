@@ -16,29 +16,29 @@ class DataPrivacyService:
 
     @classmethod
     def export_subject_data(cls, owner_uid: str, entity_type: str, entity_id: str,
-                            sandbox: bool = True) -> Optional[Dict]:
+                            sandbox: bool = True, company_id=None) -> Optional[Dict]:
         from app.services.db_service import DatabaseService
         data = {"entityType": entity_type, "entityId": entity_id, "exportedAt": datetime.now(timezone.utc).isoformat()}
         if entity_type == "employee":
-            emp = DatabaseService.get_employee(owner_uid, entity_id, sandbox=sandbox) if hasattr(DatabaseService, 'get_employee') else None
+            emp = DatabaseService.get_employee(owner_uid, entity_id, sandbox=sandbox, company_id=company_id) if hasattr(DatabaseService, 'get_employee') else None
             data["employee"] = cls._redact_sensitive(emp) if emp else None
-            data["payments"] = cls._get_employee_payments(owner_uid, entity_id, sandbox)
+            data["payments"] = cls._get_employee_payments(owner_uid, entity_id, sandbox, company_id=company_id)
         elif entity_type == "client":
-            client = DatabaseService.get_client(owner_uid, entity_id, sandbox=sandbox)
+            client = DatabaseService.get_client(owner_uid, entity_id, sandbox=sandbox, company_id=company_id)
             data["client"] = cls._redact_sensitive(client) if client else None
-            data["invoices"] = cls._get_client_invoices(owner_uid, entity_id, sandbox)
+            data["invoices"] = cls._get_client_invoices(owner_uid, entity_id, sandbox, company_id=company_id)
         elif entity_type == "supplier":
             data["supplier"] = {"note": "Exportación de proveedor no implementada completamente"}
         return data
 
     @classmethod
     def anonymize_entity(cls, owner_uid: str, entity_type: str, entity_id: str,
-                         sandbox: bool = True) -> Dict:
+                         sandbox: bool = True, company_id=None) -> Dict:
         from app.services.db_service import DatabaseService
         result = {"success": False, "entityType": entity_type, "entityId": entity_id}
         anon_placeholder = "[ANONIMIZADO]"
         if entity_type == "client":
-            client = DatabaseService.get_client(owner_uid, entity_id, sandbox=sandbox)
+            client = DatabaseService.get_client(owner_uid, entity_id, sandbox=sandbox, company_id=company_id)
             if not client:
                 result["error"] = "Cliente no encontrado"
                 return result
@@ -49,11 +49,11 @@ class DataPrivacyService:
             client["rnc"] = ""
             client["isAnonymized"] = True
             client["anonymizedAt"] = datetime.now(timezone.utc).isoformat()
-            DatabaseService.save_client(owner_uid, entity_id, client, sandbox=sandbox)
+            DatabaseService.save_client(owner_uid, entity_id, client, sandbox=sandbox, company_id=company_id)
             result["success"] = True
         elif entity_type == "employee":
             if hasattr(DatabaseService, 'get_employee'):
-                emp = DatabaseService.get_employee(owner_uid, entity_id, sandbox=sandbox)
+                emp = DatabaseService.get_employee(owner_uid, entity_id, sandbox=sandbox, company_id=company_id)
                 if not emp:
                     result["error"] = "Empleado no encontrado"
                     return result
@@ -69,7 +69,7 @@ class DataPrivacyService:
                 emp["emergencyPhone"] = ""
                 emp["isAnonymized"] = True
                 emp["anonymizedAt"] = datetime.now(timezone.utc).isoformat()
-                DatabaseService.save_employee(owner_uid, entity_id, emp, sandbox=sandbox)
+                DatabaseService.save_employee(owner_uid, entity_id, emp, sandbox=sandbox, company_id=company_id)
                 result["success"] = True
         return result
 
@@ -86,10 +86,10 @@ class DataPrivacyService:
         return redacted
 
     @classmethod
-    def _get_employee_payments(cls, owner_uid: str, employee_id: str, sandbox: bool) -> List[Dict]:
+    def _get_employee_payments(cls, owner_uid: str, employee_id: str, sandbox: bool, company_id=None) -> List[Dict]:
         try:
             from app.services import hr_data_service as hr
-            periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
+            periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
             payments = []
             for p in sorted(periods, key=lambda x: x.get("periodKey", ""), reverse=True)[:24]:
                 for l in p.get("lines", []):
@@ -101,10 +101,10 @@ class DataPrivacyService:
             return []
 
     @classmethod
-    def _get_client_invoices(cls, owner_uid: str, client_id: str, sandbox: bool) -> List[Dict]:
+    def _get_client_invoices(cls, owner_uid: str, client_id: str, sandbox: bool, company_id=None) -> List[Dict]:
         try:
             from app.services.db_service import DatabaseService
-            invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, include_all=True)
+            invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, include_all=True, company_id=company_id)
             return [
                 {"invoiceNumber": inv.get("invoiceNumber", ""), "date": inv.get("date", ""),
                  "total": inv.get("total", 0), "status": inv.get("status", "")}

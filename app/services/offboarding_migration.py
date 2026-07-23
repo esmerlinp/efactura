@@ -14,21 +14,23 @@ from uuid import uuid4
 
 def migrate_inactive_employees(owner_uid: str, sandbox: bool = True,
                                user_email: str = "system@migration",
+                               company_id: str = "",
                                dry_run: bool = False) -> dict:
     from app.services import hr_data_service as hr
     from app.services.offboarding_service import OffboardingService
     from app.services.offboarding_data_service import get_all as _get_all_offboard
 
+    cid = company_id or owner_uid
     stats = {"total_inactive": 0, "already_migrated": 0, "migrated": 0, "errors": 0, "skipped_no_date": 0}
 
-    all_employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    all_employees = hr.get_employees(cid, sandbox=sandbox)
     inactive = [e for e in all_employees if e.get("status") == "inactivo"]
     stats["total_inactive"] = len(inactive)
 
-    existing = _get_all_offboard("offboarding_requests", owner_uid, sandbox, limit=1000)
+    existing = _get_all_offboard("offboarding_requests", cid, sandbox, limit=1000)
     existing_employee_ids = set(r.get("employeeId", "") for r in existing)
 
-    svc = OffboardingService(owner_uid, sandbox)
+    svc = OffboardingService(cid, sandbox)
 
     for emp in inactive:
         try:

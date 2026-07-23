@@ -14,6 +14,7 @@ web_rui_bp = Blueprint('web_rui', __name__, url_prefix='/rui')
 def rui_list():
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
 
     estado = request.args.get('estado', '')
     date_from = request.args.get('date_from', '')
@@ -25,6 +26,7 @@ def rui_list():
         estado=estado if estado else None,
         date_from=date_from if date_from else None,
         date_to=date_to if date_to else None,
+        company_id=company_id,
     )
 
     return render_template(
@@ -42,15 +44,16 @@ def rui_list():
 def rui_detail(rui_id):
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
 
-    doc = DatabaseService.get_fiscal_summary_document(owner_uid, rui_id, sandbox=sandbox)
+    doc = DatabaseService.get_fiscal_summary_document(owner_uid, rui_id, sandbox=sandbox, company_id=company_id)
     if not doc:
         flash('Documento RUI no encontrado.', 'error')
         return redirect(url_for('web_rui.rui_list'))
 
     invoices = []
     try:
-        all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+        all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
         invoices = [inv for inv in all_invoices if inv.get("ruiId") == rui_id]
     except Exception:
         pass
@@ -69,6 +72,7 @@ def rui_generate():
     owner_uid = session['user']['ownerUID']
     user_email = session['user'].get('email', '')
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
 
     business_date = request.form.get('businessDate', '').strip()
     notes = request.form.get('notes', '').strip()
@@ -79,7 +83,8 @@ def rui_generate():
         doc = RuiGenerationService.generate_rui(
             owner_uid, business_date, user_email,
             user_name=session['user'].get('name', ''),
-            sandbox=sandbox, auto=False, notes=notes
+            sandbox=sandbox, auto=False, notes=notes,
+            company_id=company_id
         )
         flash(f'RUI generado exitosamente: {doc.get("ncf", "")}', 'success')
     except ValueError as e:
@@ -99,6 +104,7 @@ def rui_cancel(rui_id):
     user_uid = session['user'].get('uid', '')
     user_email = session['user'].get('email', '')
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
 
     cancel_reason = request.form.get('cancelReason', '').strip()
     if not cancel_reason:
@@ -107,7 +113,8 @@ def rui_cancel(rui_id):
 
     try:
         result = RuiGenerationService.cancel_rui(
-            owner_uid, rui_id, user_uid, user_email, cancel_reason, sandbox=sandbox
+            owner_uid, rui_id, user_uid, user_email, cancel_reason, sandbox=sandbox,
+            company_id=company_id
         )
         flash(f'RUI anulado exitosamente.', 'success')
     except ValueError as e:
@@ -126,6 +133,7 @@ def api_rui_generate():
     business_date = (data.get("businessDate") or "").strip()
     user_email = (data.get("userEmail") or "").strip()
     sandbox = data.get("sandbox", True)
+    company_id = data.get("companyId")
 
     if not owner_uid or not user_email:
         return jsonify({"success": False, "error": "ownerUID y userEmail son requeridos"}), 400
@@ -135,7 +143,8 @@ def api_rui_generate():
     try:
         doc = RuiGenerationService.generate_rui(
             owner_uid, business_date, user_email,
-            sandbox=sandbox, auto=True
+            sandbox=sandbox, auto=True,
+            company_id=company_id
         )
         return jsonify({
             "success": True,
@@ -158,13 +167,14 @@ def api_rui_generate():
 def rui_pdf(rui_id):
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
 
-    doc = DatabaseService.get_fiscal_summary_document(owner_uid, rui_id, sandbox=sandbox)
+    doc = DatabaseService.get_fiscal_summary_document(owner_uid, rui_id, sandbox=sandbox, company_id=company_id)
     if not doc:
         flash('Documento RUI no encontrado.', 'error')
         return redirect(url_for('web_rui.rui_list'))
 
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
 
     return render_template(
         'rui/pdf.html',
@@ -179,20 +189,21 @@ def rui_pdf(rui_id):
 def rui_check():
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = session.get('selected_company_id')
 
     today = dt_date.today().isoformat()
-    eligible = DatabaseService.get_rui_eligible_invoices(owner_uid, today, sandbox=sandbox)
-    from app.services.rui_generation_service import RuiGenerationService
-    eligible = [inv for inv in eligible if RuiGenerationService.is_invoice_eligible(inv)]
+    eligible = DatabaseService.get_rui_eligible_invoices(owner_uid, today, sandbox=sandbox, company_id=company_id)
+    eligible = [inv for inv in eligible if RuiGenerationService.is_invoice_eligible(inv, company_id=company_id)]
 
     existing_docs = DatabaseService.get_fiscal_summary_documents(
         owner_uid, sandbox=sandbox,
         document_type="RUI",
         business_date=today,
+        company_id=company_id,
     )
     has_active_rui = any(d.get("estado") == "ACTIVO" for d in existing_docs)
 
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
 
     return jsonify({
         "ruiEnabled": company.get("ruiEnabled", False),

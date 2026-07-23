@@ -14,17 +14,17 @@ from app.services import hr_data_service as hr
 def employee_salary_history(employee_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    employee = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
+    employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
     if not employee:
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_list"))
 
-    history = hr.get_salary_history(owner_uid, employee_id, sandbox=sandbox)
+    history = hr.get_salary_history(company_id, employee_id, sandbox=sandbox)
     from app.services.payroll_static_data import PAYROLL_FREQUENCIES
-    config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
+    config = hr.get_payroll_config(company_id, sandbox=sandbox)
     frequency = config.get("payroll", {}).get("frequency", "mensual")
     try:
         now = date.today()
@@ -43,10 +43,10 @@ def employee_salary_history(employee_id):
 def employee_salary_add(employee_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    employee = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
+    employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
     if not employee:
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_list"))
@@ -62,7 +62,7 @@ def employee_salary_add(employee_id):
 
     # Auto-detectar período si no se especificó
     if not payroll_period_key and eff_date:
-        config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
+        config = hr.get_payroll_config(company_id, sandbox=sandbox)
         frequency = config.get("payroll", {}).get("frequency", "mensual")
         try:
             import calendar
@@ -76,10 +76,10 @@ def employee_salary_add(employee_id):
 
     old_amount = float(employee.get("baseSalary", 0))
     # Cerrar salario anterior
-    hr.close_previous_salary(owner_uid, employee_id, eff_date, sandbox=sandbox)
+    hr.close_previous_salary(company_id, employee_id, eff_date, sandbox=sandbox)
     # Crear nueva entrada
     history_id = str(uuid.uuid4())
-    hr.save_salary_history_entry(owner_uid, {
+    hr.save_salary_history_entry(company_id, {
         "id": history_id, "employeeId": employee_id,
         "amount": new_amount, "previousAmount": old_amount,
         "effectiveDate": eff_date, "endDate": "",
@@ -91,7 +91,7 @@ def employee_salary_add(employee_id):
     # Actualizar el salario del empleado
     employee["baseSalary"] = new_amount
     employee["salary"] = new_amount
-    hr.save_employee(owner_uid, employee_id, employee, sandbox=sandbox)
+    hr.save_employee(company_id, employee_id, employee, sandbox=sandbox)
 
     flash(f"Salario actualizado a RD$ {new_amount:,.2f} con vigencia {eff_date}.", "success")
     return redirect(url_for("web_rrhh.employee_salary_history", employee_id=employee_id))

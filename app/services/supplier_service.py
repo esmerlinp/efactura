@@ -2,10 +2,11 @@ import uuid
 from datetime import datetime, timezone
 
 try:
-    from app.services.db_service import db_firestore, firebase_initialized
+    from app.services.db_service import db_firestore, firebase_initialized, _company_coll
 except ImportError:
     db_firestore = None
     firebase_initialized = False
+    _company_coll = None
 
 
 def serialize_field(val):
@@ -21,13 +22,13 @@ def serialize_field(val):
 class SupplierService:
 
     @classmethod
-    def get_suppliers(cls, owner_uid, sandbox=True, branch_id=None, project_id=None):
+    def get_suppliers(cls, owner_uid=None, sandbox=True, branch_id=None, project_id=None, company_id=None):
         if not firebase_initialized or db_firestore is None:
             return []
         suppliers = []
         try:
             coll_name = "sandbox_suppliers" if sandbox else "suppliers"
-            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+            docs = _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name=coll_name).get()
             for doc in docs:
                 data = doc.to_dict()
                 data["id"] = doc.id
@@ -46,12 +47,12 @@ class SupplierService:
         return suppliers
 
     @classmethod
-    def get_supplier(cls, owner_uid, supplier_id, sandbox=True):
+    def get_supplier(cls, owner_uid=None, supplier_id=None, sandbox=True, company_id=None):
         if not firebase_initialized or db_firestore is None:
             return None
         try:
             coll_name = "sandbox_suppliers" if sandbox else "suppliers"
-            doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(supplier_id).get()
+            doc = _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name=coll_name).document(supplier_id).get()
             if doc.exists:
                 data = doc.to_dict()
                 data["id"] = doc.id
@@ -63,7 +64,7 @@ class SupplierService:
         return None
 
     @classmethod
-    def save_supplier(cls, owner_uid, supplier_id, supplier_dict, sandbox=True):
+    def save_supplier(cls, owner_uid=None, supplier_id=None, supplier_dict=None, sandbox=True, company_id=None):
         supplier_dict["id"] = supplier_id
         supplier_dict["ownerUID"] = owner_uid
         supplier_dict["branchId"] = supplier_dict.get("branchId", "default-sucursal-principal")
@@ -104,23 +105,23 @@ class SupplierService:
         if firebase_initialized and db_firestore is not None:
             try:
                 coll_name = "sandbox_suppliers" if sandbox else "suppliers"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(supplier_id).set(supplier_dict)
+                _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name=coll_name).document(supplier_id).set(supplier_dict)
             except Exception as e:
                 print(f"⚠️ Error al guardar proveedor en Firestore: {e}")
         return supplier_dict
 
     @classmethod
-    def delete_supplier(cls, owner_uid, supplier_id, sandbox=True):
+    def delete_supplier(cls, owner_uid=None, supplier_id=None, sandbox=True, company_id=None):
         if not firebase_initialized or db_firestore is None:
             return
         try:
             coll_name = "sandbox_suppliers" if sandbox else "suppliers"
-            db_firestore.collection("users").document(owner_uid).collection(coll_name).document(supplier_id).delete()
+            _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name=coll_name).document(supplier_id).delete()
         except Exception as e:
             print(f"⚠️ Error al eliminar proveedor {supplier_id}: {e}")
 
     @classmethod
-    def get_supplier_by_rnc(cls, owner_uid, rnc, sandbox=True):
+    def get_supplier_by_rnc(cls, owner_uid=None, rnc=None, sandbox=True, company_id=None):
         rnc_clean = "".join(filter(str.isdigit, str(rnc)))
         if not rnc_clean:
             return None
@@ -128,7 +129,7 @@ class SupplierService:
             return None
         try:
             coll_name = "sandbox_suppliers" if sandbox else "suppliers"
-            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).where("rnc", "==", rnc_clean).limit(1).get()
+            docs = _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name=coll_name).where("rnc", "==", rnc_clean).limit(1).get()
             for doc in docs:
                 data = doc.to_dict()
                 data["id"] = doc.id
@@ -138,8 +139,8 @@ class SupplierService:
         return None
 
     @classmethod
-    def get_or_create_supplier(cls, owner_uid, rnc, name, address="", sandbox=True):
-        existing = cls.get_supplier_by_rnc(owner_uid, rnc, sandbox=sandbox)
+    def get_or_create_supplier(cls, owner_uid=None, rnc=None, name=None, address="", sandbox=True, company_id=None):
+        existing = cls.get_supplier_by_rnc(owner_uid=owner_uid, rnc=rnc, sandbox=sandbox, company_id=company_id)
         if existing:
             return (existing["id"], False)
         supplier_id = str(uuid.uuid4())
@@ -148,16 +149,16 @@ class SupplierService:
             "name": name,
             "address": address,
         }
-        cls.save_supplier(owner_uid, supplier_id, supplier_dict, sandbox=sandbox)
+        cls.save_supplier(owner_uid=owner_uid, supplier_id=supplier_id, supplier_dict=supplier_dict, sandbox=sandbox, company_id=company_id)
         return (supplier_id, True)
 
     @classmethod
-    def update_last_import(cls, owner_uid, supplier_id, sandbox=True):
+    def update_last_import(cls, owner_uid=None, supplier_id=None, sandbox=True, company_id=None):
         if not firebase_initialized or db_firestore is None:
             return
         try:
             coll_name = "sandbox_suppliers" if sandbox else "suppliers"
-            db_firestore.collection("users").document(owner_uid).collection(coll_name).document(supplier_id).update({
+            _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name=coll_name).document(supplier_id).update({
                 "lastImportDate": serialize_field(datetime.now(timezone.utc)),
             })
         except Exception as e:

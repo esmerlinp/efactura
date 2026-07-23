@@ -14,11 +14,12 @@ def list_notes():
         return redirect(url_for('web_auth.login'))
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     user_uid = session['user']['uid']
     sandbox = session.get('is_sandbox_mode', True)
 
-    notes = DatabaseService.get_notes(owner_uid, user_uid, sandbox=sandbox)
-    team = DatabaseService.get_team_members(owner_uid)
+    notes = DatabaseService.get_notes(owner_uid, user_uid, sandbox=sandbox, company_id=company_id)
+    team = DatabaseService.get_team_members(owner_uid, company_id=company_id)
 
     return render_template(
         'notes/list.html',
@@ -35,10 +36,11 @@ def get_note(note_id):
         return jsonify({'success': False, 'error': 'No autorizado'}), 401
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     user_uid = session['user']['uid']
     sandbox = session.get('is_sandbox_mode', True)
 
-    notes = DatabaseService.get_notes(owner_uid, user_uid, sandbox=sandbox)
+    notes = DatabaseService.get_notes(owner_uid, user_uid, sandbox=sandbox, company_id=company_id)
     note = next((n for n in notes if n.get('id') == note_id), None)
     if not note:
         return jsonify({'success': False, 'error': 'Tarea no encontrada'}), 404
@@ -54,6 +56,7 @@ def create_note():
         return jsonify({'success': False, 'error': 'No tienes permisos para gestionar notas'}), 403
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     user_uid = session['user']['uid']
     sandbox = session.get('is_sandbox_mode', True)
 
@@ -87,7 +90,7 @@ def create_note():
         'status': 'pending'
     }
 
-    DatabaseService.save_note(owner_uid, note_id, note_dict, sandbox=sandbox)
+    DatabaseService.save_note(owner_uid, note_id, note_dict, sandbox=sandbox, company_id=company_id)
 
     from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_NOTAS
     action = ACTION_CREATE
@@ -114,6 +117,7 @@ def update_note(note_id):
         return jsonify({'success': False, 'error': 'No tienes permisos para gestionar notas'}), 403
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     data = request.json or request.form
@@ -127,7 +131,7 @@ def update_note(note_id):
             update_dict[field] = val
 
     if update_dict:
-        DatabaseService.update_note(owner_uid, note_id, update_dict, sandbox=sandbox)
+        DatabaseService.update_note(owner_uid, note_id, update_dict, sandbox=sandbox, company_id=company_id)
 
     return jsonify({'success': True})
 
@@ -140,12 +144,13 @@ def update_note_status(note_id):
         return jsonify({'success': False, 'error': 'No tienes permisos para gestionar notas'}), 403
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     data = request.json or request.form
     new_status = data.get('status', 'pending')
 
-    DatabaseService.update_note_status(owner_uid, note_id, new_status, sandbox=sandbox)
+    DatabaseService.update_note_status(owner_uid, note_id, new_status, sandbox=sandbox, company_id=company_id)
 
     return jsonify({'success': True})
 
@@ -158,11 +163,12 @@ def delete_note(note_id):
         return jsonify({'success': False, 'error': 'No tienes permisos para gestionar notas'}), 403
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     note_details = {}
     try:
-        notes = DatabaseService.get_notes(owner_uid, session['user']['uid'], sandbox=sandbox)
+        notes = DatabaseService.get_notes(owner_uid, session['user']['uid'], sandbox=sandbox, company_id=company_id)
         for n in notes:
             if n.get('id') == note_id:
                 note_details = n
@@ -170,7 +176,7 @@ def delete_note(note_id):
     except Exception:
         pass
 
-    DatabaseService.delete_note(owner_uid, note_id, sandbox=sandbox)
+    DatabaseService.delete_note(owner_uid, note_id, sandbox=sandbox, company_id=company_id)
 
     from app.services.audit_service import AuditService, ACTION_DELETE, MODULE_NOTAS
     AuditService.log_from_request(
@@ -194,6 +200,7 @@ def search_entities():
         return jsonify({'success': False, 'error': 'No autorizado'}), 401
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     q = (request.args.get('q', '') or '').strip().lower()
     entity_type = request.args.get('type', 'invoice')
@@ -201,7 +208,7 @@ def search_entities():
     results = []
 
     if entity_type == 'invoice' and q:
-        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
         for inv in invoices:
             if inv.get('isQuotation'):
                 continue
@@ -216,7 +223,7 @@ def search_entities():
                     break
 
     elif entity_type == 'client' and q:
-        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
         for c in clients:
             label = (c.get('razonSocial', '') or '') + ' - ' + (c.get('rnc', '') or '')
             if q in label.lower():
@@ -229,7 +236,7 @@ def search_entities():
                     break
 
     elif entity_type == 'expense' and q:
-        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
         for exp in expenses:
             label = (exp.get('concept', '') or '') + ' - ' + (exp.get('providerName', '') or '')
             if q in label.lower():

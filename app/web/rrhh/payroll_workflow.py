@@ -110,7 +110,7 @@ def _transition(period, to_status, comment="", owner_uid="", sandbox=True):
     if to_status in ("calculada", "cerrada") and owner_uid:
         try:
             from app.services import hr_data_service as hr
-            employees = hr.get_employees(owner_uid, sandbox=sandbox)
+            employees = hr.get_employees(company_id, sandbox=sandbox)
             snapshot = []
             for emp in employees:
                 if emp.get("status") == "activo":
@@ -131,7 +131,7 @@ def _transition(period, to_status, comment="", owner_uid="", sandbox=True):
 
     if owner_uid:
         from app.services.payroll_audit_service import log_action
-        log_action(owner_uid, to_status, "payroll_period", period.get("id", ""),
+        log_action(company_id, to_status, "payroll_period", period.get("id", ""),
                    user_email, changes={"from": from_status, "to": to_status}, comment=comment, sandbox=sandbox)
 
     return True, "OK"
@@ -141,18 +141,18 @@ def _transition(period, to_status, comment="", owner_uid="", sandbox=True):
 def payroll_bank_export(period_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.bank_export_service import generate_bank_file
     from app.services.db_service import _cached_company_profile
 
-    period = hr.get_payroll_period(owner_uid, period_id, sandbox=sandbox)
+    period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
     if not period:
         flash("Período no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_list"))
 
     # Obtener perfil de empresa para datos del header
-    profile = _cached_company_profile(owner_uid)
+    profile = _cached_company_profile(company_id)
     company_name = profile.get("companyName", "MI EMPRESA SRL") or "MI EMPRESA SRL"
     company_rnc = (profile.get("companyRNC") or "").replace("-", "")[:9]
     company_code = company_rnc or _cached_company_profile.__wrapped__(owner_uid).get("company_code", "101003383")
@@ -161,7 +161,7 @@ def payroll_bank_export(period_id):
     bank_contract = request.args.get("contract_code", company_code.zfill(9)[:9])
 
     bank = request.args.get("bank", "popular")
-    employees_list = hr.get_employees(owner_uid, sandbox=sandbox)
+    employees_list = hr.get_employees(company_id, sandbox=sandbox)
     emp_map = {e["id"]: e for e in employees_list}
     content = generate_bank_file(period, emp_map, bank=bank,
                                  company_name=company_name,
@@ -178,20 +178,20 @@ def payroll_bank_export(period_id):
 def payroll_validate(period_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    period = hr.get_payroll_period(owner_uid, period_id, sandbox=sandbox)
+    period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
     if not period:
         flash("Período no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_list"))
 
     ok, msg = _transition(period, "validada", request.form.get("comment", ""),
-                          owner_uid=owner_uid, sandbox=sandbox)
+                          company_id=company_id, sandbox=sandbox)
     if not ok:
         flash(msg, "error")
     else:
-        hr.save_payroll_period(owner_uid, period_id, period, sandbox=sandbox)
+        hr.save_payroll_period(company_id, period_id, period, sandbox=sandbox)
         flash("Nómina validada.", "success")
     return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
 
@@ -200,20 +200,20 @@ def payroll_validate(period_id):
 def payroll_approve(period_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    period = hr.get_payroll_period(owner_uid, period_id, sandbox=sandbox)
+    period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
     if not period:
         flash("Período no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_list"))
 
     ok, msg = _transition(period, "aprobada", request.form.get("comment", ""),
-                          owner_uid=owner_uid, sandbox=sandbox)
+                          company_id=company_id, sandbox=sandbox)
     if not ok:
         flash(msg, "error")
     else:
-        hr.save_payroll_period(owner_uid, period_id, period, sandbox=sandbox)
+        hr.save_payroll_period(company_id, period_id, period, sandbox=sandbox)
         flash("Nómina aprobada.", "success")
     return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
 
@@ -222,11 +222,11 @@ def payroll_approve(period_id):
 def payroll_post(period_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_service import PayrollService
 
-    period = hr.get_payroll_period(owner_uid, period_id, sandbox=sandbox)
+    period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
     if not period:
         flash("Período no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_list"))
@@ -236,16 +236,17 @@ def payroll_post(period_id):
         from app.services.accounting_service import AccountingService
         from app.services.db_service import DatabaseService
         from app.services.hr_data_service import get_tax_rates_snapshot
+        company_id = _resolve_company_id(owner_uid)
         snapshot = get_tax_rates_snapshot(period)
-        tax_rates_data = snapshot if snapshot else hr.get_tax_rates(owner_uid, sandbox=sandbox)
+        tax_rates_data = snapshot if snapshot else hr.get_tax_rates(company_id, sandbox=sandbox)
         now_str = date.today().isoformat()
-        employees_list = hr.get_employees(owner_uid, sandbox=sandbox)
+        employees_list = hr.get_employees(company_id, sandbox=sandbox)
         emp_map = {e["id"]: e for e in employees_list}
         acct_lines = PayrollService.build_payroll_accounting_lines(period, employees=emp_map, tax_rates=tax_rates_data,
-                                                                   owner_uid=owner_uid, sandbox=sandbox)
+                                                                   company_id=company_id, sandbox=sandbox)
         if acct_lines:
-            AccountingService.seed_default_accounts(owner_uid, country=get_current_country())
-            accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+            AccountingService.seed_default_accounts(company_id, country=get_current_country())
+            accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
             full_lines = []
             for al in acct_lines:
                 acc = next((a for a in accounts if a.get("code") == al["accountCode"]), None)
@@ -259,7 +260,7 @@ def payroll_post(period_id):
                         "description": al["description"],
                     })
             if full_lines:
-                AccountingService.generate_entry(owner_uid, {
+                AccountingService.generate_entry(company_id, {
                     "entryType": "payroll",
                     "date": now_str,
                     "concept": f"Nómina período {period.get('periodRange') or period.get('periodKey')}",
@@ -278,12 +279,12 @@ def payroll_post(period_id):
         return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
 
     ok, msg = _transition(period, "contabilizada", request.form.get("comment", ""),
-                          owner_uid=owner_uid, sandbox=sandbox)
+                          company_id=company_id, sandbox=sandbox)
     if not ok:
         flash(msg, "error")
         return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
 
-    hr.save_payroll_period(owner_uid, period_id, period, sandbox=sandbox)
+    hr.save_payroll_period(company_id, period_id, period, sandbox=sandbox)
     flash("Nómina contabilizada exitosamente.", "success")
     return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
 
@@ -292,21 +293,21 @@ def payroll_post(period_id):
 def payroll_pay(period_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    period = hr.get_payroll_period(owner_uid, period_id, sandbox=sandbox)
+    period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
     if not period:
         flash("Período no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_list"))
 
     ok, msg = _transition(period, "pagada", request.form.get("comment", ""),
-                          owner_uid=owner_uid, sandbox=sandbox)
+                          company_id=company_id, sandbox=sandbox)
     if not ok:
         flash(msg, "error")
     else:
         period["paidDate"] = date.today().isoformat()
-        hr.save_payroll_period(owner_uid, period_id, period, sandbox=sandbox)
+        hr.save_payroll_period(company_id, period_id, period, sandbox=sandbox)
         flash("Nómina marcada como pagada.", "success")
     return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
 
@@ -315,20 +316,20 @@ def payroll_pay(period_id):
 def payroll_close(period_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    period = hr.get_payroll_period(owner_uid, period_id, sandbox=sandbox)
+    period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
     if not period:
         flash("Período no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_list"))
 
     ok, msg = _transition(period, "cerrada", request.form.get("comment", ""),
-                          owner_uid=owner_uid, sandbox=sandbox)
+                          company_id=company_id, sandbox=sandbox)
     if not ok:
         flash(msg, "error")
     else:
-        hr.save_payroll_period(owner_uid, period_id, period, sandbox=sandbox)
+        hr.save_payroll_period(company_id, period_id, period, sandbox=sandbox)
         flash("Nómina cerrada. No se permiten más modificaciones.", "success")
     return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
 
@@ -337,16 +338,16 @@ def payroll_close(period_id):
 def payroll_send_payslips(period_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    period = hr.get_payroll_period(owner_uid, period_id, sandbox=sandbox)
+    period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
     if not period:
         flash("Período no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_list"))
 
-    lines = PayrollService.get_period_lines(period, owner_uid=owner_uid, sandbox=sandbox)
-    employees_list = hr.get_employees(owner_uid, sandbox=sandbox)
+    lines = PayrollService.get_period_lines(period, company_id=company_id, sandbox=sandbox)
+    employees_list = hr.get_employees(company_id, sandbox=sandbox)
     emp_map = {e["id"]: e for e in employees_list}
 
     try:
@@ -386,7 +387,7 @@ def payroll_send_payslips(period_id):
 
     period["payslipsSentAt"] = datetime.now(timezone.utc).isoformat()
     period["payslipsSentBy"] = session.get("user", {}).get("email", "")
-    hr.save_payroll_period(owner_uid, period_id, period, sandbox=sandbox)
+    hr.save_payroll_period(company_id, period_id, period, sandbox=sandbox)
 
     if sent > 0 and errors == 0:
         flash(f"Volantes enviados a {sent} empleado(s). {skipped} omitido(s) sin email.", "success")
@@ -402,16 +403,16 @@ def payroll_send_payslips(period_id):
 def payroll_send_payslips_async(period_id):
     if _login_required():
         return jsonify({"error": "unauthorized"}), 401
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_async_service import create_job, update_job
 
-    period = hr.get_payroll_period(owner_uid, period_id, sandbox=sandbox)
+    period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
     if not period:
         return jsonify({"error": "period not found"}), 404
 
-    lines = PayrollService.get_period_lines(period, owner_uid=owner_uid, sandbox=sandbox)
-    employees_list = hr.get_employees(owner_uid, sandbox=sandbox)
+    lines = PayrollService.get_period_lines(period, company_id=company_id, sandbox=sandbox)
+    employees_list = hr.get_employees(company_id, sandbox=sandbox)
     emp_map = {e["id"]: e for e in employees_list}
 
     try:
@@ -419,14 +420,14 @@ def payroll_send_payslips_async(period_id):
     except Exception as e:
         return jsonify({"error": "mailer unavailable"}), 500
 
-    job_id = create_job(owner_uid, sandbox=sandbox)
+    job_id = create_job(company_id, sandbox=sandbox)
     if not job_id:
         return jsonify({"error": "could not create job"}), 500
 
     period_label = period.get("periodRange") or period.get("periodKey", "")
     total = len(lines)
 
-    update_job(owner_uid, job_id, {
+    update_job(company_id, job_id, {
         "status": "running",
         "progress": 0,
         "total": total,
@@ -444,7 +445,7 @@ def payroll_send_payslips_async(period_id):
             email = (emp.get("email") or "").strip()
             if not email:
                 skipped += 1
-                update_job(owner_uid, job_id, {
+                update_job(company_id, job_id, {
                     "progress": idx + 1,
                     "message": f"Omitido {idx+1}/{total}: {emp.get('fullName','')} sin email",
                 }, sandbox=sandbox)
@@ -463,20 +464,20 @@ def payroll_send_payslips_async(period_id):
                         category="noreply",
                     )
                 sent += 1
-                update_job(owner_uid, job_id, {
+                update_job(company_id, job_id, {
                     "progress": idx + 1,
                     "message": f"Enviado {idx+1}/{total}: {emp.get('fullName','')}",
                 }, sandbox=sandbox)
             except Exception as e:
                 errors += 1
                 print(f"⚠️ Error enviando volante a {email}: {e}")
-                update_job(owner_uid, job_id, {
+                update_job(company_id, job_id, {
                     "progress": idx + 1,
                     "message": f"Error {idx+1}/{total}: {emp.get('fullName','')} — {e}",
                 }, sandbox=sandbox)
 
         msg = f"Completado: {sent} enviado(s), {skipped} omitido(s), {errors} error(es)"
-        update_job(owner_uid, job_id, {
+        update_job(company_id, job_id, {
             "status": "completed",
             "progress": total,
             "message": msg,
@@ -485,7 +486,7 @@ def payroll_send_payslips_async(period_id):
 
         period["payslipsSentAt"] = datetime.now(timezone.utc).isoformat()
         period["payslipsSentBy"] = session.get("user", {}).get("email", "")
-        hr.save_payroll_period(owner_uid, period_id, period, sandbox=sandbox)
+        hr.save_payroll_period(company_id, period_id, period, sandbox=sandbox)
 
     import threading
     t = threading.Thread(target=_send_worker, daemon=True)
@@ -498,9 +499,9 @@ def payroll_send_payslips_async(period_id):
 def payroll_job_status(job_id):
     if _login_required():
         return jsonify({"error": "unauthorized"}), 401
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services.payroll_async_service import get_job
-    job = get_job(owner_uid, job_id, sandbox=sandbox)
+    job = get_job(company_id, job_id, sandbox=sandbox)
     if not job:
         return jsonify({"error": "not found"}), 404
     return jsonify({
@@ -524,10 +525,10 @@ def payroll_progress(job_id):
 def payroll_recalculate(period_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    period = hr.get_payroll_period(owner_uid, period_id, sandbox=sandbox)
+    period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
     if not period:
         flash("Período no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_list"))
@@ -551,28 +552,28 @@ def payroll_recalculate(period_id):
         # Primero revertir al estado anterior
         if status == "pagada":
             prev_ok, prev_msg = _transition(period, "contabilizada", "Reversión desde pagada",
-                                            owner_uid=owner_uid, sandbox=sandbox)
+                                            company_id=company_id, sandbox=sandbox)
             if not prev_ok:
                 flash(prev_msg, "error")
                 return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
             status = "contabilizada"
         if status == "contabilizada":
             prev_ok, prev_msg = _transition(period, "aprobada", "Reversión desde contabilizada",
-                                            owner_uid=owner_uid, sandbox=sandbox)
+                                            company_id=company_id, sandbox=sandbox)
             if not prev_ok:
                 flash(prev_msg, "error")
                 return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
         # Ahora a borrador
         ok, msg = _transition(period, "borrador", comment,
-                              owner_uid=owner_uid, sandbox=sandbox)
+                              company_id=company_id, sandbox=sandbox)
     else:
         ok, msg = _transition(period, target, comment,
-                              owner_uid=owner_uid, sandbox=sandbox)
+                              company_id=company_id, sandbox=sandbox)
 
     if not ok:
         flash(msg, "error")
     else:
-        hr.save_payroll_period(owner_uid, period_id, period, sandbox=sandbox)
+        hr.save_payroll_period(company_id, period_id, period, sandbox=sandbox)
         flash("Nómina revertida a borrador. Puede recalcularla desde «Procesar nómina».", "success")
     return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
 
@@ -581,11 +582,11 @@ def payroll_recalculate(period_id):
 def payroll_delete(period_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_audit_service import log_action
 
-    period = hr.get_payroll_period(owner_uid, period_id, sandbox=sandbox)
+    period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
     if not period:
         flash("Período no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_list"))
@@ -604,11 +605,11 @@ def payroll_delete(period_id):
     period_range = period.get("periodRange", "")
     user_email = session.get("user", {}).get("email", "")
 
-    log_action(owner_uid, "delete", "payroll_period", period_id, user_email,
+    log_action(company_id, "delete", "payroll_period", period_id, user_email,
                changes={"period": period_key, "status": status, "range": period_range},
                comment="Eliminación de período de nómina", sandbox=sandbox)
 
-    hr.delete_payroll_period(owner_uid, period_id, sandbox=sandbox)
+    hr.delete_payroll_period(company_id, period_id, sandbox=sandbox)
     flash(f"Período de nómina «{period_range or period_key}» eliminado permanentemente.", "success")
     return redirect(url_for("web_rrhh.payroll_list"))
 
@@ -621,17 +622,17 @@ def payroll_delete(period_id):
 def payroll_reconcile(period_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_reconciliation_service import PayrollReconciliationService
 
-    period = hr.get_payroll_period(owner_uid, period_id, sandbox=sandbox)
+    period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
     if not period:
         flash("Período no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_list"))
 
-    period["lines"] = PayrollService.get_period_lines(period, owner_uid=owner_uid, sandbox=sandbox)
-    employees = {e["id"]: e for e in hr.get_employees(owner_uid, sandbox=sandbox)}
+    period["lines"] = PayrollService.get_period_lines(period, company_id=company_id, sandbox=sandbox)
+    employees = {e["id"]: e for e in hr.get_employees(company_id, sandbox=sandbox)}
 
     tx_from = request.args.get("tx_from", period.get("startDate", ""))
     tx_to = request.args.get("tx_to", period.get("endDate", ""))
@@ -661,7 +662,7 @@ def payroll_reconcile(period_id):
 def payroll_reconcile_load_transactions(period_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     tx_from = request.form.get("tx_from", "")
     tx_to = request.form.get("tx_to", "")

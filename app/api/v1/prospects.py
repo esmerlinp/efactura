@@ -78,7 +78,7 @@ def create_prospect():
             "customer_category": data.get('customer_category', 'NORMAL')
         }
 
-        DatabaseService.save_client(g.owner_uid, prospect_id, prospect_dict, sandbox=g.sandbox_mode)
+        DatabaseService.save_client(g.owner_uid, prospect_id, prospect_dict, company_id=g.company_id, sandbox=g.sandbox_mode)
 
         return jsonify({
             "success": True,

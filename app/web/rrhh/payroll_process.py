@@ -47,22 +47,22 @@ def _resolve_rule_concept_code(action: dict) -> str | None:
 def payroll_new():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_service import PayrollService
     from app.services.payroll_ytd_service import get_ytd, save_ytd, accumulate_ytd
     from app.services.payroll_static_data import DEFAULT_PAYROLL_CONFIG
 
     # Verificar onboarding
-    config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
+    config = hr.get_payroll_config(company_id, sandbox=sandbox)
     if not config.get("onboardingCompleted"):
         return redirect(url_for("web_rrhh.onboarding_guide"))
 
-    all_employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    all_employees = hr.get_employees(company_id, sandbox=sandbox)
     active_employees = [e for e in all_employees if e.get("status") == "activo"]
 
     # ── Grupos de nómina ──
-    payroll_groups = hr.get_payroll_groups(owner_uid, sandbox=sandbox)
+    payroll_groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
     payroll_groups.sort(key=lambda g: g.get("name", ""))
 
     # Seleccionar grupo
@@ -98,7 +98,7 @@ def payroll_new():
 
         # ── Anti-duplicados ──
         if selected_group_id:
-            existing = hr.get_payroll_period_by_key_and_group(owner_uid, period_key, selected_group_id, sandbox=sandbox)
+            existing = hr.get_payroll_period_by_key_and_group(company_id, period_key, selected_group_id, sandbox=sandbox)
             if existing:
                 flash(f"Ya existe una nómina para el período «{period_key}» en el grupo «{selected_group.get('name', '')}».", "warning")
                 return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll",
@@ -110,7 +110,7 @@ def payroll_new():
                         existing_period=existing,
                         incidencias=incidencias)
         else:
-            existing = hr.get_payroll_period_by_key(owner_uid, period_key, sandbox=sandbox)
+            existing = hr.get_payroll_period_by_key(company_id, period_key, sandbox=sandbox)
             if existing:
                 flash(f"Ya existe una nómina para el período «{period_key}».", "warning")
                 return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll",
@@ -155,27 +155,27 @@ def payroll_new():
 
         # ── PASO 1: Resolver parámetros legales históricos ──
         from app.services.legal_parameter_resolver import resolve_all
-        params = resolve_all(owner_uid, end_date, sandbox=sandbox)
+        params = resolve_all(company_id, end_date, sandbox=sandbox)
 
         # Aplicar overrides del grupo
         group_overrides = {}
         if selected_group_id:
-            _group = hr.get_payroll_group(owner_uid, selected_group_id, sandbox=sandbox)
+            _group = hr.get_payroll_group(company_id, selected_group_id, sandbox=sandbox)
             if _group:
                 group_overrides = _group.get("groupOverrides", {})
                 if group_overrides:
                     params = PayrollService.merge_group_overrides(params, group_overrides)
 
         # ── PASO 2: Cargar reglas ──
-        active_rules = hr.get_active_rules_for_scope(owner_uid, "global", sandbox=sandbox)
+        active_rules = hr.get_active_rules_for_scope(company_id, "global", sandbox=sandbox)
         if selected_group_id:
-            group_rules = hr.get_active_rules_for_scope(owner_uid, "group", selected_group_id, sandbox=sandbox)
+            group_rules = hr.get_active_rules_for_scope(company_id, "group", selected_group_id, sandbox=sandbox)
             active_rules.extend(group_rules)
             active_rules.sort(key=lambda r: r.get("priority", 999))
 
         # ── PASO 3: Cargar conceptos activos ──
         from app.services.payroll_concept_engine import get_concepts, build_concept_snapshot
-        all_concepts = get_concepts(owner_uid, sandbox=sandbox)
+        all_concepts = get_concepts(company_id, sandbox=sandbox)
         concept_map = {c["code"]: c for c in all_concepts if c.get("active")}
 
         # ── PASO 4: Cargar movimientos recurrentes activos (filtrados por grupo) ──
@@ -185,7 +185,7 @@ def payroll_new():
         from collections import defaultdict
         active_movements = []
         for emp in period_employees:
-            emp_mvs = get_recurring_movements(owner_uid, employee_id=emp["id"],
+            emp_mvs = get_recurring_movements(company_id, employee_id=emp["id"],
                                               payroll_group_id=selected_group_id, sandbox=sandbox)
             active_movements.extend(emp_mvs)
         # Indexar por employeeId
@@ -195,7 +195,7 @@ def payroll_new():
 
         # ── PASO 5: Cargar horas extras aprobadas del período ──
         approved_overtime = OvertimeService.get_approved_for_period(
-            owner_uid, start_date, end_date, sandbox=sandbox,
+            company_id, start_date, end_date, sandbox=sandbox,
         )
         overtime_by_employee = OvertimeService.group_by_employee_and_type(approved_overtime)
 
@@ -205,7 +205,7 @@ def payroll_new():
 
         # ── Carga masiva de dependientes para reglas ──
         all_emp_ids = [e["id"] for e in period_employees if e.get("id")]
-        dependents_by_employee = hr.get_dependents_for_employees(owner_uid, all_emp_ids, sandbox=sandbox)
+        dependents_by_employee = hr.get_dependents_for_employees(company_id, all_emp_ids, sandbox=sandbox)
         from app.utils.hr_utils import is_minor as _is_minor_dep
 
         for emp in period_employees:
@@ -252,7 +252,7 @@ def payroll_new():
                 amount = PayrollOvertimeCalculator.calculate_pay(hourly, mins, factor)
                 if amount <= 0:
                     continue
-                otype_cache = hr.get_overtime_type(owner_uid, tcode, sandbox=sandbox)
+                otype_cache = hr.get_overtime_type(company_id, tcode, sandbox=sandbox)
                 concept_code = (otype_cache.get("conceptCode", "") if otype_cache else "") or "HORAS_EXTRA"
                 concept = concept_map.get(concept_code) or concept_map.get("HORAS_EXTRA")
                 if not concept:
@@ -284,10 +284,10 @@ def payroll_new():
 
             o_locked_ids = list(set(overtime_records_used))
             for oid in o_locked_ids:
-                OvertimeService.lock(owner_uid, oid, session.get("user", {}).get("email", "system"), sandbox=sandbox)
+                OvertimeService.lock(company_id, oid, session.get("user", {}).get("email", "system"), sandbox=sandbox)
 
             # ── Prorrateo salarial ──
-            salary_history = hr.get_salary_history(owner_uid, emp_id, sandbox=sandbox)
+            salary_history = hr.get_salary_history(company_id, emp_id, sandbox=sandbox)
             prorated = PayrollService.prorate_salary(
                 monthly_salary=base, period_start=start_date, period_end=end_date,
                 hire_date=emp.get("hireDate", ""),
@@ -372,7 +372,7 @@ def payroll_new():
             if active_rules:
                 from app.services.payroll_rule_engine import PayrollRuleEngine
                 emp_rules = list(active_rules)
-                emp_specific = hr.get_active_rules_for_scope(owner_uid, "employee", emp_id, sandbox=sandbox)
+                emp_specific = hr.get_active_rules_for_scope(company_id, "employee", emp_id, sandbox=sandbox)
                 if emp_specific:
                     emp_rules.extend(emp_specific)
                     emp_rules.sort(key=lambda r: r.get("priority", 999))
@@ -387,10 +387,10 @@ def payroll_new():
                         filtered_rules.append(r)
                     elif freq in ("annual", "once"):
                         log_year = year if freq == "annual" else None
-                        if not hr.rule_log_exists(owner_uid, r["id"], emp_id, log_year, sandbox=sandbox):
+                        if not hr.rule_log_exists(company_id, r["id"], emp_id, log_year, sandbox=sandbox):
                             filtered_rules.append(r)
                 # Acumulado de salario ordinario anual para reglas (ej: Salario de Navidad)
-                accumulated = hr.get_ytd_transactions(owner_uid, emp_id, year,
+                accumulated = hr.get_ytd_transactions(company_id, emp_id, year,
                                                        concept_code="SALARIO_BASE", sandbox=sandbox)
                 acc_salary = sum(tx.get("amount", 0) for tx in accumulated) + base
                 emp_context = dict(emp)
@@ -447,7 +447,7 @@ def payroll_new():
                         rule_obj = next((r for r in emp_rules if r["id"] == applied["ruleId"]), None)
                         if rule_obj and rule_obj.get("frequency") in ("annual", "once"):
                             log_year = year if rule_obj.get("frequency") == "annual" else None
-                            hr.save_rule_log(owner_uid, rule_obj["id"], emp_id, log_year,
+                            hr.save_rule_log(company_id, rule_obj["id"], emp_id, log_year,
                                              period_key, 0.0, now_iso, sandbox=sandbox)
 
             # ── Aplicar movimientos recurrentes ──
@@ -487,7 +487,7 @@ def payroll_new():
             # ISR
             isr_concept = concept_map.get("ISR_RETENCION")
             if isr_concept:
-                ytd_data = get_ytd(owner_uid, emp_id, year, sandbox=sandbox)
+                ytd_data = get_ytd(company_id, emp_id, year, sandbox=sandbox)
                 ytd_isr = ytd_data.get("isrRetention", 0) if ytd_data else 0
                 from app.services.concept_engine import ConceptEngine as CE
                 tx = CE.evaluate(
@@ -508,7 +508,7 @@ def payroll_new():
             try:
                 from app.services.garnishment_service import GarnishmentService
                 from app.services.db_service import DatabaseService
-                garnishments = DatabaseService.get_employee_garnishments(owner_uid, emp_id, sandbox=sandbox)
+                garnishments = DatabaseService.get_employee_garnishments(owner_uid, emp_id, sandbox=sandbox, company_id=company_id)
                 if garnishments:
                     earn_total = sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("type") == "earning")
                     deduct_total = sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("type") == "deduction")
@@ -541,7 +541,7 @@ def payroll_new():
                                 existing["remainingBalance"] = detail.get("remainingBalance", 0)
                                 if detail.get("isCompleted"):
                                     existing["status"] = "completed"
-                                DatabaseService.save_garnishment(owner_uid, garn_id, existing, sandbox=sandbox)
+                                DatabaseService.save_garnishment(owner_uid, garn_id, existing, sandbox=sandbox, company_id=company_id)
             except Exception as garnish_err:
                 flash(f"[{emp.get('fullName', emp_id)}] Error procesando embargos: {garnish_err}", "warning")
 
@@ -644,9 +644,9 @@ def payroll_new():
 
             # ── YTD ──
             try:
-                ytd = get_ytd(owner_uid, emp_id, year, sandbox=sandbox)
+                ytd = get_ytd(company_id, emp_id, year, sandbox=sandbox)
                 ytd = accumulate_ytd(ytd, line, period_factor=24 if emp_is_quincenal else 12, period_key=period_key)
-                save_ytd(owner_uid, emp_id, year, ytd, sandbox=sandbox)
+                save_ytd(company_id, emp_id, year, ytd, sandbox=sandbox)
             except Exception as e:
                 print(f"⚠️ YTD accumulation error for employee {emp_id}: {e}")
 
@@ -714,7 +714,7 @@ def payroll_new():
                 "comment": "Nómina calculada",
             }],
         }
-        saved = hr.save_payroll_period(owner_uid, period_id, period_data, sandbox=sandbox)
+        saved = hr.save_payroll_period(company_id, period_id, period_data, sandbox=sandbox)
         if not saved:
             flash("Error al guardar el período en la base de datos. Intenta nuevamente.", "error")
             return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll",
@@ -725,10 +725,10 @@ def payroll_new():
                                    selected_group_id=selected_group_id,
                                    incidencias=incidencias)
 
-        hr.save_payroll_lines_batch(owner_uid, period_id, lines, sandbox=sandbox)
-        hr.save_payroll_transactions_batch(owner_uid, all_transactions, sandbox=sandbox)
+        hr.save_payroll_lines_batch(company_id, period_id, lines, sandbox=sandbox)
+        hr.save_payroll_transactions_batch(company_id, all_transactions, sandbox=sandbox)
         from app.services.recurring_service import save_applications_batch
-        save_applications_batch(owner_uid, all_applications, sandbox=sandbox)
+        save_applications_batch(company_id, all_applications, sandbox=sandbox)
 
         # ── Marcar HE como procesadas ──
         processed_count = 0
@@ -738,7 +738,7 @@ def payroll_new():
                 continue
             for oid in record_ids:
                 result = OvertimeService.mark_as_processed(
-                    owner_uid, oid, period_id,
+                    company_id, oid, period_id,
                     session.get("user", {}).get("email", "system"),
                     sandbox=sandbox,
                 )
@@ -754,15 +754,15 @@ def payroll_new():
                 continue
             for oid in record_ids:
                 OvertimeService.create_payroll_link(
-                    owner_uid, oid, period_id, period_key,
+                    company_id, oid, period_id, period_key,
                     tx.get("id", ""), tx.get("conceptCode", ""),
                     tx.get("amount", 0), sandbox=sandbox,
                 )
 
         emp_map = {e["id"]: e for e in period_employees}
-        anomalies = PayrollService.detect_anomalies(lines, emp_map, owner_uid=owner_uid, sandbox=sandbox)
+        anomalies = PayrollService.detect_anomalies(lines, emp_map, company_id=company_id, sandbox=sandbox)
 
-        log_action(owner_uid, "calculate", "payroll_period", period_id,
+        log_action(company_id, "calculate", "payroll_period", period_id,
                    session.get("user", {}).get("email", ""),
                    changes={"period": period_key, "employees": len(lines), "total_net": round(total_net, 2)}, sandbox=sandbox)
 
@@ -790,17 +790,17 @@ def payroll_new():
 def payroll_simulate():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_service import PayrollService
 
-    config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
+    config = hr.get_payroll_config(company_id, sandbox=sandbox)
     if not config.get("onboardingCompleted"):
         return redirect(url_for("web_rrhh.payroll_setup"))
 
-    all_active = [e for e in hr.get_employees(owner_uid, sandbox=sandbox) if e.get("status") == "activo"]
+    all_active = [e for e in hr.get_employees(company_id, sandbox=sandbox) if e.get("status") == "activo"]
 
-    payroll_groups = hr.get_payroll_groups(owner_uid, sandbox=sandbox)
+    payroll_groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
     payroll_groups.sort(key=lambda g: g.get("name", ""))
 
     selected_group_id = request.args.get("group", "") or request.form.get("payrollGroupId", "")
@@ -839,11 +839,11 @@ def payroll_simulate():
 
         # ── PASO 1: Resolver parámetros legales ──
         from app.services.legal_parameter_resolver import resolve_all
-        params = resolve_all(owner_uid, end_date, sandbox=sandbox)
+        params = resolve_all(company_id, end_date, sandbox=sandbox)
 
         group_overrides = {}
         if selected_group_id:
-            _g = hr.get_payroll_group(owner_uid, selected_group_id, sandbox=sandbox)
+            _g = hr.get_payroll_group(company_id, selected_group_id, sandbox=sandbox)
             if _g:
                 group_overrides = _g.get("groupOverrides", {})
                 if group_overrides:
@@ -851,15 +851,15 @@ def payroll_simulate():
 
         # ── PASO 2: Cargar reglas ──
         from app.services.payroll_rule_engine import PayrollRuleEngine
-        active_rules = hr.get_active_rules_for_scope(owner_uid, "global", sandbox=sandbox)
+        active_rules = hr.get_active_rules_for_scope(company_id, "global", sandbox=sandbox)
         if selected_group_id:
-            group_rules = hr.get_active_rules_for_scope(owner_uid, "group", selected_group_id, sandbox=sandbox)
+            group_rules = hr.get_active_rules_for_scope(company_id, "group", selected_group_id, sandbox=sandbox)
             active_rules.extend(group_rules)
             active_rules.sort(key=lambda r: r.get("priority", 999))
 
         # ── PASO 3: Cargar conceptos activos ──
         from app.services.payroll_concept_engine import get_concepts, build_concept_snapshot
-        all_concepts = get_concepts(owner_uid, sandbox=sandbox)
+        all_concepts = get_concepts(company_id, sandbox=sandbox)
         concept_map = {c["code"]: c for c in all_concepts if c.get("active")}
 
         # ── PASO 4: Cargar movimientos recurrentes activos (filtrados por grupo) ──
@@ -870,7 +870,7 @@ def payroll_simulate():
         active_movements = []
 
         for emp in period_employees:
-            emp_mvs = get_recurring_movements(owner_uid, employee_id=emp["id"],
+            emp_mvs = get_recurring_movements(company_id, employee_id=emp["id"],
                                              payroll_group_id=selected_group_id, sandbox=sandbox)
             active_movements.extend(emp_mvs)
         recurring_by_employee = defaultdict(list)
@@ -879,13 +879,13 @@ def payroll_simulate():
 
         # ── PASO 5: Cargar horas extras aprobadas del período ──
         approved_overtime = OvertimeService.get_approved_for_period(
-            owner_uid, start_date, end_date, sandbox=sandbox,
+            company_id, start_date, end_date, sandbox=sandbox,
         )
         overtime_by_employee = OvertimeService.group_by_employee_and_type(approved_overtime)
 
         # ── Carga masiva de dependientes para reglas ──
         all_emp_ids = [e["id"] for e in period_employees if e.get("id")]
-        dependents_by_employee = hr.get_dependents_for_employees(owner_uid, all_emp_ids, sandbox=sandbox)
+        dependents_by_employee = hr.get_dependents_for_employees(company_id, all_emp_ids, sandbox=sandbox)
         from app.utils.hr_utils import is_minor as _is_minor_dep
 
         for emp in period_employees:
@@ -913,7 +913,7 @@ def payroll_simulate():
             if emp_is_quincenal and base > 0:
                 base = round(base / 2, 2)
 
-            salary_history = hr.get_salary_history(owner_uid, emp_id, sandbox=sandbox)
+            salary_history = hr.get_salary_history(company_id, emp_id, sandbox=sandbox)
             prorated = PayrollService.prorate_salary(
                 monthly_salary=base, period_start=start_date, period_end=end_date,
                 hire_date=emp.get("hireDate", ""),
@@ -937,7 +937,7 @@ def payroll_simulate():
                 amount = PayrollOvertimeCalculator.calculate_pay(hourly, mins, factor)
                 if amount <= 0:
                     continue
-                otype_cache = hr.get_overtime_type(owner_uid, tcode, sandbox=sandbox)
+                otype_cache = hr.get_overtime_type(company_id, tcode, sandbox=sandbox)
                 concept_code = (otype_cache.get("conceptCode", "") if otype_cache else "") or "HORAS_EXTRA"
                 concept = concept_map.get(concept_code) or concept_map.get("HORAS_EXTRA")
                 if not concept:
@@ -1042,7 +1042,7 @@ def payroll_simulate():
             # ── Evaluar reglas ──
             if active_rules:
                 emp_rules = list(active_rules)
-                emp_specific = hr.get_active_rules_for_scope(owner_uid, "employee", emp_id, sandbox=sandbox)
+                emp_specific = hr.get_active_rules_for_scope(company_id, "employee", emp_id, sandbox=sandbox)
                 if emp_specific:
                     emp_rules.extend(emp_specific)
                     emp_rules.sort(key=lambda r: r.get("priority", 999))
@@ -1056,7 +1056,7 @@ def payroll_simulate():
                         continue
                     filtered_rules.append(r)
                 # Acumulado de salario ordinario anual para reglas (ej: Salario de Navidad)
-                accumulated = hr.get_ytd_transactions(owner_uid, emp_id, sim_year,
+                accumulated = hr.get_ytd_transactions(company_id, emp_id, sim_year,
                                                        concept_code="SALARIO_BASE", sandbox=sandbox)
                 acc_salary = sum(tx.get("amount", 0) for tx in accumulated) + base
                 emp_context = dict(emp)
@@ -1120,7 +1120,7 @@ def payroll_simulate():
                 mv_id = mv.get("id", "")
                 concept_code = mv.get("conceptCode", "")
 
-                exc = get_exception(owner_uid, mv_id, period_key, sandbox=sandbox)
+                exc = get_exception(company_id, mv_id, period_key, sandbox=sandbox)
                 if exc and exc.get("action") == "skip":
                     continue
 

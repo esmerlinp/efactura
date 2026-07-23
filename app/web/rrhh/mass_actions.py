@@ -49,7 +49,7 @@ def mass_action_wizard():
     """Paso 1 y 2: wizard de acción masiva."""
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
     ids_param = request.args.get("ids", "")
@@ -58,7 +58,7 @@ def mass_action_wizard():
     employees = []
     if employee_ids:
         for eid in employee_ids:
-            emp = hr.get_employee(owner_uid, eid, sandbox=sandbox)
+            emp = hr.get_employee(company_id, eid, sandbox=sandbox)
             if emp:
                 employees.append(emp)
 
@@ -81,12 +81,12 @@ def mass_action_wizard():
             "vacationDays": vac_days,
         })
 
-    all_employees_for_sup = hr.get_employees(owner_uid, sandbox=sandbox)
+    all_employees_for_sup = hr.get_employees(company_id, sandbox=sandbox)
     supervisors = [e for e in all_employees_for_sup
                    if e.get("status") == "activo" and e.get("id") not in employee_ids]
-    positions = hr.get_catalog(owner_uid, "positions", sandbox=sandbox)
-    departments = hr.get_catalog(owner_uid, "departments", sandbox=sandbox)
-    config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
+    positions = hr.get_catalog(company_id, "positions", sandbox=sandbox)
+    departments = hr.get_catalog(company_id, "departments", sandbox=sandbox)
+    config = hr.get_payroll_config(company_id, sandbox=sandbox)
     frequency = config.get("payroll", {}).get("frequency", "mensual")
 
     try:
@@ -117,7 +117,7 @@ def mass_action_preview():
     """Paso 4: previsualización (AJAX)."""
     if _login_required():
         return {"error": "No autorizado"}, 401
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     try:
         data = request.get_json(force=True)
@@ -129,13 +129,13 @@ def mass_action_preview():
     payload = data.get("payload", {})
 
     from app.services.mass_action_service import validate_action
-    errors = validate_action(owner_uid, action_type, employee_ids, payload, sandbox=sandbox)
+    errors = validate_action(company_id, action_type, employee_ids, payload, sandbox=sandbox)
 
     from app.services import hr_data_service as hr
     from app.services.payroll_service import PayrollService
     employees = []
     for eid in employee_ids:
-        emp = hr.get_employee(owner_uid, eid, sandbox=sandbox)
+        emp = hr.get_employee(company_id, eid, sandbox=sandbox)
         if emp:
             vac_days = PayrollService.calculate_vacation_days(emp.get("hireDate", ""))
             employees.append({
@@ -165,7 +165,7 @@ def mass_action_execute():
     """Paso 5: ejecutar la acción masiva."""
     if _login_required():
         return {"error": "No autorizado"}, 401
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     user_email = session.get("user", {}).get("email", "")
 
     try:
@@ -182,12 +182,12 @@ def mass_action_execute():
 
     from app.services.mass_action_service import create_mass_action, execute_action, validate_action
 
-    validation_errors = validate_action(owner_uid, action_type, employee_ids, payload, sandbox=sandbox)
+    validation_errors = validate_action(company_id, action_type, employee_ids, payload, sandbox=sandbox)
     if validation_errors:
         return {"error": "Validación fallida.", "errors": validation_errors}, 400
 
-    action = create_mass_action(owner_uid, action_type, employee_ids, payload, user_email, sandbox=sandbox)
-    result = execute_action(owner_uid, action["id"], user_email, sandbox=sandbox)
+    action = create_mass_action(company_id, action_type, employee_ids, payload, user_email, sandbox=sandbox)
+    result = execute_action(company_id, action["id"], user_email, sandbox=sandbox)
 
     return {
         "actionId": result["id"],
@@ -203,10 +203,10 @@ def mass_action_detail(action_id):
     """Detalle de una acción masiva específica."""
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    action = hr.get_mass_action(owner_uid, action_id, sandbox=sandbox)
+    action = hr.get_mass_action(company_id, action_id, sandbox=sandbox)
     if not action:
         flash("Acción masiva no encontrada.", "error")
         return redirect(url_for("web_rrhh.employee_list"))
@@ -224,10 +224,10 @@ def mass_action_errors_csv(action_id):
     """Exportar los errores de una acción masiva a CSV."""
     if _login_required():
         return {"error": "No autorizado"}, 401
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    action = hr.get_mass_action(owner_uid, action_id, sandbox=sandbox)
+    action = hr.get_mass_action(company_id, action_id, sandbox=sandbox)
     if not action:
         return {"error": "No encontrada"}, 404
 
@@ -260,11 +260,11 @@ def mass_action_errors_csv(action_id):
 def mass_action_submit(action_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from datetime import datetime, timezone
 
-    action = hr.get_mass_action(owner_uid, action_id, sandbox=sandbox)
+    action = hr.get_mass_action(company_id, action_id, sandbox=sandbox)
     if not action:
         flash("Acción masiva no encontrada.", "error")
         return redirect(url_for("web_rrhh.mass_action_wizard"))
@@ -280,7 +280,7 @@ def mass_action_submit(action_id):
     history.append({"from": "draft", "to": "pending_approval", "by": session.get("user", {}).get("email", ""),
                      "at": now_iso, "comment": "Enviado a aprobación"})
     action["statusHistory"] = history
-    hr.save_mass_action(owner_uid, action_id, action, sandbox=sandbox)
+    hr.save_mass_action(company_id, action_id, action, sandbox=sandbox)
     flash("Acción masiva enviada a aprobación.", "success")
     return redirect(url_for("web_rrhh.mass_action_detail", action_id=action_id))
 
@@ -289,11 +289,11 @@ def mass_action_submit(action_id):
 def mass_action_approve(action_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from datetime import datetime, timezone
 
-    action = hr.get_mass_action(owner_uid, action_id, sandbox=sandbox)
+    action = hr.get_mass_action(company_id, action_id, sandbox=sandbox)
     if not action:
         flash("Acción masiva no encontrada.", "error")
         return redirect(url_for("web_rrhh.mass_action_wizard"))
@@ -317,7 +317,7 @@ def mass_action_approve(action_id):
     history.append({"from": "pending_approval", "to": "approved", "by": approver,
                      "at": now_iso, "comment": request.form.get("comment", "Aprobado")})
     action["statusHistory"] = history
-    hr.save_mass_action(owner_uid, action_id, action, sandbox=sandbox)
+    hr.save_mass_action(company_id, action_id, action, sandbox=sandbox)
     flash("Acción masiva aprobada. Ya puede ejecutarse.", "success")
     return redirect(url_for("web_rrhh.mass_action_detail", action_id=action_id))
 
@@ -326,11 +326,11 @@ def mass_action_approve(action_id):
 def mass_action_reject(action_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from datetime import datetime, timezone
 
-    action = hr.get_mass_action(owner_uid, action_id, sandbox=sandbox)
+    action = hr.get_mass_action(company_id, action_id, sandbox=sandbox)
     if not action:
         flash("Acción masiva no encontrada.", "error")
         return redirect(url_for("web_rrhh.mass_action_wizard"))
@@ -353,7 +353,7 @@ def mass_action_reject(action_id):
     history.append({"from": "pending_approval", "to": "rejected", "by": session.get("user", {}).get("email", ""),
                      "at": now_iso, "comment": reason})
     action["statusHistory"] = history
-    hr.save_mass_action(owner_uid, action_id, action, sandbox=sandbox)
+    hr.save_mass_action(company_id, action_id, action, sandbox=sandbox)
     flash("Acción masiva rechazada.", "success")
     return redirect(url_for("web_rrhh.mass_action_detail", action_id=action_id))
 
@@ -362,10 +362,10 @@ def mass_action_reject(action_id):
 def mass_action_pending_list():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    all_actions = hr.get_mass_actions(owner_uid, sandbox=sandbox)
+    all_actions = hr.get_mass_actions(company_id, sandbox=sandbox)
     pending = [a for a in all_actions if a.get("status") == "pending_approval"]
     recent = sorted(all_actions, key=lambda a: a.get("createdAt", ""), reverse=True)[:20]
 

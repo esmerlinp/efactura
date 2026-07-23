@@ -26,8 +26,8 @@ class EcfReadinessService:
     }
 
     @staticmethod
-    def get_status(owner_uid):
-        profile = DatabaseService.get_company_profile(owner_uid)
+    def get_status(owner_uid, company_id=None):
+        profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
         if not profile:
             return EcfReadinessService._empty_status()
 
@@ -120,8 +120,8 @@ class EcfReadinessService:
         }
 
     @staticmethod
-    def validate_or_raise(owner_uid):
-        status = EcfReadinessService.get_status(owner_uid)
+    def validate_or_raise(owner_uid, company_id=None):
+        status = EcfReadinessService.get_status(owner_uid, company_id=company_id)
         if not status["can_issue_ecf"]:
             messages = [e["message"] for e in status["blocking_errors"]]
             first_code = status["blocking_errors"][0]["code"]

@@ -12,9 +12,10 @@ web_dashboard_bp = Blueprint('web_dashboard', __name__)
 def _merge_supplier_invoices_into_expenses(owner_uid, expenses, sandbox=True):
     branch_id = g.get('branch_id')
     project_id = g.get('project_id')
+    company_id = session.get('selected_company_id')
     try:
         from app.services.supplier_invoice_service import SupplierInvoiceService
-        invoices = SupplierInvoiceService.get_all(owner_uid, sandbox=sandbox)
+        invoices = SupplierInvoiceService.get_all(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
         for inv in invoices:
             if branch_id and inv.get("branchId") != branch_id:
                 continue
@@ -73,6 +74,7 @@ def dashboard():
             return render_template('auth/restricted.html', feature_name="Dashboard General", required_permission="canViewDashboard")
             
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     now = datetime.now(timezone.utc)
     
@@ -82,7 +84,7 @@ def dashboard():
     # Procesar automáticamente recordatorios de cobro de CxC programados al abrir dashboard
     try:
         from app.services.notifications import NotificationService
-        NotificationService.process_automatic_reminders(owner_uid, sandbox=sandbox)
+        NotificationService.process_automatic_reminders(owner_uid, sandbox=sandbox, company_id=company_id)
     except Exception as e:
         print(f"⚠️ Error al procesar recordatorios automáticos en el Dashboard: {e}")
     
@@ -109,11 +111,11 @@ def dashboard():
         prev_month_year = selected_year
         
     # Obtener facturas y gastos
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     expenses = _merge_supplier_invoices_into_expenses(owner_uid, expenses, sandbox=sandbox)
-    sequences = DatabaseService.get_sequences(owner_uid, sandbox=sandbox)
-    profile = DatabaseService.get_company_profile(owner_uid)
+    sequences = DatabaseService.get_sequences(owner_uid, sandbox=sandbox, company_id=company_id)
+    profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     
     # Filtrar cotizaciones y borradores
     real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador']]
@@ -367,7 +369,7 @@ def dashboard():
     
     # Agenda CRM del día
     today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     
     for c in clients:
         c_id = c['id']
@@ -410,7 +412,7 @@ def dashboard():
 
     # 3. Consumo del Plan
     billing_day = profile.get('billingDay', 1)
-    plan_stats = DatabaseService.get_invoice_stats(owner_uid, billing_day)
+    plan_stats = DatabaseService.get_invoice_stats(owner_uid, billing_day, company_id=company_id)
     
     docs_used = plan_stats['sandbox_current_cycle'] if sandbox else plan_stats['prod_current_cycle']
     docs_limit = int(profile.get('documentLimit', 100)) if profile.get('documentLimit') else 100
@@ -431,7 +433,7 @@ def dashboard():
     current_month_name = months_full[selected_month - 1]
 
     # 4. Onboarding y Configuración Inicial
-    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     has_company_configured = bool(profile.get('companyRNC')) and profile.get('companyRNC') != "132109122" # Default dummy RNC
     has_products = len(items) > 0
     has_clients = len(clients) > 0

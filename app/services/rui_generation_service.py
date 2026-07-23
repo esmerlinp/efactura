@@ -13,7 +13,7 @@ def is_final_consumer(invoice):
 class RuiGenerationService:
 
     @staticmethod
-    def is_invoice_eligible(invoice) -> bool:
+    def is_invoice_eligible(invoice, company_id=None) -> bool:
         if not invoice:
             return False
         if invoice.get("status") != "Cobrada":
@@ -32,7 +32,7 @@ class RuiGenerationService:
         return True
 
     @staticmethod
-    def _validate_prerequisites(owner_uid, company, business_date, sandbox):
+    def _validate_prerequisites(owner_uid, company, business_date, sandbox, company_id=None):
         if not company.get("ruiEnabled"):
             raise ValueError("RUI no está habilitado para esta empresa.")
         auth_number = (company.get("ruiAuthorizationNumber") or "").strip()
@@ -43,7 +43,8 @@ class RuiGenerationService:
         existing = DatabaseService.get_fiscal_summary_documents(
             owner_uid, sandbox=sandbox,
             document_type="RUI",
-            business_date=str(business_date)[:10]
+            business_date=str(business_date)[:10],
+            company_id=company_id
         )
         for doc in existing:
             if doc.get("estado") == "ACTIVO":
@@ -81,12 +82,12 @@ class RuiGenerationService:
         }
 
     @staticmethod
-    def generate_rui(owner_uid, business_date, user_email, user_name="", sandbox=True, auto=False, notes=""):
-        company = DatabaseService.get_company_profile(owner_uid)
-        RuiGenerationService._validate_prerequisites(owner_uid, company, business_date, sandbox)
+    def generate_rui(owner_uid, business_date, user_email, user_name="", sandbox=True, auto=False, notes="", company_id=None):
+        company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+        RuiGenerationService._validate_prerequisites(owner_uid, company, business_date, sandbox, company_id=company_id)
 
-        eligible = DatabaseService.get_rui_eligible_invoices(owner_uid, business_date, sandbox=sandbox)
-        eligible = [inv for inv in eligible if RuiGenerationService.is_invoice_eligible(inv)]
+        eligible = DatabaseService.get_rui_eligible_invoices(owner_uid, business_date, sandbox=sandbox, company_id=company_id)
+        eligible = [inv for inv in eligible if RuiGenerationService.is_invoice_eligible(inv, company_id=company_id)]
         if not eligible:
             raise ValueError(f"No hay facturas elegibles para RUI en la fecha {str(business_date)[:10]}.")
 
@@ -104,7 +105,7 @@ class RuiGenerationService:
         })
 
         encf, log_id = DatabaseService.consume_next_sequence(
-            owner_uid, "B12", user_email, sandbox=sandbox
+            owner_uid, "B12", user_email, sandbox=sandbox, company_id=company_id
         )
 
         business_date_str = str(business_date)[:10]
@@ -140,12 +141,12 @@ class RuiGenerationService:
             "updatedAt": datetime.now(timezone.utc).isoformat(),
         }
 
-        saved = DatabaseService.save_fiscal_summary_document(owner_uid, doc_dict, sandbox=sandbox)
+        saved = DatabaseService.save_fiscal_summary_document(owner_uid, doc_dict, sandbox=sandbox, company_id=company_id)
         if not saved:
             raise RuntimeError("Error al guardar el documento RUI en Firestore.")
 
         marked = DatabaseService.mark_invoices_as_rui_included(
-            owner_uid, invoice_ids, saved["id"], encf, sandbox=sandbox
+            owner_uid, invoice_ids, saved["id"], encf, sandbox=sandbox, company_id=company_id
         )
         if not marked:
             raise RuntimeError("Error al marcar facturas como incluidas en RUI.")
@@ -178,11 +179,11 @@ class RuiGenerationService:
         return saved
 
     @staticmethod
-    def cancel_rui(owner_uid, rui_id, cancelled_by, cancelled_by_email, cancel_reason, sandbox=True, replacement_rui_id=""):
+    def cancel_rui(owner_uid, rui_id, cancelled_by, cancelled_by_email, cancel_reason, sandbox=True, replacement_rui_id="", company_id=None):
         if not cancel_reason or not cancel_reason.strip():
             raise ValueError("El motivo de anulación es obligatorio.")
 
-        doc = DatabaseService.get_fiscal_summary_document(owner_uid, rui_id, sandbox=sandbox)
+        doc = DatabaseService.get_fiscal_summary_document(owner_uid, rui_id, sandbox=sandbox, company_id=company_id)
         if not doc:
             raise ValueError(f"Documento RUI {rui_id} no encontrado.")
         if doc.get("estado") != "ACTIVO":
@@ -190,12 +191,12 @@ class RuiGenerationService:
 
         result = DatabaseService.cancel_fiscal_summary_document(
             owner_uid, rui_id, cancelled_by, cancelled_by_email,
-            cancel_reason, replacement_rui_id=replacement_rui_id, sandbox=sandbox
+            cancel_reason, replacement_rui_id=replacement_rui_id, sandbox=sandbox, company_id=company_id
         )
         if not result:
             raise RuntimeError("Error al anular el documento RUI en Firestore.")
 
-        DatabaseService.release_invoices_from_rui(owner_uid, rui_id, sandbox=sandbox)
+        DatabaseService.release_invoices_from_rui(owner_uid, rui_id, sandbox=sandbox, company_id=company_id)
 
         from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_POS
         AuditService.log_from_request(

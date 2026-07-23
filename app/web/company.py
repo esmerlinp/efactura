@@ -1,5 +1,5 @@
 import base64
-from flask import Blueprint, session, jsonify, request, flash, redirect, url_for
+from flask import Blueprint, session, jsonify, request, flash, redirect, url_for, render_template
 from app.services.db_service import DatabaseService
 from app.services.ecf_readiness_service import EcfReadinessService
 from app.utils.decorators import check_permission
@@ -13,7 +13,8 @@ def ecf_status():
     if 'user' not in session:
         return jsonify({"error": "No autorizado"}), 401
     owner_uid = session['user']['ownerUID']
-    status = EcfReadinessService.get_status(owner_uid)
+    company_id = session.get('selected_company_id')
+    status = EcfReadinessService.get_status(owner_uid, company_id=company_id)
     return jsonify(status)
 
 
@@ -25,7 +26,8 @@ def upload_certificate():
         return jsonify({"error": "Sin permisos"}), 403
 
     owner_uid = session['user']['ownerUID']
-    existing = DatabaseService.get_company_profile(owner_uid)
+    company_id = session.get('selected_company_id')
+    existing = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     if not existing:
         return jsonify({"error": "Perfil de empresa no encontrado"}), 404
 
@@ -57,7 +59,7 @@ def upload_certificate():
     existing['certificateContent'] = cert_content_b64
     existing['certificatePassword'] = cert_password
 
-    saved = DatabaseService.save_company_profile(owner_uid, existing)
+    saved = DatabaseService.save_company_profile(owner_uid, existing, company_id=company_id)
     if not saved:
         return jsonify({"error": "No se pudo guardar el certificado"}), 500
 
@@ -72,7 +74,8 @@ def save_paypal_settings():
         return jsonify({"error": "Sin permisos"}), 403
 
     owner_uid = session['user']['ownerUID']
-    existing = DatabaseService.get_company_profile(owner_uid)
+    company_id = session.get('selected_company_id')
+    existing = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     if not existing:
         return jsonify({"error": "Perfil de empresa no encontrado"}), 404
 
@@ -91,7 +94,7 @@ def save_paypal_settings():
     existing['paypalCostCenterId'] = request.form.get('paypalCostCenterId', '').strip()
     existing['paypalWebhookId'] = request.form.get('paypalWebhookId', '').strip()
 
-    saved = DatabaseService.save_company_profile(owner_uid, existing)
+    saved = DatabaseService.save_company_profile(owner_uid, existing, company_id=company_id)
     if saved:
         flash('Configuración de PayPal guardada correctamente.', 'success')
     else:
@@ -108,7 +111,8 @@ def save_azul_settings():
         return jsonify({"error": "Sin permisos"}), 403
 
     owner_uid = session['user']['ownerUID']
-    existing = DatabaseService.get_company_profile(owner_uid)
+    company_id = session.get('selected_company_id')
+    existing = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     if not existing:
         return jsonify({"error": "Perfil de empresa no encontrado"}), 404
 
@@ -119,10 +123,88 @@ def save_azul_settings():
     existing['azulAccountingAccountId'] = request.form.get('azulAccountingAccountId', '').strip()
     existing['azulCostCenterId'] = request.form.get('azulCostCenterId', '').strip()
 
-    saved = DatabaseService.save_company_profile(owner_uid, existing)
+    saved = DatabaseService.save_company_profile(owner_uid, existing, company_id=company_id)
     if saved:
         flash('Configuración de Azul guardada correctamente.', 'success')
     else:
         flash('Error al guardar la configuración de Azul.', 'error')
 
     return redirect(url_for('web_invoices.company_settings'))
+
+
+@web_company_bp.route('/companies/new', methods=['GET', 'POST'])
+def create_company():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+
+    from app.services.db_service import db_firestore, firebase_initialized
+    uid = session['user']['uid']
+    owner_uid = session['user'].get('ownerUID', uid)
+
+    if request.method == 'POST':
+        company_name = request.form.get('name', '').strip()
+        trade_name = request.form.get('trade_name', '').strip()
+        rnc = request.form.get('rnc', '').strip()
+        country = request.form.get('country', 'DO').strip()
+
+        if not company_name:
+            flash('El nombre de la empresa es obligatorio.', 'error')
+            return render_template('company/create.html',
+                                   product_name=session.get('brand', 'e-Factura'),
+                                   company_theme='moderno',
+                                   user_name=session['user'].get('name', uid))
+
+        company_data = {
+            'name': company_name,
+            'trade_name': trade_name,
+            'rnc': rnc,
+            'country': country,
+            'type': 'associated',
+            'status': 'active',
+            'is_default': False,
+            'configured': False,
+            'plan_id': '',
+            'plan_version': 0,
+        }
+
+        company_id = DatabaseService.create_company(owner_uid, company_data)
+        if not company_id:
+            flash('Error al crear la empresa. Intente de nuevo.', 'error')
+            return render_template('company/create.html',
+                                   product_name=session.get('brand', 'e-Factura'),
+                                   company_theme='moderno',
+                                   user_name=session['user'].get('name', uid))
+
+        DatabaseService.create_membership(
+            uid=uid,
+            company_id=company_id,
+            role='owner',
+            permissions={
+                'canManageSettings': True,
+                'canManageTeam': True,
+                'canManageBilling': True,
+                'canManageProducts': True,
+                'canExpenses': True,
+                'canSales': True,
+                'canPOS': True,
+            },
+            invited_by=''
+        )
+
+        session['selected_company_id'] = company_id
+        session['selected_owner_uid'] = owner_uid
+        session['user']['ownerUID'] = owner_uid
+        session.pop('selected_branch_id', None)
+        session.pop('available_branches', None)
+        session.pop('selected_project_id', None)
+        session.pop('available_projects', None)
+        session.pop('user_companies', None)
+        session['user_has_multiple_companies'] = False
+
+        flash(f'Empresa "{company_name}" creada con éxito. Complete la configuración inicial.', 'success')
+        return redirect(url_for('web_invoices.onboarding'))
+
+    return render_template('company/create.html',
+                           product_name=session.get('brand', 'e-Factura'),
+                           company_theme='moderno',
+                           user_name=session['user'].get('name', uid))

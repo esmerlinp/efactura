@@ -40,16 +40,17 @@ def audit_log():
     owner_uid = session['user']['ownerUID']
 
     # Obtener lista de usuarios de la compañía (propietario + colaboradores)
-    from app.services.db_service import DatabaseService
+    from app.services.db_service import DatabaseService, _resolve_company_id
+    company_id = _resolve_company_id(owner_uid)
     company_users = []
-    owner_profile = DatabaseService.get_user_profile(owner_uid)
+    owner_profile = DatabaseService.get_user_profile(owner_uid, company_id=company_id)
     if owner_profile:
         company_users.append({
             "uid": owner_profile["uid"],
             "name": owner_profile["name"] or owner_profile["email"].split('@')[0],
             "email": owner_profile["email"]
         })
-    for member in DatabaseService.get_team_members(owner_uid):
+    for member in DatabaseService.get_team_members(owner_uid, company_id=company_id):
         company_users.append({
             "uid": member["uid"],
             "name": member["name"] or member["email"].split('@')[0],
@@ -68,6 +69,7 @@ def audit_log():
 
     result = AuditService.get_logs(
         owner_uid=owner_uid,
+        company_id=company_id,
         page=page,
         per_page=25,
         module_filter=module_f,
@@ -119,7 +121,8 @@ def audit_detail(log_id):
         return denied
 
     owner_uid = session['user']['ownerUID']
-    log = AuditService.get_log_detail(owner_uid, log_id)
+    company_id = _resolve_company_id(owner_uid)
+    log = AuditService.get_log_detail(owner_uid, log_id, company_id=company_id)
 
     if not log:
         flash('Registro de auditoría no encontrado.', 'error')
@@ -144,6 +147,7 @@ def audit_export():
         return redirect(url_for('web_audit.audit_log'))
 
     owner_uid = user['ownerUID']
+    company_id = _resolve_company_id(owner_uid)
 
     # Leer filtros del formulario POST
     module_f  = request.form.get('module', 'Todos')
@@ -156,6 +160,7 @@ def audit_export():
 
     logs = AuditService.export_to_csv_rows(
         owner_uid=owner_uid,
+        company_id=company_id,
         module_filter=module_f if module_f != 'Todos' else None,
         action_filter=action_f if action_f != 'Todos' else None,
         user_filter=user_f or None,

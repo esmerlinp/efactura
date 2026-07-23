@@ -9,11 +9,11 @@ from app.brand import get_product_name
 
 class NotificationService:
     @classmethod
-    def send_cxc_reminder(cls, owner_uid, invoice, recipient_contact, method='email', sandbox=True, portal_url="", custom_message=None):
+    def send_cxc_reminder(cls, owner_uid, invoice, recipient_contact, method='email', sandbox=True, portal_url="", custom_message=None, company_id=None):
         """
         Envía un recordatorio de pago (vía email o WhatsApp) y registra la interacción en el historial del cliente.
         """
-        company = DatabaseService.get_company_profile(owner_uid) or {}
+        company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
         company_name = company.get("tradeName") or company.get("companyName") or f"{get_product_name()} Proveedor"
         
         client_id = invoice.get("clientId")
@@ -37,7 +37,7 @@ class NotificationService:
 
         client_pin = ""
         try:
-            clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+            clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, company_id=company_id)
             client_obj = next((c for c in clients if c['id'] == client_id), None)
             if client_obj:
                 client_pin = client_obj.get('accessPin', '')
@@ -48,10 +48,10 @@ class NotificationService:
             if not current_app.config.get("SMTP_USER") or not current_app.config.get("SMTP_PASSWORD"):
                 if sandbox:
                     print(f"⚠️ SMTP no configurado. Simulando envío de email a {recipient_contact}...")
-                    cls._record_interaction(owner_uid, client_id, "Email", 
-                                            f"Recordatorio de Pago enviado (Email Simulado)",
-                                            f"Simulación de envío para factura {invoice_number} al correo {recipient_contact}. Balance pendiente: RD$ {remaining_balance:,.2f}.\nContenido custom: {custom_message}\nClave de acceso: {client_pin}", 
-                                            sandbox=sandbox)
+                    cls._record_interaction(owner_uid=owner_uid, client_id=client_id, method="Email", 
+                                            title=f"Recordatorio de Pago enviado (Email Simulado)",
+                                            content=f"Simulación de envío para factura {invoice_number} al correo {recipient_contact}. Balance pendiente: RD$ {remaining_balance:,.2f}.\nContenido custom: {custom_message}\nClave de acceso: {client_pin}", 
+                                            sandbox=sandbox, company_id=company_id)
                     return True, f"Simulado: Recordatorio enviado por correo a {recipient_contact} (SMTP no configurado)."
                 return False, "Servidor de correo SMTP no configurado en los ajustes de la aplicación."
                 
@@ -134,10 +134,10 @@ class NotificationService:
                 )
 
                 if success:
-                    cls._record_interaction(owner_uid, client_id, "Email", 
-                                            f"Recordatorio de Pago enviado (Email)",
-                                            f"Enviado recordatorio para factura {invoice_number} al correo {recipient_contact}. Balance pendiente: RD$ {remaining_balance:,.2f}.", 
-                                            sandbox=sandbox)
+                    cls._record_interaction(owner_uid=owner_uid, client_id=client_id, method="Email", 
+                                            title=f"Recordatorio de Pago enviado (Email)",
+                                            content=f"Enviado recordatorio para factura {invoice_number} al correo {recipient_contact}. Balance pendiente: RD$ {remaining_balance:,.2f}.", 
+                                            sandbox=sandbox, company_id=company_id)
                     return True, f"Recordatorio enviado exitosamente por correo a {recipient_contact}."
                 else:
                     return False, "Fallo al enviar correo."
@@ -154,16 +154,16 @@ class NotificationService:
             
             print(f"📱 [WhatsApp API Simulación] Enviando a {recipient_contact}: {whatsapp_msg}")
             
-            cls._record_interaction(owner_uid, client_id, "WhatsApp", 
-                                    f"Recordatorio de Pago enviado (WhatsApp)",
-                                    f"Enviado recordatorio para factura {invoice_number} al número {recipient_contact} vía WhatsApp.\nContenido: {whatsapp_msg}", 
-                                    sandbox=sandbox)
+            cls._record_interaction(owner_uid=owner_uid, client_id=client_id, method="WhatsApp", 
+                                    title=f"Recordatorio de Pago enviado (WhatsApp)",
+                                    content=f"Enviado recordatorio para factura {invoice_number} al número {recipient_contact} vía WhatsApp.\nContenido: {whatsapp_msg}", 
+                                    sandbox=sandbox, company_id=company_id)
             return True, f"Recordatorio enviado por WhatsApp a {recipient_contact} (API Simulación)."
             
         return False, "Método de envío no válido."
 
     @classmethod
-    def _record_interaction(cls, owner_uid, client_id, method, title, content, sandbox=True):
+    def _record_interaction(cls, owner_uid, client_id, method, title, content, sandbox=True, company_id=None):
         """Registra la comunicación en el CRM del cliente."""
         interaction_id = str(uuid.uuid4())
         interaction_dict = {
@@ -175,17 +175,17 @@ class NotificationService:
             "registeredBy": "Sistema CxC"
         }
         try:
-            DatabaseService.save_client_interaction(owner_uid, client_id, interaction_id, interaction_dict, sandbox=sandbox)
+            DatabaseService.save_client_interaction(owner_uid, client_id, interaction_id, interaction_dict, sandbox=sandbox, company_id=company_id)
         except Exception as e:
             print(f"⚠️ Error al guardar interacción del recordatorio: {e}")
 
     @classmethod
-    def process_automatic_reminders(cls, owner_uid, sandbox=True):
+    def process_automatic_reminders(cls, owner_uid, sandbox=True, company_id=None):
         """
         Escanea y envía automáticamente recordatorios de pago para facturas pendientes y vencidas
         según la configuración de la empresa y del cliente.
         """
-        company = DatabaseService.get_company_profile(owner_uid) or {}
+        company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
         if not company.get("autoRemindersEnabled", False):
             return 0
 
@@ -195,7 +195,7 @@ class NotificationService:
             return 0
 
         # Obtener facturas reales
-        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False)
+        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False, company_id=company_id)
         cxc_invoices = []
         for inv in invoices:
             status = inv.get("status")
@@ -210,7 +210,7 @@ class NotificationService:
             return 0
 
         # Obtener todos los clientes para revisar si están silenciados
-        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, company_id=company_id)
         muted_clients = {c["id"] for c in clients if c.get("disableAutoReminders")}
 
         try:
@@ -235,7 +235,7 @@ class NotificationService:
             inv_due = inv.get("dueDate", "")[:10]
             if inv_due == target_date:
                 # Comprobar si ya se envió recordatorio para esta factura hoy
-                interactions = DatabaseService.get_client_interactions(owner_uid, client_id, sandbox=sandbox)
+                interactions = DatabaseService.get_client_interactions(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
                 already_sent = False
                 for inter in interactions:
                     inter_date = inter.get("createdAt", inter.get("date", ""))[:10]
@@ -272,14 +272,15 @@ class NotificationService:
                     recipient_contact=recipient,
                     method=method,
                     sandbox=sandbox,
-                    custom_message=custom_message
+                    custom_message=custom_message,
+                    company_id=company_id
                 )
                 if success:
                     sent_count += 1
 
         # Actualizar fecha de última ejecución
         company["autoRemindersLastRun"] = today_str
-        DatabaseService.save_company_profile(owner_uid, company)
+        DatabaseService.save_company_profile(owner_uid, company, company_id=company_id)
         return sent_count
 
     @classmethod
@@ -350,9 +351,9 @@ class NotificationService:
 
 
     @classmethod
-    def send_expense_assignment_notification(cls, recipient_email, recipient_name, expense, owner_uid, sandbox=True):
+    def send_expense_assignment_notification(cls, recipient_email, recipient_name, expense, owner_uid, sandbox=True, company_id=None):
         """Envía un correo electrónico notificando a un usuario que se le ha asignado un gasto para revisión/aprobación."""
-        company = DatabaseService.get_company_profile(owner_uid) or {}
+        company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
         company_name = company.get("tradeName") or company.get("companyName") or f"{get_product_name()} Proveedor"
         brand_color = company.get('colorMarca', '#10b981')
         logo_url = company.get('logoUrl', '')
@@ -443,7 +444,7 @@ class NotificationService:
             return False, str(e)
 
     @classmethod
-    def send_portal_action_notification(cls, owner_uid, action, document_type, document_number, client_name, client_rnc, signed_at, recipient_email, document_url="", sandbox=True):
+    def send_portal_action_notification(cls, owner_uid, action, document_type, document_number, client_name, client_rnc, signed_at, recipient_email, document_url="", sandbox=True, company_id=None):
         """
         Notifica al responsable (owner/creador) cuando un cliente firma o rechaza
         una cotización o contrato desde el portal de autogestión, o cuando reporta un pago.
@@ -451,7 +452,7 @@ class NotificationService:
         action: 'firmada' | 'rechazada' | 'pago_reportado'
         document_type: 'Cotización' | 'Contrato' | 'Factura'
         """
-        company = DatabaseService.get_company_profile(owner_uid) or {}
+        company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
         company_name = company.get("tradeName") or company.get("companyName") or get_product_name()
         brand_color = company.get('colorMarca', '#10b981')
         logo_url = company.get('logoUrl', '')
@@ -531,12 +532,12 @@ class NotificationService:
             return False, str(e)
 
     @classmethod
-    def send_client_payment_notification(cls, owner_uid, action, invoice, client_email, client_name, sandbox=True, rejection_reason=""):
+    def send_client_payment_notification(cls, owner_uid, action, invoice, client_email, client_name, sandbox=True, rejection_reason="", company_id=None):
         """
         Notifica al cliente por email cuando su comprobante de pago fue aprobado o rechazado.
         action: 'aprobado' | 'rechazado'
         """
-        company = DatabaseService.get_company_profile(owner_uid) or {}
+        company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
         company_name = company.get("tradeName") or company.get("companyName") or get_product_name()
         brand_color = company.get('colorMarca', '#10b981')
         logo_url = company.get('logoUrl', '')
@@ -547,7 +548,7 @@ class NotificationService:
         client_id = invoice.get('clientId')
         if client_id:
             try:
-                clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+                clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, company_id=company_id)
                 client_obj = next((c for c in clients if c['id'] == client_id), None)
                 if client_obj:
                     client_pin = client_obj.get('accessPin', '')

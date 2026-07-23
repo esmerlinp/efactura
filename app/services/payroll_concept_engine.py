@@ -10,7 +10,7 @@ Cada concepto define:
 
 from datetime import datetime, timezone
 
-from app.services.db_service import db_firestore, firebase_initialized
+from app.services.db_service import db_firestore, firebase_initialized, DatabaseService
 
 # ── Conceptos del sistema (no pueden eliminarse, solo desactivarse) ──
 SYSTEM_CONCEPT_CODES = {
@@ -255,20 +255,20 @@ DEFAULT_CONCEPTS = [
 ]
 
 
-def _concepts_collection(owner_uid: str, sandbox: bool = True) -> str:
+def _concepts_collection(company_id: str, sandbox: bool = True) -> str:
     prefix = "sandbox_" if sandbox else ""
-    return f"users/{owner_uid}/{prefix}hr_payroll_concepts"
+    return f"companies/{company_id}/{prefix}hr_payroll_concepts"
 
 
-def get_concepts(owner_uid: str, sandbox: bool = True) -> list:
+def get_concepts(company_id: str, sandbox: bool = True) -> list:
     if not firebase_initialized or db_firestore is None:
         return [dict(c) for c in DEFAULT_CONCEPTS]
     try:
-        coll = _concepts_collection(owner_uid, sandbox)
+        coll = _concepts_collection(company_id, sandbox)
         docs = db_firestore.collection(coll).get()
         concepts = [{"id": d.id, **d.to_dict()} for d in docs]
         if not concepts:
-            seed_default_concepts(owner_uid, sandbox=sandbox)
+            seed_default_concepts(company_id, sandbox=sandbox)
             return [dict(c) for c in DEFAULT_CONCEPTS]
 
         default_by_code = {c["code"]: c for c in DEFAULT_CONCEPTS if c.get("isSystem")}
@@ -295,18 +295,18 @@ def get_concepts(owner_uid: str, sandbox: bool = True) -> list:
         return [dict(c) for c in DEFAULT_CONCEPTS]
 
 
-def get_active_recurring_concepts(owner_uid: str, sandbox: bool = True) -> list:
+def get_active_recurring_concepts(company_id: str, sandbox: bool = True) -> list:
     """Retorna solo conceptos que soportan movimientos recurrentes y están activos."""
-    all_concepts = get_concepts(owner_uid, sandbox=sandbox)
+    all_concepts = get_concepts(company_id, sandbox=sandbox)
     return [c for c in all_concepts
             if c.get("isRecurringCapable") and c.get("active")]
 
 
-def get_concept(owner_uid: str, concept_id: str, sandbox: bool = True) -> dict | None:
+def get_concept(company_id: str, concept_id: str, sandbox: bool = True) -> dict | None:
     if not firebase_initialized or db_firestore is None:
         return next((c for c in DEFAULT_CONCEPTS if c["code"] == concept_id), None)
     try:
-        coll = _concepts_collection(owner_uid, sandbox)
+        coll = _concepts_collection(company_id, sandbox)
         doc = db_firestore.collection(coll).document(concept_id).get()
         return {"id": doc.id, **doc.to_dict()} if doc.exists else None
     except Exception as e:
@@ -314,16 +314,16 @@ def get_concept(owner_uid: str, concept_id: str, sandbox: bool = True) -> dict |
         return next((c for c in DEFAULT_CONCEPTS if c["code"] == concept_id), None)
 
 
-def get_concept_by_code(owner_uid: str, code: str, sandbox: bool = True) -> dict | None:
+def get_concept_by_code(company_id: str, code: str, sandbox: bool = True) -> dict | None:
     """Busca un concepto por su código (el id es el mismo que el code)."""
-    return get_concept(owner_uid, code, sandbox=sandbox)
+    return get_concept(company_id, code, sandbox=sandbox)
 
 
-def save_concept(owner_uid: str, data: dict, sandbox: bool = True):
+def save_concept(company_id: str, data: dict, sandbox: bool = True):
     if not firebase_initialized or db_firestore is None:
         return
     try:
-        coll = _concepts_collection(owner_uid, sandbox)
+        coll = _concepts_collection(company_id, sandbox)
         concept_id = data.get("code", data.get("id", ""))
         if not concept_id:
             return
@@ -347,11 +347,11 @@ def save_concept(owner_uid: str, data: dict, sandbox: bool = True):
         print(f"⚠️ PayrollConceptService.save_concept: {e}")
 
 
-def delete_concept(owner_uid: str, concept_code: str, sandbox: bool = True):
+def delete_concept(company_id: str, concept_code: str, sandbox: bool = True):
     if not firebase_initialized or db_firestore is None:
         return
     try:
-        coll = _concepts_collection(owner_uid, sandbox)
+        coll = _concepts_collection(company_id, sandbox)
         doc = db_firestore.collection(coll).document(concept_code).get()
         if doc.exists:
             data = doc.to_dict()
@@ -363,9 +363,9 @@ def delete_concept(owner_uid: str, concept_code: str, sandbox: bool = True):
         print(f"⚠️ PayrollConceptService.delete_concept: {e}")
 
 
-def seed_default_concepts(owner_uid: str, sandbox: bool = True):
+def seed_default_concepts(company_id: str, sandbox: bool = True):
     for c in DEFAULT_CONCEPTS:
-        save_concept(owner_uid, dict(c), sandbox=sandbox)
+        save_concept(company_id, dict(c), sandbox=sandbox)
 
 
 def build_concept_snapshot(concept: dict) -> dict:

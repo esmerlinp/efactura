@@ -21,15 +21,15 @@ from app.services.db_service import db_firestore, firebase_initialized
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
-def _offboard_collection(owner_uid: str, sub: str, sandbox: bool = True) -> str:
+def _offboard_collection(company_id: str, sub: str, sandbox: bool = True) -> str:
     prefix = "sandbox_" if sandbox else ""
-    return f"users/{owner_uid}/{prefix}hr_{sub}"
+    return f"companies/{company_id}/{prefix}hr_{sub}"
 
 
-def _collection(sub: str, owner_uid: str, sandbox: bool):
+def _collection(sub: str, company_id: str, sandbox: bool):
     if not firebase_initialized or db_firestore is None:
         raise RuntimeError("Firestore no inicializado para OffboardingDataService")
-    return db_firestore.collection(_offboard_collection(owner_uid, sub, sandbox))
+    return db_firestore.collection(_offboard_collection(company_id, sub, sandbox))
 
 
 def _now() -> str:
@@ -38,10 +38,10 @@ def _now() -> str:
 
 # ── CRUD genérico para cualquier colección "sub" ──────────────────────────
 
-def get_all(sub: str, owner_uid: str, sandbox: bool = True,
+def get_all(sub: str, company_id: str, sandbox: bool = True,
             order_by: str = "createdAt", direction: str = "DESCENDING",
             limit: int = 100, where_filters: list[tuple] = None) -> list[dict]:
-    coll = _collection(sub, owner_uid, sandbox)
+    coll = _collection(sub, company_id, sandbox)
     query = coll.order_by(order_by, direction=direction)
     docs = query.limit(limit).get()
     results = [d.to_dict() for d in docs]
@@ -52,14 +52,14 @@ def get_all(sub: str, owner_uid: str, sandbox: bool = True,
     return results
 
 
-def get_one(sub: str, doc_id: str, owner_uid: str, sandbox: bool = True) -> Optional[dict]:
-    coll = _collection(sub, owner_uid, sandbox)
+def get_one(sub: str, doc_id: str, company_id: str, sandbox: bool = True) -> Optional[dict]:
+    coll = _collection(sub, company_id, sandbox)
     doc = coll.document(doc_id).get()
     return doc.to_dict() if doc.exists else None
 
 
-def save(sub: str, doc_id: str, data: dict, owner_uid: str, sandbox: bool = True) -> str:
-    coll = _collection(sub, owner_uid, sandbox)
+def save(sub: str, doc_id: str, data: dict, company_id: str, sandbox: bool = True) -> str:
+    coll = _collection(sub, company_id, sandbox)
     data["updatedAt"] = _now()
     existing = coll.document(doc_id).get()
     if existing.exists:
@@ -73,27 +73,27 @@ def save(sub: str, doc_id: str, data: dict, owner_uid: str, sandbox: bool = True
     return doc_id
 
 
-def delete(sub: str, doc_id: str, owner_uid: str, sandbox: bool = True) -> bool:
-    coll = _collection(sub, owner_uid, sandbox)
+def delete(sub: str, doc_id: str, company_id: str, sandbox: bool = True) -> bool:
+    coll = _collection(sub, company_id, sandbox)
     coll.document(doc_id).delete()
     return True
 
 
 # ── Helpers específicos ────────────────────────────────────────────────────
 
-def get_request(request_id: str, owner_uid: str, sandbox: bool = True) -> Optional[dict]:
-    return get_one("offboarding_requests", request_id, owner_uid, sandbox)
+def get_request(request_id: str, company_id: str, sandbox: bool = True) -> Optional[dict]:
+    return get_one("offboarding_requests", request_id, company_id, sandbox)
 
 
-def save_request(request_id: str, data: dict, owner_uid: str, sandbox: bool = True) -> str:
-    return save("offboarding_requests", request_id, data, owner_uid, sandbox)
+def save_request(request_id: str, data: dict, company_id: str, sandbox: bool = True) -> str:
+    return save("offboarding_requests", request_id, data, company_id, sandbox)
 
 
-def list_requests(owner_uid: str, sandbox: bool = True,
+def list_requests(company_id: str, sandbox: bool = True,
                   status: str = None, limit: int = 100) -> list[dict]:
     filters = None
     if status:
         filters = [("status", "==", status)]
-    return get_all("offboarding_requests", owner_uid, sandbox,
+    return get_all("offboarding_requests", company_id, sandbox,
                    order_by="createdAt", direction="DESCENDING",
                    limit=limit, where_filters=filters)

@@ -30,7 +30,7 @@ def get_accounts():
       200:
         description: Operación exitosa
     """
-    accounts = DatabaseService.get_chart_of_accounts(g.owner_uid)
+    accounts = DatabaseService.get_chart_of_accounts(g.owner_uid, company_id=g.company_id)
     return jsonify({"success": True, "accounts": accounts})
 
 
@@ -101,7 +101,7 @@ def create_account():
         "createdAt": datetime.now(timezone.utc).isoformat(),
         "updatedAt": datetime.now(timezone.utc).isoformat(),
     }
-    DatabaseService.save_account(g.owner_uid, account_id, account)
+    DatabaseService.save_account(g.owner_uid, account_id, account, company_id=g.company_id)
     return jsonify({"success": True, "account": account}), 201
 
 
@@ -155,14 +155,14 @@ def update_account(account_id):
         description: Cuenta no encontrada
     """
     data = request.get_json() or {}
-    account = DatabaseService.get_account(g.owner_uid, account_id)
+    account = DatabaseService.get_account(g.owner_uid, account_id, company_id=g.company_id)
     if not account:
         return jsonify({"success": False, "error": "Cuenta no encontrada"}), 404
     for field in ("code", "name", "type", "nature", "group", "description", "usage", "showByThirdParty", "orderIdx"):
         if field in data:
             account[field] = data[field]
     account["updatedAt"] = datetime.now(timezone.utc).isoformat()
-    DatabaseService.save_account(g.owner_uid, account_id, account)
+    DatabaseService.save_account(g.owner_uid, account_id, account, company_id=g.company_id)
     return jsonify({"success": True, "account": account})
 
 
@@ -193,12 +193,12 @@ def delete_account(account_id):
       404:
         description: Cuenta no encontrada
     """
-    account = DatabaseService.get_account(g.owner_uid, account_id)
+    account = DatabaseService.get_account(g.owner_uid, account_id, company_id=g.company_id)
     if not account:
         return jsonify({"success": False, "error": "Cuenta no encontrada"}), 404
     if account.get("isSystem"):
         return jsonify({"success": False, "error": "No se puede eliminar una cuenta regla"}), 400
-    DatabaseService.delete_account(g.owner_uid, account_id)
+    DatabaseService.delete_account(g.owner_uid, account_id, company_id=g.company_id)
     return jsonify({"success": True, "message": "Cuenta eliminada"})
 
 
@@ -223,7 +223,7 @@ def get_entries():
         description: Operación exitosa
     """
     sandbox = g.get('sandbox_mode', True)
-    entries = DatabaseService.get_accounting_entries(g.owner_uid, sandbox=sandbox)
+    entries = DatabaseService.get_accounting_entries(g.owner_uid, company_id=g.company_id, sandbox=sandbox)
     return jsonify({"success": True, "entries": entries})
 
 
@@ -277,7 +277,7 @@ def create_entry():
     sandbox = g.get('sandbox_mode', True)
     data = request.get_json() or {}
     try:
-        entry = AccountingService.generate_entry(g.owner_uid, {
+        entry = AccountingService.generate_entry(g.company_id, {
             "entryType": data.get("entryType", "standard"),
             "typeId": data.get("typeId"),
             "date": data.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
@@ -320,7 +320,7 @@ def get_entry(entry_id):
         description: Asiento no encontrado
     """
     sandbox = g.get('sandbox_mode', True)
-    entry = DatabaseService.get_accounting_entry(g.owner_uid, entry_id, sandbox=sandbox)
+    entry = DatabaseService.get_accounting_entry(g.owner_uid, entry_id, company_id=g.company_id, sandbox=sandbox)
     if not entry:
         return jsonify({"success": False, "error": "Asiento no encontrado"}), 404
     return jsonify({"success": True, "entry": entry})
@@ -353,7 +353,7 @@ def balance_sheet():
         description: Operación exitosa
     """
     date = request.args.get('date', '')
-    result = AccountingService.get_balance_sheet(g.owner_uid, date=date or None)
+    result = AccountingService.get_balance_sheet(g.company_id, date=date or None)
     return jsonify({"success": True, "result": result})
 
 
@@ -387,7 +387,7 @@ def income_statement():
     """
     date_from = request.args.get('dateFrom', '')
     date_to = request.args.get('dateTo', '')
-    result = AccountingService.get_income_statement(g.owner_uid, date_from=date_from or None, date_to=date_to or None)
+    result = AccountingService.get_income_statement(g.company_id, date_from=date_from or None, date_to=date_to or None)
     return jsonify({"success": True, "result": result})
 
 
@@ -415,7 +415,7 @@ def trial_balance():
         description: Operación exitosa
     """
     date = request.args.get('date', '')
-    result = AccountingService.get_trial_balance(g.owner_uid, date=date or None)
+    result = AccountingService.get_trial_balance(g.company_id, date=date or None)
     return jsonify({"success": True, "result": result})
 
 
@@ -440,7 +440,7 @@ def get_fixed_assets():
         description: Operación exitosa
     """
     sandbox = g.get('sandbox_mode', True)
-    assets = DatabaseService.get_fixed_assets(g.owner_uid, sandbox=sandbox)
+    assets = DatabaseService.get_fixed_assets(g.owner_uid, company_id=g.company_id, sandbox=sandbox)
     return jsonify({"success": True, "assets": assets})
 
 

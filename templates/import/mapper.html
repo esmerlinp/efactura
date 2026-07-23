@@ -272,6 +272,10 @@
         border-color: rgba(245, 158, 11, 0.2);
         background: rgba(245, 158, 11, 0.03);
     }
+    .mini-preview.preview-all {
+        border-color: rgba(59, 130, 246, 0.2);
+        background: rgba(59, 130, 246, 0.04);
+    }
     [data-theme="dark"] .mini-preview {
         background: rgba(255, 255, 255, 0.03);
     }
@@ -282,6 +286,26 @@
     [data-theme="dark"] .mini-preview.preview-default {
         background: rgba(251, 191, 36, 0.05);
         border-color: rgba(251, 191, 36, 0.2);
+    }
+    [data-theme="dark"] .mini-preview.preview-all {
+        background: rgba(96, 165, 250, 0.05);
+        border-color: rgba(96, 165, 250, 0.2);
+    }
+
+    .default-all-inline {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 5px;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+    }
+    .default-all-inline input[type="checkbox"] {
+        margin: 0;
+        cursor: pointer;
     }
 
     .summary-banner {
@@ -582,8 +606,11 @@
                         </div>
                         <div class="default-value-wrapper">
                             <input type="text" name="default_{{ field.id }}" id="default_{{ field.id }}"
-                                class="form-control default-input" placeholder="Valor por defecto"
-                                style="width: 100%;">
+                                class="form-control default-input" placeholder="Valor por defecto">
+                            <label class="default-all-inline">
+                                <input type="checkbox" name="default_all_{{ field.id }}" id="default_all_{{ field.id }}">
+                                A todos
+                            </label>
                         </div>
                     </div>
                     {% endfor %}
@@ -630,8 +657,11 @@
                         </div>
                         <div class="default-value-wrapper">
                             <input type="text" name="default_{{ field.id }}" id="default_{{ field.id }}"
-                                class="form-control default-input" placeholder="Valor por defecto"
-                                style="width: 100%;">
+                                class="form-control default-input" placeholder="Valor por defecto">
+                            <label class="default-all-inline">
+                                <input type="checkbox" name="default_all_{{ field.id }}" id="default_all_{{ field.id }}">
+                                A todos
+                            </label>
                         </div>
                     </div>
                     {% endfor %}
@@ -745,13 +775,21 @@
             const previewVal = document.getElementById(`preview-val_${fieldId}`);
             const previewContainer = document.getElementById(`preview_${fieldId}`);
             const defaultInput = document.getElementById(`default_${fieldId}`);
+            const applyAllCheck = document.getElementById(`default_all_${fieldId}`);
             if (!select || !previewVal || !previewContainer) return;
 
             const selectedValue = select.value;
             const defaultValue = defaultInput ? defaultInput.value.trim() : '';
+            const applyToAll = applyAllCheck ? applyAllCheck.checked : false;
 
-            previewContainer.classList.remove('preview-valid', 'preview-default');
+            previewContainer.classList.remove('preview-valid', 'preview-default', 'preview-all');
             previewVal.classList.remove('mini-preview-empty');
+
+            if (defaultValue && applyToAll) {
+                previewVal.textContent = '🔁 ' + defaultValue;
+                previewContainer.classList.add('preview-all');
+                return;
+            }
 
             if (selectedValue) {
                 const colIdx = parseInt(selectedValue);
@@ -815,15 +853,18 @@
             targetFields.forEach(field => {
                 const select = document.getElementById(`select_${field.id}`);
                 const defaultInput = document.getElementById(`default_${field.id}`);
+                const applyAllCheck = document.getElementById(`default_all_${field.id}`);
                 const selectValue = select ? select.value : '';
                 const defaultValue = defaultInput ? defaultInput.value.trim() : '';
+                const applyToAll = applyAllCheck ? applyAllCheck.checked : false;
 
                 if (selectValue !== '' || defaultValue !== '') {
                     activeMappings.push({
                         id: field.id,
                         name: field.name,
                         csvIndex: selectValue !== '' ? parseInt(selectValue) : null,
-                        defaultValue: defaultValue
+                        defaultValue: defaultValue,
+                        applyToAll: applyToAll
                     });
                 }
             });
@@ -860,7 +901,9 @@
                     if (mapping.csvIndex !== null && mapping.csvIndex < row.length) {
                         val = row[mapping.csvIndex].trim();
                     }
-                    if (!val) {
+                    if (mapping.applyToAll && mapping.defaultValue) {
+                        val = mapping.defaultValue;
+                    } else if (!val) {
                         val = mapping.defaultValue;
                     }
                     td.textContent = val;
@@ -883,6 +926,14 @@
                 const defaultInput = document.getElementById(`default_${field.id}`);
                 if (defaultInput) {
                     defaultInput.addEventListener('input', function () {
+                        updateMiniPreview(field.id);
+                        updatePreviewTable();
+                        updateCounter();
+                    });
+                }
+                const applyAllCheck = document.getElementById(`default_all_${field.id}`);
+                if (applyAllCheck) {
+                    applyAllCheck.addEventListener('change', function () {
                         updateMiniPreview(field.id);
                         updatePreviewTable();
                         updateCounter();

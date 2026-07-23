@@ -39,18 +39,18 @@ def _today_es():
     return f"{today.day} de {MONTHS_ES_FULL[today.month]} del año {today.year}"
 
 
-def _generate_reference_code(owner_uid, sandbox):
-    profile = DatabaseService.get_company_profile(owner_uid)
+def _generate_reference_code(owner_uid, sandbox, company_id=None):
+    profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     seq = profile.get("nextCertificateNumber", 1)
     year = date.today().year
     code = f"CT-{year}-{seq:04d}"
     profile["nextCertificateNumber"] = seq + 1
-    DatabaseService.save_company_profile(owner_uid, profile)
+    DatabaseService.save_company_profile(owner_uid, profile, company_id=company_id)
     return code
 
 
 def _compute_avg_commission(owner_uid, employee_id, sandbox):
-    periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
+    periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
     commissions = []
     for p in periods:
         for line in p.get("lines", []):
@@ -61,8 +61,8 @@ def _compute_avg_commission(owner_uid, employee_id, sandbox):
     return sum(commissions) / len(commissions) if commissions else 0.0
 
 
-def _get_company_data(owner_uid):
-    profile = DatabaseService.get_company_profile(owner_uid) or {}
+def _get_company_data(owner_uid, company_id=None):
+    profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
     return {
         "companyName": profile.get("companyName", ""),
         "tradeName": profile.get("tradeName", ""),
@@ -89,15 +89,15 @@ def _get_company_data(owner_uid):
 def employee_certificate(employee_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    employee = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
+    employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
     if not employee:
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_list"))
 
-    company = _get_company_data(owner_uid)
-    certificates = [c for c in hr.get_work_certificates(owner_uid, sandbox=sandbox)
+    company = _get_company_data(owner_uid, company_id)
+    certificates = [c for c in hr.get_work_certificates(company_id, sandbox=sandbox)
                     if c.get("employeeId") == employee_id]
     certificates.sort(key=lambda c: c.get("generatedAt", ""), reverse=True)
 
@@ -115,9 +115,9 @@ def employee_certificate(employee_id):
 def certificate_generate(employee_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    employee = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
+    employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
     if not employee:
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_list"))
@@ -128,7 +128,7 @@ def certificate_generate(employee_id):
         addressee = "A QUIEN PUEDA INTERESAR"
     issue_city = request.form.get("issueCity", "").strip()
 
-    company = _get_company_data(owner_uid)
+    company = _get_company_data(owner_uid, company_id)
     if not issue_city:
         issue_city = company.get("municipality") or company.get("province") or "Santo Domingo"
 
@@ -137,7 +137,7 @@ def certificate_generate(employee_id):
     monthly_income = base_salary + avg_commission
     income_words = numero_a_letras(monthly_income)
 
-    reference_code = _generate_reference_code(owner_uid, sandbox)
+    reference_code = _generate_reference_code(owner_uid, sandbox, company_id)
     verification_code = secrets.token_urlsafe(16)
     issue_date = date.today().isoformat()
 
@@ -180,7 +180,7 @@ def certificate_generate(employee_id):
         "generatedAt": datetime.now(timezone.utc).isoformat(),
     }
 
-    hr.save_work_certificate(owner_uid, cert, sandbox=sandbox)
+    hr.save_work_certificate(company_id, cert, sandbox=sandbox)
 
     flash(f"Carta de Trabajo {reference_code} generada exitosamente.", "success")
     return redirect(url_for("web_rrhh.employee_certificate", employee_id=employee_id,
@@ -195,14 +195,14 @@ def certificate_generate(employee_id):
 def certificate_pdf(employee_id, cert_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    employee = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
-    cert = hr.get_work_certificate(owner_uid, cert_id, sandbox=sandbox)
+    employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
+    cert = hr.get_work_certificate(company_id, cert_id, sandbox=sandbox)
     if not employee or not cert:
         return "Certificado o empleado no encontrado.", 404
 
-    company = _get_company_data(owner_uid)
+    company = _get_company_data(owner_uid, company_id)
 
     qr_url = url_for("web_rrhh.certificate_verify", code=cert["verificationCode"], _external=True)
     qr = qrcode.QRCode(version=1, box_size=10, border=0)
@@ -237,10 +237,10 @@ def certificate_pdf(employee_id, cert_id):
 def certificate_email(employee_id, cert_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    employee = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
-    cert = hr.get_work_certificate(owner_uid, cert_id, sandbox=sandbox)
+    employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
+    cert = hr.get_work_certificate(company_id, cert_id, sandbox=sandbox)
     if not employee or not cert:
         flash("Certificado o empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_certificate", employee_id=employee_id))
@@ -250,7 +250,7 @@ def certificate_email(employee_id, cert_id):
         flash("El empleado no tiene un correo electrónico registrado.", "error")
         return redirect(url_for("web_rrhh.employee_certificate", employee_id=employee_id))
 
-    company = _get_company_data(owner_uid)
+    company = _get_company_data(owner_uid, company_id)
 
     qr_url = url_for("web_rrhh.certificate_verify", code=cert["verificationCode"], _external=True)
     qr = qrcode.QRCode(version=1, box_size=10, border=0)
@@ -307,9 +307,9 @@ def certificate_email(employee_id, cert_id):
 def certificate_revoke(employee_id, cert_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    cert = hr.get_work_certificate(owner_uid, cert_id, sandbox=sandbox)
+    cert = hr.get_work_certificate(company_id, cert_id, sandbox=sandbox)
     if not cert:
         flash("Certificado no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_certificate", employee_id=employee_id))
@@ -317,7 +317,7 @@ def certificate_revoke(employee_id, cert_id):
     cert["status"] = "revoked"
     cert["revokedAt"] = datetime.now(timezone.utc).isoformat()
     cert["revokedBy"] = session.get("user", {}).get("email", "")
-    hr.save_work_certificate(owner_uid, cert, sandbox=sandbox)
+    hr.save_work_certificate(company_id, cert, sandbox=sandbox)
 
     flash(f"Certificado {cert['referenceCode']} revocado.", "success")
     return redirect(url_for("web_rrhh.employee_certificate", employee_id=employee_id))

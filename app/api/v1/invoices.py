@@ -119,7 +119,7 @@ def emit_invoice():
         data = request.json or {}
         idempotency_key = request.headers.get('Idempotency-Key') or data.get('idempotency_key')
         if idempotency_key:
-            record = DatabaseService.get_idempotency_record(g.owner_uid, idempotency_key, sandbox=g.sandbox_mode)
+            record = DatabaseService.get_idempotency_record(g.owner_uid, idempotency_key, company_id=g.company_id, sandbox=g.sandbox_mode)
             if record and record.get("response"):
                 status_code = int(record.get("statusCode", 200))
                 return jsonify(record["response"]), status_code
@@ -206,11 +206,11 @@ def emit_invoice():
             user_email = g.company.get("companyEmail", "api@vykcore.com")
             
             # Bloquear secuencia y generar consecutivo transaccionalmente en Firestore
-            encf, log_id = DatabaseService.consume_next_sequence(g.owner_uid, ecf_short, user_email, sandbox=g.sandbox_mode)
+            encf, log_id = DatabaseService.consume_next_sequence(g.owner_uid, ecf_short, user_email, company_id=g.company_id, sandbox=g.sandbox_mode)
             invoice_dict["encf"] = encf
 
         # 1. Guardar localmente / Firebase
-        DatabaseService.save_invoice(g.owner_uid, invoice_id, invoice_dict, sandbox=g.sandbox_mode)
+        DatabaseService.save_invoice(g.owner_uid, invoice_id, invoice_dict, company_id=g.company_id, sandbox=g.sandbox_mode)
         
         # 2. Emitir vía Alanube / DGII Direct
         company = g.company
@@ -231,12 +231,12 @@ def emit_invoice():
             invoice_dict["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
             
             # Guardamos con el estado final actualizado
-            DatabaseService.save_invoice(g.owner_uid, invoice_id, invoice_dict, sandbox=g.sandbox_mode)
+            DatabaseService.save_invoice(g.owner_uid, invoice_id, invoice_dict, company_id=g.company_id, sandbox=g.sandbox_mode)
 
             # Generar asiento contable automático
             try:
                 from app.services.accounting_service import AccountingService
-                AccountingService.auto_generate_invoice_entry(g.owner_uid, invoice_dict, sandbox=g.sandbox_mode)
+                AccountingService.auto_generate_invoice_entry(g.company_id, invoice_dict, sandbox=g.sandbox_mode)
             except Exception as exc:
                 import logging
                 logging.getLogger(__name__).warning(f"Asiento contable API no generado: {exc}")
@@ -269,7 +269,7 @@ def emit_invoice():
                 "total": invoice_dict["total"]
             }
             try:
-                logs = DatabaseService.get_sequence_logs(g.owner_uid, sandbox=g.sandbox_mode)
+                logs = DatabaseService.get_sequence_logs(g.owner_uid, company_id=g.company_id, sandbox=g.sandbox_mode)
                 log = next((l for l in logs if l.get("encf") == invoice_dict.get("encf")), None)
                 if log:
                     cuadratura = DGIIService.check_tolerancia_cuadratura(invoice_dict.get("items", []), invoice_dict.get("total", 0.0))
@@ -283,7 +283,7 @@ def emit_invoice():
                         "motivo": res.get("message") or "Emisión API",
                         "xmlEnviado": json.dumps(res.get("requestPayload"), indent=2) if res.get("requestPayload") else "",
                         "respuestaDGII": json.dumps(res.get("responseBody"), indent=2) if res.get("responseBody") else ""
-                    }, sandbox=g.sandbox_mode)
+                    }, company_id=g.company_id, sandbox=g.sandbox_mode)
             except Exception as log_err:
                 print(f"⚠️ Error al actualizar log de secuencia en API: {log_err}")
             if idempotency_key:
@@ -291,16 +291,16 @@ def emit_invoice():
                     "response": response_body,
                     "statusCode": 200,
                     "invoiceId": invoice_id
-                }, sandbox=g.sandbox_mode)
+                }, company_id=g.company_id, sandbox=g.sandbox_mode)
             return jsonify(response_body)
         else:
             invoice_dict["status"] = "Rechazada"
             invoice_dict["dgiiStatus"] = "REJECTED"
             invoice_dict["errorDetail"] = res.get("error", "Error desconocido de emisión")
-            DatabaseService.save_invoice(g.owner_uid, invoice_id, invoice_dict, sandbox=g.sandbox_mode)
+            DatabaseService.save_invoice(g.owner_uid, invoice_id, invoice_dict, company_id=g.company_id, sandbox=g.sandbox_mode)
 
             try:
-                logs = DatabaseService.get_sequence_logs(g.owner_uid, sandbox=g.sandbox_mode)
+                logs = DatabaseService.get_sequence_logs(g.owner_uid, company_id=g.company_id, sandbox=g.sandbox_mode)
                 log = next((l for l in logs if l.get("encf") == invoice_dict.get("encf")), None)
                 if log:
                     DatabaseService.update_sequence_log(g.owner_uid, log["id"], {
@@ -308,7 +308,7 @@ def emit_invoice():
                         "motivo": invoice_dict.get("errorDetail") or "Emisión API rechazada",
                         "xmlEnviado": json.dumps(res.get("requestPayload"), indent=2) if res.get("requestPayload") else "",
                         "respuestaDGII": json.dumps(res.get("responseBody"), indent=2) if res.get("responseBody") else ""
-                    }, sandbox=g.sandbox_mode)
+                    }, company_id=g.company_id, sandbox=g.sandbox_mode)
             except Exception as log_err:
                 print(f"⚠️ Error al actualizar log de secuencia en API (rechazo): {log_err}")
             
@@ -322,7 +322,7 @@ def emit_invoice():
                     "response": response_body,
                     "statusCode": 422,
                     "invoiceId": invoice_id
-                }, sandbox=g.sandbox_mode)
+                }, company_id=g.company_id, sandbox=g.sandbox_mode)
             return jsonify(response_body), 422
             
     except Exception as e:
@@ -331,7 +331,7 @@ def emit_invoice():
             DatabaseService.save_idempotency_record(g.owner_uid, idempotency_key, {
                 "response": response_body,
                 "statusCode": 500
-            }, sandbox=g.sandbox_mode)
+            }, company_id=g.company_id, sandbox=g.sandbox_mode)
         return jsonify(response_body), 500
 
 
@@ -365,7 +365,7 @@ def get_invoice_status(invoice_id):
         description: Error interno del servidor
     """
     try:
-        invoices = DatabaseService.get_invoices(g.owner_uid, sandbox=g.sandbox_mode)
+        invoices = DatabaseService.get_invoices(g.owner_uid, company_id=g.company_id, sandbox=g.sandbox_mode)
         invoice = next((inv for inv in invoices if inv['id'] == invoice_id), None)
         
         if not invoice:
@@ -425,7 +425,7 @@ def cancel_invoice(invoice_id):
         description: Error interno del servidor
     """
     try:
-        invoices = DatabaseService.get_invoices(g.owner_uid, sandbox=g.sandbox_mode)
+        invoices = DatabaseService.get_invoices(g.owner_uid, company_id=g.company_id, sandbox=g.sandbox_mode)
         invoice = next((inv for inv in invoices if inv['id'] == invoice_id), None)
         
         if not invoice:
@@ -445,11 +445,11 @@ def cancel_invoice(invoice_id):
         if res.get('success'):
             before_invoice = invoice.copy()
             invoice["status"] = "Anulada"
-            DatabaseService.save_invoice(g.owner_uid, invoice_id, invoice, sandbox=g.sandbox_mode)
+            DatabaseService.save_invoice(g.owner_uid, invoice_id, invoice, company_id=g.company_id, sandbox=g.sandbox_mode)
             try:
                 from app.services.accounting_service import AccountingService
                 AccountingService.auto_reverse_invoice_entry(
-                    g.owner_uid, before_invoice,
+                    g.company_id, before_invoice,
                     reason="Anulación API - " + (data.get('reason', '')),
                     user_id="api",
                     sandbox=g.sandbox_mode
@@ -601,7 +601,7 @@ def get_invoices():
     """
     try:
         is_quotation = request.args.get('is_quotation', 'false').lower() == 'true'
-        invoices = DatabaseService.get_invoices(g.owner_uid, sandbox=g.sandbox_mode, quotations_only=is_quotation)
+        invoices = DatabaseService.get_invoices(g.owner_uid, company_id=g.company_id, sandbox=g.sandbox_mode, quotations_only=is_quotation)
         return jsonify({
             "success": True,
             "invoices": invoices
@@ -632,7 +632,7 @@ def get_documents():
         description: Error interno del servidor
     """
     try:
-        documents = DatabaseService.get_invoices(g.owner_uid, sandbox=g.sandbox_mode, include_all=True)
+        documents = DatabaseService.get_invoices(g.owner_uid, company_id=g.company_id, sandbox=g.sandbox_mode, include_all=True)
         return jsonify({
             "success": True,
             "invoices": documents
@@ -671,7 +671,7 @@ def get_invoice_detail(invoice_id):
         description: Error interno del servidor
     """
     try:
-        invoice = DatabaseService.get_invoice(g.owner_uid, invoice_id, sandbox=g.sandbox_mode)
+        invoice = DatabaseService.get_invoice(g.owner_uid, invoice_id, company_id=g.company_id, sandbox=g.sandbox_mode)
         if not invoice:
             return jsonify({"success": False, "error": "Documento no encontrado."}), 404
         return jsonify({
@@ -840,7 +840,7 @@ def create_draft_invoice():
             "createdAt": datetime.now(timezone.utc).isoformat()
         }
         
-        DatabaseService.save_invoice(g.owner_uid, invoice_id, invoice_dict, sandbox=g.sandbox_mode)
+        DatabaseService.save_invoice(g.owner_uid, invoice_id, invoice_dict, company_id=g.company_id, sandbox=g.sandbox_mode)
         
         return jsonify({
             "success": True,
@@ -934,7 +934,7 @@ def update_invoice(invoice_id):
         description: Error interno del servidor
     """
     try:
-        invoice = DatabaseService.get_invoice(g.owner_uid, invoice_id, sandbox=g.sandbox_mode)
+        invoice = DatabaseService.get_invoice(g.owner_uid, invoice_id, company_id=g.company_id, sandbox=g.sandbox_mode)
         if not invoice:
             return jsonify({"success": False, "error": "Documento no encontrado."}), 404
             
@@ -1006,7 +1006,7 @@ def update_invoice(invoice_id):
             "remainingBalance": calcs["net_payable"] - float(invoice.get('totalPaid', 0.0))
         }
         
-        DatabaseService.save_invoice(g.owner_uid, invoice_id, invoice_dict, sandbox=g.sandbox_mode)
+        DatabaseService.save_invoice(g.owner_uid, invoice_id, invoice_dict, company_id=g.company_id, sandbox=g.sandbox_mode)
         
         return jsonify({
             "success": True,
@@ -1048,7 +1048,7 @@ def delete_invoice(invoice_id):
         description: Error interno del servidor
     """
     try:
-        invoice = DatabaseService.get_invoice(g.owner_uid, invoice_id, sandbox=g.sandbox_mode)
+        invoice = DatabaseService.get_invoice(g.owner_uid, invoice_id, company_id=g.company_id, sandbox=g.sandbox_mode)
         if not invoice:
             return jsonify({"success": False, "error": "Documento no encontrado."}), 404
             
@@ -1056,7 +1056,7 @@ def delete_invoice(invoice_id):
             return jsonify({"success": False, "error": "No se puede eliminar un documento emitido o cobrado."}), 422
             
         # Borrar de Firestore
-        DatabaseService.delete_invoice(g.owner_uid, invoice_id, sandbox=g.sandbox_mode)
+        DatabaseService.delete_invoice(g.owner_uid, invoice_id, company_id=g.company_id, sandbox=g.sandbox_mode)
             
         return jsonify({
             "success": True,
@@ -1092,7 +1092,7 @@ def get_items():
         description: Error interno del servidor
     """
     try:
-        items = DatabaseService.get_items(g.owner_uid, sandbox=g.sandbox_mode)
+        items = DatabaseService.get_items(g.owner_uid, company_id=g.company_id, sandbox=g.sandbox_mode)
         return jsonify({"success": True, "items": items})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -1176,7 +1176,7 @@ def create_item():
             "totalStock": float(data.get('total_stock', data.get('totalStock', 0.0)))
         }
         
-        DatabaseService.save_item(g.owner_uid, item_id, item_dict, sandbox=g.sandbox_mode)
+        DatabaseService.save_item(g.owner_uid, item_id, item_dict, company_id=g.company_id, sandbox=g.sandbox_mode)
         
         return jsonify({
             "success": True,
@@ -1250,7 +1250,7 @@ def update_item(item_id):
         description: Error interno del servidor
     """
     try:
-        items = DatabaseService.get_items(g.owner_uid, sandbox=g.sandbox_mode)
+        items = DatabaseService.get_items(g.owner_uid, company_id=g.company_id, sandbox=g.sandbox_mode)
         item = next((i for i in items if i['id'] == item_id), None)
         if not item:
             return jsonify({"success": False, "error": "Artículo no encontrado."}), 404
@@ -1269,7 +1269,7 @@ def update_item(item_id):
             "totalStock": float(data.get('total_stock', data.get('totalStock', item.get('totalStock'))))
         }
         
-        DatabaseService.save_item(g.owner_uid, item_id, item_dict, sandbox=g.sandbox_mode)
+        DatabaseService.save_item(g.owner_uid, item_id, item_dict, company_id=g.company_id, sandbox=g.sandbox_mode)
         
         return jsonify({
             "success": True,
@@ -1307,7 +1307,7 @@ def delete_item_route(item_id):
         description: Error interno del servidor
     """
     try:
-        DatabaseService.delete_item(g.owner_uid, item_id, sandbox=g.sandbox_mode)
+        DatabaseService.delete_item(g.owner_uid, item_id, company_id=g.company_id, sandbox=g.sandbox_mode)
         return jsonify({"success": True, "message": "Artículo eliminado exitosamente."})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -1339,7 +1339,7 @@ def get_expenses():
         description: Error interno del servidor
     """
     try:
-        expenses = DatabaseService.get_expenses(g.owner_uid, sandbox=g.sandbox_mode)
+        expenses = DatabaseService.get_expenses(g.owner_uid, company_id=g.company_id, sandbox=g.sandbox_mode)
         return jsonify({"success": True, "expenses": expenses})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -1481,11 +1481,11 @@ def create_expense():
             "projectId": data.get('projectId', data.get('project_id', g.get('project_id') or None))
         }
         
-        DatabaseService.save_expense(g.owner_uid, expense_id, expense_dict, sandbox=g.sandbox_mode)
+        DatabaseService.save_expense(g.owner_uid, expense_id, expense_dict, company_id=g.company_id, sandbox=g.sandbox_mode)
         
         try:
             from app.services.accounting_service import AccountingService
-            AccountingService.auto_generate_expense_entry(g.owner_uid, expense_dict, sandbox=g.sandbox_mode)
+            AccountingService.auto_generate_expense_entry(g.company_id, expense_dict, sandbox=g.sandbox_mode)
         except Exception:
             pass
         
@@ -1585,7 +1585,7 @@ def update_expense(expense_id):
         description: Error interno del servidor
     """
     try:
-        expenses = DatabaseService.get_expenses(g.owner_uid, sandbox=g.sandbox_mode)
+        expenses = DatabaseService.get_expenses(g.owner_uid, company_id=g.company_id, sandbox=g.sandbox_mode)
         expense = next((e for e in expenses if e['id'] == expense_id), None)
         if not expense:
             return jsonify({"success": False, "error": "Gasto no encontrado."}), 404
@@ -1627,7 +1627,7 @@ def update_expense(expense_id):
             "approvedBy": data.get('approvedBy', data.get('approved_by', expense.get('approvedBy', ''))),
         }
         
-        DatabaseService.save_expense(g.owner_uid, expense_id, expense_dict, sandbox=g.sandbox_mode)
+        DatabaseService.save_expense(g.owner_uid, expense_id, expense_dict, company_id=g.company_id, sandbox=g.sandbox_mode)
         
         return jsonify({
             "success": True,
@@ -1742,7 +1742,7 @@ def delete_expense_route(expense_id):
         description: Error interno del servidor
     """
     try:
-        DatabaseService.delete_expense(g.owner_uid, expense_id, sandbox=g.sandbox_mode)
+        DatabaseService.delete_expense(g.owner_uid, expense_id, company_id=g.company_id, sandbox=g.sandbox_mode)
         return jsonify({"success": True, "message": "Gasto eliminado exitosamente."})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -1775,8 +1775,8 @@ def get_dashboard_summary():
         description: Error interno del servidor
     """
     try:
-        invoices = DatabaseService.get_invoices(g.owner_uid, sandbox=g.sandbox_mode)
-        expenses = DatabaseService.get_expenses(g.owner_uid, sandbox=g.sandbox_mode)
+        invoices = DatabaseService.get_invoices(g.owner_uid, company_id=g.company_id, sandbox=g.sandbox_mode)
+        expenses = DatabaseService.get_expenses(g.owner_uid, company_id=g.company_id, sandbox=g.sandbox_mode)
         
         real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador']]
         
@@ -1879,11 +1879,11 @@ def send_receipt_endpoint(invoice_id):
         if not recipient_email:
             return jsonify({"success": False, "error": "Dirección de email no especificada."}), 400
 
-        invoice = DatabaseService.get_invoice(g.owner_uid, invoice_id, sandbox=g.sandbox_mode)
+        invoice = DatabaseService.get_invoice(g.owner_uid, invoice_id, company_id=g.company_id, sandbox=g.sandbox_mode)
         if not invoice:
             return jsonify({"success": False, "error": "Factura no encontrada."}), 404
 
-        company = DatabaseService.get_company_profile(g.owner_uid)
+        company = DatabaseService.get_company_profile(g.owner_uid, company_id=g.company_id)
 
         payment_id      = data.get("paymentId", "")
         payment_date    = data.get("paymentDate", datetime.now(timezone.utc).strftime('%Y-%m-%d'))
@@ -1981,11 +1981,11 @@ def send_invoice_email_endpoint(invoice_id):
         if not recipient_email:
             return jsonify({"success": False, "error": "Dirección de correo no especificada."}), 400
 
-        invoice = DatabaseService.get_invoice(g.owner_uid, invoice_id, sandbox=g.sandbox_mode)
+        invoice = DatabaseService.get_invoice(g.owner_uid, invoice_id, company_id=g.company_id, sandbox=g.sandbox_mode)
         if not invoice:
             return jsonify({"success": False, "error": "Factura no encontrada."}), 404
 
-        company = DatabaseService.get_company_profile(g.owner_uid)
+        company = DatabaseService.get_company_profile(g.owner_uid, company_id=g.company_id)
 
         from flask import current_app as app
 
@@ -2071,7 +2071,7 @@ def get_company_plan_consumption():
         company = g.company
         
         billing_day = company.get('billingDay', 1)
-        plan_stats = DatabaseService.get_invoice_stats(owner_uid, billing_day)
+        plan_stats = DatabaseService.get_invoice_stats(owner_uid, billing_day, company_id=g.company_id)
         
         docs_used = plan_stats['sandbox_current_cycle'] if sandbox else plan_stats['prod_current_cycle']
         docs_limit = int(company.get('documentLimit', 100)) if company.get('documentLimit') else 100
@@ -2166,7 +2166,7 @@ def register_payment(invoice_id):
             "registeredBy": g.user_email if hasattr(g, 'user_email') else "API",
         }
         from app.services.db_service import DatabaseService
-        DatabaseService.register_invoice_payment(g.owner_uid, invoice_id, payment_dict, sandbox=g.sandbox_mode)
+        DatabaseService.register_invoice_payment(g.owner_uid, invoice_id, payment_dict, company_id=g.company_id, sandbox=g.sandbox_mode)
         return jsonify({"success": True, "message": "Pago registrado exitosamente."})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -2227,7 +2227,7 @@ def create_credit_note(invoice_id):
     """
     try:
         from app.services.db_service import DatabaseService
-        original = DatabaseService.get_invoice(g.owner_uid, invoice_id, sandbox=g.sandbox_mode)
+        original = DatabaseService.get_invoice(g.owner_uid, invoice_id, company_id=g.company_id, sandbox=g.sandbox_mode)
         if not original:
             return jsonify({"success": False, "error": "Factura original no encontrada."}), 404
         data = request.get_json(force=True) or {}
@@ -2263,7 +2263,7 @@ def create_credit_note(invoice_id):
             "notes": data.get("notes", ""),
             "branchId": original.get("branchId", "default-sucursal-principal"),
         }
-        DatabaseService.save_invoice(g.owner_uid, note_id, note_dict, sandbox=g.sandbox_mode)
+        DatabaseService.save_invoice(g.owner_uid, note_id, note_dict, company_id=g.company_id, sandbox=g.sandbox_mode)
         return jsonify({"success": True, "creditNoteId": note_id, "message": "Nota de crédito creada."})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500

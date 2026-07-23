@@ -15,10 +15,10 @@ from app.services import hr_data_service as hr
 def org_chart():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    employees = [e for e in hr.get_employees(owner_uid, sandbox=sandbox) if e.get("status") == "activo"]
+    employees = [e for e in hr.get_employees(company_id, sandbox=sandbox) if e.get("status") == "activo"]
     emp_map = {e["id"]: e for e in employees}
 
     for e in employees:
@@ -41,7 +41,7 @@ def org_chart():
 def team_calendar():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
     try:
@@ -50,9 +50,9 @@ def team_calendar():
     except (ValueError, TypeError):
         year, month = date.today().year, date.today().month
 
-    vacations = hr.get_vacation_requests(owner_uid, sandbox=sandbox)
-    leaves = hr.get_leave_requests(owner_uid, sandbox=sandbox)
-    employees = {e["id"]: e for e in hr.get_employees(owner_uid, sandbox=sandbox)}
+    vacations = hr.get_vacation_requests(company_id, sandbox=sandbox)
+    leaves = hr.get_leave_requests(company_id, sandbox=sandbox)
+    employees = {e["id"]: e for e in hr.get_employees(company_id, sandbox=sandbox)}
 
     events = []
     for v in vacations:

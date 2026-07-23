@@ -18,14 +18,14 @@ import csv, io
 def _enrich_periods(periods, owner_uid, sandbox):
     """Inyecta líneas desde subcolección a cada período para compatibilidad con templates."""
     for p in periods:
-        p["lines"] = PayrollService.get_period_lines(p, owner_uid=owner_uid, sandbox=sandbox)
+        p["lines"] = PayrollService.get_period_lines(p, company_id=company_id, sandbox=sandbox)
     return periods
 
 
 def _enrich_period(period, owner_uid, sandbox):
     """Inyecta líneas desde subcolección a un período."""
     if period:
-        period["lines"] = PayrollService.get_period_lines(period, owner_uid=owner_uid, sandbox=sandbox)
+        period["lines"] = PayrollService.get_period_lines(period, company_id=company_id, sandbox=sandbox)
     return period
 
 
@@ -39,11 +39,11 @@ def _enrich_period(period, owner_uid, sandbox):
 def report_ir18_list():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_ytd_service import get_ytd
 
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    employees = hr.get_employees(company_id, sandbox=sandbox)
     try:
         year = int(request.args.get("year", date.today().year))
     except (ValueError, TypeError):
@@ -53,7 +53,7 @@ def report_ir18_list():
     for emp in employees:
         if emp.get("status") != "activo":
             continue
-        ytd = get_ytd(owner_uid, emp["id"], year, sandbox=sandbox)
+        ytd = get_ytd(company_id, emp["id"], year, sandbox=sandbox)
         if ytd.get("grossIncome", 0) > 0:
             employee_ytds.append({
                 "employee": emp,
@@ -70,11 +70,11 @@ def report_ir18_list():
 def report_ir18_view(employee_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_ytd_service import get_ytd
 
-    employee = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
+    employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
     if not employee:
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_invoices.report_ir18_list"))
@@ -84,7 +84,7 @@ def report_ir18_view(employee_id):
     except (ValueError, TypeError):
         year = date.today().year
 
-    ytd = get_ytd(owner_uid, employee_id, year, sandbox=sandbox)
+    ytd = get_ytd(company_id, employee_id, year, sandbox=sandbox)
     return render_template("rrhh/reports/ir18_detail.html", active_page="rrhh_reports",
                            employee=employee, ytd=ytd, year=year, today=date.today())
 
@@ -104,9 +104,9 @@ def reports_index():
 def report_department():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
-    periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
+    periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
     periods = _enrich_periods(periods, owner_uid, sandbox)
     periods = _enrich_periods(periods, owner_uid, sandbox)
     period_key = request.args.get("period", "")
@@ -132,9 +132,9 @@ def report_department():
 def report_tss():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
-    periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
+    periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
     periods = _enrich_periods(periods, owner_uid, sandbox)
     try:
         year = int(request.args.get("year", date.today().year))
@@ -167,9 +167,9 @@ def report_tss():
 def report_comparative():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
-    periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
+    periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
     periods = _enrich_periods(periods, owner_uid, sandbox)
     periods.sort(key=lambda p: p.get("periodKey", ""), reverse=True)
     p1_key = request.args.get("p1", "")
@@ -214,10 +214,10 @@ def report_comparative():
 def report_net_payroll():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
+    periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
     periods = _enrich_periods(periods, owner_uid, sandbox)
     periods.sort(key=lambda p: p.get("periodKey", ""), reverse=True)
 
@@ -241,11 +241,11 @@ def report_net_payroll():
 def report_net_payroll_export():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
     period_key = request.args.get("period", "")
-    period = hr.get_payroll_period_by_key(owner_uid, period_key, sandbox=sandbox)
+    period = hr.get_payroll_period_by_key(company_id, period_key, sandbox=sandbox)
     period = _enrich_period(period, owner_uid, sandbox)
     if not period:
         flash("Período no encontrado.", "error")
@@ -283,10 +283,10 @@ def report_net_payroll_export():
 def payroll_export_csv(period_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    period = hr.get_payroll_period(owner_uid, period_id, sandbox=sandbox)
+    period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
     period = _enrich_period(period, owner_uid, sandbox)
     if not period:
         flash("Período no encontrado.", "error")
@@ -336,10 +336,10 @@ def payroll_export_csv(period_id):
 def report_isr_retentions():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
+    periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
     periods = _enrich_periods(periods, owner_uid, sandbox)
     try:
         year = int(request.args.get("year", date.today().year))
@@ -375,10 +375,10 @@ def report_isr_retentions():
 def report_isr_retentions_export():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
+    periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
     periods = _enrich_periods(periods, owner_uid, sandbox)
     try:
         year = int(request.args.get("year", date.today().year))
@@ -431,7 +431,7 @@ def report_isr_retentions_export():
 def report_what_if():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_service import PayrollService
 
@@ -440,8 +440,8 @@ def report_what_if():
     filter_dept = request.args.get("department", "")
     filter_area = request.args.get("area", "")
 
-    all_employees = hr.get_employees(owner_uid, sandbox=sandbox)
-    tax_rates = hr.get_tax_rates(owner_uid, sandbox=sandbox)
+    all_employees = hr.get_employees(company_id, sandbox=sandbox)
+    tax_rates = hr.get_tax_rates(company_id, sandbox=sandbox)
     result = None
     departments = sorted(set(e.get("department", e.get("area", "General")) for e in all_employees if e.get("department") or e.get("area")))
 
@@ -468,11 +468,11 @@ def report_what_if():
 def employee_retroactive_pay(employee_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_service import PayrollService
 
-    employee = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
+    employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
     if not employee:
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_list"))
@@ -481,14 +481,14 @@ def employee_retroactive_pay(employee_id):
     if request.method == "POST":
         new_salary = float(request.form.get("new_salary", 0) or 0)
         effective_date = request.form.get("effective_date", "")
-        tax_rates = hr.get_tax_rates(owner_uid, sandbox=sandbox)
-        salary_history = hr.get_salary_history(owner_uid, employee_id, sandbox=sandbox)
+        tax_rates = hr.get_tax_rates(company_id, sandbox=sandbox)
+        salary_history = hr.get_salary_history(company_id, employee_id, sandbox=sandbox)
 
         result = PayrollService.calculate_retroactive_pay(
             employee, salary_history, new_salary, effective_date, tax_rates=tax_rates
         )
 
-    salary_history = hr.get_salary_history(owner_uid, employee_id, sandbox=sandbox)
+    salary_history = hr.get_salary_history(company_id, employee_id, sandbox=sandbox)
     return render_template("rrhh/employee_retroactive.html", active_page="rrhh_employees",
                            employee=employee, result=result, salary_history=salary_history)
 
@@ -503,12 +503,12 @@ def employee_retroactive_pay(employee_id):
 def report_ir18_validation():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services.payroll_service import PayrollService
     from datetime import date
 
     year = int(request.args.get("year", date.today().year))
-    result = PayrollService.validate_ir18_readiness(owner_uid, year=year, sandbox=sandbox)
+    result = PayrollService.validate_ir18_readiness(company_id, year=year, sandbox=sandbox)
 
     return render_template("rrhh/reports/ir18_validation.html", active_page="rrhh_reports",
                            result=result, year=year)

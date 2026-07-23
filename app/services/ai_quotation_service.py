@@ -6,18 +6,18 @@ from app.brand import get_product_name
 
 class AIQuotationService:
     @staticmethod
-    def _get_api_key(owner_uid=None):
+    def _get_api_key(owner_uid=None, company_id=None):
         api_key = Config.OPENAI_API_KEY.strip()
         if api_key and api_key != "YOUR_OPENAI_API_KEY_HERE" and api_key != "":
             return api_key
         if owner_uid:
-            profile = DatabaseService.get_company_profile(owner_uid)
+            profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
             return profile.get("openaiApiKey", "").strip()
         return ""
 
     @classmethod
-    def _call_openai(cls, owner_uid, system_prompt, user_message, temperature=0.3, max_tokens=2000):
-        api_key = cls._get_api_key(owner_uid)
+    def _call_openai(cls, owner_uid, system_prompt, user_message, temperature=0.3, max_tokens=2000, company_id=None):
+        api_key = cls._get_api_key(owner_uid, company_id=company_id)
         if not api_key or api_key == "YOUR_OPENAI_API_KEY_HERE":
             return {"success": False, "message": "API Key de OpenAI no configurada."}
 
@@ -52,7 +52,7 @@ class AIQuotationService:
             return {"success": False, "message": f"Error de IA: {str(e)}"}
 
     @classmethod
-    def generate_full_quotation(cls, owner_uid, user_context, company):
+    def generate_full_quotation(cls, owner_uid, user_context, company, company_id=None):
         product_name = get_product_name()
         today = __import__('datetime').datetime.now().strftime('%d/%m/%Y')
 
@@ -117,7 +117,7 @@ Instrucciones del usuario para la cotización:
 
 Genera la cotización profesional completa en JSON."""
 
-        result = cls._call_openai(owner_uid, system_prompt, user_message, temperature=0.4, max_tokens=3000)
+        result = cls._call_openai(owner_uid, system_prompt, user_message, temperature=0.4, max_tokens=3000, company_id=company_id)
         if not result["success"]:
             return result
 
@@ -137,7 +137,7 @@ Genera la cotización profesional completa en JSON."""
             return {"success": False, "message": "La IA generó una respuesta inválida. Intente de nuevo con más detalles."}
 
     @classmethod
-    def suggest_section(cls, owner_uid, section, context_data):
+    def suggest_section(cls, owner_uid, section, context_data, company_id=None):
         section_names = {
             "scope": "Alcance del Proyecto (incluye/excluye)",
             "deliverables": "Entregables",
@@ -157,4 +157,4 @@ Responde solo con el JSON válido, sin explicaciones."""
 
 Genera el JSON para la sección: {section_name}"""
 
-        return cls._call_openai(owner_uid, system_prompt, user_message, temperature=0.3, max_tokens=1500)
+        return cls._call_openai(owner_uid, system_prompt, user_message, temperature=0.3, max_tokens=1500, company_id=company_id)

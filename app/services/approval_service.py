@@ -26,13 +26,19 @@ class ApprovalService:
         return datetime.now(timezone.utc).isoformat()
 
     @staticmethod
-    def _path(owner_uid: str, rule_id: str = None) -> str:
-        base = f"users/{owner_uid}/approval_rules"
+    def _path(owner_uid: str = None, rule_id: str = None, company_id: str = None) -> str:
+        if company_id:
+            base = f"companies/{company_id}/approval_rules"
+        else:
+            base = f"users/{owner_uid}/approval_rules"
         return f"{base}/{rule_id}" if rule_id else base
 
     @staticmethod
-    def _requests_path(owner_uid: str, request_id: str = None) -> str:
-        base = f"users/{owner_uid}/approval_requests"
+    def _requests_path(owner_uid: str = None, request_id: str = None, company_id: str = None) -> str:
+        if company_id:
+            base = f"companies/{company_id}/approval_requests"
+        else:
+            base = f"users/{owner_uid}/approval_requests"
         return f"{base}/{request_id}" if request_id else base
 
     @staticmethod
@@ -60,12 +66,12 @@ class ApprovalService:
         return normalised
 
     @classmethod
-    def get_rules(cls, owner_uid: str) -> list:
+    def get_rules(cls, owner_uid: str = None, company_id: str = None) -> list:
         db = cls._get_db()
         if not db:
             return []
         try:
-            docs = db.collection(cls._path(owner_uid)).stream()
+            docs = db.collection(cls._path(owner_uid=owner_uid, company_id=company_id)).stream()
             rules = []
             for doc in docs:
                 data = doc.to_dict()
@@ -79,12 +85,12 @@ class ApprovalService:
             return []
 
     @classmethod
-    def get_rule(cls, owner_uid: str, rule_id: str) -> Optional[dict]:
+    def get_rule(cls, owner_uid: str = None, rule_id: str = None, company_id: str = None) -> Optional[dict]:
         db = cls._get_db()
         if not db:
             return None
         try:
-            doc = db.document(cls._path(owner_uid, rule_id)).get()
+            doc = db.document(cls._path(owner_uid=owner_uid, rule_id=rule_id, company_id=company_id)).get()
             if doc.exists:
                 data = doc.to_dict()
                 data["id"] = data.get("id") or doc.id
@@ -96,7 +102,7 @@ class ApprovalService:
         return None
 
     @classmethod
-    def save_rule(cls, owner_uid: str, rule_data: dict) -> dict:
+    def save_rule(cls, owner_uid: str = None, rule_data: dict = None, company_id: str = None) -> dict:
         db = cls._get_db()
         rule_id = rule_data.get("id") or str(uuid4())
         now = cls._now()
@@ -114,19 +120,19 @@ class ApprovalService:
             "updatedAt": now,
         }
         if db:
-            db.document(cls._path(owner_uid, rule_id)).set(rule)
+            db.document(cls._path(owner_uid=owner_uid, rule_id=rule_id, company_id=company_id)).set(rule)
         return rule
 
     @classmethod
-    def delete_rule(cls, owner_uid: str, rule_id: str):
+    def delete_rule(cls, owner_uid: str = None, rule_id: str = None, company_id: str = None):
         db = cls._get_db()
         if db:
-            db.document(cls._path(owner_uid, rule_id)).delete()
+            db.document(cls._path(owner_uid=owner_uid, rule_id=rule_id, company_id=company_id)).delete()
 
     @classmethod
-    def check_needs_approval(cls, owner_uid: str, doc_type: str, amount: float) -> tuple:
+    def check_needs_approval(cls, owner_uid: str = None, doc_type: str = "", amount: float = 0, company_id: str = None) -> tuple:
         applicable = [
-            r for r in cls.get_rules(owner_uid)
+            r for r in cls.get_rules(owner_uid=owner_uid, company_id=company_id)
             if r.get("document_type") == doc_type and r.get("is_active", True) and r.get("approvers")
         ]
         applicable.sort(key=lambda r: float(r.get("min_amount", 0)), reverse=True)
@@ -136,12 +142,12 @@ class ApprovalService:
         return False, None
 
     @classmethod
-    def get_requests(cls, owner_uid: str, status: str = "", approver_id: str = "") -> list:
+    def get_requests(cls, owner_uid: str = None, status: str = "", approver_id: str = "", company_id: str = None) -> list:
         db = cls._get_db()
         if not db:
             return []
         try:
-            query = db.collection(cls._requests_path(owner_uid))
+            query = db.collection(cls._requests_path(owner_uid=owner_uid, company_id=company_id))
             if status:
                 query = query.where("status", "==", status)
             docs = query.stream()
@@ -161,12 +167,12 @@ class ApprovalService:
             return []
 
     @classmethod
-    def get_request(cls, owner_uid: str, request_id: str) -> Optional[dict]:
+    def get_request(cls, owner_uid: str = None, request_id: str = None, company_id: str = None) -> Optional[dict]:
         db = cls._get_db()
         if not db:
             return None
         try:
-            doc = db.document(cls._requests_path(owner_uid, request_id)).get()
+            doc = db.document(cls._requests_path(owner_uid=owner_uid, request_id=request_id, company_id=company_id)).get()
             if doc.exists:
                 data = doc.to_dict()
                 data["id"] = data.get("id") or doc.id
@@ -176,8 +182,8 @@ class ApprovalService:
         return None
 
     @classmethod
-    def _find_open_request(cls, owner_uid: str, doc_type: str, doc_id: str, sandbox: bool) -> Optional[dict]:
-        for req in cls.get_requests(owner_uid, status="pending"):
+    def _find_open_request(cls, owner_uid: str = None, doc_type: str = "", doc_id: str = "", sandbox: bool = True, company_id: str = None) -> Optional[dict]:
+        for req in cls.get_requests(owner_uid=owner_uid, status="pending", company_id=company_id):
             if (
                 req.get("document_type") == doc_type
                 and req.get("document_id") == doc_id
@@ -189,22 +195,23 @@ class ApprovalService:
     @classmethod
     def create_approval_request(
         cls,
-        owner_uid: str,
-        doc_type: str,
-        doc_id: str,
-        doc_number: str,
-        amount: float,
-        requestor: str,
+        owner_uid: str = None,
+        doc_type: str = "",
+        doc_id: str = "",
+        doc_number: str = "",
+        amount: float = 0,
+        requestor: str = "",
         sandbox: bool = True,
         document_url: str = "",
         metadata: Optional[dict] = None,
+        company_id: str = None,
     ):
         db = cls._get_db()
-        needs_approval, rule = cls.check_needs_approval(owner_uid, doc_type, amount)
+        needs_approval, rule = cls.check_needs_approval(owner_uid=owner_uid, doc_type=doc_type, amount=amount, company_id=company_id)
         if not needs_approval:
             return None
 
-        existing = cls._find_open_request(owner_uid, doc_type, doc_id, sandbox)
+        existing = cls._find_open_request(owner_uid=owner_uid, doc_type=doc_type, doc_id=doc_id, sandbox=sandbox, company_id=company_id)
         if existing:
             return existing.get("id")
 
@@ -241,22 +248,23 @@ class ApprovalService:
             "updatedAt": cls._now(),
         }
         if db:
-            db.document(cls._requests_path(owner_uid, request_id)).set(request)
+            db.document(cls._requests_path(owner_uid=owner_uid, request_id=request_id, company_id=company_id)).set(request)
         return request_id
 
     @classmethod
     def prepare_document_approval(
         cls,
-        owner_uid: str,
-        doc_type: str,
-        doc_id: str,
-        document: dict,
+        owner_uid: str = None,
+        doc_type: str = "",
+        doc_id: str = "",
+        document: dict = None,
         amount_field: str = "amount",
         number_field: str = "number",
         sandbox: bool = True,
+        company_id: str = None,
     ) -> dict:
         amount = cls._parse_amount(document.get(amount_field) or document.get("total") or document.get("amount"))
-        needs, _rule = cls.check_needs_approval(owner_uid, doc_type, amount)
+        needs, _rule = cls.check_needs_approval(owner_uid=owner_uid, doc_type=doc_type, amount=amount, company_id=company_id)
         if not needs:
             return document
 
@@ -276,6 +284,7 @@ class ApprovalService:
         )
         req_id = cls.create_approval_request(
             owner_uid=owner_uid,
+            company_id=company_id,
             doc_type=doc_type,
             doc_id=doc_id,
             doc_number=doc_number,
@@ -297,9 +306,9 @@ class ApprovalService:
         return document
 
     @classmethod
-    def get_pending_approvals(cls, owner_uid: str, approver_id: str) -> list:
+    def get_pending_approvals(cls, owner_uid: str = None, approver_id: str = "", company_id: str = None) -> list:
         pending = []
-        for data in cls.get_requests(owner_uid, status="pending"):
+        for data in cls.get_requests(owner_uid=owner_uid, status="pending", company_id=company_id):
             for step in data.get("steps", []):
                 if step.get("approver_id") == approver_id and step.get("status") == "pending":
                     pending.append(data)
@@ -309,15 +318,16 @@ class ApprovalService:
     @classmethod
     def decide_approval(
         cls,
-        owner_uid: str,
-        request_id: str,
-        approver_id: str,
-        approved: bool,
+        owner_uid: str = None,
+        request_id: str = "",
+        approver_id: str = "",
+        approved: bool = False,
         comment: str = "",
         approver_name: str = "",
+        company_id: str = None,
     ) -> dict:
         db = cls._get_db()
-        data = cls.get_request(owner_uid, request_id)
+        data = cls.get_request(owner_uid=owner_uid, request_id=request_id, company_id=company_id)
         if not data:
             return {"success": False, "error": "Solicitud no encontrada"}
 
@@ -347,15 +357,15 @@ class ApprovalService:
 
         data["updatedAt"] = cls._now()
         if db:
-            db.document(cls._requests_path(owner_uid, request_id)).set(data)
+            db.document(cls._requests_path(owner_uid=owner_uid, request_id=request_id, company_id=company_id)).set(data)
 
         if data["status"] in ("approved", "rejected"):
-            cls.apply_decision_to_document(owner_uid, data, approver_name or approver_id)
+            cls.apply_decision_to_document(owner_uid=owner_uid, request_data=data, decided_by=approver_name or approver_id, company_id=company_id)
 
         return {"success": True, "status": data["status"]}
 
     @classmethod
-    def apply_decision_to_document(cls, owner_uid: str, request_data: dict, decided_by: str = ""):
+    def apply_decision_to_document(cls, owner_uid: str = None, request_data: dict = None, decided_by: str = "", company_id: str = None):
         doc_type = request_data.get("document_type")
         doc_id = request_data.get("document_id")
         sandbox = bool(request_data.get("sandbox", True))
@@ -367,21 +377,22 @@ class ApprovalService:
         try:
             if doc_type == "expense":
                 from app.services.db_service import DatabaseService
-                expense = DatabaseService.get_expense(owner_uid, doc_id, sandbox=sandbox)
+                expense = DatabaseService.get_expense(owner_uid, doc_id, sandbox=sandbox, company_id=company_id)
                 if expense:
                     expense["approvalStatus"] = "Aprobado" if approved else "Rechazado"
                     expense["approvedBy"] = decided_by if approved else ""
                     expense["rejectedBy"] = decided_by if rejected else ""
                     expense["approvalRequestId"] = request_data.get("id", "")
-                    DatabaseService.save_expense(owner_uid, doc_id, expense, sandbox=sandbox)
+                    DatabaseService.save_expense(owner_uid, doc_id, expense, sandbox=sandbox, company_id=company_id)
             elif doc_type == "purchase_order":
                 from app.services.purchase_order_service import PurchaseOrderService
                 PurchaseOrderService.update_status(
-                    owner_uid,
-                    doc_id,
-                    "aprobada" if approved else "rechazada",
+                    owner_uid=owner_uid,
+                    po_id=doc_id,
+                    new_status="aprobada" if approved else "rechazada",
                     sandbox=sandbox,
                     user=decided_by,
+                    company_id=company_id,
                 )
         except Exception:
             pass

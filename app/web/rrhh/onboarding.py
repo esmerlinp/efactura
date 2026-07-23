@@ -18,14 +18,14 @@ from app.services import hr_data_service as hr
 def onboarding_guide():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
-    periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
-    positions = hr.get_catalog(owner_uid, "positions", sandbox=sandbox)
-    departments = hr.get_catalog(owner_uid, "departments", sandbox=sandbox)
+    config = hr.get_payroll_config(company_id, sandbox=sandbox)
+    employees = hr.get_employees(company_id, sandbox=sandbox)
+    periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
+    positions = hr.get_catalog(company_id, "positions", sandbox=sandbox)
+    departments = hr.get_catalog(company_id, "departments", sandbox=sandbox)
 
     step1_done = bool(config.get("payrollFrequency"))
     step2_done = len(positions) > 0 and len(departments) > 0
@@ -62,21 +62,21 @@ def onboarding_guide():
 def payroll_setup():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from uuid import uuid4
 
     if request.method == "POST":
         selection = request.form.get("payroll_type", "")
-        config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
+        config = hr.get_payroll_config(company_id, sandbox=sandbox)
         now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         user_email = session.get("user", {}).get("email", "")
 
         if selection == "mensual":
             config["payrollFrequency"] = "mensual"
-            hr.save_payroll_config(owner_uid, config, sandbox=sandbox)
+            hr.save_payroll_config(company_id, config, sandbox=sandbox)
             gid = str(uuid4())
-            hr.save_payroll_group(owner_uid, gid, {
+            hr.save_payroll_group(company_id, gid, {
                 "id": gid, "name": "Nómina Mensual", "description": "",
                 "frequency": "mensual", "isActive": True,
                 "createdAt": now_iso, "updatedAt": now_iso, "createdBy": user_email,
@@ -85,9 +85,9 @@ def payroll_setup():
 
         elif selection == "quincenal":
             config["payrollFrequency"] = "quincenal"
-            hr.save_payroll_config(owner_uid, config, sandbox=sandbox)
+            hr.save_payroll_config(company_id, config, sandbox=sandbox)
             gid = str(uuid4())
-            hr.save_payroll_group(owner_uid, gid, {
+            hr.save_payroll_group(company_id, gid, {
                 "id": gid, "name": "Nómina Quincenal", "description": "",
                 "frequency": "quincenal", "isActive": True,
                 "createdAt": now_iso, "updatedAt": now_iso, "createdBy": user_email,
@@ -96,15 +96,15 @@ def payroll_setup():
 
         elif selection == "ambos":
             config["payrollFrequency"] = "mensual"
-            hr.save_payroll_config(owner_uid, config, sandbox=sandbox)
+            hr.save_payroll_config(company_id, config, sandbox=sandbox)
             gid1 = str(uuid4())
-            hr.save_payroll_group(owner_uid, gid1, {
+            hr.save_payroll_group(company_id, gid1, {
                 "id": gid1, "name": "Nómina Mensual", "description": "",
                 "frequency": "mensual", "isActive": True,
                 "createdAt": now_iso, "updatedAt": now_iso, "createdBy": user_email,
             }, sandbox=sandbox)
             gid2 = str(uuid4())
-            hr.save_payroll_group(owner_uid, gid2, {
+            hr.save_payroll_group(company_id, gid2, {
                 "id": gid2, "name": "Nómina Quincenal", "description": "",
                 "frequency": "quincenal", "isActive": True,
                 "createdAt": now_iso, "updatedAt": now_iso, "createdBy": user_email,
@@ -116,7 +116,7 @@ def payroll_setup():
             return redirect(url_for("web_rrhh.payroll_setup"))
 
         config["onboardingCompleted"] = True
-        hr.save_payroll_config(owner_uid, config, sandbox=sandbox)
+        hr.save_payroll_config(company_id, config, sandbox=sandbox)
         flash("¡Configuración de nómina guardada exitosamente!", "success")
         return redirect(url_for("web_rrhh.onboarding_guide"))
 

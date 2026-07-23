@@ -2,12 +2,13 @@ import uuid
 from datetime import datetime, timezone
 
 try:
-    from app.services.db_service import db_firestore, firebase_initialized, DatabaseService
+    from app.services.db_service import db_firestore, firebase_initialized, DatabaseService, _company_coll
     from app.services.supplier_invoice_service import serialize_field
 except ImportError:
     db_firestore = None
     firebase_initialized = False
     DatabaseService = None
+    _company_coll = None
 
 
 class PurchaseCreditNoteService:
@@ -17,17 +18,24 @@ class PurchaseCreditNoteService:
         return "sandbox_purchase_credit_notes" if sandbox else "purchase_credit_notes"
 
     @classmethod
-    def _counter_ref(cls, owner_uid):
-        return db_firestore.collection("users").document(owner_uid)\
-            .collection("config").document("purchase_credit_note_counter")
+    def _coll_ref(cls, owner_uid=None, sandbox=True, company_id=None):
+        if company_id:
+            return _company_coll(company_id=company_id, coll_name=cls._coll(sandbox))
+        return _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name=cls._coll(sandbox))
 
     @classmethod
-    def _get_next_number(cls, owner_uid):
+    def _counter_ref(cls, owner_uid=None, company_id=None):
+        if company_id:
+            return _company_coll(company_id=company_id, coll_name="config").document("purchase_credit_note_counter")
+        return _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name="config").document("purchase_credit_note_counter")
+
+    @classmethod
+    def _get_next_number(cls, owner_uid=None, company_id=None):
         from google.cloud.firestore import Transaction
         transaction = db_firestore.transaction()
         @firestore.transactional
         def increment(transaction):
-            ref = cls._counter_ref(owner_uid)
+            ref = cls._counter_ref(owner_uid=owner_uid, company_id=company_id)
             snapshot = transaction.get(ref)
             if snapshot.exists:
                 num = snapshot.to_dict().get("counter", 0) + 1
@@ -38,7 +46,7 @@ class PurchaseCreditNoteService:
         try:
             return increment(transaction)
         except Exception:
-            ref = cls._counter_ref(owner_uid)
+            ref = cls._counter_ref(owner_uid=owner_uid, company_id=company_id)
             snapshot = ref.get()
             if snapshot.exists:
                 num = snapshot.to_dict().get("counter", 0) + 1
@@ -48,12 +56,12 @@ class PurchaseCreditNoteService:
             return num
 
     @classmethod
-    def get_all(cls, owner_uid, sandbox=True):
+    def get_all(cls, owner_uid=None, sandbox=True, company_id=None):
         notes = []
         if not firebase_initialized or db_firestore is None:
             return notes
         try:
-            docs = db_firestore.collection("users").document(owner_uid).collection(cls._coll(sandbox)).get()
+            docs = cls._coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).get()
             for doc in docs:
                 data = doc.to_dict()
                 data["id"] = doc.id
@@ -67,11 +75,11 @@ class PurchaseCreditNoteService:
         return notes
 
     @classmethod
-    def get(cls, owner_uid, note_id, sandbox=True):
+    def get(cls, owner_uid=None, note_id=None, sandbox=True, company_id=None):
         if not firebase_initialized or db_firestore is None:
             return None
         try:
-            doc = db_firestore.collection("users").document(owner_uid).collection(cls._coll(sandbox)).document(note_id).get()
+            doc = cls._coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).document(note_id).get()
             if doc.exists:
                 data = doc.to_dict()
                 data["id"] = doc.id
@@ -84,11 +92,11 @@ class PurchaseCreditNoteService:
         return None
 
     @classmethod
-    def create(cls, owner_uid, note_data, sandbox=True):
+    def create(cls, owner_uid=None, note_data=None, sandbox=True, company_id=None):
         if not firebase_initialized or db_firestore is None:
             return False, "Firebase no inicializado."
         note_id = str(uuid.uuid4())
-        note_number = f"NC-{cls._get_next_number(owner_uid):04d}"
+        note_number = f"NC-{cls._get_next_number(owner_uid=owner_uid, company_id=company_id):04d}"
         try:
             note_data["id"] = note_id
             note_data["creditNoteNumber"] = note_number
@@ -103,14 +111,14 @@ class PurchaseCreditNoteService:
             note_data["notes"] = note_data.get("notes", "")
             note_data["createdBy"] = note_data.get("createdBy", "")
 
-            db_firestore.collection("users").document(owner_uid).collection(cls._coll(sandbox)).document(note_id).set(note_data)
+            cls._coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).document(note_id).set(note_data)
 
             # Reducir CxP de la factura de proveedor vinculada
             credited_invoice_id = note_data["creditedInvoiceId"]
             if credited_invoice_id:
                 try:
                     from app.services.supplier_invoice_service import SupplierInvoiceService
-                    inv = SupplierInvoiceService.get(owner_uid, credited_invoice_id, sandbox=sandbox)
+                    inv = SupplierInvoiceService.get(owner_uid, credited_invoice_id, sandbox=sandbox, company_id=company_id)
                     if inv:
                         current_rem = float(inv.get("cxpRemainingBalance", inv.get("total", 0)))
                         new_rem = max(0, round(current_rem - note_data["amount"], 2))
@@ -120,7 +128,7 @@ class PurchaseCreditNoteService:
                         SupplierInvoiceService.update(owner_uid, credited_invoice_id, {
                             "cxpRemainingBalance": new_rem,
                             "cxpStatus": new_status,
-                        }, sandbox=sandbox)
+                        }, sandbox=sandbox, company_id=company_id)
                 except Exception as inv_err:
                     print(f"⚠️ Error al actualizar CxP de factura vinculada a NC compras: {inv_err}")
 
@@ -131,17 +139,17 @@ class PurchaseCreditNoteService:
             return False, str(e)
 
     @classmethod
-    def void(cls, owner_uid, note_id, sandbox=True):
+    def void(cls, owner_uid=None, note_id=None, sandbox=True, company_id=None):
         if not firebase_initialized or db_firestore is None:
             return False, "Firebase no inicializado."
         try:
-            note = cls.get(owner_uid, note_id, sandbox=sandbox)
+            note = cls.get(owner_uid=owner_uid, note_id=note_id, sandbox=sandbox, company_id=company_id)
             if not note:
                 return False, "Nota de crédito no encontrada."
             if note.get("status") != "activa":
                 return False, "Solo se pueden anular NC activas."
 
-            db_firestore.collection("users").document(owner_uid).collection(cls._coll(sandbox)).document(note_id).update({
+            cls._coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).document(note_id).update({
                 "status": "anulada",
                 "voidedAt": datetime.now(timezone.utc).isoformat(),
             })
@@ -151,7 +159,7 @@ class PurchaseCreditNoteService:
             if credited_invoice_id:
                 try:
                     from app.services.supplier_invoice_service import SupplierInvoiceService
-                    inv = SupplierInvoiceService.get(owner_uid, credited_invoice_id, sandbox=sandbox)
+                    inv = SupplierInvoiceService.get(owner_uid, credited_invoice_id, sandbox=sandbox, company_id=company_id)
                     if inv:
                         current_rem = float(inv.get("cxpRemainingBalance", inv.get("total", 0)))
                         new_rem = round(current_rem + note["amount"], 2)
@@ -162,7 +170,7 @@ class PurchaseCreditNoteService:
                         SupplierInvoiceService.update(owner_uid, credited_invoice_id, {
                             "cxpRemainingBalance": new_rem,
                             "cxpStatus": new_status,
-                        }, sandbox=sandbox)
+                        }, sandbox=sandbox, company_id=company_id)
                 except Exception as inv_err:
                     print(f"⚠️ Error al restaurar CxP al anular NC compras: {inv_err}")
 

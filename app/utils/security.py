@@ -51,7 +51,7 @@ def get_serializer():
     secret_key = current_app.config['SECRET_KEY']
     return URLSafeSerializer(secret_key, salt='portal-access')
 
-def generate_portal_token(owner_uid, client_id, sandbox=True):
+def generate_portal_token(owner_uid, client_id, sandbox=True, company_id=None):
     """Genera un token firmado y serializado seguro para URL conteniendo los parámetros."""
     s = get_serializer()
     data = {

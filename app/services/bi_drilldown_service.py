@@ -35,7 +35,7 @@ class BIDrilldownService:
         return False
 
     @classmethod
-    def get_drilldown(cls, owner_uid: str, metric: str, year: int = None, month: int = 0, sandbox: bool = True, branch_id: str = None, project_id: str = None) -> dict:
+    def get_drilldown(cls, owner_uid: str, metric: str, year: int = None, month: int = 0, sandbox: bool = True, branch_id: str = None, project_id: str = None, company_id=None) -> dict:
         from app.services.db_service import DatabaseService
 
         now = datetime.now(timezone.utc)
@@ -43,8 +43,8 @@ class BIDrilldownService:
         month = int(month or 0)
         metric = metric if metric in DRILLDOWN_METRICS else "sales"
 
-        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=branch_id, project_id=project_id)
-        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=branch_id, project_id=project_id)
+        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, branch_id=branch_id, project_id=project_id, company_id=company_id)
+        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=branch_id, project_id=project_id, company_id=company_id)
         real_invoices = [
             inv for inv in invoices
             if not inv.get("isQuotation") and inv.get("status") not in ("Anulada", "Borrador", "Consolidada")
@@ -79,7 +79,7 @@ class BIDrilldownService:
             total = sum(r["amount"] for r in rows)
             columns = ["Cliente", "Facturas", "Ingresos", "Ganancia Est.", "Margen"]
         else:
-            rows = cls._budget_rows(owner_uid, year, month or now.month, sandbox)
+            rows = cls._budget_rows(owner_uid, year, month or now.month, sandbox, company_id=company_id)
             total = sum(r["amount"] for r in rows)
             columns = ["Categoría", "Presupuesto", "Real", "Variación", "Uso"]
 
@@ -249,9 +249,9 @@ class BIDrilldownService:
         return sorted(rows, key=lambda r: r["amount"], reverse=True)
 
     @staticmethod
-    def _budget_rows(owner_uid, year, month, sandbox):
+    def _budget_rows(owner_uid, year, month, sandbox, company_id=None):
         from app.services.budget_service import BudgetService
-        variance = BudgetService.get_variance(owner_uid, year, month, sandbox=sandbox)
+        variance = BudgetService.get_variance(owner_uid, year, month, sandbox=sandbox, company_id=company_id)
         rows = []
         for item in variance.values():
             rows.append({
@@ -264,4 +264,3 @@ class BIDrilldownService:
                 "link": None,
             })
         return rows
-

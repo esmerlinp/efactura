@@ -10,15 +10,15 @@ class InventoryCostingService:
     # ── FIFO LEDGER ────────────────────────────────────────────────────────
 
     @staticmethod
-    def get_fifo_ledger(owner_uid, item_id, warehouse_id=None, sandbox=True):
+    def get_fifo_ledger(company_id, item_id, warehouse_id=None, sandbox=True):
         """Retorna el libro FIFO ordenado por fecha ASC para un item."""
-        from app.services.db_service import DatabaseService, db_firestore, firebase_initialized
+        from app.services.db_service import DatabaseService, db_firestore, firebase_initialized, _company_coll
         rows = []
         if not firebase_initialized:
             return rows
         coll = "sandbox_inventory_cost_ledger" if sandbox else "inventory_cost_ledger"
         try:
-            query = db_firestore.collection("users").document(owner_uid).collection(coll)
+            query = _company_coll(company_id=company_id, coll_name=coll)
             docs = query.where("itemId", "==", item_id).get()
             for doc in docs:
                 data = doc.to_dict()
@@ -42,13 +42,13 @@ class InventoryCostingService:
         return rows
 
     @staticmethod
-    def get_fifo_cost(item_id, warehouse_id, qty_needed, owner_uid, sandbox=True):
+    def get_fifo_cost(item_id, warehouse_id, qty_needed, company_id, sandbox=True):
         """
         Calcula el costo usando FIFO para una cantidad solicitada.
         Retorna (costo_total, lotes_consumidos).
         lotes_consumidos es lista de {ledger_id, qty_consumed, unit_cost} para actualizar el ledger.
         """
-        ledger = InventoryCostingService.get_fifo_ledger(owner_uid, item_id, warehouse_id, sandbox)
+        ledger = InventoryCostingService.get_fifo_ledger(company_id, item_id, warehouse_id, sandbox)
         total_cost = 0.0
         remaining = qty_needed
         consumed = []
@@ -69,16 +69,15 @@ class InventoryCostingService:
                 break
 
         if remaining > 0:
-            # Si no hay suficiente en el ledger, usar el costo más reciente o 0
             last_cost = ledger[-1]["unitCost"] if ledger else 0.0
             total_cost += remaining * last_cost
 
         return round(total_cost, 2), consumed
 
     @staticmethod
-    def record_fifo_entry(owner_uid, item_id, warehouse_id, qty_in, unit_cost, reference_id="", reference_type="", sandbox=True):
+    def record_fifo_entry(company_id, item_id, warehouse_id, qty_in, unit_cost, reference_id="", reference_type="", sandbox=True):
         """Registra una entrada en el libro FIFO."""
-        from app.services.db_service import db_firestore, firebase_initialized
+        from app.services.db_service import db_firestore, firebase_initialized, _company_coll
         if not firebase_initialized:
             return None
         coll = "sandbox_inventory_cost_ledger" if sandbox else "inventory_cost_ledger"
@@ -97,22 +96,22 @@ class InventoryCostingService:
             "referenceType": reference_type,
         }
         try:
-            db_firestore.collection("users").document(owner_uid).collection(coll).document(entry_id).set(data)
+            _company_coll(company_id=company_id, coll_name=coll).document(entry_id).set(data)
             return entry_id
         except Exception as e:
             print(f"⚠️ Error al registrar entrada FIFO: {e}")
             return None
 
     @staticmethod
-    def apply_fifo_consumption(owner_uid, consumed_batches, sandbox=True):
+    def apply_fifo_consumption(company_id, consumed_batches, sandbox=True):
         """Aplica el consumo de lotes FIFO actualizando qtyOut y balanceQty."""
-        from app.services.db_service import db_firestore, firebase_initialized
+        from app.services.db_service import db_firestore, firebase_initialized, _company_coll
         if not firebase_initialized or not consumed_batches:
             return
         coll = "sandbox_inventory_cost_ledger" if sandbox else "inventory_cost_ledger"
         try:
             for batch in consumed_batches:
-                ref = db_firestore.collection("users").document(owner_uid).collection(coll).document(batch["ledger_id"])
+                ref = _company_coll(company_id=company_id, coll_name=coll).document(batch["ledger_id"])
                 doc = ref.get()
                 if doc.exists:
                     data = doc.to_dict()
@@ -125,12 +124,12 @@ class InventoryCostingService:
     # ── PROMEDIO PONDERADO ─────────────────────────────────────────────────
 
     @staticmethod
-    def get_weighted_average_cost(owner_uid, item_id, warehouse_id=None, sandbox=True):
+    def get_weighted_average_cost(company_id, item_id, warehouse_id=None, sandbox=True):
         """
         Calcula el costo promedio ponderado para un item.
         Usa el libro de costos (ledger) para calcular: Σ(qty_in × unit_cost) / Σ(qty_in).
         """
-        ledger = InventoryCostingService.get_fifo_ledger(owner_uid, item_id, warehouse_id, sandbox)
+        ledger = InventoryCostingService.get_fifo_ledger(company_id, item_id, warehouse_id, sandbox)
         total_value = 0.0
         total_qty = 0.0
         for row in ledger:
@@ -151,7 +150,7 @@ class InventoryCostingService:
     # ── MÉTODO PRINCIPAL ───────────────────────────────────────────────────
 
     @staticmethod
-    def get_item_cost(owner_uid, item_id, warehouse_id, item_dict=None, method="promedio", qty=1.0, sandbox=True):
+    def get_item_cost(company_id, item_id, warehouse_id, item_dict=None, method="promedio", qty=1.0, sandbox=True):
         """
         Retorna el costo unitario según el método configurado.
         - promedio: costo promedio ponderado del ledger
@@ -159,38 +158,36 @@ class InventoryCostingService:
         - estandar: costPrice del item
         """
         if method == "fifo":
-            # Costo unitario promedio de la capa más antigua con balance
-            ledger = InventoryCostingService.get_fifo_ledger(owner_uid, item_id, warehouse_id, sandbox)
+            ledger = InventoryCostingService.get_fifo_ledger(company_id, item_id, warehouse_id, sandbox)
             for row in ledger:
                 if row["balanceQty"] > 0:
                     return row["unitCost"]
-            return InventoryCostingService.get_weighted_average_cost(owner_uid, item_id, warehouse_id, sandbox)
+            return InventoryCostingService.get_weighted_average_cost(company_id, item_id, warehouse_id, sandbox)
 
         elif method == "promedio":
-            return InventoryCostingService.get_weighted_average_cost(owner_uid, item_id, warehouse_id, sandbox)
+            return InventoryCostingService.get_weighted_average_cost(company_id, item_id, warehouse_id, sandbox)
 
         elif method == "estandar":
             if item_dict:
                 return InventoryCostingService.get_standard_cost(item_dict)
             from app.services.db_service import DatabaseService
-            items = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+            items = DatabaseService.get_items(company_id=company_id, sandbox=sandbox)
             for it in items:
                 if it["id"] == item_id:
                     return InventoryCostingService.get_standard_cost(it)
             return 0.0
 
-        # Default: promedio
-        return InventoryCostingService.get_weighted_average_cost(owner_uid, item_id, warehouse_id, sandbox)
+        return InventoryCostingService.get_weighted_average_cost(company_id, item_id, warehouse_id, sandbox)
 
     @staticmethod
-    def recalculate_item_avg_cost(owner_uid, item_id, warehouse_id=None, sandbox=True):
+    def recalculate_item_avg_cost(company_id, item_id, warehouse_id=None, sandbox=True):
         """Recalcula y actualiza el costPrice del item usando promedio ponderado."""
-        avg = InventoryCostingService.get_weighted_average_cost(owner_uid, item_id, warehouse_id, sandbox)
+        avg = InventoryCostingService.get_weighted_average_cost(company_id, item_id, warehouse_id, sandbox)
         if avg <= 0:
             return
         from app.services.db_service import DatabaseService
-        items = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+        items = DatabaseService.get_items(company_id=company_id, sandbox=sandbox)
         item = next((it for it in items if it["id"] == item_id), None)
         if item:
             item["costPrice"] = avg
-            DatabaseService.save_item(owner_uid, item_id, item, sandbox=sandbox)
+            DatabaseService.save_item(company_id=company_id, item_id=item_id, item_dict=item, sandbox=sandbox)

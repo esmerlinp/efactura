@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone, timedelta
 from app.services.db_service import DatabaseService
-from app.services.accounting_service import AccountingService
+from app.services.accounting_service import AccountingService, _find_account_by_usage
 
 
 ASSET_CATEGORIES = {
@@ -18,7 +18,7 @@ ASSET_CATEGORIES = {
 class FixedAssetService:
 
     @classmethod
-    def register_asset(cls, owner_uid, asset_data, sandbox=True):
+    def register_asset(cls, owner_uid, asset_data, sandbox=True, company_id=None):
         asset_id = str(uuid.uuid4())
         category = asset_data.get("category", "equipos_computo")
         cat_info = ASSET_CATEGORIES.get(category, {})
@@ -65,7 +65,7 @@ class FixedAssetService:
             "createdAt": datetime.now(timezone.utc).isoformat(),
             "updatedAt": datetime.now(timezone.utc).isoformat(),
         }
-        DatabaseService.save_fixed_asset(owner_uid, asset_id, asset, sandbox=sandbox)
+        DatabaseService.save_fixed_asset(owner_uid, asset_id, asset, sandbox=sandbox, company_id=company_id)
         return asset
 
     @classmethod
@@ -83,13 +83,13 @@ class FixedAssetService:
         return next_d.strftime("%Y-%m-%d")
 
     @classmethod
-    def register_depreciation(cls, owner_uid, asset_id, periods=None, sandbox=True):
-        asset = DatabaseService.get_fixed_asset(owner_uid, asset_id, sandbox=sandbox)
+    def register_depreciation(cls, owner_uid, asset_id, periods=None, sandbox=True, company_id=None):
+        asset = DatabaseService.get_fixed_asset(owner_uid, asset_id, sandbox=sandbox, company_id=company_id)
         if not asset:
             return None
         if asset.get("status") != "active":
             raise ValueError(f"El activo {asset.get('name')} no está activo")
-        accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+        accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
         expense_account_id = asset.get("depreciationExpenseAccountId")
         accum_account_id = asset.get("depreciationAccountId")
         if not expense_account_id or not accum_account_id:
@@ -107,7 +107,7 @@ class FixedAssetService:
         if total_amount <= 0:
             raise ValueError("El activo ya está totalmente depreciado")
         now = datetime.now(timezone.utc)
-        entry = AccountingService.generate_entry(owner_uid, {
+        entry = AccountingService.generate_entry(company_id, {
             "entryType": "depreciation",
             "date": now.strftime("%Y-%m-%d"),
             "concept": f"Depreciación {period} — {asset.get('name', '')}",
@@ -130,7 +130,7 @@ class FixedAssetService:
         if asset["currentValue"] <= asset.get("residualValue", 0):
             asset["status"] = "fully_depreciated"
         asset["updatedAt"] = now.isoformat()
-        DatabaseService.save_fixed_asset(owner_uid, asset_id, asset, sandbox=sandbox)
+        DatabaseService.save_fixed_asset(owner_uid, asset_id, asset, sandbox=sandbox, company_id=company_id)
         return {"entry": entry, "asset": asset, "amount": round(total_amount, 2)}
 
     @classmethod
@@ -168,8 +168,8 @@ class FixedAssetService:
             return round(depreciable / total_periods, 2)
 
     @classmethod
-    def dispose_asset(cls, owner_uid, asset_id, disposal_data, sandbox=True):
-        asset = DatabaseService.get_fixed_asset(owner_uid, asset_id, sandbox=sandbox)
+    def dispose_asset(cls, owner_uid, asset_id, disposal_data, sandbox=True, company_id=None):
+        asset = DatabaseService.get_fixed_asset(owner_uid, asset_id, sandbox=sandbox, company_id=company_id)
         if not asset:
             return None
         disposal_date = disposal_data.get("disposalDate", datetime.now(timezone.utc).strftime("%Y-%m-%d"))
@@ -178,7 +178,7 @@ class FixedAssetService:
         book_value = asset.get("currentValue", 0)
         accum_dep = asset.get("accumulatedDepreciation", 0)
         purchase_amount = asset.get("purchaseAmount", 0)
-        accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+        accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
         lines = []
         if accum_dep > 0:
             accum_account = asset.get("depreciationAccountId")
@@ -222,7 +222,7 @@ class FixedAssetService:
                     "accountId": bank_account.get("id"), "accountCode": bank_account.get("code", ""), "accountName": bank_account.get("name", "Banco"),
                     "debit": round(disposal_amount, 2), "credit": 0.00, "description": f"Venta de {asset.get('name')}"
                 })
-        entry = AccountingService.generate_entry(owner_uid, {
+        entry = AccountingService.generate_entry(company_id, {
             "entryType": "disposal",
             "date": disposal_date,
             "concept": f"Baja de activo — {asset.get('name', '')} ({disposal_reason})",
@@ -238,12 +238,12 @@ class FixedAssetService:
         asset["disposalReason"] = disposal_reason
         asset["currentValue"] = 0
         asset["updatedAt"] = datetime.now(timezone.utc).isoformat()
-        DatabaseService.save_fixed_asset(owner_uid, asset_id, asset, sandbox=sandbox)
+        DatabaseService.save_fixed_asset(owner_uid, asset_id, asset, sandbox=sandbox, company_id=company_id)
         return {"entry": entry, "asset": asset}
 
     @classmethod
-    def get_assets_summary(cls, owner_uid, sandbox=True):
-        assets = DatabaseService.get_fixed_assets(owner_uid, sandbox=sandbox)
+    def get_assets_summary(cls, owner_uid, sandbox=True, company_id=None):
+        assets = DatabaseService.get_fixed_assets(owner_uid, sandbox=sandbox, company_id=company_id)
         total_cost = 0.0
         total_dep = 0.0
         total_current = 0.0
@@ -272,8 +272,8 @@ class FixedAssetService:
         }
 
     @classmethod
-    def run_auto_depreciation(cls, owner_uid, sandbox=True):
-        assets = DatabaseService.get_fixed_assets(owner_uid, sandbox=sandbox)
+    def run_auto_depreciation(cls, owner_uid, sandbox=True, company_id=None):
+        assets = DatabaseService.get_fixed_assets(owner_uid, sandbox=sandbox, company_id=company_id)
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         results = []
         for asset in assets:
@@ -282,7 +282,7 @@ class FixedAssetService:
             next_date = asset.get("nextDepreciationDate", "")
             if next_date and next_date <= today:
                 try:
-                    result = cls.register_depreciation(owner_uid, asset["id"], sandbox=sandbox)
+                    result = cls.register_depreciation(owner_uid, asset["id"], sandbox=sandbox, company_id=company_id)
                     results.append({"asset": asset.get("name"), "success": True, "amount": result["amount"]})
                 except Exception as e:
                     results.append({"asset": asset.get("name"), "success": False, "error": str(e)})

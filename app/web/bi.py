@@ -26,14 +26,17 @@ def drilldown(metric):
     except ValueError:
         month = 0
 
+    owner_uid = session["user"]["ownerUID"]
+    company_id = session.get("selected_company_id")
     data = BIDrilldownService.get_drilldown(
-        owner_uid=session["user"]["ownerUID"],
+        owner_uid=owner_uid,
         metric=metric,
         year=year,
         month=month,
         sandbox=session.get("is_sandbox_mode", True),
         branch_id=g.get("branch_id"),
         project_id=g.get("project_id"),
+        company_id=company_id,
     )
     for row in data["rows"]:
         link = row.get("link")

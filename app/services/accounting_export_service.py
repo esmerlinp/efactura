@@ -30,8 +30,8 @@ DEFAULT_CHART_OF_ACCOUNTS = {
 class AccountingExportService:
 
     @classmethod
-    def _get_chart_of_accounts(cls, owner_uid):
-        profile = DatabaseService.get_company_profile(owner_uid)
+    def _get_chart_of_accounts(cls, owner_uid, company_id=None):
+        profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
         saved = profile.get("chartOfAccounts", {}) if profile else {}
         return {**DEFAULT_CHART_OF_ACCOUNTS, **saved}
 
@@ -48,9 +48,9 @@ class AccountingExportService:
         return str(val).strip()
 
     @classmethod
-    def export_sales(cls, owner_uid, invoices, fmt="csv_std"):
+    def export_sales(cls, owner_uid, invoices, fmt="csv_std", company_id=None):
         """Export invoices as accounting entries in the given format."""
-        coa = cls._get_chart_of_accounts(owner_uid)
+        coa = cls._get_chart_of_accounts(owner_uid, company_id=company_id)
         entries = []
         for inv in invoices:
             total = float(inv.get("netPayable", inv.get("total", 0)))
@@ -93,9 +93,9 @@ class AccountingExportService:
         return fn(entries)
 
     @classmethod
-    def export_expenses(cls, owner_uid, expenses, fmt="csv_std"):
+    def export_expenses(cls, owner_uid, expenses, fmt="csv_std", company_id=None):
         """Export expenses as accounting entries."""
-        coa = cls._get_chart_of_accounts(owner_uid)
+        coa = cls._get_chart_of_accounts(owner_uid, company_id=company_id)
         entries = []
         for exp in expenses:
             total_amount = float(exp.get("amount", exp.get("total", 0)))

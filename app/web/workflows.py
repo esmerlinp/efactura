@@ -14,16 +14,16 @@ def _require_user():
     return None
 
 
-def _team_options(owner_uid):
+def _team_options(owner_uid, company_id=None):
     options = []
-    owner = DatabaseService.get_user_profile(owner_uid)
+    owner = DatabaseService.get_user_profile(owner_uid, company_id=company_id)
     if owner:
         options.append({
             "uid": owner_uid,
             "name": owner.get("name") or "Propietario",
             "email": owner.get("email", ""),
         })
-    for member in DatabaseService.get_team_members(owner_uid) or []:
+    for member in DatabaseService.get_team_members(owner_uid, company_id=company_id) or []:
         options.append({
             "uid": member.get("uid", ""),
             "name": member.get("name", ""),
@@ -41,11 +41,12 @@ def dashboard():
         return render_template("auth/restricted.html", feature_name="Workflows y aprobaciones")
 
     owner_uid = session["user"]["ownerUID"]
+    company_id = session.get("selected_company_id")
     status = request.args.get("status", "")
     current_uid = session["user"].get("uid", "")
-    rules = ApprovalService.get_rules(owner_uid)
-    requests = ApprovalService.get_requests(owner_uid, status=status)
-    my_pending = ApprovalService.get_pending_approvals(owner_uid, current_uid)
+    rules = ApprovalService.get_rules(owner_uid=owner_uid, company_id=company_id)
+    requests = ApprovalService.get_requests(owner_uid=owner_uid, status=status, company_id=company_id)
+    my_pending = ApprovalService.get_pending_approvals(owner_uid=owner_uid, approver_id=current_uid, company_id=company_id)
     return render_template(
         "workflows/dashboard.html",
         active_page="workflows",
@@ -54,7 +55,7 @@ def dashboard():
         my_pending=my_pending,
         status=status,
         document_types=APPROVAL_DOCUMENT_TYPES,
-        team_options=_team_options(owner_uid),
+        team_options=_team_options(owner_uid, company_id),
     )
 
 
@@ -67,8 +68,9 @@ def save_rule():
         return render_template("auth/restricted.html", feature_name="Reglas de aprobación", required_permission="canModifySettings")
 
     owner_uid = session["user"]["ownerUID"]
+    company_id = session.get("selected_company_id")
     rule_id = request.form.get("id", "")
-    existing = ApprovalService.get_rule(owner_uid, rule_id) if rule_id else {}
+    existing = ApprovalService.get_rule(owner_uid=owner_uid, rule_id=rule_id, company_id=company_id) if rule_id else {}
     data = {
         "id": rule_id,
         "document_type": request.form.get("document_type", "expense"),
@@ -82,7 +84,7 @@ def save_rule():
     if not data["approvers"]:
         flash("Debes seleccionar al menos un aprobador.", "error")
         return redirect(url_for("web_workflows.dashboard"))
-    ApprovalService.save_rule(owner_uid, data)
+    ApprovalService.save_rule(owner_uid=owner_uid, rule_data=data, company_id=company_id)
     flash("Regla de aprobación guardada.", "success")
     return redirect(url_for("web_workflows.dashboard"))
 
@@ -94,7 +96,7 @@ def delete_rule(rule_id):
         return guard
     if not check_permission("canModifySettings"):
         return render_template("auth/restricted.html", feature_name="Reglas de aprobación", required_permission="canModifySettings")
-    ApprovalService.delete_rule(session["user"]["ownerUID"], rule_id)
+    ApprovalService.delete_rule(owner_uid=session["user"]["ownerUID"], rule_id=rule_id, company_id=session.get("selected_company_id"))
     flash("Regla eliminada.", "success")
     return redirect(url_for("web_workflows.dashboard"))
 
@@ -105,9 +107,11 @@ def decide_request(request_id):
     if guard:
         return guard
     owner_uid = session["user"]["ownerUID"]
+    company_id = session.get("selected_company_id")
     approved = request.form.get("decision") == "approve"
     result = ApprovalService.decide_approval(
         owner_uid=owner_uid,
+        company_id=company_id,
         request_id=request_id,
         approver_id=session["user"].get("uid", ""),
         approved=approved,

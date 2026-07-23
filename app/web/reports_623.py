@@ -37,9 +37,9 @@ def _parse_int(val, default=0):
         return default
 
 
-def _get_minor_expenses_for_period(owner_uid, sandbox, year, month):
+def _get_minor_expenses_for_period(owner_uid, sandbox, year, month, company_id=None):
     """Filtra gastos menores: montos pequeños, proveedores informales o E43."""
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id)
     prefix = f"{year:04d}-{month:02d}"
     filtered = []
     for exp in expenses:
@@ -81,6 +81,7 @@ def reporte_623():
     if not check_permission("canExpenses"):
         return render_template("auth/restricted.html", active_page="reporte_623")
     owner_uid = session["user"]["ownerUID"]
+    company_id = session.get("selected_company_id")
     sandbox = session.get("is_sandbox_mode", True)
 
     now = datetime.now(timezone.utc)
@@ -91,7 +92,7 @@ def reporte_623():
     ecf_type = request.args.get("ecf_type", "").strip()
     search = request.args.get("search", "").strip()
 
-    expenses = _get_minor_expenses_for_period(owner_uid, sandbox, year, month)
+    expenses = _get_minor_expenses_for_period(owner_uid, sandbox, year, month, company_id=company_id)
     filtered = _filter_minor_expenses(expenses, supplier_id, tipo_gasto, ecf_type, search)
     filtered.sort(key=lambda x: (x.get("date") or x.get("createdAt") or ""))
 
@@ -110,7 +111,7 @@ def reporte_623():
         if not by_supplier[key].get("rnc"):
             by_supplier[key]["rnc"] = e.get("rncEmisor", "—")
 
-    profile = DatabaseService.get_company_profile(owner_uid)
+    profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     owner_rnc = (profile or {}).get("companyRNC", "")
 
     return render_template(
@@ -141,6 +142,7 @@ def reporte_623_export():
     if not check_permission("canExpenses"):
         return render_template("auth/restricted.html"), 403
     owner_uid = session["user"]["ownerUID"]
+    company_id = session.get("selected_company_id")
     sandbox = session.get("is_sandbox_mode", True)
 
     now = datetime.now(timezone.utc)
@@ -152,14 +154,14 @@ def reporte_623_export():
     search = request.args.get("search", "").strip()
     fmt = request.args.get("format", "simple")
 
-    expenses = _get_minor_expenses_for_period(owner_uid, sandbox, year, month)
+    expenses = _get_minor_expenses_for_period(owner_uid, sandbox, year, month, company_id=company_id)
     filtered = _filter_minor_expenses(expenses, supplier_id, tipo_gasto, ecf_type, search)
     filtered.sort(key=lambda x: (x.get("date") or x.get("createdAt") or ""))
 
     output = io.StringIO()
     writer = csv.writer(output, quoting=csv.QUOTE_ALL)
 
-    profile = DatabaseService.get_company_profile(owner_uid)
+    profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     owner_rnc = (profile or {}).get("companyRNC", "")
 
     if fmt == "dgii":

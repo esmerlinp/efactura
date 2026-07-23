@@ -1601,6 +1601,42 @@
             <!-- BARRA DE HERRAMIENTAS SUPERIOR (dentro del contenido) -->
             <nav class="top-utility-bar" id="top-utility-bar">
                 <div class="utility-bar-left">
+                    <!-- 1. COMPANY -->
+                    {% if user_companies is defined and user_companies|length > 0 %}
+                    <div class="company-dropdown" id="company-dropdown-trigger" style="position: relative;">
+                        <button class="utility-item utility-pill company-pill" title="Empresa: {{ (session.get('company_context') or {}).get('company_name', 'Empresa') }}">
+                            <i class="fa-solid fa-building"></i>
+                            <span style="font-size:0.75rem;font-weight:500;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                                {{ (session.get('company_context') or {}).get('company_name', 'Empresa') }}
+                            </span>
+                            <i class="fa-solid fa-caret-down" style="font-size:0.55rem;"></i>
+                        </button>
+                        <div class="dropdown-menu" id="company-dropdown-menu" style="display:none; position:absolute; top:100%; left:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-md); width:240px; max-height:320px; overflow-y:auto; box-shadow:0 4px 12px rgba(0,0,0,0.1); padding:6px; z-index:1001; flex-direction:column;">
+                            <div style="font-size:0.68rem; font-weight:600; color:var(--text-muted); padding:6px 10px 4px; text-transform:uppercase;">Empresas</div>
+                            {% for c in user_companies %}
+                            <button type="button" onclick="quickSelectCompany('{{ c.id }}')" style="font-size:0.78rem; padding:8px 12px; border:none; background:{% if c.id == session.get('selected_company_id', '') %}var(--bg-nav-hover){% else %}transparent{% endif %}; text-align:left; cursor:pointer; border-radius:6px; color:var(--text-primary); display:flex; align-items:center; gap:8px; width:100%;" onmouseover="this.style.background='var(--bg-nav-hover)'" onmouseout="if(this.getAttribute('data-active')!=='true')this.style.background='transparent'" data-active="{% if c.id == session.get('selected_company_id', '') %}true{% endif %}">
+                                <i class="fa-solid fa-building"></i><span style="font-weight:500;">{{ c.name }}</span>{% if c.get('is_default') %}<span style="margin-left:auto;font-size:0.6rem;color:var(--accent-emerald);background:rgba(16,185,129,0.1);padding:1px 6px;border-radius:8px;">Default</span>{% endif %}
+                            </button>
+                            {% endfor %}
+                            <div style="border-top:1px solid var(--border-color); margin:4px 0;"></div>
+                            <a href="{{ url_for('web_company.create_company') }}" style="font-size:0.78rem; padding:8px 12px; border:none; background:transparent; text-align:left; text-decoration:none; cursor:pointer; border-radius:6px; color:var(--accent-emerald); display:flex; align-items:center; gap:8px; width:100%;" onmouseover="this.style.background='var(--bg-nav-hover)'" onmouseout="this.style.background='transparent'">
+                                <i class="fa-solid fa-plus"></i><span>Crear Nueva Empresa</span>
+                            </a>
+                            <a href="{{ url_for('web_auth.select_company') }}" style="font-size:0.78rem; padding:8px 12px; border:none; background:transparent; text-align:left; text-decoration:none; cursor:pointer; border-radius:6px; color:var(--text-secondary); display:flex; align-items:center; gap:8px; width:100%;" onmouseover="this.style.background='var(--bg-nav-hover)'" onmouseout="this.style.background='transparent'">
+                                <i class="fa-solid fa-list"></i><span>Ver Todas</span>
+                            </a>
+                        </div>
+                    </div>
+                    {% else %}
+                    <span class="utility-item utility-pill" title="Empresa: {{ (session.get('company_context') or {}).get('company_name', 'Empresa') }}" style="display:flex;align-items:center;gap:6px;cursor:default;color:var(--accent-emerald);border:1px solid var(--accent-emerald);">
+                        <i class="fa-solid fa-building"></i>
+                        <span style="font-size:0.75rem;font-weight:500;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                            {{ (session.get('company_context') or {}).get('company_name', 'Empresa') }}
+                        </span>
+                    </span>
+                    {% endif %}
+
+                    <!-- 2. BRANCH -->
                     {% if available_branches and available_branches|length > 0 %}
                     <div class="branch-dropdown" id="branch-dropdown-trigger" style="position: relative;">
                         <button class="utility-item utility-pill branch-pill" title="Sucursal: {{ active_branch_name }}">
@@ -1620,6 +1656,7 @@
                     </div>
                     {% endif %}
 
+                    <!-- 3. PROJECT -->
                     {% if available_projects is defined and available_projects|length > 0 %}
                     <div class="project-dropdown" id="project-dropdown-trigger" style="position: relative;">
                         <button class="utility-item utility-pill project-pill" title="Proyecto: {{ active_project_name }}">
@@ -1638,12 +1675,6 @@
                             {% endfor %}
                         </div>
                     </div>
-                    {% endif %}
-
-                    {% if user_has_multiple_companies %}
-                    <a href="{{ url_for('web_auth.select_company', next=request.url) }}" class="utility-item" title="Cambiar de Empresa">
-                        <i class="fa-solid fa-building-circle-arrow-right"></i>
-                    </a>
                     {% endif %}
 
                     <div class="utility-divider"></div>
@@ -2156,6 +2187,48 @@
                 });
             }
 
+
+            window.quickSelectCompany = function(companyId) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/select-company';
+                form.style.display = 'none';
+                const csrfInput = document.createElement('input');
+                csrfInput.name = 'csrf_token';
+                csrfInput.value = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+                form.appendChild(csrfInput);
+                const companyInput = document.createElement('input');
+                companyInput.name = 'company_id';
+                companyInput.value = companyId;
+                form.appendChild(companyInput);
+                const nextInput = document.createElement('input');
+                nextInput.name = 'next';
+                nextInput.value = window.location.pathname + window.location.search;
+                form.appendChild(nextInput);
+                document.body.appendChild(form);
+                form.submit();
+            };
+
+            const companyTrigger = document.getElementById('company-dropdown-trigger');
+            const companyMenu = document.getElementById('company-dropdown-menu');
+            if (companyTrigger && companyMenu) {
+                const btn = companyTrigger.querySelector('.utility-item');
+                if (btn) {
+                    btn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        if (branchMenu) branchMenu.style.display = 'none';
+                        if (projectMenu) projectMenu.style.display = 'none';
+                        if (crmMenu) crmMenu.style.display = 'none';
+                        if (configMenu) configMenu.style.display = 'none';
+                        companyMenu.style.display = companyMenu.style.display === 'flex' ? 'none' : 'flex';
+                    });
+                }
+                document.addEventListener('click', function(e) {
+                    if (!companyTrigger.contains(e.target)) {
+                        companyMenu.style.display = 'none';
+                    }
+                });
+            }
 
             // ── Flyout positioning con position:fixed ──────────────────────────────────
             // Permite que el nav-menu haga scroll sin recortar los flyouts

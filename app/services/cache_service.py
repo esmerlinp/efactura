@@ -44,16 +44,16 @@ class CacheService:
             pass
 
     @staticmethod
-    def invalidate_dashboard(owner_uid: str):
+    def invalidate_dashboard(owner_uid: str, company_id=None):
         CacheService.invalidate_pattern("web_dashboard.dashboard")
         CacheService.invalidate_pattern(f"ownerUID': '{owner_uid}'")
 
     @staticmethod
-    def invalidate_accounting(owner_uid: str):
+    def invalidate_accounting(owner_uid: str, company_id=None):
         CacheService.invalidate_pattern("web_accounting")
         CacheService.invalidate_pattern(f"ownerUID': '{owner_uid}'")
 
     @staticmethod
-    def invalidate_reports(owner_uid: str):
+    def invalidate_reports(owner_uid: str, company_id=None):
         CacheService.invalidate_pattern("reports_sales")
         CacheService.invalidate_pattern(f"ownerUID': '{owner_uid}'")

@@ -27,8 +27,8 @@ from app.models.offboarding import (
 class OffboardingService:
     """Agregado root: TerminationRequest con sus 8 entidades satélite."""
 
-    def __init__(self, owner_uid: str, sandbox: bool = True):
-        self.owner_uid = owner_uid
+    def __init__(self, company_id: str, sandbox: bool = True):
+        self.company_id = company_id
         self.sandbox = sandbox
         self.sm = StateMachineValidator(OFFBOARDING_STATES)
 
@@ -42,7 +42,7 @@ class OffboardingService:
         req.createdBy = user_email
         req.createdAt = self._now()
         req.updatedAt = self._now()
-        req.ownerUid = self.owner_uid
+        req.ownerUid = self.company_id
         req.sandbox = self.sandbox
 
         if not req.requestNumber:
@@ -55,21 +55,21 @@ class OffboardingService:
             comment="Creación de solicitud",
         ).model_dump())
 
-        ods.save_request(req.id, req.model_dump(), self.owner_uid, self.sandbox)
-        log_action(self.owner_uid, "offboarding_created", "offboarding", req.id,
+        ods.save_request(req.id, req.model_dump(), self.company_id, self.sandbox)
+        log_action(self.company_id, "offboarding_created", "offboarding", req.id,
                    user_email, {"employeeId": req.employeeId}, sandbox=self.sandbox)
         return req
 
     def get_request(self, request_id: str) -> Optional[dict]:
-        return ods.get_request(request_id, self.owner_uid, self.sandbox)
+        return ods.get_request(request_id, self.company_id, self.sandbox)
 
     def list_requests(self, status: str = None, limit: int = 100) -> list[dict]:
-        return ods.list_requests(self.owner_uid, self.sandbox, status=status, limit=limit)
+        return ods.list_requests(self.company_id, self.sandbox, status=status, limit=limit)
 
     def save_request_raw(self, request_id: str, data: dict, user_email: str):
         data["updatedBy"] = user_email
         data["updatedAt"] = self._now()
-        ods.save_request(request_id, data, self.owner_uid, self.sandbox)
+        ods.save_request(request_id, data, self.company_id, self.sandbox)
 
     # ── State Machine ──────────────────────────────────────────────────────
 
@@ -153,8 +153,8 @@ class OffboardingService:
         if new_status in ts_map:
             req_data[ts_map[new_status]] = timestamp
 
-        ods.save_request(request_id, req_data, self.owner_uid, self.sandbox)
-        log_action(self.owner_uid, f"offboarding_{new_status}", "offboarding", request_id,
+        ods.save_request(request_id, req_data, self.company_id, self.sandbox)
+        log_action(self.company_id, f"offboarding_{new_status}", "offboarding", request_id,
                    user_email, {"fromStatus": old_status, "toStatus": new_status}, sandbox=self.sandbox)
 
         if new_status == "completed":
@@ -186,7 +186,7 @@ class OffboardingService:
             req_data["statusHistory"] = []
         req_data["statusHistory"].append(approved_entry)
         req_data["hrApprovedAt"] = timestamp
-        log_action(self.owner_uid, "offboarding_approved", "offboarding",
+        log_action(self.company_id, "offboarding_approved", "offboarding",
                    req_data.get("id", ""), user_email,
                    {"fromStatus": "pending_hr_approval", "toStatus": "approved"},
                    sandbox=self.sandbox)
@@ -208,13 +208,13 @@ class OffboardingService:
             return
         try:
             from app.services import hr_data_service as hr
-            emp = hr.get_employee(self.owner_uid, employee_id, sandbox=self.sandbox)
+            emp = hr.get_employee(self.company_id, employee_id, sandbox=self.sandbox)
             if emp and emp.get("status") != "inactivo":
                 emp["status"] = "inactivo"
                 emp["terminationDate"] = req_data.get("effectiveDate", "")
                 emp["terminationType"] = req_data.get("terminationType", "")
-                hr.save_employee(self.owner_uid, employee_id, emp, sandbox=self.sandbox)
-                log_action(self.owner_uid, "employee_marked_inactive", "employee",
+                hr.save_employee(self.company_id, employee_id, emp, sandbox=self.sandbox)
+                log_action(self.company_id, "employee_marked_inactive", "employee",
                            employee_id, "system",
                            {"offboardingId": req_data.get("id", ""),
                             "terminationType": req_data.get("terminationType", "")},
@@ -234,7 +234,7 @@ class OffboardingService:
             req_data["accessRevokedAt"] = None
         req_data["accessRevokedBy"] = user_email if revoke else None
         self.save_request_raw(request_id, req_data, user_email)
-        log_action(self.owner_uid, "offboarding_access_revoked" if revoke else "offboarding_access_restored",
+        log_action(self.company_id, "offboarding_access_revoked" if revoke else "offboarding_access_restored",
                    "offboarding", request_id, user_email,
                    {"employeeId": req_data.get("employeeId", "")}, sandbox=self.sandbox)
         return req_data
@@ -278,7 +278,7 @@ class OffboardingService:
         if "approvalHistory" not in req_data or not isinstance(req_data.get("approvalHistory"), list):
             req_data["approvalHistory"] = []
         req_data["approvalHistory"].append(approval)
-        ods.save_request(request_id, req_data, self.owner_uid, self.sandbox)
+        ods.save_request(request_id, req_data, self.company_id, self.sandbox)
         return req_data
 
     # ── Settlement ─────────────────────────────────────────────────────────
@@ -289,7 +289,7 @@ class OffboardingService:
         settlement.calculatedAt = self._now()
         settlement.createdAt = self._now()
         ods.save("offboarding_settlements", settlement.id, settlement.model_dump(),
-                 self.owner_uid, self.sandbox)
+                 self.company_id, self.sandbox)
 
         if settlement.requestId:
             req_data = self.get_request(settlement.requestId)
@@ -299,13 +299,13 @@ class OffboardingService:
                 req_data["settlementCalculatedAt"] = self._now()
                 self.save_request_raw(settlement.requestId, req_data, user_email)
 
-        log_action(self.owner_uid, "settlement_calculated", "offboarding_settlement",
+        log_action(self.company_id, "settlement_calculated", "offboarding_settlement",
                    settlement.id, user_email, {"requestId": settlement.requestId},
                    sandbox=self.sandbox)
         return settlement.id
 
     def get_settlement(self, settlement_id: str) -> Optional[dict]:
-        return ods.get_one("offboarding_settlements", settlement_id, self.owner_uid, self.sandbox)
+        return ods.get_one("offboarding_settlements", settlement_id, self.company_id, self.sandbox)
 
     def approve_settlement(self, settlement_id: str, approved_by: str,
                            comment: str = "") -> dict:
@@ -317,8 +317,8 @@ class OffboardingService:
         settlement["approvedAt"] = self._now()
         settlement["approvalComment"] = comment
         ods.save("offboarding_settlements", settlement_id, settlement,
-                 self.owner_uid, self.sandbox)
-        log_action(self.owner_uid, "settlement_approved", "offboarding_settlement",
+                 self.company_id, self.sandbox)
+        log_action(self.company_id, "settlement_approved", "offboarding_settlement",
                    settlement_id, approved_by, sandbox=self.sandbox)
         return settlement
 
@@ -337,7 +337,7 @@ class OffboardingService:
                 isMandatory=t["isMandatory"],
             ).model_dump())
         active_assignments = get_asignaciones_por_empleado(
-            self.owner_uid, employee_id, sandbox=self.sandbox
+            self.company_id, employee_id, sandbox=self.sandbox
         )
         active_assignments = [a for a in active_assignments if a.get("status") == "activa"]
         for a in active_assignments:
@@ -359,7 +359,7 @@ class OffboardingService:
             allCompleted=False,
         )
         ods.save("offboarding_checklists", checklist.id, checklist.model_dump(),
-                 self.owner_uid, self.sandbox)
+                 self.company_id, self.sandbox)
 
         req_data = self.get_request(request_id)
         if req_data:
@@ -368,7 +368,7 @@ class OffboardingService:
         return checklist.id
 
     def get_checklist(self, checklist_id: str) -> Optional[dict]:
-        return ods.get_one("offboarding_checklists", checklist_id, self.owner_uid, self.sandbox)
+        return ods.get_one("offboarding_checklists", checklist_id, self.company_id, self.sandbox)
 
     def update_checklist_item(self, checklist_id: str, item_id: str,
                               updates: dict, user_email: str) -> dict:
@@ -388,7 +388,7 @@ class OffboardingService:
         checklist["completedItems"] = completed
         checklist["allCompleted"] = completed >= checklist.get("totalItems", 0)
         ods.save("offboarding_checklists", checklist_id, checklist,
-                 self.owner_uid, self.sandbox)
+                 self.company_id, self.sandbox)
         return checklist
 
     def _sync_asset_return(self, checklist: dict, item: dict):
@@ -405,20 +405,20 @@ class OffboardingService:
                 return
             emp_id = req.get("employeeId", "")
             assigns = get_asignaciones_por_empleado(
-                self.owner_uid, emp_id, sandbox=self.sandbox
+                self.company_id, emp_id, sandbox=self.sandbox
             )
             for a in assigns:
                 if a.get("id") == assigned_id:
                     a["returnedDate"] = self._now()
                     a["status"] = "devuelta"
                     a["conditionOnReturn"] = item.get("notes", "")
-                    save_asignacion(self.owner_uid, assigned_id, a, sandbox=self.sandbox)
+                    save_asignacion(self.company_id, assigned_id, a, sandbox=self.sandbox)
                     h_id = a.get("herramientaId", "")
                     if h_id:
-                        h = get_herramienta(self.owner_uid, h_id, sandbox=self.sandbox)
+                        h = get_herramienta(self.company_id, h_id, sandbox=self.sandbox)
                         if h:
                             h["assignmentStatus"] = "disponible"
-                            save_herramienta(self.owner_uid, h_id, h, sandbox=self.sandbox)
+                            save_herramienta(self.company_id, h_id, h, sandbox=self.sandbox)
                     break
         except Exception as e:
             print(f"⚠️ Offboarding._sync_asset_return: {e}")
@@ -430,11 +430,11 @@ class OffboardingService:
         doc.generatedBy = user_email
         doc.generatedAt = self._now()
         ods.save("offboarding_documents", doc.id, doc.model_dump(),
-                 self.owner_uid, self.sandbox)
+                 self.company_id, self.sandbox)
         return doc.id
 
     def get_documents(self, request_id: str) -> list[dict]:
-        return ods.get_all("offboarding_documents", self.owner_uid, self.sandbox,
+        return ods.get_all("offboarding_documents", self.company_id, self.sandbox,
                            where_filters=[("requestId", "==", request_id)])
 
     # ── Payment ────────────────────────────────────────────────────────────
@@ -444,14 +444,14 @@ class OffboardingService:
         payment.paidBy = user_email
         payment.paidAt = self._now()
         ods.save("offboarding_payments", payment.id, payment.model_dump(),
-                 self.owner_uid, self.sandbox)
-        log_action(self.owner_uid, "payment_registered", "offboarding_payment",
+                 self.company_id, self.sandbox)
+        log_action(self.company_id, "payment_registered", "offboarding_payment",
                    payment.id, user_email, {"requestId": payment.requestId},
                    sandbox=self.sandbox)
         return payment.id
 
     def get_payments(self, request_id: str) -> list[dict]:
-        return ods.get_all("offboarding_payments", self.owner_uid, self.sandbox,
+        return ods.get_all("offboarding_payments", self.company_id, self.sandbox,
                            where_filters=[("requestId", "==", request_id)])
 
     # ── Interview ──────────────────────────────────────────────────────────
@@ -461,11 +461,11 @@ class OffboardingService:
         interview.createdBy = user_email
         interview.createdAt = self._now()
         ods.save("offboarding_interviews", interview.id, interview.model_dump(),
-                 self.owner_uid, self.sandbox)
+                 self.company_id, self.sandbox)
         return interview.id
 
     def get_interviews(self, request_id: str) -> list[dict]:
-        return ods.get_all("offboarding_interviews", self.owner_uid, self.sandbox,
+        return ods.get_all("offboarding_interviews", self.company_id, self.sandbox,
                            where_filters=[("requestId", "==", request_id)])
 
     # ── Risk Assessment ────────────────────────────────────────────────────
@@ -475,11 +475,11 @@ class OffboardingService:
         ra.assessedBy = user_email
         ra.assessedAt = self._now()
         ods.save("offboarding_risk_assessments", ra.id, ra.model_dump(),
-                 self.owner_uid, self.sandbox)
+                 self.company_id, self.sandbox)
         return ra.id
 
     def get_risk_assessment(self, ra_id: str) -> Optional[dict]:
-        return ods.get_one("offboarding_risk_assessments", ra_id, self.owner_uid, self.sandbox)
+        return ods.get_one("offboarding_risk_assessments", ra_id, self.company_id, self.sandbox)
 
     # ── Legal Case ─────────────────────────────────────────────────────────
 
@@ -488,11 +488,11 @@ class OffboardingService:
         lc.createdBy = user_email
         lc.createdAt = self._now()
         ods.save("offboarding_legal_cases", lc.id, lc.model_dump(),
-                 self.owner_uid, self.sandbox)
+                 self.company_id, self.sandbox)
         return lc.id
 
     def get_legal_case(self, lc_id: str) -> Optional[dict]:
-        return ods.get_one("offboarding_legal_cases", lc_id, self.owner_uid, self.sandbox)
+        return ods.get_one("offboarding_legal_cases", lc_id, self.company_id, self.sandbox)
 
     # ── Rehire ─────────────────────────────────────────────────────────────
 
@@ -501,7 +501,7 @@ class OffboardingService:
         rh.createdBy = user_email
         rh.createdAt = self._now()
         ods.save("offboarding_rehire_requests", rh.id, rh.model_dump(),
-                 self.owner_uid, self.sandbox)
+                 self.company_id, self.sandbox)
         return rh.id
 
     # ── Versioning ─────────────────────────────────────────────────────────
@@ -519,7 +519,7 @@ class OffboardingService:
             changeReason=reason,
         )
         ods.save("offboarding_versions", v.id, v.model_dump(),
-                 self.owner_uid, self.sandbox)
+                 self.company_id, self.sandbox)
         if req:
             req["version"] = version + 1
             self.save_request_raw(request_id, req, user_email)

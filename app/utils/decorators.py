@@ -36,7 +36,7 @@ def check_permission(permission_name):
     return user.get('permissions', {}).get(permission_name, default_val)
 
 
-def check_sod(owner_uid, user_uid, permission, entity_id, entity_type):
+def check_sod(owner_uid, user_uid, permission, entity_id, entity_type, company_id=None):
     conflict_info = SOD_CONFLICT_MATRIX.get(permission)
     if not conflict_info:
         return True, ""
@@ -50,7 +50,7 @@ def check_sod(owner_uid, user_uid, permission, entity_id, entity_type):
     return True, ""
 
 
-def record_sod_action(owner_uid, user_uid, user_email, permission, entity_id, entity_type):
+def record_sod_action(owner_uid, user_uid, user_email, permission, entity_id, entity_type, company_id=None):
     conflict_info = SOD_CONFLICT_MATRIX.get(permission)
     if not conflict_info:
         return

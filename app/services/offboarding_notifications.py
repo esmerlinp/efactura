@@ -40,27 +40,27 @@ NOTIFICATION_RULES = {
 }
 
 
-def _get_employee_email(owner_uid: str, employee_id: str, sandbox: bool) -> str:
+def _get_employee_email(owner_uid: str, employee_id: str, sandbox: bool, company_id=None) -> str:
     from app.services import hr_data_service as hr
-    emp = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
+    emp = hr.get_employee(company_id, employee_id, sandbox=sandbox)
     if emp:
         return emp.get("email", "") or emp.get("personalEmail", "")
     return ""
 
 
-def _get_employee_supervisor_email(owner_uid: str, employee_id: str, sandbox: bool) -> str:
+def _get_employee_supervisor_email(owner_uid: str, employee_id: str, sandbox: bool, company_id=None) -> str:
     from app.services import hr_data_service as hr
-    emp = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
+    emp = hr.get_employee(company_id, employee_id, sandbox=sandbox)
     if emp and emp.get("supervisorId"):
-        sup = hr.get_employee(owner_uid, emp["supervisorId"], sandbox=sandbox)
+        sup = hr.get_employee(company_id, emp["supervisorId"], sandbox=sandbox)
         if sup:
             return sup.get("email", "") or ""
     return ""
 
 
-def _get_hr_emails(owner_uid: str, sandbox: bool) -> list[str]:
+def _get_hr_emails(owner_uid: str, sandbox: bool, company_id=None) -> list[str]:
     from app.services import hr_data_service as hr
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    employees = hr.get_employees(company_id, sandbox=sandbox)
     hr_emails = []
     for e in employees:
         role = e.get("role", "") or e.get("position", "")
@@ -79,6 +79,7 @@ def notify_transition(
     old_status: str,
     new_status: str,
     changed_by: str,
+    company_id=None,
 ):
     """Envía notificaciones según la transición de estado."""
     if not app:
@@ -105,15 +106,15 @@ def notify_transition(
         if target == "employee":
             if not _should_notify_employee():
                 continue
-            email = _get_employee_email(owner_uid, employee_id, sandbox)
+            email = _get_employee_email(owner_uid, employee_id, sandbox, company_id=company_id)
             if email:
                 recipients.append(email)
         elif target == "supervisor":
-            email = _get_employee_supervisor_email(owner_uid, employee_id, sandbox)
+            email = _get_employee_supervisor_email(owner_uid, employee_id, sandbox, company_id=company_id)
             if email:
                 recipients.append(email)
         elif target == "hr":
-            hr_list = _get_hr_emails(owner_uid, sandbox)
+            hr_list = _get_hr_emails(owner_uid, sandbox, company_id=company_id)
             recipients.extend(hr_list)
 
     if not recipients:

@@ -21,18 +21,18 @@ from app.services.payroll_audit_service import log_action
 def employee_liquidacion(employee_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.liquidacion_service import LiquidacionService
 
-    employee = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
+    employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
     if not employee:
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_list"))
 
     # ── Auto-calcular vacaciones desde el historial real ──
     hire_date = employee.get("hireDate", "")
-    vac_requests = hr.get_vacation_requests(owner_uid, sandbox=sandbox)
+    vac_requests = hr.get_vacation_requests(company_id, sandbox=sandbox)
     emp_vacs = [v for v in vac_requests
                 if v.get("employeeId") == employee_id and v.get("status") == "aprobada"]
 
@@ -87,7 +87,7 @@ def employee_liquidacion(employee_id):
         # Usar salarios de los últimos 12 meses desde el historial salarial
         salaries_12 = [base_salary]
         try:
-            salary_history = hr.get_salary_history(owner_uid, employee_id, sandbox=sandbox)
+            salary_history = hr.get_salary_history(company_id, employee_id, sandbox=sandbox)
             if salary_history:
                 recent = sorted(salary_history, key=lambda x: x.get("effectiveDate", ""), reverse=True)[:12]
                 salaries_12 = [s.get("amount", base_salary) for s in recent if s.get("amount")]
@@ -128,9 +128,9 @@ def employee_liquidacion(employee_id):
         # Persistir en Firestore
         save_action = request.form.get("save", "").strip()
         if save_action == "1":
-            hr.save_liquidacion(owner_uid, resultado["id"], resultado, sandbox=sandbox)
+            hr.save_liquidacion(company_id, resultado["id"], resultado, sandbox=sandbox)
             from app.services.payroll_audit_service import log_action
-            log_action(owner_uid, "liquidacion_calculada", "employee", employee_id,
+            log_action(company_id, "liquidacion_calculada", "employee", employee_id,
                        session.get("user", {}).get("email", ""),
                        changes={
                            "liquidacionId": resultado["id"],
@@ -155,15 +155,15 @@ def employee_liquidacion(employee_id):
 def employee_liquidaciones_list(employee_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    employee = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
+    employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
     if not employee:
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_list"))
 
-    liquidaciones = hr.get_liquidaciones_by_employee(owner_uid, employee_id, sandbox=sandbox)
+    liquidaciones = hr.get_liquidaciones_by_employee(company_id, employee_id, sandbox=sandbox)
     return render_template("rrhh/employee_liquidaciones_list.html",
                            active_page="rrhh_employees",
                            employee=_sanitize_for_role(employee),

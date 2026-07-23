@@ -70,9 +70,9 @@ class CashFlowService:
             return date.today()
 
     @classmethod
-    def get_current_liquidity(cls, owner_uid: str, sandbox: bool = True) -> float:
+    def get_current_liquidity(cls, owner_uid: str, sandbox: bool = True, company_id: str = None) -> float:
         """Saldo total disponible sumando todas las cuentas bancarias."""
-        accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox) or []
+        accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox, company_id=company_id) or []
         return sum(float(a.get("currentBalance", 0.0)) for a in accounts)
 
     @classmethod
@@ -85,6 +85,7 @@ class CashFlowService:
         include_contracts: bool = True,
         invoices: Optional[list] = None,
         expenses: Optional[list] = None,
+        company_id: str = None,
     ) -> list[MonthProjection]:
         """
         Genera proyección de flujo de caja para los próximos N meses.
@@ -102,7 +103,7 @@ class CashFlowService:
             Lista de MonthProjection ordenada cronológicamente.
         """
         today = date.today()
-        current_balance = cls.get_current_liquidity(owner_uid, sandbox=sandbox)
+        current_balance = cls.get_current_liquidity(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
 
         # Inicializar meses
         projections: dict[str, MonthProjection] = {}
@@ -117,7 +118,7 @@ class CashFlowService:
             projections[key] = MonthProjection(key=key, label=label)
 
         # ── CxC: Facturas pendientes de cobro ──
-        invoices = invoices if invoices is not None else (DatabaseService.get_invoices(owner_uid, sandbox=sandbox) or [])
+        invoices = invoices if invoices is not None else (DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id) or [])
         for inv in invoices:
             if inv.get("isQuotation") or inv.get("status") in ("Anulada", "Borrador", "Pagado", "Consolidada"):
                 continue
@@ -140,7 +141,7 @@ class CashFlowService:
                 })
 
         # ── CxP: Gastos a crédito pendientes de pago ──
-        expenses = expenses if expenses is not None else (DatabaseService.get_expenses(owner_uid, sandbox=sandbox) or [])
+        expenses = expenses if expenses is not None else (DatabaseService.get_expenses(owner_uid, sandbox=sandbox, company_id=company_id) or [])
         for exp in expenses:
             if exp.get("approvalStatus") == "Rechazado":
                 continue
@@ -203,7 +204,7 @@ class CashFlowService:
 
         # ── Contratos ──
         if include_contracts:
-            contracts = DatabaseService.get_contracts(owner_uid, sandbox=sandbox) or []
+            contracts = DatabaseService.get_contracts(owner_uid, sandbox=sandbox, company_id=company_id) or []
             for contract in contracts:
                 if contract.get("status") != "Activo":
                     continue
@@ -316,7 +317,8 @@ class CashFlowService:
 
     @classmethod
     def get_weekly_forecast(cls, owner_uid: str, weeks: int = 12, sandbox: bool = True,
-                            invoices: Optional[list] = None, expenses: Optional[list] = None) -> list[dict]:
+                            invoices: Optional[list] = None, expenses: Optional[list] = None,
+                            company_id: str = None) -> list[dict]:
         """
         Proyección semanal de flujo de caja.
 
@@ -333,7 +335,7 @@ class CashFlowService:
         today = date.today()
         # Alinear al lunes
         monday = today - timedelta(days=today.weekday())
-        current_balance = cls.get_current_liquidity(owner_uid, sandbox=sandbox)
+        current_balance = cls.get_current_liquidity(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
 
         # Inicializar semanas
         weeks_data = []
@@ -349,7 +351,7 @@ class CashFlowService:
             })
 
         # ── CxC ──
-        invoices = invoices if invoices is not None else (DatabaseService.get_invoices(owner_uid, sandbox=sandbox) or [])
+        invoices = invoices if invoices is not None else (DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id) or [])
         for inv in invoices:
             if inv.get("isQuotation") or inv.get("status") in ("Anulada", "Borrador", "Pagado", "Consolidada"):
                 continue
@@ -365,7 +367,7 @@ class CashFlowService:
                     break
 
         # ── CxP ──
-        expenses = expenses if expenses is not None else (DatabaseService.get_expenses(owner_uid, sandbox=sandbox) or [])
+        expenses = expenses if expenses is not None else (DatabaseService.get_expenses(owner_uid, sandbox=sandbox, company_id=company_id) or [])
         for exp in expenses:
             if exp.get("approvalStatus") == "Rechazado":
                 continue

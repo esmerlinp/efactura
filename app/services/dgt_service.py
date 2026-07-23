@@ -98,9 +98,9 @@ def _build_dgt_line(emp: dict, novedad_tipo: int = 0, novedad_fecha: str = "") -
 class DGTService:
 
     @staticmethod
-    def get_dgt3_data(owner_uid: str, year: int, sandbox: bool = True) -> dict:
+    def get_dgt3_data(company_id: str, year: int, sandbox: bool = True) -> dict:
         """DGT-3: Personal fijo activo al corte del año."""
-        employees = get_employees(owner_uid, sandbox=sandbox)
+        employees = get_employees(company_id, sandbox=sandbox)
         fijos = [
             e for e in employees
             if e.get("status") == "activo"
@@ -118,13 +118,13 @@ class DGTService:
         }
 
     @staticmethod
-    def get_dgt4_data(owner_uid: str, year: int, month: int, sandbox: bool = True) -> dict:
+    def get_dgt4_data(company_id: str, year: int, month: int, sandbox: bool = True) -> dict:
         """DGT-4: Cambios mensuales en personal fijo.
 
         Compara el snapshot de empleados entre el período de nómina actual y anterior.
         Si no hay snapshot, detecta altas/bajas usando el mes de contratación/terminación.
         """
-        employees = get_employees(owner_uid, sandbox=sandbox)
+        employees = get_employees(company_id, sandbox=sandbox)
         changes = []
         altas = bajas = modificaciones = 0
 
@@ -167,7 +167,7 @@ class DGTService:
                 })
 
         # Modificaciones: revisar salary history del mes
-        salary_history = get_all_salary_history(owner_uid, sandbox=sandbox)
+        salary_history = get_all_salary_history(company_id, sandbox=sandbox)
         for sh in salary_history:
             eff = sh.get("effectiveDate", "")
             if eff[:7] == f"{year:04d}-{month:02d}":
@@ -198,13 +198,13 @@ class DGTService:
         }
 
     @staticmethod
-    def get_dgt2_data(owner_uid: str, year: int, sandbox: bool = True) -> dict:
+    def get_dgt2_data(company_id: str, year: int, sandbox: bool = True) -> dict:
         """DGT-2: Cartel de Horas y Vacaciones."""
-        employees = get_employees(owner_uid, sandbox=sandbox)
-        vacations = get_vacation_requests(owner_uid, sandbox=sandbox)
+        employees = get_employees(company_id, sandbox=sandbox)
+        vacations = get_vacation_requests(company_id, sandbox=sandbox)
 
         # Obtener HE totales del año desde nóminas
-        payrolls = get_payroll_periods(owner_uid, sandbox=sandbox)
+        payrolls = get_payroll_periods(company_id, sandbox=sandbox)
         total_overtime = 0.0
         for p in payrolls:
             if str(p.get("year", "")) == str(year) and p.get("status") in ("aprobada", "pagada", "cerrada"):
@@ -239,9 +239,9 @@ class DGTService:
         }
 
     @staticmethod
-    def get_dgt5_data(owner_uid: str, sandbox: bool = True) -> list:
+    def get_dgt5_data(company_id: str, sandbox: bool = True) -> list:
         """DGT-5: Personal móvil u ocasional (contrato temporal)."""
-        employees = get_employees(owner_uid, sandbox=sandbox)
+        employees = get_employees(company_id, sandbox=sandbox)
         temporales = [
             e for e in employees
             if e.get("status") == "activo"
@@ -260,39 +260,39 @@ class DGTService:
         } for e in temporales]
 
     @staticmethod
-    def get_dgt9_data(owner_uid: str, sandbox: bool = True) -> list:
+    def get_dgt9_data(company_id: str, sandbox: bool = True) -> list:
         """DGT-9: Suspensiones activas."""
         from app.services.hr_data_service import get_dgt_suspensions
-        return get_dgt_suspensions(owner_uid, sandbox=sandbox)
+        return get_dgt_suspensions(company_id, sandbox=sandbox)
 
     @staticmethod
-    def save_dgt9(owner_uid: str, data: dict, sandbox: bool = True) -> str:
+    def save_dgt9(company_id: str, data: dict, sandbox: bool = True) -> str:
         """Guarda una suspensión DGT-9."""
         from app.services.hr_data_service import save_dgt_suspension
         import uuid
         susp_id = str(uuid.uuid4())
         data["id"] = susp_id
         data["estado"] = "activa"
-        save_dgt_suspension(owner_uid, susp_id, data, sandbox=sandbox)
+        save_dgt_suspension(company_id, susp_id, data, sandbox=sandbox)
         return susp_id
 
     @staticmethod
-    def save_dgt12(owner_uid: str, data: dict, sandbox: bool = True) -> str:
+    def save_dgt12(company_id: str, data: dict, sandbox: bool = True) -> str:
         """Guarda un cese de suspensión DGT-12 y actualiza el estado de la suspensión."""
         from app.services.hr_data_service import save_dgt_reinstatement, save_dgt_suspension
         import uuid
         reinst_id = str(uuid.uuid4())
         data["id"] = reinst_id
-        save_dgt_reinstatement(owner_uid, reinst_id, data, sandbox=sandbox)
+        save_dgt_reinstatement(company_id, reinst_id, data, sandbox=sandbox)
 
         # Marcar suspensión como cesada
         suspension_id = data.get("suspensionId")
         if suspension_id:
-            susp = DGTService.get_dgt9_data(owner_uid, sandbox=sandbox)
+            susp = DGTService.get_dgt9_data(company_id, sandbox=sandbox)
             for s in susp:
                 if s.get("id") == suspension_id:
                     s["estado"] = "cesada"
-                    save_dgt_suspension(owner_uid, suspension_id, s, sandbox=sandbox)
+                    save_dgt_suspension(company_id, suspension_id, s, sandbox=sandbox)
                     break
 
         return reinst_id
@@ -302,18 +302,18 @@ class DGTService:
     # ═══════════════════════════════════════════════════════════════════════════
 
     @staticmethod
-    def get_tss_3_01_data(owner_uid: str, period_key: str, sandbox: bool = True) -> dict:
+    def get_tss_3_01_data(company_id: str, period_key: str, sandbox: bool = True) -> dict:
         """Genera los datos para la planilla TSS-3-01 (Resumen de Pago).
         
         Formato requerido por TSS para pago mensual de seguridad social.
         """
-        periods = get_payroll_periods(owner_uid, sandbox=sandbox)
+        periods = get_payroll_periods(company_id, sandbox=sandbox)
         period = next((p for p in periods if p.get("periodKey") == period_key), None)
         if not period:
             return {"error": "Período no encontrado"}
 
         lines = period.get("lines", [])
-        employees = {e["id"]: e for e in get_employees(owner_uid, sandbox=sandbox)}
+        employees = {e["id"]: e for e in get_employees(company_id, sandbox=sandbox)}
 
         total_afp_empleado = sum(float(l.get("afpEmployee", 0)) for l in lines)
         total_sfs_empleado = sum(float(l.get("sfsEmployee", 0)) for l in lines)
@@ -343,18 +343,18 @@ class DGTService:
         }
 
     @staticmethod
-    def get_tss_3_02_data(owner_uid: str, period_key: str, sandbox: bool = True) -> list:
+    def get_tss_3_02_data(company_id: str, period_key: str, sandbox: bool = True) -> list:
         """Genera los datos para la planilla TSS-3-02 (Relación de Empleados).
         
         Lista cada empleado con sus aportes individuales.
         """
-        periods = get_payroll_periods(owner_uid, sandbox=sandbox)
+        periods = get_payroll_periods(company_id, sandbox=sandbox)
         period = next((p for p in periods if p.get("periodKey") == period_key), None)
         if not period:
             return []
 
         lines = period.get("lines", [])
-        employees = {e["id"]: e for e in get_employees(owner_uid, sandbox=sandbox)}
+        employees = {e["id"]: e for e in get_employees(company_id, sandbox=sandbox)}
         rows = []
 
         for l in lines:
@@ -379,16 +379,16 @@ class DGTService:
         return rows
 
     @staticmethod
-    def export_tss_txt(owner_uid: str, period_key: str, sandbox: bool = True) -> str:
+    def export_tss_txt(company_id: str, period_key: str, sandbox: bool = True) -> str:
         """Exporta datos TSS en formato TXT de columna fija para envío a TSS."""
-        summary = DGTService.get_tss_3_01_data(owner_uid, period_key, sandbox)
+        summary = DGTService.get_tss_3_01_data(company_id, period_key, sandbox)
         if "error" in summary:
             return ""
 
         lines = []
         lines.append(f"TSS310|{period_key}|{summary['totalEmployees']}|{summary['totalSalaries']:.2f}|{summary['grandTotal']:.2f}")
 
-        details = DGTService.get_tss_3_02_data(owner_uid, period_key, sandbox)
+        details = DGTService.get_tss_3_02_data(company_id, period_key, sandbox)
         for row in details:
             lines.append(
                 f"TSS320|{row['cedula'][:15]:<15}|{row['nombre'][:60]:<60}|"

@@ -1,5 +1,6 @@
 """
 InvoiceRepository — facturas, gastos, pagos, items del catálogo.
+Opera sobre companies/{company_id}/...
 """
 from typing import Optional
 
@@ -76,7 +77,7 @@ class InvoiceRepository(BaseRepository):
         if not firebase_initialized:
             return comments
         coll_name = "sandbox_invoices" if sandbox else "invoices"
-        docs = db_firestore.collection("users").document(self.owner_uid).collection(coll_name).document(invoice_id).collection("comments").get()
+        docs = db_firestore.collection("companies").document(self.company_id).collection(coll_name).document(invoice_id).collection("comments").get()
         for doc in docs:
             data = doc.to_dict()
             data["id"] = doc.id

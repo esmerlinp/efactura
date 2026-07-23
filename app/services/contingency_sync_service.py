@@ -17,16 +17,16 @@ WARNING_THRESHOLD_HOURS = 48
 class ContingencySyncService:
 
     @classmethod
-    def sync_all_companies(cls, app_instance=None):
+    def sync_all_companies(cls, app_instance=None, company_id=None):
         logger.info("Iniciando sync de contingencia para todas las empresas...")
-        owner_uids = cls._discover_all_owner_uids()
+        owner_uids = cls._discover_all_owner_uids(company_id=company_id)
         total_synced = 0
         total_failed = 0
 
         for owner_uid in owner_uids:
             for sandbox in (False, True):
                 try:
-                    synced, failed = cls.sync_company_pending(owner_uid, sandbox=sandbox)
+                    synced, failed = cls.sync_company_pending(owner_uid, sandbox=sandbox, company_id=company_id)
                     total_synced += synced
                     total_failed += failed
                 except Exception as e:
@@ -36,9 +36,13 @@ class ContingencySyncService:
         return total_synced, total_failed
 
     @classmethod
-    def _discover_all_owner_uids(cls):
+    def _discover_all_owner_uids(cls, company_id=None):
         uids = set()
         if not firebase_initialized or not db_firestore:
+            return uids
+
+        if company_id:
+            uids.add(company_id)
             return uids
 
         try:
@@ -55,8 +59,8 @@ class ContingencySyncService:
         return uids
 
     @classmethod
-    def sync_company_pending(cls, owner_uid, sandbox=True):
-        invoices = DatabaseService.get_contingency_invoices(owner_uid, sandbox=sandbox)
+    def sync_company_pending(cls, owner_uid, sandbox=True, company_id=None):
+        invoices = DatabaseService.get_contingency_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
         pending = [
             inv for inv in invoices
             if inv.get('status') in ['Emitida', 'Cobrada', 'Pendiente DGII']
@@ -65,7 +69,7 @@ class ContingencySyncService:
         if not pending:
             return 0, 0
 
-        company = DatabaseService.get_company_profile(owner_uid)
+        company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
         if not company:
             logger.warning(f"Perfil de empresa no encontrado para {owner_uid}")
             return 0, 0
@@ -81,14 +85,14 @@ class ContingencySyncService:
                 if sync_attempts >= MAX_RETRY_ATTEMPTS:
                     inv["dgiiStatus"] = "SYNC_FAILED"
                     inv["syncError"] = f"Reintentos agotados ({sync_attempts}). Contacte a soporte."
-                    DatabaseService.save_invoice(owner_uid, inv.get("id"), inv, sandbox=sandbox)
+                    DatabaseService.save_invoice(owner_uid, inv.get("id"), inv, sandbox=sandbox, company_id=company_id)
                     logger.warning(f"Documento {inv.get('encf', 'N/A')} marcado como SYNC_FAILED tras {sync_attempts} intentos.")
                 continue
 
             encf = inv.get('encf', 'N/A')
             inv_id = inv['id']
             try:
-                full_inv = DatabaseService.get_invoice(owner_uid, inv_id, sandbox=sandbox)
+                full_inv = DatabaseService.get_invoice(owner_uid, inv_id, sandbox=sandbox, company_id=company_id)
                 target_invoice = full_inv or inv
                 target_invoice['syncAttempts'] = sync_attempts + 1
                 target_invoice['lastSyncAttempt'] = datetime.now(timezone.utc).isoformat()
@@ -98,16 +102,16 @@ class ContingencySyncService:
                 )
 
                 if res.get("success") and res.get("mode", "API") == "API":
-                    cls._mark_synced(owner_uid, inv_id, target_invoice, res, sandbox)
+                    cls._mark_synced(owner_uid, inv_id, target_invoice, res, sandbox, company_id=company_id)
                     synced_count += 1
                     logger.info(f"e-NCF {encf} sincronizada exitosamente")
                 else:
-                    DatabaseService.save_invoice(owner_uid, inv_id, target_invoice, sandbox=sandbox)
+                    DatabaseService.save_invoice(owner_uid, inv_id, target_invoice, sandbox=sandbox, company_id=company_id)
                     failed_count += 1
 
                     hours_in_contingency = cls._hours_since_contingency(target_invoice)
                     if hours_in_contingency and hours_in_contingency >= WARNING_THRESHOLD_HOURS:
-                        cls._notify_admins(owner_uid, encf, hours_in_contingency, sandbox)
+                        cls._notify_admins(owner_uid, encf, hours_in_contingency, sandbox, company_id=company_id)
 
             except Exception as e:
                 logger.error(f"Error sync e-NCF {encf}: {e}")
@@ -143,7 +147,7 @@ class ContingencySyncService:
             return True
 
     @classmethod
-    def _mark_synced(cls, owner_uid, inv_id, invoice, res, sandbox):
+    def _mark_synced(cls, owner_uid, inv_id, invoice, res, sandbox, company_id=None):
         invoice["isSyncedWithDGII"] = True
         invoice["emisionMode"] = "API"
         invoice["dgiiStatus"] = res.get("dgiiStatus") or "ACCEPTED"
@@ -160,19 +164,19 @@ class ContingencySyncService:
         elif invoice.get("status") == "Pendiente DGII":
             invoice["status"] = "Emitida"
 
-        DatabaseService.save_invoice(owner_uid, inv_id, invoice, sandbox=sandbox)
-        cls._sync_consolidated_children(owner_uid, invoice, sandbox)
-        cls._update_sequence_log(owner_uid, invoice, res, sandbox)
+        DatabaseService.save_invoice(owner_uid, inv_id, invoice, sandbox=sandbox, company_id=company_id)
+        cls._sync_consolidated_children(owner_uid, invoice, sandbox, company_id=company_id)
+        cls._update_sequence_log(owner_uid, invoice, res, sandbox, company_id=company_id)
 
     @classmethod
-    def _sync_consolidated_children(cls, owner_uid, invoice, sandbox):
+    def _sync_consolidated_children(cls, owner_uid, invoice, sandbox, company_id=None):
         if not invoice.get("isConsolidado") or not invoice.get("consolidatedInvoiceIds"):
             return
         try:
             from app.services.db_service import DatabaseService
             pending_children = []
             for child_id in invoice.get("consolidatedInvoiceIds", []):
-                child_inv = DatabaseService.get_invoice(owner_uid, child_id, sandbox=sandbox)
+                child_inv = DatabaseService.get_invoice(owner_uid, child_id, sandbox=sandbox, company_id=company_id)
                 if child_inv:
                     pending_children.append(child_inv)
             if pending_children:
@@ -185,15 +189,16 @@ class ContingencySyncService:
                     is_synced=True,
                     dgii_status=invoice.get("dgiiStatus") or "ACCEPTED",
                     emision_mode=invoice.get("emisionMode") or "API",
-                    sandbox=sandbox
+                    sandbox=sandbox,
+                    company_id=company_id
                 )
         except Exception as e:
             logger.warning(f"Error sync children consolidados: {e}")
 
     @classmethod
-    def _update_sequence_log(cls, owner_uid, invoice, res, sandbox):
+    def _update_sequence_log(cls, owner_uid, invoice, res, sandbox, company_id=None):
         try:
-            logs = DatabaseService.get_sequence_logs(owner_uid, sandbox=sandbox)
+            logs = DatabaseService.get_sequence_logs(owner_uid, sandbox=sandbox, company_id=company_id)
             log = next((l for l in logs if l.get("encf") == invoice.get("encf")), None)
             if log:
                 cuadratura = DGIIService.check_tolerancia_cuadratura(
@@ -205,7 +210,7 @@ class ContingencySyncService:
                     "motivo": f"Regularizado por Sincronización Automática. TrackID: {res.get('trackId', 'N/A')[:12]}",
                     "xmlEnviado": json.dumps(res.get("requestPayload"), indent=2) if res.get("requestPayload") else "",
                     "respuestaDGII": json.dumps(res.get("responseBody"), indent=2) if res.get("responseBody") else ""
-                }, sandbox=sandbox)
+                }, sandbox=sandbox, company_id=company_id)
         except Exception as e:
             logger.warning(f"Error actualizando log de secuencia: {e}")
 
@@ -224,11 +229,11 @@ class ContingencySyncService:
             return None
 
     @classmethod
-    def _notify_admins(cls, owner_uid, encf, hours, sandbox):
+    def _notify_admins(cls, owner_uid, encf, hours, sandbox, company_id=None):
         if not firebase_initialized or not db_firestore:
             return
         try:
-            team = DatabaseService.get_team_members(owner_uid)
+            team = DatabaseService.get_team_members(owner_uid, company_id=company_id)
             user_ids = [owner_uid]
             for member in team:
                 uid = member.get("uid")
@@ -257,8 +262,8 @@ class ContingencySyncService:
             logger.error(f"Error notificando admins: {e}")
 
     @classmethod
-    def check_expired_contingency(cls, owner_uid, sandbox=True):
-        invoices = DatabaseService.get_contingency_invoices(owner_uid, sandbox=sandbox)
+    def check_expired_contingency(cls, owner_uid, sandbox=True, company_id=None):
+        invoices = DatabaseService.get_contingency_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
         expired = []
         for inv in invoices:
             hours = cls._hours_since_contingency(inv)

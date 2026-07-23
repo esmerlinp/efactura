@@ -48,11 +48,11 @@ def _event_for_action(action_type: str, mass_action_id: str, payload: dict,
     return None
 
 
-def _detect_period(owner_uid: str, effective_date: str, sandbox: bool) -> Optional[str]:
+def _detect_period(owner_uid: str, effective_date: str, sandbox: bool, company_id=None) -> Optional[str]:
     """Detecta el periodo de nómina abierto que contiene la fecha efectiva."""
     if not effective_date:
         return None
-    config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
+    config = hr.get_payroll_config(company_id, sandbox=sandbox)
     frequency = config.get("payroll", {}).get("frequency", "mensual")
     year = effective_date[:4]
     try:
@@ -100,19 +100,19 @@ def _generate_periods_simple(frequency: str, year: int) -> list:
     return periods
 
 
-def _build_employee_map(owner_uid: str, sandbox: bool) -> dict:
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+def _build_employee_map(owner_uid: str, sandbox: bool, company_id=None) -> dict:
+    employees = hr.get_employees(company_id, sandbox=sandbox)
     return {e["id"]: e for e in employees}
 
 
 def create_mass_action(owner_uid: str, action_type: str, employee_ids: list,
-                       payload: dict, created_by: str, sandbox: bool = True) -> dict:
+                       payload: dict, created_by: str, sandbox: bool = True, company_id=None) -> dict:
     action_id = str(uuid.uuid4())
     now = _now()
 
     payroll_period_key = payload.get("payrollPeriodKey")
     if not payroll_period_key and payload.get("effectiveDate"):
-        payroll_period_key = _detect_period(owner_uid, payload.get("effectiveDate", ""), sandbox)
+        payroll_period_key = _detect_period(owner_uid, payload.get("effectiveDate", ""), sandbox, company_id=company_id)
         if payroll_period_key:
             payload["payrollPeriodKey"] = payroll_period_key
 
@@ -137,18 +137,18 @@ def create_mass_action(owner_uid: str, action_type: str, employee_ids: list,
         ],
     }
 
-    hr.save_mass_action(owner_uid, action_id, data, sandbox=sandbox)
+    hr.save_mass_action(company_id, action_id, data, sandbox=sandbox)
     return data
 
 
 def validate_action(owner_uid: str, action_type: str, employee_ids: list,
-                    payload: dict, sandbox: bool = True) -> list:
+                    payload: dict, sandbox: bool = True, company_id=None) -> list:
     errors = []
     if not employee_ids:
         errors.append({"field": "employeeIds", "message": "Debe seleccionar al menos un empleado."})
         return errors
 
-    emp_map = _build_employee_map(owner_uid, sandbox)
+    emp_map = _build_employee_map(owner_uid, sandbox, company_id=company_id)
 
     for eid in employee_ids:
         emp = emp_map.get(eid)
@@ -231,8 +231,8 @@ def _calc_remaining_vacation_days(employee: dict) -> int:
 
 
 def execute_action(owner_uid: str, action_id: str,
-                   created_by: str, sandbox: bool = True) -> dict:
-    action = hr.get_mass_action(owner_uid, action_id, sandbox=sandbox)
+                   created_by: str, sandbox: bool = True, company_id=None) -> dict:
+    action = hr.get_mass_action(company_id, action_id, sandbox=sandbox)
     if not action:
         raise ValueError("Acción masiva no encontrada.")
 
@@ -242,12 +242,12 @@ def execute_action(owner_uid: str, action_id: str,
     now = _now()
     action["status"] = "processing"
     action["statusHistory"].append({"from": "draft", "to": "processing", "by": created_by, "at": now})
-    hr.save_mass_action(owner_uid, action_id, action, sandbox=sandbox)
+    hr.save_mass_action(company_id, action_id, action, sandbox=sandbox)
 
     action_type = action["actionType"]
     payload = action["payload"]
     employee_ids = action["selectionCriteria"]["employeeIds"]
-    emp_map = _build_employee_map(owner_uid, sandbox)
+    emp_map = _build_employee_map(owner_uid, sandbox, company_id=company_id)
 
     results = []
     error_log = []
@@ -258,13 +258,13 @@ def execute_action(owner_uid: str, action_id: str,
         emp = emp_map.get(eid)
         if not emp:
             error_log.append({"employeeId": eid, "employeeName": "Desconocido",
-                              "field": "employeeId", "message": "Empleado no encontrado."})
+                               "field": "employeeId", "message": "Empleado no encontrado."})
             error_count += 1
             continue
 
         try:
             before = _snapshot_employee(emp, action_type)
-            _apply_action_to_employee(owner_uid, emp, action_type, payload, created_by, sandbox)
+            _apply_action_to_employee(owner_uid, emp, action_type, payload, created_by, sandbox, company_id=company_id)
             after = _snapshot_employee(emp_map.get(eid) or emp, action_type)
 
             results.append({
@@ -302,7 +302,7 @@ def execute_action(owner_uid: str, action_id: str,
     action["results"] = results
     action["errorLog"] = error_log
     action["statusHistory"].append({"from": "processing", "to": new_status, "by": created_by, "at": now})
-    hr.save_mass_action(owner_uid, action_id, action, sandbox=sandbox)
+    hr.save_mass_action(company_id, action_id, action, sandbox=sandbox)
 
     try:
         event = _event_for_action(
@@ -332,7 +332,7 @@ def _snapshot_employee(emp: dict, action_type: str) -> dict:
 
 
 def _apply_action_to_employee(owner_uid: str, emp: dict, action_type: str,
-                               payload: dict, created_by: str, sandbox: bool):
+                                payload: dict, created_by: str, sandbox: bool, company_id=None):
     eid = emp["id"]
     now = _now()
 
@@ -347,9 +347,9 @@ def _apply_action_to_employee(owner_uid: str, emp: dict, action_type: str,
 
         prev_salary = emp.get("baseSalary", 0) or 0
         if new_salary > 0 and new_salary != prev_salary:
-            hr.save_employee(owner_uid, eid, {**emp, "baseSalary": new_salary, "salary": new_salary}, sandbox=sandbox)
+            hr.save_employee(company_id, eid, {**emp, "baseSalary": new_salary, "salary": new_salary}, sandbox=sandbox)
             history_id = str(uuid.uuid4())
-            hr.save_salary_history_entry(owner_uid, {
+            hr.save_salary_history_entry(company_id, {
                 "id": history_id,
                 "employeeId": eid,
                 "amount": new_salary,
@@ -376,9 +376,9 @@ def _apply_action_to_employee(owner_uid: str, emp: dict, action_type: str,
         if new_cost_center:
             changes["costCenter"] = new_cost_center
         if changes:
-            hr.save_employee(owner_uid, eid, {**emp, **changes}, sandbox=sandbox)
+            hr.save_employee(company_id, eid, {**emp, **changes}, sandbox=sandbox)
             hist_id = str(uuid.uuid4())
-            hr.save_employment_history(owner_uid, {
+            hr.save_employment_history(company_id, {
                 "id": hist_id,
                 "employeeId": eid,
                 "previousPosition": emp.get("position", ""),
@@ -394,9 +394,9 @@ def _apply_action_to_employee(owner_uid: str, emp: dict, action_type: str,
     if action_type == "supervisor_change":
         new_sup_id = payload.get("newSupervisorId")
         if new_sup_id and new_sup_id != emp.get("reportsTo"):
-            hr.save_employee(owner_uid, eid, {**emp, "reportsTo": new_sup_id}, sandbox=sandbox)
+            hr.save_employee(company_id, eid, {**emp, "reportsTo": new_sup_id}, sandbox=sandbox)
             hist_id = str(uuid.uuid4())
-            hr.save_employment_history(owner_uid, {
+            hr.save_employment_history(company_id, {
                 "id": hist_id,
                 "employeeId": eid,
                 "previousPosition": emp.get("position", ""),
@@ -413,7 +413,7 @@ def _apply_action_to_employee(owner_uid: str, emp: dict, action_type: str,
         absence_type = payload.get("absenceType", "vacation")
         if absence_type == "vacation":
             vac_id = str(uuid.uuid4())
-            hr.save_vacation_request(owner_uid, vac_id, {
+            hr.save_vacation_request(company_id, vac_id, {
                 "id": vac_id,
                 "employeeId": eid,
                 "employeeName": emp.get("fullName", ""),
@@ -428,7 +428,7 @@ def _apply_action_to_employee(owner_uid: str, emp: dict, action_type: str,
             }, sandbox=sandbox)
         else:
             leave_id = str(uuid.uuid4())
-            hr.save_leave_request(owner_uid, leave_id, {
+            hr.save_leave_request(company_id, leave_id, {
                 "id": leave_id,
                 "employeeId": eid,
                 "employeeName": emp.get("fullName", ""),

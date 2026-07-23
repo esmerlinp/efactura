@@ -8,7 +8,9 @@ from app.web.rrhh import (
     _filter_employees_by_period, _generate_periods,
 )
 from app.services import hr_data_service as hr
+from app.services.db_service import DatabaseService
 from app.services.ai_service import AIService
+from app.extensions import limiter
 import csv, html, io, json, os, re, uuid, threading
 
 
@@ -55,6 +57,8 @@ EMPLOYEE_CSV_FIELDS = [
     ("department_catalog", "Departamento", False, ["departamento", "department", "depto"]),
     ("*area", "Área", True, ["area", "área", "area_trabajo"]),
     ("costCenter", "Centro de costo", False, ["costo", "costcenter", "centro_costo", "cc"]),
+    ("branchId", "Sucursal", False, ["sucursal", "branch", "branchid", "branch_id"]),
+    ("payrollGroupIds", "Grupos de nómina", False, ["nomina", "nómina", "payroll", "payrollgroup", "payrollgroupids", "grupo_nomina", "grupo"]),
     ("*paymentMethod", "Método de pago", True, ["metodo", "metodo_pago", "paymentmethod", "método", "forma_pago"]),
     ("*accountNumber", "Número de cuenta", True, ["cuenta", "account", "accountnumber", "numero_cuenta", "num_cuenta"]),
     ("*bank", "Banco", True, ["banco", "bank", "entidad", "entidad_bancaria"]),
@@ -77,7 +81,7 @@ EMPLOYEE_EXAMPLE_ROW = [
     "2024-04-15", "", "quincenal", "35000",
     "completa", "no", "44", "1",
     "2411", "1", "001", "Analista de Sistemas",
-    "Tecnología", "Tecnología", "CC-TEC-01", "transferencia",
+    "Tecnología", "Tecnología", "CC-TEC-01", "Sucursal Principal", "grupo-nomina-1,grupo-nomina-2", "transferencia",
     "00123456789", "Banco Popular Dominicano", "ahorro",
 ]
 
@@ -111,10 +115,12 @@ def _sanitize_float_import(val, default=0.0):
 def employee_import():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    positions = hr.get_catalog(owner_uid, "positions", sandbox)
-    departments = hr.get_catalog(owner_uid, "departments", sandbox)
+    positions = hr.get_catalog(company_id, "positions", sandbox)
+    departments = hr.get_catalog(company_id, "departments", sandbox)
+    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id)
+    payroll_groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
 
     from app.services.payroll_static_data import (
         AREAS, CONTRACT_TYPES, PAYMENT_METHODS, WORKDAYS,
@@ -132,6 +138,8 @@ def employee_import():
         "accountType": [a["value"] for a in ACCOUNT_TYPES],
         "idType": [t["value"] for t in ID_TYPES],
         "paymentFrequency": [f["value"] for f in PAYROLL_FREQUENCIES],
+        "branchId": [b.get("name", b.get("id", "")) for b in branches],
+        "payrollGroupIds": [g.get("name", g.get("id", "")) for g in payroll_groups],
     }
 
     return render_template("rrhh/employee_import.html", active_page="rrhh_employees",
@@ -218,7 +226,7 @@ def employee_import_ai_suggest():
     if _login_required():
         return jsonify({"success": False, "message": "No autorizado"}), 401
 
-    owner_uid, _ = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     data = request.get_json() or {}
     headers = data.get("headers", [])
     target_fields = data.get("target_fields", [])
@@ -235,7 +243,7 @@ def employee_import_process():
     if _login_required():
         return jsonify({"success": False, "error": "No autorizado"}), 401
 
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     user_email = session.get("user", {}).get("email", "")
 
     temp_filename = request.form.get("temp_filename")
@@ -288,7 +296,7 @@ def employee_import_process():
     from app.services import hr_data_service as hr
     from app.services.payroll_audit_service import log_action
 
-    existing_candidates = hr.get_employees(owner_uid, sandbox=sandbox)
+    existing_candidates = hr.get_employees(company_id, sandbox=sandbox)
     existing_cedulas = set()
     for e in existing_candidates:
         c = (e.get("cedula") or e.get("idNumber") or "").strip()
@@ -369,6 +377,8 @@ def employee_import_process():
                         errors.append({"row": row_num, "reason": "Falta fecha de contratación (hireDate)"})
                         skipped += 1
                         continue
+                    if ' ' in hire_date:
+                        hire_date = hire_date.split(' ')[0]
                     try:
                         if re.match(r'^\d{2}/\d{2}/\d{4}$', hire_date):
                             dt = datetime.strptime(hire_date, "%d/%m/%Y")
@@ -412,9 +422,9 @@ def employee_import_process():
                         skipped += 1
                         continue
 
-                    hr.find_or_create_catalog_item(owner_uid, "positions", position, sandbox=sandbox)
+                    hr.find_or_create_catalog_item(company_id, "positions", position, sandbox=sandbox)
                     if department_catalog:
-                        hr.find_or_create_catalog_item(owner_uid, "departments", department_catalog, sandbox=sandbox)
+                        hr.find_or_create_catalog_item(company_id, "departments", department_catalog, sandbox=sandbox)
 
                     if not payment_method:
                         errors.append({"row": row_num, "reason": "Falta método de pago (paymentMethod)"})
@@ -491,13 +501,14 @@ def employee_import_process():
                         "educationLevel": int(_get_val(row_data, "educationLevel", "0") or 0),
                         "vacationGranted": int(_get_val(row_data, "vacationGranted", "1") or 1),
                         "nationality": 1,
+                        "payrollGroupIds": [g.strip() for g in _get_val(row_data, "payrollGroupIds").split(",") if g.strip()],
                     }
 
-                    hr.save_employee(owner_uid, emp_id, data, sandbox=sandbox)
+                    hr.save_employee(company_id, emp_id, data, sandbox=sandbox)
 
                     if salary > 0:
                         history_id = str(uuid.uuid4())
-                        hr.save_salary_history_entry(owner_uid, {
+                        hr.save_salary_history_entry(company_id, {
                             "id": history_id,
                             "employeeId": emp_id,
                             "amount": salary,
@@ -509,7 +520,7 @@ def employee_import_process():
                             "createdAt": date.today().isoformat(),
                         }, sandbox=sandbox)
 
-                    log_action(owner_uid, "create", "employee", emp_id, user_email,
+                    log_action(company_id, "create", "employee", emp_id, user_email,
                                changes={"name": data["fullName"], "salary": salary, "source": "csv_import"},
                                sandbox=sandbox)
 
@@ -563,6 +574,7 @@ def employee_import_process():
 
 
 @web_rrhh_bp.route("/rrhh/employees/import/status/<job_id>")
+@limiter.exempt
 def employee_import_status(job_id):
     if _login_required():
         return jsonify({"status": "not_found", "error": "No autorizado"}), 401

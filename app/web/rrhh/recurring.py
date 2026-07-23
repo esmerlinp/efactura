@@ -54,14 +54,14 @@ FREQUENCY_OPTS = {
 def recurring_list():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     employee_id = request.args.get("employee_id", "")
     status_filter = request.args.get("status", "")
     movement_type = request.args.get("movement_type", "")
 
     movements = hr.get_recurring_movements(
-        owner_uid,
+        company_id,
         employee_id=employee_id,
         status=status_filter,
         movement_type=movement_type,
@@ -69,7 +69,7 @@ def recurring_list():
     )
     movements.sort(key=lambda m: (m.get("employeeName", ""), m.get("priority", 50)))
 
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    employees = hr.get_employees(company_id, sandbox=sandbox)
     employees.sort(key=lambda e: e.get("fullName", e.get("firstName", "")))
 
     return render_template(
@@ -87,20 +87,20 @@ def recurring_list():
 def recurring_new():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    employees = hr.get_employees(company_id, sandbox=sandbox)
     employees.sort(key=lambda e: e.get("fullName", e.get("firstName", "")))
 
     from app.services.payroll_concept_engine import get_concepts
-    concepts = get_concepts(owner_uid, sandbox=sandbox)
+    concepts = get_concepts(company_id, sandbox=sandbox)
 
     if request.method == "POST":
         data = _parse_recurring_form(request.form)
         data["id"] = str(uuid.uuid4())
         data["createdBy"] = session.get("user", {}).get("email", "")
         data["status"] = data.get("status", "active")
-        hr.save_recurring_movement(owner_uid, data["id"], data, sandbox=sandbox)
+        hr.save_recurring_movement(company_id, data["id"], data, sandbox=sandbox)
         flash("Movimiento recurrente creado exitosamente.", "success")
         return redirect(url_for("web_rrhh.recurring_list"))
 
@@ -110,7 +110,7 @@ def recurring_new():
         movement=None,
         employees=employees,
         concepts=concepts,
-        payroll_groups=hr.get_payroll_groups(owner_uid, sandbox=sandbox),
+        payroll_groups=hr.get_payroll_groups(company_id, sandbox=sandbox),
         MOVEMENT_TYPES=MOVEMENT_TYPES,
         AMOUNT_TYPES=AMOUNT_TYPES,
         DEDUCTION_TYPES=DEDUCTION_TYPES,
@@ -124,18 +124,18 @@ def recurring_new():
 def recurring_edit(movement_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    movement = hr.get_recurring_movement(owner_uid, movement_id, sandbox=sandbox)
+    movement = hr.get_recurring_movement(company_id, movement_id, sandbox=sandbox)
     if not movement:
         flash("Movimiento recurrente no encontrado.", "error")
         return redirect(url_for("web_rrhh.recurring_list"))
 
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    employees = hr.get_employees(company_id, sandbox=sandbox)
     employees.sort(key=lambda e: e.get("fullName", e.get("firstName", "")))
 
     from app.services.payroll_concept_engine import get_concepts
-    concepts = get_concepts(owner_uid, sandbox=sandbox)
+    concepts = get_concepts(company_id, sandbox=sandbox)
 
     if request.method == "POST":
         if movement.get("status") in ("completed", "cancelled"):
@@ -144,7 +144,7 @@ def recurring_edit(movement_id):
 
         data = _parse_recurring_form(request.form, existing=movement)
         data["updatedBy"] = session.get("user", {}).get("email", "")
-        hr.save_recurring_movement(owner_uid, movement_id, data, sandbox=sandbox)
+        hr.save_recurring_movement(company_id, movement_id, data, sandbox=sandbox)
         flash("Movimiento recurrente actualizado.", "success")
         return redirect(url_for("web_rrhh.recurring_list"))
 
@@ -154,7 +154,7 @@ def recurring_edit(movement_id):
         movement=movement,
         employees=employees,
         concepts=concepts,
-        payroll_groups=hr.get_payroll_groups(owner_uid, sandbox=sandbox),
+        payroll_groups=hr.get_payroll_groups(company_id, sandbox=sandbox),
         MOVEMENT_TYPES=MOVEMENT_TYPES,
         AMOUNT_TYPES=AMOUNT_TYPES,
         DEDUCTION_TYPES=DEDUCTION_TYPES,
@@ -168,9 +168,9 @@ def recurring_edit(movement_id):
 def recurring_toggle_status(movement_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    movement = hr.get_recurring_movement(owner_uid, movement_id, sandbox=sandbox)
+    movement = hr.get_recurring_movement(company_id, movement_id, sandbox=sandbox)
     if not movement:
         flash("Movimiento no encontrado.", "error")
         return redirect(url_for("web_rrhh.recurring_list"))
@@ -182,7 +182,7 @@ def recurring_toggle_status(movement_id):
 
     movement["status"] = new_status
     movement["updatedBy"] = session.get("user", {}).get("email", "")
-    hr.save_recurring_movement(owner_uid, movement_id, movement, sandbox=sandbox)
+    hr.save_recurring_movement(company_id, movement_id, movement, sandbox=sandbox)
     flash(f"Movimiento cambiado a '{STATUS_OPTS[new_status]}'.", "success")
     return redirect(url_for("web_rrhh.recurring_list"))
 
@@ -191,14 +191,14 @@ def recurring_toggle_status(movement_id):
 def recurring_delete(movement_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    movement = hr.get_recurring_movement(owner_uid, movement_id, sandbox=sandbox)
+    movement = hr.get_recurring_movement(company_id, movement_id, sandbox=sandbox)
     if movement and movement.get("status") in ("active", "scheduled"):
         flash("No se puede eliminar un movimiento activo o programado. Cámbielo a cancelado primero.", "error")
         return redirect(url_for("web_rrhh.recurring_list"))
 
-    hr.delete_recurring_movement(owner_uid, movement_id, sandbox=sandbox)
+    hr.delete_recurring_movement(company_id, movement_id, sandbox=sandbox)
     flash("Movimiento recurrente eliminado.", "success")
     return redirect(url_for("web_rrhh.recurring_list"))
 
@@ -207,9 +207,9 @@ def recurring_delete(movement_id):
 def recurring_applications(movement_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    movement = hr.get_recurring_movement(owner_uid, movement_id, sandbox=sandbox)
+    movement = hr.get_recurring_movement(company_id, movement_id, sandbox=sandbox)
     if not movement:
         flash("Movimiento no encontrado.", "error")
         return redirect(url_for("web_rrhh.recurring_list"))
@@ -219,9 +219,9 @@ def recurring_applications(movement_id):
 
     # Get all applications related to this movement via period lookups
     all_apps = []
-    periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
+    periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
     for p in periods:
-        apps = get_applications_by_period(owner_uid, p.get("id", ""), sandbox=sandbox)
+        apps = get_applications_by_period(company_id, p.get("id", ""), sandbox=sandbox)
         for a in apps:
             if a.get("recurringMovementId") == movement_id:
                 a["periodLabel"] = p.get("label", p.get("periodKey", ""))
@@ -248,8 +248,8 @@ def _parse_recurring_form(form, existing=None):
     if emp_id and existing and existing.get("employeeId") == emp_id:
         employee_name = existing.get("employeeName", "")
     elif emp_id:
-        owner_uid, sandbox = _get_owner_uid_and_sandbox()
-        emp = hr.get_employee(owner_uid, emp_id, sandbox=sandbox)
+        owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+        emp = hr.get_employee(company_id, emp_id, sandbox=sandbox)
         if emp:
             employee_name = emp.get("fullName", emp.get("firstName", "") + " " + emp.get("lastName", ""))
 

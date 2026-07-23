@@ -3,7 +3,7 @@ import uuid
 import html
 from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, g
-from app.services.db_service import DatabaseService
+from app.services.db_service import DatabaseService, _resolve_company_id
 from app.services.contingency_sync_service import ContingencySyncService
 from app.services.ecf_emission import EcfEmissionService
 from app.services.dgii import DGIIService
@@ -34,10 +34,11 @@ def require_open_shift(f):
             return render_template('auth/restricted.html', feature_name="Punto de Venta", required_permission="canManagePOS")
         
         owner_uid = session['user']['ownerUID']
+        company_id = session.get('selected_company_id')
         user_uid = session['user']['uid']
         sandbox = session.get('is_sandbox_mode', True)
         
-        open_shift = DatabaseService.get_open_shift(owner_uid, user_uid, sandbox=sandbox)
+        open_shift = DatabaseService.get_open_shift(owner_uid, user_uid, company_id=company_id, sandbox=sandbox)
         if not open_shift:
             flash('Debe abrir un turno de caja para operar el Punto de Venta. Si estaba operando, es posible que un supervisor haya tomado el control.', 'warning')
             return redirect(url_for('web_pos.pos_dashboard'))
@@ -54,24 +55,25 @@ def require_open_shift(f):
 @require_permission('canManagePOS', 'Punto de Venta')
 def pos_dashboard():
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     user_uid = session['user']['uid']
     sandbox = session.get('is_sandbox_mode', True)
     
     # Obtener cajas registradoras
-    registers = DatabaseService.get_cash_registers(owner_uid, sandbox=sandbox)
+    registers = DatabaseService.get_cash_registers(owner_uid, company_id=company_id, sandbox=sandbox)
     
     # Verificar si el usuario ya tiene un turno abierto
-    open_shift = DatabaseService.get_open_shift(owner_uid, user_uid, sandbox=sandbox)
+    open_shift = DatabaseService.get_open_shift(owner_uid, user_uid, company_id=company_id, sandbox=sandbox)
     
     current_register = None
     transactions = []
     pending_consolidation_count = 0
     if open_shift:
         current_register = next((r for r in registers if r['id'] == open_shift['registerId']), None)
-        transactions = DatabaseService.get_cash_transactions(owner_uid, open_shift['id'], sandbox=sandbox)
-        company = DatabaseService.get_company_profile(owner_uid)
+        transactions = DatabaseService.get_cash_transactions(owner_uid, open_shift['id'], company_id=company_id, sandbox=sandbox)
+        company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
         if company and company.get('consolidationEnabled'):
-            pending = DatabaseService.get_pending_consolidation_invoices(owner_uid, open_shift['id'], sandbox=sandbox)
+            pending = DatabaseService.get_pending_consolidation_invoices(owner_uid, open_shift['id'], company_id=company_id, sandbox=sandbox)
             pending_consolidation_count = len(pending)
 
     return render_template(
@@ -90,6 +92,7 @@ def pos_dashboard():
 @require_permission('canManagePOS', 'Punto de Venta')
 def open_shift():
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     user_uid = session['user']['uid']
     sandbox = session.get('is_sandbox_mode', True)
     
@@ -104,7 +107,7 @@ def open_shift():
         return redirect(url_for('web_pos.pos_dashboard'))
         
     # Verificar si ya tiene un turno abierto
-    existing_shift = DatabaseService.get_open_shift(owner_uid, user_uid, sandbox=sandbox)
+    existing_shift = DatabaseService.get_open_shift(owner_uid, user_uid, company_id=company_id, sandbox=sandbox)
     if existing_shift:
         flash('Ya tiene un turno de caja activo.', 'warning')
         return redirect(url_for('web_pos.pos_terminal'))
@@ -116,7 +119,7 @@ def open_shift():
         "openingAmount": opening_amount
     }
     
-    res = DatabaseService.open_cash_shift(owner_uid, shift_dict, sandbox=sandbox)
+    res = DatabaseService.open_cash_shift(owner_uid, shift_dict, company_id=company_id, sandbox=sandbox)
     if res:
         from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_POS
         AuditService.log_from_request(
@@ -140,17 +143,18 @@ def open_shift():
 @require_permission('canManagePOS', 'Punto de Venta')
 def initiate_close_shift():
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     user_uid = session['user']['uid']
     sandbox = session.get('is_sandbox_mode', True)
 
-    open_shift = DatabaseService.get_open_shift(owner_uid, user_uid, sandbox=sandbox)
+    open_shift = DatabaseService.get_open_shift(owner_uid, user_uid, company_id=company_id, sandbox=sandbox)
     if not open_shift:
         return jsonify({"success": False, "error": "No tiene ningún turno de caja activo."}), 400
 
     if open_shift.get('status') == 'CLOSING':
         return jsonify({"success": True, "message": "Ya estaba en proceso de cierre."})
 
-    res = DatabaseService.initiate_close_cash_shift(owner_uid, open_shift['id'], sandbox=sandbox)
+    res = DatabaseService.initiate_close_cash_shift(owner_uid, open_shift['id'], company_id=company_id, sandbox=sandbox)
     if res:
         return jsonify({"success": True})
     return jsonify({"success": False, "error": "No se pudo iniciar el proceso de cierre."}), 500
@@ -160,10 +164,11 @@ def initiate_close_shift():
 @require_permission('canManagePOS', 'Punto de Venta')
 def close_shift():
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     user_uid = session['user']['uid']
     sandbox = session.get('is_sandbox_mode', True)
 
-    open_shift = DatabaseService.get_open_shift(owner_uid, user_uid, sandbox=sandbox)
+    open_shift = DatabaseService.get_open_shift(owner_uid, user_uid, company_id=company_id, sandbox=sandbox)
     if not open_shift:
         if request.is_json:
             return jsonify({"success": False, "error": "No tiene ningún turno de caja activo para cerrar."}), 400
@@ -171,7 +176,7 @@ def close_shift():
         return redirect(url_for('web_pos.pos_dashboard'))
 
     # --- CONSOLIDACIÓN AUTOMÁTICA AL CIERRE ---
-    pending = DatabaseService.get_pending_consolidation_invoices(owner_uid, open_shift['id'], sandbox=sandbox)
+    pending = DatabaseService.get_pending_consolidation_invoices(owner_uid, open_shift['id'], company_id=company_id, sandbox=sandbox)
     if pending:
         try:
             _emit_consolidated_ecf(owner_uid, open_shift['id'], pending, sandbox)
@@ -203,7 +208,7 @@ def close_shift():
     status = "CLOSED" if is_supervisor else "PENDING_AUDIT"
 
     res = DatabaseService.close_cash_shift(
-        owner_uid, open_shift['id'], declared_amount, sandbox=sandbox,
+        owner_uid, open_shift['id'], declared_amount, company_id=company_id, sandbox=sandbox,
         status=status,
         supervisor_uid=user_uid if is_supervisor else None,
         supervisor_email=session['user']['email'] if is_supervisor else None,
@@ -313,9 +318,9 @@ def _emit_consolidated_ecf(owner_uid, shift_id, pending_invoices, sandbox):
         "invoiceCount": len(pending_invoices),
     }
 
-    DatabaseService.save_invoice(owner_uid, consolidado_id, consolidado_dict, sandbox=sandbox)
+    DatabaseService.save_invoice(owner_uid, consolidado_id, consolidado_dict, company_id=company_id, sandbox=sandbox)
 
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     encf_consolidado = consolidado_number  # fallback
     is_synced = False
     dgii_status = None
@@ -336,7 +341,7 @@ def _emit_consolidated_ecf(owner_uid, shift_id, pending_invoices, sandbox):
             consolidado_dict["dgiiStatus"] = dgii_status
             consolidado_dict["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat() if emision_mode == "FALLBACK" else None
             consolidado_dict["status"] = "Pendiente DGII" if pending_dgii else "Cobrada"
-            DatabaseService.save_invoice(owner_uid, consolidado_id, consolidado_dict, sandbox=sandbox)
+            DatabaseService.save_invoice(owner_uid, consolidado_id, consolidado_dict, company_id=company_id, sandbox=sandbox)
         else:
             emision_mode = "FALLBACK"
             dgii_status = "CONTINGENCY"
@@ -345,7 +350,7 @@ def _emit_consolidated_ecf(owner_uid, shift_id, pending_invoices, sandbox):
             consolidado_dict["isSyncedWithDGII"] = False
             consolidado_dict["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat()
             consolidado_dict["status"] = "Pendiente DGII"
-            DatabaseService.save_invoice(owner_uid, consolidado_id, consolidado_dict, sandbox=sandbox)
+            DatabaseService.save_invoice(owner_uid, consolidado_id, consolidado_dict, company_id=company_id, sandbox=sandbox)
     except Exception as ecf_err:
         print(f"⚠️ Error al emitir e-CF consolidado: {ecf_err}")
         emision_mode = "FALLBACK"
@@ -355,14 +360,14 @@ def _emit_consolidated_ecf(owner_uid, shift_id, pending_invoices, sandbox):
         consolidado_dict["isSyncedWithDGII"] = False
         consolidado_dict["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat()
         consolidado_dict["status"] = "Pendiente DGII"
-        DatabaseService.save_invoice(owner_uid, consolidado_id, consolidado_dict, sandbox=sandbox)
+        DatabaseService.save_invoice(owner_uid, consolidado_id, consolidado_dict, company_id=company_id, sandbox=sandbox)
 
     # Marcar todas las facturas individuales como Consolidadas
     DatabaseService.mark_invoices_consolidated(
         owner_uid,
         invoice_ids,
         encf_consolidado,
-        consolidado_number,
+        consolidado_number, company_id=company_id,
         pending_invoices=pending_invoices,
         is_synced=is_synced,
         dgii_status=dgii_status,
@@ -379,10 +384,11 @@ def _emit_consolidated_ecf(owner_uid, shift_id, pending_invoices, sandbox):
 @require_permission('canManagePOS', 'Punto de Venta')
 def add_manual_transaction():
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     user_uid = session['user']['uid']
     sandbox = session.get('is_sandbox_mode', True)
     
-    open_shift = DatabaseService.get_open_shift(owner_uid, user_uid, sandbox=sandbox)
+    open_shift = DatabaseService.get_open_shift(owner_uid, user_uid, company_id=company_id, sandbox=sandbox)
     if not open_shift:
         return jsonify({"success": False, "error": "No hay un turno de caja abierto."}), 400
         
@@ -404,7 +410,7 @@ def add_manual_transaction():
         "notes": notes
     }
     
-    res = DatabaseService.register_cash_transaction(owner_uid, tx_dict, sandbox=sandbox)
+    res = DatabaseService.register_cash_transaction(owner_uid, tx_dict, company_id=company_id, sandbox=sandbox)
     if res:
         flash('Movimiento de caja registrado.', 'success')
         return redirect(url_for('web_pos.pos_dashboard'))
@@ -426,6 +432,7 @@ def sup_take_control(shift_id):
         return jsonify({"success": False, "error": "No tienes permisos de supervisor."}), 403
         
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     data = request.json or {}
     reason = data.get('reason', '')
@@ -433,7 +440,7 @@ def sup_take_control(shift_id):
     
     sup_uid, sup_name = _get_supervisor_data()
     
-    res = DatabaseService.take_control_shift(owner_uid, shift_id, sup_uid, sup_name, reason, comments, sandbox)
+    res = DatabaseService.take_control_shift(owner_uid, shift_id, sup_uid, sup_name, reason, comments, sandbox, company_id=company_id)
     if res:
         from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_POS
         AuditService.log_from_request(
@@ -451,6 +458,7 @@ def sup_force_close(shift_id):
         return jsonify({"success": False, "error": "No tienes permisos de supervisor."}), 403
         
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     data = request.json or {}
     reason = data.get('reason', '')
@@ -458,7 +466,7 @@ def sup_force_close(shift_id):
     
     sup_uid, sup_name = _get_supervisor_data()
     
-    res = DatabaseService.force_close_shift(owner_uid, shift_id, sup_uid, sup_name, reason, comments, sandbox)
+    res = DatabaseService.force_close_shift(owner_uid, shift_id, sup_uid, sup_name, reason, comments, sandbox, company_id=company_id)
     if res:
         from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_POS
         AuditService.log_from_request(
@@ -476,6 +484,7 @@ def sup_close_under_review(shift_id):
         return jsonify({"success": False, "error": "No tienes permisos de supervisor."}), 403
         
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     data = request.json or {}
     reason = data.get('reason', '')
@@ -484,7 +493,7 @@ def sup_close_under_review(shift_id):
     
     sup_uid, sup_name = _get_supervisor_data()
     
-    res = DatabaseService.close_shift_under_review(owner_uid, shift_id, sup_uid, sup_name, reason, comments, declared_amount, sandbox)
+    res = DatabaseService.close_shift_under_review(owner_uid, shift_id, sup_uid, sup_name, reason, comments, declared_amount, sandbox, company_id=company_id)
     if res:
         from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_POS
         AuditService.log_from_request(
@@ -502,6 +511,7 @@ def sup_reopen(shift_id):
         return jsonify({"success": False, "error": "No tienes permisos de supervisor."}), 403
         
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     data = request.json or {}
     reason = data.get('reason', '')
@@ -509,7 +519,7 @@ def sup_reopen(shift_id):
     
     sup_uid, sup_name = _get_supervisor_data()
     
-    res = DatabaseService.reopen_shift(owner_uid, shift_id, sup_uid, sup_name, reason, comments, sandbox)
+    res = DatabaseService.reopen_shift(owner_uid, shift_id, sup_uid, sup_name, reason, comments, sandbox, company_id=company_id)
     if res:
         from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_POS
         AuditService.log_from_request(
@@ -527,6 +537,7 @@ def sup_transfer(shift_id):
         return jsonify({"success": False, "error": "No tienes permisos de supervisor."}), 403
         
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     data = request.json or {}
     reason = data.get('reason', '')
@@ -539,7 +550,7 @@ def sup_transfer(shift_id):
     
     sup_uid, sup_name = _get_supervisor_data()
     
-    res = DatabaseService.transfer_shift(owner_uid, shift_id, sup_uid, sup_name, new_cashier_uid, new_cashier_email, reason, comments, sandbox)
+    res = DatabaseService.transfer_shift(owner_uid, shift_id, sup_uid, sup_name, new_cashier_uid, new_cashier_email, reason, comments, sandbox, company_id=company_id)
     if res:
         from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_POS
         AuditService.log_from_request(
@@ -557,6 +568,7 @@ def sup_log_incident(shift_id):
         return jsonify({"success": False, "error": "No tienes permisos de supervisor."}), 403
         
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     data = request.json or {}
     reason = data.get('reason', '')
@@ -564,7 +576,7 @@ def sup_log_incident(shift_id):
     
     sup_uid, sup_name = _get_supervisor_data()
     
-    res = DatabaseService.log_shift_incident(owner_uid, shift_id, sup_uid, sup_name, reason, comments, sandbox)
+    res = DatabaseService.log_shift_incident(owner_uid, shift_id, sup_uid, sup_name, reason, comments, sandbox, company_id=company_id)
     if res:
         from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_POS
         AuditService.log_from_request(
@@ -582,6 +594,7 @@ def sup_extend(shift_id):
         return jsonify({"success": False, "error": "No tienes permisos de supervisor."}), 403
         
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     data = request.json or {}
     reason = data.get('reason', '')
@@ -589,7 +602,7 @@ def sup_extend(shift_id):
     
     sup_uid, sup_name = _get_supervisor_data()
     
-    res = DatabaseService.authorize_shift_extension(owner_uid, shift_id, sup_uid, sup_name, reason, comments, sandbox)
+    res = DatabaseService.authorize_shift_extension(owner_uid, shift_id, sup_uid, sup_name, reason, comments, sandbox, company_id=company_id)
     if res:
         from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_POS
         AuditService.log_from_request(
@@ -605,23 +618,24 @@ def sup_extend(shift_id):
 @require_open_shift
 def pos_terminal():
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     # Obtener catálogo de productos para la venta rápida
-    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    items = DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     
     # Filtrar solo bienes físicos o servicios del catálogo activos
     active_items = [it for it in items if it.get('price', 0.0) > 0 and it.get('isActive', True)]
     
     # Obtener supervisores (propietario + colaboradores con permiso)
     supervisors = []
-    owner_profile = DatabaseService.get_user_profile(owner_uid)
+    owner_profile = DatabaseService.get_user_profile(owner_uid, company_id=company_id)
     if owner_profile:
         supervisors.append({
             "uid": owner_uid,
             "name": f"{owner_profile.get('name', 'Propietario')} (Propietario)"
         })
-    team = DatabaseService.get_team_members(owner_uid)
+    team = DatabaseService.get_team_members(owner_uid, company_id=company_id)
     for member in team:
         if member.get('permissions', {}).get('isPosSupervisor', False):
             supervisors.append({
@@ -643,6 +657,7 @@ def pos_terminal():
 @require_open_shift
 def pos_client_lookup():
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     data = request.json or {}
@@ -651,7 +666,7 @@ def pos_client_lookup():
         return jsonify({"success": False, "error": "El RNC/Cédula es requerido."}), 400
         
     # 1. Buscar localmente en Firestore
-    client = DatabaseService.get_client_by_rnc(owner_uid, rnc, sandbox=sandbox)
+    client = DatabaseService.get_client_by_rnc(owner_uid, rnc, company_id=company_id, sandbox=sandbox)
     if client:
         return jsonify({
             "success": True,
@@ -679,7 +694,7 @@ def pos_client_lookup():
             "createdAt": datetime.now(timezone.utc).isoformat(),
             "customer_category": "NORMAL"
         }
-        DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
+        DatabaseService.save_client(owner_uid, client_id, client_dict, company_id=company_id, sandbox=sandbox)
         
         return jsonify({
             "success": True,
@@ -704,15 +719,16 @@ def pos_client_lookup():
 @require_open_shift
 def create_pos_sale():
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     user_uid = session['user']['uid']
     sandbox = session.get('is_sandbox_mode', True)
 
-    open_shift = DatabaseService.get_open_shift(owner_uid, user_uid, sandbox=sandbox)
+    open_shift = DatabaseService.get_open_shift(owner_uid, user_uid, company_id=company_id, sandbox=sandbox)
 
     data = request.json
     idempotency_key = request.headers.get('Idempotency-Key') or data.get('idempotencyKey') or data.get('idempotency_key')
     if idempotency_key:
-        record = DatabaseService.get_idempotency_record(owner_uid, idempotency_key, sandbox=sandbox)
+        record = DatabaseService.get_idempotency_record(owner_uid, idempotency_key, company_id=company_id, sandbox=sandbox)
         if record and record.get("response"):
             status_code = int(record.get("statusCode", 200))
             return jsonify(record["response"]), status_code
@@ -726,7 +742,7 @@ def create_pos_sale():
 
     client_project_id = None
     if client_id and client_id != 'default':
-        client = DatabaseService.get_client(owner_uid, client_id, sandbox=sandbox)
+        client = DatabaseService.get_client(owner_uid, client_id, company_id=company_id, sandbox=sandbox)
         if client:
             client_project_id = client.get('projectId')
 
@@ -756,7 +772,7 @@ def create_pos_sale():
 
     # --- Determinar si aplica modo consolidado ---
     # Condiciones DGII: E32, Consumidor Final (RNC 000000000), total < monto configurable de la empresa
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     consolidation_enabled = company.get('consolidationEnabled', False)
     consolidation_threshold = float(company.get('consolidationThreshold') or 250000.0)
     is_consumer_final = (client_id == 'default' or client_rnc == '000000000')
@@ -812,7 +828,7 @@ def create_pos_sale():
         invoice_dict["usdExchangeRate"] = usd_rate
 
     # 1. Guardar factura en base de datos
-    DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, sandbox=sandbox)
+    DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
 
     # 2. Registrar transacción financiera de caja
     tx_dict = {
@@ -827,7 +843,7 @@ def create_pos_sale():
         tx_dict["usdAmount"] = usd_amount
         tx_dict["usdExchangeRate"] = usd_rate
         
-    DatabaseService.register_cash_transaction(owner_uid, tx_dict, sandbox=sandbox)
+    DatabaseService.register_cash_transaction(owner_uid, tx_dict, company_id=company_id, sandbox=sandbox)
 
     # 3. Si aplica modo consolidado → no emitir e-CF individual, retornar con indicador
     if qualifies_for_consolidation:
@@ -855,11 +871,11 @@ def create_pos_sale():
                 "response": response_body,
                 "statusCode": 200,
                 "invoiceId": invoice_id
-            }, sandbox=sandbox)
+            }, company_id=company_id, sandbox=sandbox)
         return jsonify(response_body)
 
     # 4. Intentar emisión electrónica (e-CF) individual
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     try:
         res = EcfEmissionService.emit_electronic_comprobante(company, invoice_dict, sandbox=sandbox)
         if res and res.get('success'):
@@ -873,12 +889,12 @@ def create_pos_sale():
             invoice_dict["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
             invoice_dict["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat() if res.get("mode") == "FALLBACK" else None
             invoice_dict["status"] = "Pendiente DGII" if pending_dgii else "Cobrada"
-            DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, sandbox=sandbox)
+            DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
 
             # Generar asiento contable automático para POS
             try:
                 from app.services.accounting_service import AccountingService
-                AccountingService.auto_generate_invoice_entry(owner_uid, invoice_dict, sandbox=sandbox)
+                AccountingService.auto_generate_invoice_entry(owner_uid, invoice_dict, company_id=company_id, sandbox=sandbox)
             except Exception as exc:
                 import logging
                 logging.getLogger(__name__).warning(f"Asiento contable POS no generado: {exc}")
@@ -901,12 +917,12 @@ def create_pos_sale():
         print(f"⚠️ Error al emitir e-CF en POS: {e}")
         invoice_dict["emisionMode"] = "FALLBACK"
         invoice_dict["isSyncedWithDGII"] = False
-        DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, sandbox=sandbox)
+        DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
 
         # Generar asiento contable incluso en contingencia
         try:
             from app.services.accounting_service import AccountingService
-            AccountingService.auto_generate_invoice_entry(owner_uid, invoice_dict, sandbox=sandbox)
+            AccountingService.auto_generate_invoice_entry(owner_uid, invoice_dict, company_id=company_id, sandbox=sandbox)
         except Exception as exc:
             import logging
             logging.getLogger(__name__).warning(f"Asiento contable POS (contingencia) no generado: {exc}")
@@ -940,7 +956,7 @@ def create_pos_sale():
     #    Las Facturas de Consumo (E32) son para consumidores finales y NO se envían por email.
     if ecf_type == 'Factura de Crédito Fiscal (E31)' and client_id and client_id != 'default':
         try:
-            client = DatabaseService.get_client(owner_uid, client_id, sandbox=sandbox)
+            client = DatabaseService.get_client(owner_uid, client_id, company_id=company_id, sandbox=sandbox)
             if client and client.get('email'):
                 recipient_email = client['email'].strip()
                 if recipient_email:
@@ -977,7 +993,7 @@ def create_pos_sale():
             "response": response_body,
             "statusCode": 200,
             "invoiceId": invoice_id
-        }, sandbox=sandbox)
+        }, company_id=company_id, sandbox=sandbox)
     return jsonify(response_body)
 
 
@@ -985,13 +1001,14 @@ def create_pos_sale():
 @require_permission('canManagePOS', 'Impresión POS')
 def print_receipt(invoice_id):
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice:
         return "Factura no encontrada.", 404
         
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     
     import io
     import base64
@@ -1059,7 +1076,7 @@ def print_receipt(invoice_id):
         except Exception as e:
             print(f"Error generating QR code for POS receipt: {e}")
             
-    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
+    branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox)
     branch = next((b for b in branches if b['id'] == invoice.get("branchId")), None)
     if not branch and branches:
         branch = branches[0]
@@ -1093,18 +1110,19 @@ def print_receipt(invoice_id):
 @require_permission('canManagePOS', 'Impresión POS')
 def print_z_report(shift_id):
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     # Obtener el turno de caja
-    shifts = DatabaseService.get_cash_shifts(owner_uid, sandbox=sandbox)
+    shifts = DatabaseService.get_cash_shifts(owner_uid, company_id=company_id, sandbox=sandbox)
     shift = next((s for s in shifts if s['id'] == shift_id), None)
     if not shift:
         return "Turno no encontrado.", 404
         
-    company = DatabaseService.get_company_profile(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     
     # Obtener nombre de la caja
-    registers = DatabaseService.get_cash_registers(owner_uid, sandbox=sandbox)
+    registers = DatabaseService.get_cash_registers(owner_uid, company_id=company_id, sandbox=sandbox)
     register = next((r for r in registers if r['id'] == shift['registerId']), None)
     register_name = register['name'] if register else 'Caja Desconocida'
     
@@ -1124,12 +1142,13 @@ def create_cash_register():
         return render_template('auth/restricted.html', feature_name="Administración de Cajas", required_permission="isPosSupervisor o Propietario")
         
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     # Validar límite de cajas en el plan de la empresa
-    profile = DatabaseService.get_company_profile(owner_uid)
+    profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     box_limit = int(profile.get('boxLimit', 0)) if profile else 0
-    registers = DatabaseService.get_cash_registers(owner_uid, sandbox=sandbox)
+    registers = DatabaseService.get_cash_registers(owner_uid, company_id=company_id, sandbox=sandbox)
     
     if len(registers) >= box_limit:
         flash(f'Límite de cajas registradoras alcanzado ({box_limit} cajas en tu plan). Por favor, contacta a soporte o actualiza tu plan.', 'error')
@@ -1147,7 +1166,7 @@ def create_cash_register():
         "createdAt": datetime.now(timezone.utc).isoformat()
     }
     
-    DatabaseService.save_cash_register(owner_uid, register_id, register_dict, sandbox=sandbox)
+    DatabaseService.save_cash_register(owner_uid, register_id, register_dict, company_id=company_id, sandbox=sandbox)
     flash(f'Caja registradora "{name}" creada correctamente.', 'success')
     return redirect(url_for('web_pos.pos_admin_dashboard'))
 
@@ -1159,10 +1178,11 @@ def pos_admin_dashboard():
         return render_template('auth/restricted.html', feature_name="Administración de Cajas", required_permission="isPosSupervisor o Propietario")
         
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    registers = DatabaseService.get_cash_registers(owner_uid, sandbox=sandbox)
-    shifts = DatabaseService.get_cash_shifts(owner_uid, sandbox=sandbox)
+    registers = DatabaseService.get_cash_registers(owner_uid, company_id=company_id, sandbox=sandbox)
+    shifts = DatabaseService.get_cash_shifts(owner_uid, company_id=company_id, sandbox=sandbox)
     
     # Map registers name to shifts
     regs_map = {r['id']: r['name'] for r in registers}
@@ -1184,9 +1204,10 @@ def pos_contingencia():
         return render_template('auth/restricted.html', feature_name="Contingencia DGII", required_permission="isPosSupervisor o Propietario")
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    invoices = DatabaseService.get_contingency_invoices(owner_uid, sandbox=sandbox)
+    invoices = DatabaseService.get_contingency_invoices(owner_uid, company_id=company_id, sandbox=sandbox)
     now_utc = datetime.now(timezone.utc)
 
     contingency_invoices = []
@@ -1248,8 +1269,9 @@ import re
 from app.web.invoices import format_mentions
 
 def process_shift_comment_mentions(owner_uid, content, shift_id, shift_label, sandbox):
+    company_id = _resolve_company_id(owner_uid)
     taggable_users = []
-    owner_prof = DatabaseService.get_user_profile(owner_uid)
+    owner_prof = DatabaseService.get_user_profile(owner_uid, company_id=company_id)
     if owner_prof:
         taggable_users.append({
             "uid": owner_uid,
@@ -1257,7 +1279,7 @@ def process_shift_comment_mentions(owner_uid, content, shift_id, shift_label, sa
             "email": owner_prof.get("email", ""),
             "role": "owner"
         })
-    team = DatabaseService.get_team_members(owner_uid) or []
+    team = DatabaseService.get_team_members(owner_uid, company_id=company_id) or []
     for member in team:
         taggable_users.append({
             "uid": member.get("uid"),
@@ -1305,7 +1327,7 @@ def process_shift_comment_mentions(owner_uid, content, shift_id, shift_label, sa
             from app.services.notifications import NotificationService
             
             # Obtener el nombre comercial de la empresa
-            company = DatabaseService.get_company(owner_uid) or {}
+            company = DatabaseService.get_company(owner_uid, company_id=company_id) or {}
             issuer_company_name = company.get("tradeName") or company.get("companyName") or get_product_name()
             
             NotificationService.send_mention_notification(
@@ -1326,25 +1348,26 @@ def pos_admin_shift_detail(shift_id):
         return render_template('auth/restricted.html', feature_name="Administración de Cajas", required_permission="isPosSupervisor o Propietario")
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    shifts = DatabaseService.get_cash_shifts(owner_uid, sandbox=sandbox)
+    shifts = DatabaseService.get_cash_shifts(owner_uid, company_id=company_id, sandbox=sandbox)
     shift = next((s for s in shifts if s['id'] == shift_id), None)
     if not shift:
         flash('Turno no encontrado.', 'error')
         return redirect(url_for('web_pos.pos_admin_dashboard'))
 
-    registers = DatabaseService.get_cash_registers(owner_uid, sandbox=sandbox)
+    registers = DatabaseService.get_cash_registers(owner_uid, company_id=company_id, sandbox=sandbox)
     register = next((r for r in registers if r['id'] == shift['registerId']), None)
     shift['registerName'] = register['name'] if register else 'Caja Desconocida'
 
-    transactions = DatabaseService.get_cash_transactions(owner_uid, shift_id, sandbox=sandbox)
-    company = DatabaseService.get_company_profile(owner_uid)
-    comments = DatabaseService.get_resource_comments(owner_uid, "shifts", shift_id, sandbox=sandbox)
+    transactions = DatabaseService.get_cash_transactions(owner_uid, shift_id, company_id=company_id, sandbox=sandbox)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+    comments = DatabaseService.get_resource_comments(owner_uid, "shifts", shift_id, company_id=company_id, sandbox=sandbox)
 
     # Load taggable users
     taggable_users = []
-    owner_prof = DatabaseService.get_user_profile(owner_uid)
+    owner_prof = DatabaseService.get_user_profile(owner_uid, company_id=company_id)
     if owner_prof:
         taggable_users.append({
             "uid": owner_uid,
@@ -1352,7 +1375,7 @@ def pos_admin_shift_detail(shift_id):
             "email": owner_prof.get("email", ""),
             "role": "owner"
         })
-    team = DatabaseService.get_team_members(owner_uid) or []
+    team = DatabaseService.get_team_members(owner_uid, company_id=company_id) or []
     for member in team:
         taggable_users.append({
             "uid": member.get("uid"),
@@ -1376,6 +1399,7 @@ def pos_admin_shift_detail(shift_id):
 def add_shift_comment(shift_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
     content = request.form.get('content', '').strip()
@@ -1415,7 +1439,7 @@ def add_shift_comment(shift_id):
         "edited": False
     }
     
-    DatabaseService.save_resource_comment(owner_uid, "shifts", shift_id, comment_id, comment_dict, sandbox=sandbox)
+    DatabaseService.save_resource_comment(owner_uid, "shifts", shift_id, comment_id, comment_dict, company_id=company_id, sandbox=sandbox)
     
     # Process mentions
     try:
@@ -1431,9 +1455,10 @@ def add_shift_comment(shift_id):
 def edit_shift_comment(shift_id, comment_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    comments = DatabaseService.get_resource_comments(owner_uid, "shifts", shift_id, sandbox=sandbox)
+    comments = DatabaseService.get_resource_comments(owner_uid, "shifts", shift_id, company_id=company_id, sandbox=sandbox)
     comment = next((c for c in comments if c['id'] == comment_id), None)
     if not comment:
         flash('Comentario no encontrado.', 'error')
@@ -1472,7 +1497,7 @@ def edit_shift_comment(shift_id, comment_id):
         except Exception as e:
             flash(f"Advertencia: No se pudo cargar el archivo adjunto: {html.escape(str(e))}", 'warning')
             
-    DatabaseService.save_resource_comment(owner_uid, "shifts", shift_id, comment_id, comment, sandbox=sandbox)
+    DatabaseService.save_resource_comment(owner_uid, "shifts", shift_id, comment_id, comment, company_id=company_id, sandbox=sandbox)
     
     try:
         shift_label = f"Turno de Caja ({shift_id[:8]})"
@@ -1487,9 +1512,10 @@ def edit_shift_comment(shift_id, comment_id):
 def delete_shift_comment(shift_id, comment_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
     
-    comments = DatabaseService.get_resource_comments(owner_uid, "shifts", shift_id, sandbox=sandbox)
+    comments = DatabaseService.get_resource_comments(owner_uid, "shifts", shift_id, company_id=company_id, sandbox=sandbox)
     comment = next((c for c in comments if c['id'] == comment_id), None)
     if not comment:
         flash('Comentario no encontrado.', 'error')
@@ -1501,7 +1527,7 @@ def delete_shift_comment(shift_id, comment_id):
         flash('No tienes permiso para eliminar este comentario.', 'error')
         return redirect(url_for('web_pos.pos_admin_shift_detail', shift_id=shift_id))
         
-    DatabaseService.delete_resource_comment(owner_uid, "shifts", shift_id, comment_id, sandbox=sandbox)
+    DatabaseService.delete_resource_comment(owner_uid, "shifts", shift_id, comment_id, company_id=company_id, sandbox=sandbox)
     flash('Comentario eliminado exitosamente.', 'success')
     return redirect(url_for('web_pos.pos_admin_shift_detail', shift_id=shift_id))
 
@@ -1514,6 +1540,7 @@ def audit_shift(shift_id):
         return render_template('auth/restricted.html', feature_name="Auditoría de Caja", required_permission="isPosSupervisor o Propietario")
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     user_uid = session['user']['uid']
     user_email = session['user']['email']
     sandbox = session.get('is_sandbox_mode', True)
@@ -1526,7 +1553,7 @@ def audit_shift(shift_id):
     resolution_type = request.form.get('resolutionType')
 
     res = DatabaseService.audit_cash_shift(
-        owner_uid, shift_id, audited_amount, user_uid, user_email, notes=notes, resolution_type=resolution_type, sandbox=sandbox
+        owner_uid, shift_id, audited_amount, user_uid, user_email, company_id=company_id, notes=notes, resolution_type=resolution_type, sandbox=sandbox
     )
     if res:
         diff = res["difference"]
@@ -1550,13 +1577,14 @@ def toggle_consolidation_mode(register_id):
         return jsonify({"success": False, "error": "Solo el propietario o supervisor puede cambiar esta configuración."}), 403
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     data = request.json or {}
     enabled = bool(data.get('enabled', False))
 
     DatabaseService.update_cash_register_settings(
-        owner_uid, register_id, {"consolidationMode": enabled}, sandbox=sandbox
+        owner_uid, register_id, {"consolidationMode": enabled}, company_id=company_id, sandbox=sandbox
     )
     mode_str = "activado" if enabled else "desactivado"
     return jsonify({"success": True, "consolidationMode": enabled, "message": f"Modo consolidado {mode_str}."})
@@ -1569,6 +1597,7 @@ def authorize_supervisor_operation():
         return jsonify({"success": False, "error": "No autenticado"}), 401
         
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     data = request.json or {}
     pin = (data.get('pin') or '').strip()
     action_name = (data.get('action') or 'Operación POS').strip()
@@ -1585,7 +1614,7 @@ def authorize_supervisor_operation():
 
         # 1. Si es el propietario (owner) de la cuenta
         if supervisor_uid == owner_uid:
-            owner_user = DatabaseService.get_user_profile(owner_uid)
+            owner_user = DatabaseService.get_user_profile(owner_uid, company_id=company_id)
             if owner_user and owner_user.get('posSupervisorPin') == pin:
                 supervisor_name = owner_user.get('name', 'Propietario')
                 supervisor_email = owner_user.get('email', '')
@@ -1604,7 +1633,7 @@ def authorize_supervisor_operation():
                 return jsonify({"success": False, "error": "PIN incorrecto para el Propietario."}), 403
 
         # 2. Si es un colaborador con rol de supervisor
-        team = DatabaseService.get_team_members(owner_uid)
+        team = DatabaseService.get_team_members(owner_uid, company_id=company_id)
         member = next((m for m in team if m['uid'] == supervisor_uid), None)
         if member and member.get('permissions', {}).get('isPosSupervisor', False):
             member_profile = DatabaseService.get_user_profile(supervisor_uid)
@@ -1651,10 +1680,11 @@ def pos_admin_reports_dashboard():
         return render_template('auth/restricted.html', feature_name="Administración de Cajas", required_permission="isPosSupervisor o Propietario")
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
-    registers = DatabaseService.get_cash_registers(owner_uid, sandbox=sandbox)
-    shifts = DatabaseService.get_cash_shifts(owner_uid, sandbox=sandbox)
+    registers = DatabaseService.get_cash_registers(owner_uid, company_id=company_id, sandbox=sandbox)
+    shifts = DatabaseService.get_cash_shifts(owner_uid, company_id=company_id, sandbox=sandbox)
     
     # Get distinct list of cashiers
     cashiers = sorted(list(set(s['openedByUserEmail'] for s in shifts if s.get('openedByUserEmail'))))
@@ -1674,6 +1704,7 @@ def pos_admin_reports_data():
         return jsonify({"success": False, "error": "No autorizado"}), 403
 
     owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
 
     start_date = request.args.get('startDate')
@@ -1681,7 +1712,7 @@ def pos_admin_reports_data():
     register_id = request.args.get('registerId')
     cashier = request.args.get('cashier')
 
-    shifts = DatabaseService.get_cash_shifts(owner_uid, sandbox=sandbox)
+    shifts = DatabaseService.get_cash_shifts(owner_uid, company_id=company_id, sandbox=sandbox)
 
     # Filter shifts
     filtered_shifts = []
@@ -1725,7 +1756,7 @@ def pos_admin_reports_data():
         pm_totals["Transferencia"] += float(s.get('expectedTransfer', 0.0))
 
         # Query cash transactions for details
-        txs = DatabaseService.get_cash_transactions(owner_uid, s['id'], sandbox=sandbox)
+        txs = DatabaseService.get_cash_transactions(owner_uid, s['id'], company_id=company_id, sandbox=sandbox)
         for t in txs:
             t['registerName'] = s.get('registerName', 'Caja')
             t['openedByUserEmail'] = s.get('openedByUserEmail', '')

@@ -2,13 +2,13 @@ import requests
 import json
 from datetime import datetime, timezone
 from config import Config
-from app.services.db_service import DatabaseService, db_firestore
+from app.services.db_service import DatabaseService, _company_coll, db_firestore
 from app.brand import get_product_name
 
 
-def _coll(owner_uid, sandbox, name):
+def _coll(owner_uid, sandbox, name, company_id=None):
     prefix = "sandbox_" if sandbox else ""
-    return db_firestore.collection("users").document(owner_uid).collection(f"{prefix}{name}")
+    return _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=f"{prefix}{name}")
 
 
 TOOLS = [
@@ -133,11 +133,11 @@ def _serialize_doc(doc):
     return data
 
 
-def _run_query_clients(owner_uid, sandbox, args):
+def _run_query_clients(owner_uid, sandbox, args, company_id=None):
     search = (args.get("search") or "").strip().lower()
     limit = min(int(args.get("limit", 50)), 100)
     results = []
-    for doc in _coll(owner_uid, sandbox, "clients").get():
+    for doc in _coll(owner_uid, sandbox, "clients", company_id=company_id).get():
         d = _serialize_doc(doc)
         if search:
             name = (d.get("razonSocial") or d.get("name") or "").lower()
@@ -154,10 +154,10 @@ def _run_query_clients(owner_uid, sandbox, args):
         })
         if len(results) >= limit:
             break
-    return json.dumps({"total": len(DatabaseService.get_clients(owner_uid, sandbox=sandbox)), "results": results}, ensure_ascii=False)
+    return json.dumps({"total": len(DatabaseService.get_clients(owner_uid, sandbox=sandbox, company_id=company_id)), "results": results}, ensure_ascii=False)
 
 
-def _run_query_invoices(owner_uid, sandbox, args):
+def _run_query_invoices(owner_uid, sandbox, args, company_id=None):
     status_filter = args.get("status")
     date_from = args.get("date_from")
     date_to = args.get("date_to")
@@ -168,7 +168,7 @@ def _run_query_invoices(owner_uid, sandbox, args):
     excluded = {"Anulada", "Eliminada"}
     if not include_borrador:
         excluded.add("Borrador")
-    for doc in _coll(owner_uid, sandbox, "invoices").get():
+    for doc in _coll(owner_uid, sandbox, "invoices", company_id=company_id).get():
         d = _serialize_doc(doc)
         if d.get("isQuotation"):
             continue
@@ -200,7 +200,7 @@ def _run_query_invoices(owner_uid, sandbox, args):
     return json.dumps({"count": len(results), "total_sum": total_sum, "pending_sum": pending_sum, "results": results}, ensure_ascii=False)
 
 
-def _run_query_quotations(owner_uid, sandbox, args):
+def _run_query_quotations(owner_uid, sandbox, args, company_id=None):
     status_filter = args.get("status")
     date_from = args.get("date_from")
     date_to = args.get("date_to")
@@ -208,7 +208,7 @@ def _run_query_quotations(owner_uid, sandbox, args):
     limit = min(int(args.get("limit", 50)), 100)
     results = []
     status_map = {"Borrador": "Borrador", "Pendiente": "Pendiente", "Aprobada": "Aprobada", "Rechazada": "Rechazada", "Facturada": "Facturada"}
-    for doc in _coll(owner_uid, sandbox, "invoices").get():
+    for doc in _coll(owner_uid, sandbox, "invoices", company_id=company_id).get():
         d = _serialize_doc(doc)
         if not d.get("isQuotation"):
             continue
@@ -234,14 +234,14 @@ def _run_query_quotations(owner_uid, sandbox, args):
     return json.dumps({"count": len(results), "results": results}, ensure_ascii=False)
 
 
-def _run_query_expenses(owner_uid, sandbox, args):
+def _run_query_expenses(owner_uid, sandbox, args, company_id=None):
     date_from = args.get("date_from")
     date_to = args.get("date_to")
     deducible = args.get("deducible")
     search = (args.get("search") or "").strip().lower()
     limit = min(int(args.get("limit", 50)), 100)
     results = []
-    for doc in _coll(owner_uid, sandbox, "expenses").get():
+    for doc in _coll(owner_uid, sandbox, "expenses", company_id=company_id).get():
         d = _serialize_doc(doc)
         if date_from and (d.get("date") or "")[:10] < date_from:
             continue
@@ -266,11 +266,11 @@ def _run_query_expenses(owner_uid, sandbox, args):
     return json.dumps({"count": len(results), "total_sum": total_sum, "deductible_sum": deductible_sum, "results": results}, ensure_ascii=False)
 
 
-def _run_query_items(owner_uid, sandbox, args):
+def _run_query_items(owner_uid, sandbox, args, company_id=None):
     search = (args.get("search") or "").strip().lower()
     limit = min(int(args.get("limit", 50)), 100)
     results = []
-    for doc in _coll(owner_uid, sandbox, "items").get():
+    for doc in _coll(owner_uid, sandbox, "items", company_id=company_id).get():
         d = _serialize_doc(doc)
         if search:
             name = (d.get("name") or "").lower()
@@ -290,7 +290,7 @@ def _run_query_items(owner_uid, sandbox, args):
     return json.dumps({"count": len(results), "results": results}, ensure_ascii=False)
 
 
-def _run_get_financial_summary(owner_uid, sandbox, args):
+def _run_get_financial_summary(owner_uid, sandbox, args, company_id=None):
     date_from = args.get("date_from", "0001-01-01")
     date_to = args.get("date_to", "9999-12-31")
     total_sales = 0.0
@@ -299,7 +299,7 @@ def _run_get_financial_summary(owner_uid, sandbox, args):
     expense_total = 0.0
     expense_count = 0
     client_count = 0
-    for doc in _coll(owner_uid, sandbox, "invoices").get():
+    for doc in _coll(owner_uid, sandbox, "invoices", company_id=company_id).get():
         d = _serialize_doc(doc)
         if d.get("isQuotation") or d.get("status") in ("Anulada", "Eliminada", "Borrador"):
             continue
@@ -310,13 +310,13 @@ def _run_get_financial_summary(owner_uid, sandbox, args):
         balance = d.get("remainingBalance", d.get("total", 0))
         if d.get("status") in ("Emitida", "Parcialmente Cobrada", "Vencida") and balance > 0:
             total_pending += balance
-    for doc in _coll(owner_uid, sandbox, "expenses").get():
+    for doc in _coll(owner_uid, sandbox, "expenses", company_id=company_id).get():
         d = _serialize_doc(doc)
         if (d.get("date") or "")[:10] < date_from or (d.get("date") or "")[:10] > date_to:
             continue
         expense_total += d.get("amount", 0)
         expense_count += 1
-    for _ in _coll(owner_uid, sandbox, "clients").get():
+    for _ in _coll(owner_uid, sandbox, "clients", company_id=company_id).get():
         client_count += 1
     return json.dumps({
         "periodo": {"desde": date_from, "hasta": date_to},
@@ -327,14 +327,14 @@ def _run_get_financial_summary(owner_uid, sandbox, args):
     }, ensure_ascii=False)
 
 
-def _run_query_client_debt(owner_uid, sandbox, args):
+def _run_query_client_debt(owner_uid, sandbox, args, company_id=None):
     client_name = (args.get("client_name") or "").strip().lower()
     client_rnc = (args.get("client_rnc") or "").strip().lower()
     results = []
     # 1. Find matching clients
     matched_client_ids = set()
     client_names_map = {}
-    for doc in _coll(owner_uid, sandbox, "clients").get():
+    for doc in _coll(owner_uid, sandbox, "clients", company_id=company_id).get():
         d = _serialize_doc(doc)
         name = (d.get("razonSocial") or d.get("name") or "").lower()
         rnc = (d.get("rnc") or "").lower()
@@ -350,7 +350,7 @@ def _run_query_client_debt(owner_uid, sandbox, args):
 
     # 2. Find pending invoices for matched clients
     pending_statuses = {"Emitida", "Parcialmente Cobrada", "Vencida"}
-    for doc in _coll(owner_uid, sandbox, "invoices").get():
+    for doc in _coll(owner_uid, sandbox, "invoices", company_id=company_id).get():
         d = _serialize_doc(doc)
         if d.get("isQuotation"):
             continue
@@ -431,11 +431,11 @@ class ChatbotService:
 """
 
     @classmethod
-    def ask_chatbot(cls, owner_uid, user_uid, message, history=None, sandbox=True):
+    def ask_chatbot(cls, owner_uid, user_uid, message, history=None, sandbox=True, company_id=None):
         if history is None:
             history = []
 
-        profile = DatabaseService.get_company_profile(owner_uid)
+        profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
 
         # FAQ cache: preguntas frecuentes respondidas sin llamar a OpenAI
         faq_answers = {
@@ -615,7 +615,7 @@ EMPRESA ACTUAL:
                     handler = TOOL_HANDLERS.get(tool_name)
                     if handler:
                         try:
-                            result = handler(owner_uid, sandbox, tool_args)
+                            result = handler(owner_uid, sandbox, tool_args, company_id=company_id)
                         except Exception as e:
                             result = json.dumps({"error": str(e)})
                     else:

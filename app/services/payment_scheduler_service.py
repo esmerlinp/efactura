@@ -54,6 +54,7 @@ class PaymentSchedulerService:
         sandbox: bool = True,
         days_ahead: int = 60,
         include_paid: bool = False,
+        company_id: Optional[str] = None,
     ) -> list[ScheduledPayment]:
         """
         Obtiene el calendario de pagos CxP pendientes.
@@ -63,6 +64,7 @@ class PaymentSchedulerService:
             sandbox: Entorno.
             days_ahead: Días hacia adelante para proyectar.
             include_paid: Incluir pagos ya realizados.
+            company_id: ID de la empresa (multi-company).
 
         Returns:
             Lista de ScheduledPayment ordenados por prioridad.
@@ -70,7 +72,7 @@ class PaymentSchedulerService:
         today = date.today()
         cutoff = today + timedelta(days=days_ahead)
 
-        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox) or []
+        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, company_id=company_id) or []
         payments = []
 
         for exp in expenses:
@@ -128,6 +130,7 @@ class PaymentSchedulerService:
         owner_uid: str,
         sandbox: bool = True,
         max_days: int = 30,
+        company_id: Optional[str] = None,
     ) -> PaymentPlan:
         """
         Sugiere un plan de pagos priorizado basado en liquidez disponible.
@@ -136,14 +139,15 @@ class PaymentSchedulerService:
             owner_uid: UID del propietario.
             sandbox: Entorno.
             max_days: Solo considerar pagos con vencimiento en estos días.
+            company_id: ID de la empresa (multi-company).
 
         Returns:
             PaymentPlan con pagos sugeridos y métricas.
         """
         from app.services.cash_flow_service import CashFlowService
 
-        available = CashFlowService.get_current_liquidity(owner_uid, sandbox=sandbox)
-        all_payments = cls.get_payment_calendar(owner_uid, sandbox=sandbox)
+        available = CashFlowService.get_current_liquidity(owner_uid, sandbox=sandbox, company_id=company_id)
+        all_payments = cls.get_payment_calendar(owner_uid, sandbox=sandbox, company_id=company_id)
 
         today = date.today()
         cutoff = today + timedelta(days=max_days)
@@ -188,10 +192,10 @@ class PaymentSchedulerService:
         return plan
 
     @classmethod
-    def get_calendar_stats(cls, owner_uid: str, sandbox: bool = True) -> dict:
+    def get_calendar_stats(cls, owner_uid: str, sandbox: bool = True, company_id: Optional[str] = None) -> dict:
         """Estadísticas del calendario de pagos."""
         today = date.today()
-        payments = cls.get_payment_calendar(owner_uid, sandbox=sandbox)
+        payments = cls.get_payment_calendar(owner_uid, sandbox=sandbox, company_id=company_id)
 
         overdue = [p for p in payments if p.days_overdue > 0]
         this_week = [

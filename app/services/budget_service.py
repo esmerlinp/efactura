@@ -27,7 +27,9 @@ class BudgetService:
         return None
 
     @staticmethod
-    def _path(owner_uid: str, year: int) -> str:
+    def _path(owner_uid: str = None, year: int = 0, company_id: str = None) -> str:
+        if company_id:
+            return f"companies/{company_id}/budgets/{year}"
         return f"users/{owner_uid}/budgets/{year}"
 
     @staticmethod
@@ -60,11 +62,11 @@ class BudgetService:
         }
 
     @classmethod
-    def get_budget(cls, owner_uid: str, year: int, branch_id=None, project_id=None) -> dict:
+    def get_budget(cls, owner_uid: str = None, year: int = 0, branch_id=None, project_id=None, company_id: str = None) -> dict:
         db = cls._get_db()
         if db:
             try:
-                doc = db.document(cls._path(owner_uid, year)).get()
+                doc = db.document(cls._path(owner_uid=owner_uid, year=year, company_id=company_id)).get()
                 if doc.exists:
                     data = doc.to_dict()
                     budget = cls.normalise_budget(year, data)
@@ -76,7 +78,7 @@ class BudgetService:
         return cls.normalise_budget(year, {"year": year, "months": {}})
 
     @classmethod
-    def save_budget(cls, owner_uid: str, year: int, budget_data: dict) -> dict:
+    def save_budget(cls, owner_uid: str = None, year: int = 0, budget_data: dict = None, company_id: str = None) -> dict:
         db = cls._get_db()
         budget = cls.normalise_budget(year, {"year": year, "months": budget_data.get("months", {})})
         budget["updatedAt"] = datetime.now(timezone.utc).isoformat()
@@ -84,7 +86,7 @@ class BudgetService:
         budget["branchId"] = budget_data.get("branchId", "default-sucursal-principal")
         budget["projectId"] = budget_data.get("projectId", None)
         if db:
-            db.document(cls._path(owner_uid, year)).set(budget)
+            db.document(cls._path(owner_uid=owner_uid, year=year, company_id=company_id)).set(budget)
         return budget
 
     @staticmethod
@@ -134,14 +136,14 @@ class BudgetService:
         return aliases.get(raw, raw if raw in BUDGET_CATEGORY_LABELS else "otros")
 
     @classmethod
-    def get_variance(cls, owner_uid: str, year: int, month: int, sandbox: bool = True) -> dict:
+    def get_variance(cls, owner_uid: str = None, year: int = 0, month: int = 0, sandbox: bool = True, company_id: str = None) -> dict:
         from app.services.db_service import DatabaseService
 
-        budget = cls.get_budget(owner_uid, year)
+        budget = cls.get_budget(owner_uid=owner_uid, year=year, company_id=company_id)
         month_key = str(month)
         month_budget = budget.get("months", {}).get(month_key, {})
 
-        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox, company_id=company_id)
         actuals = {code: 0.0 for code in BUDGET_CATEGORY_LABELS}
         for exp in expenses:
             dt = cls._parse_date(exp.get("date", ""))
@@ -168,7 +170,7 @@ class BudgetService:
         return variance
 
     @classmethod
-    def get_year_variance(cls, owner_uid: str, year: int, sandbox: bool = True) -> dict:
+    def get_year_variance(cls, owner_uid: str = None, year: int = 0, sandbox: bool = True, company_id: str = None) -> dict:
         months = {}
         totals = {
             "budget": 0.0,
@@ -177,7 +179,7 @@ class BudgetService:
             "over_categories": 0,
         }
         for month in range(1, 13):
-            variance = cls.get_variance(owner_uid, year, month, sandbox=sandbox)
+            variance = cls.get_variance(owner_uid=owner_uid, year=year, month=month, sandbox=sandbox, company_id=company_id)
             month_budget = sum(v["budget"] for v in variance.values())
             month_actual = sum(v["actual"] for v in variance.values())
             months[str(month)] = {

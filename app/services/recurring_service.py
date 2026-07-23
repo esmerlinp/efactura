@@ -19,19 +19,19 @@ from app.models.transaction import PayrollTransaction
 from app.models.recurring import RecurringMovement, RecurringException, RecurringApplication
 
 
-def _recurring_collection(owner_uid: str, sandbox: bool = True) -> str:
+def _recurring_collection(company_id: str, sandbox: bool = True) -> str:
     prefix = "sandbox_" if sandbox else ""
-    return f"users/{owner_uid}/{prefix}hr_recurring_movements"
+    return f"companies/{company_id}/{prefix}hr_recurring_movements"
 
 
-def _exception_collection(owner_uid: str, sandbox: bool = True) -> str:
+def _exception_collection(company_id: str, sandbox: bool = True) -> str:
     prefix = "sandbox_" if sandbox else ""
-    return f"users/{owner_uid}/{prefix}hr_recurring_exceptions"
+    return f"companies/{company_id}/{prefix}hr_recurring_exceptions"
 
 
-def _application_collection(owner_uid: str, sandbox: bool = True) -> str:
+def _application_collection(company_id: str, sandbox: bool = True) -> str:
     prefix = "sandbox_" if sandbox else ""
-    return f"users/{owner_uid}/{prefix}hr_recurring_applications"
+    return f"companies/{company_id}/{prefix}hr_recurring_applications"
 
 
 def _doc_to_dict(doc) -> dict:
@@ -43,7 +43,7 @@ def _doc_to_dict(doc) -> dict:
 # ═══════════════════════════════════════════════════════════════════════
 
 
-def get_recurring_movements(owner_uid: str, employee_id: str = "",
+def get_recurring_movements(company_id: str, employee_id: str = "",
                              contract_id: str = "", status: str = "",
                              movement_type: str = "", concept_code: str = "",
                              payroll_group_id: str = "",
@@ -51,7 +51,7 @@ def get_recurring_movements(owner_uid: str, employee_id: str = "",
     if not firebase_initialized or db_firestore is None:
         return []
     try:
-        coll = _recurring_collection(owner_uid, sandbox)
+        coll = _recurring_collection(company_id, sandbox)
         query = db_firestore.collection(coll)
         if employee_id:
             query = query.where("employeeId", "==", employee_id)
@@ -79,12 +79,12 @@ def get_recurring_movements(owner_uid: str, employee_id: str = "",
         return []
 
 
-def get_recurring_movement(owner_uid: str, rm_id: str,
+def get_recurring_movement(company_id: str, rm_id: str,
                            sandbox: bool = True) -> dict | None:
     if not firebase_initialized or db_firestore is None:
         return None
     try:
-        coll = _recurring_collection(owner_uid, sandbox)
+        coll = _recurring_collection(company_id, sandbox)
         doc = db_firestore.collection(coll).document(rm_id).get()
         return _doc_to_dict(doc) if doc.exists else None
     except Exception as e:
@@ -92,12 +92,12 @@ def get_recurring_movement(owner_uid: str, rm_id: str,
         return None
 
 
-def save_recurring_movement(owner_uid: str, rm_id: str, data: dict,
+def save_recurring_movement(company_id: str, rm_id: str, data: dict,
                             sandbox: bool = True):
     if not firebase_initialized or db_firestore is None:
         return
     try:
-        coll = _recurring_collection(owner_uid, sandbox)
+        coll = _recurring_collection(company_id, sandbox)
         now_iso = datetime.now(timezone.utc).isoformat()
         data["id"] = rm_id
         if data.get("createdAt") is None:
@@ -108,12 +108,12 @@ def save_recurring_movement(owner_uid: str, rm_id: str, data: dict,
         print(f"⚠️ RecurringService.save_recurring_movement: {e}")
 
 
-def delete_recurring_movement(owner_uid: str, rm_id: str,
+def delete_recurring_movement(company_id: str, rm_id: str,
                               sandbox: bool = True):
     if not firebase_initialized or db_firestore is None:
         return
     try:
-        coll = _recurring_collection(owner_uid, sandbox)
+        coll = _recurring_collection(company_id, sandbox)
         db_firestore.collection(coll).document(rm_id).delete()
     except Exception as e:
         print(f"⚠️ RecurringService.delete_recurring_movement: {e}")
@@ -124,12 +124,12 @@ def delete_recurring_movement(owner_uid: str, rm_id: str,
 # ═══════════════════════════════════════════════════════════════════════
 
 
-def get_exception(owner_uid: str, rm_id: str, period_key: str,
+def get_exception(company_id: str, rm_id: str, period_key: str,
                   sandbox: bool = True) -> dict | None:
     if not firebase_initialized or db_firestore is None:
         return None
     try:
-        coll = _exception_collection(owner_uid, sandbox)
+        coll = _exception_collection(company_id, sandbox)
         docs = db_firestore.collection(coll)\
             .where(filter=FieldFilter("recurringMovementId", "==", rm_id))\
             .where(filter=FieldFilter("periodKey", "==", period_key)).get()
@@ -141,12 +141,12 @@ def get_exception(owner_uid: str, rm_id: str, period_key: str,
         return None
 
 
-def save_exception(owner_uid: str, exc_id: str, data: dict,
+def save_exception(company_id: str, exc_id: str, data: dict,
                    sandbox: bool = True):
     if not firebase_initialized or db_firestore is None:
         return
     try:
-        coll = _exception_collection(owner_uid, sandbox)
+        coll = _exception_collection(company_id, sandbox)
         data["id"] = exc_id
         db_firestore.collection(coll).document(exc_id).set(data)
     except Exception as e:
@@ -158,12 +158,12 @@ def save_exception(owner_uid: str, exc_id: str, data: dict,
 # ═══════════════════════════════════════════════════════════════════════
 
 
-def get_application(owner_uid: str, rm_id: str, period_id: str,
+def get_application(company_id: str, rm_id: str, period_id: str,
                     sandbox: bool = True) -> dict | None:
     if not firebase_initialized or db_firestore is None:
         return None
     try:
-        coll = _application_collection(owner_uid, sandbox)
+        coll = _application_collection(company_id, sandbox)
         docs = db_firestore.collection(coll)\
             .where("recurringMovementId", "==", rm_id)\
             .where("periodId", "==", period_id).get()
@@ -175,24 +175,24 @@ def get_application(owner_uid: str, rm_id: str, period_id: str,
         return None
 
 
-def save_application(owner_uid: str, app_id: str, data: dict,
+def save_application(company_id: str, app_id: str, data: dict,
                      sandbox: bool = True):
     if not firebase_initialized or db_firestore is None:
         return
     try:
-        coll = _application_collection(owner_uid, sandbox)
+        coll = _application_collection(company_id, sandbox)
         data["id"] = app_id
         db_firestore.collection(coll).document(app_id).set(data)
     except Exception as e:
         print(f"⚠️ RecurringService.save_application: {e}")
 
 
-def save_applications_batch(owner_uid: str, applications: list,
+def save_applications_batch(company_id: str, applications: list,
                             sandbox: bool = True):
     if not firebase_initialized or db_firestore is None or not applications:
         return
     try:
-        coll = _application_collection(owner_uid, sandbox)
+        coll = _application_collection(company_id, sandbox)
         batch = db_firestore.batch()
         for app in applications:
             app_id = app.get("id", str(uuid.uuid4()))
@@ -203,12 +203,12 @@ def save_applications_batch(owner_uid: str, applications: list,
         print(f"⚠️ RecurringService.save_applications_batch: {e}")
 
 
-def get_applications_by_period(owner_uid: str, period_id: str,
+def get_applications_by_period(company_id: str, period_id: str,
                                sandbox: bool = True) -> list:
     if not firebase_initialized or db_firestore is None:
         return []
     try:
-        coll = _application_collection(owner_uid, sandbox)
+        coll = _application_collection(company_id, sandbox)
         docs = db_firestore.collection(coll)\
             .where("periodId", "==", period_id).get()
         return [_doc_to_dict(d) for d in docs]
@@ -217,13 +217,13 @@ def get_applications_by_period(owner_uid: str, period_id: str,
         return []
 
 
-def delete_applications_by_period(owner_uid: str, period_id: str,
+def delete_applications_by_period(company_id: str, period_id: str,
                                   sandbox: bool = True):
     """Elimina todas las aplicaciones de un período (usado en recálculos)."""
     if not firebase_initialized or db_firestore is None:
         return
     try:
-        coll = _application_collection(owner_uid, sandbox)
+        coll = _application_collection(company_id, sandbox)
         docs = db_firestore.collection(coll)\
             .where("periodId", "==", period_id).get()
         batch = db_firestore.batch()
@@ -302,7 +302,7 @@ def resolve_amount(movement: dict, base_salary: float, context: dict = None) -> 
     return amount
 
 
-def apply_recurring_for_employee(owner_uid: str, employee_id: str,
+def apply_recurring_for_employee(company_id: str, employee_id: str,
                                   contract_id: str, base_salary: float,
                                   period_id: str, period_key: str,
                                   period_start: str, period_end: str,
@@ -342,7 +342,7 @@ def apply_recurring_for_employee(owner_uid: str, employee_id: str,
         concept_code = mv.get("conceptCode", "")
 
         # Verificar si hay excepción para este período
-        exc = get_exception(owner_uid, mv_id, period_key, sandbox=sandbox)
+        exc = get_exception(company_id, mv_id, period_key, sandbox=sandbox)
 
         if exc and exc.get("action") == "skip":
             applications.append({
@@ -423,7 +423,7 @@ def apply_recurring_for_employee(owner_uid: str, employee_id: str,
             mv["paidInstallments"] = paid
             if new_status == "completed":
                 mv["status"] = "completed"
-            save_recurring_movement(owner_uid, mv_id, mv, sandbox=sandbox)
+            save_recurring_movement(company_id, mv_id, mv, sandbox=sandbox)
 
         # Crear RecurringApplication
         app = {
@@ -446,13 +446,13 @@ def apply_recurring_for_employee(owner_uid: str, employee_id: str,
     return transactions, applications
 
 
-def reverse_applications(owner_uid: str, period_id: str,
+def reverse_applications(company_id: str, period_id: str,
                           sandbox: bool = True):
     """Reviente las aplicaciones de un período y restaura saldos.
 
     Se llama durante recálculo (revertir a borrador).
     """
-    applications = get_applications_by_period(owner_uid, period_id, sandbox=sandbox)
+    applications = get_applications_by_period(company_id, period_id, sandbox=sandbox)
     for app in applications:
         if app.get("action") != "applied":
             continue
@@ -461,12 +461,12 @@ def reverse_applications(owner_uid: str, period_id: str,
         if not rm_id or amount <= 0:
             continue
 
-        rm = get_recurring_movement(owner_uid, rm_id, sandbox=sandbox)
+        rm = get_recurring_movement(company_id, rm_id, sandbox=sandbox)
         if rm and rm.get("isLoan"):
             rm["remainingBalance"] = round(float(rm.get("remainingBalance", 0)) + amount, 2)
             rm["paidInstallments"] = max(0, rm.get("paidInstallments", 1) - 1)
             if rm.get("status") == "completed":
                 rm["status"] = "active"
-            save_recurring_movement(owner_uid, rm_id, rm, sandbox=sandbox)
+            save_recurring_movement(company_id, rm_id, rm, sandbox=sandbox)
 
-    delete_applications_by_period(owner_uid, period_id, sandbox=sandbox)
+    delete_applications_by_period(company_id, period_id, sandbox=sandbox)

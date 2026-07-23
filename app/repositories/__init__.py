@@ -4,7 +4,7 @@ Repositories — capa de acceso a datos tipada por bounded context.
 Uso:
     from app.repositories import get_repos
 
-    repos = get_repos(owner_uid)
+    repos = get_repos(company_id)
     accounts = repos.accounting.get_chart_of_accounts()
     clients = repos.contacts.get_clients()
     invoices = repos.invoices.get_invoices()
@@ -17,10 +17,10 @@ from app.repositories.bank_repository import BankRepository
 
 
 class RepositoryContainer:
-    """Contenedor de repositorios para un owner_uid específico."""
+    """Contenedor de repositorios para un company_id específico."""
 
-    def __init__(self, owner_uid: str):
-        self.owner_uid = owner_uid
+    def __init__(self, company_id: str):
+        self.company_id = company_id
         self._accounting: AccountingRepository | None = None
         self._contacts: ContactRepository | None = None
         self._invoices: InvoiceRepository | None = None
@@ -29,28 +29,28 @@ class RepositoryContainer:
     @property
     def accounting(self) -> AccountingRepository:
         if self._accounting is None:
-            self._accounting = AccountingRepository(self.owner_uid)
+            self._accounting = AccountingRepository(self.company_id)
         return self._accounting
 
     @property
     def contacts(self) -> ContactRepository:
         if self._contacts is None:
-            self._contacts = ContactRepository(self.owner_uid)
+            self._contacts = ContactRepository(self.company_id)
         return self._contacts
 
     @property
     def invoices(self) -> InvoiceRepository:
         if self._invoices is None:
-            self._invoices = InvoiceRepository(self.owner_uid)
+            self._invoices = InvoiceRepository(self.company_id)
         return self._invoices
 
     @property
     def banks(self) -> BankRepository:
         if self._banks is None:
-            self._banks = BankRepository(self.owner_uid)
+            self._banks = BankRepository(self.company_id)
         return self._banks
 
 
-def get_repos(owner_uid: str) -> RepositoryContainer:
-    """Factory function para obtener todos los repositorios de un owner."""
-    return RepositoryContainer(owner_uid)
+def get_repos(company_id: str) -> RepositoryContainer:
+    """Factory function para obtener todos los repositorios de una compañía."""
+    return RepositoryContainer(company_id)

@@ -23,8 +23,8 @@ from app.services.recurring_service import get_recurring_movements
 # ── Helpers ────────────────────────────────────────────────────────────────
 
 def _service():
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
-    return OffboardingService(owner_uid, sandbox), owner_uid, sandbox
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    return OffboardingService(company_id, sandbox), owner_uid, sandbox
 
 
 def _user():
@@ -169,7 +169,7 @@ def offboarding_new():
 
     if request.method == "POST":
         employee_id = request.form.get("employeeId", "").strip()
-        employee = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
+        employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
         if not employee:
             flash("Empleado no encontrado.", "error")
             return redirect(url_for("web_rrhh.offboarding_new"))
@@ -202,7 +202,7 @@ def offboarding_new():
         flash("Solicitud de offboarding creada exitosamente.", "success")
         return redirect(url_for("web_rrhh.offboarding_detail", request_id=req.id))
 
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    employees = hr.get_employees(company_id, sandbox=sandbox)
     active_employees = [e for e in employees if e.get("status") == "activo"]
     preselected_id = request.args.get("employee_id", "")
     return render_template("rrhh/offboarding_form.html",
@@ -247,7 +247,7 @@ def offboarding_edit(request_id):
         flash("Solicitud actualizada.", "success")
         return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id))
 
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    employees = hr.get_employees(company_id, sandbox=sandbox)
     active_employees = [e for e in employees if e.get("status") == "activo"]
     return render_template("rrhh/offboarding_form.html",
                            **_ctx(employees=active_employees, request_data=req,
@@ -300,7 +300,7 @@ def offboarding_detail(request_id):
     if tab == "settlement":
         if req.get("settlementId"):
             extra["settlement"] = svc.get_settlement(req["settlementId"])
-        extra["employee"] = hr.get_employee(owner_uid, req.get("employeeId", ""), sandbox=sandbox)
+        extra["employee"] = hr.get_employee(company_id, req.get("employeeId", ""), sandbox=sandbox)
 
     elif tab == "checklist":
         if req.get("checklistId"):
@@ -428,7 +428,7 @@ def offboarding_settlement_calculate(request_id):
         flash("Solicitud no encontrada.", "error")
         return redirect(url_for("web_rrhh.offboarding_list"))
 
-    employee = hr.get_employee(owner_uid, req.get("employeeId", ""), sandbox=sandbox)
+    employee = hr.get_employee(company_id, req.get("employeeId", ""), sandbox=sandbox)
     if not employee:
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id))
@@ -445,7 +445,7 @@ def offboarding_settlement_calculate(request_id):
 
     salaries_12 = [base_salary]
     try:
-        salary_history = hr.get_salary_history(owner_uid, req.get("employeeId", ""), sandbox=sandbox)
+        salary_history = hr.get_salary_history(company_id, req.get("employeeId", ""), sandbox=sandbox)
         if salary_history:
             recent = sorted(salary_history, key=lambda x: x.get("effectiveDate", ""), reverse=True)[:12]
             salaries_12 = [s.get("amount", base_salary) for s in recent if s.get("amount")]
@@ -463,7 +463,7 @@ def offboarding_settlement_calculate(request_id):
     salaries_ytd = [base_salary] * max(1, months_ytd)
 
     employee_id = req.get("employeeId", "")
-    recurring_movements = get_recurring_movements(owner_uid, employee_id=employee_id, sandbox=sandbox)
+    recurring_movements = get_recurring_movements(company_id, employee_id=employee_id, sandbox=sandbox)
 
     result = LiquidacionService.calcular_liquidacion(
         employee_id=employee_id,
@@ -770,7 +770,7 @@ def offboarding_rehire(request_id):
         svc.save_request_raw(request_id, req, _email())
 
         if new_employee_id:
-            new_emp = hr.get_employee(owner_uid, new_employee_id, sandbox=sandbox)
+            new_emp = hr.get_employee(company_id, new_employee_id, sandbox=sandbox)
             if new_emp:
                 new_emp["status"] = "activo"
                 new_emp["hireDate"] = new_hire_date or new_emp.get("hireDate", "")
@@ -778,13 +778,13 @@ def offboarding_rehire(request_id):
                 new_emp["departmentId"] = new_department or new_emp.get("departmentId", "")
                 if new_salary > 0:
                     new_emp["baseSalary"] = new_salary
-                hr.save_employee(owner_uid, new_employee_id, new_emp, sandbox=sandbox)
-                log_action(owner_uid, "rehire", "employee", new_employee_id,
+                hr.save_employee(company_id, new_employee_id, new_emp, sandbox=sandbox)
+                log_action(company_id, "rehire", "employee", new_employee_id,
                            _email(), {"offboardingId": request_id}, sandbox=sandbox)
                 flash("Empleado recontratado exitosamente.", "success")
         return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id, tab="overview"))
 
-    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    employees = hr.get_employees(company_id, sandbox=sandbox)
     return render_template("rrhh/offboarding/rehire_form.html",
                            **_ctx(req=req, employees=employees,
                                   active_page="rrhh_offboarding"))
@@ -802,7 +802,7 @@ def offboarding_pdf_letter(request_id):
         flash("Solicitud no encontrada.", "error")
         return redirect(url_for("web_rrhh.offboarding_list"))
 
-    employee = hr.get_employee(owner_uid, req.get("employeeId", ""), sandbox=sandbox)
+    employee = hr.get_employee(company_id, req.get("employeeId", ""), sandbox=sandbox)
     if not employee:
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id))
@@ -849,7 +849,7 @@ def offboarding_pdf_settlement(request_id):
         flash("Liquidación no encontrada. Calcule la liquidación primero.", "warning")
         return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id, tab="settlement"))
 
-    employee = hr.get_employee(owner_uid, req.get("employeeId", ""), sandbox=sandbox)
+    employee = hr.get_employee(company_id, req.get("employeeId", ""), sandbox=sandbox)
     if not employee:
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id))
@@ -880,13 +880,14 @@ def offboarding_pdf_settlement(request_id):
 def offboarding_tss_download(request_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    svc, owner_uid, sandbox = _service()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    svc = OffboardingService(company_id, sandbox)
     req = svc.get_request(request_id)
     if not req:
         flash("Solicitud no encontrada.", "error")
         return redirect(url_for("web_rrhh.offboarding_list"))
 
-    employee = hr.get_employee(owner_uid, req.get("employeeId", ""), sandbox=sandbox)
+    employee = hr.get_employee(company_id, req.get("employeeId", ""), sandbox=sandbox)
     if not employee:
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id))
@@ -894,7 +895,7 @@ def offboarding_tss_download(request_id):
     try:
         from app.services.offboarding_tss_service import generate_tss_baja, get_tss_baja_filename
         from app.services.db_service import DatabaseService
-        profile = DatabaseService.get_company_profile(owner_uid) or {}
+        profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
         company_rnc = profile.get("rnc", "")
 
         content = generate_tss_baja(req, employee, company_rnc)
@@ -922,7 +923,7 @@ def offboarding_tss_download(request_id):
 def offboarding_migrate():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     if not _is_hr_role():
         flash("Solo RRHH puede ejecutar la migración.", "error")
         return redirect(url_for("web_rrhh.offboarding_dashboard"))
@@ -951,13 +952,13 @@ def offboarding_migrate():
 def offboarding_fix_status():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     if not _is_hr_role():
         flash("Solo RRHH puede ejecutar esta acción.", "error")
         return redirect(url_for("web_rrhh.offboarding_dashboard"))
 
     dry_run = request.form.get("dry_run") == "1"
-    svc = OffboardingService(owner_uid, sandbox)
+    svc = OffboardingService(company_id, sandbox)
     all_requests = svc.list_requests(limit=1000)
     completed = [r for r in all_requests if r.get("status") == "completed"]
 
@@ -972,7 +973,7 @@ def offboarding_fix_status():
             skipped += 1
             continue
         try:
-            emp = hr.get_employee(owner_uid, emp_id, sandbox=sandbox)
+            emp = hr.get_employee(company_id, emp_id, sandbox=sandbox)
             if not emp:
                 details.append(f"{req.get('employeeName','?')}: empleado no encontrado")
                 errors += 1
@@ -984,8 +985,8 @@ def offboarding_fix_status():
                 emp["status"] = "inactivo"
                 emp["terminationDate"] = req.get("effectiveDate", "")
                 emp["terminationType"] = req.get("terminationType", "")
-                hr.save_employee(owner_uid, emp_id, emp, sandbox=sandbox)
-                log_action(owner_uid, "employee_marked_inactive", "employee",
+                hr.save_employee(company_id, emp_id, emp, sandbox=sandbox)
+                log_action(company_id, "employee_marked_inactive", "employee",
                            emp_id, _email(),
                            {"offboardingId": req.get("id", ""),
                             "terminationType": req.get("terminationType", "")},
@@ -1061,7 +1062,7 @@ def offboarding_employee_data(request_id):
     req = svc.get_request(request_id)
     if not req:
         return {"error": "No encontrada"}, 404
-    employee = hr.get_employee(owner_uid, req.get("employeeId", ""), sandbox=sandbox)
+    employee = hr.get_employee(company_id, req.get("employeeId", ""), sandbox=sandbox)
     if not employee:
         return {"error": "Empleado no encontrado"}, 404
     return jsonify({

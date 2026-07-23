@@ -3,11 +3,12 @@ import re
 from datetime import datetime, timezone
 
 try:
-    from app.services.db_service import db_firestore, firebase_initialized, DatabaseService
+    from app.services.db_service import db_firestore, firebase_initialized, DatabaseService, _company_coll
 except ImportError:
     db_firestore = None
     firebase_initialized = False
     DatabaseService = None
+    _company_coll = None
 
 
 def serialize_field(val):
@@ -23,13 +24,13 @@ def serialize_field(val):
 class GoodsReceiptService:
 
     @classmethod
-    def get_receipts(cls, owner_uid, sandbox=True):
+    def get_receipts(cls, company_id, sandbox=True):
         if not firebase_initialized or db_firestore is None:
             return []
         receipts = []
         try:
             coll_name = "sandbox_goods_receipts" if sandbox else "goods_receipts"
-            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+            docs = _company_coll(company_id=company_id, coll_name=coll_name).get()
             for doc in docs:
                 data = doc.to_dict()
                 data["id"] = doc.id
@@ -40,12 +41,12 @@ class GoodsReceiptService:
         return receipts
 
     @classmethod
-    def get_receipt(cls, owner_uid, receipt_id, sandbox=True):
+    def get_receipt(cls, company_id, receipt_id, sandbox=True):
         if not firebase_initialized or db_firestore is None:
             return None
         try:
             coll_name = "sandbox_goods_receipts" if sandbox else "goods_receipts"
-            doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(receipt_id).get()
+            doc = _company_coll(company_id=company_id, coll_name=coll_name).document(receipt_id).get()
             if doc.exists:
                 data = doc.to_dict()
                 data["id"] = doc.id
@@ -55,13 +56,13 @@ class GoodsReceiptService:
         return None
 
     @classmethod
-    def get_receipts_by_po(cls, owner_uid, po_id, sandbox=True):
+    def get_receipts_by_po(cls, company_id, po_id, sandbox=True):
         if not firebase_initialized or db_firestore is None:
             return []
         receipts = []
         try:
             coll_name = "sandbox_goods_receipts" if sandbox else "goods_receipts"
-            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name)\
+            docs = _company_coll(company_id=company_id, coll_name=coll_name)\
                 .where("poId", "==", po_id).get()
             for doc in docs:
                 data = doc.to_dict()
@@ -73,10 +74,10 @@ class GoodsReceiptService:
         return receipts
 
     @classmethod
-    def get_next_receipt_number(cls, owner_uid, sandbox=True):
+    def get_next_receipt_number(cls, company_id, sandbox=True):
         year = datetime.now(timezone.utc).strftime("%Y")
         max_num = 0
-        receipts = cls.get_receipts(owner_uid, sandbox=sandbox)
+        receipts = cls.get_receipts(company_id, sandbox=sandbox)
         for r in receipts:
             rn = r.get("receiptNumber", "")
             m = re.match(rf"^RC-{year}-(\d{{4}})$", rn)
@@ -87,10 +88,10 @@ class GoodsReceiptService:
         return f"RC-{year}-{max_num + 1:04d}"
 
     @classmethod
-    def create_receipt(cls, owner_uid, receipt_data, sandbox=True):
+    def create_receipt(cls, company_id, receipt_data, sandbox=True):
         receipt_id = str(uuid.uuid4())
         receipt_data["id"] = receipt_id
-        receipt_data["ownerUID"] = owner_uid
+        receipt_data["ownerUID"] = company_id
         if "createdAt" not in receipt_data or not receipt_data["createdAt"]:
             receipt_data["createdAt"] = serialize_field(datetime.now(timezone.utc))
         receipt_data["updatedAt"] = serialize_field(datetime.now(timezone.utc))
@@ -106,7 +107,7 @@ class GoodsReceiptService:
         coll_name = "sandbox_goods_receipts" if sandbox else "goods_receipts"
         if firebase_initialized and db_firestore is not None:
             try:
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(receipt_id).set(
+                _company_coll(company_id=company_id, coll_name=coll_name).document(receipt_id).set(
                     receipt_data
                 )
             except Exception as e:
@@ -115,7 +116,7 @@ class GoodsReceiptService:
         return receipt_data
 
     @classmethod
-    def register_receipt_inventory(cls, owner_uid, receipt_data, sandbox=True):
+    def register_receipt_inventory(cls, company_id, receipt_data, sandbox=True):
         registered = []
         if DatabaseService is None:
             return registered
@@ -123,7 +124,7 @@ class GoodsReceiptService:
         po_id = receipt_data.get("purchaseOrderId", "")
         if po_id:
             try:
-                po = DatabaseService.get_purchase_order(owner_uid, po_id, sandbox=sandbox)
+                po = DatabaseService.get_purchase_order(company_id, po_id, sandbox=sandbox)
                 if po:
                     for item in receipt_data.get("items", []):
                         po_items = po.get("items", [])
@@ -167,7 +168,7 @@ class GoodsReceiptService:
                 "notes": f"Recepción {receipt_number} - OC {receipt_data.get('poNumber', '')}",
                 "performedBy": performed_by,
             }
-            result = DatabaseService.register_inventory_transaction(owner_uid, tx, sandbox=sandbox)
+            result = DatabaseService.register_inventory_transaction(company_id, tx, sandbox=sandbox)
             if result:
                 registered.append(result)
 
@@ -175,12 +176,12 @@ class GoodsReceiptService:
             if unit_cost > 0:
                 from app.services.inventory_costing_service import InventoryCostingService
                 InventoryCostingService.record_fifo_entry(
-                    owner_uid, item_id, warehouse_id, qty, unit_cost,
+                    company_id, item_id, warehouse_id, qty, unit_cost,
                     reference_id=receipt_number, reference_type="COMPRA",
                     sandbox=sandbox
                 )
                 InventoryCostingService.recalculate_item_avg_cost(
-                    owner_uid, item_id, warehouse_id, sandbox=sandbox
+                    company_id, item_id, warehouse_id, sandbox=sandbox
                 )
 
         return registered

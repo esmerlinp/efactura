@@ -36,7 +36,7 @@ def list_payments():
     """
     owner_uid = g.owner_uid
     sandbox = g.sandbox_mode
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    expenses = DatabaseService.get_expenses(owner_uid, company_id=g.company_id, sandbox=sandbox)
     filtered = [e for e in expenses if e.get('ecfType') != 'E43' and not e.get('isRecurring')]
     return jsonify({'success': True, 'data': filtered, 'count': len(filtered)})
 
@@ -59,7 +59,7 @@ def list_minor():
     """
     owner_uid = g.owner_uid
     sandbox = g.sandbox_mode
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    expenses = DatabaseService.get_expenses(owner_uid, company_id=g.company_id, sandbox=sandbox)
     filtered = [e for e in expenses if e.get('ecfType') == 'E43']
     return jsonify({'success': True, 'data': filtered, 'count': len(filtered)})
 
@@ -82,7 +82,7 @@ def list_recurring():
     """
     owner_uid = g.owner_uid
     sandbox = g.sandbox_mode
-    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    expenses = DatabaseService.get_expenses(owner_uid, company_id=g.company_id, sandbox=sandbox)
     filtered = [e for e in expenses if e.get('isRecurring')]
     return jsonify({'success': True, 'data': filtered, 'count': len(filtered)})
 

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="theme-color" content="#7c3aed">
+    <script>
+        (function () {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crear Empresa - {{ product_name }}</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/efactura_logo.png') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    {% if company_theme == 'moderno' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_moderno.css') }}">
+    {% elif company_theme == 'landing' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_landing.css') }}">
+    {% else %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_clasico.css') }}">
+    {% endif %}
+    <style>
+        .create-company-container {
+            max-width: 480px;
+            margin: 80px auto;
+            padding: 0 20px;
+        }
+
+        .create-company-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: var(--shadow-md);
+        }
+
+        .create-company-header {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+
+        .create-company-header .icon-circle {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.1));
+            color: var(--accent-emerald);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 14px;
+        }
+
+        .create-company-header h2 {
+            margin: 0 0 6px 0;
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .create-company-header p {
+            margin: 0;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+        }
+
+        .form-group .hint {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            background: var(--bg-input);
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            transition: border-color var(--transition-fast);
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--accent-emerald);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        }
+
+        .form-group input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .btn-create {
+            width: 100%;
+            padding: 12px;
+            background: var(--accent-emerald);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            margin-top: 6px;
+        }
+
+        .btn-create:hover {
+            filter: brightness(1.08);
+            transform: translateY(-1px);
+        }
+
+        .btn-back {
+            display: block;
+            text-align: center;
+            margin-top: 14px;
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+        }
+
+        .btn-back:hover {
+            color: var(--accent-emerald);
+        }
+
+        .flash-messages {
+            margin-bottom: 16px;
+        }
+
+        .flash-message {
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            margin-bottom: 8px;
+        }
+
+        .flash-error {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .flash-success {
+            background: rgba(16, 185, 129, 0.1);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="create-company-container">
+        <div class="create-company-card">
+            <div class="create-company-header">
+                <div class="icon-circle">
+                    <i class="fa-solid fa-building"></i>
+                </div>
+                <h2>Crear Nueva Empresa</h2>
+                <p>Configure los datos básicos de su empresa</p>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                <div class="flash-message flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
+
+            <form method="POST" action="{{ url_for('web_company.create_company') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-group">
+                    <label for="name">Nombre de la empresa <span style="color: #ef4444;">*</span></label>
+                    <input type="text" id="name" name="name" placeholder="Ej: Inversiones del Caribe, SRL"
+                           required maxlength="150" autofocus>
+                </div>
+
+                <div class="form-group">
+                    <label for="trade_name">Nombre comercial <span class="hint">(opcional)</span></label>
+                    <input type="text" id="trade_name" name="trade_name" placeholder="Ej: Inverca"
+                           maxlength="150">
+                </div>
+
+                <div class="form-group">
+                    <label for="rnc">RNC <span class="hint">(opcional, puede agregarlo después)</span></label>
+                    <input type="text" id="rnc" name="rnc" placeholder="Ej: 131999999"
+                           maxlength="11" pattern="\d*" inputmode="numeric">
+                </div>
+
+                <div class="form-group">
+                    <label for="country">País</label>
+                    <select id="country" name="country">
+                        <option value="DO" selected>República Dominicana</option>
+                        <option value="US">Estados Unidos</option>
+                        <option value="CO">Colombia</option>
+                        <option value="MX">México</option>
+                        <option value="PA">Panamá</option>
+                        <option value="PR">Puerto Rico</option>
+                        <option value="ES">España</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn-create">
+                    <i class="fa-solid fa-plus"></i> Crear Empresa
+                </button>
+            </form>
+
+            <a href="{{ url_for('web_auth.select_company') }}" class="btn-back">
+                <i class="fa-solid fa-arrow-left"></i> Volver a selección de empresas
+            </a>
+        </div>
+    </div>
+</body>
+
+</html>

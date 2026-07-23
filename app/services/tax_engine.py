@@ -2,10 +2,11 @@ from datetime import datetime
 
 
 class TaxEngine:
-    def __init__(self, owner_uid=None, sandbox=True, country="DO"):
+    def __init__(self, owner_uid=None, sandbox=True, country="DO", company_id=None):
         self.owner_uid = owner_uid
         self.sandbox = sandbox
         self.country = country
+        self.company_id = company_id
         self._overrides = None
         self._provider = None
         self._rules = None
@@ -16,13 +17,11 @@ class TaxEngine:
         if self._overrides is not None:
             return
         self._overrides = {}
-        if self.owner_uid:
+        if self.owner_uid or self.company_id:
             try:
-                from app.services.db_service import firebase_initialized, db_firestore
+                from app.services.db_service import firebase_initialized, db_firestore, _company_coll
                 if firebase_initialized and db_firestore is not None:
-                    overrides_ref = db_firestore.collection("users").document(
-                        self.owner_uid
-                    ).collection("config").document("tax_rules").get()
+                    overrides_ref = _company_coll(owner_uid=self.owner_uid, company_id=self.company_id, coll_name="config").document("tax_rules").get()
                     if overrides_ref.exists:
                         self._overrides = overrides_ref.to_dict()
             except Exception as e:

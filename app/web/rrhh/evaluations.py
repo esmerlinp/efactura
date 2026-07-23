@@ -18,12 +18,12 @@ from app.services import hr_data_service as hr
 def evaluation_list():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    evals = hr.get_evaluations(owner_uid, sandbox=sandbox)
+    evals = hr.get_evaluations(company_id, sandbox=sandbox)
     evals.sort(key=lambda e: e.get("date", ""), reverse=True)
-    employees = {e["id"]: e for e in hr.get_employees(owner_uid, sandbox=sandbox)}
+    employees = {e["id"]: e for e in hr.get_employees(company_id, sandbox=sandbox)}
     return render_template("rrhh/evaluation_list.html", active_page="rrhh_development",
                            evaluations=evals, employees=employees)
 
@@ -32,16 +32,16 @@ def evaluation_list():
 def evaluation_new():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    employees = [e for e in hr.get_employees(owner_uid, sandbox=sandbox) if e.get("status") == "activo"]
+    employees = [e for e in hr.get_employees(company_id, sandbox=sandbox) if e.get("status") == "activo"]
 
     if request.method == "POST":
         emp_id = request.form.get("employeeId", "")
-        employee = hr.get_employee(owner_uid, emp_id, sandbox=sandbox)
+        employee = hr.get_employee(company_id, emp_id, sandbox=sandbox)
         eval_id = str(uuid.uuid4())
-        hr.save_evaluation(owner_uid, eval_id, {
+        hr.save_evaluation(company_id, eval_id, {
             "id": eval_id,
             "employeeId": emp_id,
             "employeeName": employee.get("fullName", "") if employee else "",

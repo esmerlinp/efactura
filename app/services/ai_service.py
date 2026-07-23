@@ -7,7 +7,7 @@ from app.brand import get_product_name
 
 class AIService:
     @staticmethod
-    def _get_api_key(owner_uid=None):
+    def _get_api_key(owner_uid=None, company_id=None):
         # Priorizar la API Key configurada en el archivo .env del sistema
         api_key = Config.OPENAI_API_KEY.strip()
         if api_key and api_key != "YOUR_OPENAI_API_KEY_HERE" and api_key != "":
@@ -15,16 +15,16 @@ class AIService:
             
         # Fallback a la API Key del perfil de la empresa si no está definida a nivel de sistema
         if owner_uid:
-            profile = DatabaseService.get_company_profile(owner_uid)
+            profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
             return profile.get("openaiApiKey", "").strip()
         return ""
 
     @classmethod
-    def analyze_receipt_ocr(cls, owner_uid, file_bytes, mime_type):
+    def analyze_receipt_ocr(cls, owner_uid, file_bytes, mime_type, company_id=None):
         """
         Envía una imagen (base64) o texto a GPT-4o-mini para extraer datos fiscales dominicanos.
         """
-        api_key = cls._get_api_key(owner_uid)
+        api_key = cls._get_api_key(owner_uid, company_id=company_id)
         if not api_key or api_key == "YOUR_OPENAI_API_KEY_HERE":
             return {"success": False, "message": "API Key de OpenAI no configurada."}
 
@@ -250,11 +250,11 @@ Si no encuentras algún dato, usa string vacío "" o 0.0 para montos, y array va
             return {"success": False, "message": str(e)}
 
     @classmethod
-    def classify_dgii_expense(cls, owner_uid, concept):
+    def classify_dgii_expense(cls, owner_uid, concept, company_id=None):
         """
         Analiza el concepto de un gasto y determina el código de tipo de gasto de la DGII.
         """
-        api_key = cls._get_api_key(owner_uid)
+        api_key = cls._get_api_key(owner_uid, company_id=company_id)
         if not api_key or api_key == "YOUR_OPENAI_API_KEY_HERE":
             # Fallback simple local si no hay API Key
             concept_l = concept.lower()
@@ -322,13 +322,13 @@ Retorna ÚNICAMENTE las dos cifras del código correspondiente (ej: 02 o 05). Si
             return "02"
 
     @classmethod
-    def draft_collection_message(cls, owner_uid, client_name, amount, due_date, status, tone="formal", sender_name=None):
+    def draft_collection_message(cls, owner_uid, client_name, amount, due_date, status, tone="formal", sender_name=None, company_id=None):
         """
         Redacta un recordatorio de cobranza por WhatsApp/Email.
         """
-        api_key = cls._get_api_key(owner_uid)
+        api_key = cls._get_api_key(owner_uid, company_id=company_id)
         
-        profile = DatabaseService.get_company_profile(owner_uid)
+        profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
         brand_name = profile.get("tradeName") or profile.get("companyName", "Nuestra Empresa")
         company_rnc = profile.get("companyRNC", "")
         final_sender_name = sender_name or "Departamento de Cobranzas"
@@ -395,12 +395,12 @@ Departamento de Cobranzas
             return default_templates.get(tone, default_templates["formal"])
 
     @classmethod
-    def suggest_mapping(cls, owner_uid, headers, target_fields):
+    def suggest_mapping(cls, owner_uid, headers, target_fields, company_id=None):
         """
         Usa IA para emparejar campos del sistema con las columnas cabeceras del CSV.
         Retorna un diccionario mapeando: { target_field_id: index_of_csv_header }
         """
-        api_key = cls._get_api_key(owner_uid)
+        api_key = cls._get_api_key(owner_uid, company_id=company_id)
         if not api_key or api_key == "YOUR_OPENAI_API_KEY_HERE":
             return {"success": False, "message": "API Key de OpenAI no configurada."}
 
@@ -459,11 +459,11 @@ No agregues explicaciones, markdown ni texto extra."""
             return {"success": False, "message": str(e)}
 
     @classmethod
-    def polish_comment(cls, owner_uid, content):
+    def polish_comment(cls, owner_uid, content, company_id=None):
         """
         Mejora la ortografía y redacción de un comentario utilizando GPT-4o-mini.
         """
-        api_key = cls._get_api_key(owner_uid)
+        api_key = cls._get_api_key(owner_uid, company_id=company_id)
         if not api_key or api_key == "YOUR_OPENAI_API_KEY_HERE":
             return {"success": False, "message": "API Key de OpenAI no configurada."}
 
@@ -500,12 +500,12 @@ Importante:
             return {"success": False, "message": str(e)}
 
     @classmethod
-    def polish_contract_terms(cls, owner_uid, content, context="", content_type="terms"):
+    def polish_contract_terms(cls, owner_uid, content, context="", content_type="terms", company_id=None):
         """
         Mejora y completa términos contractuales utilizando GPT-4o-mini con contexto legal.
         content_type puede ser "terms" (términos legales) o "notes" (notas comerciales).
         """
-        api_key = cls._get_api_key(owner_uid)
+        api_key = cls._get_api_key(owner_uid, company_id=company_id)
         if not api_key or api_key == "YOUR_OPENAI_API_KEY_HERE":
             return {"success": False, "message": "API Key de OpenAI no configurada."}
 
@@ -561,12 +561,12 @@ Importante:
             return {"success": False, "message": str(e)}
 
     @classmethod
-    def generate_client_strategy(cls, owner_uid, client, invoices):
+    def generate_client_strategy(cls, owner_uid, client, invoices, company_id=None):
         """
         Analiza un cliente y genera un plan de mitigación para evitar su pérdida.
         Retorna dict con riskLevel, executiveSummary, mitigationSteps, productOffers, campaignSuggestions.
         """
-        api_key = cls._get_api_key(owner_uid)
+        api_key = cls._get_api_key(owner_uid, company_id=company_id)
         no_key_fallback = {
             "success": False,
             "message": "API Key de OpenAI no configurada. Configúrela en Ajustes → OpenAI API Key."
@@ -655,7 +655,7 @@ Importante:
         else:
             payment_behavior = "Sin historial de pagos"
 
-        profile = DatabaseService.get_company_profile(owner_uid)
+        profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
         brand_name = profile.get("tradeName") or profile.get("companyName", "la empresa")
 
         system_prompt = f"""Eres un experto en retención de clientes y estrategia comercial para una empresa dominicana ({brand_name}). Tu tarea es analizar el perfil de un cliente y generar un plan de mitigación personalizado para evitar que abandone el servicio.
@@ -744,4 +744,3 @@ Facturas recientes ({len(recent_invoices)}):
             return {"success": False, "message": "La respuesta de la IA no fue JSON válido."}
         except Exception as e:
             return {"success": False, "message": str(e)}
-

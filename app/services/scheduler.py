@@ -12,12 +12,16 @@ _scheduler = None
 _flask_app = None   # Referencia a la instancia Flask para contexto en el job
 
 
-def _get_all_owner_uids():
+def _get_all_owner_uids(company_id=None):
     """Obtiene todos los owner UIDs con perfil configurado (RNC + regimenFiscal).
-    Cache compartido por los jobs del scheduler para evitar lecturas repetitivas de users."""
+    Cache compartido por los jobs del scheduler para evitar lecturas repetitivas de users.
+    Si se proporciona company_id, retorna solo el owner_uid de esa empresa."""
     from app.services.db_service import db_firestore, firebase_initialized
     uids = set()
     if not firebase_initialized or not db_firestore:
+        return uids
+    if company_id:
+        uids.add(company_id)
         return uids
     try:
         docs = db_firestore.collection("users").limit(1000).stream()
@@ -33,7 +37,7 @@ def _get_all_owner_uids():
     return uids
 
 
-def run_daily_contract_billing():
+def run_daily_contract_billing(company_id=None):
     """
     Job diario (6:00 AM hora RD): recorre todos los usuarios con contratos Activos
     cuya nextBillingDate <= hoy y genera las facturas correspondientes.
@@ -46,7 +50,7 @@ def run_daily_contract_billing():
 
     logger.info("⏰ APScheduler — Iniciando facturación diaria de contratos recurrentes...")
 
-    owner_uids = _get_all_owner_uids()
+    owner_uids = _get_all_owner_uids(company_id=company_id)
     if not owner_uids:
         logger.info("ℹ️ No se encontraron usuarios para facturación de contratos.")
         return
@@ -86,16 +90,16 @@ def run_daily_contract_billing():
 
 
 
-def run_daily_depreciation():
+def run_daily_depreciation(company_id=None):
     """Job diario (2:00 AM RD): recorre todos los dueños con activos fijos
     y ejecuta depreciación automática para los activos cuya nextDepreciationDate <= hoy.
     Optimización GCP: evita collection_group (costoso), itera por usuario."""
-    from app.services.db_service import db_firestore
+    from app.services.db_service import _company_coll, db_firestore
     from app.services.fixed_asset_service import FixedAssetService
 
     logger.info("⏰ APScheduler — Iniciando depreciación automática de activos fijos...")
 
-    owner_uids = _get_all_owner_uids()
+    owner_uids = _get_all_owner_uids(company_id=company_id)
     if not owner_uids:
         logger.info("ℹ️ No se encontraron usuarios para depreciación de activos.")
         return
@@ -108,7 +112,7 @@ def run_daily_depreciation():
     for coll_name, is_sandbox in collections:
         for owner_uid in owner_uids:
             try:
-                assets_coll = db_firestore.collection("users").document(owner_uid).collection(coll_name)
+                assets_coll = _company_coll(owner_uid=owner_uid, coll_name=coll_name)
                 docs = assets_coll.where("status", "==", "active").stream()
                 has_active = any(True for _ in docs)
                 if not has_active:
@@ -146,7 +150,7 @@ def run_contingency_sync():
     logger.info(f"✅ APScheduler — Sincronización de contingencia: {synced} OK, {failed} fallidas")
 
 
-def run_daily_rui_generation():
+def run_daily_rui_generation(company_id=None):
     """Job diario (00:30 AM RD): genera RUI automático para el día anterior
     en todas las empresas con ruiEnabled=True y ruiAutoGenerate=True."""
     from app.services.db_service import db_firestore
@@ -156,7 +160,7 @@ def run_daily_rui_generation():
     logger.info("⏰ APScheduler — Iniciando generación automática de RUI...")
 
     yesterday = (date.today() - timedelta(days=1)).isoformat()
-    owner_uids = _get_all_owner_uids()
+    owner_uids = _get_all_owner_uids(company_id=company_id)
     if not owner_uids:
         logger.info("ℹ️ No se encontraron usuarios para generación de RUI.")
         return
@@ -199,7 +203,7 @@ def run_daily_rui_generation():
         f"{skipped} omitidos, {errors} errores."
     )
 
-def run_tax_obligation_reminders():
+def run_tax_obligation_reminders(company_id=None):
     """
     Job diario (7:00 AM hora RD): recorre todos los usuarios con companyRNC
     y envía notificaciones por email para obligaciones tributarias DGII
@@ -209,7 +213,7 @@ def run_tax_obligation_reminders():
 
     logger.info("⏰ APScheduler — Iniciando recordatorios de obligaciones tributarias DGII...")
 
-    owner_uids = _get_all_owner_uids()
+    owner_uids = _get_all_owner_uids(company_id=company_id)
     if not owner_uids:
         logger.info("ℹ️ No se encontraron usuarios para verificar obligaciones tributarias.")
         return
@@ -231,16 +235,19 @@ def run_tax_obligation_reminders():
     )
 
 
-def _run_monitored(job_id, name, func):
+def _run_monitored(job_id, name, func, **kwargs):
     from app.services.job_service import JobService
-    return JobService.run_monitored(job_id, name, func)
+    def _wrapper():
+        return func(**kwargs)
+    return JobService.run_monitored(job_id, name, _wrapper)
 
 
-def monitored_daily_contract_billing():
+def monitored_daily_contract_billing(company_id=None):
     return _run_monitored(
         "daily_contract_billing",
         "Facturación Diaria de Contratos Recurrentes",
         run_daily_contract_billing,
+        company_id=company_id,
     )
 
 
@@ -260,27 +267,30 @@ def monitored_contingency_sync():
     )
 
 
-def monitored_daily_depreciation():
+def monitored_daily_depreciation(company_id=None):
     return _run_monitored(
         "daily_depreciation",
         "Depreciación Automática de Activos Fijos",
         run_daily_depreciation,
+        company_id=company_id,
     )
 
 
-def monitored_daily_rui_generation():
+def monitored_daily_rui_generation(company_id=None):
     return _run_monitored(
         "daily_rui_generation",
         "Generación Automática de RUI",
         run_daily_rui_generation,
+        company_id=company_id,
     )
 
 
-def monitored_tax_obligation_reminders():
+def monitored_tax_obligation_reminders(company_id=None):
     return _run_monitored(
         "tax_obligation_reminders",
         "Recordatorios de Obligaciones Tributarias DGII",
         run_tax_obligation_reminders,
+        company_id=company_id,
     )
 
 

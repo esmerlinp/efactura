@@ -13,10 +13,10 @@ from app.services import hr_data_service as hr
 def employee_document_upload(employee_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    employee = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
+    employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
     if not employee:
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_list"))
@@ -36,7 +36,7 @@ def employee_document_upload(employee_id):
         return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
 
     doc_id = str(uuid.uuid4())
-    hr.save_employee_document(owner_uid, {
+    hr.save_employee_document(company_id, {
         "id": doc_id,
         "employeeId": employee_id,
         "name": file.filename,
@@ -57,14 +57,14 @@ def employee_document_upload(employee_id):
 def employee_document_download(employee_id, doc_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    employee = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
+    employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
     if not employee:
         return "", 404
 
-    docs = hr.get_employee_documents(owner_uid, employee_id, sandbox=sandbox)
+    docs = hr.get_employee_documents(company_id, employee_id, sandbox=sandbox)
     doc = next((d for d in docs if d.get("id") == doc_id), None)
     if not doc or not doc.get("data"):
         return "", 404
@@ -79,9 +79,9 @@ def employee_document_download(employee_id, doc_id):
 def employee_document_delete(employee_id, doc_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
-    hr.delete_employee_document(owner_uid, doc_id, sandbox=sandbox)
+    hr.delete_employee_document(company_id, doc_id, sandbox=sandbox)
     flash("Documento eliminado.", "success")
     return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
 

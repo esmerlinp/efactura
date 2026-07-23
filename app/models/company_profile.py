@@ -1,7 +1,13 @@
 from pydantic import BaseModel
+from typing import Optional
 
 
 class CompanyProfile(BaseModel):
+    # === Identificador único de compañía (nuevo) ===
+    id: str = ""
+    owner_uid: str = ""
+
+    # === Legado (se mapea a nuevo) ===
     ownerUID: str = ""
     companyName: str = "Mi Empresa SRL"
     tradeName: str = "Mi Empresa"

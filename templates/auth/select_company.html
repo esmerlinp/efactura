@@ -128,25 +128,32 @@
 
         <form action="{{ url_for('web_auth.select_company') }}" method="POST" id="select-company-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="owner_uid" id="selected-owner-uid">
+            <input type="hidden" name="company_id" id="selected-company-id">
             <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
 
             <div class="company-card-grid">
                 {% for comp in associated_companies %}
-                <div class="company-card" onclick="selectCompany('{{ comp.ownerUID }}')">
+                <div class="company-card" onclick="selectCompany('{{ comp.id }}')">
                     <div class="company-info">
                         <div class="company-icon" style="overflow: hidden; display: flex; align-items: center; justify-content: center; background: var(--bg-card); border: 1px solid var(--border-color);">
-                            {% if comp.logoUrl %}
-                                <img src="{{ comp.logoUrl }}" alt="Logo {{ comp.companyName }}" style="width: 100%; height: 100%; object-fit: contain;">
+                            {% if comp.logo_url %}
+                                <img src="{{ comp.logo_url }}" alt="Logo {{ comp.name }}" style="width: 100%; height: 100%; object-fit: contain;">
+                            {% elif comp.logo_base64 %}
+                                <img src="{% if 'data:image' in comp.logo_base64 %}{{ comp.logo_base64 }}{% else %}data:image/png;base64,{{ comp.logo_base64 }}{% endif %}" alt="Logo {{ comp.name }}" style="width: 100%; height: 100%; object-fit: contain;">
+                            {% elif comp.logoUrl %}
+                                <img src="{{ comp.logoUrl }}" alt="Logo {{ comp.name or comp.companyName }}" style="width: 100%; height: 100%; object-fit: contain;">
                             {% elif comp.logoBase64 %}
-                                <img src="{% if 'data:image' in comp.logoBase64 %}{{ comp.logoBase64 }}{% else %}data:image/png;base64,{{ comp.logoBase64 }}{% endif %}" alt="Logo {{ comp.companyName }}" style="width: 100%; height: 100%; object-fit: contain;">
+                                <img src="{% if 'data:image' in comp.logoBase64 %}{{ comp.logoBase64 }}{% else %}data:image/png;base64,{{ comp.logoBase64 }}{% endif %}" alt="Logo {{ comp.name or comp.companyName }}" style="width: 100%; height: 100%; object-fit: contain;">
                             {% else %}
                                 <i class="fa-solid fa-building"></i>
                             {% endif %}
                         </div>
                         <div class="company-details">
-                            <h4>{{ comp.companyName }}</h4>
-                            <span>Rol: {{ 'Propietario' if comp.role == 'owner' else 'Colaborador' }}</span>
+                            <h4>{{ comp.name or comp.companyName }}</h4>
+                            {% if comp.rnc %}
+                            <span style="font-size:0.72rem; color:var(--text-muted);">RNC: {{ comp.rnc }}</span>
+                            {% endif %}
+                            <span>Rol: {{ 'Propietario' if (comp.role == 'owner' or (comp._membership and comp._membership.role == 'owner')) else 'Colaborador' }}</span>
                         </div>
                     </div>
                     <div class="select-arrow">
@@ -156,16 +163,21 @@
                 {% endfor %}
             </div>
 
-            <a href="{{ url_for('web_auth.logout') }}" class="btn btn-secondary"
+            <a href="{{ url_for('web_company.create_company') }}" class="btn btn-primary"
                 style="width: 100%; padding: 12px; font-size: 0.88rem; border-radius: var(--radius-sm); margin-top: 24px; text-decoration: none;">
+                <i class="fa-solid fa-plus"></i> Crear Nueva Empresa
+            </a>
+
+            <a href="{{ url_for('web_auth.logout') }}" class="btn btn-secondary"
+                style="width: 100%; padding: 12px; font-size: 0.88rem; border-radius: var(--radius-sm); margin-top: 12px; text-decoration: none;">
                 <i class="fa-solid fa-arrow-right-from-bracket"></i> Cerrar Sesión
             </a>
         </form>
     </div>
 
     <script>
-        function selectCompany(ownerUID) {
-            document.getElementById('selected-owner-uid').value = ownerUID;
+        function selectCompany(companyId) {
+            document.getElementById('selected-company-id').value = companyId;
             document.getElementById('select-company-form').submit();
         }
     </script>

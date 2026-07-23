@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, g
-from app.services.db_service import DatabaseService
+from app.services.db_service import DatabaseService, _resolve_company_id
 from app.services.recurrence import RecurrenceService
 from app.utils.decorators import check_permission
 from config import Config
@@ -22,8 +22,9 @@ def new_contract():
         return render_template('auth/restricted.html', feature_name="Contratos y Facturación Recurrente", required_permission="canManageContracts")
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
-    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    company_id = _resolve_company_id(owner_uid)
+    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     return render_template(
         'operations/new_contract.html',
         active_page='contracts',
@@ -39,10 +40,11 @@ def list_contracts():
     
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = _resolve_company_id(owner_uid)
     if request.method == 'POST':
         contract_id = request.form.get('id') or str(uuid.uuid4())
         client_id   = request.form.get('clientId')
-        clients_all = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        clients_all = DatabaseService.get_clients(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
         client      = next((c for c in clients_all if c['id'] == client_id), None)
 
         if not client:
@@ -130,16 +132,16 @@ def list_contracts():
             "projectId":        g.get('project_id'),
         }
 
-        DatabaseService.save_contract(owner_uid, contract_id, contract_dict, sandbox=sandbox)
+        DatabaseService.save_contract(owner_uid, contract_id, contract_dict, company_id=company_id, sandbox=sandbox)
         if prorated_first and prorated_first < full_amount:
             flash(f"Contrato guardado con éxito. El primer cobro será prorrateado: RD$ {prorated_first:,.2f} (periodo completo: RD$ {full_amount:,.2f}).", "info")
         else:
             flash("Contrato guardado exitosamente.", "success")
         return redirect(url_for('web_operations.list_contracts'))
 
-    contracts = DatabaseService.get_contracts(owner_uid, sandbox=sandbox)
-    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
-    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    contracts = DatabaseService.get_contracts(owner_uid, company_id=company_id, sandbox=sandbox)
+    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    items = DatabaseService.get_items(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
 
     # Exportar a CSV si se solicita
     if request.args.get('export') == 'csv':
@@ -196,14 +198,15 @@ def toggle_contract(contract_id):
     
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = _resolve_company_id(owner_uid)
     
-    contracts = DatabaseService.get_contracts(owner_uid, sandbox=sandbox)
+    contracts = DatabaseService.get_contracts(owner_uid, company_id=company_id, sandbox=sandbox)
     contract = next((c for c in contracts if c['id'] == contract_id), None)
     
     if contract:
         new_status = 'Inactivo' if contract.get('status') == 'Activo' else 'Activo'
         contract['status'] = new_status
-        DatabaseService.save_contract(owner_uid, contract_id, contract, sandbox=sandbox)
+        DatabaseService.save_contract(owner_uid, contract_id, contract, company_id=company_id, sandbox=sandbox)
         return jsonify({"success": True, "new_status": new_status})
         
     return jsonify({"success": False, "error": "Contrato no encontrado"}), 404
@@ -215,6 +218,7 @@ def set_contract_status(contract_id):
     
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = _resolve_company_id(owner_uid)
     
     data = request.get_json() or {}
     new_status = data.get('status', '').strip()
@@ -223,12 +227,12 @@ def set_contract_status(contract_id):
     if new_status not in valid_statuses:
         return jsonify({"success": False, "error": f"Estado no válido: {new_status}"}), 400
     
-    contracts = DatabaseService.get_contracts(owner_uid, sandbox=sandbox)
+    contracts = DatabaseService.get_contracts(owner_uid, company_id=company_id, sandbox=sandbox)
     contract = next((c for c in contracts if c['id'] == contract_id), None)
     
     if contract:
         contract['status'] = new_status
-        DatabaseService.save_contract(owner_uid, contract_id, contract, sandbox=sandbox)
+        DatabaseService.save_contract(owner_uid, contract_id, contract, company_id=company_id, sandbox=sandbox)
         return jsonify({"success": True, "new_status": new_status})
         
     return jsonify({"success": False, "error": "Contrato no encontrado"}), 404
@@ -240,8 +244,9 @@ def delete_contract_route(contract_id):
     
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = _resolve_company_id(owner_uid)
     
-    DatabaseService.delete_contract(owner_uid, contract_id, sandbox=sandbox)
+    DatabaseService.delete_contract(owner_uid, contract_id, company_id=company_id, sandbox=sandbox)
     flash("Contrato eliminado correctamente.", "success")
     return redirect(url_for('web_operations.list_contracts'))
 
@@ -253,8 +258,9 @@ def trigger_contract_billing(contract_id):
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = _resolve_company_id(owner_uid)
     
-    contracts = DatabaseService.get_contracts(owner_uid, sandbox=sandbox)
+    contracts = DatabaseService.get_contracts(owner_uid, company_id=company_id, sandbox=sandbox)
     contract = next((c for c in contracts if c['id'] == contract_id), None)
     
     if not contract:
@@ -275,11 +281,11 @@ def trigger_contract_billing(contract_id):
         if contract.get('autoRenew'):
             new_end = RecurrenceService.calculate_next_date(end_date, contract.get('recurrenceInterval', 'mensual'))
             contract['endDate'] = new_end
-            DatabaseService.save_contract(owner_uid, contract_id, contract, sandbox=sandbox)
+            DatabaseService.save_contract(owner_uid, contract_id, contract, company_id=company_id, sandbox=sandbox)
             flash(f"Contrato '{contract.get('contractNumber')}' renovado automáticamente hasta {new_end}.", "info")
         else:
             contract['status'] = 'Expirado'
-            DatabaseService.save_contract(owner_uid, contract_id, contract, sandbox=sandbox)
+            DatabaseService.save_contract(owner_uid, contract_id, contract, company_id=company_id, sandbox=sandbox)
             flash(f"El contrato '{contract.get('contractNumber')}' ha vencido y fue marcado como Expirado.", "warning")
             return redirect(url_for('web_operations.list_contracts'))
         
@@ -325,7 +331,7 @@ def trigger_contract_billing(contract_id):
         contract_item_id = contract.get('itemId')
         selected_item = None
         if contract_item_id:
-            all_items = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+            all_items = DatabaseService.get_items(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
             selected_item = next((it for it in all_items if it['id'] == contract_item_id), None)
 
         itbis_rate   = selected_item.get('itbisRate', 0.18) if selected_item else 0.18
@@ -386,17 +392,17 @@ def trigger_contract_billing(contract_id):
     }
     
     # Guardar factura
-    DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, sandbox=sandbox)
+    DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
     
     # Actualizar fecha de próxima ocurrencia en el contrato
     next_date = RecurrenceService.calculate_next_date(contract.get("nextBillingDate"), contract.get("recurrenceInterval"))
     contract["nextBillingDate"] = next_date
-    DatabaseService.save_contract(owner_uid, contract_id, contract, sandbox=sandbox)
+    DatabaseService.save_contract(owner_uid, contract_id, contract, company_id=company_id, sandbox=sandbox)
     
     # Enviar email automático si está configurado
     if contract.get('autoSendEmail') and invoice_dict.get('clientId'):
         try:
-            client_record = DatabaseService.get_client(owner_uid, invoice_dict['clientId'], sandbox=sandbox)
+            client_record = DatabaseService.get_client(owner_uid, invoice_dict['clientId'], company_id=company_id, sandbox=sandbox)
             if client_record and client_record.get('email'):
                 recipient_email = client_record['email'].strip()
                 if recipient_email:
@@ -440,7 +446,8 @@ def ai_contract_terms():
         return jsonify({"success": False, "error": "Describe el servicio para generar términos."}), 400
 
     owner_uid = session['user']['ownerUID']
-    company = DatabaseService.get_company_profile(owner_uid)
+    company_id = _resolve_company_id(owner_uid)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     product_name = get_product_name()
 
     system_prompt = f"""Eres un experto en redacción de contratos de servicios para la República Dominicana.
@@ -461,7 +468,7 @@ Personaliza los términos basándote en la descripción del servicio proporciona
     try:
         api_key = Config.OPENAI_API_KEY.strip()
         if not api_key or api_key == "YOUR_OPENAI_API_KEY_HERE":
-            profile = DatabaseService.get_company_profile(owner_uid)
+            profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
             api_key = (profile.get("openaiApiKey") or "").strip()
         if not api_key:
             return jsonify({"success": False, "error": "API Key de OpenAI no configurada."}), 400
@@ -516,6 +523,7 @@ def list_commissions():
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = _resolve_company_id(owner_uid)
     
     if request.method == 'POST':
         if 'percentage' in request.form:
@@ -524,22 +532,22 @@ def list_commissions():
                 "percentage": float(request.form.get('percentage', 5.0)),
                 "payOn": request.form.get('payOn', 'cobrada')
             }
-            DatabaseService.save_commission_settings(owner_uid, settings_dict)
+            DatabaseService.save_commission_settings(owner_uid, settings_dict, company_id=company_id)
             flash("Configuración de comisiones actualizada.", "success")
         elif 'monthlyGoal' in request.form:
             # Metas mensuales de ventas
             goals_dict = {
                 "monthlyGoal": float(request.form.get('monthlyGoal', 500000.0))
             }
-            DatabaseService.save_sales_goals(owner_uid, goals_dict)
+            DatabaseService.save_sales_goals(owner_uid, goals_dict, company_id=company_id)
             flash("Metas de venta de la empresa actualizadas.", "success")
         return redirect(url_for('web_operations.list_commissions'))
         
     # Cargar datos
-    settings = DatabaseService.get_commission_settings(owner_uid)
-    goals = DatabaseService.get_sales_goals(owner_uid)
-    team = DatabaseService.get_team_members(owner_uid)
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+    settings = DatabaseService.get_commission_settings(owner_uid, company_id=company_id)
+    goals = DatabaseService.get_sales_goals(owner_uid, company_id=company_id)
+    team = DatabaseService.get_team_members(owner_uid, company_id=company_id)
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
     
     # Filtrar facturas reales
     real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador']]
@@ -644,7 +652,8 @@ def upload_client_document_route(client_id):
         file_data = file.read()
         mime_type = file.mimetype or "application/octet-stream"
         filename = f"doc_{client_id}_{str(uuid.uuid4())[:8]}_{file.filename}"
-        destination_path = f"users/{owner_uid}/crm_documents/{filename}"
+        company_id = _resolve_company_id(owner_uid)
+        destination_path = f"companies/{company_id}/crm_documents/{filename}" if company_id else f"users/{owner_uid}/crm_documents/{filename}"
         
         # Guardar en Firebase Storage
         url = DatabaseService.upload_file_to_storage(
@@ -664,7 +673,7 @@ def upload_client_document_route(client_id):
             "notes": notes
         }
         
-        DatabaseService.save_client_document(owner_uid, client_id, doc_id, doc_dict, sandbox=sandbox)
+        DatabaseService.save_client_document(owner_uid, client_id, doc_id, doc_dict, company_id=company_id, sandbox=sandbox)
         flash("Documento cargado de forma segura y adjuntado al historial del cliente.", "success")
         
     except Exception as e:
@@ -679,15 +688,17 @@ def delete_client_document_route(client_id, doc_id):
     
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = _resolve_company_id(owner_uid)
     
-    DatabaseService.delete_client_document(owner_uid, client_id, doc_id, sandbox=sandbox)
+    DatabaseService.delete_client_document(owner_uid, client_id, doc_id, company_id=company_id, sandbox=sandbox)
     flash("Documento eliminado del archivo centralizado del cliente.", "success")
     return redirect(url_for('web_clients.client_detail', client_id=client_id))
 
 
 def _get_taggable_users(owner_uid):
+    company_id = _resolve_company_id(owner_uid)
     taggable_users = []
-    owner_prof = DatabaseService.get_user_profile(owner_uid)
+    owner_prof = DatabaseService.get_user_profile(owner_uid, company_id=company_id)
     if owner_prof:
         taggable_users.append({
             "uid": owner_uid,
@@ -695,7 +706,7 @@ def _get_taggable_users(owner_uid):
             "email": owner_prof.get("email", ""),
             "role": "owner"
         })
-    team = DatabaseService.get_team_members(owner_uid) or []
+    team = DatabaseService.get_team_members(owner_uid, company_id=company_id) or []
     for member in team:
         taggable_users.append({
             "uid": member.get("uid"),
@@ -707,6 +718,7 @@ def _get_taggable_users(owner_uid):
 
 
 def process_resource_comment_mentions(owner_uid, content, resource_type, resource_id, resource_label, sandbox):
+    company_id = _resolve_company_id(owner_uid)
     taggable_users = _get_taggable_users(owner_uid)
     for u in taggable_users:
         name = u.get("name", "")
@@ -756,7 +768,7 @@ def process_resource_comment_mentions(owner_uid, content, resource_type, resourc
             from app.services.notifications import NotificationService
             
             # Obtener el nombre comercial de la empresa
-            company = DatabaseService.get_company(owner_uid) or {}
+            company = DatabaseService.get_company(owner_uid, company_id=company_id) or {}
             issuer_company_name = company.get("tradeName") or company.get("companyName") or get_product_name()
             
             NotificationService.send_mention_notification(
@@ -800,21 +812,23 @@ def contract_detail(contract_id):
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = _resolve_company_id(owner_uid)
     
-    contract = DatabaseService.get_contract(owner_uid, contract_id, sandbox=sandbox)
+    contract = DatabaseService.get_contract(owner_uid, contract_id, company_id=company_id, sandbox=sandbox)
     if not contract:
         flash('Contrato no encontrado.', 'error')
         return redirect(url_for('web_operations.list_contracts'))
         
-    comments = DatabaseService.get_resource_comments(owner_uid, "contracts", contract_id, sandbox=sandbox)
+    comments = DatabaseService.get_resource_comments(owner_uid, "contracts", contract_id, company_id=company_id, sandbox=sandbox)
     taggable_users = _get_taggable_users(owner_uid)
-    contract_invoices = DatabaseService.get_invoices_by_contract(owner_uid, contract_id, sandbox=sandbox)
+    contract_invoices = DatabaseService.get_invoices_by_contract(owner_uid, contract_id, company_id=company_id, sandbox=sandbox)
     contract_invoices.sort(key=lambda x: x.get('date', ''), reverse=True)
 
     from app.services.audit_service import AuditService
-    history_logs = AuditService.get_entity_logs(owner_uid, contract_id)
+    company_id = _resolve_company_id(owner_uid)
+    history_logs = AuditService.get_entity_logs(owner_uid=owner_uid, company_id=company_id, entity_id=contract_id)
 
-    clients_all = DatabaseService.get_clients(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    clients_all = DatabaseService.get_clients(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
     client = next((c for c in clients_all if c['id'] == contract.get('clientId')), None)
     client_email = (client.get('email') or '').strip() if client else ''
 
@@ -836,6 +850,7 @@ def add_contract_comment(contract_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = _resolve_company_id(owner_uid)
     
     content = request.form.get('content', '').strip()
     if not content:
@@ -850,7 +865,8 @@ def add_contract_comment(contract_id):
             file_data = file.read()
             mime_type = file.mimetype or "application/octet-stream"
             filename = f"comment_contract_{contract_id}_{str(uuid.uuid4())[:8]}_{file.filename}"
-            destination_path = f"users/{owner_uid}/comments/{filename}"
+            company_id = _resolve_company_id(owner_uid)
+            destination_path = f"companies/{company_id}/comments/{filename}" if company_id else f"users/{owner_uid}/comments/{filename}"
             attachment_url = DatabaseService.upload_file_to_storage(file_data, destination_path, mime_type)
             attachment_name = file.filename
         except Exception as e:
@@ -868,10 +884,10 @@ def add_contract_comment(contract_id):
         "edited": False
     }
     
-    DatabaseService.save_resource_comment(owner_uid, "contracts", contract_id, comment_id, comment_dict, sandbox=sandbox)
+    DatabaseService.save_resource_comment(owner_uid, "contracts", contract_id, comment_id, comment_dict, company_id=company_id, sandbox=sandbox)
     
     try:
-        contract = DatabaseService.get_contract(owner_uid, contract_id, sandbox=sandbox) or {}
+        contract = DatabaseService.get_contract(owner_uid, contract_id, company_id=company_id, sandbox=sandbox) or {}
         num = contract.get('contractNumber', 'Contrato')
         process_resource_comment_mentions(owner_uid, content, "contracts", contract_id, num, sandbox)
     except Exception as ex:
@@ -886,8 +902,9 @@ def edit_contract_comment(contract_id, comment_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = _resolve_company_id(owner_uid)
     
-    comments = DatabaseService.get_resource_comments(owner_uid, "contracts", contract_id, sandbox=sandbox)
+    comments = DatabaseService.get_resource_comments(owner_uid, "contracts", contract_id, company_id=company_id, sandbox=sandbox)
     comment = next((c for c in comments if c['id'] == comment_id), None)
     if not comment:
         flash('Comentario no encontrado.', 'error')
@@ -914,17 +931,18 @@ def edit_contract_comment(contract_id, comment_id):
             file_data = file.read()
             mime_type = file.mimetype or "application/octet-stream"
             filename = f"comment_contract_{contract_id}_{str(uuid.uuid4())[:8]}_{file.filename}"
-            destination_path = f"users/{owner_uid}/comments/{filename}"
+            company_id = _resolve_company_id(owner_uid)
+            destination_path = f"companies/{company_id}/comments/{filename}" if company_id else f"users/{owner_uid}/comments/{filename}"
             attachment_url = DatabaseService.upload_file_to_storage(file_data, destination_path, mime_type)
             comment['attachmentUrl'] = attachment_url
             comment['attachmentName'] = file.filename
         except Exception as e:
             flash(f"Advertencia: No se pudo cargar el archivo adjunto: {html.escape(str(e))}", 'warning')
             
-    DatabaseService.save_resource_comment(owner_uid, "contracts", contract_id, comment_id, comment, sandbox=sandbox)
+    DatabaseService.save_resource_comment(owner_uid, "contracts", contract_id, comment_id, comment, company_id=company_id, sandbox=sandbox)
     
     try:
-        contract = DatabaseService.get_contract(owner_uid, contract_id, sandbox=sandbox) or {}
+        contract = DatabaseService.get_contract(owner_uid, contract_id, company_id=company_id, sandbox=sandbox) or {}
         num = contract.get('contractNumber', 'Contrato')
         process_resource_comment_mentions(owner_uid, content, "contracts", contract_id, num, sandbox)
     except Exception as ex:
@@ -939,8 +957,9 @@ def delete_contract_comment(contract_id, comment_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    company_id = _resolve_company_id(owner_uid)
     
-    comments = DatabaseService.get_resource_comments(owner_uid, "contracts", contract_id, sandbox=sandbox)
+    comments = DatabaseService.get_resource_comments(owner_uid, "contracts", contract_id, company_id=company_id, sandbox=sandbox)
     comment = next((c for c in comments if c['id'] == comment_id), None)
     if not comment:
         flash('Comentario no encontrado.', 'error')
@@ -952,7 +971,7 @@ def delete_contract_comment(contract_id, comment_id):
         flash('No tienes permiso para eliminar este comentario.', 'error')
         return redirect(url_for('web_operations.contract_detail', contract_id=contract_id))
         
-    DatabaseService.delete_resource_comment(owner_uid, "contracts", contract_id, comment_id, sandbox=sandbox)
+    DatabaseService.delete_resource_comment(owner_uid, "contracts", contract_id, comment_id, company_id=company_id, sandbox=sandbox)
     flash('Comentario eliminado.', 'success')
     return redirect(url_for('web_operations.contract_detail', contract_id=contract_id))
 
