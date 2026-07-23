@@ -68,8 +68,22 @@
                 <tr>
                     <td><strong>v{{ p.version }}</strong></td>
                     <td style="font-family:monospace; font-size:0.8rem;">
-                        {% if p.parameterType == 'isr_annual_table' %}
-                        <span class="badge badge-info">{{ p.value|length if p.value else 0 }} escalas</span>
+                        {% if p.parameterType == 'isr_annual_table' and p.value %}
+                        <table class="table table-sm table-bordered" style="margin:0; font-size:0.72rem;">
+                            <thead><tr><th style="padding:2px 6px;">Desde</th><th style="padding:2px 6px;">Hasta</th><th style="padding:2px 6px;">Tasa</th><th style="padding:2px 6px;">Ded.</th></tr></thead>
+                            <tbody>
+                            {% for row in p.value %}
+                            <tr>
+                                <td style="padding:2px 6px;">{{ "{:,.2f}".format(row[0]) }}</td>
+                                <td style="padding:2px 6px;">{{ "{:,.2f}".format(row[1]) if row[1] < 999999998 else "inf" }}</td>
+                                <td style="padding:2px 6px;">{{ "{:.0f}".format(row[2] * 100) }}%</td>
+                                <td style="padding:2px 6px;">{{ "{:,.2f}".format(row[3]) }}</td>
+                            </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                        {% elif p.parameterType == 'isr_annual_table' %}
+                        <span class="badge badge-info">0 escalas</span>
                         {% elif p.value is number %}
                         {{ "{:,.4f}".format(p.value) }}
                         {% else %}
@@ -104,7 +118,84 @@
         </div>
     </div>
     {% endfor %}
-{% else %}
+{% endif %}
+
+{% if not grouped or default_params %}
+<div class="card-table-wrapper hr-table-card" style="margin-bottom:16px;">
+    <div class="table-header-row">
+        <div>
+            <h3 style="margin:0; font-size:0.95rem;">
+                <i class="fa-solid fa-circle-info"></i> Parámetros del sistema
+            </h3>
+            <p style="margin:2px 0 0; font-size:0.75rem; color:var(--text-muted);">
+                Valores por defecto que se usan cuando no hay un parámetro configurado. Haz clic en <strong>Crear</strong> para definir un valor específico.
+            </p>
+        </div>
+        <div>
+            <a href="{{ url_for('web_rrhh.legal_parameter_new') }}" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-plus"></i> Nuevo Parámetro
+            </a>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table-premium" style="font-size:0.82rem;">
+        <thead>
+            <tr>
+                <th>Tipo de Parámetro</th>
+                <th>Valor por Defecto</th>
+                <th>Estado</th>
+                <th>Acción</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% set configured_types = grouped.keys()|list %}
+            {% for pt in param_types %}
+            {% if pt not in configured_types %}
+            {% set info = default_params.get(pt, {}) %}
+            <tr>
+                <td>
+                    <strong>{{ PARAM_TYPE_LABELS.get(pt, pt) }}</strong>
+                    <code style="font-size:0.7rem; color:var(--text-muted); display:block;">{{ pt }}</code>
+                </td>
+                <td style="font-family:monospace; font-size:0.8rem;">
+                    {% if pt == 'isr_annual_table' and pt in default_params and default_params[pt] %}
+                    <table class="table table-sm table-bordered" style="margin:0; font-size:0.72rem;">
+                        <thead><tr><th style="padding:2px 6px;">Desde</th><th style="padding:2px 6px;">Hasta</th><th style="padding:2px 6px;">Tasa</th><th style="padding:2px 6px;">Ded.</th></tr></thead>
+                        <tbody>
+                        {% for row in default_params[pt] %}
+                        <tr>
+                            <td style="padding:2px 6px;">{{ "{:,.2f}".format(row[0]) }}</td>
+                            <td style="padding:2px 6px;">{{ "{:,.2f}".format(row[1]) if row[1] < 999999998 else "inf" }}</td>
+                            <td style="padding:2px 6px;">{{ "{:.0f}".format(row[2] * 100) }}%</td>
+                            <td style="padding:2px 6px;">{{ "{:,.2f}".format(row[3]) }}</td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                    {% elif pt == 'isr_annual_table' %}
+                    <span class="badge badge-info">0 escalas</span>
+                    {% elif default_params.get(pt) is number %}
+                    {{ "{:,.4f}".format(default_params[pt]) }}
+                    {% else %}
+                    {{ default_params.get(pt, '—') }}
+                    {% endif %}
+                </td>
+                <td><span class="badge badge-warning">No configurado</span></td>
+                <td>
+                    <a href="{{ url_for('web_rrhh.legal_parameter_new') }}?param_type={{ pt }}" class="btn btn-sm btn-ghost" title="Configurar">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                    </a>
+                </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% if not grouped and not default_params %}
 <div class="card-table-wrapper hr-table-card">
     <div class="text-center text-muted" style="padding:48px;">
         <i class="fa-solid fa-scale-balanced" style="font-size:2rem; display:block; margin-bottom:12px; opacity:0.3;"></i>

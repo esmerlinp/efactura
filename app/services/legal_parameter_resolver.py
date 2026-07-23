@@ -92,13 +92,17 @@ def resolve_parameter(company_id: str, parameter_type: str, target_date: str,
 
 
 def resolve_all(company_id: str, target_date: str,
-                legal_entity_id: str = "", sandbox: bool = True) -> dict:
+                legal_entity_id: str = "", sandbox: bool = True,
+                include_defaults: bool = True) -> dict:
     """Resuelve TODOS los parámetros vigentes en target_date.
 
     Retorna un dict con el mismo formato que PayrollService.get_rates().
-    Si no hay parámetros configurados, retorna valores por defecto.
+    Si include_defaults=True, completa con valores por defecto para cada
+    tipo de parámetro no configurado (útil para cálculos de nómina).
+    Si include_defaults=False, solo retorna parámetros explícitamente
+    configurados en Firestore (útil para vistas de configuración).
     """
-    result = get_default_params()
+    result = get_default_params() if include_defaults else {}
 
     for param_type in PARAM_TYPES:
         param = resolve_parameter(company_id, param_type, target_date,

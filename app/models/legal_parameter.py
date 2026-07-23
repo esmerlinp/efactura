@@ -98,6 +98,7 @@ def get_default_params() -> dict:
         "min_salary": PARAM_TYPES["min_salary"]["default"],
         "education_deduction": PARAM_TYPES["education_deduction"]["default"],
         "isr_table": PARAM_TYPES["isr_annual_table"]["default"],
+        "isr_annual_table": PARAM_TYPES["isr_annual_table"]["default"],
         "overtime_rate": PARAM_TYPES["overtime_rate"]["default"],
         "working_days_per_month": PARAM_TYPES["working_days_per_month"]["default"],
         "working_hours_per_day": PARAM_TYPES["working_hours_per_day"]["default"],

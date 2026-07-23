@@ -97,6 +97,11 @@
                 Las tasas legales (TSS, ISR, topes) y parámetros de cálculo son globales por ley
                 y se gestionan en <a href="{{ url_for('web_rrhh.legal_parameters_list') }}">Parámetros Legales</a>.
                 Aquí solo se pueden sobrescribir <strong>cuentas contables</strong> y centros de costo.
+                {% if not has_configured_params %}
+                <br><span class="badge badge-warning" style="margin-top:4px; display:inline-block;">
+                    <i class="fa-solid fa-triangle-exclamation"></i> No hay parámetros legales configurados. Se usarán valores por defecto del sistema.
+                </span>
+                {% endif %}
             </p>
             {% set rate_fields = [
                 ('accountSalariesPayable', 'Cta — Salarios por pagar', 'txt'),

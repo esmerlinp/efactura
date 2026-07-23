@@ -126,6 +126,9 @@
         <button type="button" class="btn btn-sm btn-primary" onclick="bulkMassAction()">
             <i class="fa-solid fa-people-arrows"></i> Acción Masiva
         </button>
+        <button type="button" class="btn btn-sm btn-success" onclick="bulkBulkEdit()">
+            <i class="fa-solid fa-pen-to-square"></i> Edición Masiva
+        </button>
     </div>
 
     <div class="table-responsive">
@@ -212,8 +215,20 @@
     </div>
 </div>
 
-{% if total_pages > 1 %}
-<div style="display:flex; justify-content:center; align-items:center; gap:8px; margin-top:16px;">
+<div style="display:flex; justify-content:center; align-items:center; gap:12px; margin-top:16px; flex-wrap:wrap;">
+    <div style="display:flex; align-items:center; gap:6px;">
+        <label style="font-size:0.78rem; color:var(--text-muted); white-space:nowrap;">Mostrar</label>
+        <select class="form-select" style="width:auto; font-size:0.78rem; padding:4px 8px;" onchange="changePerPage(this.value)">
+            <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
+            <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+            <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+            <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+            <option value="all" {% if per_page >= total %}selected{% endif %}>Todos</option>
+        </select>
+        <span style="font-size:0.78rem; color:var(--text-muted);">por página</span>
+    </div>
+
+    {% if total_pages > 1 and per_page < total %}
     {% set base_url = '?search=' + search + '&status=' + filter_status + '&department=' + filter_department + '&branch=' + filter_branch + '&per_page=' + per_page|string %}
     {% if page > 1 %}
     <a href="{{ base_url }}&page={{ page - 1 }}" class="btn btn-sm btn-ghost"><i class="fa-solid fa-chevron-left"></i></a>
@@ -222,8 +237,10 @@
     {% if page < total_pages %}
     <a href="{{ base_url }}&page={{ page + 1 }}" class="btn btn-sm btn-ghost"><i class="fa-solid fa-chevron-right"></i></a>
     {% endif %}
+    {% else %}
+    <span style="font-size:0.82rem; color:var(--text-muted);">{{ total }} empleados</span>
+    {% endif %}
 </div>
-{% endif %}
 
 <script>
 function updateBulk() {
@@ -235,6 +252,16 @@ function toggleAll(el) {
     document.querySelectorAll('.emp-cb').forEach(function(cb) { cb.checked = el.checked; });
     updateBulk();
 }
+function changePerPage(value) {
+    var params = new URLSearchParams(window.location.search);
+    if (value === 'all') {
+        params.set('per_page', '99999');
+    } else {
+        params.set('per_page', value);
+    }
+    params.set('page', '1');
+    window.location.search = params.toString();
+}
 function bulkExport() {
     var ids = Array.from(document.querySelectorAll('.emp-cb:checked')).map(function(cb) { return cb.value; }).join(',');
     if (!ids) return;
@@ -244,6 +271,11 @@ function bulkMassAction() {
     var ids = Array.from(document.querySelectorAll('.emp-cb:checked')).map(function(cb) { return cb.value; });
     if (!ids.length) return;
     window.location.href = "{{ url_for('web_rrhh.mass_action_wizard') }}?ids=" + ids.join(',');
+}
+function bulkBulkEdit() {
+    var ids = Array.from(document.querySelectorAll('.emp-cb:checked')).map(function(cb) { return cb.value; });
+    if (!ids.length) return;
+    window.location.href = "{{ url_for('web_rrhh.bulk_edit_wizard') }}?ids=" + ids.join(',');
 }
 document.addEventListener('click', function(e) {
     document.querySelectorAll('.dropdown > div[style*="display: block"]').forEach(function(menu) {

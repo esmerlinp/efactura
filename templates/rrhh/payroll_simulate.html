@@ -112,18 +112,43 @@
 </form>
 
 {% if simulation %}
-<div class="card-table-wrapper" style="padding:20px 24px; margin-bottom:16px; border:2px solid var(--accent-emerald);">
-    <h3 style="margin:0 0 12px;"><i class="fa-solid fa-chart-simple"></i> Resultado de simulación — {{ simulation.period_range }}</h3>
-    <div class="small-metrics-grid" style="margin-bottom:16px;">
-        <div class="small-metric"><div class="label">Empleados</div><div class="value">{{ simulation.employee_count }}</div></div>
-        {% if simulation.get('excluded_count', 0) > 0 %}
-        <div class="small-metric"><div class="label">Omitidos (frecuencia distinta)</div><div class="value" style="color:var(--accent-orange);">{{ simulation.excluded_count }}</div></div>
-        {% endif %}
-        <div class="small-metric"><div class="label">Total Bruto</div><div class="value">RD$ {{ "{:,.2f}".format(simulation.total_gross) }}</div></div>
-        <div class="small-metric"><div class="label">Total Neto</div><div class="value" style="color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(simulation.total_net) }}</div></div>
-        <div class="small-metric"><div class="label">Aportes Empleador</div><div class="value" style="color:var(--accent-purple);">RD$ {{ "{:,.2f}".format(simulation.total_employer) }}</div></div>
-        <div class="small-metric"><div class="label">Costo Empresa</div><div class="value" style="color:var(--accent-emerald); font-size:1.1rem;">RD$ {{ "{:,.2f}".format(simulation.total_costo) }}</div></div>
+<div class="card-table-wrapper" style="padding:14px 20px; margin-bottom:16px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px 24px;">
+        <h3 style="margin:0; font-size:0.9rem; font-weight:600; color:var(--text-primary);">
+            <i class="fa-solid fa-chart-simple" style="color:var(--text-muted); margin-right:6px;"></i>Resultado — {{ simulation.period_range }}
+        </h3>
+        <span style="font-size:0.72rem; color:var(--text-muted);">{{ simulation.employee_count }} empleados{% if simulation.get('excluded_count', 0) > 0 %}, {{ simulation.excluded_count }} omitidos{% endif %}</span>
     </div>
+
+    <div style="display:flex; flex-wrap:wrap; gap:0; margin-top:10px; border:1px solid var(--border-color); border-radius:6px; overflow:hidden;">
+        <div style="flex:1; min-width:120px; padding:10px 14px; text-align:center; border-right:1px solid var(--border-color);">
+            <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:2px;">Ingresos</div>
+            <div style="font-size:0.9rem; font-weight:600; color:var(--text-primary);">RD$ {{ "{:,.2f}".format(simulation.get('total_gross', 0)) }}</div>
+        </div>
+        <div style="flex:1; min-width:70px; padding:10px 10px; text-align:center; border-right:1px solid var(--border-color);">
+            <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:2px;">Descuentos</div>
+            <div style="font-size:0.9rem; font-weight:600; color:var(--text-primary);">RD$ {{ "{:,.2f}".format(simulation.get('total_non_tax_deductions', 0)) }}</div>
+        </div>
+        <div style="flex:1; min-width:70px; padding:10px 10px; text-align:center; border-right:1px solid var(--border-color);">
+            <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:2px;">Impuestos</div>
+            <div style="font-size:0.9rem; font-weight:600; color:var(--text-primary);">RD$ {{ "{:,.2f}".format(simulation.get('total_taxes', 0)) }}</div>
+        </div>
+        <div style="flex:1; min-width:70px; padding:10px 10px; text-align:center; border-right:1px solid var(--border-color);">
+            <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:2px;">Egresos</div>
+            <div style="font-size:0.9rem; font-weight:600; color:var(--text-primary);">RD$ {{ "{:,.2f}".format(simulation.get('total_egresos', 0)) }}</div>
+        </div>
+        <div style="flex:1; min-width:70px; padding:10px 14px; text-align:center; background:var(--bg-subtle);">
+            <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:2px;">Neto</div>
+            <div style="font-size:1rem; font-weight:700; color:var(--text-primary);">RD$ {{ "{:,.2f}".format(simulation.get('total_net', 0)) }}</div>
+        </div>
+    </div>
+
+    <div style="display:flex; flex-wrap:wrap; gap:16px; margin-top:8px; font-size:0.68rem; color:var(--text-muted); border-top:1px solid var(--border-color); padding-top:8px;">
+        <span>Aportes empleador: <strong style="color:var(--text-secondary);">RD$ {{ "{:,.2f}".format(simulation.get('total_employer', 0)) }}</strong></span>
+        <span>Costo empresa: <strong style="color:var(--text-secondary);">RD$ {{ "{:,.2f}".format(simulation.get('total_costo', 0)) }}</strong></span>
+    </div>
+
+    <hr style="margin:12px 0 8px; border-color:var(--border-color); opacity:0.4;">
 
     <div style="display:flex; gap:8px; align-items:center; padding:12px 0; flex-wrap:wrap;">
         <div class="form-group" style="margin:0; flex:1; min-width:200px; max-width:320px;">
