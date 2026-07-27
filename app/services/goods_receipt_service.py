@@ -116,7 +116,7 @@ class GoodsReceiptService:
         return receipt_data
 
     @classmethod
-    def register_receipt_inventory(cls, company_id, receipt_data, sandbox=True):
+    def register_receipt_inventory(cls, company_id, receipt_data, sandbox=True, owner_uid=""):
         registered = []
         if DatabaseService is None:
             return registered
@@ -168,7 +168,7 @@ class GoodsReceiptService:
                 "notes": f"Recepción {receipt_number} - OC {receipt_data.get('poNumber', '')}",
                 "performedBy": performed_by,
             }
-            result = DatabaseService.register_inventory_transaction(company_id, tx, sandbox=sandbox)
+            result = DatabaseService.register_inventory_transaction(owner_uid, tx, company_id=company_id, sandbox=sandbox)
             if result:
                 registered.append(result)
 
@@ -181,7 +181,7 @@ class GoodsReceiptService:
                     sandbox=sandbox
                 )
                 InventoryCostingService.recalculate_item_avg_cost(
-                    company_id, item_id, warehouse_id, sandbox=sandbox
+                    company_id, item_id, warehouse_id, sandbox=sandbox, owner_uid=owner_uid
                 )
 
         return registered

@@ -87,7 +87,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // 2. Control de Alternancia de Sandbox / Producción (Unificado)
-    const sandboxToggle = document.getElementById('sandbox-toggle');
     const sandboxBannerToggle = document.getElementById('sandbox-banner-toggle');
     
     const triggerToggleSandbox = async () => {
@@ -115,9 +114,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    if (sandboxToggle) {
-        sandboxToggle.addEventListener('click', triggerToggleSandbox);
-    }
     if (sandboxBannerToggle) {
         sandboxBannerToggle.addEventListener('click', triggerToggleSandbox);
     }

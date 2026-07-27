@@ -150,7 +150,7 @@ class InventoryCostingService:
     # ── MÉTODO PRINCIPAL ───────────────────────────────────────────────────
 
     @staticmethod
-    def get_item_cost(company_id, item_id, warehouse_id, item_dict=None, method="promedio", qty=1.0, sandbox=True):
+    def get_item_cost(company_id, item_id, warehouse_id, item_dict=None, method="promedio", qty=1.0, sandbox=True, owner_uid=""):
         """
         Retorna el costo unitario según el método configurado.
         - promedio: costo promedio ponderado del ledger
@@ -171,7 +171,7 @@ class InventoryCostingService:
             if item_dict:
                 return InventoryCostingService.get_standard_cost(item_dict)
             from app.services.db_service import DatabaseService
-            items = DatabaseService.get_items(company_id=company_id, sandbox=sandbox)
+            items = DatabaseService.get_items(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox)
             for it in items:
                 if it["id"] == item_id:
                     return InventoryCostingService.get_standard_cost(it)
@@ -180,14 +180,14 @@ class InventoryCostingService:
         return InventoryCostingService.get_weighted_average_cost(company_id, item_id, warehouse_id, sandbox)
 
     @staticmethod
-    def recalculate_item_avg_cost(company_id, item_id, warehouse_id=None, sandbox=True):
+    def recalculate_item_avg_cost(company_id, item_id, warehouse_id=None, sandbox=True, owner_uid=""):
         """Recalcula y actualiza el costPrice del item usando promedio ponderado."""
         avg = InventoryCostingService.get_weighted_average_cost(company_id, item_id, warehouse_id, sandbox)
         if avg <= 0:
             return
         from app.services.db_service import DatabaseService
-        items = DatabaseService.get_items(company_id=company_id, sandbox=sandbox)
+        items = DatabaseService.get_items(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox)
         item = next((it for it in items if it["id"] == item_id), None)
         if item:
             item["costPrice"] = avg
-            DatabaseService.save_item(company_id=company_id, item_id=item_id, item_dict=item, sandbox=sandbox)
+            DatabaseService.save_item(owner_uid=owner_uid, company_id=company_id, item_id=item_id, item_dict=item, sandbox=sandbox)

@@ -1733,13 +1733,7 @@
                         <div class="dropdown-menu" id="config-dropdown-menu" style="display:none; position:absolute; top:100%; right:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-md); width:240px; box-shadow:0 4px 12px rgba(0,0,0,0.1); padding:8px; z-index:1001; flex-direction:column;">
                             <a href="{{ url_for('web_i18n.language_settings') }}" style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--radius-sm); color:var(--text-primary); text-decoration:none; font-size:0.85rem;" onmouseover="this.style.background='var(--bg-nav-hover)'" onmouseout="this.style.background='transparent'"><i class="fa-solid fa-language" style="width:16px; text-align:center;"></i> Idioma</a>
 
-                            {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canToggleSandbox', True) %}
-                            <button id="sandbox-toggle" style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--radius-sm); color:var(--text-primary); font-size:0.85rem; width:100%; border:none; background:transparent; cursor:pointer;" onmouseover="this.style.background='var(--bg-nav-hover)'" onmouseout="this.style.background='transparent'">
-                                <i class="fa-solid fa-flask" style="width:16px; text-align:center; color:var(--accent-purple);"></i> Modo Sandbox
-                            </button>
-                            {% endif %}
-
-                            <div style="border-top:1px solid var(--border-color); margin:4px 0;"></div>
+                            
 
                             {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', True) %}
                             <a href="{{ url_for('web_invoices.company_settings') }}" style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--radius-sm); color:var(--text-primary); text-decoration:none; font-size:0.85rem;" onmouseover="this.style.background='var(--bg-nav-hover)'" onmouseout="this.style.background='transparent'"><i class="fa-solid fa-building" style="width:16px; text-align:center;"></i> Configuración de Empresa</a>
