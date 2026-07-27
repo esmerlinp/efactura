@@ -110,7 +110,7 @@ def _transition(period, to_status, comment="", owner_uid="", sandbox=True):
     if to_status in ("calculada", "cerrada") and owner_uid:
         try:
             from app.services import hr_data_service as hr
-            employees = hr.get_employees(company_id, sandbox=sandbox)
+            employees = hr.get_employees(owner_uid, sandbox=sandbox)
             snapshot = []
             for emp in employees:
                 if emp.get("status") == "activo":
@@ -131,7 +131,7 @@ def _transition(period, to_status, comment="", owner_uid="", sandbox=True):
 
     if owner_uid:
         from app.services.payroll_audit_service import log_action
-        log_action(company_id, to_status, "payroll_period", period.get("id", ""),
+        log_action(owner_uid, to_status, "payroll_period", period.get("id", ""),
                    user_email, changes={"from": from_status, "to": to_status}, comment=comment, sandbox=sandbox)
 
     return True, "OK"
@@ -507,7 +507,8 @@ def payroll_job_status(job_id):
     return jsonify({
         "status": job.get("status"),
         "progress": job.get("progress", 0),
-        "total": job.get("total", 0),
+        "total": job.get("totalItems", 0),
+        "processedItems": job.get("processedItems", 0),
         "message": job.get("message", ""),
         "result": job.get("result"),
         "error": job.get("error"),
@@ -552,28 +553,30 @@ def payroll_recalculate(period_id):
         # Primero revertir al estado anterior
         if status == "pagada":
             prev_ok, prev_msg = _transition(period, "contabilizada", "Reversión desde pagada",
-                                            company_id=company_id, sandbox=sandbox)
+                                            owner_uid=company_id, sandbox=sandbox)
             if not prev_ok:
                 flash(prev_msg, "error")
                 return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
             status = "contabilizada"
         if status == "contabilizada":
             prev_ok, prev_msg = _transition(period, "aprobada", "Reversión desde contabilizada",
-                                            company_id=company_id, sandbox=sandbox)
+                                            owner_uid=company_id, sandbox=sandbox)
             if not prev_ok:
                 flash(prev_msg, "error")
                 return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
         # Ahora a borrador
         ok, msg = _transition(period, "borrador", comment,
-                              company_id=company_id, sandbox=sandbox)
+                              owner_uid=company_id, sandbox=sandbox)
     else:
         ok, msg = _transition(period, target, comment,
-                              company_id=company_id, sandbox=sandbox)
+                              owner_uid=company_id, sandbox=sandbox)
 
     if not ok:
         flash(msg, "error")
     else:
         hr.save_payroll_period(company_id, period_id, period, sandbox=sandbox)
+        period_key = period.get("periodKey", "")
+        hr.delete_rule_logs_by_period_key(company_id, period_key, sandbox=sandbox)
         flash("Nómina revertida a borrador. Puede recalcularla desde «Procesar nómina».", "success")
     return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
 
@@ -610,6 +613,7 @@ def payroll_delete(period_id):
                comment="Eliminación de período de nómina", sandbox=sandbox)
 
     hr.delete_payroll_period(company_id, period_id, sandbox=sandbox)
+    hr.delete_rule_logs_by_period_key(company_id, period_key, sandbox=sandbox)
     flash(f"Período de nómina «{period_range or period_key}» eliminado permanentemente.", "success")
     return redirect(url_for("web_rrhh.payroll_list"))
 

@@ -1,6 +1,8 @@
 import base64
-from flask import Blueprint, session, jsonify, request, flash, redirect, url_for, render_template
+from io import BytesIO
+from flask import Blueprint, session, jsonify, request, flash, redirect, url_for, render_template, send_file
 from app.services.db_service import DatabaseService
+from app.services.dgii_signer import DgiiSigner
 from app.services.ecf_readiness_service import EcfReadinessService
 from app.utils.decorators import check_permission
 from app.utils.security import encrypt_field
@@ -208,3 +210,65 @@ def create_company():
                            product_name=session.get('brand', 'e-Factura'),
                            company_theme='moderno',
                            user_name=session['user'].get('name', uid))
+
+
+@web_company_bp.route('/company/sign-postulacion', methods=['GET', 'POST'])
+def sign_postulacion():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+    if not profile:
+        flash('Perfil de empresa no encontrado.', 'error')
+        return redirect(url_for('web_invoices.company_settings'))
+
+    if request.method == 'POST':
+        if not check_permission('canModifySettings'):
+            flash('Sin permisos para firmar documentos.', 'error')
+            return redirect(url_for('web_company.sign_postulacion'))
+
+        if not profile.get('certificateContent'):
+            flash('Debe cargar un certificado digital en Configuración > Certificado de Firma Digital antes de firmar.', 'error')
+            return redirect(url_for('web_company.sign_postulacion'))
+
+        xml_file = request.files.get('xmlFile')
+        if not xml_file or not xml_file.filename:
+            flash('Debe seleccionar un archivo XML.', 'error')
+            return redirect(url_for('web_company.sign_postulacion'))
+
+        ext = xml_file.filename.rsplit('.', 1)[-1].lower() if '.' in xml_file.filename else ''
+        if ext != 'xml':
+            flash('El archivo debe tener extensión .xml.', 'error')
+            return redirect(url_for('web_company.sign_postulacion'))
+
+        try:
+            raw_xml = xml_file.read()
+            if not raw_xml:
+                flash('El archivo XML está vacío.', 'error')
+                return redirect(url_for('web_company.sign_postulacion'))
+
+            signed_xml = DgiiSigner.sign_xml(raw_xml, profile)
+
+            rnc = profile.get('companyRNC', '').replace('-', '')
+            filename = f'{rnc}_postulacion_firmada.xml'
+
+            return send_file(
+                BytesIO(signed_xml),
+                mimetype='application/xml',
+                as_attachment=True,
+                download_name=filename
+            )
+
+        except Exception as e:
+            flash(f'Error al firmar el XML: {str(e)}', 'error')
+            return redirect(url_for('web_company.sign_postulacion'))
+
+    return render_template(
+        'company/sign_postulacion.html',
+        profile=profile,
+        product_name=session.get('brand', 'e-Factura'),
+        company_theme=session.get('company_theme', 'moderno'),
+        user_name=session['user'].get('name', session['user']['uid'])
+    )

@@ -17,7 +17,6 @@ class PayrollRuleEngine:
         "set_overtime_rate": "HORAS_EXTRA",
         "set_other_income": "OTROS_INGRESOS",
         "set_other_deduction": "OTRAS_DEDUCCIONES",
-        "add_concept": None,
     }
 
     _OPERATORS = {
@@ -89,13 +88,7 @@ class PayrollRuleEngine:
                         result["other_income"] += value
                     elif action_type == "set_other_deduction":
                         result["other_deduction"] += value
-                    elif action_type == "add_concept":
-                        concept_code = cls.get_action_concept_code(action)
-                        # Default to other_income bucket for backward compat;
-                        # the actual type is resolved in payroll_process.py
-                        result["other_income"] += value
-
-                result["applied_rules"].append({
+                    result["applied_rules"].append({
                     "ruleId": rule.get("id", ""),
                     "ruleName": rule.get("name", ""),
                     "actions": rule.get("actions", []),
@@ -314,13 +307,11 @@ class PayrollRuleEngine:
             errors.append("La regla debe tener al menos una acción.")
         for i, action in enumerate(actions):
             valid_types = {"set_bonus", "set_commission", "set_deduction", "set_overtime_rate",
-                           "set_other_income", "set_other_deduction", "add_concept"}
+                           "set_other_income", "set_other_deduction"}
             if action.get("type") not in valid_types:
                 errors.append(f"Acción {i + 1}: tipo '{action.get('type')}' no válido.")
             if not action.get("formula"):
                 errors.append(f"Acción {i + 1}: la fórmula es obligatoria.")
-            if action.get("type") == "add_concept" and not action.get("conceptCode"):
-                errors.append(f"Acción {i + 1}: debe seleccionar un concepto para 'add_concept'.")
 
         frequency = rule.get("frequency", "always")
         valid_frequencies = {"once", "annual", "always"}

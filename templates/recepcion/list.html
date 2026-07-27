@@ -1,0 +1,85 @@
+{% extends "layout.html" %}
+{% block title %}e-CF Recibidos{% endblock %}
+{% block page_header %}e-CF Recibidos{% endblock %}
+{% block content %}
+<div style="max-width: 1200px; margin: 0 auto;">
+<div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
+    <h1 class="page-title"
+        style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+        e-CF Recibidos
+    </h1>
+</div>
+
+<div class="card-table-wrapper">
+    <div class="table-header-row">
+        <div>
+            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 6px;">
+                Documentos Electrónicos Recibidos
+            </h3>
+            <p style="color: var(--text-secondary); font-size: 0.88rem;">
+                Comprobantes Fiscales Electrónicos (e-CF) recibidos de otros contribuyentes.
+            </p>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <a href="{{ url_for('web_recepcion.list_received_ecf') }}"
+               class="btn btn-ghost btn-sm {% if not status_filter %}active{% endif %}">Todos</a>
+            <a href="{{ url_for('web_recepcion.list_received_ecf', status='recibido') }}"
+               class="btn btn-ghost btn-sm {% if status_filter == 'recibido' %}active{% endif %}">Recibidos</a>
+            <a href="{{ url_for('web_recepcion.list_received_ecf', status='procesado') }}"
+               class="btn btn-ghost btn-sm {% if status_filter == 'procesado' %}active{% endif %}">Procesados</a>
+        </div>
+    </div>
+
+    <div class="table-container" style="overflow-x: auto;">
+        <table class="data-table" style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr>
+                    <th>Remitente (RNC)</th>
+                    <th>Razón Social</th>
+                    <th>e-NCF</th>
+                    <th>Tipo</th>
+                    <th>Monto</th>
+                    <th>Recibido</th>
+                    <th>Estado</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for doc in documents %}
+                <tr>
+                    <td>{{ doc.sender_rnc or '-' }}</td>
+                    <td>{{ doc.sender_name or '-' }}</td>
+                    <td><strong>{{ doc.encf or '-' }}</strong></td>
+                    <td>{{ doc.ecf_type or '-' }}</td>
+                    <td>$ {{ "%.2f"|format(doc.monto_total|float) if doc.monto_total else '0.00' }}</td>
+                    <td>{{ (doc.received_at or '')[:10] }}</td>
+                    <td>
+                        {% if doc.status == 'recibido' %}
+                        <span class="badge badge-warning">Recibido</span>
+                        {% elif doc.status == 'procesado' %}
+                        <span class="badge badge-success">Procesado</span>
+                        {% else %}
+                        <span class="badge badge-secondary">{{ doc.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('web_recepcion.detail_received_ecf', ecf_id=doc.id) }}"
+                           class="btn btn-ghost btn-sm">
+                            <i class="fa-solid fa-eye"></i> Ver
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" style="text-align: center; padding: 48px; color: var(--text-muted);">
+                        <i class="fa-solid fa-inbox" style="font-size: 2rem; display: block; margin-bottom: 12px;"></i>
+                        No hay documentos recibidos aún.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+</div>
+{% endblock %}

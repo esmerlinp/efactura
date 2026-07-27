@@ -1198,6 +1198,21 @@ def delete_rule_logs_for_rule(company_id: str, rule_id: str | None = None, sandb
         print(f"⚠️ HRDataService.delete_rule_logs: {e}")
 
 
+def delete_rule_logs_by_period_key(company_id: str, period_key: str, sandbox: bool = True):
+    """Elimina logs de reglas asociados a un periodo específico (por periodKey)."""
+    if not firebase_initialized or db_firestore is None:
+        return
+    try:
+        coll_path = _hr_company_path(company_id, "payroll_rule_log", sandbox)
+        query = db_firestore.collection(coll_path) \
+            .where(filter=FieldFilter("periodKey", "==", period_key))
+        docs = query.get()
+        for d in docs:
+            d.reference.delete()
+    except Exception as e:
+        print(f"⚠️ HRDataService.delete_rule_logs_by_period_key: {e}")
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # GARNISHMENTS (embargos salariales)
 # ═══════════════════════════════════════════════════════════════════════════

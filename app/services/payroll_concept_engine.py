@@ -84,6 +84,13 @@ DEFAULT_CONCEPTS = [
      "priority": 30, "active": True, "isSystem": True,
      "isRecurringCapable": False, "isLegalMandatory": False, "maxPercentage": 0.0},
 
+    {"code": "REGALIA_PASCUAL",    "name": "Regalía pascual (Salario de Navidad)",
+     "type": "earning", "category": "variable",
+     "taxable": True, "affects_afp": False, "affects_sfs": False, "affects_isr": False,
+     "account_debit": "6.2.1.02", "account_credit": "2.1.2.1.02",
+     "priority": 35, "active": True, "isSystem": True,
+     "isRecurringCapable": False, "isLegalMandatory": True, "maxPercentage": 0.0},
+
     {"code": "OTROS_INGRESOS",     "name": "Otros ingresos",
      "type": "earning", "category": "variable",
      "taxable": True, "affects_afp": True, "affects_sfs": True, "affects_isr": True,

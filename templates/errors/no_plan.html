@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="theme-color" content="{{ company_color_marca or '#7c3aed' }}">
+    <script>
+        (function () {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sin Plan Asignado - {{ product_name }}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    {% if company_theme == 'moderno' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_moderno.css') }}">
+    {% elif company_theme == 'landing' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_landing.css') }}">
+    {% else %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_clasico.css') }}">
+    {% endif %}
+    <style>
+        .no-plan-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 40px 20px 60px;
+            background: radial-gradient(circle at top right, rgba(217, 119, 6, 0.06), transparent 350px),
+                radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.04), transparent 350px);
+        }
+        .no-plan-container {
+            max-width: 1100px;
+            width: 100%;
+            animation: cardEntrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes cardEntrance {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 28px;
+            padding: 10px 16px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+        }
+        .top-bar .company-name {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .top-bar-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .top-bar-actions a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .top-bar-actions a:hover {
+            color: var(--accent-emerald);
+        }
+        .top-bar-actions .divider {
+            width: 1px;
+            height: 16px;
+            background: var(--border-color);
+        }
+
+        .blocking-header {
+            text-align: center;
+            margin-bottom: 32px;
+            padding: 16px 20px;
+        }
+        .blocking-header .error-icon {
+            font-size: 2rem;
+            color: var(--color-warning);
+            margin-bottom: 8px;
+            filter: drop-shadow(0 0 10px rgba(217,119,6,0.2));
+        }
+        .blocking-header h2 {
+            font-family: var(--font-heading);
+            font-size: 1.3rem;
+            color: var(--text-primary);
+            margin: 0 0 4px;
+            font-weight: 700;
+        }
+        .blocking-header p {
+            font-size: 0.88rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin: 0 auto;
+            max-width: 480px;
+        }
+
+        .plan-comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+        }
+        .plan-card {
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            background: rgba(255,255,255,0.01);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transition: all 0.3s ease;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+        .plan-card:hover {
+            border-color: var(--accent-emerald);
+            box-shadow: 0 8px 32px rgba(16,185,129,0.12);
+            transform: translateY(-2px);
+        }
+        .plan-card-header {
+            padding: 24px 24px 14px;
+            text-align: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .plan-card-header h2 {
+            font-size: 1.2rem;
+            font-weight: 800;
+            margin: 0 0 4px;
+            color: var(--text-primary);
+        }
+        .plan-card-header .price {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            font-family: var(--font-heading);
+        }
+        .plan-card-header .price-period {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        .plan-card-body {
+            padding: 16px 24px;
+            flex: 1;
+        }
+        .plan-feature {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 7px 0;
+            font-size: 0.85rem;
+            color: var(--text-primary);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .plan-feature:last-child {
+            border-bottom: none;
+        }
+        .plan-feature i {
+            width: 16px;
+            text-align: center;
+            color: var(--accent-emerald);
+            font-size: 0.85rem;
+        }
+        .plan-feature .feature-label {
+            flex: 1;
+        }
+        .plan-feature .feature-value {
+            font-weight: 700;
+            text-align: right;
+        }
+        .plan-card-footer {
+            padding: 14px 24px 22px;
+            text-align: center;
+        }
+        .module-badge {
+            display: inline-block;
+            padding: 3px 7px;
+            border-radius: 4px;
+            font-size: 0.68rem;
+            font-weight: 600;
+            background: rgba(59,130,246,0.08);
+            color: #3b82f6;
+            margin: 2px 2px 0 0;
+        }
+        .module-badge.muted {
+            background: rgba(148,163,184,0.1);
+            color: var(--text-muted);
+            text-decoration: line-through;
+            opacity: 0.6;
+        }
+        .module-badges-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 3px;
+            margin-top: 8px;
+        }
+        .support-footer {
+            text-align: center;
+            margin-top: 24px;
+            padding: 16px;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+        }
+        .support-footer a {
+            color: var(--accent-emerald);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .support-footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body class="auth-container">
+    <div class="no-plan-wrapper">
+        <div class="no-plan-container">
+
+            <div class="top-bar">
+                <div>
+                    <span class="company-name">{{ session.get('company_context', {}).get('company_name', 'Mi Empresa') }}</span>
+                    <span style="color:var(--text-muted);margin-left:6px;">— Sin plan asignado</span>
+                </div>
+                <div class="top-bar-actions">
+                    <a href="{{ url_for('web_auth.select_company') }}">
+                        <i class="fa-solid fa-building"></i> Cambiar de Empresa
+                    </a>
+                    <span class="divider"></span>
+                    <a href="{{ url_for('web_auth.logout') }}">
+                        <i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión
+                    </a>
+                </div>
+            </div>
+
+            <div class="blocking-header">
+                <i class="fa-solid fa-circle-exclamation error-icon"></i>
+                <h2>Selecciona un plan</h2>
+                <p>Esta empresa no tiene un plan asignado. Elige el que mejor se adapte a tu negocio para comenzar a operar.</p>
+            </div>
+
+            {% if plans %}
+            <div class="plan-comparison-grid">
+                {% for plan in plans %}
+                {% set price = plan.get('monthlyPrice', 0) | float %}
+                <div class="plan-card">
+                    <div class="plan-card-header">
+                        <h2>{{ plan.name }}</h2>
+                        <div class="price">RD$ {{ "{:,.0f}".format(price) if price == price|int else "{:,.2f}".format(price) }}</div>
+                        <div class="price-period">/ mes</div>
+                        {% if plan.annual_discount_pct %}
+                        <div style="font-size:0.72rem;color:var(--accent-emerald);font-weight:600;margin-top:4px;">{{ plan.annual_discount_pct }}% descuento anual</div>
+                        {% endif %}
+                    </div>
+                    <div class="plan-card-body">
+                        <div class="plan-feature">
+                            <i class="fa-solid fa-file-invoice"></i>
+                            <span class="feature-label">Documentos e-CF</span>
+                            <span class="feature-value">{% if plan.documentLimit > 0 %}{{ plan.documentLimit }} / mes{% else %}Ilimitados{% endif %}</span>
+                        </div>
+                        <div class="plan-feature">
+                            <i class="fa-solid fa-users"></i>
+                            <span class="feature-label">Usuarios</span>
+                            <span class="feature-value">{% if plan.userLimit > 0 %}{{ plan.userLimit }}{% else %}Ilimitados{% endif %}</span>
+                        </div>
+                        <div class="plan-feature">
+                            <i class="fa-solid fa-database"></i>
+                            <span class="feature-label">Almacenamiento</span>
+                            <span class="feature-value">{% if plan.storageLimitMB > 0 %}{{ plan.storageLimitMB }} MB{% else %}Ilimitado{% endif %}</span>
+                        </div>
+                        {% if plan.branchLimit is defined %}
+                        <div class="plan-feature">
+                            <i class="fa-solid fa-code-branch"></i>
+                            <span class="feature-label">Sucursales</span>
+                            <span class="feature-value">{% if plan.branchLimit > 0 %}{{ plan.branchLimit }}{% else %}Ilimitadas{% endif %}</span>
+                        </div>
+                        {% endif %}
+                        {% set all_module_keys = ["e_cf","dashboard","catalogo","cotizaciones","crm","pos","inventario","cxc","cxp_compras","gastos","contratos","comisiones","reporte_606","api","multi_empresa","portal_cliente","ia_bi","auditoria","exportacion_contable","pasarela_azul"] %}
+                        <div class="module-badges-wrap">
+                            {% for mod_key in all_module_keys %}
+                            {% set mod = plan.modules.get(mod_key) if plan.modules else None %}
+                            {% set enabled = mod.get('enabled', False) if mod else False %}
+                            {% set label = mod_key|replace('_', ' ')|title %}
+                            <span class="module-badge {% if not enabled %}muted{% endif %}">{{ label[:12] }}{% if label|length > 12 %}…{% endif %}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="plan-card-footer">
+                        <form method="POST" action="{{ url_for('web_invoices.change_plan_page') }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="plan_id" value="{{ plan.id }}">
+                            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;font-weight:700;padding:11px;background:linear-gradient(135deg,var(--accent-emerald),#34d399);border:none;">
+                                <i class="fa-solid fa-check-circle"></i> Seleccionar {{ plan.name }}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="blocking-header" style="margin-top:20px;">
+                <p style="font-size:0.95rem;">No hay planes disponibles en este momento.</p>
+                <p style="font-size:0.82rem;color:var(--text-muted);margin-top:4px;">Por favor, comunícate con el soporte de {{ product_name }} para que te asignen un plan personalizado.</p>
+            </div>
+            {% endif %}
+
+            <div class="support-footer">
+                ¿Necesitas ayuda? <a href="#" onclick="alert('Comunícate con nosotros a través del chat de soporte o escribe a soporte@vykone.com'); return false;">Contacta a soporte</a>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+
+</html>

@@ -13,8 +13,8 @@ class RuleCondition(BaseModel):
 
 class RuleAction(BaseModel):
     """Acción a ejecutar si las condiciones se cumplen."""
-    type: str = "add_concept"  # "set_bonus", "set_commission", "set_deduction", "set_overtime_rate",
-                                # "set_other_income", "set_other_deduction", "add_concept"
+    type: str = "set_other_income"  # "set_bonus", "set_commission", "set_deduction", "set_overtime_rate",
+                                    # "set_other_income", "set_other_deduction"
     conceptCode: str = ""      # Código del concepto de nómina a afectar. Si está vacío, se usa el mapeo
                                 # por defecto según el type (ej: set_bonus → BONIFICACION).
     formula: str = ""          # Expresión: "salary * 0.10", "5000", "salary * 0.05 + 2000"

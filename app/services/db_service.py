@@ -1253,7 +1253,7 @@ class DatabaseService:
             return None
 
     @classmethod
-    def get_user_profile(cls, uid):
+    def get_user_profile(cls, uid, **kwargs):
         """Retorna el perfil del usuario."""
         import copy
         profile = _cached_user_profile(uid)

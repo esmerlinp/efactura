@@ -1,11 +1,10 @@
-import base64
-import gzip
 import hashlib
 import os
 import re
 import tempfile
 import uuid
-from urllib.parse import quote
+from urllib.parse import urlencode
+from xml.sax.saxutils import escape
 
 import requests
 
@@ -24,19 +23,32 @@ class DgiiDirectService:
     def _resolve_endpoints(cls, sandbox=True):
         if sandbox:
             return {
-                "auth": Config.DGII_AUTH_URL_SANDBOX,
-                "token": Config.DGII_TOKEN_URL_SANDBOX,
-                "recepcion": Config.DGII_RECEPCION_URL_SANDBOX,
-                "status": Config.DGII_STATUS_URL_SANDBOX,
-                "cancel": Config.DGII_CANCEL_URL_SANDBOX
+                "semilla": Config.DGII_AUTH_SEMILLA_URL,
+                "validar_semilla": Config.DGII_AUTH_VALIDAR_URL,
+                "recepcion": Config.DGII_RECEPCION_URL,
+                "rfce_recepcion": Config.DGII_RFCE_RECEPCION_URL,
+                "rfce_consulta": Config.DGII_RFCE_CONSULTA_URL,
+                "consulta_resultado": Config.DGII_CONSULTA_RESULTADO_URL,
+                "consulta_estado": Config.DGII_CONSULTA_ESTADO_URL,
+                "consulta_trackids": Config.DGII_CONSULTA_TRACKIDS_URL,
+                "aprobacion_comercial": Config.DGII_APROBACION_COMERCIAL_URL,
+                "anulacion_rangos": Config.DGII_ANULACION_RANGOS_URL,
+                "directorio_listado": Config.DGII_DIRECTORIO_LISTADO_URL,
+                "directorio_por_rnc": Config.DGII_DIRECTORIO_POR_RNC_URL,
             }
-
         return {
-            "auth": Config.DGII_AUTH_URL_PRODUCTION,
-            "token": Config.DGII_TOKEN_URL_PRODUCTION,
-            "recepcion": Config.DGII_RECEPCION_URL_PRODUCTION,
-            "status": Config.DGII_STATUS_URL_PRODUCTION,
-            "cancel": Config.DGII_CANCEL_URL_PRODUCTION
+            "semilla": getattr(Config, "DGII_AUTH_SEMILLA_URL_PRODUCTION", "") or Config.DGII_AUTH_SEMILLA_URL,
+            "validar_semilla": getattr(Config, "DGII_AUTH_VALIDAR_URL_PRODUCTION", "") or Config.DGII_AUTH_VALIDAR_URL,
+            "recepcion": getattr(Config, "DGII_RECEPCION_URL_PRODUCTION", "") or Config.DGII_RECEPCION_URL,
+            "rfce_recepcion": getattr(Config, "DGII_RFCE_RECEPCION_URL_PRODUCTION", "") or Config.DGII_RFCE_RECEPCION_URL,
+            "rfce_consulta": getattr(Config, "DGII_RFCE_CONSULTA_URL_PRODUCTION", "") or Config.DGII_RFCE_CONSULTA_URL,
+            "consulta_resultado": getattr(Config, "DGII_CONSULTA_RESULTADO_URL_PRODUCTION", "") or Config.DGII_CONSULTA_RESULTADO_URL,
+            "consulta_estado": Config.DGII_CONSULTA_ESTADO_URL,
+            "consulta_trackids": Config.DGII_CONSULTA_TRACKIDS_URL,
+            "aprobacion_comercial": Config.DGII_APROBACION_COMERCIAL_URL,
+            "anulacion_rangos": getattr(Config, "DGII_ANULACION_RANGOS_URL_PRODUCTION", "") or Config.DGII_ANULACION_RANGOS_URL,
+            "directorio_listado": Config.DGII_DIRECTORIO_LISTADO_URL,
+            "directorio_por_rnc": Config.DGII_DIRECTORIO_POR_RNC_URL,
         }
 
     @classmethod
@@ -70,11 +82,10 @@ class DgiiDirectService:
             pass
 
     @classmethod
-    def _build_headers(cls, token=None, content_type="application/json"):
+    def _build_headers(cls, token=None):
         headers = {
             "accept": "application/json",
-            "content-type": content_type,
-            "User-Agent": Config.DGII_USER_AGENT
+            "User-Agent": Config.DGII_USER_AGENT,
         }
         if token:
             headers["Authorization"] = f"Bearer {token}"
@@ -96,12 +107,39 @@ class DgiiDirectService:
         return match.group(1).strip() if match else None
 
     @classmethod
-    def _extract_seed(cls, data, text):
+    def _multipart_post(cls, url, xml_bytes, token=None, filename="document.xml", cert_path=None):
+        headers = cls._build_headers(token=token)
+        files = {"xml": (filename, xml_bytes, "text/xml")}
+        return requests.post(
+            url, files=files, headers=headers, cert=cert_path,
+            timeout=Config.DGII_HTTP_TIMEOUT
+        )
+
+    @classmethod
+    def _get_with_params(cls, url, params, token=None, cert_path=None):
+        headers = cls._build_headers(token=token)
+        return requests.get(
+            url, params=params, headers=headers, cert=cert_path,
+            timeout=Config.DGII_HTTP_TIMEOUT
+        )
+
+    @staticmethod
+    def _parse_response(data, text):
+        result = {}
         if isinstance(data, dict):
-            for key in ("seed", "semilla", "Semilla", "Seed"):
-                if data.get(key):
-                    return str(data.get(key))
-        for tag in ("Semilla", "seed"):
+            result.update(data)
+        if text and not data:
+            result["_xml_raw"] = text
+        return result
+
+    @classmethod
+    def _extract_seed_value(cls, data, text):
+        if isinstance(data, dict):
+            for key in ("seed", "semilla", "Semilla", "Seed", "valor", "Valor"):
+                v = data.get(key)
+                if v:
+                    return str(v)
+        for tag in ("valor", "Valor", "Semilla"):
             val = cls._extract_xml_tag(text, tag)
             if val:
                 return val
@@ -111,9 +149,9 @@ class DgiiDirectService:
     def _extract_token(cls, data, text):
         if isinstance(data, dict):
             for key in ("token", "Token", "jwt", "access_token", "accessToken", "sessionToken"):
-                if data.get(key):
-                    return str(data.get(key))
-
+                v = data.get(key)
+                if v:
+                    return str(v)
         if text:
             jwt_match = re.search(r"eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+", text)
             if jwt_match:
@@ -127,9 +165,10 @@ class DgiiDirectService:
     @classmethod
     def _extract_track_id(cls, data, text):
         if isinstance(data, dict):
-            for key in ("trackId", "track_id", "TrackId", "TrackID", "idTracking"):
-                if data.get(key):
-                    return str(data.get(key))
+            for key in ("trackId", "track_id", "TrackId", "TrackID", "idTracking", "trackid", "trackID"):
+                v = data.get(key)
+                if v:
+                    return str(v)
         if text:
             match = re.search(r"track\s*id\s*[:=]\s*([A-Za-z0-9_-]+)", text, re.IGNORECASE)
             if match:
@@ -153,12 +192,12 @@ class DgiiDirectService:
     def _extract_status(cls, data, text):
         status_candidates = []
         if isinstance(data, dict):
-            for key in ("status", "estado", "dgiiStatus", "result", "message"):
-                if data.get(key):
-                    status_candidates.append(data.get(key))
+            for key in ("status", "estado", "dgiiStatus", "result", "message", "Estado"):
+                v = data.get(key)
+                if v:
+                    status_candidates.append(v)
         if text:
             status_candidates.append(text)
-
         for candidate in status_candidates:
             normalized = cls._normalize_status(candidate)
             if normalized:
@@ -166,26 +205,62 @@ class DgiiDirectService:
         return None
 
     @staticmethod
-    def _build_qr_url(company_rnc, client_rnc, encf, total):
-        query_params = f"rncEmisor={company_rnc}&rncReceptor={client_rnc}&encf={encf}&monto={float(total):.2f}"
-        return f"https://dgii.gov.do/validaecf?{quote(query_params)}"
+    def _build_qr_url_e_cf(company_rnc, client_rnc, encf, total, fecha_emision, fecha_firma, codigo_seguridad):
+        query_params = urlencode({
+            "rncemisor": company_rnc,
+            "rnccomprador": client_rnc,
+            "encf": encf,
+            "montototal": f"{float(total):.2f}",
+            "fechaemision": fecha_emision,
+            "fechafirma": fecha_firma,
+            "codigoseguridad": codigo_seguridad,
+        })
+        return f"https://ecf.dgii.gov.do/{Config.DGII_ENVIRONMENT}/consultatimbre?{query_params}"
+
+    @staticmethod
+    def _build_qr_url_rfce(company_rnc, encf, total, codigo_seguridad):
+        query_params = urlencode({
+            "rncemisor": company_rnc,
+            "encf": encf,
+            "montototal": f"{float(total):.2f}",
+            "codigoseguridad": codigo_seguridad,
+        })
+        return f"https://fc.dgii.gov.do/{Config.DGII_ENVIRONMENT}/consultatimbrefc?{query_params}"
+
+    @classmethod
+    def _extract_seed_xml(cls, data, text):
+        valor = cls._extract_seed_value(data, text)
+        fecha = None
+        if isinstance(data, dict):
+            for key in ("fecha", "Fecha", "date", "Date"):
+                v = data.get(key)
+                if v:
+                    fecha = str(v)
+                    break
+        if not fecha and text:
+            fecha = cls._extract_xml_tag(text, "fecha") or cls._extract_xml_tag(text, "Fecha")
+        return valor, fecha
+
+    # ═══════════════════════════════════════════════════════════════
+    # Autenticación
+    # ═══════════════════════════════════════════════════════════════
 
     @classmethod
     def get_dgii_token(cls, company_profile, sandbox=True):
         endpoints = cls._resolve_endpoints(sandbox=sandbox)
-        auth_url = endpoints.get("auth")
-        token_url = endpoints.get("token")
+        semilla_url = endpoints.get("semilla")
+        validar_url = endpoints.get("validar_semilla")
 
-        if cls._use_local_simulation(sandbox) and (not auth_url or not token_url):
+        if cls._use_local_simulation(sandbox) and (not semilla_url or not validar_url):
             return "simulated_dgii_token_jwt_2026", None
 
-        if not auth_url:
-            return None, "DGII_AUTH_URL no configurado."
+        if not semilla_url:
+            return None, "DGII_AUTH_SEMILLA_URL no configurado."
 
         cert_path = cls._prepare_tls_cert(company_profile)
         try:
-            headers = cls._build_headers(content_type=Config.DGII_TOKEN_CONTENT_TYPE)
-            response = requests.get(auth_url, headers=headers, cert=cert_path, timeout=Config.DGII_HTTP_TIMEOUT)
+            headers = cls._build_headers()
+            response = requests.get(semilla_url, headers=headers, cert=cert_path, timeout=Config.DGII_HTTP_TIMEOUT)
             response_data = cls._safe_json(response)
             response_text = response.text if response is not None else ""
 
@@ -196,28 +271,28 @@ class DgiiDirectService:
             if token:
                 return token, None
 
-            seed = cls._extract_seed(response_data, response_text)
+            seed, _fecha = cls._extract_seed_xml(response_data, response_text)
             if not seed:
                 return None, "No se pudo obtener la semilla de autenticacion."
 
-            if not token_url:
+            if not validar_url:
                 if cls._use_local_simulation(sandbox):
                     return "simulated_dgii_token_jwt_2026", None
-                return None, "DGII_TOKEN_URL no configurado."
+                return None, "DGII_AUTH_VALIDAR_URL no configurado."
 
             signed_seed = DgiiSigner.sign_seed(seed, company_profile)
-            payload = {
-                "seed": seed,
-                "signedSeed": signed_seed
-            }
+            auth_xml = (
+                '<?xml version="1.0" encoding="utf-8"?>'
+                f"<Autenticacion>"
+                f"<Semilla>{escape(seed)}</Semilla>"
+                f"<Firma>{escape(signed_seed)}</Firma>"
+                f"</Autenticacion>"
+            ).encode("utf-8")
 
-            content_type = Config.DGII_TOKEN_CONTENT_TYPE
-            headers = cls._build_headers(content_type=content_type)
-            if "xml" in content_type.lower():
-                payload_xml = f"<Autenticacion><Semilla>{seed}</Semilla><Firma>{signed_seed}</Firma></Autenticacion>"
-                token_response = requests.post(token_url, data=payload_xml, headers=headers, cert=cert_path, timeout=Config.DGII_HTTP_TIMEOUT)
-            else:
-                token_response = requests.post(token_url, json=payload, headers=headers, cert=cert_path, timeout=Config.DGII_HTTP_TIMEOUT)
+            token_response = cls._multipart_post(
+                validar_url, auth_xml, token=None,
+                filename="signed_seed.xml", cert_path=cert_path
+            )
 
             token_data = cls._safe_json(token_response)
             token_text = token_response.text if token_response is not None else ""
@@ -234,18 +309,27 @@ class DgiiDirectService:
         finally:
             cls._cleanup_tls_cert(cert_path)
 
+    # ═══════════════════════════════════════════════════════════════
+    # Simulación (sandbox local)
+    # ═══════════════════════════════════════════════════════════════
+
     @classmethod
     def _simulate_emit(cls, company_profile, invoice_data):
         encf = invoice_data.get("encf", "E310000000001")
         track_id = f"dgii_tr_{uuid.uuid4().hex[:12]}"
         company_rnc = str(company_profile.get("companyRNC", "")).replace("-", "").strip()
         client_rnc = str(invoice_data.get("clientRNC", "000000000")).replace("-", "").strip() or "000000000"
-        qr_url = cls._build_qr_url(company_rnc, client_rnc, encf, invoice_data.get("total", 0.0))
+        cod_seg = f"SIM{uuid.uuid4().hex[:3]}"
+        qr_url = cls._build_qr_url_e_cf(company_rnc, client_rnc, encf, invoice_data.get("total", 0.0),
+                                         invoice_data.get("date", "01-01-2026"),
+                                         invoice_data.get("date", "01-01-2026"), cod_seg)
+
         return {
             "success": True,
             "encf": encf,
             "trackId": track_id,
             "xmlSignature": f"SIM-{uuid.uuid4().hex[:12]}",
+            "codigoSeguridad": cod_seg,
             "qrCodeURL": qr_url,
             "mode": "FALLBACK",
             "status": "PENDING",
@@ -253,15 +337,12 @@ class DgiiDirectService:
             "message": "Simulacion DGII habilitada (sandbox)."
         }
 
+    # ═══════════════════════════════════════════════════════════════
+    # Recepción e-CF
+    # ═══════════════════════════════════════════════════════════════
+
     @classmethod
     def emit_direct(cls, company_profile, invoice_data, sandbox=True):
-        """
-        Flujo de Emision Directa completo a la DGII:
-        1. Generacion de XML.
-        2. Firma Digital.
-        3. Compresion GZIP.
-        4. Envio a Web Services.
-        """
         try:
             endpoints = cls._resolve_endpoints(sandbox=sandbox)
             recepcion_url = endpoints.get("recepcion")
@@ -279,9 +360,7 @@ class DgiiDirectService:
             raw_xml = DgiiXmlBuilder.build_invoice_xml(company_profile, invoice_data)
             signed_xml = DgiiSigner.sign_xml(raw_xml, company_profile)
             xml_signature = DgiiSigner.extract_signature_value(signed_xml) or hashlib.sha256(signed_xml).hexdigest()
-
-            compressed_xml = gzip.compress(signed_xml)
-            payload_b64 = base64.b64encode(compressed_xml).decode("utf-8")
+            codigo_seguridad = xml_signature[:6]
 
             token, token_error = cls.get_dgii_token(company_profile, sandbox=sandbox)
             if not token:
@@ -296,30 +375,27 @@ class DgiiDirectService:
             company_rnc = str(company_profile.get("companyRNC", "")).replace("-", "").strip()
             client_rnc = str(invoice_data.get("clientRNC", "000000000")).replace("-", "").strip() or "000000000"
             encf = invoice_data.get("encf", "E310000000001")
-
-            payload = {
-                "rncEmisor": company_rnc,
-                "eNCF": encf,
-                "archivo": payload_b64
-            }
-            payload_log = dict(payload)
-            payload_log["archivo"] = "<BASE64_GZIP_STRING>"
+            filename = f"{company_rnc}{encf}.xml"
 
             cert_path = cls._prepare_tls_cert(company_profile)
             try:
-                headers = cls._build_headers(token=token, content_type=Config.DGII_RECEPCION_CONTENT_TYPE)
-                if "xml" in Config.DGII_RECEPCION_CONTENT_TYPE.lower():
-                    payload_xml = f"<Enviar><RNCEmisor>{company_rnc}</RNCEmisor><eNCF>{encf}</eNCF><Archivo>{payload_b64}</Archivo></Enviar>"
-                    response = requests.post(recepcion_url, data=payload_xml, headers=headers, cert=cert_path, timeout=Config.DGII_HTTP_TIMEOUT)
-                else:
-                    response = requests.post(recepcion_url, json=payload, headers=headers, cert=cert_path, timeout=Config.DGII_HTTP_TIMEOUT)
+                response = cls._multipart_post(
+                    recepcion_url, signed_xml, token=token,
+                    filename=filename, cert_path=cert_path
+                )
 
                 response_data = cls._safe_json(response)
                 response_text = response.text if response is not None else ""
                 status_code = response.status_code if response is not None else 0
                 dgii_status = cls._extract_status(response_data, response_text)
                 track_id = cls._extract_track_id(response_data, response_text) or f"dgii_tr_{uuid.uuid4().hex[:12]}"
-                qr_url = cls._build_qr_url(company_rnc, client_rnc, encf, invoice_data.get("total", 0.0))
+                error_msg = ""
+                if isinstance(response_data, dict):
+                    error_msg = response_data.get("error") or response_data.get("mensaje") or ""
+                qr_url = cls._build_qr_url_e_cf(company_rnc, client_rnc, encf, invoice_data.get("total", 0.0),
+                                                 invoice_data.get("date", "01-01-2026"),
+                                                 invoice_data.get("date", "01-01-2026"),
+                                                 codigo_seguridad)
 
                 if status_code >= 200 and status_code < 300:
                     return {
@@ -327,20 +403,19 @@ class DgiiDirectService:
                         "encf": encf,
                         "trackId": track_id,
                         "xmlSignature": xml_signature,
+                        "codigoSeguridad": codigo_seguridad,
                         "qrCodeURL": qr_url,
                         "mode": "API",
                         "status": dgii_status or "PENDING",
                         "dgiiStatus": dgii_status or "PENDING",
-                        "requestPayload": payload_log,
                         "responseBody": response_data or response_text,
-                        "statusCode": status_code
+                        "statusCode": status_code,
                     }
 
                 return {
                     "success": False,
-                    "error": f"DGII recepcion error HTTP {status_code}",
+                    "error": f"DGII recepcion error HTTP {status_code}: {error_msg}",
                     "message": "Error en recepcion DGII.",
-                    "requestPayload": payload_log,
                     "responseBody": response_data or response_text,
                     "statusCode": status_code
                 }
@@ -354,11 +429,120 @@ class DgiiDirectService:
                 "error": f"Fallo en motor directo: {str(e)}"
             }
 
+    # ═══════════════════════════════════════════════════════════════
+    # RFCE — E32 < RD$250K (dominio fc.dgii.gov.do)
+    # ═══════════════════════════════════════════════════════════════
+
+    @classmethod
+    def emit_rfce(cls, company_profile, invoice_data, sandbox=True):
+        try:
+            endpoints = cls._resolve_endpoints(sandbox=sandbox)
+            rfce_url = endpoints.get("rfce_recepcion")
+
+            if cls._use_local_simulation(sandbox) and not rfce_url:
+                sim = cls._simulate_emit(company_profile, invoice_data)
+                sim["message"] = "Simulacion RFCE (sandbox)."
+                return sim
+
+            if not rfce_url:
+                return {
+                    "success": False,
+                    "error": "DGII_RFCE_RECEPCION_URL no configurado.",
+                    "message": "DGII_RFCE_RECEPCION_URL no configurado."
+                }
+
+            raw_xml = DgiiXmlBuilder.build_invoice_xml(company_profile, invoice_data)
+            signed_xml = DgiiSigner.sign_xml(raw_xml, company_profile)
+            xml_signature = DgiiSigner.extract_signature_value(signed_xml) or hashlib.sha256(signed_xml).hexdigest()
+            codigo_seguridad = xml_signature[:6]
+
+            token, token_error = cls.get_dgii_token(company_profile, sandbox=sandbox)
+            if not token:
+                if cls._use_local_simulation(sandbox):
+                    sim = cls._simulate_emit(company_profile, invoice_data)
+                    sim["message"] = "Simulacion RFCE (sandbox)."
+                    return sim
+                return {
+                    "success": False,
+                    "error": token_error or "No se pudo obtener token DGII.",
+                    "message": token_error or "No se pudo obtener token DGII."
+                }
+
+            company_rnc = str(company_profile.get("companyRNC", "")).replace("-", "").strip()
+            client_rnc = str(invoice_data.get("clientRNC", "000000000")).replace("-", "").strip() or "000000000"
+            encf = invoice_data.get("encf", "E320000000001")
+            filename = f"{company_rnc}{encf}.xml"
+
+            cert_path = cls._prepare_tls_cert(company_profile)
+            try:
+                response = cls._multipart_post(
+                    rfce_url, signed_xml, token=token,
+                    filename=filename, cert_path=cert_path
+                )
+
+                response_data = cls._safe_json(response)
+                response_text = response.text if response is not None else ""
+                status_code = response.status_code if response is not None else 0
+
+                codigo = None
+                estado = None
+                secuencia_utilizada = None
+                if isinstance(response_data, dict):
+                    codigo = response_data.get("codigo")
+                    estado = response_data.get("estado")
+                    secuencia_utilizada = response_data.get("secuenciaUtilizada")
+                    if not codigo:
+                        codigo = cls._extract_xml_tag(response_text, "codigo") or cls._extract_xml_tag(response_text, "Codigo")
+                    if not estado:
+                        estado = cls._extract_xml_tag(response_text, "estado") or cls._extract_xml_tag(response_text, "Estado")
+
+                dgii_status = cls._extract_status(response_data, response_text)
+                qr_url = cls._build_qr_url_rfce(company_rnc, encf, invoice_data.get("total", 0.0), codigo_seguridad)
+
+                if status_code >= 200 and status_code < 300:
+                    return {
+                        "success": True,
+                        "encf": encf,
+                        "trackId": uuid.uuid4().hex[:20].upper(),
+                        "xmlSignature": xml_signature,
+                        "codigoSeguridad": codigo_seguridad,
+                        "qrCodeURL": qr_url,
+                        "mode": "RFCE_API",
+                        "status": dgii_status or "PENDING",
+                        "dgiiStatus": dgii_status or "PENDING",
+                        "codigoRFCE": codigo,
+                        "estadoRFCE": estado,
+                        "secuenciaUtilizada": secuencia_utilizada,
+                        "responseBody": response_data or response_text,
+                        "statusCode": status_code,
+                    }
+
+                return {
+                    "success": False,
+                    "error": f"DGII RFCE error HTTP {status_code}",
+                    "message": "Error en recepcion RFCE.",
+                    "responseBody": response_data or response_text,
+                    "statusCode": status_code
+                }
+
+            finally:
+                cls._cleanup_tls_cert(cert_path)
+
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Fallo en RFCE: {str(e)}"
+            }
+
+    # ═══════════════════════════════════════════════════════════════
+    # Consulta de resultado (TrackId)
+    # ═══════════════════════════════════════════════════════════════
+
     @classmethod
     def check_status(cls, company_profile, track_id, sandbox=True):
         endpoints = cls._resolve_endpoints(sandbox=sandbox)
-        status_url = endpoints.get("status")
-        if not status_url:
+        consulta_url = endpoints.get("consulta_resultado")
+        if not consulta_url:
             if cls._use_local_simulation(sandbox):
                 return {
                     "success": True,
@@ -367,7 +551,7 @@ class DgiiDirectService:
                     "responseBody": {"message": "Simulacion local DGII (status)."},
                     "statusCode": 200
                 }
-            return {"success": False, "message": "DGII_STATUS_URL no configurado."}
+            return {"success": False, "message": "DGII_CONSULTA_RESULTADO_URL no configurado."}
 
         token, token_error = cls.get_dgii_token(company_profile, sandbox=sandbox)
         if not token:
@@ -375,25 +559,42 @@ class DgiiDirectService:
 
         cert_path = cls._prepare_tls_cert(company_profile)
         try:
-            headers = cls._build_headers(token=token, content_type=Config.DGII_STATUS_CONTENT_TYPE)
-            params = {"trackId": track_id}
-            if "xml" in Config.DGII_STATUS_CONTENT_TYPE.lower():
-                payload_xml = f"<Consulta><TrackId>{track_id}</TrackId></Consulta>"
-                response = requests.post(status_url, data=payload_xml, headers=headers, cert=cert_path, timeout=Config.DGII_HTTP_TIMEOUT)
-            else:
-                response = requests.get(status_url, params=params, headers=headers, cert=cert_path, timeout=Config.DGII_HTTP_TIMEOUT)
+            params = {"trackid": track_id}
+            response = cls._get_with_params(consulta_url, params, token=token, cert_path=cert_path)
 
             response_data = cls._safe_json(response)
             response_text = response.text if response is not None else ""
             status_code = response.status_code if response is not None else 0
-            dgii_status = cls._extract_status(response_data, response_text)
+
             track_id_found = cls._extract_track_id(response_data, response_text) or track_id
+            dgii_status = cls._extract_status(response_data, response_text)
+
+            codigo_num = None
+            rnc = None
+            encf_resp = None
+            secuencia_utilizada = None
+            fecha_recepcion = None
+            mensajes = []
+
+            if isinstance(response_data, dict):
+                codigo_num = response_data.get("codigo")
+                rnc = response_data.get("rnc", response_data.get("RNC", ""))
+                encf_resp = response_data.get("eNCF", response_data.get("encf", ""))
+                secuencia_utilizada = response_data.get("secuenciaUtilizada")
+                fecha_recepcion = response_data.get("fechaRecepcion")
+                mensajes = response_data.get("mensajes", [])
 
             if status_code >= 200 and status_code < 300:
                 return {
                     "success": True,
                     "trackId": track_id_found,
                     "dgiiStatus": dgii_status or "PENDING",
+                    "codigo": codigo_num,
+                    "rnc": rnc,
+                    "eNCF": encf_resp,
+                    "secuenciaUtilizada": secuencia_utilizada,
+                    "fechaRecepcion": fecha_recepcion,
+                    "mensajes": mensajes,
                     "responseBody": response_data or response_text,
                     "statusCode": status_code
                 }
@@ -407,12 +608,15 @@ class DgiiDirectService:
         finally:
             cls._cleanup_tls_cert(cert_path)
 
+    # ═══════════════════════════════════════════════════════════════
+    # Health check
+    # ═══════════════════════════════════════════════════════════════
+
     @classmethod
     def check_dgii_status(cls, company_profile, sandbox=True):
         endpoints = cls._resolve_endpoints(sandbox=sandbox)
-        auth_url = endpoints.get("auth")
-        token_url = endpoints.get("token")
-        if not auth_url:
+        semilla_url = endpoints.get("semilla")
+        if not semilla_url:
             if cls._use_local_simulation(sandbox):
                 return {
                     "success": True,
@@ -422,14 +626,7 @@ class DgiiDirectService:
             return {
                 "success": False,
                 "status": "NOT_CONFIGURED",
-                "message": "DGII_AUTH_URL no configurado."
-            }
-
-        if cls._use_local_simulation(sandbox) and not token_url:
-            return {
-                "success": True,
-                "status": "ONLINE",
-                "message": "Simulacion local DGII habilitada."
+                "message": "DGII_AUTH_SEMILLA_URL no configurado."
             }
 
         token, token_error = cls.get_dgii_token(company_profile, sandbox=sandbox)
@@ -452,10 +649,32 @@ class DgiiDirectService:
             "message": "Autenticacion DGII exitosa."
         }
 
+    # ═══════════════════════════════════════════════════════════════
+    # Anulación de Rangos (ANECF)
+    # ═══════════════════════════════════════════════════════════════
+
+    @classmethod
+    def _build_anecf_xml(cls, company_profile, cancellation_dict):
+        rnc = str(company_profile.get("companyRNC", "")).replace("-", "").strip()
+        serie = cancellation_dict.get("series", "")
+        desde = cancellation_dict.get("startSequence", "")
+        hasta = cancellation_dict.get("endSequence", "")
+        motivo = cancellation_dict.get("reason", "")
+
+        xml = '<?xml version="1.0" encoding="utf-8"?>'
+        xml += f"<ANECF>"
+        xml += f"<RNCEmisor>{escape(rnc)}</RNCEmisor>"
+        xml += f"<Serie>{escape(str(serie))}</Serie>"
+        xml += f"<SecuenciaeNCFDesde>{escape(str(desde))}</SecuenciaeNCFDesde>"
+        xml += f"<SecuenciaeNCFHasta>{escape(str(hasta))}</SecuenciaeNCFHasta>"
+        xml += f"<Motivo>{escape(str(motivo))}</Motivo>"
+        xml += f"</ANECF>"
+        return xml.encode("utf-8")
+
     @classmethod
     def cancel_direct(cls, company_profile, cancellation_dict, sandbox=True):
         endpoints = cls._resolve_endpoints(sandbox=sandbox)
-        cancel_url = endpoints.get("cancel")
+        cancel_url = endpoints.get("anulacion_rangos")
         if cls._use_local_simulation(sandbox) and not cancel_url:
             return {
                 "success": True,
@@ -466,51 +685,46 @@ class DgiiDirectService:
         if not cancel_url:
             return {
                 "success": False,
-                "message": "DGII_CANCEL_URL no configurado."
+                "message": "DGII_ANULACION_RANGOS_URL no configurado."
             }
 
         token, token_error = cls.get_dgii_token(company_profile, sandbox=sandbox)
         if not token:
             return {"success": False, "message": token_error or "No se pudo obtener token DGII."}
 
+        anecf_xml = cls._build_anecf_xml(company_profile, cancellation_dict)
+
         cert_path = cls._prepare_tls_cert(company_profile)
         try:
-            headers = cls._build_headers(token=token, content_type=Config.DGII_CANCEL_CONTENT_TYPE)
-            payload = {
-                "rncEmisor": str(company_profile.get("companyRNC", "")).replace("-", "").strip(),
-                "series": cancellation_dict.get("series"),
-                "startSequence": cancellation_dict.get("startSequence"),
-                "endSequence": cancellation_dict.get("endSequence"),
-                "reason": cancellation_dict.get("reason", "")
-            }
-
-            if "xml" in Config.DGII_CANCEL_CONTENT_TYPE.lower():
-                payload_xml = (
-                    f"<Anulacion><RNCEmisor>{payload['rncEmisor']}</RNCEmisor>"
-                    f"<Serie>{payload['series']}</Serie><Desde>{payload['startSequence']}</Desde>"
-                    f"<Hasta>{payload['endSequence']}</Hasta><Motivo>{payload['reason']}</Motivo></Anulacion>"
-                )
-                response = requests.post(cancel_url, data=payload_xml, headers=headers, cert=cert_path, timeout=Config.DGII_HTTP_TIMEOUT)
-            else:
-                response = requests.post(cancel_url, json=payload, headers=headers, cert=cert_path, timeout=Config.DGII_HTTP_TIMEOUT)
+            response = cls._multipart_post(
+                cancel_url, anecf_xml, token=token,
+                filename="anulacion_rangos.xml", cert_path=cert_path
+            )
 
             response_data = cls._safe_json(response)
             response_text = response.text if response is not None else ""
             status_code = response.status_code if response is not None else 0
-            cancellation_code = None
+
+            rnc_resp = None
+            codigo = None
+            nombre = None
+            mensajes = []
             if isinstance(response_data, dict):
-                for key in ("cancellationCode", "codigo", "code", "id"):
-                    if response_data.get(key):
-                        cancellation_code = response_data.get(key)
-                        break
-            if not cancellation_code:
-                cancellation_code = cls._extract_xml_tag(response_text, "Codigo")
+                rnc_resp = response_data.get("rnc", "")
+                codigo = response_data.get("codigo", "")
+                nombre = response_data.get("nombre", "")
+                mensajes = response_data.get("mensajes", [])
+            if not codigo:
+                codigo = cls._extract_xml_tag(response_text, "codigo") or cls._extract_xml_tag(response_text, "Codigo")
 
             if status_code >= 200 and status_code < 300:
                 return {
                     "success": True,
                     "message": "Comprobante anulado directamente con exito.",
-                    "cancellationCode": cancellation_code or f"CANCEL-{uuid.uuid4().hex[:8].upper()}",
+                    "cancellationCode": codigo or f"CANCEL-{uuid.uuid4().hex[:8].upper()}",
+                    "rnc": rnc_resp,
+                    "nombre": nombre,
+                    "mensajes": mensajes,
                     "responseBody": response_data or response_text,
                     "statusCode": status_code
                 }
@@ -522,5 +736,174 @@ class DgiiDirectService:
                 "statusCode": status_code
             }
 
+        finally:
+            cls._cleanup_tls_cert(cert_path)
+
+    # ═══════════════════════════════════════════════════════════════
+    # Consulta Estado e-CF (por RNC + eNCF)
+    # ═══════════════════════════════════════════════════════════════
+
+    @classmethod
+    def consultar_estado_ecf(cls, company_profile, rnc_emisor, encf,
+                              rnc_comprador="", codigo_seguridad="", sandbox=True):
+        endpoints = cls._resolve_endpoints(sandbox=sandbox)
+        consulta_url = endpoints.get("consulta_estado")
+        if not consulta_url:
+            return {"success": False, "message": "DGII_CONSULTA_ESTADO_URL no configurado."}
+
+        token, token_error = cls.get_dgii_token(company_profile, sandbox=sandbox)
+        if not token:
+            return {"success": False, "message": token_error or "No se pudo obtener token DGII."}
+
+        cert_path = cls._prepare_tls_cert(company_profile)
+        try:
+            params = {
+                "rncemisor": rnc_emisor,
+                "ncfelectronico": encf,
+            }
+            if rnc_comprador:
+                params["rnccomprador"] = rnc_comprador
+            if codigo_seguridad:
+                params["codigoseguridad"] = codigo_seguridad
+
+            response = cls._get_with_params(consulta_url, params, token=token, cert_path=cert_path)
+            response_data = cls._safe_json(response)
+            response_text = response.text if response is not None else ""
+            status_code = response.status_code if response is not None else 0
+
+            if status_code >= 200 and status_code < 300:
+                return {
+                    "success": True,
+                    "responseBody": response_data or response_text,
+                    "statusCode": status_code
+                }
+
+            return {
+                "success": False,
+                "message": f"Error consulta estado e-CF (HTTP {status_code}).",
+                "responseBody": response_data or response_text,
+                "statusCode": status_code
+            }
+        finally:
+            cls._cleanup_tls_cert(cert_path)
+
+    # ═══════════════════════════════════════════════════════════════
+    # Consulta TrackIds (por RNC + eNCF)
+    # ═══════════════════════════════════════════════════════════════
+
+    @classmethod
+    def consultar_trackids(cls, company_profile, rnc_emisor, encf, sandbox=True):
+        endpoints = cls._resolve_endpoints(sandbox=sandbox)
+        consulta_url = endpoints.get("consulta_trackids")
+        if not consulta_url:
+            return {"success": False, "message": "DGII_CONSULTA_TRACKIDS_URL no configurado."}
+
+        token, token_error = cls.get_dgii_token(company_profile, sandbox=sandbox)
+        if not token:
+            return {"success": False, "message": token_error or "No se pudo obtener token DGII."}
+
+        cert_path = cls._prepare_tls_cert(company_profile)
+        try:
+            params = {"rncemisor": rnc_emisor, "encf": encf}
+            response = cls._get_with_params(consulta_url, params, token=token, cert_path=cert_path)
+            response_data = cls._safe_json(response)
+            response_text = response.text if response is not None else ""
+            status_code = response.status_code if response is not None else 0
+
+            if status_code >= 200 and status_code < 300:
+                return {
+                    "success": True,
+                    "responseBody": response_data or response_text,
+                    "statusCode": status_code
+                }
+
+            return {
+                "success": False,
+                "message": f"Error consulta trackIds (HTTP {status_code}).",
+                "responseBody": response_data or response_text,
+                "statusCode": status_code
+            }
+        finally:
+            cls._cleanup_tls_cert(cert_path)
+
+    # ═══════════════════════════════════════════════════════════════
+    # Aprobación Comercial (ACECF)
+    # ═══════════════════════════════════════════════════════════════
+
+    @classmethod
+    def emit_acecf(cls, company_profile, approval_xml_bytes, sandbox=True):
+        endpoints = cls._resolve_endpoints(sandbox=sandbox)
+        acecf_url = endpoints.get("aprobacion_comercial")
+        if not acecf_url:
+            return {"success": False, "message": "DGII_APROBACION_COMERCIAL_URL no configurado."}
+
+        token, token_error = cls.get_dgii_token(company_profile, sandbox=sandbox)
+        if not token:
+            return {"success": False, "message": token_error or "No se pudo obtener token DGII."}
+
+        cert_path = cls._prepare_tls_cert(company_profile)
+        try:
+            response = cls._multipart_post(
+                acecf_url, approval_xml_bytes, token=token,
+                filename="aprobacion_comercial.xml", cert_path=cert_path
+            )
+            response_data = cls._safe_json(response)
+            response_text = response.text if response is not None else ""
+            status_code = response.status_code if response is not None else 0
+
+            if status_code >= 200 and status_code < 300:
+                return {
+                    "success": True,
+                    "responseBody": response_data or response_text,
+                    "statusCode": status_code
+                }
+
+            return {
+                "success": False,
+                "message": f"Error aprobacion comercial (HTTP {status_code}).",
+                "responseBody": response_data or response_text,
+                "statusCode": status_code
+            }
+        finally:
+            cls._cleanup_tls_cert(cert_path)
+
+    # ═══════════════════════════════════════════════════════════════
+    # Consulta Directorio
+    # ═══════════════════════════════════════════════════════════════
+
+    @classmethod
+    def consultar_directorio(cls, company_profile, rnc=None, sandbox=True):
+        endpoints = cls._resolve_endpoints(sandbox=sandbox)
+        if rnc:
+            url = endpoints.get("directorio_por_rnc")
+        else:
+            url = endpoints.get("directorio_listado")
+
+        if not url:
+            return {"success": False, "message": "DGII_DIRECTORIO_URL no configurado."}
+
+        token, token_error = cls.get_dgii_token(company_profile, sandbox=sandbox)
+        if not token:
+            return {"success": False, "message": token_error or "No se pudo obtener token DGII."}
+
+        cert_path = cls._prepare_tls_cert(company_profile)
+        try:
+            params = {"RNC": rnc} if rnc else None
+            response = cls._get_with_params(url, params, token=token, cert_path=cert_path)
+            response_data = cls._safe_json(response)
+            status_code = response.status_code if response is not None else 0
+
+            if status_code >= 200 and status_code < 300:
+                return {
+                    "success": True,
+                    "responseBody": response_data or [],
+                    "statusCode": status_code
+                }
+
+            return {
+                "success": False,
+                "message": f"Error consulta directorio (HTTP {status_code}).",
+                "statusCode": status_code
+            }
         finally:
             cls._cleanup_tls_cert(cert_path)

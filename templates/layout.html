@@ -981,6 +981,12 @@
 
 <body class="{% if session.get('is_sandbox_mode', False) %}sandbox-mode{% endif %}">
 
+    {% if config.get('APP_ENVIRONMENT', 'production') != 'production' %}
+    <div class="env-banner" style="background: #f97316; color: #fff; text-align: center; padding: 6px 16px; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; position: sticky; top: 0; z-index: 10000; font-family: 'Inter', system-ui, sans-serif;">
+        {{ config.get('APP_ENVIRONMENT', 'sandbox') | upper }} — Los datos de este entorno son de prueba
+    </div>
+    {% endif %}
+
     <!-- PANTALLA DE CARGA ANIMADA (GLOBAL) -->
     <div id="app-loader-overlay" style="display:none; position:fixed; inset:0; z-index:99999; background:#ffffff; flex-direction:column; align-items:center; justify-content:center;">
         <div id="app-loader-stage" style="position:relative; display:flex; align-items:center; gap:12px;">
@@ -1209,6 +1215,15 @@
                             data-tooltip="Crea Notas de crédito en compras para disminuir el saldo por pagar a proveedores, sea por errores en el registro, devoluciones de inventario u otro motivo.">
                             <a href="{{ url_for('web_purchase_orders.list_credit_notes') }}">
                                 <span>Notas de crédito en compras</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if session.get('user', {}).get('role') == 'owner' or
+                        session.get('user', {}).get('permissions', {}).get('canExpenses', True) %}
+                        <li class="nav-item {% if active_page == 'received_ecf' %}active{% endif %}"
+                            data-tooltip="Comprobantes Fiscales Electrónicos (e-CF) recibidos de otros contribuyentes.">
+                            <a href="{{ url_for('web_recepcion.list_received_ecf') }}">
+                                <span>e-CF Recibidos</span>
                             </a>
                         </li>
                         {% endif %}

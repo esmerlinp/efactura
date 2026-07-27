@@ -77,6 +77,7 @@
                 <li class="docs-sidebar-item" data-target="crear-factura"><a href="#crear-factura"><i class="fa-solid fa-pen-to-square"></i><span>Crear Factura Proveedor</span></a></li>
                 <li class="docs-sidebar-item" data-target="estados-cxp"><a href="#estados-cxp"><i class="fa-solid fa-list-check"></i><span>Estados CxP</span></a></li>
                 <li class="docs-sidebar-item" data-target="pagos"><a href="#pagos"><i class="fa-solid fa-hand-holding-dollar"></i><span>Pagos y Abonos</span></a></li>
+                <li class="docs-sidebar-item" data-target="recepcion-ecf"><a href="#recepcion-ecf"><i class="fa-solid fa-inbox"></i><span>e-CF Recibidos</span></a></li>
                 <li class="docs-sidebar-item" data-target="solucion-problemas"><a href="#solucion-problemas"><i class="fa-solid fa-circle-exclamation"></i><span>Solución de Problemas</span></a></li>
                 <li class="docs-sidebar-item" data-target="reversion"><a href="#reversion"><i class="fa-solid fa-arrow-rotate-left"></i><span>Reversión de Pagos</span></a></li>
             </ul>
@@ -355,10 +356,78 @@
             </div>
         </section>
 
+        <!-- Receptor Electrónico / e-CF Recibidos -->
+        <section id="recepcion-ecf" class="docs-section" data-search-content="recepcion ecf recibidos dgii contribuyente arecf acuse">
+            <div class="docs-section-title"><i class="fa-solid fa-inbox" style="color: var(--accent-emerald);"></i><span>e-CF Recibidos</span></div>
+
+            <div class="docs-article" data-search-content="que es recepcion ecf recibidos dgii">
+                <h3 class="docs-article-title"><span class="docs-article-title-text"><i class="fa-solid fa-inbox docs-article-title-icon"></i>¿Qué es el Portal de Recepción Electrónica?</span></h3>
+                <div class="docs-article-body">
+                    El <strong>Portal de Recepción Electrónica</strong> (<em>Receptor Electrónico</em>) es el módulo que permite a tu empresa recibir <strong>Comprobantes Fiscales Electrónicos (e-CF)</strong> y <strong>Aprobaciones Comerciales</strong> directamente de otros contribuyentes, cumpliendo con los estándares de la DGII (Ley 32-23).
+                    <br><br>
+                    Cuando otro contribuyente te emite un e-CF, el sistema:
+                    <ul>
+                        <li>Recibe y valida el XML del comprobante.</li>
+                        <li>Genera y firma digitalmente un <strong>ARECF</strong> (Acuse de Recibo Electrónico) con tu certificado P12.</li>
+                        <li>Almacena el documento en el módulo <strong>e-CF Recibidos</strong> para su consulta y descarga.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="docs-article" data-search-content="ver ecf recibido listado detalle descargar xml arecf">
+                <h3 class="docs-article-title"><span class="docs-article-title-text"><i class="fa-solid fa-eye docs-article-title-icon"></i>Visualizar y Descargar e-CF Recibidos</span></h3>
+                <div class="docs-article-body">
+                    Puedes consultar todos los e-CF recibidos desde <strong>Compras → e-CF Recibidos</strong> en el menú lateral.
+                    <br><br>
+                    <ul>
+                        <li>El listado muestra: remitente (RNC), razón social, e-NCF, tipo de comprobante, monto, fecha de recepción y estado.</li>
+                        <li>Puedes filtrar por estado: <strong>Recibidos</strong> (recién llegados) o <strong>Procesados</strong>.</li>
+                        <li>Desde el detalle puedes <strong>descargar el XML original</strong> del e-CF recibido y el <strong>ARECF firmado</strong> adjunto.</li>
+                        <li>El ARECF es el acuse de recibo oficial que acredita que recibiste el documento.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="docs-article" data-search-content="aprobacion comercial recibida aceptar rechazar">
+                <h3 class="docs-article-title"><span class="docs-article-title-text"><i class="fa-solid fa-file-circle-check docs-article-title-icon"></i>Aprobaciones Comerciales Recibidas</span></h3>
+                <div class="docs-article-body">
+                    Además de los e-CF, el portal recibe las <strong>Aprobaciones Comerciales (ACECF)</strong> que otros contribuyentes envían en respuesta a tus solicitudes de aprobación.
+                    <br><br>
+                    <ul>
+                        <li>Las aprobaciones comerciales se listan en <strong>Compras → e-CF Recibidos → Aprobaciones</strong>.</li>
+                        <li>Cada aprobación incluye el RNC del remitente, el e-NCF asociado y la fecha de recepción.</li>
+                        <li>Estos documentos son de consulta y respaldo fiscal para tus reportes DGII.</li>
+                    </ul>
+                    <div class="fiscal-alert-box alert-success">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <div class="fiscal-alert-text">Las aprobaciones comerciales recibidas se integran automáticamente a tu Reporte 606 cuando corresponda.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="docs-article" data-search-content="arecf acuse recibo electronico firmado p12">
+                <h3 class="docs-article-title"><span class="docs-article-title-text"><i class="fa-solid fa-receipt docs-article-title-icon"></i>ARECF — Acuse de Recibo Electrónico</span></h3>
+                <div class="docs-article-body">
+                    El <strong>ARECF</strong> es el documento que tu sistema genera automáticamente al recibir un e-CF de otro contribuyente.
+                    <br><br>
+                    <ul>
+                        <li>Contiene los datos del e-CF recibido y la confirmación de recepción.</li>
+                        <li>Se firma digitalmente con el <strong>certificado P12</strong> de tu empresa (mismo que usas para emitir e-CF).</li>
+                        <li>El XML firmado se devuelve al emisor como comprobante de recepción.</li>
+                        <li>Puedes descargar el ARECF desde el detalle de cada e-CF recibido.</li>
+                    </ul>
+                    <div class="fiscal-alert-box alert-warning">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div class="fiscal-alert-text">El ARECF es obligatorio según la normativa DGII. Si tu certificado P12 no está configurado, el sistema no podrá firmar los acuses, lo que puede generar rechazos.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <div id="no-results" class="no-results-state">
             <i class="fa-solid fa-triangle-exclamation"></i>
             <h4>No encontramos resultados</h4>
-            <p>Prueba buscando con palabras clave como "proveedor", "CxP", "retención" o "abono".</p>
+            <p>Prueba buscando con palabras clave como "proveedor", "CxP", "retención", "abono" o "e-CF".</p>
         </div>
 
         <div class="docs-footer-banner">

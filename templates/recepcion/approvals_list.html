@@ -1,0 +1,66 @@
+{% extends "layout.html" %}
+{% block title %}Aprobaciones Comerciales Recibidas{% endblock %}
+{% block page_header %}Aprobaciones Comerciales{% endblock %}
+{% block content %}
+<div style="max-width: 1200px; margin: 0 auto;">
+<div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
+    <h1 class="page-title"
+        style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+        Aprobaciones Comerciales Recibidas
+    </h1>
+</div>
+
+<div class="card-table-wrapper">
+    <div class="table-header-row">
+        <div>
+            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 6px;">
+                Aprobaciones Comerciales
+            </h3>
+            <p style="color: var(--text-secondary); font-size: 0.88rem;">
+                Aprobaciones comerciales (ACECF) recibidas de otros contribuyentes.
+            </p>
+        </div>
+    </div>
+
+    <div class="table-container" style="overflow-x: auto;">
+        <table class="data-table" style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr>
+                    <th>Remitente (RNC)</th>
+                    <th>Razón Social</th>
+                    <th>e-NCF</th>
+                    <th>Tipo</th>
+                    <th>Recibido</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for doc in documents %}
+                <tr>
+                    <td>{{ doc.sender_rnc or '-' }}</td>
+                    <td>{{ doc.sender_name or '-' }}</td>
+                    <td><strong>{{ doc.encf or '-' }}</strong></td>
+                    <td>{{ doc.ecf_type or '-' }}</td>
+                    <td>{{ (doc.received_at or '')[:10] }}</td>
+                    <td>
+                        {% if doc.status == 'recibido' %}
+                        <span class="badge badge-warning">Recibido</span>
+                        {% else %}
+                        <span class="badge badge-secondary">{{ doc.status }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 48px; color: var(--text-muted);">
+                        <i class="fa-solid fa-file-circle-check" style="font-size: 2rem; display: block; margin-bottom: 12px;"></i>
+                        No hay aprobaciones comerciales recibidas aún.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+</div>
+{% endblock %}

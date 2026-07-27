@@ -50,6 +50,19 @@
         </div>
         {% endif %}
 
+        <div class="form-group" style="margin-bottom:16px;">
+            <label class="form-label" style="display:flex; align-items:center; gap:8px;">
+                <input type="checkbox" name="applyChristmasBonus" style="width:16px; height:16px; accent-color:var(--accent-emerald);"
+                       {% if group and group.applyChristmasBonus %}checked{% endif %}>
+                Aplicar salario de Navidad (Regalía Pascual)
+            </label>
+            <p style="font-size:0.75rem; color:var(--text-muted); margin:4px 0 0;">
+                Al activar, se crea automáticamente una regla de nómina que calcula la regalía pascual
+                (<code>accumulated_ordinary_salary / 12</code>) en diciembre para este grupo.
+                Puedes modificar la regla en <strong>RRHH &rarr; Reglas de Nómina</strong>.
+            </p>
+        </div>
+
         <div style="display:flex; gap:12px; justify-content:flex-end;">
             <a href="{{ url_for('web_rrhh.payroll_groups_list') }}" class="btn btn-secondary">Cancelar</a>
             <button type="submit" class="btn btn-primary">

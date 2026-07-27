@@ -475,8 +475,9 @@
         {% if rule and rule.actions %}
         {% for act in rule.actions %}
         <div class="action-row">
-            <select name="action_type[]" class="form-select action-type-select" style="width:150px;">
-                {% set atypes = ['set_bonus','set_commission','set_deduction','set_overtime_rate','set_other_income','set_other_deduction','add_concept'] %}
+            <select name="action_type[]" class="form-select action-type-select" style="width:150px;"
+                    onchange="onActionTypeChange(this)">
+                {% set atypes = ['set_bonus','set_commission','set_deduction','set_overtime_rate','set_other_income','set_other_deduction'] %}
                 {% for t in atypes %}
                 <option value="{{ t }}" {% if act.type==t %}selected{% endif %}>{{ t }}</option>
                 {% endfor %}
@@ -484,7 +485,7 @@
             <select name="action_concept[]" class="form-select action-concept-select" style="width:180px;">
                 <option value="">— Concepto por defecto —</option>
                 {% for c in concepts %}
-                <option value="{{ c.code }}" {% if act.get('conceptCode','')==c.code %}selected{% endif %}>{{ c.code }} — {{ c.name }}</option>
+                <option value="{{ c.code }}" data-type="{{ c.type }}" {% if act.get('conceptCode','')==c.code %}selected{% endif %}>{{ c.code }} — {{ c.name }}</option>
                 {% endfor %}
             </select>
             <input type="text" name="action_formula[]" value="{{ act.formula }}" class="form-input" style="flex:1;" placeholder="salary * 0.10">
@@ -494,19 +495,19 @@
         {% endfor %}
         {% else %}
         <div class="action-row">
-            <select name="action_type[]" class="form-select action-type-select" style="width:150px;">
+            <select name="action_type[]" class="form-select action-type-select" style="width:150px;"
+                    onchange="onActionTypeChange(this)">
                 <option value="set_bonus">set_bonus</option>
                 <option value="set_commission">set_commission</option>
                 <option value="set_deduction">set_deduction</option>
                 <option value="set_overtime_rate">set_overtime_rate</option>
                 <option value="set_other_income">set_other_income</option>
                 <option value="set_other_deduction">set_other_deduction</option>
-                <option value="add_concept">add_concept</option>
             </select>
             <select name="action_concept[]" class="form-select action-concept-select" style="width:180px;">
                 <option value="">— Concepto por defecto —</option>
                 {% for c in concepts %}
-                <option value="{{ c.code }}">{{ c.code }} — {{ c.name }}</option>
+                <option value="{{ c.code }}" data-type="{{ c.type }}">{{ c.code }} — {{ c.name }}</option>
                 {% endfor %}
             </select>
             <input type="text" name="action_formula[]" class="form-input" style="flex:1;" placeholder="salary * 0.10">
@@ -595,7 +596,6 @@
         <p>Define qué ocurre cuando se cumplen las condiciones de la regla.</p>
         <table>
             <tr><th>Acción</th><th>Efecto</th><th>Concepto por defecto</th></tr>
-            <tr><td><code>add_concept</code></td><td>Agrega o descuenta según el concepto seleccionado</td><td>Elige cualquier concepto activo</td></tr>
             <tr><td><code>set_bonus</code></td><td>Agrega un bono al empleado</td><td>BONIFICACION</td></tr>
             <tr><td><code>set_commission</code></td><td>Agrega una comisión</td><td>COMISION</td></tr>
             <tr><td><code>set_deduction</code></td><td>Agrega una deducción</td><td>OTRAS_DEDUCCIONES</td></tr>
@@ -833,21 +833,54 @@ function addCondition() {
 
 var CONCEPT_OPTIONS_HTML = '<option value="">— Concepto por defecto —</option>'
     {% for c in concepts %}
-    + '<option value="{{ c.code }}">{{ c.code }} — {{ c.name }}</option>'
+    + '<option value="{{ c.code }}" data-type="{{ c.type }}">{{ c.code }} — {{ c.name }}</option>'
     {% endfor %}
 ;
+
+var ACTION_TYPE_CONCEPT_TYPES = {
+    'set_bonus': ['earning'],
+    'set_commission': ['earning'],
+    'set_deduction': ['deduction'],
+    'set_overtime_rate': ['earning'],
+    'set_other_income': ['earning'],
+    'set_other_deduction': ['deduction'],
+};
+
+function onActionTypeChange(select) {
+    var row = select.closest('.action-row');
+    if (!row) return;
+    var conceptSelect = row.querySelector('.action-concept-select');
+    var allowedTypes = ACTION_TYPE_CONCEPT_TYPES[select.value] || ['earning', 'deduction', 'employer_contrib'];
+    var selectedVal = conceptSelect.value;
+    var needReset = false;
+
+    for (var i = 1; i < conceptSelect.options.length; i++) {
+        var opt = conceptSelect.options[i];
+        var optType = opt.getAttribute('data-type');
+        var show = allowedTypes.indexOf(optType) !== -1;
+        opt.style.display = show ? '' : 'none';
+        if (opt.value === selectedVal && !show) {
+            needReset = true;
+        }
+    }
+
+    if (needReset) {
+        conceptSelect.value = '';
+    }
+}
 
 function addAction() {
     var container = document.getElementById('actionsContainer');
     var row = document.createElement('div');
     row.className = 'action-row';
-    row.innerHTML = '<select name="action_type[]" class="form-select action-type-select" style="width:150px;">'
+    var conceptOpts = CONCEPT_OPTIONS_HTML;
+    row.innerHTML = '<select name="action_type[]" class="form-select action-type-select" style="width:150px;" onchange="onActionTypeChange(this)">'
         + '<option value="set_bonus">set_bonus</option><option value="set_commission">set_commission</option>'
         + '<option value="set_deduction">set_deduction</option><option value="set_overtime_rate">set_overtime_rate</option>'
         + '<option value="set_other_income">set_other_income</option><option value="set_other_deduction">set_other_deduction</option>'
-        + '<option value="add_concept">add_concept</option></select>'
+        + '</select>'
         + '<select name="action_concept[]" class="form-select action-concept-select" style="width:180px;">'
-        + CONCEPT_OPTIONS_HTML
+        + conceptOpts
         + '</select>'
         + '<input type="text" name="action_formula[]" class="form-input" style="flex:1;" placeholder="salary * 0.10">'
         + '<input type="text" name="action_desc[]" class="form-input" style="width:130px;" placeholder="Descripción">'
