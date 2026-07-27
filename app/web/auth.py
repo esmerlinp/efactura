@@ -260,6 +260,13 @@ def login():
                     session['selected_owner_uid'] = user_profile.get('ownerUID')
                     session['user']['ownerUID'] = session['selected_owner_uid']
 
+                # Inyectar permisos de membresía de la compañía seleccionada
+                selected_comp = next((c for c in user_companies if c['id'] == session.get('selected_company_id')), None)
+                if selected_comp:
+                    membership_perms = selected_comp.get('_membership', {}).get('permissions', {})
+                    if membership_perms:
+                        session['user']['permissions'].update(membership_perms)
+
                 # ── Cargar plan de la empresa en la sesión ──
                 try:
                     cid = session.get('selected_company_id')
@@ -400,7 +407,14 @@ def resolve_session_conflict():
     else:
         session['selected_owner_uid'] = user_profile.get('ownerUID')
         session['user']['ownerUID'] = session['selected_owner_uid']
-    
+
+    # Inyectar permisos de membresía de la compañía seleccionada
+    selected_comp = next((c for c in user_companies if c['id'] == session.get('selected_company_id')), None)
+    if selected_comp:
+        membership_perms = selected_comp.get('_membership', {}).get('permissions', {})
+        if membership_perms:
+            session['user']['permissions'].update(membership_perms)
+
     # ── Cargar plan de la empresa en la sesión ──
     try:
         cid = session.get('selected_company_id')
@@ -719,6 +733,9 @@ def select_company():
             session['selected_company_id'] = comp['id']
             session['selected_owner_uid'] = comp.get('owner_uid', uid)
             session['user']['ownerUID'] = session['selected_owner_uid']
+            membership_perms = comp.get('_membership', {}).get('permissions', {})
+            if membership_perms:
+                session['user']['permissions'].update(membership_perms)
         else:
             session['selected_owner_uid'] = uid
         return redirect(url_for('web_dashboard.dashboard'))
@@ -730,6 +747,9 @@ def select_company():
             session['selected_company_id'] = selected_id
             session['selected_owner_uid'] = selected_company.get('owner_uid', uid)
             session['user']['ownerUID'] = session['selected_owner_uid']
+            membership_perms = selected_company.get('_membership', {}).get('permissions', {})
+            if membership_perms:
+                session['user']['permissions'].update(membership_perms)
             session.pop('selected_branch_id', None)
             session.pop('available_branches', None)
             session.pop('selected_project_id', None)

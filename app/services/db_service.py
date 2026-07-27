@@ -1061,7 +1061,15 @@ class DatabaseService:
                     "canManageSuppliers": True,
                     "canManagePurchaseCXP": True,
                     "canUseChatbot": False,
-                    "canAccounting": True
+                    "canAccounting": True,
+                    "canManageTools": True,
+                    "canHR": True,
+                    "canVoidInvoice": False,
+                    "canCreateSupplier": True,
+                    "canApprovePayments": False,
+                    "canApprovePayroll": False,
+                    "canApproveExpenses": False,
+                    "canSupervisePOS": False,
                 },
                 "createdAt": created_at,
                 "posSupervisorPin": ""
@@ -1198,7 +1206,16 @@ class DatabaseService:
                         "canManageNotes": bool(perms.get("canManageNotes", True)),
                         "canManageSuppliers": bool(perms.get("canManageSuppliers", True)),
                         "canManagePurchaseCXP": bool(perms.get("canManagePurchaseCXP", True)),
-                        "canUseChatbot": bool(perms.get("canUseChatbot", False))
+                        "canUseChatbot": bool(perms.get("canUseChatbot", False)),
+                        "canAccounting": bool(perms.get("canAccounting", True)),
+                        "canManageTools": bool(perms.get("canManageTools", True)),
+                        "canHR": bool(perms.get("canHR", True)),
+                        "canVoidInvoice": bool(perms.get("canVoidInvoice", False)),
+                        "canCreateSupplier": bool(perms.get("canCreateSupplier", True)),
+                        "canApprovePayments": bool(perms.get("canApprovePayments", False)),
+                        "canApprovePayroll": bool(perms.get("canApprovePayroll", False)),
+                        "canApproveExpenses": bool(perms.get("canApproveExpenses", False)),
+                        "canSupervisePOS": bool(perms.get("canSupervisePOS", False)),
                     },
                     "createdAt": created_at,
                     "two_factor_enabled": bool(data.get("two_factor_enabled", False)),
@@ -1238,7 +1255,15 @@ class DatabaseService:
                         "canManageSuppliers": True,
                         "canManagePurchaseCXP": True,
                         "canUseChatbot": False,
-                        "canAccounting": True
+                        "canAccounting": True,
+                        "canManageTools": True,
+                        "canHR": True,
+                        "canVoidInvoice": False,
+                        "canCreateSupplier": True,
+                        "canApprovePayments": False,
+                        "canApprovePayroll": False,
+                        "canApproveExpenses": False,
+                        "canSupervisePOS": False,
                     },
                     "createdAt": datetime.now(timezone.utc).isoformat(),
                     "two_factor_enabled": False,
@@ -1385,11 +1410,13 @@ class DatabaseService:
             return None
 
     @classmethod
-    def update_employee_permissions(cls, employee_uid, permissions, role=None):
+    def update_employee_permissions(cls, employee_uid, permissions, role=None, company_id=None):
         """Actualiza los permisos de un colaborador.
 
         Si se especifica role, guarda role + permissions_overrides (solo las diferencias
         respecto al preset). Si no, guarda permissions como dict completo (legacy).
+
+        Si se especifica company_id, también sincroniza la tabla company_memberships.
         """
         if not firebase_initialized:
             return False
@@ -1402,10 +1429,20 @@ class DatabaseService:
                     "role": role,
                     "permissions_overrides": overrides,
                 })
+                resolved_perms = dict(preset)
+                resolved_perms.update(overrides)
             else:
                 db_firestore.collection("users").document(employee_uid).collection("config").document("user_profile").update({
                     "permissions": permissions,
                 })
+                resolved_perms = dict(permissions)
+
+            if company_id:
+                cls.update_membership(employee_uid, company_id, {
+                    "permissions": resolved_perms,
+                    "role": role or "personalizado",
+                })
+
             return True
         except Exception as e:
             print(f"⚠️ Fallo al actualizar permisos del empleado: {e}")
