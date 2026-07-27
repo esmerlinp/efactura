@@ -41,9 +41,9 @@ def advanced_dashboard():
 
     owner_uid, sb = _owner(), _sandbox()
     company_id = _company_id()
-    items = DatabaseService.get_items(company_id=company_id, sandbox=sb, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
-    warehouses = DatabaseService.get_warehouses(company_id=company_id, sandbox=sb)
-    stocks = DatabaseService.get_inventory_stock(company_id=company_id, sandbox=sb)
+    items = DatabaseService.get_items(owner_uid=owner_uid, company_id=company_id, sandbox=sb, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    warehouses = DatabaseService.get_warehouses(owner_uid=owner_uid, company_id=company_id, sandbox=sb)
+    stocks = DatabaseService.get_inventory_stock(owner_uid=owner_uid, company_id=company_id, sandbox=sb)
 
     # Total valuation
     total_cost = 0.0
@@ -53,7 +53,7 @@ def advanced_dashboard():
             cost = float(it.get("costPrice", 0))
             total_cost += qty * cost
 
-    reorder = InventoryAlertService.get_reorder_suggestions(company_id, sandbox=sb)
+    reorder = InventoryAlertService.get_reorder_suggestions(company_id, sandbox=sb, owner_uid=owner_uid)
     expirations = InventoryAlertService.get_expiration_alerts(company_id, sandbox=sb)
 
     return render_template("inventario/advanced_dashboard.html",
@@ -87,8 +87,8 @@ def transfer_new():
 
     owner_uid, sb = _owner(), _sandbox()
     company_id = _company_id()
-    warehouses = DatabaseService.get_warehouses(company_id=company_id, sandbox=sb)
-    items = [it for it in DatabaseService.get_items(company_id=company_id, sandbox=sb, branch_id=g.get('branch_id'), project_id=g.get('project_id')) if it.get("type", "Bien") == "Bien"]
+    warehouses = DatabaseService.get_warehouses(owner_uid=owner_uid, company_id=company_id, sandbox=sb)
+    items = [it for it in DatabaseService.get_items(owner_uid=owner_uid, company_id=company_id, sandbox=sb, branch_id=g.get('branch_id'), project_id=g.get('project_id')) if it.get("type", "Bien") == "Bien"]
 
     if request.method == "POST":
         lines = []
@@ -145,7 +145,8 @@ def transfer_approve(transfer_id):
         return redirect(url_for("web_auth.login"))
     from app.services.warehouse_transfer_service import WarehouseTransferService
     ok, msg = WarehouseTransferService.approve_transfer(
-        _owner(), transfer_id, session["user"].get("email", ""), sandbox=_sandbox())
+        company_id=_company_id(), transfer_id=transfer_id, approved_by=session["user"].get("email", ""),
+        sandbox=_sandbox(), owner_uid=_owner())
     flash(msg, "success" if ok else "error")
     return redirect(url_for("web_inventory.transfer_list"))
 
@@ -183,13 +184,13 @@ def physical_count_new():
 
     owner_uid, sb = _owner(), _sandbox()
     company_id = _company_id()
-    warehouses = DatabaseService.get_warehouses(company_id=company_id, sandbox=sb)
+    warehouses = DatabaseService.get_warehouses(owner_uid=owner_uid, company_id=company_id, sandbox=sb)
 
     if request.method == "POST":
         wh_id = request.form["warehouseId"]
         wh_name = next((w["name"] for w in warehouses if w["id"] == wh_id), "")
         cid = PhysicalCountService.start_count(
-            company_id, wh_id, wh_name, session["user"].get("email", ""), sandbox=sb)
+            company_id, wh_id, wh_name, session["user"].get("email", ""), sandbox=sb, owner_uid=owner_uid)
         if cid:
             flash("Conteo físico iniciado.", "success")
             return redirect(url_for("web_inventory.physical_count_detail", count_id=cid))
@@ -215,7 +216,7 @@ def physical_count_detail(count_id):
     if request.method == "POST":
         if "finalize" in request.form:
             ok, result = PhysicalCountService.finalize_count(
-                company_id, count_id, session["user"].get("email", ""), sandbox=sb)
+                company_id, count_id, session["user"].get("email", ""), sandbox=sb, owner_uid=owner_uid)
             if ok:
                 flash(f"Conteo finalizado. {result['linesWithDifference']} líneas con diferencia, "
                       f"{result['adjustments']} ajustes generados.", "success")
@@ -276,7 +277,7 @@ def alert_dashboard():
 
     owner_uid, sb = _owner(), _sandbox()
     company_id = _company_id()
-    reorder = InventoryAlertService.get_reorder_suggestions(company_id, sandbox=sb)
+    reorder = InventoryAlertService.get_reorder_suggestions(company_id, sandbox=sb, owner_uid=owner_uid)
     expirations = InventoryAlertService.get_expiration_alerts(company_id, sandbox=sb)
 
     return render_template("inventario/alerts.html", active_page="inventory_alerts",
@@ -376,7 +377,7 @@ def new_receipt():
         }
 
         GoodsReceiptService.create_receipt(company_id, receipt_data, sandbox=sandbox)
-        GoodsReceiptService.register_receipt_inventory(company_id, receipt_data, sandbox=sandbox)
+        GoodsReceiptService.register_receipt_inventory(company_id, receipt_data, sandbox=sandbox, owner_uid=owner_uid)
 
         po_items_map = {item["poItemId"]: item for item in receipt_items}
         for item in po.get("items", []):
@@ -416,8 +417,8 @@ def new_receipt():
 
     receipt_number = GoodsReceiptService.get_next_receipt_number(company_id, sandbox=sandbox)
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    warehouses = DatabaseService.get_warehouses(company_id=company_id, sandbox=sandbox)
-    catalog_items = DatabaseService.get_items(company_id=company_id, sandbox=sandbox, branch_id=g.get("branch_id"), project_id=g.get("project_id"))
+    warehouses = DatabaseService.get_warehouses(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox)
+    catalog_items = DatabaseService.get_items(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get("branch_id"), project_id=g.get("project_id"))
     catalog_items = [i for i in catalog_items if i.get("isActive", True)]
     return render_template("inventario/new_receipt.html",
                            order=po, receipt_number=receipt_number, today=today,

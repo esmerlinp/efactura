@@ -58,7 +58,7 @@ class InventoryAlertService:
         return alerts
 
     @staticmethod
-    def get_reorder_suggestions(company_id, sandbox=True):
+    def get_reorder_suggestions(company_id, sandbox=True, owner_uid=""):
         """
         Sugiere órdenes de compra basadas en consumo mensual promedio.
         Retorna lista de {itemId, itemName, currentStock, minStock, maxStock,
@@ -66,9 +66,9 @@ class InventoryAlertService:
         """
         from app.services.db_service import DatabaseService
 
-        items = DatabaseService.get_items(company_id=company_id, sandbox=sandbox)
-        stocks = DatabaseService.get_inventory_stock(company_id=company_id, sandbox=sandbox)
-        txs = DatabaseService.get_inventory_transactions(company_id, sandbox=sandbox)
+        items = DatabaseService.get_items(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox)
+        stocks = DatabaseService.get_inventory_stock(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox)
+        txs = DatabaseService.get_inventory_transactions(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
 
         today = date.today()
         three_months_ago = today - timedelta(days=90)

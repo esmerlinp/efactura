@@ -286,15 +286,10 @@ body:not(.sidebar-collapsed) .sidebar-logo .logo-text-wrapper {
     font-family: var(--font-heading);
     font-size: 1.2rem;
     font-weight: 700;
-    background: var(--brand-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--accent-emerald);
 }
 
 body.sandbox-mode .sidebar-logo span.logo-title {
-    background: none;
-    -webkit-background-clip: unset;
-    -webkit-text-fill-color: var(--text-primary);
     color: var(--text-primary);
 }
 

@@ -48,13 +48,13 @@ class PhysicalCountService:
         return None
 
     @classmethod
-    def start_count(cls, company_id, warehouse_id, warehouse_name, started_by, sandbox=True):
+    def start_count(cls, company_id, warehouse_id, warehouse_name, started_by, sandbox=True, owner_uid=""):
         """Inicia un conteo físico y toma snapshot del stock actual."""
         from app.services.db_service import DatabaseService
 
-        items = DatabaseService.get_items(company_id=company_id, sandbox=sandbox)
+        items = DatabaseService.get_items(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox)
         goods = [it for it in items if it.get("type", "Bien") == "Bien"]
-        stocks = DatabaseService.get_inventory_stock(company_id=company_id, sandbox=sandbox)
+        stocks = DatabaseService.get_inventory_stock(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox)
 
         lines = []
         stock_map = {}
@@ -119,7 +119,7 @@ class PhysicalCountService:
         return True
 
     @classmethod
-    def finalize_count(cls, company_id, count_id, finalized_by, tolerance=0.01, sandbox=True):
+    def finalize_count(cls, company_id, count_id, finalized_by, tolerance=0.01, sandbox=True, owner_uid=""):
         """
         Finaliza el conteo y genera ajustes automáticos para diferencias > tolerancia.
         Retorna (success, summary_dict).
@@ -147,7 +147,7 @@ class PhysicalCountService:
                 adjustments += 1
 
                 tx_type = "ENTRADA" if diff > 0 else "SALIDA"
-                DatabaseService.register_inventory_transaction(company_id, {
+                DatabaseService.register_inventory_transaction(owner_uid, {
                     "type": tx_type,
                     "itemId": line["itemId"],
                     "itemName": line["itemName"],

@@ -299,8 +299,7 @@ textarea {
     font-family: 'Google Sans', var(--font-heading);
     font-size: 1.2rem;
     font-weight: 500;
-    color: var(--text-secondary);
-    /* Color gris característico de Firebase */
+    color: var(--accent-emerald);
     letter-spacing: -0.5px;
     line-height: 1;
 }

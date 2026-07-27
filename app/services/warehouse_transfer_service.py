@@ -66,7 +66,7 @@ class WarehouseTransferService:
             return None
 
     @classmethod
-    def approve_transfer(cls, company_id, transfer_id, approved_by, sandbox=True):
+    def approve_transfer(cls, company_id, transfer_id, approved_by, sandbox=True, owner_uid=""):
         """Aprueba y ejecuta la transferencia, moviendo stock."""
         from app.services.db_service import DatabaseService
 
@@ -83,7 +83,7 @@ class WarehouseTransferService:
             qty = float(line["quantity"])
             item_name = line.get("itemName", "")
 
-            DatabaseService.register_inventory_transaction(company_id, {
+            DatabaseService.register_inventory_transaction(owner_uid, {
                 "type": "SALIDA",
                 "itemId": item_id,
                 "itemName": item_name,
@@ -93,10 +93,10 @@ class WarehouseTransferService:
                 "referenceId": transfer_id,
                 "notes": f"Transferencia #{transfer_id[:8]} → {transfer.get('destinationWarehouseName', '')}",
                 "performedBy": approved_by,
-            }, sandbox=sandbox)
+            }, company_id=company_id, sandbox=sandbox)
 
             cost = line.get("unitCost", 0.0)
-            DatabaseService.register_inventory_transaction(company_id, {
+            DatabaseService.register_inventory_transaction(owner_uid, {
                 "type": "ENTRADA",
                 "itemId": item_id,
                 "itemName": item_name,
@@ -106,7 +106,7 @@ class WarehouseTransferService:
                 "referenceId": transfer_id,
                 "notes": f"Transferencia #{transfer_id[:8]} ← {transfer.get('originWarehouseName', '')}",
                 "performedBy": approved_by,
-            }, sandbox=sandbox)
+            }, company_id=company_id, sandbox=sandbox)
 
             if cost > 0:
                 from app.services.inventory_costing_service import InventoryCostingService

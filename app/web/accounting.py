@@ -112,8 +112,8 @@ def dashboard():
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
-    sandbox = _sandbox()
     company_id = session.get('selected_company_id')
+    sandbox = _sandbox()
     AccountingService.seed_default_accounts(company_id, country=get_current_country())
     AccountingService.seed_default_entry_types(company_id)
     tree, accounts = AccountingService.get_accounts_tree(company_id)
@@ -150,6 +150,7 @@ def chart_of_accounts():
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     tree_data, all_accounts = AccountingService.get_accounts_tree(company_id)
     account_groups = ACCOUNT_GROUPS
     flat_list = _flatten_tree(tree_data, all_accounts)
@@ -169,6 +170,7 @@ def api_accounts():
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     AccountingService.seed_default_accounts(company_id, country=get_current_country())
     accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
     return jsonify(success=True, accounts=accounts)
@@ -181,6 +183,7 @@ def api_accounts_tree():
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     AccountingService.seed_default_accounts(company_id, country=get_current_country())
     tree, accounts = AccountingService.get_accounts_tree(company_id)
     return jsonify(success=True, tree=tree)
@@ -195,6 +198,7 @@ def create_account():
     if not check_permission('canAccounting'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     account_id = str(uuid.uuid4())
     parent_id = request.form.get('parentId') or None
     group = request.form.get('group', 'activos')
@@ -239,6 +243,7 @@ def edit_account(account_id):
     if not check_permission('canAccounting'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     account = DatabaseService.get_account(owner_uid, account_id, company_id=company_id)
     if not account:
         flash('❌ Cuenta contable no encontrada.', 'error')
@@ -266,6 +271,7 @@ def delete_account(account_id):
     if not check_permission('canAccounting'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     account = DatabaseService.get_account(owner_uid, account_id, company_id=company_id)
     if not account:
         return jsonify(success=False, error="Cuenta no encontrada"), 404
@@ -295,6 +301,7 @@ def account_movements(account_id):
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     account = DatabaseService.get_account(owner_uid, account_id, company_id=company_id)
     if not account:
         flash('❌ Cuenta contable no encontrada.', 'error')
@@ -326,6 +333,7 @@ def journal_entries():
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     sandbox = _sandbox()
     AccountingService.seed_default_accounts(company_id, country=get_current_country())
     entries = DatabaseService.get_accounting_entries(owner_uid, company_id=company_id, sandbox=sandbox)
@@ -421,6 +429,7 @@ def new_journal_entry():
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     sandbox = _sandbox()
     AccountingService.seed_default_accounts(company_id, country=get_current_country())
     AccountingService.seed_default_entry_types(company_id)
@@ -479,6 +488,7 @@ def journal_entry_detail(entry_id):
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     sandbox = _sandbox()
     entry = DatabaseService.get_accounting_entry(owner_uid, entry_id, company_id=company_id, sandbox=sandbox)
     if not entry:
@@ -498,6 +508,7 @@ def void_journal_entry(entry_id):
     if not check_permission('canAccounting'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     sandbox = _sandbox()
     reason = request.form.get('reason', '')
     AccountingService.void_entry(company_id, entry_id, reason=reason, user_id=session['user'].get('uid', ''), sandbox=sandbox)
@@ -514,6 +525,7 @@ def clone_journal_entry(entry_id):
     if not check_permission('canAccounting'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     sandbox = _sandbox()
     new_entry = AccountingService.clone_entry(company_id, entry_id, sandbox=sandbox)
     if new_entry:
@@ -535,6 +547,7 @@ def general_journal():
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     sandbox = _sandbox()
     entries = DatabaseService.get_accounting_entries(owner_uid, company_id=company_id, sandbox=sandbox)
     date_from = request.args.get('dateFrom', '')
@@ -567,6 +580,7 @@ def balance_sheet():
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     AccountingService.seed_default_accounts(company_id, country=get_current_country())
     accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
 
@@ -948,6 +962,7 @@ def income_statement():
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     AccountingService.seed_default_accounts(company_id, country=get_current_country())
     accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
 
@@ -1373,6 +1388,7 @@ def trial_balance():
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     date = request.args.get('date', '')
     result = AccountingService.get_trial_balance(company_id, date=date or None)
     return render_template('accounting/trial_balance.html',
@@ -1395,6 +1411,7 @@ def general_ledger():
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     sandbox = _sandbox()
     entries = DatabaseService.get_accounting_entries(owner_uid, company_id=company_id, sandbox=sandbox)
     all_accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
@@ -1509,6 +1526,7 @@ def fixed_assets():
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     sandbox = _sandbox()
     AccountingService.seed_default_accounts(company_id, country=get_current_country())
     assets = DatabaseService.get_fixed_assets(owner_uid, company_id=company_id, sandbox=sandbox)
@@ -1531,6 +1549,7 @@ def new_fixed_asset():
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     sandbox = _sandbox()
     AccountingService.seed_default_accounts(company_id, country=get_current_country())
     accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
@@ -1574,6 +1593,7 @@ def fixed_asset_detail(asset_id):
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     sandbox = _sandbox()
     asset = DatabaseService.get_fixed_asset(owner_uid, asset_id, company_id=company_id, sandbox=sandbox)
     if not asset:
@@ -1593,6 +1613,7 @@ def depreciate_asset(asset_id):
     if not check_permission('canAccounting'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     sandbox = _sandbox()
     try:
         periods = int(request.form.get('periods', 1))
@@ -1614,6 +1635,7 @@ def dispose_asset(asset_id):
     if not check_permission('canAccounting'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     sandbox = _sandbox()
     try:
         disposal_data = {
@@ -1640,6 +1662,7 @@ def entry_types_settings():
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     AccountingService.seed_default_entry_types(company_id)
     if request.method == 'POST':
         type_id = str(uuid.uuid4())
@@ -1670,6 +1693,7 @@ def delete_entry_type(type_id):
     if not check_permission('canAccounting'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     DatabaseService.delete_entry_type(owner_uid, type_id, company_id=company_id)
     return jsonify(success=True, message="Tipo de entrada eliminado.")
 
@@ -1686,6 +1710,7 @@ def initial_balances():
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     sandbox = _sandbox()
     AccountingService.seed_default_accounts(company_id, country=get_current_country())
     accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
@@ -1739,6 +1764,7 @@ def import_initial_balances():
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     sandbox = _sandbox()
     AccountingService.seed_default_accounts(company_id, country=get_current_country())
     accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
@@ -1843,6 +1869,7 @@ def download_initial_balances_template():
     if not user:
         return redirect(url_for('web_auth.login'))
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
 
     wb = openpyxl.Workbook()
@@ -1885,6 +1912,7 @@ def api_import_entries():
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     sandbox = _sandbox()
     try:
         data = request.get_json()
@@ -1920,6 +1948,7 @@ def list_cost_centers():
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     sandbox = _sandbox()
     cost_centers = DatabaseService.get_cost_centers(owner_uid, company_id=company_id, sandbox=sandbox)
     return render_template('accounting/cost_centers.html',
@@ -1936,6 +1965,7 @@ def new_cost_center():
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     sandbox = _sandbox()
     center_id = str(uuid.uuid4())
     center_dict = {
@@ -1961,6 +1991,7 @@ def edit_cost_center(center_id):
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     sandbox = _sandbox()
     existing = DatabaseService.get_cost_center(owner_uid, center_id, company_id=company_id, sandbox=sandbox)
     if not existing:
@@ -1990,6 +2021,7 @@ def delete_cost_center_route(center_id):
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     sandbox = _sandbox()
     DatabaseService.delete_cost_center(owner_uid, center_id, company_id=company_id, sandbox=sandbox)
     flash('✅ Centro de costo eliminado.', 'success')
@@ -2004,6 +2036,7 @@ def ajax_create_cost_center():
     if not user:
         return jsonify(success=False, error="No autorizado"), 401
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     sandbox = _sandbox()
     data = request.get_json(silent=True) or {}
     name = (data.get('name') or '').strip()
@@ -2178,6 +2211,7 @@ def tax_obligations():
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     from app.services.tax_obligation_service import TaxObligationService
     TaxObligationService.seed_defaults(owner_uid)
     obligations = TaxObligationService.get_all(owner_uid)
@@ -2198,6 +2232,7 @@ def tax_obligations_save():
     if not check_permission('canAccounting'):
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
     key = request.form.get('key', '')
     enabled = request.form.get('enabled', '1') == '1'
     first_due_date = request.form.get('first_due_date', '')
