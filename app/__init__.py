@@ -138,6 +138,8 @@ def create_app():
                         session['selected_company_id']
                     )
                     session['company_context'] = ctx
+                    if ctx and ctx.get('permissions'):
+                        fresh_profile.setdefault('permissions', {}).update(ctx['permissions'])
                 else:
                     session.pop('company_context', None)
 

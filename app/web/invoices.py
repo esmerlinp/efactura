@@ -51,6 +51,9 @@ ALL_PERMISSION_KEYS = [
     "canAccounting", "isPosSupervisor", "canViewSubscription",
     "canToggleSandbox", "canManageNotes", "canManageSuppliers",
     "canManagePurchaseCXP", "canUseChatbot", "canManageTools",
+    "canHR", "canVoidInvoice", "canCreateSupplier",
+    "canApprovePayments", "canApprovePayroll", "canApproveExpenses",
+    "canSupervisePOS",
 ]
 
 ROLES_PRESETS = {
@@ -63,7 +66,10 @@ ROLES_PRESETS = {
         "canViewAuditLog": False, "canAccounting": False, "isPosSupervisor": False,
         "canViewSubscription": False, "canToggleSandbox": False, "canManageNotes": False,
         "canManageSuppliers": False, "canManagePurchaseCXP": False, "canUseChatbot": False,
-        "canManageTools": False,
+        "canManageTools": False, "canHR": False,
+        "canVoidInvoice": False, "canCreateSupplier": False,
+        "canApprovePayments": False, "canApprovePayroll": False,
+        "canApproveExpenses": False, "canSupervisePOS": False,
     },
     "contador": {
         "canInvoice": True, "canExpenses": True, "canClients": False,
@@ -73,7 +79,10 @@ ROLES_PRESETS = {
         "canViewAuditLog": False, "canAccounting": True, "isPosSupervisor": False,
         "canViewSubscription": False, "canToggleSandbox": False, "canManageNotes": False,
         "canManageSuppliers": False, "canManagePurchaseCXP": False, "canUseChatbot": False,
-        "canManageTools": False,
+        "canManageTools": False, "canHR": True,
+        "canVoidInvoice": False, "canCreateSupplier": False,
+        "canApprovePayments": False, "canApprovePayroll": False,
+        "canApproveExpenses": False, "canSupervisePOS": False,
     },
     "consulta": {
         "canInvoice": False, "canExpenses": False, "canClients": False,
@@ -83,6 +92,10 @@ ROLES_PRESETS = {
         "canViewAuditLog": True, "canAccounting": False, "isPosSupervisor": False,
         "canViewSubscription": False, "canToggleSandbox": False, "canManageNotes": False,
         "canManageSuppliers": False, "canManagePurchaseCXP": False, "canUseChatbot": False,
+        "canManageTools": False, "canHR": True,
+        "canVoidInvoice": False, "canCreateSupplier": False,
+        "canApprovePayments": False, "canApprovePayroll": False,
+        "canApproveExpenses": False, "canSupervisePOS": False,
     },
 }
 
@@ -101,7 +114,7 @@ PERMISSION_GROUPS = [
     {
         "name": "Financiero",
         "perms": ["canExpenses", "canManageCXC", "canManageCXP", "canManagePurchaseCXP",
-                  "canManageCommissions", "canAccounting", "canViewBI"],
+                  "canManageCommissions", "canAccounting", "canViewBI", "canManageContracts"],
         "labels": {
             "canExpenses": "Gastos y egresos",
             "canManageCXC": "Cuentas por cobrar (CxC)",
@@ -110,13 +123,16 @@ PERMISSION_GROUPS = [
             "canManageCommissions": "Comisiones y metas",
             "canAccounting": "Contabilidad",
             "canViewBI": "Inteligencia financiera (BI)",
+            "canManageContracts": "Contratos y recurrencia",
         },
     },
     {
         "name": "Administración",
         "perms": ["canModifySettings", "canViewAuditLog", "canViewSubscription",
                   "canToggleSandbox", "canManageNotes", "canManageSuppliers",
-                  "canUseChatbot", "isPosSupervisor"],
+                  "canUseChatbot", "isPosSupervisor", "canSupervisePOS",
+                  "canHR", "canVoidInvoice", "canCreateSupplier",
+                  "canApprovePayments", "canApprovePayroll", "canApproveExpenses"],
         "labels": {
             "canModifySettings": "Ajustes de empresa",
             "canViewAuditLog": "Registro de auditoría",
@@ -126,6 +142,13 @@ PERMISSION_GROUPS = [
             "canManageSuppliers": "Proveedores",
             "canUseChatbot": "Asistente IA",
             "isPosSupervisor": "Supervisor de caja (POS)",
+            "canSupervisePOS": "Supervisión avanzada de POS",
+            "canHR": "Nómina y RRHH",
+            "canVoidInvoice": "Anular facturas",
+            "canCreateSupplier": "Crear proveedores",
+            "canApprovePayments": "Aprobar pagos",
+            "canApprovePayroll": "Autorizar pagos de nómina",
+            "canApproveExpenses": "Aprobar gastos",
         },
     },
     {
@@ -7999,8 +8022,8 @@ def add_team_member():
             role="employee",
             owner_uid=owner_uid
         )
-        # Actualizar permisos según rol + overrides
-        DatabaseService.update_employee_permissions(profile['uid'], permissions, role=role if role != 'personalizado' else None)
+        # Actualizar permisos según rol + overrides (sincroniza también company_memberships)
+        DatabaseService.update_employee_permissions(profile['uid'], permissions, role=role if role != 'personalizado' else None, company_id=company_id)
         
         from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_USUARIOS
         AuditService.log_from_request(
@@ -8168,29 +8191,9 @@ def update_team_member_permissions(employee_uid):
         flash('No tienes permisos de propietario.', 'error')
         return redirect(url_for('web_invoices.team_settings'))
     
-    permissions = {
-        "canInvoice": 'canInvoice' in request.form,
-        "canExpenses": 'canExpenses' in request.form,
-        "canClients": 'canClients' in request.form,
-        "canModifySettings": 'canModifySettings' in request.form,
-        "canManageInventory": 'canManageInventory' in request.form,
-        "canManagePOS": 'canManagePOS' in request.form,
-        "canViewDashboard": 'canViewDashboard' in request.form,
-        "canManageCXC": 'canManageCXC' in request.form,
-        "canManageCXP": 'canManageCXP' in request.form,
-        "canManageContracts": 'canManageContracts' in request.form,
-        "canManageCommissions": 'canManageCommissions' in request.form,
-        "canViewBI": 'canViewBI' in request.form,
-        "canViewAuditLog": 'canViewAuditLog' in request.form,
-        "canAccounting": 'canAccounting' in request.form,
-        "isPosSupervisor": 'isPosSupervisor' in request.form,
-        "canViewSubscription": 'canViewSubscription' in request.form,
-        "canToggleSandbox": 'canToggleSandbox' in request.form,
-        "canManageNotes": 'canManageNotes' in request.form,
-        "canManageSuppliers": 'canManageSuppliers' in request.form,
-        "canManagePurchaseCXP": 'canManagePurchaseCXP' in request.form,
-        "canUseChatbot": 'canUseChatbot' in request.form
-    }
+    permissions = {}
+    for k in ALL_PERMISSION_KEYS:
+        permissions[k] = k in request.form
 
     avatar_file = request.files.get('avatar')
     if avatar_file and avatar_file.filename:
@@ -8219,7 +8222,8 @@ def update_team_member_permissions(employee_uid):
             flash(f"Error al subir avatar: {str(e)}", "error")
     
     role = request.form.get('role', '')
-    if DatabaseService.update_employee_permissions(employee_uid, permissions, role=role or None):
+    company_id = session.get('selected_company_id')
+    if DatabaseService.update_employee_permissions(employee_uid, permissions, role=role or None, company_id=company_id):
         from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_USUARIOS
         AuditService.log_from_request(
             owner_uid=session['user']['ownerUID'],
@@ -8297,7 +8301,8 @@ def update_team_member_permissions_v2(employee_uid):
     for k in ALL_PERMISSION_KEYS:
         permissions[k] = k in request.form
 
-    if DatabaseService.update_employee_permissions(employee_uid, permissions, role=role):
+    company_id = session.get('selected_company_id')
+    if DatabaseService.update_employee_permissions(employee_uid, permissions, role=role, company_id=company_id):
         from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_USUARIOS
         AuditService.log_from_request(
             owner_uid=session['user']['ownerUID'],
