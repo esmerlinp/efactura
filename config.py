@@ -4,7 +4,43 @@ from dotenv import load_dotenv
 # Cargar variables de entorno del archivo .env
 load_dotenv(override=True)
 
+# ═══════════════════════════════════════════════════════════════════
+# APP_ENVIRONMENT — Master switch para modo de despliegue
+# Valores: production | staging | sandbox | development
+# Establece defaults sensatos para todas las variables dependientes.
+# Las variables explícitas en .env o Cloud Run siempre tienen prioridad.
+# ═══════════════════════════════════════════════════════════════════
+APP_ENVIRONMENT = os.getenv('APP_ENVIRONMENT', 'production').lower()
+if APP_ENVIRONMENT not in ('production', 'staging', 'sandbox', 'development'):
+    APP_ENVIRONMENT = 'production'
+
+_is_prod = APP_ENVIRONMENT == 'production'
+
+
+def _apply_env_default(key: str, value: str):
+    """Setea la variable de entorno solo si no fue definida explícitamente."""
+    if key not in os.environ:
+        os.environ[key] = value
+
+
+_apply_env_default('DGII_ENVIRONMENT', 'ecf' if _is_prod else 'testecf')
+_apply_env_default('DGII_SANDBOX_MODE', 'remote' if _is_prod else 'local')
+_apply_env_default('DGII_SIGNING_MODE', 'real' if _is_prod else 'mock')
+_apply_env_default('DGII_ALLOW_SIMULATION', 'false' if _is_prod else 'true')
+_apply_env_default('SESSION_COOKIE_SECURE', 'true' if _is_prod else 'false')
+_apply_env_default('RATELIMIT_DEFAULT',
+                   '2000/day;500/hour;200/minute' if _is_prod
+                   else '10000/day;2000/hour;500/minute')
+
+
 class Config:
+    # ─── Ambiente de despliegue ───────────────────────────────────
+    APP_ENVIRONMENT = os.getenv('APP_ENVIRONMENT', 'production').lower()
+    DEFAULT_SANDBOX_MODE = os.getenv(
+        'DEFAULT_SANDBOX_MODE',
+        'false' if APP_ENVIRONMENT == 'production' else 'true'
+    ).lower() in ('true', '1', 'yes')
+
     SECRET_KEY = os.getenv('SECRET_KEY')
     
     # Configuración de Firebase
@@ -44,27 +80,121 @@ class Config:
     # Proveedor de Emisión de e-CF (siempre dgii_direct)
     E_CF_PROVIDER = 'dgii_direct'
 
-    # Endpoints oficiales de la DGII (Legacy / compatibilidad)
-    DGII_AUTH_URL = os.getenv('DGII_AUTH_URL', 'https://ecf.dgii.gov.do/test/autenticacion/api/Autenticacion/Semilla')
-    DGII_RECEPCION_URL = os.getenv('DGII_RECEPCION_URL', 'https://ecf.dgii.gov.do/test/recepcion/api/Recepcion/Enviar')
+    # ─── DGII Ambient Configuration ──────────────────────────────
+    # DGII_ENVIRONMENT selects the API subdomain: testecf | certecf | ecf
+    DGII_ENVIRONMENT = os.getenv('DGII_ENVIRONMENT', 'testecf').lower()
+    _dgii_env = DGII_ENVIRONMENT
+    # Production environment override (used when sandbox=False)
+    DGII_ENVIRONMENT_PRODUCTION = os.getenv('DGII_ENVIRONMENT_PRODUCTION', 'ecf').lower()
+    _dgii_env_prod = DGII_ENVIRONMENT_PRODUCTION
 
-    # Endpoints DGII por entorno (preferidos)
-    DGII_AUTH_URL_SANDBOX = os.getenv('DGII_AUTH_URL_SANDBOX', DGII_AUTH_URL)
-    DGII_AUTH_URL_PRODUCTION = os.getenv('DGII_AUTH_URL_PRODUCTION', '')
-    DGII_TOKEN_URL_SANDBOX = os.getenv('DGII_TOKEN_URL_SANDBOX', os.getenv('DGII_TOKEN_URL', ''))
-    DGII_TOKEN_URL_PRODUCTION = os.getenv('DGII_TOKEN_URL_PRODUCTION', '')
-    DGII_RECEPCION_URL_SANDBOX = os.getenv('DGII_RECEPCION_URL_SANDBOX', DGII_RECEPCION_URL)
-    DGII_RECEPCION_URL_PRODUCTION = os.getenv('DGII_RECEPCION_URL_PRODUCTION', '')
-    DGII_STATUS_URL_SANDBOX = os.getenv('DGII_STATUS_URL_SANDBOX', os.getenv('DGII_STATUS_URL', ''))
-    DGII_STATUS_URL_PRODUCTION = os.getenv('DGII_STATUS_URL_PRODUCTION', '')
-    DGII_CANCEL_URL_SANDBOX = os.getenv('DGII_CANCEL_URL_SANDBOX', os.getenv('DGII_CANCEL_URL', ''))
-    DGII_CANCEL_URL_PRODUCTION = os.getenv('DGII_CANCEL_URL_PRODUCTION', '')
+    @classmethod
+    def _dgii_ecf_url(cls, path: str, sandbox: bool = True) -> str:
+        env = cls.DGII_ENVIRONMENT if sandbox else cls.DGII_ENVIRONMENT_PRODUCTION
+        return f"https://ecf.dgii.gov.do/{env}{path}"
+
+    @classmethod
+    def _dgii_fc_url(cls, path: str, sandbox: bool = True) -> str:
+        env = cls.DGII_ENVIRONMENT if sandbox else cls.DGII_ENVIRONMENT_PRODUCTION
+        return f"https://fc.dgii.gov.do/{env}{path}"
+
+    # ─── Autenticación ───────────────────────────────────────────
+    DGII_AUTH_SEMILLA_URL = os.getenv(
+        'DGII_AUTH_SEMILLA_URL',
+        f"https://ecf.dgii.gov.do/{_dgii_env}/autenticacion/api/autenticacion/semilla"
+    )
+    DGII_AUTH_VALIDAR_URL = os.getenv(
+        'DGII_AUTH_VALIDAR_URL',
+        f"https://ecf.dgii.gov.do/{_dgii_env}/autenticacion/api/autenticacion/validarsemilla"
+    )
+
+    # ─── Recepción e-CF ──────────────────────────────────────────
+    DGII_RECEPCION_URL = os.getenv(
+        'DGII_RECEPCION_URL',
+        f"https://ecf.dgii.gov.do/{_dgii_env}/recepcion/api/facturaselectronicas"
+    )
+
+    # ─── RFCE (Resumen Factura Consumo < RD$250K) ───────────────
+    DGII_RFCE_RECEPCION_URL = os.getenv(
+        'DGII_RFCE_RECEPCION_URL',
+        f"https://fc.dgii.gov.do/{_dgii_env}/recepcionfc/api/recepcion/ecf"
+    )
+    DGII_RFCE_CONSULTA_URL = os.getenv(
+        'DGII_RFCE_CONSULTA_URL',
+        f"https://fc.dgii.gov.do/{_dgii_env}/consultarfce/api/Consultas/Consulta"
+    )
+
+    # ─── Consultas ───────────────────────────────────────────────
+    DGII_CONSULTA_RESULTADO_URL = os.getenv(
+        'DGII_CONSULTA_RESULTADO_URL',
+        f"https://ecf.dgii.gov.do/{_dgii_env}/consultaresultado/api/consultas/estado"
+    )
+    DGII_CONSULTA_ESTADO_URL = os.getenv(
+        'DGII_CONSULTA_ESTADO_URL',
+        f"https://ecf.dgii.gov.do/{_dgii_env}/consultaestado/api/consultas/estado"
+    )
+    DGII_CONSULTA_TRACKIDS_URL = os.getenv(
+        'DGII_CONSULTA_TRACKIDS_URL',
+        f"https://ecf.dgii.gov.do/{_dgii_env}/consultatrackids/api/trackids/consulta"
+    )
+
+    # ─── Aprobación Comercial ────────────────────────────────────
+    DGII_APROBACION_COMERCIAL_URL = os.getenv(
+        'DGII_APROBACION_COMERCIAL_URL',
+        f"https://ecf.dgii.gov.do/{_dgii_env}/aprobacioncomercial/api/aprobacioncomercial"
+    )
+
+    # ─── Anulación de Rangos ─────────────────────────────────────
+    DGII_ANULACION_RANGOS_URL = os.getenv(
+        'DGII_ANULACION_RANGOS_URL',
+        f"https://ecf.dgii.gov.do/{_dgii_env}/anulacionrangos/api/operaciones/anularrango"
+    )
+
+    # ─── Directorio ──────────────────────────────────────────────
+    DGII_DIRECTORIO_LISTADO_URL = os.getenv(
+        'DGII_DIRECTORIO_LISTADO_URL',
+        f"https://ecf.dgii.gov.do/{_dgii_env}/consultadirectorio/api/consultas/listado"
+    )
+    DGII_DIRECTORIO_POR_RNC_URL = os.getenv(
+        'DGII_DIRECTORIO_POR_RNC_URL',
+        f"https://ecf.dgii.gov.do/{_dgii_env}/consultadirectorio/api/consultas/obtenerdirectorioporrnc"
+    )
+
+    # ─── Timbre QR ───────────────────────────────────────────────
+    DGII_CONSULTA_TIMBRE_URL = f"https://ecf.dgii.gov.do/{_dgii_env}/consultatimbre"
+    DGII_CONSULTA_TIMBRE_FC_URL = f"https://fc.dgii.gov.do/{_dgii_env}/consultatimbrefc"
+
+    # ─── Producción URLs (override para sandbox=False) ──────────
+    DGII_RECEPCION_URL_PRODUCTION = os.getenv(
+        'DGII_RECEPCION_URL_PRODUCTION',
+        f"https://ecf.dgii.gov.do/{_dgii_env_prod}/recepcion/api/facturaselectronicas"
+    )
+    DGII_AUTH_SEMILLA_URL_PRODUCTION = os.getenv(
+        'DGII_AUTH_SEMILLA_URL_PRODUCTION',
+        f"https://ecf.dgii.gov.do/{_dgii_env_prod}/autenticacion/api/autenticacion/semilla"
+    )
+    DGII_AUTH_VALIDAR_URL_PRODUCTION = os.getenv(
+        'DGII_AUTH_VALIDAR_URL_PRODUCTION',
+        f"https://ecf.dgii.gov.do/{_dgii_env_prod}/autenticacion/api/autenticacion/validarsemilla"
+    )
+    DGII_CONSULTA_RESULTADO_URL_PRODUCTION = os.getenv(
+        'DGII_CONSULTA_RESULTADO_URL_PRODUCTION',
+        f"https://ecf.dgii.gov.do/{_dgii_env_prod}/consultaresultado/api/consultas/estado"
+    )
+    DGII_ANULACION_RANGOS_URL_PRODUCTION = os.getenv(
+        'DGII_ANULACION_RANGOS_URL_PRODUCTION',
+        f"https://ecf.dgii.gov.do/{_dgii_env_prod}/anulacionrangos/api/operaciones/anularrango"
+    )
+    DGII_RFCE_RECEPCION_URL_PRODUCTION = os.getenv(
+        'DGII_RFCE_RECEPCION_URL_PRODUCTION',
+        f"https://fc.dgii.gov.do/{_dgii_env_prod}/recepcionfc/api/recepcion/ecf"
+    )
+    DGII_RFCE_CONSULTA_URL_PRODUCTION = os.getenv(
+        'DGII_RFCE_CONSULTA_URL_PRODUCTION',
+        f"https://fc.dgii.gov.do/{_dgii_env_prod}/consultarfce/api/Consultas/Consulta"
+    )
 
     DGII_HTTP_TIMEOUT = int(os.getenv('DGII_HTTP_TIMEOUT', '20'))
-    DGII_TOKEN_CONTENT_TYPE = os.getenv('DGII_TOKEN_CONTENT_TYPE', 'application/json')
-    DGII_RECEPCION_CONTENT_TYPE = os.getenv('DGII_RECEPCION_CONTENT_TYPE', 'application/json')
-    DGII_STATUS_CONTENT_TYPE = os.getenv('DGII_STATUS_CONTENT_TYPE', 'application/json')
-    DGII_CANCEL_CONTENT_TYPE = os.getenv('DGII_CANCEL_CONTENT_TYPE', 'application/json')
     DGII_SIGNING_MODE = os.getenv('DGII_SIGNING_MODE', 'mock')
     DGII_ALLOW_SIMULATION = os.getenv('DGII_ALLOW_SIMULATION', 'true').lower() == 'true'
     DGII_SANDBOX_MODE = os.getenv('DGII_SANDBOX_MODE', 'local').lower()

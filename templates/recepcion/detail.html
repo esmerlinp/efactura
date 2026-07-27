@@ -1,0 +1,84 @@
+{% extends "layout.html" %}
+{% block title %}e-CF Recibido - {{ doc.encf }}{% endblock %}
+{% block page_header %}e-CF Recibido{% endblock %}
+{% block content %}
+<div style="max-width: 900px; margin: 0 auto;">
+<div class="breadcrumb" style="display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--text-muted);margin-bottom:16px;">
+    <a href="{{ url_for('web_recepcion.list_received_ecf') }}" style="color:var(--text-muted);text-decoration:none;">e-CF Recibidos</a>
+    <span class="sep" style="color:#cbd5e1;">/</span>
+    <span>{{ doc.encf }}</span>
+</div>
+
+<div class="card" style="padding: 24px;">
+    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 24px;">
+        <div>
+            <h2 style="margin: 0 0 4px;">e-CF {{ doc.encf }}</h2>
+            <p style="color: var(--text-secondary); margin: 0; font-size: 0.88rem;">
+                {{ doc.ecf_type or 'Tipo no especificado' }}
+            </p>
+        </div>
+        <div>
+            {% if doc.status == 'recibido' %}
+            <span class="badge badge-warning" style="font-size: 0.85rem; padding: 6px 14px;">Recibido</span>
+            {% elif doc.status == 'procesado' %}
+            <span class="badge badge-success" style="font-size: 0.85rem; padding: 6px 14px;">Procesado</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px;">
+        <div class="info-group">
+            <label style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Remitente (RNC)</label>
+            <p style="margin: 4px 0 0; font-weight: 600;">{{ doc.sender_rnc or '-' }}</p>
+        </div>
+        <div class="info-group">
+            <label style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Razón Social Remitente</label>
+            <p style="margin: 4px 0 0;">{{ doc.sender_name or '-' }}</p>
+        </div>
+        <div class="info-group">
+            <label style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Receptor (RNC)</label>
+            <p style="margin: 4px 0 0; font-weight: 600;">{{ doc.receiver_rnc or '-' }}</p>
+        </div>
+        <div class="info-group">
+            <label style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Monto Total</label>
+            <p style="margin: 4px 0 0; font-weight: 600;">$ {{ "%.2f"|format(doc.monto_total|float) if doc.monto_total else '0.00' }}</p>
+        </div>
+        <div class="info-group">
+            <label style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">e-NCF</label>
+            <p style="margin: 4px 0 0; font-weight: 600;">{{ doc.encf or '-' }}</p>
+        </div>
+        <div class="info-group">
+            <label style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Fecha de Recepción</label>
+            <p style="margin: 4px 0 0;">{{ (doc.received_at or '')[:19] }}</p>
+        </div>
+        <div class="info-group">
+            <label style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Track ID</label>
+            <p style="margin: 4px 0 0; font-family: monospace; font-size: 0.82rem;">{{ doc.track_id or '-' }}</p>
+        </div>
+    </div>
+
+    <div style="display: flex; gap: 12px; margin-top: 16px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+        <a href="{{ url_for('web_recepcion.download_received_xml', ecf_id=doc.id) }}" class="btn btn-primary">
+            <i class="fa-solid fa-download"></i> Descargar XML Recibido
+        </a>
+        <a href="{{ url_for('web_recepcion.download_arecf', ecf_id=doc.id) }}" class="btn btn-secondary">
+            <i class="fa-solid fa-receipt"></i> Descargar ARECF
+        </a>
+    </div>
+</div>
+
+{% if doc.xml_content %}
+<div class="card" style="padding: 24px; margin-top: 20px;">
+    <h3 style="margin: 0 0 12px; font-size: 1rem;">XML del e-CF Recibido</h3>
+    <pre style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 6px; padding: 16px; overflow-x: auto; font-size: 0.78rem; max-height: 400px; line-height: 1.5;">{{ doc.xml_content }}</pre>
+</div>
+{% endif %}
+
+{% if doc.arecf_xml %}
+<div class="card" style="padding: 24px; margin-top: 20px;">
+    <h3 style="margin: 0 0 12px; font-size: 1rem;">ARECF — Acuse de Recibo</h3>
+    <pre style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 6px; padding: 16px; overflow-x: auto; font-size: 0.78rem; max-height: 400px; line-height: 1.5;">{{ doc.arecf_xml }}</pre>
+</div>
+{% endif %}
+</div>
+{% endblock %}

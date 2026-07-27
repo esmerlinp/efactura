@@ -430,57 +430,11 @@
 
     <div style="display:flex; justify-content:flex-end; gap:var(--space-2); flex-wrap:wrap;">
         <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost">Cancelar</a>
-        <button type="submit" class="btn btn-primary"
+        <button type="submit" class="btn btn-primary" id="btnProcesar"
                 onclick="return startPayrollProcessing()" {{ 'disabled' if no_groups }}>
             <i class="fa-solid fa-play"></i> Procesar Nómina
         </button>
     </div>
-
-    <!-- Processing overlay -->
-    <div id="payrollProcessOverlay" style="display:none; position:fixed; inset:0; z-index:99998; background:rgba(0,0,0,0.55); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); flex-direction:column; align-items:center; justify-content:center;">
-        <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-xl); padding:40px 36px; max-width:440px; width:90%; text-align:center; box-shadow:var(--shadow-xl); animation:fadeInUp 0.35s ease;">
-            <div style="position:relative; display:inline-block; margin-bottom:20px;">
-                <div style="width:72px; height:72px; border-radius:50%; background:rgba(16,185,129,0.12); display:flex; align-items:center; justify-content:center; margin:0 auto;">
-                    <i class="fa-solid fa-calculator" style="font-size:2rem; color:var(--accent-emerald);"></i>
-                </div>
-                <div style="position:absolute; bottom:-4px; right:-4px; width:26px; height:26px; border-radius:50%; background:var(--accent-emerald); display:flex; align-items:center; justify-content:center;">
-                    <i class="fa-solid fa-gear fa-spin" style="font-size:0.7rem; color:#fff;"></i>
-                </div>
-            </div>
-            <h2 style="margin:0 0 6px; font-size:1.2rem; font-weight:700; color:var(--text-primary);">Procesando nómina</h2>
-            <p style="margin:0 0 28px; font-size:0.82rem; color:var(--text-muted);">Esto puede tomar unos segundos. No cierres la ventana.</p>
-            <div id="processSteps" style="text-align:left; display:flex; flex-direction:column; gap:12px;">
-                <div class="proc-step" data-step="0" style="display:flex; align-items:center; gap:10px; font-size:0.82rem; color:var(--text-muted); transition:color 0.3s;">
-                    <span class="step-icon" style="width:22px; height:22px; border-radius:50%; border:2px solid var(--border-color); display:flex; align-items:center; justify-content:center; font-size:0.6rem; flex-shrink:0; transition:all 0.3s;">1</span>
-                    <span>Validando período</span>
-                </div>
-                <div class="proc-step" data-step="1" style="display:flex; align-items:center; gap:10px; font-size:0.82rem; color:var(--text-muted); transition:color 0.3s;">
-                    <span class="step-icon" style="width:22px; height:22px; border-radius:50%; border:2px solid var(--border-color); display:flex; align-items:center; justify-content:center; font-size:0.6rem; flex-shrink:0; transition:all 0.3s;">2</span>
-                    <span>Calculando ingresos y horas extra</span>
-                </div>
-                <div class="proc-step" data-step="2" style="display:flex; align-items:center; gap:10px; font-size:0.82rem; color:var(--text-muted); transition:color 0.3s;">
-                    <span class="step-icon" style="width:22px; height:22px; border-radius:50%; border:2px solid var(--border-color); display:flex; align-items:center; justify-content:center; font-size:0.6rem; flex-shrink:0; transition:all 0.3s;">3</span>
-                    <span>Aplicando deducciones (AFP, SFS, ISR)</span>
-                </div>
-                <div class="proc-step" data-step="3" style="display:flex; align-items:center; gap:10px; font-size:0.82rem; color:var(--text-muted); transition:color 0.3s;">
-                    <span class="step-icon" style="width:22px; height:22px; border-radius:50%; border:2px solid var(--border-color); display:flex; align-items:center; justify-content:center; font-size:0.6rem; flex-shrink:0; transition:all 0.3s;">4</span>
-                    <span>Calculando aportes del empleador</span>
-                </div>
-                <div class="proc-step" data-step="4" style="display:flex; align-items:center; gap:10px; font-size:0.82rem; color:var(--text-muted); transition:color 0.3s;">
-                    <span class="step-icon" style="width:22px; height:22px; border-radius:50%; border:2px solid var(--border-color); display:flex; align-items:center; justify-content:center; font-size:0.6rem; flex-shrink:0; transition:all 0.3s;">5</span>
-                    <span>Generando asiento contable</span>
-                </div>
-            </div>
-        </div>
-    </div>
-    <style>
-        @keyframes fadeInUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes stepPulse { 0%,100% { box-shadow:0 0 0 0 rgba(16,185,129,0.4); } 50% { box-shadow:0 0 0 6px rgba(16,185,129,0); } }
-        .proc-step.active { color:var(--text-primary) !important; }
-        .proc-step.active .step-icon { border-color:var(--accent-emerald) !important; background:var(--accent-emerald) !important; color:#fff !important; animation:stepPulse 1.4s infinite; }
-        .proc-step.done { color:var(--text-primary) !important; }
-        .proc-step.done .step-icon { border-color:var(--accent-emerald) !important; background:var(--accent-emerald) !important; color:#fff !important; }
-    </style>
 </form>
 </div>
 {% endblock %}
@@ -630,21 +584,9 @@ function showBulkToast(msg) {
 }
 function startPayrollProcessing() {
     if (!confirm('¿Procesar nómina para {{ employees|length }} empleados? Se generará asiento contable automáticamente.')) return false;
-    var overlay = document.getElementById('payrollProcessOverlay');
-    overlay.style.display = 'flex';
-    var steps = document.querySelectorAll('.proc-step');
-    var current = 0;
-    var total = steps.length;
-    function advanceStep() {
-        if (current < total) {
-            steps[current].classList.add('active');
-            current++;
-            if (current < total) {
-                setTimeout(advanceStep, 700);
-            }
-        }
-    }
-    setTimeout(advanceStep, 400);
+    var btn = document.getElementById('btnProcesar');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Validando...';
     return true;
 }
 

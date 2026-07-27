@@ -19,6 +19,7 @@ class EcfReadinessService:
         "CERTIFICATE_PASSWORD_INVALID",
         "CERTIFICATE_CORRUPT",
         "CERTIFICATE_EXPIRED",
+        "CERTIFICATE_RNC_MISMATCH",
         "LOGO_MISSING",
         "CERTIFICATE_EXPIRING_SOON",
         "COMPANY_RNC_MISSING",
@@ -98,6 +99,15 @@ class EcfReadinessService:
                     "message": cert_detail.get("message", "El certificado digital no es válido.")
                 })
 
+            if certificate_info["valid"] and rnc:
+                cert_sn = cert_detail.get("subject_sn", "")
+                if cert_sn and cert_sn != rnc:
+                    blocking_errors.append({
+                        "code": "CERTIFICATE_RNC_MISMATCH",
+                        "message": f"El SN del certificado ({cert_sn}) no coincide con el RNC de la empresa ({rnc})."
+                    })
+                    certificate_info["valid"] = False
+
         # --- Logo ---
         logo_url = profile.get("logoUrl") or ""
         logo_b64 = profile.get("logoBase64") or ""
@@ -159,7 +169,16 @@ class EcfReadinessService:
         except AttributeError:
             not_after = cert.not_valid_after.isoformat()
 
-        return True, {"notAfter": not_after}
+        subject_sn = ""
+        try:
+            from cryptography import x509
+            sn_attrs = cert.subject.get_attributes_for_oid(x509.oid.NameOID.SERIAL_NUMBER)
+            if sn_attrs:
+                subject_sn = sn_attrs[0].value.strip()
+        except Exception:
+            pass
+
+        return True, {"notAfter": not_after, "subject_sn": subject_sn}
 
     @staticmethod
     def _empty_status():

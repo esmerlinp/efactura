@@ -45,6 +45,7 @@ def payroll_groups_new():
         name = request.form.get("name", "").strip()
         desc = request.form.get("description", "").strip()
         frequency = request.form.get("frequency", "mensual").strip()
+        apply_christmas = request.form.get("applyChristmasBonus") == "on"
         if not name:
             flash("El nombre del grupo es obligatorio.", "error")
             return render_template("rrhh/payroll_groups_form.html", active_page="rrhh_payroll", group=None)
@@ -55,10 +56,15 @@ def payroll_groups_new():
             "id": gid, "name": name, "description": desc,
             "frequency": frequency,
             "isActive": True,
+            "applyChristmasBonus": apply_christmas,
             "createdAt": now_iso, "updatedAt": now_iso,
             "createdBy": session.get("user", {}).get("email", ""),
         }
         hr.save_payroll_group(company_id, gid, data, sandbox=sandbox)
+
+        if apply_christmas:
+            _ensure_christmas_rule(company_id, gid, name, sandbox=sandbox)
+
         flash(f"Grupo de nómina «{name}» creado.", "success")
         return redirect(url_for("web_rrhh.payroll_groups_list"))
     return render_template("rrhh/payroll_groups_form.html", active_page="rrhh_payroll", group=None)
@@ -81,8 +87,16 @@ def payroll_groups_edit(group_id):
         group["description"] = request.form.get("description", "").strip()
         group["frequency"] = request.form.get("frequency", "mensual").strip()
         group["isActive"] = request.form.get("isActive") == "on"
+        apply_christmas = request.form.get("applyChristmasBonus") == "on"
+        group["applyChristmasBonus"] = apply_christmas
         group["updatedAt"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         hr.save_payroll_group(company_id, group_id, group, sandbox=sandbox)
+
+        if apply_christmas:
+            _ensure_christmas_rule(company_id, group_id, group["name"], sandbox=sandbox)
+        else:
+            _deactivate_christmas_rule(company_id, group_id, sandbox=sandbox)
+
         flash(f"Grupo «{group['name']}» actualizado.", "success")
         return redirect(url_for("web_rrhh.payroll_groups_list"))
     return render_template("rrhh/payroll_groups_form.html", active_page="rrhh_payroll", group=group)
@@ -157,11 +171,13 @@ def payroll_groups_view(group_id):
         "costCenterAccounts": global_rates.get("costCenterAccounts", default_rates["cost_center_accounts"]),
     }
     group_overrides = group.get("groupOverrides", {})
+    christmas_rule = _find_christmas_rule_for_group(company_id, group_id, sandbox=sandbox)
     return render_template("rrhh/payroll_groups_view.html", active_page="rrhh_payroll",
                            group=group, assigned=assigned, unassigned=unassigned,
                            periods=periods, global_rates=global_rates,
                            group_overrides=group_overrides,
-                           has_configured_params=has_configured_params)
+                           has_configured_params=has_configured_params,
+                           christmas_rule=christmas_rule)
 
 
 @web_rrhh_bp.route("/rrhh/payroll/groups/<group_id>/assign", methods=["POST"])
@@ -553,5 +569,70 @@ def payroll_groups_assign_salary(group_id):
 
     flash(f"Salario de RD$ {assigned_salary:,.2f} asignado al empleado en el grupo «{group.get('name', '')}».", "success")
     return redirect(url_for("web_rrhh.payroll_groups_view", group_id=group_id))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SALARIO DE NAVIDAD — Regla auto-generada
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _find_christmas_rule_for_group(company_id: str, group_id: str, sandbox: bool = True) -> dict | None:
+    """Busca una regla de salario de Navidad auto-generada para un grupo."""
+    rules = hr.get_payroll_rules(company_id, sandbox=sandbox)
+    for r in rules:
+        if r.get("generatedBy") == "christmas_bonus" and r.get("groupId") == group_id:
+            return r
+    return None
+
+
+def _ensure_christmas_rule(company_id: str, group_id: str, group_name: str, sandbox: bool = True):
+    """Crea o reactiva la regla de salario de Navidad para el grupo."""
+    from uuid import uuid4
+    from datetime import datetime, timezone
+
+    existing = _find_christmas_rule_for_group(company_id, group_id, sandbox=sandbox)
+    if existing:
+        if not existing.get("isActive", True):
+            existing["isActive"] = True
+            existing["updatedAt"] = datetime.now(timezone.utc).isoformat()
+            hr.save_payroll_rule(company_id, existing["id"], existing, sandbox=sandbox)
+        return
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    rule_id = str(uuid4())
+    rule_data = {
+        "id": rule_id,
+        "name": f"Salario de Navidad — {group_name}",
+        "description": f"Calcula la regalía pascual (Art. 219) para el grupo {group_name}. Generada automáticamente.",
+        "priority": 50,
+        "scope": "group",
+        "scopeIds": [group_id],
+        "logic": "AND",
+        "frequency": "annual",
+        "triggerMonth": 12,
+        "conditions": [],
+        "actions": [{
+            "type": "set_other_income",
+            "conceptCode": "REGALIA_PASCUAL",
+            "formula": "accumulated_ordinary_salary / 12",
+            "description": "Salario de Navidad",
+        }],
+        "isActive": True,
+        "generatedBy": "christmas_bonus",
+        "groupId": group_id,
+        "createdAt": now_iso,
+        "updatedAt": now_iso,
+        "createdBy": session.get("user", {}).get("email", ""),
+    }
+    hr.save_payroll_rule(company_id, rule_id, rule_data, sandbox=sandbox)
+
+
+def _deactivate_christmas_rule(company_id: str, group_id: str, sandbox: bool = True):
+    """Desactiva la regla de salario de Navidad si existe."""
+    from datetime import datetime, timezone
+    existing = _find_christmas_rule_for_group(company_id, group_id, sandbox=sandbox)
+    if existing and existing.get("isActive", True):
+        existing["isActive"] = False
+        existing["updatedAt"] = datetime.now(timezone.utc).isoformat()
+        hr.save_payroll_rule(company_id, existing["id"], existing, sandbox=sandbox)
 
 

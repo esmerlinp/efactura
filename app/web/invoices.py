@@ -152,7 +152,7 @@ def detect_role_from_permissions(permissions: dict) -> str:
             return role
     return "personalizado"
 
-def check_document_limit_exceeded(owner_uid, sandbox=True):
+def check_document_limit_exceeded(owner_uid, company_id=None, sandbox=True):
     """
     Verifica si la empresa ha excedido su límite de documentos emitidos.
     Retorna (excedido, mensaje_advertencia_o_error).
@@ -1735,7 +1735,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             flash('Cotización creada exitosamente como borrador.', 'success')
             return redirect(url_for('web_invoices.list_quotations'))
         elif action in ['emitir_cobrar', 'emitir_credito']:
-            exceeded, limit_msg = check_document_limit_exceeded(owner_uid, sandbox=sandbox)
+            exceeded, limit_msg = check_document_limit_exceeded(owner_uid, company_id=company_id, sandbox=sandbox)
             if exceeded:
                 flash(limit_msg, 'error')
                 return redirect(url_for('web_invoices.list_invoices'))
@@ -2739,7 +2739,7 @@ def send_invoice_email(owner_uid, invoice, recipient_email, sandbox=True, base_u
 
         attachments = []
         attachments.append({
-            'filename': f"{encf}.xml",
+            'filename': f"{rnc_emisor}{encf}.xml",
             'data': xml_content.encode('utf-8'),
             'mimetype': 'xml'
         })
@@ -3381,7 +3381,7 @@ def sign_invoice_route(invoice_id):
         flash('Factura no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_invoices'))
         
-    exceeded, limit_msg = check_document_limit_exceeded(owner_uid, sandbox=sandbox)
+    exceeded, limit_msg = check_document_limit_exceeded(owner_uid, company_id=company_id, sandbox=sandbox)
     if exceeded:
         flash(limit_msg, 'error')
         return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
@@ -4175,28 +4175,30 @@ def invoice_pdf_download(invoice_id):
         monto_total = f"{invoice.get('total', 0.0):.2f}"
         
         # DGII exception: Facturas de Consumo (E32) menores a RD$250,000
+        # Usa dominio fc.dgii.gov.do segun especificacion DGII
+        env = Config.DGII_ENVIRONMENT
         is_consumo = 'Consumo' in invoice.get("ecfType", "")
         if is_consumo and invoice.get("total", 0.0) < 250000:
             query_params = {
-                "RncEmisor": rnc_emisor,
-                "ENCF": invoice.get("encf"),
-                "MontoTotal": monto_total,
-                "CodigoSeguridad": codigo_seg
+                "rncemisor": rnc_emisor,
+                "encf": invoice.get("encf"),
+                "montototal": monto_total,
+                "codigoseguridad": codigo_seg
             }
             qs = urllib.parse.urlencode(query_params, quote_via=urllib.parse.quote)
-            qr_url = "https://fc.dgii.gov.do/eCF/ConsultaTimbreFC?" + qs
+            qr_url = f"https://fc.dgii.gov.do/{env}/consultatimbrefc?" + qs
         else:
             query_params = {
-                "RncEmisor": rnc_emisor,
-                "RncComprador": rnc_comprador,
-                "ENCF": invoice.get("encf"),
-                "FechaEmision": fecha_emision_str,
-                "MontoTotal": monto_total,
-                "FechaFirma": fecha_firma_str,
-                "CodigoSeguridad": codigo_seg
+                "rncemisor": rnc_emisor,
+                "rnccomprador": rnc_comprador,
+                "encf": invoice.get("encf"),
+                "fechaemision": fecha_emision_str,
+                "montototal": monto_total,
+                "fechafirma": fecha_firma_str,
+                "codigoseguridad": codigo_seg
             }
             qs = urllib.parse.urlencode(query_params, quote_via=urllib.parse.quote)
-            qr_url = "https://ecf.dgii.gov.do/ecf/ConsultaTimbre?" + qs
+            qr_url = f"https://ecf.dgii.gov.do/{env}/consultatimbre?" + qs
 
     if not qr_url:
         qr_url = "https://dgii.gov.do/validaecf"
@@ -4841,17 +4843,15 @@ def invoice_xml_download(invoice_id):
 
     if not xml_content:
         return "No hay XML disponible para este comprobante", 404
-
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+    rnc_emisor = company.get("companyRNC", "").replace("-", "").strip()
     inv_num = invoice.get('invoiceNumber', invoice_id).replace('/', '-').replace(' ', '_')
-    
-    # Asegurar que tenga la cabecera de declaración XML estándar
-    if not xml_content.strip().startswith('<?xml'):
-        xml_content = '<?xml version="1.0" encoding="UTF-8"?>\n' + xml_content
 
     response = make_response(xml_content)
     response.headers['Content-Type'] = 'application/xml; charset=utf-8'
-    response.headers['Content-Disposition'] = f'attachment; filename="{inv_num}.xml"'
+    response.headers['Content-Disposition'] = f'attachment; filename="{rnc_emisor}{inv_num}.xml"'
     return response
+
 
 @web_invoices_bp.route('/expenses/<expense_id>/xml')
 def expense_xml_download(expense_id):
@@ -4886,15 +4886,14 @@ def expense_xml_download(expense_id):
     if not xml_content:
         return "No hay XML disponible para este comprobante", 404
 
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+    rnc_emisor = company.get("companyRNC", "").replace("-", "").strip()
     encf = expense.get('encf') or expense.get('ncf') or expense_id
     inv_num = encf.replace('/', '-').replace(' ', '_')
 
-    if not xml_content.strip().startswith('<?xml'):
-        xml_content = '<?xml version="1.0" encoding="UTF-8"?>\n' + xml_content
-
     response = make_response(xml_content)
     response.headers['Content-Type'] = 'application/xml; charset=utf-8'
-    response.headers['Content-Disposition'] = f'attachment; filename="{inv_num}.xml"'
+    response.headers['Content-Disposition'] = f'attachment; filename="{rnc_emisor}{inv_num}.xml"'
     return response
 
 @web_invoices_bp.route('/expenses/<expense_id>/pdf')
@@ -5793,7 +5792,7 @@ def new_expense_route():
                 user_email   = session['user']['email']
 
                 # Verificar límite de documentos (solo en producción)
-                exceeded, limit_msg = check_document_limit_exceeded(owner_uid, sandbox=sandbox)
+                exceeded, limit_msg = check_document_limit_exceeded(owner_uid, company_id=company_id, sandbox=sandbox)
                 if exceeded:
                     ecf_emission_msg = ("warning", limit_msg)
                 else:
@@ -6854,7 +6853,7 @@ def edit_expense_route(expense_id):
                 ecf_full_edit     = "Comprobante de Compras (E41)" if ecf_short_edit == "E41" else "Gastos Menores (E43)"
                 user_email_edit   = session['user']['email']
 
-                exceeded_edit, limit_msg_edit = check_document_limit_exceeded(owner_uid, sandbox=sandbox)
+                exceeded_edit, limit_msg_edit = check_document_limit_exceeded(owner_uid, company_id=company_id, sandbox=sandbox)
                 if exceeded_edit:
                     ecf_edit_msg = ("warning", limit_msg_edit)
                 else:
@@ -9612,13 +9611,24 @@ def client_subscription_page():
         cancel_scheduled=cancel_scheduled, cancel_date=cancel_date,
         proration_current=proration_current)
 
-def _update_profile_fields(owner_uid, updates):
+def _update_profile_fields(owner_uid, updates, company_id=None):
     """Actualiza campos específicos del perfil de empresa en Firestore sin sobrescribir todo."""
     from app.services.db_service import db_firestore, _cached_company_profile
     from app.cache import cache
     try:
         db_firestore.collection('users').document(owner_uid)\
             .collection('config').document('profile').update(updates)
+        if company_id:
+            company_updates = {}
+            key_map = {
+                'planId': 'plan_id',
+                'plan_version': 'plan_version',
+                'cancel_at_period_end': 'cancel_at_period_end',
+                'cancel_scheduled_date': 'cancel_scheduled_date',
+            }
+            for k, v in updates.items():
+                company_updates[key_map.get(k, k)] = v
+            db_firestore.collection('companies').document(company_id).set(company_updates, merge=True)
         cache.delete_memoized(_cached_company_profile, owner_uid)
     except Exception as e:
         print(f"⚠️ Error actualizando perfil: {e}")
@@ -9714,9 +9724,11 @@ def change_plan_page():
             updates['previous_documentLimit'] = profile.get('documentLimit')
         updates['plan_change_date'] = datetime.now(_tz.utc).strftime('%Y-%m-%d')
         
-        _update_profile_fields(owner_uid, updates)
+        _update_profile_fields(owner_uid, updates, company_id=company_id)
         new_name = plan_data.get('name', 'Nuevo Plan')
-        flash(f'¡Plan cambiado a {new_name} exitosamente! Los cambios se aplicarán de inmediato.', 'success')
+        flash(f'¡Plan asignado: {new_name} exitosamente! Los cambios se aplicarán de inmediato.', 'success')
+        if not current_plan_id:
+            return redirect(url_for('web_dashboard.dashboard'))
         return redirect(url_for('web_invoices.client_subscription_page'))
     
     # GET: mostrar planes con uso actual para referencia visual
@@ -9774,7 +9786,7 @@ def cancel_subscription():
     _update_profile_fields(owner_uid, {
         'cancel_at_period_end': True,
         'cancel_scheduled_date': cancel_date_str,
-    })
+    }, company_id=company_id)
     flash(f'Cancelación programada para el {cancel_date_str}. Podrás seguir usando el servicio hasta esa fecha.', 'warning')
     return redirect(url_for('web_invoices.client_subscription_page'))
 
@@ -9793,7 +9805,7 @@ def reactivate_subscription():
     _update_profile_fields(owner_uid, {
         'cancel_at_period_end': False,
         'cancel_scheduled_date': '',
-    })
+    }, company_id=company_id)
     flash('Suscripción reactivada exitosamente.', 'success')
     return redirect(url_for('web_invoices.client_subscription_page'))
 

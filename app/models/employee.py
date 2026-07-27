@@ -209,6 +209,7 @@ class PayrollGroup(BaseModel):
     policyOverrides: dict = {}  # Sobrescrituras parciales de la política (PolicyOverride)
     overtimeRules: dict = {}  # {"default_rate": 1.35, "night_rate": 2.0, "holiday_rate": 2.5}
     deductionRules: dict = {}  # {"max_loan_pct": 0.20, "max_garnishment_pct": 0.30}
+    applyChristmasBonus: bool = False  # Si True, auto-genera regla de salario de Navidad
     createdAt: str = ""
     updatedAt: str = ""
     createdBy: str = ""

@@ -2018,10 +2018,11 @@ def send_invoice_email_endpoint(invoice_id):
 
         subject = f"{ecf_type} No. [{encf}] - [{company_name}]"
 
+        rnc_emisor = company.get("companyRNC", "").replace("-", "").strip()
         attachments = []
         if xml_content:
             attachments.append({
-                'filename': f"{encf}.xml",
+                'filename': f"{rnc_emisor}{encf}.xml",
                 'data': xml_content.encode('utf-8'),
                 'mimetype': 'xml'
             })

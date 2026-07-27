@@ -2637,11 +2637,16 @@ function closeDraftPaymentModal() {
             
             const submitBtn = document.getElementById('confirm-submit-btn');
             submitBtn.innerText = options.confirmBtnText || 'Confirmar';
-            submitBtn.style.background = options.confirmBtnBg || 'var(--accent-purple)';
+            submitBtn.style.background = '';
+            submitBtn.style.color = '';
+            if (options.confirmBtnBg) {
+                submitBtn.style.background = options.confirmBtnBg;
+                submitBtn.style.color = '#ffffff';
+            }
             if (options.confirmBtnBorderColor) {
                 submitBtn.style.borderColor = options.confirmBtnBorderColor;
             } else {
-                submitBtn.style.borderColor = options.confirmBtnBg || 'transparent';
+                submitBtn.style.borderColor = options.confirmBtnBg || '';
             }
             
             onConfirmCallback = options.onConfirm;
@@ -2675,7 +2680,6 @@ function closeDraftPaymentModal() {
                 iconClass: 'fa-solid fa-check-circle',
                 iconColor: 'var(--accent-emerald)',
                 confirmBtnText: 'Sí, Aprobar',
-                confirmBtnBg: 'var(--accent-emerald)',
                 onConfirm: () => {
                     document.getElementById('manual-approve-form').submit();
                 }
@@ -2690,7 +2694,6 @@ function closeDraftPaymentModal() {
                 iconClass: 'fa-solid fa-wand-magic-sparkles',
                 iconColor: 'var(--accent-purple)',
                 confirmBtnText: 'Sí, Convertir',
-                confirmBtnBg: 'var(--accent-purple)',
                 onConfirm: () => {
                     document.getElementById('convert-quotation-form').submit();
                 }
@@ -2762,7 +2765,6 @@ function closeDraftPaymentModal() {
                 iconClass: 'fa-solid fa-signature',
                 iconColor: 'var(--accent-purple)',
                 confirmBtnText: 'Sí, Firmar y Emitir',
-                confirmBtnBg: 'var(--accent-purple)',
                 onConfirm: () => {
                     document.getElementById('sign-invoice-form').submit();
                 }

@@ -39,6 +39,23 @@
             <div style="font-size:0.9rem;">{{ group.description }}</div>
         </div>
         {% endif %}
+        {% if group.applyChristmasBonus %}
+        <div>
+            <span style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Salario de Navidad</span>
+            <div>
+                <span class="badge badge-success">
+                    <i class="fa-solid fa-gift"></i> Activo
+                </span>
+                {% if christmas_rule %}
+                <a href="{{ url_for('web_rrhh.payroll_rules_edit', rule_id=christmas_rule.id) }}"
+                   class="btn btn-ghost btn-sm" style="font-size:0.75rem; padding:2px 8px; margin-left:4px;"
+                   title="Editar regla de salario de Navidad">
+                    <i class="fa-solid fa-pen-to-square"></i> Ver regla
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 

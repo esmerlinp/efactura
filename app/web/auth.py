@@ -734,6 +734,19 @@ def select_company():
             session.pop('available_branches', None)
             session.pop('selected_project_id', None)
             session.pop('available_projects', None)
+            # Limpiar caché de plan/módulos para forzar recarga con la nueva empresa
+            session.pop('company_context', None)
+            session.pop('company_plan_id', None)
+            session.pop('company_plan_version', None)
+            session.pop('company_modules', None)
+            session.pop('company_profile_pos_enabled', None)
+            session.pop('company_production_enabled', None)
+            session.pop('company_sandbox_enabled', None)
+            session.pop('company_sandbox_indefinite', None)
+            session.pop('company_sandbox_start_date', None)
+            session.pop('company_sandbox_end_date', None)
+            session.pop('is_sandbox_mode', None)
+            session.pop('company_country', None)
             
             # Registrar cambio de compañía en auditoría
             from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_AUTH

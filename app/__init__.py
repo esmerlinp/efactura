@@ -65,7 +65,7 @@ def create_app():
                 except Exception:
                     pass
             if 'is_sandbox_mode' not in session:
-                session['is_sandbox_mode'] = False
+                session['is_sandbox_mode'] = app.config.get('DEFAULT_SANDBOX_MODE', False)
             # Cargar contexto de sucursal
             if 'selected_branch_id' not in session:
                 session['selected_branch_id'] = None
@@ -256,13 +256,15 @@ def create_app():
                 session['company_sandbox_indefinite'] = company_profile.get('sandboxIndefinite', True)
                 session['company_sandbox_start_date'] = company_profile.get('sandboxStartDate', '')
                 session['company_sandbox_end_date'] = company_profile.get('sandboxEndDate', '')
-                session['company_plan_id'] = company_profile.get('planId', '')
+                new_plan_id = company_profile.get('planId', '')
+                old_plan_id = session.get('company_plan_id', '')
+                session['company_plan_id'] = new_plan_id
                 session['company_country'] = company_profile.get('country', 'DO')
 
                 plan_version = company_profile.get('plan_version', 0) or 0
                 cached_plan_version = session.get('company_plan_version', -1)
-                if cached_plan_version != plan_version:
-                    plan_id = company_profile.get('planId', '')
+                if cached_plan_version != plan_version or old_plan_id != new_plan_id:
+                    plan_id = new_plan_id
                     if plan_id and company_id:
                         plan_data = DatabaseService.get_plan(plan_id)
                         if plan_data:
@@ -356,30 +358,32 @@ def create_app():
                         if request.endpoint not in allowed_endpoints:
                             return render_template('auth/restricted.html', feature_name="Entorno de Producción", required_permission="productionEnabled", custom_message="El entorno de producción para esta cuenta está desactivado. Comuníquese con soporte si desea activarlo.", force_logout=True)
                     
-                    # Validación: Falta de Plan en producción (bloquear operaciones de escritura)
+                    # Validación: Falta de Plan en producción (bloquear TODO el sistema)
                     if not session.get('company_plan_id'):
-                        # Rutas de operaciones de escritura (invoices, cotizaciones, gastos, pos, clientes, etc.)
-                        restricted_ops = [
-                            'web_invoices.new_invoice_route', 'web_invoices.new_quotation_route',
-                            'web_invoices.new_expense_route', 'web_clients.ajax_create_client',
-                            'web_suppliers.ajax_create_supplier',
-                            'web_contacts.ajax_create_contact', 'web_contacts.new_contact',
-                            'web_crm.opportunity_new', 'web_crm.opportunity_edit', 'web_crm.opportunity_stage',
-                            'web_crm.opportunity_close', 'web_crm.opportunity_delete',
-                            'web_crm.activity_new', 'web_crm.activity_edit',
-                            'web_crm.activity_complete', 'web_crm.activity_delete',
-                            'web_workflows.save_rule', 'web_workflows.delete_rule', 'web_workflows.decide_request',
-                            'web_budgets.save_budget',
-                            'web_invoices.delete_expense_route', 'web_invoices.delete_multiple_expenses_route', 'web_pos.pos_dashboard',
-                            'web_pos.create_pos_invoice', 'web_import_mapper.process_import',
-                            'web_operations.register_payment_route', 'web_notes.create_credit_note_route',
-                            'web_notes.create_debit_note_route'
+                        plan_allowed = [
+                            'web_invoices.change_plan_page',
+                            'web_invoices.cancel_subscription',
+                            'web_invoices.onboarding_wizard',
+                            'web_invoices.onboarding_skip',
+                            'web_import_mapper.upload_file',
+                            'web_import_mapper.ai_suggest_mapping',
+                            'web_import_mapper.process_import',
+                            'web_auth.logout',
+                            'web_auth.toggle_sandbox',
+                            'web_auth.select_company',
+                            'web_auth.select_branch',
+                            'web_auth.select_project',
+                            'web_auth.user_profile_page',
+                            'web_auth.update_user_profile',
+                            'web_auth.change_user_password',
+                            'static',
+                            None,
                         ]
-                        if request.endpoint in restricted_ops:
+                        if request.endpoint not in plan_allowed:
                             if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
-                                return jsonify({"success": False, "error": "No puedes realizar operaciones hasta que no se te asigne un plan."}), 403
-                            flash("No puedes realizar operaciones en producción hasta que no se te asigne un plan en el sistema.", "error")
-                            return redirect(flask_url_for('web_dashboard.dashboard'))
+                                return jsonify({"success": False, "error": "No puedes realizar operaciones hasta que no se te asigne un plan. Por favor, comunícate con el soporte."}), 403
+                            plans = DatabaseService.get_visible_plans()
+                            return render_template('errors/no_plan.html', plans=plans), 403
 
                 # Bloqueo por Cuenta Cancelada (Módulo Portal Administrativo)
                 if company_profile.get('status') == 'Cancelado':
@@ -874,6 +878,7 @@ def create_app():
     from app.api.v1.accounting import api_accounting_bp
     from app.api.v1.liquidacion import api_liquidacion_bp
     from app.api.v1.supplier_invoices import api_supplier_invoices_bp
+    from app.api.v1.receptor import api_receptor_bp
     
     app.register_blueprint(api_expenses_bp, url_prefix='/api/v1')
     app.register_blueprint(api_invoices_bp, url_prefix='/api/v1')
@@ -885,6 +890,7 @@ def create_app():
     app.register_blueprint(api_accounting_bp, url_prefix='/api/v1')
     app.register_blueprint(api_liquidacion_bp, url_prefix='/api/v1')
     app.register_blueprint(api_supplier_invoices_bp, url_prefix='/api/v1')
+    app.register_blueprint(api_receptor_bp, url_prefix='/api/v1')
 
     # 2. Web UI Blueprints
     from app.web.auth import web_auth_bp
@@ -921,6 +927,7 @@ def create_app():
     from app.web.rui import web_rui_bp
     from app.web.herramientas import web_herramientas_bp
     from app.web.company import web_company_bp
+    from app.web.recepcion import web_recepcion_bp
 
     app.register_blueprint(web_herramientas_bp)
     app.register_blueprint(web_auth_bp)
@@ -956,6 +963,7 @@ def create_app():
     app.register_blueprint(web_inventory_bp)
     app.register_blueprint(web_rui_bp)
     app.register_blueprint(web_company_bp)
+    app.register_blueprint(web_recepcion_bp)
 
     # Eximir rutas /api/ de validación CSRF (los blueprints de API se registraron arriba)
     for rule in app.url_map.iter_rules():
@@ -1073,7 +1081,12 @@ def create_app():
     # =========================================================================
     @app.route('/health')
     def health_check():
-        return {"status": "healthy", "version": "1.0"}, 200
+        return {
+            "status": "healthy",
+            "version": "1.0",
+            "environment": app.config.get('APP_ENVIRONMENT', 'unknown'),
+            "sandbox_default": app.config.get('DEFAULT_SANDBOX_MODE', False)
+        }, 200
 
     # =========================================================================
     # CSRF Error Handler — Muestra mensaje amigable en lugar de error 400 crudo

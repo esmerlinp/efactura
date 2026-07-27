@@ -252,12 +252,18 @@ class DgiiXmlBuilder:
 
         # ======================== Emisor ========================
         emisor = ET.SubElement(enc, "Emisor")
-        ET.SubElement(emisor, "RNCEmisor").text = company_profile.get("companyRNC", "").replace("-", "")
-        ET.SubElement(emisor, "RazonSocialEmisor").text = company_profile.get("companyName", "")
+        rnc_emisor = company_profile.get("companyRNC", "").replace("-", "")
+        if rnc_emisor:
+            ET.SubElement(emisor, "RNCEmisor").text = rnc_emisor
+        razon_social = company_profile.get("companyName", "")
+        if razon_social:
+            ET.SubElement(emisor, "RazonSocialEmisor").text = razon_social
         nc = company_profile.get("tradeName", "")
         if nc:
             ET.SubElement(emisor, "NombreComercial").text = nc
-        ET.SubElement(emisor, "DireccionEmisor").text = company_profile.get("companyAddress", "")
+        direccion = company_profile.get("companyAddress", "")
+        if direccion:
+            ET.SubElement(emisor, "DireccionEmisor").text = direccion
         mu = cls.map_province_or_municipality(company_profile.get("municipality", ""), is_province=False)
         pr = cls.map_province_or_municipality(company_profile.get("province", ""), is_province=True)
         ET.SubElement(emisor, "Municipio").text = mu
@@ -286,7 +292,9 @@ class DgiiXmlBuilder:
             elif cfg["expense"]:
                 crnc = company_profile.get("companyRNC", "").replace("-", "").strip()
                 ET.SubElement(comp, "RNCComprador").text = crnc or "000000000"
-                ET.SubElement(comp, "RazonSocialComprador").text = company_profile.get("companyName", "")
+                rzs_expense = company_profile.get("companyName", "")
+                if rzs_expense:
+                    ET.SubElement(comp, "RazonSocialComprador").text = rzs_expense
                 ET.SubElement(comp, "MunicipioComprador").text = mu
                 ET.SubElement(comp, "ProvinciaComprador").text = pr
             else:
@@ -445,4 +453,9 @@ class DgiiXmlBuilder:
         # ======================== FechaHoraFirma ========================
         ET.SubElement(root, "FechaHoraFirma").text = now_dt
 
-        return ET.tostring(root, encoding="utf-8")
+        xml_bytes = ET.tostring(root, encoding="utf-8")
+        xml_str = xml_bytes.decode("utf-8")
+        xml_str = xml_str.replace("\u00a9", "&copy;")
+        xml_str = xml_str.replace("\u20ac", "&euro;")
+        xml_str = xml_str.replace("\u00ae", "&reg;")
+        return xml_str.encode("utf-8")

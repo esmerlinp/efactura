@@ -54,6 +54,26 @@ class DgiiSigner:
         return cert_pem, key_pem, chain_pem
     
     @classmethod
+    def _validate_certificate_subject(cls, company_profile):
+        try:
+            from cryptography import x509
+        except Exception:
+            return
+        _pk, certificate, _add = cls.load_pkcs12(company_profile)
+        if not certificate:
+            return
+        sn_attrs = certificate.subject.get_attributes_for_oid(x509.oid.NameOID.SERIAL_NUMBER)
+        if not sn_attrs:
+            raise ValueError("El certificado digital no tiene campo SN en el Subject.")
+        cert_sn = sn_attrs[0].value.strip()
+        cert_sn_clean = cert_sn[6:] if cert_sn.upper().startswith('IDCDO-') else cert_sn
+        company_rnc = company_profile.get("companyRNC", "").replace("-", "").strip()
+        if cert_sn_clean != company_rnc:
+            raise ValueError(
+                f"El SN del certificado ({cert_sn}) no coincide con el RNC de la empresa ({company_rnc})."
+            )
+
+    @classmethod
     def sign_xml(cls, xml_data, company_profile):
         """
         Firma digitalmente un archivo XML usando el formato W3C XMLDSig.
@@ -72,6 +92,8 @@ class DgiiSigner:
         if not cert_content_b64:
             raise RuntimeError("Se requiere un certificado digital para firmar en modo real.")
 
+        cls._validate_certificate_subject(company_profile)
+
         try:
             cert_bundle = cls.export_pem_bundle(company_profile)
             if not cert_bundle:
@@ -89,7 +111,7 @@ class DgiiSigner:
                 method=methods.enveloped,
                 signature_algorithm="rsa-sha256",
                 digest_algorithm="sha256",
-                c14n_algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"
+                c14n_algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315",
             )
             signed_root = signer.sign(xml_root, key=key_pem, cert=cert_pem)
             signed_xml = etree.tostring(signed_root, encoding="utf-8", xml_declaration=False)

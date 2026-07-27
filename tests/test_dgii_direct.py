@@ -6,6 +6,10 @@ import pytest
 from config import Config
 from app.services.dgii import DGIIService
 
+# Ensure local simulation mode for tests
+Config.DGII_SANDBOX_MODE = "local"
+Config.DGII_ALLOW_SIMULATION = True
+
 
 @pytest.fixture
 def company_profile():
@@ -57,7 +61,7 @@ def invoice_dict():
 class TestDgiiDirectSimulation:
 
     def test_simulate_emit(self, company_profile, invoice_dict):
-        with patch.object(Config, 'DGII_RECEPCION_URL_SANDBOX', ''):
+        with patch.object(Config, 'DGII_RECEPCION_URL', ''):
             from app.services.dgii_direct import DgiiDirectService
             result = DgiiDirectService.emit_direct(company_profile, invoice_dict, sandbox=True)
         assert result["success"] is True
@@ -67,7 +71,7 @@ class TestDgiiDirectSimulation:
         assert result["status"] == "PENDING"
 
     def test_simulate_emit_with_encf(self, company_profile, invoice_dict):
-        with patch.object(Config, 'DGII_RECEPCION_URL_SANDBOX', ''):
+        with patch.object(Config, 'DGII_RECEPCION_URL', ''):
             invoice_dict["encf"] = "E320000000099"
             from app.services.dgii_direct import DgiiDirectService
             result = DgiiDirectService.emit_direct(company_profile, invoice_dict, sandbox=True)
@@ -80,7 +84,7 @@ class TestDgiiDirectSimulation:
         assert result["status"] == "ONLINE"
 
     def test_cancel_direct_simulated(self, company_profile):
-        with patch.object(Config, 'DGII_CANCEL_URL_SANDBOX', ''):
+        with patch.object(Config, 'DGII_ANULACION_RANGOS_URL', ''):
             from app.services.dgii_direct import DgiiDirectService
             canc_dict = {
                 "series": "E32",
@@ -96,14 +100,14 @@ class TestDgiiDirectSimulation:
 class TestDgiiDirectXmlIntegration:
 
     def test_xml_generated_and_signed(self, company_profile, invoice_dict):
-        with patch.object(Config, 'DGII_RECEPCION_URL_SANDBOX', ''):
+        with patch.object(Config, 'DGII_RECEPCION_URL', ''):
             from app.services.dgii_direct import DgiiDirectService
             result = DgiiDirectService.emit_direct(company_profile, invoice_dict, sandbox=True)
         assert result["xmlSignature"] is not None
         assert len(result["xmlSignature"]) > 0
 
     def test_xml_contains_encf(self, company_profile, invoice_dict):
-        with patch.object(Config, 'DGII_RECEPCION_URL_SANDBOX', ''):
+        with patch.object(Config, 'DGII_RECEPCION_URL', ''):
             from app.services.dgii_direct import DgiiDirectService
             result = DgiiDirectService.emit_direct(company_profile, invoice_dict, sandbox=True)
         assert result["encf"] is not None
@@ -113,7 +117,7 @@ class TestDgiiDirectXmlIntegration:
 class TestDgiiDirectCheckStatus:
 
     def test_check_status_simulated(self, company_profile):
-        with patch.object(Config, 'DGII_STATUS_URL_SANDBOX', ''):
+        with patch.object(Config, 'DGII_CONSULTA_RESULTADO_URL', ''):
             from app.services.dgii_direct import DgiiDirectService
             result = DgiiDirectService.check_status(company_profile, "fake-track-id-123", sandbox=True)
         assert result["success"] is True

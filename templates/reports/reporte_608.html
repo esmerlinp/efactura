@@ -13,7 +13,11 @@
     .mono { font-family:monospace; font-size:0.82rem; }
 </style>
 <div class="breadcrumb">
-    <span>Reportes</span> <span class="sep">/</span> <span>Fiscales</span> <span class="sep">/</span> <span>Reporte 608</span>
+    <a href="{{ url_for('web_invoices.reports_dashboard') }}">Reportes</a>
+    <span class="sep">/</span>
+    <a href="{{ url_for('web_invoices.reports_category', category_key='fiscales') }}">Fiscales</a>
+    <span class="sep">/</span>
+    <span>Reporte 608</span>
 </div>
 <div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
     <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
