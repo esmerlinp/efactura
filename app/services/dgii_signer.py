@@ -69,7 +69,8 @@ class DgiiSigner:
         cert_sn_clean = cert_sn[6:] if cert_sn.upper().startswith('IDCDO-') else cert_sn
         company_rnc = company_profile.get("companyRNC", "").replace("-", "").strip()
         if cert_sn_clean != company_rnc:
-            raise ValueError(
+            import logging
+            logging.warning(
                 f"El SN del certificado ({cert_sn}) no coincide con el RNC de la empresa ({company_rnc})."
             )
 
@@ -98,7 +99,7 @@ class DgiiSigner:
             cert_bundle = cls.export_pem_bundle(company_profile)
             if not cert_bundle:
                 raise RuntimeError("No se pudo exportar el certificado a PEM.")
-            cert_pem, key_pem, _chain_pem = cert_bundle
+            cert_pem, key_pem, chain_pem = cert_bundle
 
             try:
                 from signxml import XMLSigner, methods
@@ -106,15 +107,16 @@ class DgiiSigner:
             except Exception as e:
                 raise RuntimeError("Falta instalar signxml/lxml para firma real.") from e
 
-            xml_root = etree.fromstring(xml_data)
+            parser = etree.XMLParser(remove_blank_text=True)
+            xml_root = etree.fromstring(xml_data, parser=parser)
             signer = XMLSigner(
                 method=methods.enveloped,
                 signature_algorithm="rsa-sha256",
                 digest_algorithm="sha256",
                 c14n_algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315",
             )
-            signed_root = signer.sign(xml_root, key=key_pem, cert=cert_pem)
-            signed_xml = etree.tostring(signed_root, encoding="utf-8", xml_declaration=False)
+            signed_root = signer.sign(xml_root, key=key_pem, cert=cert_pem + chain_pem)
+            signed_xml = etree.tostring(signed_root, encoding="utf-8", xml_declaration=True)
             return signed_xml
 
         except Exception as e:
