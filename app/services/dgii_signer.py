@@ -146,5 +146,5 @@ class DgiiSigner:
         if not xml_data:
             return None
         xml_text = xml_data.decode("utf-8", errors="ignore") if isinstance(xml_data, (bytes, bytearray)) else str(xml_data)
-        match = re.search(r"<SignatureValue>([^<]+)</SignatureValue>", xml_text)
+        match = re.search(r"<(?:ds:)?SignatureValue>([^<]+)</(?:ds:)?SignatureValue>", xml_text)
         return match.group(1).strip() if match else None

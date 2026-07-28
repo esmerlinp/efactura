@@ -1,0 +1,151 @@
+{
+  "fecha": "2026-07-28T22:14:00.418126+00:00",
+  "empresa": "VYKCORE AUTOMATIONS SRL",
+  "rnc": "133753652",
+  "total_casos": 8,
+  "exitosos": 8,
+  "fallidos": 0,
+  "dry_run": 0,
+  "resultados": [
+    {
+      "success": true,
+      "status_code": 200,
+      "dgii_status": "ACCEPTED",
+      "track_id": "dgii_43b5ec81a48c",
+      "response": "{\"codigo\":1,\"estado\":\"Aceptado\",\"mensajes\":null,\"encf\":\"E320000000011\",\"secuenciaUtilizada\":true}",
+      "rfce": true,
+      "response_data": {
+        "codigo": 1,
+        "estado": "Aceptado",
+        "mensajes": null,
+        "encf": "E320000000011",
+        "secuenciaUtilizada": true
+      },
+      "codigo_rfce": 1,
+      "estado_rfce": "Aceptado",
+      "secuencia": true,
+      "tipo": "32",
+      "encf": "E320000000011",
+      "total": 40120.0,
+      "grupo": 3,
+      "tag": "rfce",
+      "signed_xml": "evidencia_fase2/xml/E320000000011_rfce_signed.xml",
+      "codigo_seguridad": "VHsXF8"
+    },
+    {
+      "success": true,
+      "status_code": 200,
+      "dgii_status": "ACCEPTED",
+      "track_id": "dgii_e26ff7060eae",
+      "response": "{\"codigo\":1,\"estado\":\"Aceptado\",\"mensajes\":null,\"encf\":\"E320000000013\",\"secuenciaUtilizada\":true}",
+      "rfce": true,
+      "response_data": {
+        "codigo": 1,
+        "estado": "Aceptado",
+        "mensajes": null,
+        "encf": "E320000000013",
+        "secuenciaUtilizada": true
+      },
+      "codigo_rfce": 1,
+      "estado_rfce": "Aceptado",
+      "secuencia": true,
+      "tipo": "32",
+      "encf": "E320000000013",
+      "total": 112100.0,
+      "grupo": 3,
+      "tag": "rfce",
+      "signed_xml": "evidencia_fase2/xml/E320000000013_rfce_signed.xml",
+      "codigo_seguridad": "RoKVVs"
+    },
+    {
+      "success": true,
+      "status_code": 200,
+      "dgii_status": "ACCEPTED",
+      "track_id": "dgii_444f339d05a6",
+      "response": "{\"codigo\":1,\"estado\":\"Aceptado\",\"mensajes\":null,\"encf\":\"E320000000014\",\"secuenciaUtilizada\":true}",
+      "rfce": true,
+      "response_data": {
+        "codigo": 1,
+        "estado": "Aceptado",
+        "mensajes": null,
+        "encf": "E320000000014",
+        "secuenciaUtilizada": true
+      },
+      "codigo_rfce": 1,
+      "estado_rfce": "Aceptado",
+      "secuencia": true,
+      "tipo": "32",
+      "encf": "E320000000014",
+      "total": 11918.0,
+      "grupo": 3,
+      "tag": "rfce",
+      "signed_xml": "evidencia_fase2/xml/E320000000014_rfce_signed.xml",
+      "codigo_seguridad": "cuBzwo"
+    },
+    {
+      "success": true,
+      "status_code": 200,
+      "dgii_status": "ACCEPTED",
+      "track_id": "dgii_46820342ec1f",
+      "response": "{\"codigo\":1,\"estado\":\"Aceptado\",\"mensajes\":null,\"encf\":\"E320000000015\",\"secuenciaUtilizada\":true}",
+      "rfce": true,
+      "response_data": {
+        "codigo": 1,
+        "estado": "Aceptado",
+        "mensajes": null,
+        "encf": "E320000000015",
+        "secuenciaUtilizada": true
+      },
+      "codigo_rfce": 1,
+      "estado_rfce": "Aceptado",
+      "secuencia": true,
+      "tipo": "32",
+      "encf": "E320000000015",
+      "total": 64900.0,
+      "grupo": 3,
+      "tag": "rfce",
+      "signed_xml": "evidencia_fase2/xml/E320000000015_rfce_signed.xml",
+      "codigo_seguridad": "TrKCc4"
+    },
+    {
+      "encf": "E320000000011",
+      "tipo": "32",
+      "total": 40120.0,
+      "grupo": 4,
+      "tag": "manual_upload",
+      "success": true,
+      "signed_xml": "evidencia_fase2/xml/E320000000011_manual_signed.xml",
+      "nota": "Subir manualmente en portal DGII > Facturas de consumo < 250Mil"
+    },
+    {
+      "encf": "E320000000013",
+      "tipo": "32",
+      "total": 112100.0,
+      "grupo": 4,
+      "tag": "manual_upload",
+      "success": true,
+      "signed_xml": "evidencia_fase2/xml/E320000000013_manual_signed.xml",
+      "nota": "Subir manualmente en portal DGII > Facturas de consumo < 250Mil"
+    },
+    {
+      "encf": "E320000000014",
+      "tipo": "32",
+      "total": 11918.0,
+      "grupo": 4,
+      "tag": "manual_upload",
+      "success": true,
+      "signed_xml": "evidencia_fase2/xml/E320000000014_manual_signed.xml",
+      "nota": "Subir manualmente en portal DGII > Facturas de consumo < 250Mil"
+    },
+    {
+      "encf": "E320000000015",
+      "tipo": "32",
+      "total": 64900.0,
+      "grupo": 4,
+      "tag": "manual_upload",
+      "success": true,
+      "signed_xml": "evidencia_fase2/xml/E320000000015_manual_signed.xml",
+      "nota": "Subir manualmente en portal DGII > Facturas de consumo < 250Mil"
+    }
+  ]
+}

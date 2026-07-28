@@ -271,7 +271,7 @@ class DgiiDirectService:
             if token:
                 return token, None
 
-            seed, _fecha = cls._extract_seed_xml(response_data, response_text)
+            seed, fecha_seed = cls._extract_seed_xml(response_data, response_text)
             if not seed:
                 return None, "No se pudo obtener la semilla de autenticacion."
 
@@ -280,17 +280,20 @@ class DgiiDirectService:
                     return "simulated_dgii_token_jwt_2026", None
                 return None, "DGII_AUTH_VALIDAR_URL no configurado."
 
-            signed_seed = DgiiSigner.sign_seed(seed, company_profile)
-            auth_xml = (
+            # ── Construir SemillaModel y firmarlo con XMLDSig (XSD Semilla v1.0) ──
+            fecha_str = fecha_seed if fecha_seed else datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+            semilla_xml = (
                 '<?xml version="1.0" encoding="utf-8"?>'
-                f"<Autenticacion>"
-                f"<Semilla>{escape(seed)}</Semilla>"
-                f"<Firma>{escape(signed_seed)}</Firma>"
-                f"</Autenticacion>"
+                f"<SemillaModel>"
+                f"<valor>{escape(seed)}</valor>"
+                f"<fecha>{escape(fecha_str)}</fecha>"
+                f"</SemillaModel>"
             ).encode("utf-8")
 
+            signed_semilla = DgiiSigner.sign_xml(semilla_xml, company_profile)
+
             token_response = cls._multipart_post(
-                validar_url, auth_xml, token=None,
+                validar_url, signed_semilla, token=None,
                 filename="signed_seed.xml", cert_path=cert_path
             )
 
