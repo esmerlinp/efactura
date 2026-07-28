@@ -102,11 +102,10 @@ class EcfReadinessService:
             if certificate_info["valid"] and rnc:
                 cert_sn = cert_detail.get("subject_sn", "")
                 if cert_sn and cert_sn != rnc:
-                    blocking_errors.append({
+                    warnings.append({
                         "code": "CERTIFICATE_RNC_MISMATCH",
                         "message": f"El SN del certificado ({cert_sn}) no coincide con el RNC de la empresa ({rnc})."
                     })
-                    certificate_info["valid"] = False
 
         # --- Logo ---
         logo_url = profile.get("logoUrl") or ""
