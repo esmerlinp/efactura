@@ -395,21 +395,42 @@ class DgiiDirectService:
                 error_msg = ""
                 if isinstance(response_data, dict):
                     error_msg = response_data.get("error") or response_data.get("mensaje") or ""
+
                 qr_url = cls._build_qr_url_e_cf(company_rnc, client_rnc, encf, invoice_data.get("total", 0.0),
                                                  invoice_data.get("date", "01-01-2026"),
                                                  invoice_data.get("date", "01-01-2026"),
                                                  codigo_seguridad)
 
                 if status_code >= 200 and status_code < 300:
-                    # DGII devuelve HTTP 200 incluso cuando rechaza el contenido
-                    # El campo "error" en el JSON indica rechazo de validación
-                    if isinstance(response_data, dict) and response_data.get("error"):
+                    # DGII devuelve HTTP 200 incluso cuando rechaza el contenido.
+                    # Verificar tanto el campo "error" en JSON como el estado extraído.
+                    rejection_error = None
+                    if isinstance(response_data, dict):
+                        rejection_error = response_data.get("error") or response_data.get("mensaje")
+                    if not rejection_error and dgii_status == "REJECTED":
+                        # El texto crudo contiene "REJECTED" pero no hay error explícito en JSON.
+                        # Consultar el endpoint de resultado para confirmar el estado real.
+                        poll_res = cls.check_status(company_profile, track_id, sandbox=sandbox)
+                        if poll_res.get("success"):
+                            poll_status = poll_res.get("dgiiStatus")
+                            poll_mensajes = poll_res.get("mensajes", [])
+                            if poll_status == "ACCEPTED":
+                                dgii_status = "ACCEPTED"
+                                rejection_error = None  # Falso rechazo, el doc fue aceptado
+                            elif poll_status == "REJECTED":
+                                msgs = "; ".join(m.get("valor", "") for m in poll_mensajes if m.get("valor"))
+                                rejection_error = msgs or f"DGII rechazó el comprobante (status={poll_status})"
+                            # else PENDING → se deja rejection_error con texto genérico
+                        else:
+                            # No se pudo consultar → marcar como PENDING, no como rechazo
+                            dgii_status = "PENDING"
+                    if rejection_error:
                         return {
                             "success": False,
                             "encf": encf,
-                            "error": response_data.get("error"),
-                            "message": response_data.get("mensaje") or response_data.get("error"),
-                            "responseBody": response_data,
+                            "error": str(rejection_error),
+                            "message": str(rejection_error),
+                            "responseBody": response_data or response_text,
                             "statusCode": status_code,
                         }
 

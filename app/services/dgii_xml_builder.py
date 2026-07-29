@@ -1,5 +1,5 @@
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta, date as _datecls
 
 from app.models.fiscal_document_type import get_tipo_config, has_itbis_breakdown, has_retencion_item
 
@@ -193,7 +193,7 @@ class DgiiXmlBuilder:
         raw_type = invoice_data.get("ecfType", "Factura de Consumo (E32)")
         tipo_ecf = cls._detect_tipo_ecf(raw_type)
         cfg = get_tipo_config(tipo_ecf)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(timezone(timedelta(hours=-4)))  # DR time (UTC-4), matches invoice date storage
         today_ddmm = now.strftime("%d-%m-%Y")
         now_dt = now.strftime("%d-%m-%Y %H:%M:%S")
 
@@ -207,7 +207,20 @@ class DgiiXmlBuilder:
         ET.SubElement(id_doc, "eNCF").text = invoice_data.get("encf", f"E{tipo_ecf}0000000001")
 
         if tipo_ecf == "34":
-            ET.SubElement(id_doc, "IndicadorNotaCredito").text = invoice_data.get("indicadorNotaCredito", "1")
+            # IndicadorNotaCredito: 0 = emisión ≤ 30 días del doc original, 1 = > 30 días
+            ref_data = invoice_data.get("informationReference", {})
+            ref_date = invoice_data.get("ncfModifiedDate", "") or ref_data.get("ncfModifiedDate", "")
+            nc_date = invoice_data.get("date", "")
+            indicador_nc = "1"  # default: > 30 días
+            if ref_date and nc_date:
+                try:
+                    ref_d = _datecls.fromisoformat(str(ref_date)[:10])
+                    nc_d = _datecls.fromisoformat(str(nc_date)[:10])
+                    if (nc_d - ref_d).days <= 30:
+                        indicador_nc = "0"
+                except (ValueError, TypeError):
+                    pass
+            ET.SubElement(id_doc, "IndicadorNotaCredito").text = invoice_data.get("indicadorNotaCredito", indicador_nc)
 
         if cfg["vencimiento"] and tipo_ecf != "34":
             fv = invoice_data.get("fechaVencimientoSecuencia", invoice_data.get("fechaExpiracion", ""))
@@ -242,7 +255,7 @@ class DgiiXmlBuilder:
                 elif "cheque" in pm:
                     fpv = "2"
                 elif any(x in pm for x in ("transferencia", "depósito", "deposito")):
-                    fpv = "4"
+                    fpv = "2"
                 ET.SubElement(fdp, "FormaPago").text = fpv
                 ET.SubElement(fdp, "MontoPago").text = cls._sd(invoice_data.get("total", 0.0))
         elif tipo_ecf == "43":
@@ -279,7 +292,8 @@ class DgiiXmlBuilder:
         internal_num = invoice_data.get("internalInvoiceNumber") or str(invoice_data.get("invoiceNumber", ""))
         if internal_num:
             ET.SubElement(emisor, "NumeroFacturaInterna").text = str(internal_num)[:20]
-        ET.SubElement(emisor, "FechaEmision").text = today_ddmm
+        fecha_emision = invoice_data.get("date", "")
+        ET.SubElement(emisor, "FechaEmision").text = cls._fmt_date(fecha_emision) if fecha_emision else today_ddmm
 
         # ======================== Comprador ========================
         if cfg["has_comprador"]:
@@ -509,12 +523,37 @@ class DgiiXmlBuilder:
         # ======================== InformacionReferencia (NC/ND) ========================
         if tipo_ecf in ("33", "34"):
             info_ref = ET.SubElement(root, "InformacionReferencia")
-            ncf_mod = invoice_data.get("ncfModificado", invoice_data.get("referenceNCF", ""))
-            ET.SubElement(info_ref, "NCFModificado").text = ncf_mod if ncf_mod else f"E{tipo_ecf}0000000000"
-            fecha_mod = invoice_data.get("fechaNCFModificado", invoice_data.get("referenceDate", ""))
-            ET.SubElement(info_ref, "FechaNCFModificado").text = cls._fmt_date(fecha_mod) if fecha_mod else today_ddmm
-            cod_mod = invoice_data.get("codigoModificacion", invoice_data.get("modificationCode", "1"))
-            ET.SubElement(info_ref, "CodigoModificacion").text = str(cod_mod).zfill(2)
+            info_ref_data = invoice_data.get("informationReference", {})
+            ncf_mod = (
+                invoice_data.get("ncfModified", "")
+                or invoice_data.get("ncfModificado", "")
+                or info_ref_data.get("ncfModified", "")
+                or info_ref_data.get("ncfModificado", "")
+            )
+            ncf_formatted = ncf_mod if ncf_mod else f"E{tipo_ecf}0000000000"
+            ET.SubElement(info_ref, "NCFModificado").text = ncf_formatted
+            fecha_mod = (
+                invoice_data.get("ncfModifiedDate", "")
+                or invoice_data.get("fechaNCFModificado", "")
+                or info_ref_data.get("ncfModifiedDate", "")
+                or info_ref_data.get("fechaNCFModificado", "")
+            )
+            fecha_formatted = cls._fmt_date(fecha_mod) if fecha_mod else today_ddmm
+            ET.SubElement(info_ref, "FechaNCFModificado").text = fecha_formatted
+            cod_mod = (
+                invoice_data.get("modificationCode", "")
+                or invoice_data.get("codigoModificacion", "")
+                or str(info_ref_data.get("modificationCode", "1"))
+            )
+            ET.SubElement(info_ref, "CodigoModificacion").text = str(int(cod_mod))
+            reason = (
+                invoice_data.get("reasonForModification", "")
+                or invoice_data.get("razonModificacion", "")
+                or info_ref_data.get("reasonForModification", "")
+                or info_ref_data.get("razonModificacion", "")
+            )
+            if reason:
+                ET.SubElement(info_ref, "RazonModificacion").text = str(reason)[:90]
 
         # ======================== FechaHoraFirma ========================
         ET.SubElement(root, "FechaHoraFirma").text = now_dt
@@ -524,6 +563,4 @@ class DgiiXmlBuilder:
         xml_str = xml_str.replace("\u00a9", "&copy;")
         xml_str = xml_str.replace("\u20ac", "&euro;")
         xml_str = xml_str.replace("\u00ae", "&reg;")
-        import logging
-        logging.getLogger(__name__).debug(f"[build_invoice_xml] tipo={tipo_ecf} gravado={gravado:.2f} exento={monto_exento:.2f} itbis={total_itbis:.2f} total={total_global:.2f}")
         return xml_str.encode("utf-8")

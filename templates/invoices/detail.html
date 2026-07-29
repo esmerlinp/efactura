@@ -193,7 +193,7 @@
                     <span class="badge" style="background: linear-gradient(135deg,#7c3aed,#a78bfa); color:white; margin-bottom: 10px; margin-left: 4px;">Profesional</span>
                     {% endif %}
                     {% else %}
-                    <span class="badge {% if invoice.status == 'Vencida' %}badge-danger{% elif invoice.status == 'Cobrada' or invoice.status == 'Pagada' or invoice.status == 'Pagado pero no emitido' %}badge-success{% elif invoice.status in ['Emitida', 'Parcialmente Cobrada', 'Pendiente'] %}badge-warning{% elif invoice.status == 'Borrador' %}badge-secondary{% else %}badge-secondary{% endif %}" style="margin-bottom: 10px;">{{ invoice.status }}</span>
+                    <span class="badge {% if invoice.status == 'Vencida' or invoice.status == 'Rechazado DGII' %}badge-danger{% elif invoice.status == 'Cobrada' or invoice.status == 'Pagada' or invoice.status == 'Pagado pero no emitido' %}badge-success{% elif invoice.status in ['Emitida', 'Parcialmente Cobrada', 'Pendiente'] %}badge-warning{% elif invoice.status == 'Borrador' %}badge-secondary{% else %}badge-secondary{% endif %}" style="margin-bottom: 10px;">{{ invoice.status }}</span>
                     {% endif %}
                     {% if invoice.get('isImported') %}
                     <span class="badge badge-imported" style="margin-bottom: 10px; margin-left: 4px;"><i class="fa-solid fa-file-import"></i> Importada</span>
@@ -248,6 +248,27 @@
                         Pago: <strong>{{ invoice.paymentMethod }}</strong></span>
                     <span style="font-size: 0.85rem; color: var(--text-secondary); display: block;">Tipo de Documento:
                         <strong>{{ invoice.ecfType }}</strong></span>
+                    {% set ref = invoice.informationReference %}
+                    {% if ref and ref.ncfModified %}
+                    <div style="margin-top: 10px; padding: 10px 14px; background: var(--bg-card-alt, rgba(255,255,255,0.04)); border-radius: var(--radius-sm); border-left: 3px solid var(--accent-purple);">
+                        <span style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 6px;">
+                            <i class="fa-solid fa-link"></i> Documento de Referencia
+                        </span>
+                        <span style="font-size: 0.82rem; color: var(--text-secondary); display: block; margin-bottom: 3px;">
+                            e-CF: <strong style="font-family: monospace; color: var(--text-primary);">{{ ref.ncfModified }}</strong>
+                        </span>
+                        {% if ref.ncfModifiedDate %}
+                        <span style="font-size: 0.82rem; color: var(--text-secondary); display: block; margin-bottom: 3px;">
+                            Fecha: <strong>{{ ref.ncfModifiedDate }}</strong>
+                        </span>
+                        {% endif %}
+                        {% if ref.reasonForModification %}
+                        <span style="font-size: 0.82rem; color: var(--text-secondary); display: block;">
+                            Motivo: <strong>{{ ref.reasonForModification }}</strong>
+                        </span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
                     <span style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-top: 8px;">Proyecto:
                         {% if projects %}
                         <form id="projectForm" method="POST" action="{{ url_for('web_invoices.update_invoice_project', invoice_id=invoice.id) }}" style="display:inline;">
@@ -1164,6 +1185,26 @@
                 {{ invoice.encf }}
             </div>
 
+            {% if invoice.status == 'Rechazado DGII' %}
+            <div style="background-color: rgba(239, 68, 68, 0.12); border: 1px solid #ef4444; border-radius: var(--radius-sm); padding: 16px; margin-bottom: 16px; text-align: center;">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px;">
+                    <i class="fa-solid fa-triangle-exclamation" style="color: #ef4444; font-size: 1.2rem;"></i>
+                    <span style="color: #f87171; font-weight: 700; font-size: 0.88rem;">DGII rechazó este comprobante</span>
+                </div>
+                {% if invoice.dgiiError %}
+                <p style="color: var(--text-secondary); font-size: 0.78rem; margin-bottom: 12px; line-height: 1.4;">{{ invoice.dgiiError }}</p>
+                {% endif %}
+                <form action="{{ url_for('web_invoices.reemit_invoice_route', invoice_id=invoice.id) }}" method="POST" onsubmit="return confirm('¿Reenviar este comprobante a la DGII?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 0.82rem; background: linear-gradient(135deg, #ef4444, #dc2626); border: none;">
+                        <i class="fa-solid fa-rotate-right"></i>
+                        <span>Reemitir a DGII</span>
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+
+            {% if invoice.status != 'Rechazado DGII' %}
             <!-- QR Code de verificación en vivo -->
             <div
                 style="background-color: white; padding: 12px; border-radius: var(--radius-sm); display: inline-block; box-shadow: var(--shadow-sm); margin-bottom: 16px;">
@@ -1219,6 +1260,7 @@
                     <span>Notificar por Correo</span>
                 </button>
             </div>
+            {% endif %}
             {% else %}
             {% if invoice.status == 'Pagado pero no emitido' %}
             <span class="badge badge-success" style="margin-bottom: 16px; font-size: 0.78rem; background-color: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 8px; border-radius: 4px; font-weight: 600;">Pagado pero no emitido</span>
@@ -1318,8 +1360,8 @@
             </button>
             {% endif %}
 
-            {% if not invoice.isQuotation and invoice.encf and invoice.ecfType not in ['Nota de Crédito (E34)', 'Nota de
-            Débito (E33)'] %}
+            {% set is_note = invoice.ecfType in ['E33', 'E34'] or 'Nota de Débito' in invoice.ecfType or 'Nota de Crédito' in invoice.ecfType %}
+            {% if not invoice.isQuotation and invoice.encf and not is_note and invoice.status != 'Rechazado DGII' %}
             <!-- Notas de Crédito / Débito (Ley 32-23) -->
             <a href="{{ url_for('web_invoices.new_invoice_route') }}?reference_invoice_id={{ invoice.id }}&note_type=E34"
                 class="btn btn-secondary"
@@ -1401,6 +1443,10 @@
                                 background-color: rgba(16, 185, 129, 0.2); color: #059669; border: 1.5px solid #059669;
                             {% elif log.action in ['REJECT_PAYMENT'] %}
                                 background-color: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1.5px solid #ef4444;
+                            {% elif log.action in ['DGII_ACEPTADO'] %}
+                                background-color: rgba(16, 185, 129, 0.15); color: #10b981; border: 1.5px solid #10b981;
+                            {% elif log.action in ['DGII_RECHAZADO'] %}
+                                background-color: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1.5px solid #ef4444;
                             {% elif log.action in ['APPROVE_QUOTATION', 'SIGN'] %}
                                 background-color: rgba(139, 92, 246, 0.15); color: #8b5cf6; border: 1.5px solid #8b5cf6;
                             {% elif log.action in ['REJECT'] %}
@@ -1421,6 +1467,10 @@
                                 <i class="fa-solid fa-money-bill-wave"></i>
                             {% elif log.action in ['REJECT_PAYMENT'] %}
                                 <i class="fa-solid fa-ban"></i>
+                            {% elif log.action in ['DGII_ACEPTADO'] %}
+                                <i class="fa-solid fa-check-circle"></i>
+                            {% elif log.action in ['DGII_RECHAZADO'] %}
+                                <i class="fa-solid fa-shield-halved"></i>
                             {% elif log.action in ['APPROVE_QUOTATION', 'SIGN'] %}
                                 <i class="fa-solid fa-signature"></i>
                             {% elif log.action in ['REJECT'] %}
@@ -1463,6 +1513,18 @@
                                         <span style="background: rgba(139, 92, 246, 0.1); padding: 1px 6px; border-radius: 4px; color: var(--accent-purple); font-weight: 600;">{{ status_after }}</span>
                                     </div>
                                 {% endif %}
+                            {% endif %}
+                            
+                            {% if log.action in ['DGII_ACEPTADO', 'DGII_RECHAZADO'] and log.after and log.after.dgiiResponse %}
+                            {% set dgii = log.after.dgiiResponse %}
+                            <div style="margin-top: 8px; padding: 8px 12px; background: {% if log.action == 'DGII_ACEPTADO' %}rgba(16, 185, 129, 0.06){% else %}rgba(239, 68, 68, 0.06){% endif %}; border-radius: var(--radius-sm); border: 1px solid {% if log.action == 'DGII_ACEPTADO' %}#10b98133{% else %}#ef444433{% endif %}; font-size: 0.78rem;">
+                                <div style="font-weight: 600; color: {% if log.action == 'DGII_ACEPTADO' %}#10b981{% else %}#ef4444{% endif %}; margin-bottom: 4px;">
+                                    {% if log.action == 'DGII_ACEPTADO' %}✓ DGII Aceptó el comprobante{% else %}✗ DGII Rechazó el comprobante{% endif %}
+                                </div>
+                                {% if dgii.get('details') %}
+                                <div style="color: var(--text-secondary); line-height: 1.4;">{{ dgii.details }}</div>
+                                {% endif %}
+                            </div>
                             {% endif %}
                         </div>
                     </div>

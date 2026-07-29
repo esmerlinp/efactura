@@ -448,10 +448,22 @@ B18 = _reg(FiscalDocumentType(
 # =========================================================================
 
 def by_code(code: str) -> FiscalDocumentType:
-    """Retorna el tipo por código exacto (``'E31'``, ``'B01'``, etc.)."""
+    """Retorna el tipo por código exacto (``'E31'``, ``'B01'``, etc.).
+
+    También acepta el formato ``label_with_code`` como ``'Nota de Débito (E33)'``.
+    """
     c = code.strip().upper()
     if c in _TYPES:
         return _TYPES[c]
+    import re
+    m = re.search(r'\(([A-Z]\d+)\)', c)
+    if m:
+        extracted = m.group(1).upper()
+        if extracted in _TYPES:
+            return _TYPES[extracted]
+    for t in _TYPES.values():
+        if t.label_with_code.upper() == c or t.label.upper() == c:
+            return t
     raise KeyError(f"Tipo de documento fiscal desconocido: {code!r}")
 
 

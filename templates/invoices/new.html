@@ -81,7 +81,7 @@
   <div class="section-card" style="display:flex;align-items:center;gap:16px;padding-top:18px;padding-bottom:18px;">
     <i class="fa-solid fa-file-invoice" style="color:var(--accent-emerald);font-size:1.2rem;"></i>
     <h2 style="font-size:1.2rem;font-weight:800;color:var(--text-primary);margin:0;white-space:nowrap;">
-      {% if active_page == 'quotations' %}Nueva Cotización{% elif invoice %}Editar {{ invoice.invoiceNumber }}{% else %}Nuevo Documento{% endif %}
+      {% if is_referencing %}{% if invoice.ecfType and ('E34' in invoice.ecfType or 'Nota de Crédito' in invoice.ecfType) %}Nueva Nota de Crédito{% else %}Nueva Nota de Débito{% endif %}{% elif active_page == 'quotations' %}Nueva Cotización{% elif invoice %}Editar {{ invoice.invoiceNumber }}{% else %}Nuevo Documento{% endif %}
     </h2>
     {% if invoice and invoice.encf %}
     <span style="font-family:monospace;font-size:0.85rem;color:var(--accent-purple);font-weight:700;">{{ invoice.encf }}</span>
@@ -89,7 +89,7 @@
     {% if active_page != 'quotations' %}
 <select id="ecf-type-select" name="{% if is_referencing %}ecfTypeDisabled{% else %}ecfType{% endif %}" class="form-select" style="max-width:220px;" {% if is_referencing %}disabled style="opacity:0.75;"{% endif %}>
   {% for t in ecf_types %}
-  <option value="{{ t.label_with_code }}" data-code="{{ t.code }}" {% if invoice and invoice.ecfType == t.label_with_code %}selected{% endif %}>{{ t.code }} — {{ t.short_label }}</option>
+  <option value="{{ t.label_with_code }}" data-code="{{ t.code }}" {% if invoice and (invoice.ecfType == t.label_with_code or invoice.ecfType == t.code) %}selected{% endif %}>{{ t.code }} — {{ t.short_label }}</option>
   {% endfor %}
 </select>
     {% if is_referencing %}<input type="hidden" name="ecfType" value="{{ invoice.ecfType }}">{% endif %}
@@ -111,10 +111,11 @@
   </div>
 
   <!-- REFERENCIA NOTAS E33/E34 -->
-  <div id="reference-info-group" class="section-card" style="display:none;">
+  <div id="reference-info-group" class="section-card" style="{% if is_referencing %}display:block;{% else %}display:none;{% endif %}">
     <h3><i class="fa-solid fa-circle-info"></i> Documento Modificado</h3>
-    <div id="note-helper-banner" style="display:none;border-left:3px solid var(--accent-purple);padding:8px 14px;border-radius:6px;margin-bottom:14px;font-size:0.8rem;background:rgba(124,58,237,0.04);">
-      <strong id="note-banner-title"></strong><br><span id="note-banner-text"></span>
+    <div id="note-helper-banner" style="{% if is_referencing %}display:block;{% else %}display:none;{% endif %}border-left:3px solid {% if invoice.ecfType and ('E34' in invoice.ecfType or 'Crédito' in invoice.ecfType) %}var(--accent-red){% else %}var(--accent-purple){% endif %};padding:8px 14px;border-radius:6px;margin-bottom:14px;font-size:0.8rem;background:rgba(124,58,237,0.04);">
+      <i id="note-banner-icon" class="fa-solid {% if invoice.ecfType and ('E34' in invoice.ecfType or 'Crédito' in invoice.ecfType) %}fa-file-circle-minus{% else %}fa-file-circle-plus{% endif %}"></i>
+      <strong id="note-banner-title">{% if invoice.ecfType and ('E34' in invoice.ecfType or 'Crédito' in invoice.ecfType) %}E34 - Nota de Crédito{% else %}E33 - Nota de Débito{% endif %}</strong><br><span id="note-banner-text">{% if invoice.ecfType and ('E34' in invoice.ecfType or 'Crédito' in invoice.ecfType) %}Resta, anula o aplica devolución a un comprobante previo.{% else %}Incrementa el valor de un comprobante previo.{% endif %}</span>
     </div>
     {% if invoice and invoice.referencedInvoiceTotal %}
     <input type="hidden" name="referencedInvoiceTotal" id="referenced-invoice-total" value="{{ invoice.referencedInvoiceTotal }}">
@@ -503,6 +504,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const agreementDetailsFields = document.getElementById('agreement-details-fields');
     const ecfTypeSelect = document.getElementById('ecf-type-select');
     const referenceInfoGroup = document.getElementById('reference-info-group');
+    const isReferencing = {{ 'true' if is_referencing else 'false' }};
 
     function handlePaymentTypeChange() {
         if (!paymentTypeSelect) return;
@@ -524,8 +526,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleEcfTypeChange() {
         if (!ecfTypeSelect || !referenceInfoGroup) return;
-        const val = ecfTypeSelect.value, isNote = val === 'Nota de Débito (E33)' || val === 'Nota de Crédito (E34)';
-        if (isNote) { referenceInfoGroup.style.display = 'block'; document.getElementById('ref-ncf-modified')?.setAttribute('required','true'); document.getElementById('ref-ncf-modified-date')?.setAttribute('required','true'); document.getElementById('ref-reason-modification')?.setAttribute('required','true'); const nb = document.getElementById('note-helper-banner'); if (nb) { nb.style.display = 'block'; if (val === 'Nota de Crédito (E34)') { nb.style.borderColor = 'var(--accent-red)'; document.getElementById('note-banner-icon').className = 'fa-solid fa-file-circle-minus'; document.getElementById('note-banner-title').innerText = 'E34 - Nota de Crédito'; document.getElementById('note-banner-text').innerText = 'Resta, anula o aplica devolución a un comprobante previo.'; } else { nb.style.borderColor = 'var(--accent-purple)'; document.getElementById('note-banner-icon').className = 'fa-solid fa-file-circle-plus'; document.getElementById('note-banner-title').innerText = 'E33 - Nota de Débito'; document.getElementById('note-banner-text').innerText = 'Incrementa el valor de un comprobante previo.'; } } }
+        let val = ecfTypeSelect.value;
+        let isNote = val === 'Nota de Débito (E33)' || val === 'Nota de Crédito (E34)';
+        if (!isNote && isReferencing) {
+            const hiddenEcf = document.querySelector('input[name="ecfType"]');
+            const hval = hiddenEcf ? hiddenEcf.value : '';
+            isNote = hval === 'E33' || hval === 'E34' || hval.includes('Nota de Débito') || hval.includes('Nota de Crédito');
+        }
+        if (isNote) { referenceInfoGroup.style.display = 'block'; document.getElementById('ref-ncf-modified')?.setAttribute('required','true'); document.getElementById('ref-ncf-modified-date')?.setAttribute('required','true'); document.getElementById('ref-reason-modification')?.setAttribute('required','true'); const nb = document.getElementById('note-helper-banner'); if (nb) { nb.style.display = 'block'; let bannerType = val; if (isReferencing && !bannerType.includes('Nota de')) { const he = document.querySelector('input[name="ecfType"]'); bannerType = he ? he.value : val; } if (bannerType === 'E34' || bannerType.includes('Nota de Crédito')) { nb.style.borderColor = 'var(--accent-red)'; document.getElementById('note-banner-icon').className = 'fa-solid fa-file-circle-minus'; document.getElementById('note-banner-title').innerText = 'E34 - Nota de Crédito'; document.getElementById('note-banner-text').innerText = 'Resta, anula o aplica devolución a un comprobante previo.'; } else { nb.style.borderColor = 'var(--accent-purple)'; document.getElementById('note-banner-icon').className = 'fa-solid fa-file-circle-plus'; document.getElementById('note-banner-title').innerText = 'E33 - Nota de Débito'; document.getElementById('note-banner-text').innerText = 'Incrementa el valor de un comprobante previo.'; } } }
         else { referenceInfoGroup.style.display = 'none'; document.getElementById('ref-ncf-modified')?.removeAttribute('required'); document.getElementById('ref-ncf-modified-date')?.removeAttribute('required'); document.getElementById('ref-reason-modification')?.removeAttribute('required'); const nb = document.getElementById('note-helper-banner'); if (nb) nb.style.display = 'none'; }
     }
     if (ecfTypeSelect) { ecfTypeSelect.addEventListener('change', handleEcfTypeChange); handleEcfTypeChange(); }
