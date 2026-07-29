@@ -4,15 +4,39 @@
 
 {% block content %}
 <style>
-    .doc-main-col { max-width:960px; margin:0 auto; display:flex; flex-direction:column; gap:24px; }
-    .section-card { background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:28px 32px; }
-    .section-card h3 { font-size:0.95rem; font-weight:700; color:var(--text-primary); margin:0 0 18px 0; display:flex; align-items:center; gap:10px; }
-    .section-card h3 i { font-size:0.95rem; }
+    .detail-grid {
+        display: grid;
+        grid-template-columns: 3fr 1fr;
+        gap: 30px;
+        max-width: 100%;
+        margin: 0 auto;
+    }
+    @media screen and (max-width: 1024px) {
+        .detail-grid {
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+    }
 
-    .inp-row { display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; }
-    .inp-row > .inp-group { flex:1; min-width:150px; }
-    .inp-group.wide { flex:2; min-width:220px; }
-    .inp-group label { font-size:0.78rem; color:var(--text-secondary); display:block; margin-bottom:4px; font-weight:500; }
+    .document-card-sheet {
+        position: relative;
+        border: 2px solid rgba(139,92,246,0.25);
+        box-shadow: var(--shadow-sm), 0 10px 30px rgba(139,92,246,0.05);
+        background: linear-gradient(135deg, rgba(139,92,246,0.04) 0%, var(--bg-card) 100%);
+    }
+    .document-card-sheet::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 6px;
+        background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+        z-index: 10;
+    }
+    [data-theme="dark"] .document-card-sheet {
+        background: linear-gradient(135deg, rgba(167,139,250,0.06) 0%, var(--bg-card) 100%);
+        border: 2px solid rgba(167,139,250,0.3);
+        box-shadow: var(--shadow-md), 0 10px 35px rgba(167,139,250,0.08);
+    }
 
     .field-row {
         display: flex;
@@ -58,525 +82,624 @@
     .badge-purple { background: rgba(139,92,246,0.1);  color: #8b5cf6;               border: 1px solid rgba(139,92,246,0.2);  }
     .badge-amber  { background: rgba(245,158,11,0.1);  color: #f59e0b;               border: 1px solid rgba(245,158,11,0.2);  }
     .badge-gray   { background: rgba(107,114,128,0.1); color: #6b7280;               border: 1px solid rgba(107,114,128,0.2); }
-
-    .recurrence-box {
-        margin-top: 10px; padding: 12px;
-        background: rgba(139,92,246,0.05);
-        border: 1px solid rgba(139,92,246,0.2);
-        border-radius: var(--radius-sm);
-    }
-
-    .actions-bar { display:flex; justify-content:flex-end; align-items:center; gap:12px; padding-top:8px; }
-    .actions-bar .btn { padding:10px 24px; font-size:0.85rem; }
+    .badge-yellow { background: rgba(234,179,8,0.1);   color: #ca8a04;               border: 1px solid rgba(234,179,8,0.2);   }
 
     .panel-btn { display:inline-flex; align-items:center; gap:6px; }
+    .inp-row { display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; }
+    .inp-row > .inp-group { flex:1; min-width:150px; }
+    .inp-group label { font-size:0.78rem; color:var(--text-secondary); display:block; margin-bottom:4px; font-weight:500; }
 </style>
 
-<div class="doc-main-col">
+<div class="detail-grid">
 
-    <!-- ═══ TOP ACTIONS BAR ═══════════════════════════════════════════════ -->
-    <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
-        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            {% set st = invoice.cxpStatus|default('Pendiente') %}
+    <!-- ═══════════════════════════════════ LEFT COLUMN ─────────────────── -->
+    <div style="display: flex; flex-direction: column; gap: 30px;">
+
+        <!-- DOCUMENT CARD -->
+        <div class="card-table-wrapper document-card-sheet" style="padding: 40px;">
+
+            <!-- ── COMPANY HEADER ────────────────────────────────────────── -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border-color); padding-bottom: 30px; margin-bottom: 30px;">
+                <div style="display: flex; align-items: center; gap: 24px;">
+                    {% if company and company.logoUrl %}
+                    <div style="flex-shrink: 0; display: flex; align-items: center;">
+                        <img src="{{ company.logoUrl }}" alt="{{ company.tradeName or company.companyName }}"
+                            style="max-height: 100px; max-width: 150px; object-fit: contain; background: transparent;">
+                    </div>
+                    {% endif %}
+                    <div>
+                        <h2 style="font-size: 1.85rem; font-weight: 800; font-family: var(--font-heading); {% if company and company.get('gradientEnabled', True) %}background: linear-gradient(135deg, #c4b5fd, #ede9fe); -webkit-background-clip: text; -webkit-text-fill-color: transparent;{% else %}color: var(--text-primary);{% endif %} margin-bottom: 8px;">
+                            {{ company.tradeName or company.companyName if company else 'Empresa' }}
+                        </h2>
+                        {% if company %}
+                        <span style="font-family: monospace; font-size: 0.88rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">RNC: {{ company.companyRNC }}</span>
+                        <span style="font-size: 0.82rem; color: var(--text-muted); display: block;">{{ company.companyAddress }}</span>
+                        <span style="font-size: 0.82rem; color: var(--text-muted); display: block;"><i class="fa-solid fa-phone"></i> {{ company.companyPhone }} | <i class="fa-solid fa-envelope"></i> {{ company.companyEmail }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div style="text-align: right;">
+                    <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 6px;">{{ invoice.invoiceNumber or '—' }}</h3>
+                    <div style="display:flex; gap:6px; align-items:center; justify-content:flex-end; flex-wrap:wrap;">
+                        {% if invoice.ecfType == 'E41' %}
+                        <span class="badge-pill badge-purple"><i class="fa-solid fa-store"></i> E41/B06 – Compras</span>
+                        {% elif invoice.ecfType == 'E43' %}
+                        <span class="badge-pill badge-amber"><i class="fa-solid fa-receipt"></i> E43/B07 – Gastos Menores</span>
+                        {% elif invoice.ecfType == 'E31' %}
+                        <span class="badge-pill badge-blue"><i class="fa-solid fa-file-invoice"></i> E31/B01 – Crédito Fiscal</span>
+                        {% elif invoice.ecfType == 'E47' %}
+                        <span class="badge-pill badge-purple"><i class="fa-solid fa-globe"></i> E47/B10 – Pago al Exterior</span>
+                        {% elif invoice.ecfType %}
+                        <span class="badge-pill badge-gray"><i class="fa-solid fa-stamp"></i> {{ invoice.ecfType }}</span>
+                        {% endif %}
+                    </div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 8px;">Fecha: <strong>{{ (invoice.date or '')[:10] }}</strong></div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);">Vence: <strong>{{ (invoice.dueDate or '')[:10] }}</strong></div>
+                </div>
+            </div>
+
+            <!-- ── SUPPLIER INFO ─────────────────────────────────────────── -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; background-color: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 20px; margin-bottom: 30px;">
+                <div>
+                    <span style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 500; display: block; margin-bottom: 6px;">Proveedor</span>
+                    {% if invoice.supplierName %}
+                    <strong style="font-size: 1.05rem; display: block; margin-bottom: 4px;">{{ invoice.supplierName }}</strong>
+                    {% endif %}
+                    {% if invoice.supplierRnc %}
+                    <span style="font-family: monospace; font-size: 0.88rem; color: var(--text-secondary); display: block;">RNC/Cédula: {{ invoice.supplierRnc }}</span>
+                    {% endif %}
+                    {% if invoice.supplierInvoiceNumber %}
+                    <span style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-top: 4px;">Fact. Proveedor: {{ invoice.supplierInvoiceNumber }}</span>
+                    {% endif %}
+                    {% if invoice.poId %}
+                    <a href="{{ url_for('web_purchase_orders.purchase_order_detail', po_id=invoice.poId) }}" style="display:inline-block; margin-top:6px; font-size:0.82rem; color:var(--accent-blue); text-decoration:none;">
+                        <i class="fa-solid fa-link" style="font-size:0.75rem;"></i> OC: {{ invoice.poNumber or invoice.poId }}
+                    </a>
+                    {% endif %}
+                </div>
+                <div style="text-align: right;">
+                    <span style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 500; display: block; margin-bottom: 6px;">Detalles</span>
+                    <span style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">Tipo Proveedor:
+                        {% set stype = invoice.supplierType|default('formal') %}
+                        {% if stype == 'formal' %}<span class="badge-pill badge-green">Formal</span>
+                        {% elif stype == 'informal' %}<span class="badge-pill badge-amber">Informal</span>
+                        {% elif stype == 'internacional' %}<span class="badge-pill badge-blue">Internacional</span>
+                        {% elif stype == 'interno' %}<span class="badge-pill badge-gray">Gasto Interno</span>
+                        {% else %}{{ stype }}{% endif %}
+                    </span>
+                    <span style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">Moneda: <strong>{{ invoice.currency or 'DOP' }}</strong>
+                        {% if invoice.currency and invoice.currency != 'DOP' and invoice.exchangeRate %}
+                        &nbsp;(Tasa: {{ "%.2f"|format(invoice.exchangeRate) }})
+                        {% endif %}
+                    </span>
+                    <span style="font-size: 0.85rem; color: var(--text-secondary); display: block;">Pago:
+                        {% if invoice.paymentType == 'Crédito' %}<span class="badge-pill badge-amber">Crédito</span>
+                        {% else %}<span class="badge-pill badge-green">Contado</span>{% endif %}
+                    </span>
+                    {% if invoice.tipoGastoDGII %}
+                    <span style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-top: 4px;">DGII 606: <strong>
+                        {% if invoice.tipoGastoDGII == '01' %}Gastos de Personal
+                        {% elif invoice.tipoGastoDGII == '02' %}Gastos por Trabajos, Suministros y Servicios
+                        {% elif invoice.tipoGastoDGII == '03' %}Arrendamientos
+                        {% elif invoice.tipoGastoDGII == '04' %}Gastos de Activos Fijos
+                        {% elif invoice.tipoGastoDGII == '05' %}Gastos de Representación
+                        {% elif invoice.tipoGastoDGII == '06' %}Otras Deducciones Admitidas
+                        {% elif invoice.tipoGastoDGII == '07' %}Gastos Financieros
+                        {% elif invoice.tipoGastoDGII == '08' %}Gastos Extraordinarios
+                        {% elif invoice.tipoGastoDGII == '09' %}Compras y Gastos que Formarán Parte del Costo de Venta
+                        {% elif invoice.tipoGastoDGII == '10' %}Adquisiciones de Activos
+                        {% elif invoice.tipoGastoDGII == '11' %}Gastos de Seguros
+                        {% else %}{{ invoice.tipoGastoDGII }}{% endif %}
+                    </strong></span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- ── ITEMS TABLE ───────────────────────────────────────────── -->
+            {% if invoice.get('items', []) %}
+            <div class="table-responsive" style="margin-bottom: 30px;">
+                <table class="table-premium">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--border-color); background-color: rgba(255,255,255,0.015);">
+                            <th style="padding:12px 14px; font-weight:800; font-size:0.72rem; text-transform:uppercase; color:var(--text-primary);">#</th>
+                            <th style="padding:12px 14px; font-weight:800; font-size:0.72rem; text-transform:uppercase; color:var(--text-primary);">Descripción</th>
+                            <th style="padding:12px 14px; font-weight:800; font-size:0.72rem; text-transform:uppercase; color:var(--text-primary); text-align:center;">Cant.</th>
+                            <th style="padding:12px 14px; font-weight:800; font-size:0.72rem; text-transform:uppercase; color:var(--text-primary); text-align:right;">Precio U.</th>
+                            <th style="padding:12px 14px; font-weight:800; font-size:0.72rem; text-transform:uppercase; color:var(--text-primary); text-align:right;">ITBIS</th>
+                            <th style="padding:12px 14px; font-weight:800; font-size:0.72rem; text-transform:uppercase; color:var(--text-primary); text-align:right;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in invoice.get('items', []) %}
+                        <tr>
+                            <td style="padding:12px 14px; vertical-align:middle;"><span style="font-family:monospace; font-size:0.78rem; font-weight:500; color:var(--text-secondary);">{{ loop.index }}</span></td>
+                            <td style="padding:12px 14px; vertical-align:middle;"><strong style="font-size:0.82rem; font-weight:700; color:var(--text-primary);">{{ item.itemName or item.name or '—' }}</strong></td>
+                            <td style="padding:12px 14px; text-align:center; vertical-align:middle; font-size:0.8rem; font-weight:700; color:var(--text-primary);">{{ item.quantity|default(0) }}</td>
+                            <td style="padding:12px 14px; text-align:right; vertical-align:middle; font-size:0.8rem; font-weight:500; color:var(--text-primary);">RD$ {{ "{:,.2f}".format(item.unitPrice|default(0)) }}</td>
+                            <td style="padding:12px 14px; text-align:right; vertical-align:middle; font-size:0.8rem; font-weight:500; color:var(--text-secondary);">{{ "%.0f%%"|format((item.itbisRate|default(0))*100) if item.itbisRate else '0%' }}</td>
+                            <td style="padding:12px 14px; text-align:right; vertical-align:middle; font-size:0.82rem; font-weight:800; color:var(--text-primary);">RD$ {{ "{:,.2f}".format(item.total|default(0)) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div style="text-align:center; padding:30px; color:var(--text-muted); font-size:0.85rem; margin-bottom:30px;">
+                <i class="fa-solid fa-box-open" style="font-size:1.5rem; display:block; margin-bottom:8px; opacity:0.4;"></i>
+                Esta factura no tiene partidas registradas.
+            </div>
+            {% endif %}
+
+            <!-- ── TOTALS ────────────────────────────────────────────────── -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-top: 1px solid var(--border-color); padding-top: 30px;">
+                <div></div>
+                <div style="min-width: 320px; display: flex; flex-direction: column; gap: 12px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-secondary);">
+                        <span>Subtotal:</span>
+                        <span>RD$ {{ "{:,.2f}".format(invoice.subtotal|default(0)) }}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-secondary);">
+                        <span>ITBIS:</span>
+                        <span>RD$ {{ "{:,.2f}".format(invoice.itbis|default(0)) }}</span>
+                    </div>
+                    {% if invoice.discount|default(0) > 0 %}
+                    <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-secondary);">
+                        <span>Descuento:</span>
+                        <span>(RD$ {{ "{:,.2f}".format(invoice.discount) }})</span>
+                    </div>
+                    {% endif %}
+                    <div style="display: flex; justify-content: space-between; font-size: 1.05rem; font-weight: 700; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+                        <span>Total Factura:</span>
+                        <span>RD$ {{ "{:,.2f}".format(invoice.total|default(0)) }}</span>
+                    </div>
+                    {% set ret_isr = invoice.retainedISR|default(0) %}
+                    {% set ret_itbis = invoice.retainedITBIS|default(0) %}
+                    {% set isr_amt = (invoice.total|default(0)) * ret_isr %}
+                    {% set itbis_amt = (invoice.itbis|default(0)) * ret_itbis %}
+                    {% if ret_isr > 0 %}
+                    <div style="display: flex; justify-content: space-between; font-size: 0.88rem; color: #d97706;">
+                        <span><i class="fa-solid fa-hand-holding-dollar"></i> Ret. ISR ({{ "%.0f"|format(ret_isr * 100) }}%):</span>
+                        <span>-RD$ {{ "{:,.2f}".format(isr_amt) }}</span>
+                    </div>
+                    {% endif %}
+                    {% if ret_itbis > 0 %}
+                    <div style="display: flex; justify-content: space-between; font-size: 0.88rem; color: #d97706;">
+                        <span><i class="fa-solid fa-hand-holding-dollar"></i> Ret. ITBIS ({{ "%.0f"|format(ret_itbis * 100) }}%):</span>
+                        <span>-RD$ {{ "{:,.2f}".format(itbis_amt) }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- ── ACCOUNTING ENTRY ───────────────────────────────────────────── -->
+        {% if linked_entry %}
+        <div class="card-table-wrapper" style="padding: 24px; text-align: left;">
+            <h4 style="font-size: 0.95rem; font-family: var(--font-heading); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-calculator" style="color: var(--accent-emerald);"></i>
+                <span>Asiento Contable</span>
+            </h4>
+            <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-primary);">{{ linked_entry.number }}</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted);">{{ linked_entry.date[:10] if linked_entry.date else '' }}</div>
+            {% if linked_entry.concept %}
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">{{ linked_entry.concept }}</div>
+            {% endif %}
+            <div style="margin-top: 10px; font-size:0.75rem;">
+                <div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--border-color); padding: 4px 0; font-weight:600; color:var(--text-muted); text-transform:uppercase; font-size:0.65rem;">
+                    <span>Cuenta</span><span style="text-align:right;">Débito / Crédito</span>
+                </div>
+                {% for line in linked_entry.lines %}
+                <div style="display:flex; justify-content:space-between; padding:4px 0; font-size:0.72rem;">
+                    <span style="color:var(--text-primary);">{{ line.accountName }}</span>
+                    <span style="text-align:right; font-family:monospace;">
+                        {% if line.debit > 0 %}<span style="color:var(--accent-purple);">RD$ {{ "{:,.2f}".format(line.debit) }}</span>
+                        {% else %}<span style="color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(line.credit) }}</span>{% endif %}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- ═══════════════════════════════════ RIGHT SIDEBAR ───────────────── -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+
+        <!-- ── DGII CERTIFICATION ─────────────────────────────────────────── -->
+        <div class="card-table-wrapper" style="padding: 24px; text-align: center;">
+            <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <i class="fa-solid fa-shield-halved" style="color: var(--accent-purple);"></i>
+                <span>Certificación DGII</span>
+            </h4>
+
+            <div style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 12px;">
+                Tipo e-CF: <strong>
+                    {% if invoice.ecfType == 'E31' %}E31/B01 – Crédito Fiscal
+                    {% elif invoice.ecfType == 'E32' %}E32/B02 – Consumo
+                    {% elif invoice.ecfType == 'E41' %}E41/B06 – Compras
+                    {% elif invoice.ecfType == 'E43' %}E43/B07 – Gastos Menores
+                    {% elif invoice.ecfType == 'E45' %}E45/B08 – Gubernamental
+                    {% elif invoice.ecfType == 'E47' %}E47/B10 – Pagos al Exterior
+                    {% else %}{{ invoice.ecfType or '—' }}{% endif %}
+                </strong>
+            </div>
+
+            {% if invoice.encf %}
+            <div style="background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 12px; font-family: monospace; font-size: 1.15rem; font-weight: 700; color: var(--accent-purple); margin-bottom: 16px;">
+                {{ invoice.encf }}
+            </div>
+            <a href="{{ url_for('web_purchase_orders.supplier_invoice_xml_download', invoice_id=invoice.id) }}" class="btn btn-secondary" style="width:100%; display:inline-flex; align-items:center; justify-content:center; gap:6px; font-size:0.82rem; padding:8px 16px; margin-bottom:12px; border-color:var(--accent-emerald); color:var(--accent-emerald);">
+                <i class="fa-solid fa-file-code"></i> Descargar XML
+            </a>
+            {% endif %}
+
+            {% if invoice.ncf and invoice.ncf != invoice.encf %}
+            <div style="background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 10px; font-family: monospace; font-size: 0.9rem; font-weight: 600; color: var(--accent-blue); margin-bottom: 16px;">
+                NCF: {{ invoice.ncf }}
+            </div>
+            {% endif %}
 
             {% if invoice.ecfType == 'E41' %}
-            <span class="badge-pill badge-purple"><i class="fa-solid fa-store"></i> E41/B06 – Comprobante de Compras</span>
-            {% elif invoice.ecfType == 'E43' %}
-            <span class="badge-pill badge-amber"><i class="fa-solid fa-receipt"></i> E43/B07 – Gastos Menores</span>
-            {% elif invoice.ecfType == 'E31' %}
-            <span class="badge-pill badge-blue"><i class="fa-solid fa-file-invoice"></i> E31/B01 – Crédito Fiscal</span>
-            {% elif invoice.ecfType == 'E47' %}
-            <span class="badge-pill badge-purple"><i class="fa-solid fa-globe"></i> E47/B10 – Pago al Exterior</span>
-            {% elif invoice.ecfType %}
-            <span class="badge-pill badge-gray"><i class="fa-solid fa-stamp"></i> {{ invoice.ecfType }}</span>
-            {% endif %}
-
-            {% if invoice.paymentType == 'Crédito' %}
-            <span class="badge-pill badge-red"><i class="fa-solid fa-hourglass-half"></i>
-                {% if st == 'Pagado' %}CxP Saldada{% elif st == 'Abonado' %}Abonada{% else %}Pendiente{% endif %}
-            </span>
-            {% else %}
-            <span class="badge-pill badge-green"><i class="fa-solid fa-circle-check"></i> Pagado al Contado</span>
-            {% endif %}
-        </div>
-
-        <div style="display:flex; gap:10px; align-items:center;">
-            {% set total_attachments = invoice.attachmentUrls|length if invoice.attachmentUrls else 0 %}
-            <button type="button" class="btn btn-secondary panel-btn" onclick="openAttachmentPanelFromDetail()" style="font-size:0.78rem;padding:9px 16px;">
-                <i class="fa-solid fa-paperclip"></i> Adjuntos{% if total_attachments > 0 %} ({{ total_attachments }}){% endif %}
-            </button>
-            <a href="{{ url_for('web_purchase_orders.list_purchase_cxp') }}" class="btn btn-secondary">
-                <i class="fa-solid fa-arrow-left"></i> Volver
-            </a>
-            <a href="{{ url_for('web_purchase_orders.edit_supplier_invoice', invoice_id=invoice.id) }}" class="btn btn-primary">
-                <i class="fa-solid fa-pen-to-square"></i> Editar
-            </a>
-            {% set ret_isr = invoice.retainedISR|default(0) %}
-            {% set ret_itbis = invoice.retainedITBIS|default(0) %}
-            {% if ret_isr > 0 or ret_itbis > 0 %}
-            <div class="btn-group" style="display:flex; gap:6px;">
-                <a href="{{ url_for('web_purchase_orders.supplier_retention_letter', invoice_id=invoice.id) }}?action=print" target="_blank"
-                    class="btn btn-secondary" style="display:inline-flex;align-items:center;gap:5px;font-size:0.78rem;padding:9px 12px;border-color:var(--accent-blue);color:var(--accent-blue);"
-                    title="Imprimir Carta de Retención">
-                    <i class="fa-solid fa-file-invoice"></i>
-                </a>
-                <a href="{{ url_for('web_purchase_orders.supplier_retention_letter', invoice_id=invoice.id) }}?action=download"
-                    class="btn btn-secondary" style="display:inline-flex;align-items:center;gap:5px;font-size:0.78rem;padding:9px 12px;border-color:var(--accent-blue);color:var(--accent-blue);"
-                    title="Descargar Carta de Retención">
-                    <i class="fa-solid fa-file-pdf"></i>
-                </a>
-                <button type="button" onclick="openRetentionEmailModal()" class="btn btn-primary"
-                    style="display:inline-flex;align-items:center;gap:5px;font-size:0.78rem;padding:9px 12px;border:none;background:linear-gradient(135deg,var(--accent-blue),#2563eb);color:white;"
-                    title="Enviar Carta por Correo">
-                    <i class="fa-solid fa-envelope"></i>
-                </button>
-            </div>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- ① CONCEPTO E IMPORTES ───────────────────────────────────────────── -->
-    <div class="section-card">
-        <h3><i class="fa-solid fa-file-invoice-dollar" style="color:var(--accent-emerald);"></i> Concepto e Importes</h3>
-
-        <div class="field-row">
-            <span class="field-label">Factura</span>
-            <span class="field-value" style="font-size:0.92rem; font-weight:600;">{{ invoice.invoiceNumber or '—' }}</span>
-        </div>
-        {% if invoice.tipoGastoDGII %}
-        <div class="field-row">
-            <span class="field-label">Tipo DGII 606</span>
-            <span class="field-value">
-                {{ invoice.tipoGastoDGII }} –
-                {% if invoice.tipoGastoDGII == '01' %}Gastos de Personal
-                {% elif invoice.tipoGastoDGII == '02' %}Gastos por Trabajos, Suministros y Servicios
-                {% elif invoice.tipoGastoDGII == '03' %}Arrendamientos
-                {% elif invoice.tipoGastoDGII == '04' %}Gastos de Activos Fijos
-                {% elif invoice.tipoGastoDGII == '05' %}Gastos de Representación
-                {% elif invoice.tipoGastoDGII == '06' %}Otras Deducciones Admitidas
-                {% elif invoice.tipoGastoDGII == '07' %}Gastos Financieros
-                {% elif invoice.tipoGastoDGII == '08' %}Gastos Extraordinarios
-                {% elif invoice.tipoGastoDGII == '09' %}Compras y Gastos que Formarán Parte del Costo de Venta
-                {% elif invoice.tipoGastoDGII == '10' %}Adquisiciones de Activos
-                {% elif invoice.tipoGastoDGII == '11' %}Gastos de Seguros
-                {% else %}{{ invoice.tipoGastoDGII }}{% endif %}
-            </span>
-        </div>
-        {% endif %}
-        <div class="field-row">
-            <span class="field-label">Fecha Emisión</span>
-            <span class="field-value">{{ (invoice.date or '')[:10] }}</span>
-        </div>
-        <div class="field-row">
-            <span class="field-label">Fecha Vencimiento</span>
-            <span class="field-value">{{ (invoice.dueDate or '')[:10] }}</span>
-        </div>
-        <div class="field-row" style="margin-top:8px; padding-top:12px; border-top:1px dashed var(--border-color);">
-            <span class="field-label">Moneda</span>
-            <span class="field-value">
-                {{ invoice.currency or 'DOP' }}
-                {% if invoice.currency and invoice.currency != 'DOP' %}
-                <span style="font-size:0.72rem; color:var(--text-muted);">
-                    &nbsp;(Tasa: {{ "%.2f"|format(invoice.exchangeRate or 1.0) }} × DOP)
-                </span>
-                {% endif %}
-            </span>
-        </div>
-        <div class="field-row">
-            <span class="field-label">Subtotal</span>
-            <span class="field-value amount">RD$ {{ "{:,.2f}".format(invoice.subtotal|default(0)) }}</span>
-        </div>
-        <div class="field-row">
-            <span class="field-label">ITBIS</span>
-            <span class="field-value" style="color:var(--accent-blue); font-weight:600;">RD$ {{ "{:,.2f}".format(invoice.itbis|default(0)) }}</span>
-        </div>
-        {% if invoice.discount|default(0) > 0 %}
-        <div class="field-row">
-            <span class="field-label">Descuento</span>
-            <span class="field-value" style="color:var(--text-muted);">(RD$ {{ "{:,.2f}".format(invoice.discount) }})</span>
-        </div>
-        {% endif %}
-        <div class="field-row">
-            <span class="field-label">Total</span>
-            <span class="field-value amount">RD$ {{ "{:,.2f}".format(invoice.total|default(0)) }}</span>
-        </div>
-        {% set ret_isr = invoice.retainedISR|default(0) %}
-        {% set ret_itbis = invoice.retainedITBIS|default(0) %}
-        {% set isr_amt = (invoice.total|default(0)) * ret_isr %}
-        {% set itbis_amt = (invoice.itbis|default(0)) * ret_itbis %}
-        {% if ret_isr > 0 %}
-        <div class="field-row" style="margin-top:6px; padding-top:8px; border-top:1px dashed var(--border-color);">
-            <span class="field-label" style="color:#d97706;">
-                <i class="fa-solid fa-hand-holding-dollar"></i> Retención ISR ({{ "%.0f"|format(ret_isr * 100) }}%)
-            </span>
-            <span class="field-value" style="color:#d97706; font-weight:700; font-family:monospace;">
-                - RD$ {{ "{:,.2f}".format(isr_amt) }}
-            </span>
-        </div>
-        {% endif %}
-        {% if ret_itbis > 0 %}
-        <div class="field-row">
-            <span class="field-label" style="color:#d97706;">
-                <i class="fa-solid fa-hand-holding-dollar"></i> Retención ITBIS ({{ "%.0f"|format(ret_itbis * 100) }}%)
-            </span>
-            <span class="field-value" style="color:#d97706; font-weight:700; font-family:monospace;">
-                - RD$ {{ "{:,.2f}".format(itbis_amt) }}
-            </span>
-        </div>
-        {% endif %}
-    </div>
-
-    <!-- ② PROVEEDOR ──────────────────────────────────────────────────────── -->
-    <div class="section-card">
-        <h3><i class="fa-solid fa-building" style="color:var(--accent-blue);"></i> Proveedor</h3>
-
-        <div class="field-row">
-            <span class="field-label">Tipo de Proveedor</span>
-            <span class="field-value">
-                {% set stype = invoice.supplierType|default('formal') %}
-                {% if stype == 'formal' %}<span class="badge-pill badge-green">Formal (RNC/Cédula)</span>
-                {% elif stype == 'informal' %}<span class="badge-pill badge-amber">Informal (No Registrado)</span>
-                {% elif stype == 'internacional' %}<span class="badge-pill badge-blue">Internacional</span>
-                {% elif stype == 'interno' %}<span class="badge-pill badge-gray">Gasto Interno</span>
-                {% else %}{{ stype }}{% endif %}
-            </span>
-        </div>
-        {% if invoice.supplierName %}
-        <div class="field-row">
-            <span class="field-label">Razón Social</span>
-            <span class="field-value" style="font-weight:600;">{{ invoice.supplierName }}</span>
-        </div>
-        {% endif %}
-        {% if invoice.supplierRnc %}
-        <div class="field-row">
-            <span class="field-label">RNC / Cédula</span>
-            <span class="field-value mono">{{ invoice.supplierRnc }}</span>
-        </div>
-        {% endif %}
-        {% if invoice.supplierInvoiceNumber %}
-        <div class="field-row" style="margin-top:8px; padding-top:12px; border-top:1px dashed var(--border-color);">
-            <span class="field-label">Factura Proveedor</span>
-            <span class="field-value">{{ invoice.supplierInvoiceNumber }}</span>
-        </div>
-        {% endif %}
-        {% if invoice.poId %}
-        <div class="field-row">
-            <span class="field-label">OC Relacionada</span>
-            <span class="field-value">
-                <a href="{{ url_for('web_purchase_orders.purchase_order_detail', po_id=invoice.poId) }}" style="color:var(--accent-blue); text-decoration:none;">
-                    <i class="fa-solid fa-link" style="font-size:0.75rem;"></i> {{ invoice.poNumber or invoice.poId }}
-                </a>
-            </span>
-        </div>
-        {% endif %}
-    </div>
-
-    <!-- ③ COMPROBANTE FISCAL ─────────────────────────────────────────────── -->
-    <div class="section-card">
-        <h3><i class="fa-solid fa-stamp" style="color:var(--accent-purple);"></i> Comprobante Fiscal (e-CF)</h3>
-
-        <div class="field-row">
-            <span class="field-label">Tipo e-CF</span>
-            <span class="field-value">
-                {% if invoice.ecfType == 'E31' %}E31/B01 – Factura de Crédito Fiscal
-                {% elif invoice.ecfType == 'E32' %}E32/B02 – Factura de Consumo
-                {% elif invoice.ecfType == 'E41' %}E41/B06 – Comprobante de Compras
-                {% elif invoice.ecfType == 'E43' %}E43/B07 – Gastos Menores
-                {% elif invoice.ecfType == 'E45' %}E45/B08 – Gubernamental
-                {% elif invoice.ecfType == 'E47' %}E47/B10 – Pagos al Exterior
-                {% else %}{{ invoice.ecfType or '—' }}{% endif %}
-            </span>
-        </div>
-        {% if invoice.ncf %}
-        <div class="field-row">
-            <span class="field-label">NCF / e-CF</span>
-            <span class="field-value mono" style="font-size:0.88rem; color:var(--accent-blue);">{{ invoice.ncf }}</span>
-        </div>
-        {% endif %}
-        {% if invoice.cne %}
-        <div class="field-row">
-            <span class="field-label">CNE (Seg.)</span>
-            <span class="field-value mono" style="font-size:0.78rem;">{{ invoice.cne }}</span>
-        </div>
-        {% endif %}
-        <div class="field-row">
-            <span class="field-label">Términos de Pago</span>
-            <span class="field-value">
-                {% if invoice.paymentTerms %}{{ invoice.paymentTerms }}
-                {% elif invoice.paymentType == 'Crédito' %}Crédito
-                {% else %}Contado{% endif %}
-            </span>
-        </div>
-    </div>
-
-    {% if linked_entry %}
-    <!-- ④ CONTABILIDAD ─ ASIENTO CONTABLE ASOCIADO ───────────────────────── -->
-    <div class="section-card">
-        <h3><i class="fa-solid fa-calculator" style="color:var(--accent-purple);"></i> Contabilidad</h3>
-
-        <div style="margin-bottom: 14px;">
-            <div style="font-size: 0.92rem; font-weight: 700; color: var(--text-primary);">
-                Asiento contable {{ linked_entry.number }}
-            </div>
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
-                Fecha: {{ linked_entry.date[:10] if linked_entry.date else '' }}
-            </div>
-            {% if linked_entry.concept %}
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
-                {{ linked_entry.concept }}
-            </div>
-            {% endif %}
-        </div>
-
-        <table style="width:100%; border-collapse:collapse; font-size:0.75rem; margin-bottom:10px;">
-            <thead>
-                <tr style="border-bottom: 2px solid var(--border-color);">
-                    <th style="padding:8px 10px; text-align:left; font-weight:600; color:var(--text-muted); font-size:0.7rem; text-transform:uppercase;">Tercero</th>
-                    <th style="padding:8px 10px; text-align:left; font-weight:600; color:var(--text-muted); font-size:0.7rem; text-transform:uppercase;">Código</th>
-                    <th style="padding:8px 10px; text-align:left; font-weight:600; color:var(--text-muted); font-size:0.7rem; text-transform:uppercase;">Cuenta contable</th>
-                    <th style="padding:8px 10px; text-align:right; font-weight:600; color:var(--text-muted); font-size:0.7rem; text-transform:uppercase;">Débito</th>
-                    <th style="padding:8px 10px; text-align:right; font-weight:600; color:var(--text-muted); font-size:0.7rem; text-transform:uppercase;">Crédito</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for line in linked_entry.lines %}
-                <tr style="border-bottom:1px solid var(--border-color);">
-                    <td style="padding:8px 10px; font-size:0.78rem;">{{ line.contactName or invoice.supplierName or 'Proveedor' }}</td>
-                    <td style="padding:8px 10px; font-family:monospace; font-size:0.73rem; color:var(--accent-purple);">{{ line.accountCode or '-' }}</td>
-                    <td style="padding:8px 10px; font-size:0.78rem;">{{ line.accountName }}</td>
-                    <td style="padding:8px 10px; text-align:right; font-family:monospace; font-size:0.78rem; color:var(--accent-purple);">{% if line.debit > 0 %}RD$ {{ "{:,.2f}".format(line.debit) }}{% endif %}</td>
-                    <td style="padding:8px 10px; text-align:right; font-family:monospace; font-size:0.78rem; color:var(--accent-emerald);">{% if line.credit > 0 %}RD$ {{ "{:,.2f}".format(line.credit) }}{% endif %}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-            <tfoot>
-                <tr style="border-top: 2px solid var(--border-color); font-weight:700;">
-                    <td colspan="3" style="padding:10px; font-size:0.8rem; text-align:right; color:var(--text-primary);">TOTAL</td>
-                    <td style="padding:10px; text-align:right; font-family:monospace; font-size:0.82rem; color:var(--accent-purple);">RD$ {{ "{:,.2f}".format(linked_entry.totalDebit) }}</td>
-                    <td style="padding:10px; text-align:right; font-family:monospace; font-size:0.82rem; color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(linked_entry.totalCredit) }}</td>
-                </tr>
-            </tfoot>
-        </table>
-
-        <p style="font-size:0.7rem; color:var(--text-muted); line-height:1.4; margin:0;">
-            <i class="fa-solid fa-circle-info" style="color:var(--accent-purple);"></i>
-            Visualiza el movimiento contable de este comprobante. Puedes personalizar las cuentas contables y sus códigos <a href="{{ url_for('web_accounting.chart_of_accounts') }}">Aquí</a>.
-        </p>
-    </div>
-    {% endif %}
-
-    <!-- ⑤ PARTIDAS ──────────────────────────────────────────────────────── -->
-    <div class="section-card">
-        <h3><i class="fa-solid fa-box" style="color:var(--accent-emerald);"></i> Partidas ({{ (invoice.get('items', []))|length }})</h3>
-        {% if invoice.get('items', []) %}
-        <div class="table-responsive">
-            <table class="table-premium">
-                <thead>
-                    <tr>
-                        <th style="padding:8px 12px; font-size:0.72rem; font-weight:600; color:var(--text-muted); text-transform:uppercase;">#</th>
-                        <th style="padding:8px 12px; font-size:0.72rem; font-weight:600; color:var(--text-muted); text-transform:uppercase;">Descripción</th>
-                        <th style="padding:8px 12px; font-size:0.72rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; text-align:center;">Cant.</th>
-                        <th style="padding:8px 12px; font-size:0.72rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; text-align:right;">Precio U.</th>
-                        <th style="padding:8px 12px; font-size:0.72rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; text-align:right;">ITBIS</th>
-                        <th style="padding:8px 12px; font-size:0.72rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; text-align:right;">Desc%</th>
-                        <th style="padding:8px 12px; font-size:0.72rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; text-align:right;">Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in invoice.get('items', []) %}
-                    <tr>
-                        <td style="padding:8px 10px; font-size:0.82rem;">{{ loop.index }}</td>
-                        <td style="padding:8px 10px; font-weight:600; font-size:0.82rem;">{{ item.itemName or item.name or '—' }}</td>
-                        <td style="padding:8px 10px; text-align:center; font-size:0.82rem;">{{ item.quantity|default(0) }}</td>
-                        <td style="padding:8px 10px; text-align:right; font-size:0.82rem;">{{ "{:,.2f}".format(item.unitPrice|default(0)) }}</td>
-                        <td style="padding:8px 10px; text-align:right; font-size:0.82rem;">{{ "%.0f%%"|format((item.itbisRate|default(0))*100) if item.itbisRate else '0%' }}</td>
-                        <td style="padding:8px 10px; text-align:right; font-size:0.82rem;">{{ item.discount|default(0) }}%</td>
-                        <td style="padding:8px 10px; text-align:right; font-weight:700; font-size:0.82rem;">RD$ {{ "{:,.2f}".format(item.total|default(0)) }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        <div style="display:flex; justify-content:flex-end; margin-top:16px; padding-top:12px; border-top:1px solid var(--border-color);">
-            <div style="min-width:280px; display:flex; flex-direction:column; gap:6px;">
-                <div style="display:flex; justify-content:space-between; font-size:0.88rem; color:var(--text-secondary);">
-                    <span>Subtotal:</span>
-                    <span>RD$ {{ "{:,.2f}".format(invoice.subtotal|default(0)) }}</span>
-                </div>
-                <div style="display:flex; justify-content:space-between; font-size:0.88rem; color:var(--text-secondary);">
-                    <span>ITBIS:</span>
-                    <span>RD$ {{ "{:,.2f}".format(invoice.itbis|default(0)) }}</span>
-                </div>
-                {% if invoice.discount|default(0) > 0 %}
-                <div style="display:flex; justify-content:space-between; font-size:0.88rem; color:var(--text-secondary);">
-                    <span>Descuento:</span>
-                    <span>(RD$ {{ "{:,.2f}".format(invoice.discount) }})</span>
-                </div>
-                {% endif %}
-                <div style="display:flex; justify-content:space-between; font-size:1.05rem; font-weight:700; border-top:1px solid var(--border-color); padding-top:6px; margin-top:4px;">
-                    <span>Total:</span>
-                    <span>RD$ {{ "{:,.2f}".format(invoice.total|default(0)) }}</span>
-                </div>
-            </div>
-        </div>
-        {% else %}
-        <div style="text-align:center; padding:30px; color:var(--text-muted); font-size:0.85rem;">
-            <i class="fa-solid fa-box-open" style="font-size:1.5rem; display:block; margin-bottom:8px; opacity:0.4;"></i>
-            Esta factura no tiene partidas registradas.
-        </div>
-        {% endif %}
-    </div>
-
-    <!-- ⑥ CONDICIONES DE PAGO ───────────────────────────────────────────── -->
-    <div class="section-card">
-        <h3><i class="fa-solid fa-credit-card" style="color:var(--accent-blue);"></i> Condiciones de Pago</h3>
-
-        <div class="field-row">
-            <span class="field-label">Estado de Pago</span>
-            <span class="field-value">
-                {% if invoice.paymentType == 'Crédito' %}
-                    <span class="badge-pill badge-amber"><i class="fa-solid fa-hourglass-half"></i> Crédito / CxP</span>
+                {% if invoice.status == 'emitida' or (invoice.isSyncedWithDGII and invoice.encf and not invoice.dgiiError) %}
+                <span class="badge-pill badge-green" style="justify-content:center; width:100%; margin-bottom:12px;">Emitido</span>
+                {% elif invoice.status == 'rechazado_dgii' or invoice.dgiiError %}
+                <span class="badge-pill badge-red" style="justify-content:center; width:100%; margin-bottom:12px;">Rechazado</span>
                 {% else %}
-                    <span class="badge-pill badge-green"><i class="fa-solid fa-circle-check"></i> Pagado al Contado</span>
+                <span class="badge-pill badge-yellow" style="justify-content:center; width:100%; margin-bottom:12px;">Pendiente</span>
                 {% endif %}
-            </span>
-        </div>
-        {% if invoice.paymentType == 'Crédito' %}
-        <div class="field-row">
-            <span class="field-label">Vencimiento</span>
-            <span class="field-value">{{ (invoice.dueDate or '')[:10] or '—' }}</span>
-        </div>
-        <div class="field-row">
-            <span class="field-label">Balance CxP</span>
-            <span class="field-value" style="color:{% if st == 'Pagado' %}var(--accent-emerald){% else %}#ef4444{% endif %}; font-weight:700; font-family:monospace;">
-                RD$ {{ "{:,.2f}".format(invoice.cxpRemainingBalance|default(invoice.total|default(0))) }}
-            </span>
-        </div>
-        {% endif %}
-    </div>
+            {% endif %}
 
-    {% if is_cxp and payments %}
-    <!-- ⑦ ABONOS CxP ─────────────────────────────────────────────────────── -->
-    <div class="section-card">
-        <h3><i class="fa-solid fa-money-bill-transfer" style="color:var(--accent-emerald);"></i> Abonos y Pagos</h3>
-        {% for p in payments %}
-        <div class="field-row" style="display:flex; align-items:center;">
-            <span class="field-label">{{ (p.paymentDate or '')[:10] }}</span>
-            <span class="field-value" style="color:var(--accent-emerald); font-weight:700; font-family:monospace;">
-                RD$ {{ "{:,.2f}".format(p.amount) }}
+            {% if invoice.encf and invoice.qrCodeURL %}
+            <div style="background-color: white; padding: 12px; border-radius: var(--radius-sm); display: inline-block; box-shadow: var(--shadow-sm); margin-bottom: 12px;">
+                <img src="{{ invoice.qrCodeURL }}" alt="QR DGII" style="width: 140px; height: 140px; display: block; cursor:pointer;" onclick="window.open('{{ invoice.qrCodeURL }}', '_blank')">
+            </div>
+            <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 16px; line-height: 1.3;">
+                Código QR exigido por la Ley 32-23 para validación en la DGII.
             </span>
-            <span style="font-size:0.75rem; color:var(--text-muted); flex-shrink:0;">{{ p.method or '' }}</span>
-            <form method="POST" action="{{ url_for('web_purchase_orders.void_payment', invoice_id=invoice.id, payment_id=p.id) }}" style="display:inline; flex-shrink:0; margin-left:6px;" onsubmit="return confirm('¿Revertir este pago de RD$ {{ '{:,.2f}'.format(p.amount) }}?')">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn btn-sm btn-danger" style="font-size:0.65rem; padding:1px 6px;" title="Revertir pago"><i class="fa-solid fa-rotate-left"></i></button>
-            </form>
-        </div>
-        {% endfor %}
+            {% endif %}
 
-        <div style="margin-top:16px; padding-top:16px; border-top:1px dashed var(--border-color);">
-            <strong style="font-size:0.78rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.03em; display:block; margin-bottom:12px;">
-                <i class="fa-solid fa-money-bill-wave"></i> Registrar Pago
-            </strong>
-            <form method="POST" action="{{ url_for('web_purchase_orders.pay_supplier_invoice', invoice_id=invoice.id) }}" class="inp-row">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <div class="inp-group">
-                    <label>Monto a Pagar (RD$)</label>
-                    <input type="number" name="amount" class="form-input" step="0.01" min="0.01" max="{{ invoice.cxpRemainingBalance|default(invoice.total|default(0)) }}" required style="font-size:0.88rem; height:38px;">
+            {% if invoice.encf and invoice.trackId %}
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px; font-family: monospace;">Track ID: {{ invoice.trackId }}</div>
+            {% endif %}
+
+            {% if invoice.cne %}
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px; font-family: monospace;">CNE: {{ invoice.cne }}</div>
+            {% endif %}
+
+            {% set is_emitted = invoice.status == 'emitida' or (invoice.isSyncedWithDGII and invoice.encf and not invoice.dgiiError) %}
+            {% set is_rejected = invoice.status == 'rechazado_dgii' or invoice.dgiiError %}
+            {% if not is_emitted %}
+            <div style="border-top: 1px solid var(--border-color); padding-top: 16px; margin-top: 4px;">
+                <form action="{{ url_for('web_purchase_orders.emit_supplier_invoice', invoice_id=invoice.id) }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" style="width:100%; padding:10px 16px; font-size:0.82rem; font-weight:600; border:none; border-radius:var(--radius-sm); cursor:pointer; background:linear-gradient(135deg,#8b5cf6,#7c3aed); color:#fff;">
+                        {% if is_rejected %}
+                        <i class="fa-solid fa-rotate-right"></i> Reemitir a DGII
+                        {% else %}
+                        <i class="fa-solid fa-paper-plane"></i> Emitir a DGII
+                        {% endif %}
+                    </button>
+                    {% if is_rejected and invoice.encf %}
+                    <span style="font-size:0.68rem; color:var(--text-muted); display:block; margin-top:6px; text-align:center;">e-NCF: <strong style="font-family:monospace;">{{ invoice.encf }}</strong></span>
+                    {% endif %}
+                </form>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- ── CxP PAYMENT STATUS ─────────────────────────────────────────── -->
+        {% if is_cxp %}
+        <div class="card-table-wrapper" style="padding: 24px;">
+            <h4 style="font-size: 1rem; font-family: var(--font-heading); margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-credit-card" style="color: var(--accent-blue);"></i>
+                <span>Estado Cuentas por Pagar</span>
+            </h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: center; margin-bottom: 16px;">
+                <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:12px;">
+                    <span style="font-size:0.7rem; color:var(--text-muted); display:block; text-transform:uppercase; font-weight:700; margin-bottom:4px;">Total</span>
+                    <strong style="font-size:0.95rem; color:var(--text-primary);">RD$ {{ "{:,.2f}".format(invoice.total|default(0)) }}</strong>
                 </div>
-                <div class="inp-group" style="max-width:160px;">
-                    <label>Método</label>
-                    <select name="paymentMethod" class="form-input" style="font-size:0.82rem; height:38px;">
-                        <option value="">—</option>
+                <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:12px;">
+                    <span style="font-size:0.7rem; color:var(--text-muted); display:block; text-transform:uppercase; font-weight:700; margin-bottom:4px;">Balance</span>
+                    {% set st = invoice.cxpStatus|default('Pendiente') %}
+                    <strong style="font-size:0.95rem; color:{% if st == 'Pagado' %}var(--accent-emerald){% else %}#ef4444{% endif %};">
+                        RD$ {{ "{:,.2f}".format(invoice.cxpRemainingBalance|default(invoice.total|default(0))) }}
+                    </strong>
+                </div>
+            </div>
+            {% set st = invoice.cxpStatus|default('Pendiente') %}
+            <span style="display:block; text-align:center; margin-bottom:4px;">
+                {% if st == 'Pagado' %}<span class="badge-pill badge-green">CxP Saldada</span>
+                {% elif st == 'Abonado' %}<span class="badge-pill badge-amber">Abonada</span>
+                {% elif st == 'Vencido' %}<span class="badge-pill badge-red">Vencida</span>
+                {% else %}<span class="badge-pill badge-yellow">Pendiente</span>{% endif %}
+            </span>
+
+            {% if payments %}
+            <div style="border-top:1px solid var(--border-color); padding-top:14px; margin-top:14px;">
+                <span style="font-size:0.7rem; text-transform:uppercase; color:var(--text-muted); font-weight:700; display:block; margin-bottom:8px;">Abonos</span>
+                {% for p in payments %}
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; font-size:0.78rem; border-bottom:1px solid rgba(255,255,255,0.03);">
+                    <span style="color:var(--text-secondary);">{{ (p.paymentDate or '')[:10] }} · {{ p.method or '—' }}</span>
+                    <span style="color:var(--accent-emerald); font-weight:700; font-family:monospace;">RD$ {{ "{:,.2f}".format(p.amount) }}</span>
+                    <form method="POST" action="{{ url_for('web_purchase_orders.void_payment', invoice_id=invoice.id, payment_id=p.id) }}" style="flex-shrink:0; margin-left:6px;" onsubmit="return confirm('¿Revertir este pago de RD$ {{ '{:,.2f}'.format(p.amount) }}?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" style="font-size:0.6rem; padding:1px 5px; background:transparent; border:1px solid #ef4444; color:#ef4444; border-radius:3px; cursor:pointer;" title="Revertir"><i class="fa-solid fa-rotate-left"></i></button>
+                    </form>
+                </div>
+                {% endfor %}
+
+                <form method="POST" action="{{ url_for('web_purchase_orders.pay_supplier_invoice', invoice_id=invoice.id) }}" style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="number" name="amount" class="form-input" step="0.01" min="0.01" max="{{ invoice.cxpRemainingBalance|default(invoice.total|default(0)) }}" placeholder="Monto RD$" required style="font-size:0.82rem; height:36px;">
+                    <select name="paymentMethod" class="form-input" style="font-size:0.78rem; height:36px;">
+                        <option value="">Método</option>
                         <option value="Efectivo">Efectivo</option>
                         <option value="Cheque">Cheque</option>
                         <option value="Transferencia">Transferencia</option>
                         <option value="Tarjeta">Tarjeta</option>
                         <option value="Nota Crédito">Nota Crédito</option>
                     </select>
-                </div>
-                <div class="inp-group" style="max-width:160px;">
-                    <label>Referencia</label>
-                    <input type="text" name="paymentReference" class="form-input" placeholder="N° cheque / transf." style="font-size:0.82rem; height:38px;">
-                </div>
-                <div class="inp-group" style="max-width:200px;">
-                    <label>Cuenta Bancaria</label>
-                    <select name="bankAccountId" class="form-input" style="font-size:0.82rem; height:38px;">
-                        <option value="">-- Seleccionar --</option>
+                    <input type="text" name="paymentReference" class="form-input" placeholder="Referencia" style="font-size:0.78rem; height:36px;">
+                    <select name="bankAccountId" class="form-input" style="font-size:0.78rem; height:36px;">
+                        <option value="">-- Cuenta --</option>
                         {% for acc in bank_accounts %}
-                        <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.type }})</option>
+                        <option value="{{ acc.id }}">{{ acc.name }}</option>
                         {% endfor %}
                     </select>
-                </div>
-                <button type="submit" class="btn btn-primary" style="height:38px; margin-top:18px;">
-                    <i class="fa-solid fa-check"></i> Pagar
-                </button>
-            </form>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- ─── COMENTARIOS ──────────────────────────────────────────────────── -->
-    {% set submit_url   = "/purchase-orders/invoices/" ~ invoice.id ~ "/comments/new" %}
-    {% set edit_url_prefix   = "/purchase-orders/invoices/" ~ invoice.id ~ "/comments" %}
-    {% set delete_url_prefix = "/purchase-orders/invoices/" ~ invoice.id ~ "/comments" %}
-    {% include 'components/_comments.html' %}
-
-    <!-- ─── MODAL: ENVIAR CARTA DE RETENCIÓN ─────────────────────────────── -->
-    <div class="search-modal" id="retention-email-modal"
-        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1200; align-items: center; justify-content: center;">
-        <div class="modal-backdrop" onclick="closeRetentionEmailModal()"
-            style="position: absolute; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px);">
-        </div>
-        <div class="modal-content"
-            style="max-width: 480px; width: calc(100% - 32px); background: var(--bg-card); backdrop-filter: blur(20px); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 30px; position: relative; z-index: 2; box-shadow: var(--shadow-lg); animation: floatIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards; color: var(--text-primary); text-align: left;">
-            <div class="modal-header"
-                style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 16px; margin-bottom: 20px;">
-                <h3
-                    style="font-size: 1.1rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px; color: var(--text-primary); font-weight: 800; margin: 0;">
-                    <i class="fa-solid fa-file-invoice" style="color: var(--accent-blue);"></i>
-                    <span>Enviar Carta de Retención</span>
-                </h3>
-                <button type="button" onclick="closeRetentionEmailModal()"
-                    style="cursor: pointer; font-size: 1.25rem; opacity: 0.7; background: transparent; border: none; color: var(--text-primary);"><i
-                        class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div class="modal-body">
-                <div
-                    style="background: rgba(59,130,246,0.05); border: 1px solid rgba(59,130,246,0.2); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 20px; font-size: 0.8rem; line-height: 1.4; color: var(--text-secondary);">
-                    Se enviará la Carta de Retención del comprobante <strong>{{ invoice.ncf or invoice.invoiceNumber or invoice.id }}</strong> en formato
-                    PDF adjunto.
-                    {% set _ret_isr = invoice.retainedISR|default(0) %}
-                    {% set _ret_itbis = invoice.retainedITBIS|default(0) %}
-                    {% set _isr_amt = (invoice.total|default(0)) * _ret_isr %}
-                    {% set _itbis_amt = (invoice.itbis|default(0)) * _ret_itbis %}
-                    Retención de ITBIS: <strong>RD$ {{ "{:,.2f}".format(_itbis_amt) }}</strong>{% if _ret_isr > 0 %}, ISR: <strong>RD$ {{ "{:,.2f}".format(_isr_amt) }}</strong>{% endif %}.
-                </div>
-
-                <div class="form-group" style="margin-bottom: 16px;">
-                    <label for="retention-email-input"
-                        style="font-size: 0.8rem; font-weight: 500; margin-bottom: 6px; display: block; color: var(--text-secondary);">Email del Proveedor</label>
-                    <input type="email" id="retention-email-input" class="form-input" placeholder="proveedor@ejemplo.com"
-                        style="width: 100%; padding: 10px 12px; font-size: 0.9rem; height: 44px;" required>
-                    <small style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; display: block;">Si no especifica ninguno, se usará el correo registrado del proveedor.</small>
-                </div>
-
-                <div id="retention-email-status" style="display:none; padding:12px; border-radius:8px; margin-bottom:16px; font-size:0.82rem;"></div>
-
-                <div style="display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--border-color); padding-top: 16px;">
-                    <button type="button" onclick="closeRetentionEmailModal()" class="btn btn-secondary" style="flex: 1;">Cancelar</button>
-                    <button type="button" id="send-retention-btn" onclick="submitRetentionEmail()" class="btn btn-primary"
-                        style="flex: 2; background: linear-gradient(135deg, var(--accent-blue), #2563eb); border: none; color: white;">
-                        <i class="fa-solid fa-envelope"></i>
-                        <span>Enviar Carta</span>
+                    <button type="submit" class="btn btn-primary" style="width:100%; font-size:0.82rem; padding:8px; background:linear-gradient(135deg,var(--accent-emerald),#059669); border:none; color:white; font-weight:600;">
+                        <i class="fa-solid fa-check"></i> Registrar Pago
                     </button>
-                </div>
+                </form>
             </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- ── ACTIONS ────────────────────────────────────────────────────── -->
+        <div class="card-table-wrapper" style="padding: 20px; display: flex; flex-direction: column; gap: 10px;">
+            <a href="{{ url_for('web_purchase_orders.edit_supplier_invoice', invoice_id=invoice.id) }}" style="width:100%; display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:10px 16px; background:linear-gradient(135deg,#8b5cf6,#7c3aed); border:none; border-radius:var(--radius-sm); color:#fff; font-size:0.88rem; font-weight:600; text-decoration:none; cursor:pointer;">
+                <i class="fa-solid fa-pen-to-square"></i> Editar
+            </a>
+
+            {% set total_attachments = invoice.attachmentUrls|length if invoice.attachmentUrls else 0 %}
+            <button type="button" class="btn btn-secondary" onclick="openAttachmentPanelFromDetail()" style="width:100%; display:inline-flex; align-items:center; justify-content:center; gap:6px; font-size:0.82rem;">
+                <i class="fa-solid fa-paperclip"></i> Adjuntos{% if total_attachments > 0 %} ({{ total_attachments }}){% endif %}
+            </button>
+
+            {% set ret_isr = invoice.retainedISR|default(0) %}
+            {% set ret_itbis = invoice.retainedITBIS|default(0) %}
+            {% if ret_isr > 0 or ret_itbis > 0 %}
+            <a href="{{ url_for('web_purchase_orders.supplier_retention_letter', invoice_id=invoice.id) }}?action=print" target="_blank"
+                class="btn btn-secondary" style="width:100%; display:inline-flex; align-items:center; justify-content:center; gap:6px; font-size:0.82rem; border-color:var(--accent-blue); color:var(--accent-blue);">
+                <i class="fa-solid fa-file-invoice"></i> Carta Retención
+            </a>
+            <a href="{{ url_for('web_purchase_orders.supplier_retention_letter', invoice_id=invoice.id) }}?action=download"
+                class="btn btn-secondary" style="width:100%; display:inline-flex; align-items:center; justify-content:center; gap:6px; font-size:0.82rem; border-color:var(--accent-blue); color:var(--accent-blue);">
+                <i class="fa-solid fa-file-pdf"></i> Descargar PDF
+            </a>
+            <button type="button" onclick="openRetentionEmailModal()"
+                style="width:100%; display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:10px 16px; font-size:0.82rem; background:linear-gradient(135deg,#3b82f6,#2563eb); border:none; border-radius:var(--radius-sm); color:#fff; font-weight:600; cursor:pointer;">
+                <i class="fa-solid fa-envelope"></i> Enviar por Correo
+            </button>
+            {% endif %}
+
+            <a href="{{ url_for('web_purchase_orders.list_purchase_cxp') }}" class="btn btn-secondary" style="width:100%;">
+                <i class="fa-solid fa-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- ─── COMMENTS / HISTORY TABS ───────────────────────────────────────── -->
+<div style="margin-top: 30px;">
+    <div style="display: flex; gap: 12px; border-bottom: 2px solid var(--border-color); padding-bottom: 6px;">
+        <button class="tab-btn active" id="btn-tab-comments" onclick="switchSupplierInvoiceTab('comments')" style="padding: 8px 16px; font-weight: 700; font-size: 0.88rem; border: none; background: transparent; color: var(--accent-purple); cursor: pointer; border-bottom: 3px solid var(--accent-purple); outline: none; transition: all 0.2s ease-in-out; display: flex; align-items: center; gap: 6px; margin-bottom: -8px;">
+            <i class="fa-solid fa-comments"></i>
+            <span>Comentarios y Notas Internas</span>
+        </button>
+        <button class="tab-btn" id="btn-tab-history" onclick="switchSupplierInvoiceTab('history')" style="padding: 8px 16px; font-weight: 700; font-size: 0.88rem; border: none; background: transparent; color: var(--text-secondary); cursor: pointer; border-bottom: 3px solid transparent; outline: none; transition: all 0.2s ease-in-out; display: flex; align-items: center; gap: 6px; margin-bottom: -8px;">
+            <i class="fa-solid fa-clock-rotate-left"></i>
+            <span>Historial de Cambios</span>
+        </button>
+    </div>
+
+    <!-- Tab Content: Comments -->
+    <div id="pane-tab-comments" class="tab-pane-content" style="display: block;">
+        <div style="margin-top: 20px;">
+            {% set submit_url   = "/purchase-orders/invoices/" ~ invoice.id ~ "/comments/new" %}
+            {% set edit_url_prefix   = "/purchase-orders/invoices/" ~ invoice.id ~ "/comments" %}
+            {% set delete_url_prefix = "/purchase-orders/invoices/" ~ invoice.id ~ "/comments" %}
+            {% include 'components/_comments.html' %}
         </div>
     </div>
 
+    <!-- Tab Content: History -->
+    <div id="pane-tab-history" class="tab-pane-content" style="display: none;">
+        <div class="card-table-wrapper" style="margin-top: 20px; padding: 20px; color: var(--text-primary); background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+            <h3 style="font-size: 1.05rem; font-family: var(--font-heading); font-weight: 700; display: flex; align-items: center; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+                <i class="fa-solid fa-clock-rotate-left" style="color: var(--accent-purple);"></i>
+                <span>Historial de Cambios y Auditoría</span>
+            </h3>
+
+            {% if history_logs %}
+                <div class="timeline-container" style="position: relative; padding-left: 28px; margin-top: 12px; margin-left: 8px;">
+                    <div style="position: absolute; left: 10px; top: 6px; bottom: 6px; width: 2px; background-color: var(--border-color);"></div>
+
+                    {% for log in history_logs %}
+                        <div class="timeline-item" style="position: relative; margin-bottom: 16px;">
+                            <div style="position: absolute; left: -28px; top: 2px; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 2; font-size: 0.7rem;
+                                {% if log.action in ['CREATE'] %}
+                                    background-color: rgba(16, 185, 129, 0.15); color: #10b981; border: 1.5px solid #10b981;
+                                {% elif log.action in ['UPDATE'] %}
+                                    background-color: rgba(59, 130, 246, 0.15); color: #3b82f6; border: 1.5px solid #3b82f6;
+                                {% elif log.action in ['PAYMENT', 'APPROVE_PAYMENT'] %}
+                                    background-color: rgba(16, 185, 129, 0.2); color: #059669; border: 1.5px solid #059669;
+                                {% elif log.action in ['REJECT_PAYMENT', 'DELETE'] %}
+                                    background-color: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1.5px solid #ef4444;
+                                {% elif log.action in ['DGII_ACEPTADO', 'DGII_APROBADO'] %}
+                                    background-color: rgba(16, 185, 129, 0.15); color: #10b981; border: 1.5px solid #10b981;
+                                {% elif log.action in ['DGII_RECHAZADO'] %}
+                                    background-color: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1.5px solid #ef4444;
+                                {% elif log.action in ['DGII_EMITIDO'] %}
+                                    background-color: rgba(139, 92, 246, 0.15); color: #8b5cf6; border: 1.5px solid #8b5cf6;
+                                {% elif log.action in ['REJECT'] %}
+                                    background-color: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1.5px solid #ef4444;
+                                {% elif log.action in ['SEND_EMAIL'] %}
+                                    background-color: rgba(245, 158, 11, 0.15); color: #d97706; border: 1.5px solid #d97706;
+                                {% else %}
+                                    background-color: rgba(100, 116, 139, 0.15); color: #64748b; border: 1.5px solid #64748b;
+                                {% endif %}
+                            ">
+                                {% if log.action in ['CREATE'] %}<i class="fa-solid fa-plus"></i>
+                                {% elif log.action in ['UPDATE'] %}<i class="fa-solid fa-pen-to-square"></i>
+                                {% elif log.action in ['PAYMENT', 'APPROVE_PAYMENT'] %}<i class="fa-solid fa-money-bill-wave"></i>
+                                {% elif log.action in ['REJECT_PAYMENT', 'DELETE'] %}<i class="fa-solid fa-ban"></i>
+                                {% elif log.action in ['DGII_ACEPTADO', 'DGII_APROBADO'] %}<i class="fa-solid fa-check-circle"></i>
+                                {% elif log.action in ['DGII_RECHAZADO'] %}<i class="fa-solid fa-shield-halved"></i>
+                                {% elif log.action in ['DGII_EMITIDO'] %}<i class="fa-solid fa-signature"></i>
+                                {% elif log.action in ['REJECT'] %}<i class="fa-solid fa-circle-xmark"></i>
+                                {% elif log.action in ['SEND_EMAIL'] %}<i class="fa-solid fa-paper-plane"></i>
+                                {% else %}<i class="fa-solid fa-info"></i>
+                                {% endif %}
+                            </div>
+
+                            <div style="background: rgba(0, 0, 0, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 12px; margin-left: 8px;">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 6px; margin-bottom: 6px;">
+                                    <div>
+                                        <strong style="font-size: 0.88rem; color: var(--text-primary);">{{ log.entityLabel }}</strong>
+                                        <div style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 2px;">
+                                            Por: <strong>{{ log.performedBy }}</strong> ({{ log.performedByEmail }})
+                                            {% if log.ipAddress %}
+                                                <span style="margin-left: 8px; color: var(--text-muted);"><i class="fa-solid fa-globe" style="font-size: 0.72rem; margin-right: 2px;"></i> {{ log.ipAddress }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">
+                                        {{ log.timestamp }}
+                                    </div>
+                                </div>
+
+                                {% if log.before and log.after %}
+                                    {% set status_before = log.before.get('status') %}
+                                    {% set status_after = log.after.get('status') %}
+                                    {% if status_before != status_after %}
+                                        <div style="margin-top: 6px; display: flex; align-items: center; gap: 6px; font-size: 0.78rem;">
+                                            <span style="font-weight: 600; color: var(--text-secondary);">Cambio de estado:</span>
+                                            <span style="background: rgba(0, 0, 0, 0.04); padding: 1px 6px; border-radius: 4px; color: var(--text-muted);">{{ status_before }}</span>
+                                            <i class="fa-solid fa-arrow-right" style="font-size: 0.72rem; color: var(--text-muted);"></i>
+                                            <span style="background: rgba(139, 92, 246, 0.1); padding: 1px 6px; border-radius: 4px; color: var(--accent-purple); font-weight: 600;">{{ status_after }}</span>
+                                        </div>
+                                    {% endif %}
+                                {% endif %}
+
+                                {% if log.action in ['DGII_ACEPTADO', 'DGII_APROBADO', 'DGII_RECHAZADO', 'DGII_EMITIDO'] and log.after and log.after.dgiiResponse %}
+                                {% set dgii = log.after.dgiiResponse %}
+                                <div style="margin-top: 8px; padding: 8px 12px; background: {% if log.action in ['DGII_ACEPTADO', 'DGII_APROBADO'] %}rgba(16, 185, 129, 0.06){% elif log.action == 'DGII_RECHAZADO' %}rgba(239, 68, 68, 0.06){% else %}rgba(139, 92, 246, 0.06){% endif %}; border-radius: var(--radius-sm); border: 1px solid {% if log.action in ['DGII_ACEPTADO', 'DGII_APROBADO'] %}#10b98133{% elif log.action == 'DGII_RECHAZADO' %}#ef444433{% else %}#8b5cf633{% endif %}; font-size: 0.78rem;">
+                                    <div style="font-weight: 600; color: {% if log.action in ['DGII_ACEPTADO', 'DGII_APROBADO'] %}#10b981{% elif log.action == 'DGII_RECHAZADO' %}#ef4444{% else %}#8b5cf6{% endif %}; margin-bottom: 4px;">
+                                        {% if log.action in ['DGII_ACEPTADO', 'DGII_APROBADO'] %}✓ DGII Aceptó el comprobante
+                                        {% elif log.action == 'DGII_RECHAZADO' %}✗ DGII Rechazó el comprobante
+                                        {% else %}DGII Emitió el comprobante{% endif %}
+                                    </div>
+                                    {% if dgii.get('details') %}
+                                    <div style="color: var(--text-secondary); line-height: 1.4;">{{ dgii.details }}</div>
+                                    {% endif %}
+                                    {% if dgii.get('error') %}
+                                    <div style="color: #ef4444; line-height: 1.4; margin-top: 4px;">{{ dgii.error }}</div>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div style="text-align: center; padding: 30px 20px; color: var(--text-secondary);">
+                    <i class="fa-solid fa-timeline" style="font-size: 1.5rem; color: var(--text-muted); margin-bottom: 8px; display: block;"></i>
+                    <p style="margin: 0; font-size: 0.85rem;">No hay registros en el historial de este documento.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- ─── MODAL: ENVIAR CARTA DE RETENCIÓN ─────────────────────────────── -->
+<div class="search-modal" id="retention-email-modal"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1200; align-items: center; justify-content: center;">
+    <div class="modal-backdrop" onclick="closeRetentionEmailModal()"
+        style="position: absolute; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px);">
+    </div>
+    <div class="modal-content"
+        style="max-width: 480px; width: calc(100% - 32px); background: var(--bg-card); backdrop-filter: blur(20px); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 30px; position: relative; z-index: 2; box-shadow: var(--shadow-lg); animation: floatIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards; color: var(--text-primary); text-align: left;">
+        <div class="modal-header"
+            style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 16px; margin-bottom: 20px;">
+            <h3
+                style="font-size: 1.1rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px; color: var(--text-primary); font-weight: 800; margin: 0;">
+                <i class="fa-solid fa-file-invoice" style="color: var(--accent-blue);"></i>
+                <span>Enviar Carta de Retención</span>
+            </h3>
+            <button type="button" onclick="closeRetentionEmailModal()"
+                style="cursor: pointer; font-size: 1.25rem; opacity: 0.7; background: transparent; border: none; color: var(--text-primary);"><i
+                    class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div
+                style="background: rgba(59,130,246,0.05); border: 1px solid rgba(59,130,246,0.2); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 20px; font-size: 0.8rem; line-height: 1.4; color: var(--text-secondary);">
+                Se enviará la Carta de Retención del comprobante <strong>{{ invoice.ncf or invoice.invoiceNumber or invoice.id }}</strong> en formato PDF adjunto.
+                {% set _ret_isr = invoice.retainedISR|default(0) %}
+                {% set _ret_itbis = invoice.retainedITBIS|default(0) %}
+                {% set _isr_amt = (invoice.total|default(0)) * _ret_isr %}
+                {% set _itbis_amt = (invoice.itbis|default(0)) * _ret_itbis %}
+                Retención de ITBIS: <strong>RD$ {{ "{:,.2f}".format(_itbis_amt) }}</strong>{% if _ret_isr > 0 %}, ISR: <strong>RD$ {{ "{:,.2f}".format(_isr_amt) }}</strong>{% endif %}.
+            </div>
+
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label for="retention-email-input"
+                    style="font-size: 0.8rem; font-weight: 500; margin-bottom: 6px; display: block; color: var(--text-secondary);">Email del Proveedor</label>
+                <input type="email" id="retention-email-input" class="form-input" placeholder="proveedor@ejemplo.com"
+                    style="width: 100%; padding: 10px 12px; font-size: 0.9rem; height: 44px;" required>
+                <small style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; display: block;">Si no especifica ninguno, se usará el correo registrado del proveedor.</small>
+            </div>
+
+            <div id="retention-email-status" style="display:none; padding:12px; border-radius:8px; margin-bottom:16px; font-size:0.82rem;"></div>
+
+            <div style="display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--border-color); padding-top: 16px;">
+                <button type="button" onclick="closeRetentionEmailModal()" class="btn btn-secondary" style="flex: 1;">Cancelar</button>
+                <button type="button" id="send-retention-btn" onclick="submitRetentionEmail()" class="btn btn-primary"
+                    style="flex: 2; background: linear-gradient(135deg, var(--accent-blue), #2563eb); border: none; color: white;">
+                    <i class="fa-solid fa-envelope"></i>
+                    <span>Enviar Carta</span>
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
+    function switchSupplierInvoiceTab(tabName) {
+        document.getElementById('pane-tab-comments').style.display = 'none';
+        document.getElementById('pane-tab-history').style.display = 'none';
+
+        const btnComments = document.getElementById('btn-tab-comments');
+        const btnHistory = document.getElementById('btn-tab-history');
+
+        btnComments.style.color = 'var(--text-secondary)';
+        btnComments.style.borderBottomColor = 'transparent';
+        btnHistory.style.color = 'var(--text-secondary)';
+        btnHistory.style.borderBottomColor = 'transparent';
+
+        if (tabName === 'comments') {
+            document.getElementById('pane-tab-comments').style.display = 'block';
+            btnComments.style.color = 'var(--accent-purple)';
+            btnComments.style.borderBottomColor = 'var(--accent-purple)';
+        } else {
+            document.getElementById('pane-tab-history').style.display = 'block';
+            btnHistory.style.color = 'var(--accent-purple)';
+            btnHistory.style.borderBottomColor = 'var(--accent-purple)';
+        }
+    }
+
     {% set atts = [] %}
     {% if invoice.attachmentUrls %}
         {% for url in invoice.attachmentUrls %}
@@ -590,7 +713,6 @@
         openAttachmentPanel(detailInvoiceId, detailAttachments);
     }
 
-    /* ─── Carta de Retención ─────────────────────────────────────────── */
     function openRetentionEmailModal() {
         const emailInput = document.getElementById('retention-email-input');
         const status = document.getElementById('retention-email-status');

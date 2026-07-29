@@ -209,6 +209,8 @@ class SupplierInvoiceService:
         data.setdefault("items", [])
         data.setdefault("paymentMethod", "")
         data.setdefault("paymentReference", "")
+        data.setdefault("supplierRnc", "")
+        data.setdefault("supplierCedula", "")
         data.setdefault("supplierType", "formal")
         data.setdefault("ecfType", "E31")
         data.setdefault("cne", "")

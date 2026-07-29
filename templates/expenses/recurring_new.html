@@ -280,7 +280,7 @@
 
         <div class="actions-bar">
             <a href="{% if is_edit %}{{ url_for('web_invoices.expense_detail', expense_id=expense_data.id) }}{% else %}{{ url_for('web_invoices.recurring_list') }}{% endif %}" class="btn btn-secondary">Cancelar</a>
-            <button type="submit" class="btn btn-primary" style="background:var(--accent-purple);border-color:var(--accent-purple);">
+            <button type="submit" class="btn btn-primary" style="background:var(--accent-purple, #8B5CF6);border-color:var(--accent-purple, #8B5CF6);color:#fff;">
                 <i class="fa-solid fa-floppy-disk"></i> {% if is_edit %}Guardar Cambios{% else %}Guardar{% endif %}
             </button>
         </div>
