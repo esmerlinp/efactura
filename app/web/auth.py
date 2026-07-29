@@ -765,7 +765,6 @@ def select_company():
             session.pop('company_sandbox_indefinite', None)
             session.pop('company_sandbox_start_date', None)
             session.pop('company_sandbox_end_date', None)
-            session.pop('is_sandbox_mode', None)
             session.pop('company_country', None)
             
             # Registrar cambio de compañía en auditoría

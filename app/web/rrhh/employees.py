@@ -352,7 +352,8 @@ def employee_view(employee_id):
     periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
     payment_history = []
     for p in sorted(periods, key=lambda x: x.get("periodKey", ""), reverse=True)[:24]:
-        for l in p.get("lines", []):
+        lines = hr.get_payroll_lines(company_id, p.get("id", ""), sandbox=sandbox)
+        for l in lines:
             if l.get("employeeId") == employee_id:
                 payment_history.append({"period": p, "line": l})
                 break
