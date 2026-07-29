@@ -644,8 +644,6 @@
         <div class="profile-avatar-large" onclick="document.getElementById('avatar-input').click();" title="Cambiar foto de perfil">
             {% if user.profileImageUrl %}
             <img id="avatar-preview-img" src="{{ user.profileImageUrl }}" alt="Avatar">
-            {% elif company_logo_url %}
-            <img id="avatar-preview-img" src="{{ company_logo_url }}" alt="Avatar">
             {% else %}
             <span id="avatar-preview-text">{{ user.name[0] | upper if user.name else 'U' }}</span>
             <img id="avatar-preview-img" src="" alt="Avatar" style="display: none;">

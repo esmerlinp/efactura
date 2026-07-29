@@ -1088,21 +1088,21 @@ class DatabaseService:
                         permissions=profile_data.get("permissions", {}),
                         invited_by=""
                     )
-            
-            # Si fue invitado, agregar también la empresa invitadora
-            if owner_uid and owner_uid != resolved_owner_uid:
-                owner_companies = cls.get_companies_by_owner(owner_uid)
-                inv_company_id = owner_companies[0]["id"] if owner_companies else _resolve_company_id(owner_uid)
-                if inv_company_id:
-                    cls.create_membership(
-                        uid=uid,
-                        company_id=inv_company_id,
-                        role="employee",
-                        permissions=profile_data.get("permissions", {}),
-                        invited_by=owner_uid
-                    )
                 
             doc_ref.set(profile_data)
+        
+        # Si fue invitado por otro usuario, agregar también la empresa invitadora
+        if owner_uid and uid != owner_uid:
+            owner_companies = cls.get_companies_by_owner(owner_uid)
+            inv_company_id = owner_companies[0]["id"] if owner_companies else _resolve_company_id(owner_uid)
+            if inv_company_id:
+                cls.create_membership(
+                    uid=uid,
+                    company_id=inv_company_id,
+                    role="employee",
+                    permissions=profile_data.get("permissions", {}),
+                    invited_by=owner_uid
+                )
         
         # Guardar en team si es colaborador (companies/{companyId}/team)
         if owner_uid:
@@ -1471,6 +1471,8 @@ class DatabaseService:
             ref = cls._company_team_coll(owner_uid, company_id=company_id)
             if ref:
                 ref.document(employee_uid).delete()
+            if company_id:
+                cls.delete_membership(employee_uid, company_id)
             return True
         except Exception as e:
             print(f"⚠️ Error al eliminar colaborador del equipo: {e}")

@@ -8205,6 +8205,7 @@ def add_team_member():
     company_id = session.get('selected_company_id')
     
     profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+    inviting_company_name = (profile.get("companyName") or profile.get("name", "Nueva Empresa")) if profile else "Nueva Empresa"
     user_limit = int(profile.get('userLimit', 2)) if profile else 2
     team = DatabaseService.get_team_members(owner_uid, company_id=company_id)
     if user_limit > 0 and (len(team) + 1) >= user_limit:
@@ -8243,6 +8244,22 @@ def add_team_member():
             after={"uid": profile['uid'], "name": name, "email": email, "permissions": permissions},
             sandbox=True
         )
+        try:
+            from flask import current_app
+            if current_app.config.get("SMTP_USER") and current_app.config.get("SMTP_PASSWORD"):
+                from app.services.mailer import Mailer
+                Mailer.send(
+                    app=current_app._get_current_object(),
+                    to_email=email,
+                    subject=f"{inviting_company_name} — Has sido vinculado como colaborador",
+                    html_body=f"<h3>Hola {name},</h3>"
+                              f"<p>Has sido vinculado como colaborador de <strong>{inviting_company_name}</strong>.</p>"
+                              f"<p>Tu email de acceso es: <strong>{email}</strong></p>"
+                              f"<p>Accede al sistema para comenzar a colaborar.</p>",
+                    category='notification',
+                )
+        except Exception:
+            pass
         flash(f'Colaborador {name} registrado y vinculado exitosamente.', 'success')
     except Exception as e:
         flash(f'Error al registrar colaborador: {str(e)}', 'error')
