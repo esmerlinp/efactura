@@ -75,7 +75,7 @@ class PayrollService:
     @staticmethod
     def get_rates(tax_rates: dict = None) -> dict:
         """Obtiene tasas desde dict de Firestore o usa valores por defecto."""
-        if not tax_rates:
+        if not isinstance(tax_rates, dict):
             tax_rates = {}
         return {
             "afp_employee_rate": tax_rates.get("afpEmployeeRate", _AFP_EMPLOYEE_RATE),
@@ -1070,7 +1070,8 @@ class PayrollService:
         employees = employees or {}
         from app.services.hr_data_service import get_tax_rates_snapshot
         snapshot = get_tax_rates_snapshot(payroll_period)
-        effective_rates = snapshot if snapshot else tax_rates
+        effective_rates = snapshot if isinstance(snapshot, dict) and snapshot else (
+            tax_rates if isinstance(tax_rates, dict) else {})
         r = cls.get_rates(effective_rates)
 
         total_gross = 0.0

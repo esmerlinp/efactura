@@ -49,7 +49,7 @@ def _generate_reference_code(owner_uid, sandbox, company_id=None):
     return code
 
 
-def _compute_avg_commission(owner_uid, employee_id, sandbox):
+def _compute_avg_commission(owner_uid, employee_id, sandbox, company_id=None):
     periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
     commissions = []
     for p in periods:
@@ -133,7 +133,7 @@ def certificate_generate(employee_id):
         issue_city = company.get("municipality") or company.get("province") or "Santo Domingo"
 
     base_salary = float(employee.get("baseSalary", 0) or 0)
-    avg_commission = _compute_avg_commission(owner_uid, employee_id, sandbox)
+    avg_commission = _compute_avg_commission(owner_uid, employee_id, sandbox, company_id)
     monthly_income = base_salary + avg_commission
     income_words = numero_a_letras(monthly_income)
 
