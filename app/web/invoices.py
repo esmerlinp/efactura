@@ -5793,6 +5793,85 @@ def _build_expense_ecf_payload(expense_dict, ecf_full_type):
     }
 
 
+def _build_supplier_invoice_ecf_payload(inv_data):
+    """
+    Adapta un supplier_invoice dict al formato invoice_dict que espera
+    EcfEmissionService, con TODOS los items reales de la factura.
+    Usado para emitir E41 desde facturas de proveedor con RNC formal.
+    """
+    amount   = float(inv_data.get("total", 0.0))
+    itbis    = float(inv_data.get("itbis", 0.0))
+    subtotal = float(inv_data.get("subtotal", 0.0))
+    discount = float(inv_data.get("discount", 0.0))
+
+    date_str = inv_data.get("date", "")
+    due_str  = inv_data.get("dueDate") or date_str
+
+    items = []
+    for item in inv_data.get("items", []):
+        unit_price    = float(item.get("unitPrice", 0.0))
+        qty           = float(item.get("quantity", 0.0))
+        item_subtotal = float(item.get("subtotal", 0.0))
+        itbis_rate    = float(item.get("itbisRate", 0.0))
+        items.append({
+            "name":      item.get("name", "Item"),
+            "quantity":  qty,
+            "price":     unit_price,
+            "subtotal":  item_subtotal,
+            "itbisRate": itbis_rate,
+            "unit":      item.get("unit", "Unidad"),
+            "type":      "Servicio" if item.get("accountingAccountId", "") else "producto",
+        })
+
+    if not items:
+        items = [{
+            "name":      inv_data.get("supplierName", "Compra"),
+            "quantity":  1,
+            "price":     subtotal,
+            "subtotal":  subtotal,
+            "itbisRate": round(itbis / subtotal, 4) if subtotal > 0 else 0.0,
+            "unit":      "Unidad",
+        }]
+
+    payment_map = {"Contado": "Efectivo", "Cr\u00e9dito": "Cr\u00e9dito", "credito_30d": "Cr\u00e9dito"}
+    payment_method = payment_map.get(inv_data.get("paymentType", "Contado"), "Efectivo")
+
+    ecf_type_raw = inv_data.get("ecfType", "")
+    ecf_type_map = {
+        "E41": "Comprobante de Compras (E41)",
+        "E43": "Comprobante para Gastos Menores (E43)",
+        "E31": "Factura de Crédito Fiscal (E31)",
+        "E32": "Factura de Consumo (E32)",
+        "E47": "Pagos al Exterior (E47)",
+    }
+    ecf_type_full = ecf_type_map.get(ecf_type_raw, "Comprobante de Compras (E41)")
+
+    ret_isr_rate = float(inv_data.get("retainedISR", 0.0))
+    ret_itbis_rate = float(inv_data.get("retainedITBIS", 0.0))
+
+    return {
+        "id":                       inv_data.get("id", ""),
+        "ecfType":                  ecf_type_full,
+        "encf":                     inv_data.get("encf", "PENDIENTE"),
+        "date":                     date_str,
+        "dueDate":                  due_str,
+        "clientRNC":                inv_data.get("supplierRnc", ""),
+        "razonSocial":              inv_data.get("supplierName", "Proveedor"),
+        "clientName":               inv_data.get("supplierName", "Proveedor"),
+        "paymentMethod":            payment_method,
+        "paymentType":              inv_data.get("paymentType", "Contado"),
+        "subtotal":                 subtotal,
+        "totalITBIS":               itbis,
+        "total":                    amount,
+        "montoExento":              0.0,
+        "retainedITBIS":            round(itbis * ret_itbis_rate, 2),
+        "retainedISR":              round(amount * ret_isr_rate, 2),
+        "items":                    items,
+        "invoiceNumber":            inv_data.get("supplierInvoiceNumber", ""),
+        "internalInvoiceNumber":    inv_data.get("invoiceNumber", ""),
+    }
+
+
 def _update_expense_sequence_log(owner_uid, log_id, emission_res, expense_dict, sandbox):
     """
     Actualiza el log de secuencia (trazabilidad fiscal) con el resultado
@@ -5832,321 +5911,6 @@ def _update_expense_sequence_log(owner_uid, log_id, emission_res, expense_dict, 
 @web_invoices_bp.route('/expenses/new', methods=['GET', 'POST'])
 def new_expense_route():
     return redirect(url_for('web_invoices.payments_new_route'))
-    owner_uid = session['user']['ownerUID']
-    company_id = session.get('selected_company_id')
-    sandbox = session.get('is_sandbox_mode', True)
-    
-    if request.method == 'POST':
-        expense_id = str(uuid.uuid4())
-        
-        # Procesar MÚLTIPLES archivos subidos a Storage
-        attachment_files = request.files.getlist('attachments[]')
-        attachment_types = request.form.getlist('attachmentTypes[]')
-        attachment_urls = []      # retrocompatibilidad: lista de URLs simples
-        attachments = []          # nuevo: lista de {url, type, name}
-        
-        for i, att_file in enumerate(attachment_files):
-            if att_file and att_file.filename:
-                file_data = att_file.read()
-                mime_type = att_file.content_type or "image/jpeg"
-                safe_name = att_file.filename.replace(' ', '_')
-                dest_path = f"users/{owner_uid}/expenses/{expense_id}/{safe_name}"
-                try:
-                    public_url = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type)
-                    att_type = attachment_types[i] if i < len(attachment_types) else 'otro'
-                    attachment_urls.append(public_url)
-                    attachments.append({'url': public_url, 'type': att_type, 'name': att_file.filename})
-                except Exception as e:
-                    print(f"⚠️ Error al subir adjunto {att_file.filename}: {e}")
-
-        currency = request.form.get('currency', 'DOP')
-        exchange_rate = float(request.form.get('exchangeRate', 1.0)) if currency != 'DOP' else 1.0
-        amount_original = float(request.form['amount'])
-        amount = amount_original * exchange_rate
-        
-        raw_itbis = request.form.get('itbisAmount', '').strip()
-        itbis_amount_original = float(raw_itbis) if raw_itbis else 0.0
-        is_recurring = request.form.get('isRecurring') == 'true'
-        is_deductible = request.form.get('isDeductible') == 'true'
-        recurrence_interval = request.form.get('recurrenceInterval', 'mensual')
-        next_occurrence = request.form.get('nextOccurrenceDate')
-        recurrence_end_date = request.form.get('recurrenceEndDate')
-        
-        payment_type = request.form.get('paymentType', 'Contado')
-        due_date = request.form.get('dueDate', '')
-        
-
-        assigned_approver_id = request.form.get('assignedApproverId', '')
-        assigned_approver_name = ""
-        assigned_approver_email = ""
-        if assigned_approver_id:
-            team_members = DatabaseService.get_team_members(owner_uid, company_id=company_id)
-            owner_profile = DatabaseService.get_user_profile(owner_uid, company_id=company_id)
-            if owner_profile and not any(m.get('uid') == owner_uid for m in team_members):
-                team_members.insert(0, {
-                    "uid": owner_profile.get("uid"),
-                    "name": f"{owner_profile.get('name', 'Usuario Principal')} (Tú)",
-                    "email": owner_profile.get("email", "")
-                })
-            for m in team_members:
-                if m.get('uid') == assigned_approver_id:
-                    assigned_approver_name = m.get('name', '')
-                    assigned_approver_email = m.get('email', '')
-                    break
-        
-
-        assigned_approver_id = request.form.get('assignedApproverId', '')
-        assigned_approver_name = ""
-        assigned_approver_email = ""
-        if assigned_approver_id:
-            team_members = DatabaseService.get_team_members(owner_uid, company_id=company_id)
-            owner_profile = DatabaseService.get_user_profile(owner_uid, company_id=company_id)
-            if owner_profile and not any(m.get('uid') == owner_uid for m in team_members):
-                team_members.insert(0, {
-                    "uid": owner_profile.get("uid"),
-                    "name": f"{owner_profile.get('name', 'Usuario Principal')} (Tú)",
-                    "email": owner_profile.get("email", "")
-                })
-            for m in team_members:
-                if m.get('uid') == assigned_approver_id:
-                    assigned_approver_name = m.get('name', '')
-                    assigned_approver_email = m.get('email', '')
-                    break
-        
-        # CxP Status
-        cxp_status = 'Pagado'
-        if payment_type == 'Crédito':
-            cxp_status = 'Pendiente'
-
-        expense_dict = {
-            "supplierType": request.form.get('supplierType', 'formal'),
-            "concept": request.form['concept'],
-            "category": request.form['category'],
-            "currency": currency,
-            "exchangeRate": exchange_rate,
-            "amountOriginal": amount_original,
-            "amount": amount,
-            "date": request.form['date'],
-            "rncEmisor": request.form.get('rncEmisor', ''),
-            "providerName": request.form.get('providerName', ''),
-            "ncf": request.form.get('ncf', ''),
-            "isMinorExpense": "E43" in request.form.get('ncf', '') or "B13" in request.form.get('ncf', ''),
-            "isSyncedWithDGII": False,
-            "qrCodeURL": "",
-            "xmlSignature": "",
-            "notes": request.form.get('notes', ''),
-            "isRecurring": is_recurring,
-            "recurrenceInterval": recurrence_interval,
-            "nextOccurrenceDate": next_occurrence if is_recurring else None,
-            "recurrenceEndDate": recurrence_end_date if is_recurring else None,
-            "associatedInvoiceId": request.form.get('associatedInvoiceId', ''),
-            "itbisAmountOriginal": itbis_amount_original,
-            "itbisAmount": itbis_amount_original * exchange_rate,
-            "isITBISDeductible": is_deductible,
-            "isDeductible": is_deductible,
-            "assignedApproverId": assigned_approver_id,
-            "assignedApproverName": assigned_approver_name,
-            "assignedApproverEmail": assigned_approver_email,
-            "firebaseAttachmentURLs": attachment_urls,
-            "attachments": attachments,
-            # Nuevos campos e-CF y CxP:
-            "assignedApproverId": assigned_approver_id,
-            "assignedApproverName": assigned_approver_name,
-            "assignedApproverEmail": assigned_approver_email,
-            "ecfType": request.form.get('ecfType', _by_code("E31").code),
-            "ecfNumber": request.form.get('ncf', ''),
-            "cne": request.form.get('cne', ''),
-            "tipoGastoDGII": request.form.get('tipoGastoDGII', '02'),
-            "paymentType": payment_type,
-            "cxpStatus": cxp_status,
-            "cxpRemainingBalance": 0.0 if payment_type == 'Contado' else amount,
-            "approvalStatus": request.form.get('approvalStatus', 'Aprobado'),
-            "requestedBy": session['user'].get('name', 'Usuario'),
-            "approvedBy": session['user'].get('name', 'Usuario') if request.form.get('approvalStatus', 'Aprobado') == 'Aprobado' else '',
-            "dueDate": due_date,
-            "bankAccountId": request.form.get('bankAccountId', ''),
-            "branchId": request.form.get('branchId') or session.get('selected_branch_id') or 'default-sucursal-principal',
-            "projectId": request.form.get('projectId') or session.get('selected_project_id') or None
-        }
-        
-        DatabaseService.save_expense(owner_uid, expense_id, expense_dict, company_id=company_id, sandbox=sandbox)
-
-        # Actualizar saldo de la cuenta bancaria si se especificó bankAccountId
-        bank_account_id = expense_dict.get("bankAccountId")
-        if bank_account_id:
-            try:
-                bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, company_id=company_id, sandbox=sandbox)
-                if bank_acc:
-                    new_balance = bank_acc["currentBalance"] - amount
-                    DatabaseService.save_bank_account(owner_uid, bank_account_id, {
-                        **bank_acc,
-                        "currentBalance": new_balance
-                    }, company_id=company_id, sandbox=sandbox)
-            except Exception as bank_err:
-                print(f"⚠️ Error al actualizar saldo de cuenta bancaria en gasto: {bank_err}")
-
-        # === EMISIÓN e-CF PARA E41 (Comprobante de Compras) / E43 (Gastos Menores) ===
-        # Solo aplica cuando el usuario opera bajo e-CF y selecciona estos tipos.
-        ecf_type_raw = expense_dict.get("ecfType", "")
-        should_emit_ecf = ecf_type_raw in (
-            "E41", "E43",
-            "Comprobante de Compras (E41)",
-            "Gastos Menores (E43)"
-        )
-        ecf_emission_msg = None
-        if should_emit_ecf:
-            try:
-                ecf_short    = "E41" if "E41" in ecf_type_raw else "E43"
-                ecf_full_type = "Comprobante de Compras (E41)" if ecf_short == "E41" else "Gastos Menores (E43)"
-                user_email   = session['user']['email']
-
-                # Verificar límite de documentos (solo en producción)
-                exceeded, limit_msg = check_document_limit_exceeded(owner_uid, company_id=company_id, sandbox=sandbox)
-                if exceeded:
-                    ecf_emission_msg = ("warning", limit_msg)
-                else:
-                    if limit_msg:
-                        flash(limit_msg, 'warning')
-
-                    # Consumir la siguiente secuencia autorizada por la DGII
-                    encf, log_id = DatabaseService.consume_next_sequence(
-                        owner_uid, ecf_short, user_email, company_id=company_id, sandbox=sandbox
-                    )
-                    expense_dict["encf"]      = encf
-                    expense_dict["ecfNumber"] = encf
-                    expense_dict["ncf"]       = encf
-
-                    # Obtener perfil de la empresa emisora
-                    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
-
-                    # Construir payload y emitir ante la DGII vía proveedor activo
-                    invoice_payload = _build_expense_ecf_payload(expense_dict, ecf_full_type)
-                    res = EcfEmissionService.emit_electronic_comprobante(
-                        company, invoice_payload, sandbox=sandbox
-                    )
-
-                    if res.get("success"):
-                        expense_dict["encf"]             = res.get("encf", encf)
-                        expense_dict["ecfNumber"]        = res.get("encf", encf)
-                        expense_dict["xmlSignature"]     = res.get("xmlSignature", "")
-                        expense_dict["qrCodeURL"]        = res.get("qrCodeURL", "")
-                        pending_dgii = res.get("status") == "PENDING"
-                        expense_dict["isSyncedWithDGII"] = (res.get("mode", "API") == "API" and not pending_dgii)
-                        expense_dict["emisionMode"]      = res.get("mode", "API")
-                        expense_dict["trackId"]          = res.get("trackId", "")
-                        expense_dict["dgiiStatus"]        = res.get("dgiiStatus") or ("CONTINGENCY" if res.get("mode") == "FALLBACK" else ("PENDING" if pending_dgii else "ACCEPTED"))
-                        # Generar y guardar el XML firmado
-                        try:
-                            from app.services.dgii_xml_builder import DgiiXmlBuilder
-                            from app.services.dgii_signer import DgiiSigner
-                            raw_xml = DgiiXmlBuilder.build_invoice_xml(company, invoice_payload)
-                            signed_xml_bytes = DgiiSigner.sign_xml(raw_xml, company)
-                            expense_dict["xmlContent"] = signed_xml_bytes.decode('utf-8')
-                        except Exception as xml_err:
-                            print(f"⚠️ Error al generar XML para gasto {expense_id}: {xml_err}")
-                        # Persistir datos de la DGII en Firestore
-                        DatabaseService.save_expense(owner_uid, expense_id, expense_dict, company_id=company_id, sandbox=sandbox)
-                        # Registrar en el log de trazabilidad fiscal
-                        _update_expense_sequence_log(owner_uid, log_id, res, expense_dict, sandbox)
-
-                        if res.get("mode") == "FALLBACK":
-                            ecf_emission_msg = ("warning",
-                                f"⚠️ e-CF emitido en contingencia (sin conexión a la DGII). "
-                                f"e-NCF: {expense_dict['encf']}. Sincronizar en máximo 72 horas.")
-                        else:
-                            ecf_emission_msg = ("success",
-                                f"✅ Gasto registrado y {ecf_short} emitido ante la DGII. "
-                                f"e-NCF: {expense_dict['encf']}")
-                    else:
-                        ecf_emission_msg = ("warning",
-                            f"Gasto guardado, pero error al emitir el e-CF: "
-                            f"{res.get('message', 'Error desconocido')}")
-
-            except Exception as e:
-                print(f"❌ Error al emitir e-CF para gasto {expense_id}: {e}")
-                ecf_emission_msg = ("error",
-                    f"Gasto guardado, pero fallo en la emisión del e-CF ({ecf_short}): {str(e)}")
-
-        from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_GASTOS
-        AuditService.log_from_request(
-            owner_uid=owner_uid,
-            action=ACTION_CREATE,
-            module=MODULE_GASTOS,
-            entity_id=expense_id,
-            entity_label=f"Gasto registrado: {expense_dict['concept']} (Monto: RD$ {amount:.2f})",
-            user_session=session.get('user', {}),
-            after=expense_dict,
-            sandbox=sandbox
-        )
-
-        if ecf_emission_msg:
-            flash(ecf_emission_msg[1], ecf_emission_msg[0])
-        else:
-            flash('Gasto operativo registrado exitosamente.', 'success')
-
-        # Notificación al aprobador si el gasto queda pendiente de aprobación
-        if request.form.get('approvalStatus', 'Aprobado') == 'Pendiente' and assigned_approver_id:
-            try:
-                from app.services.notifications import NotificationService
-                notif_data = {
-                    "title": "Gasto Asignado para Aprobación",
-                    "message": f"Se te ha asignado el gasto '{expense_dict.get('concept', '')}' por RD$ {expense_dict.get('amount', 0.0):,.2f} para tu revisión.",
-                    "type": "info",
-                    "link": "/expenses"
-                }
-                DatabaseService.create_user_notification(assigned_approver_id, notif_data)
-                if assigned_approver_email:
-                    NotificationService.send_expense_assignment_notification(
-                        recipient_email=assigned_approver_email,
-                        recipient_name=assigned_approver_name,
-                        expense=expense_dict,
-                        owner_uid=owner_uid,
-                        company_id=company_id,
-                        sandbox=sandbox
-                    )
-            except Exception as e:
-                print("Error enviando notificacion de gasto: ", e)
-
-        if request.form.get('save_action') == 'save_and_new':
-            flash('Pago guardado correctamente. Puedes crear otro.', 'success')
-            return redirect(url_for('web_invoices.payments_new_route'))
-        return redirect(url_for('web_invoices.list_expenses'))
-
-
-        
-    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    
-    team_members = DatabaseService.get_team_members(owner_uid, company_id=company_id)
-    owner_profile = DatabaseService.get_user_profile(owner_uid, company_id=company_id)
-    if owner_profile and not any(m.get('uid') == owner_uid for m in team_members):
-        team_members.insert(0, {
-            "uid": owner_profile.get("uid"),
-            "name": f"{owner_profile.get('name', 'Usuario Principal')} (Tú)",
-            "email": owner_profile.get("email", "")
-        })
-    # Secuencias disponibles para gastos (E41, E43)
-    all_sequences = DatabaseService.get_sequences(owner_uid, company_id=company_id, sandbox=sandbox)
-    expense_sequences = {
-        s['tipoComprobante']: s
-        for s in all_sequences
-        if s.get('tipoComprobante', '').upper() in ('E41', 'E43')
-        and s.get('estado', '').upper() == 'ACTIVA'
-        and not s.get('bloqueadaManualmente', False)
-    }
-    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, company_id=company_id, sandbox=sandbox)
-    _ecf_types = [t for t in _all_fiscal_types() if t.family == _Family.ECF]
-    return render_template(
-        'expenses/new.html',
-        active_page='expenses',
-        team_members=team_members,
-        invoices=[],
-        today_str=today_str,
-        expense_sequences=expense_sequences,
-        bank_accounts=bank_accounts,
-        ecf_types=_ecf_types,
-    )
-
-
 # =========================================================================
 # PAGOS / GASTOS — Listado y Creación
 # =========================================================================
@@ -6351,7 +6115,70 @@ def payments_new_route():
             except Exception as supp_err:
                 print(f"Error al auto-crear proveedor: {supp_err}")
 
-        flash('Pago registrado exitosamente.', 'success')
+        # === EMISIÓN ECF 41 (Comprobante de Compras) PARA GASTOS CON PROVEEDOR FORMAL ===
+        ecf_type_raw_pay = expense_dict.get("ecfType", "")
+        should_emit_41_pay = ecf_type_raw_pay in (
+            "E41", "Comprobante de Compras (E41)"
+        ) and bool(expense_dict.get("rncEmisor", "").strip())
+        if should_emit_41_pay:
+            try:
+                exceeded_pay, limit_msg_pay = check_document_limit_exceeded(
+                    owner_uid, company_id=company_id, sandbox=sandbox
+                )
+                if not exceeded_pay:
+                    user_email_pay = session['user']['email']
+                    encf_pay, log_id_pay = DatabaseService.consume_next_sequence(
+                        owner_uid, "E41", user_email_pay, company_id=company_id, sandbox=sandbox
+                    )
+                    expense_dict["encf"]      = encf_pay
+                    expense_dict["ecfNumber"] = encf_pay
+                    expense_dict["ncf"]       = encf_pay
+
+                    company_pay = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+                    ecf_payload_pay = _build_expense_ecf_payload(expense_dict, "Comprobante de Compras (E41)")
+                    ecf_payload_pay["encf"] = encf_pay
+
+                    res_pay = EcfEmissionService.emit_electronic_comprobante(
+                        company_pay, ecf_payload_pay, sandbox=sandbox
+                    )
+
+                    if res_pay.get("success"):
+                        expense_dict["encf"]             = res_pay.get("encf", encf_pay)
+                        expense_dict["ecfNumber"]        = res_pay.get("encf", encf_pay)
+                        expense_dict["xmlSignature"]     = res_pay.get("xmlSignature", "")
+                        expense_dict["qrCodeURL"]        = res_pay.get("qrCodeURL", "")
+                        expense_dict["isSyncedWithDGII"] = True
+                        expense_dict["emisionMode"]      = res_pay.get("mode", "API")
+                        expense_dict["trackId"]          = res_pay.get("trackId", "")
+                        try:
+                            from app.services.dgii_xml_builder import DgiiXmlBuilder
+                            from app.services.dgii_signer import DgiiSigner
+                            raw_xml_pay = DgiiXmlBuilder.build_invoice_xml(company_pay, ecf_payload_pay)
+                            signed_xml_pay = DgiiSigner.sign_xml(raw_xml_pay, company_pay)
+                            expense_dict["xmlContent"] = signed_xml_pay.decode('utf-8')
+                        except Exception as xml_e:
+                            print(f"Error al generar XML E41 en pago: {xml_e}")
+                        DatabaseService.save_expense(owner_uid, expense_id, expense_dict,
+                                                     company_id=company_id, sandbox=sandbox)
+                        _update_expense_sequence_log(owner_uid, log_id_pay, res_pay, expense_dict, sandbox)
+                        flash(f'\u2705 Pago registrado y E41 emitido ante DGII. e-NCF: {expense_dict["encf"]}', 'success')
+                    else:
+                        DatabaseService.save_expense(owner_uid, expense_id, expense_dict,
+                                                     company_id=company_id, sandbox=sandbox)
+                        flash(f'\u26a0\ufe0f Pago guardado, pero error al emitir E41: {res_pay.get("message", "Error")}', 'warning')
+                elif limit_msg_pay:
+                    flash(limit_msg_pay, 'warning')
+                    flash('Pago registrado exitosamente.', 'success')
+                else:
+                    flash('Pago registrado exitosamente.', 'success')
+            except Exception as e41_pay:
+                print(f"\u274c Error al emitir E41 en pago: {e41_pay}")
+                DatabaseService.save_expense(owner_uid, expense_id, expense_dict,
+                                             company_id=company_id, sandbox=sandbox)
+                flash('\u26a0\ufe0f Pago guardado, pero no se pudo emitir E41. Puede editarlo para reintentar.', 'warning')
+        else:
+            flash('Pago registrado exitosamente.', 'success')
+
         return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
 
     today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
@@ -11326,7 +11153,7 @@ def web_lookup_rnc(rnc):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-def _get_taggable_users(owner_uid):
+def _get_taggable_users(owner_uid, company_id=None):
     taggable_users = []
     owner_prof = DatabaseService.get_user_profile(owner_uid, company_id=company_id)
     if owner_prof:
@@ -11434,7 +11261,7 @@ def expense_detail(expense_id):
         return redirect(url_for('web_invoices.list_expenses'))
         
     comments = DatabaseService.get_resource_comments(owner_uid, "expenses", expense_id, company_id=company_id, sandbox=sandbox)
-    taggable_users = _get_taggable_users(owner_uid)
+    taggable_users = _get_taggable_users(owner_uid, company_id=company_id)
     
     is_cxp = expense.get('paymentType') == 'Crédito'
     cxp_payments = []

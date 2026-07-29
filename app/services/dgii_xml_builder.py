@@ -235,17 +235,17 @@ class DgiiXmlBuilder:
             ET.SubElement(id_doc, "IndicadorEnvioDiferido").text = "1"
 
         if cfg["monto_gravado"]:
-            ET.SubElement(id_doc, "IndicadorMontoGravado").text = "0" if tipo_ecf in ("31", "32", "33", "34") else "1"
+            ET.SubElement(id_doc, "IndicadorMontoGravado").text = "0" if tipo_ecf in ("31", "32", "33", "34", "41") else "1"
 
         if cfg["ingresos"]:
             ET.SubElement(id_doc, "TipoIngresos").text = cls._income_code(invoice_data)
 
-        if tipo_ecf in ("31", "32", "33", "34", "44", "45", "46"):
+        if tipo_ecf in ("31", "32", "33", "34", "41", "44", "45", "46"):
             pay_method = invoice_data.get("paymentMethod", "Efectivo")
             tipo_pago = "2" if "crédito" in pay_method.lower() or "credito" in pay_method.lower() else "1"
             ET.SubElement(id_doc, "TipoPago").text = tipo_pago
 
-            if cfg["tabla_pagos"] and tipo_ecf != "34":
+            if cfg["tabla_pagos"] and tipo_ecf not in ("34", "41"):
                 tabla_fp = ET.SubElement(id_doc, "TablaFormasPago")
                 fdp = ET.SubElement(tabla_fp, "FormaDePago")
                 pm = pay_method.lower()
@@ -434,10 +434,14 @@ class DgiiXmlBuilder:
         if cfg["retenciones"]:
             ritbis = float(invoice_data.get("retainedITBIS", 0.0))
             risr = float(invoice_data.get("retainedISR", 0.0))
-            if ritbis > 0:
+            if tipo_ecf == "41":
                 ET.SubElement(totales, "TotalITBISRetenido").text = cls._sd(ritbis)
-            if risr > 0:
                 ET.SubElement(totales, "TotalISRRetencion").text = cls._sd(risr)
+            else:
+                if ritbis > 0:
+                    ET.SubElement(totales, "TotalITBISRetenido").text = cls._sd(ritbis)
+                if risr > 0:
+                    ET.SubElement(totales, "TotalISRRetencion").text = cls._sd(risr)
 
         # OtraMoneda (foreign currency)
         currency = invoice_data.get("currency", "DOP")
@@ -473,6 +477,9 @@ class DgiiXmlBuilder:
                 if tipo_ecf == "47":
                     item_isr = float(item.get("retainedISR", item.get("isrRetenido", 0.0)))
                     ET.SubElement(ret_elem, "MontoISRRetenido").text = cls._sd(item_isr)
+                elif tipo_ecf == "41":
+                    ET.SubElement(ret_elem, "MontoITBISRetenido").text = cls._sd(item.get("retainedITBIS", 0.0))
+                    ET.SubElement(ret_elem, "MontoISRRetenido").text = cls._sd(item.get("retainedISR", 0.0))
             ET.SubElement(item_elem, "NombreItem").text = item.get("name", "Artículo")
             is_service = "servicio" in item.get("unit", "").lower() or "service" in item.get("unit", "").lower() or item.get("type", "").lower() == "servicio"
             ET.SubElement(item_elem, "IndicadorBienoServicio").text = "2" if is_service else "1"
@@ -496,6 +503,8 @@ class DgiiXmlBuilder:
                 dor = ET.SubElement(delem, "DescuentoORecargo")
                 ET.SubElement(dor, "NumeroLinea").text = str(idx + 1)
                 ET.SubElement(dor, "TipoAjuste").text = str(dr.get("tipo_ajuste", "D"))
+                if dr.get("descripcion"):
+                    ET.SubElement(dor, "DescripcionDescuentooRecargo").text = str(dr.get("descripcion", ""))[:45]
                 tipo_valor = str(dr.get("tipo_valor", "$"))
                 ET.SubElement(dor, "TipoValor").text = tipo_valor
                 valor = float(dr.get("valor", 0))
@@ -504,8 +513,6 @@ class DgiiXmlBuilder:
                     ET.SubElement(dor, "MontoDescuentooRecargo").text = cls._sd(valor)
                 else:
                     ET.SubElement(dor, "ValorDescuentooRecargo").text = cls._sd(valor)
-                if dr.get("descripcion"):
-                    ET.SubElement(dor, "DescripcionDescuentooRecargo").text = str(dr.get("descripcion", ""))[:45]
                 ET.SubElement(dor, "IndicadorFacturacionDescuentooRecargo").text = itbis_f
 
         # ======================== Subtotales + Paginacion ========================

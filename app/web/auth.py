@@ -236,7 +236,7 @@ def login():
                 session['session_token'] = session_token
                 
                 session['user'] = user_profile
-                session['is_sandbox_mode'] = False  # Producción por defecto al iniciar
+                session['is_sandbox_mode'] = Config.DEFAULT_SANDBOX_MODE
                 
                 uid = user_profile['uid']
                 user_companies = DatabaseService.get_user_companies(uid)
@@ -392,7 +392,7 @@ def resolve_session_conflict():
     session['session_token'] = session_token
     
     session['user'] = user_profile
-    session['is_sandbox_mode'] = False
+    session['is_sandbox_mode'] = Config.DEFAULT_SANDBOX_MODE
     
     user_companies = DatabaseService.get_user_companies(user_profile['uid'])
     session['user_companies'] = user_companies
@@ -514,7 +514,7 @@ def verify_2fa():
             session['session_token'] = session_token
             
             session['user'] = user_profile
-            session['is_sandbox_mode'] = False
+            session['is_sandbox_mode'] = Config.DEFAULT_SANDBOX_MODE
             
             user_companies = DatabaseService.get_user_companies(user_profile['uid'])
             session['user_companies'] = user_companies
@@ -730,12 +730,17 @@ def select_company():
     if len(user_companies) <= 1:
         if len(user_companies) == 1:
             comp = user_companies[0]
+            old_id = session.get('selected_company_id')
             session['selected_company_id'] = comp['id']
             session['selected_owner_uid'] = comp.get('owner_uid', uid)
             session['user']['ownerUID'] = session['selected_owner_uid']
             membership_perms = comp.get('_membership', {}).get('permissions', {})
             if membership_perms:
                 session['user']['permissions'].update(membership_perms)
+            if old_id and old_id != comp['id']:
+                from app.services.db_service import _invalidate_invoices as _inv_inv
+                _inv_inv(session['selected_owner_uid'], company_id=old_id)
+                _inv_inv(session['selected_owner_uid'], company_id=comp['id'])
         else:
             session['selected_owner_uid'] = uid
         return redirect(url_for('web_dashboard.dashboard'))
@@ -744,6 +749,7 @@ def select_company():
         selected_id = request.form.get('company_id')
         selected_company = next((c for c in user_companies if c['id'] == selected_id), None)
         if selected_company:
+            old_id = session.get('selected_company_id')
             session['selected_company_id'] = selected_id
             session['selected_owner_uid'] = selected_company.get('owner_uid', uid)
             session['user']['ownerUID'] = session['selected_owner_uid']
@@ -754,6 +760,11 @@ def select_company():
             session.pop('available_branches', None)
             session.pop('selected_project_id', None)
             session.pop('available_projects', None)
+            # Invalidar caché de facturas de la compañía anterior y nueva
+            from app.services.db_service import _invalidate_invoices as _inv_inv
+            if old_id:
+                _inv_inv(session['selected_owner_uid'], company_id=old_id)
+            _inv_inv(session['selected_owner_uid'], company_id=selected_id)
             # Limpiar caché de plan/módulos para forzar recarga con la nueva empresa
             session.pop('company_context', None)
             session.pop('company_plan_id', None)

@@ -11,6 +11,7 @@ from app.services.supplier_invoice_service import SupplierInvoiceService, ALLOWE
 from app.services.purchase_credit_note_service import PurchaseCreditNoteService
 from app.utils.decorators import check_permission
 from app.services.audit_service import AuditService, ACTION_CREATE, ACTION_UPDATE, ACTION_DELETE
+from app.services.dgii import DGIIService
 from app.web.invoices import format_mentions, _get_taggable_users, process_resource_comment_mentions
 from app.models.fiscal_document_type import by_code as _by_code
 
@@ -206,7 +207,7 @@ def purchase_order_detail(po_id):
     supplier_invoices = SupplierInvoiceService.get_by_po(owner_uid=owner_uid, po_id=po_id, sandbox=sandbox, company_id=company_id)
     order['supplier_invoices'] = supplier_invoices
     comments = DatabaseService.get_resource_comments(owner_uid, "purchase_orders", po_id, sandbox=sandbox, company_id=company_id)
-    taggable_users = _get_taggable_users(owner_uid)
+    taggable_users = _get_taggable_users(owner_uid, company_id=company_id)
     return render_template('purchase_orders/detail.html',
                            order=order,
                            comments=comments,
@@ -947,6 +948,8 @@ def new_supplier_invoice_direct():
         inv_date = request.form.get('date', datetime.now(timezone.utc).strftime('%Y-%m-%d'))
         due_date = request.form.get('dueDate', '')
         ecf_type = request.form.get('ecfType', _by_code("E31").code)
+        is_e41 = ecf_type in ("E41", "Comprobante de Compras (E41)")
+        is_e43 = ecf_type in ("E43", "Comprobante para Gastos Menores (E43)")
 
         today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
         if inv_date > today_str:
@@ -956,7 +959,8 @@ def new_supplier_invoice_direct():
             flash('La fecha de vencimiento no puede ser anterior a la fecha de emisión.', 'error')
             return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=po_id))
 
-        if ncf and not SupplierInvoiceService._check_ncf_unique(owner_uid=owner_uid, ncf=ncf, sandbox=sandbox, company_id=company_id):
+        # Skip NCF uniqueness check for E41/E43 (NCF is auto-generated from company's sequence)
+        if ncf and not is_e41 and not is_e43 and not SupplierInvoiceService._check_ncf_unique(owner_uid=owner_uid, ncf=ncf, sandbox=sandbox, company_id=company_id):
             flash('El NCF ya está registrado en otra factura.', 'error')
             return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=po_id))
 
@@ -1023,6 +1027,7 @@ def new_supplier_invoice_direct():
         supplier_id = request.form.get('supplierId', '')
         supplier_name = request.form.get('supplierName', '')
         supplier_rnc = request.form.get('supplierRnc', '')
+        supplier_cedula = request.form.get('supplierCedula', '')
 
         if not supplier_id and supplier_rnc:
             from app.services.contact_service import ContactService
@@ -1052,9 +1057,11 @@ def new_supplier_invoice_direct():
             "supplierId": supplier_id,
             "supplierName": supplier_name,
             "supplierRnc": supplier_rnc,
+            "supplierCedula": supplier_cedula,
             "supplierType": request.form.get('supplierType', 'formal'),
             "ecfType": ecf_type,
             "cne": request.form.get('cne', ''),
+            "isAutoEmitted": is_e41 or is_e43,
             "date": inv_date,
             "dueDate": due_date,
             "paymentTerms": "contado" if payment_type == 'Contado' else "credito_30d",
@@ -1172,7 +1179,249 @@ def new_supplier_invoice_direct():
             after=inv_data, sandbox=sandbox
         )
 
-        msg = f'Factura proveedor {sinv_number} registrada exitosamente.'
+        # === EMISIÓN ECF 41 (Comprobante de Compras) AUTOEMITIDO ===
+        # E41 es autoemitido por la empresa compradora usando su propia secuencia fiscal.
+        # Requiere un identificador válido del beneficiario (RNC de 9 dígitos o cédula de 11 dígitos).
+        ecf_type_emit = inv_data.get("ecfType", "")
+        if is_e41:
+            supplier_rnc_emit_raw = inv_data.get("supplierRnc", "").strip()
+            supplier_cedula_emit_raw = inv_data.get("supplierCedula", "").strip()
+            tax_id_for_emission = supplier_rnc_emit_raw or supplier_cedula_emit_raw
+
+            from app.countries.do.dgii_client import clean_rnc, validate_rnc
+            clean_id = clean_rnc(tax_id_for_emission)
+            validation = validate_rnc(clean_id)
+            should_emit_41 = not validation.get("error", True)
+
+            if not should_emit_41:
+                flash('Para emitir un comprobante E41 debe registrar un RNC o una cédula del beneficiario de la compra.', 'error')
+        else:
+            should_emit_41 = False
+
+        if should_emit_41:
+            try:
+                from app.services.ecf_emission import EcfEmissionService
+                from app.web.invoices import check_document_limit_exceeded, _build_supplier_invoice_ecf_payload
+
+                exceeded_41, limit_msg_41 = check_document_limit_exceeded(
+                    owner_uid, company_id=company_id, sandbox=sandbox
+                )
+                if exceeded_41:
+                    if limit_msg_41:
+                        flash(limit_msg_41, 'warning')
+                else:
+                    user_email_41 = session['user']['email']
+                    encf_41, log_id_41 = DatabaseService.consume_next_sequence(
+                        owner_uid, "E41", user_email_41, company_id=company_id, sandbox=sandbox
+                    )
+                    inv_data["encf"] = encf_41
+
+                    company_41 = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+                    ecf_payload_41 = _build_supplier_invoice_ecf_payload(inv_data)
+                    ecf_payload_41["encf"] = encf_41
+
+                    res_41 = EcfEmissionService.emit_electronic_comprobante(
+                        company_41, ecf_payload_41, sandbox=sandbox
+                    )
+
+                    try:
+                        from app.web.invoices import _log_dgii_emission_to_audit
+                        _log_dgii_emission_to_audit(
+                            owner_uid, inv_data, res_41,
+                            performed_by_email=session['user']['email'],
+                            performed_by_name=session['user'].get('displayName', 'Usuario'),
+                            company_id=company_id, sandbox=sandbox
+                        )
+                    except Exception as audit_err:
+                        print(f"Error al registrar auditoría DGII E41: {audit_err}")
+
+                    if res_41.get("success"):
+                        update_fields = {
+                            "encf":           res_41.get("encf", encf_41),
+                            "ecfNumber":      res_41.get("encf", encf_41),
+                            "ncf":            res_41.get("encf", encf_41),
+                            "xmlSignature":   res_41.get("xmlSignature", ""),
+                            "qrCodeURL":      res_41.get("qrCodeURL", ""),
+                            "trackId":        res_41.get("trackId", ""),
+                            "isSyncedWithDGII": True,
+                            "status":         "emitida",
+                            "updatedAt":      datetime.now(timezone.utc).isoformat(),
+                        }
+                        SupplierInvoiceService.update(
+                            owner_uid, inv_data["id"], update_fields,
+                            sandbox=sandbox, company_id=company_id
+                        )
+
+                        if log_id_41:
+                            try:
+                                items_for_cuadratura = items if items else [{"subtotal": subtotal, "itbisAmount": total_itbis}]
+                                cuadratura = DGIIService.check_tolerancia_cuadratura(items_for_cuadratura, total)
+                                estado_dgii = "ACCEPTED" if cuadratura["within_tolerance"] else "ACCEPTED_CONDITIONAL"
+                                sig_show = res_41.get("xmlSignature") or res_41.get("trackId") or "N/A"
+                                motivo = f"Aprobado (E41). Firma/TrackID: {str(sig_show)[:16]}"
+                                if estado_dgii == "ACCEPTED_CONDITIONAL":
+                                    motivo = f"Aceptado Condicional: {', '.join(cuadratura.get('warnings', []))}"
+                                if res_41.get("mode") == "FALLBACK":
+                                    estado_dgii = "CONTINGENCY"
+                                    motivo = "Emitido en modo contingencia. Pendiente de sincronizaci\u00f3n con DGII."
+                                elif res_41.get("status") == "PENDING":
+                                    estado_dgii = "PENDING"
+                                    motivo = "En proceso de validaci\u00f3n por la DGII."
+                                DatabaseService.update_sequence_log(owner_uid, log_id_41, {
+                                    "estado": estado_dgii,
+                                    "motivo": motivo,
+                                    "xmlEnviado": json.dumps(res_41.get("requestPayload"), indent=2) if res_41.get("requestPayload") else "",
+                                    "respuestaDGII": json.dumps(res_41.get("responseBody"), indent=2) if res_41.get("responseBody") else ""
+                                }, sandbox=sandbox, company_id=company_id)
+                            except Exception as log_err:
+                                print(f"\u26a0\ufe0f Error al actualizar log de secuencia E41: {log_err}")
+
+                        msg = f'Factura proveedor {sinv_number} registrada y E41 emitido ante DGII.\n'
+                        msg += f'\u2705 e-NCF: {res_41.get("encf", encf_41)}'
+                    else:
+                        error_msg = res_41.get('message', res_41.get('error', 'Error desconocido de DGII'))
+                        SupplierInvoiceService.update(
+                            owner_uid, inv_data["id"], {
+                                "status": "rechazado_dgii",
+                                "dgiiError": str(error_msg)[:200],
+                                "updatedAt": datetime.now(timezone.utc).isoformat(),
+                            },
+                            sandbox=sandbox, company_id=company_id
+                        )
+                        if log_id_41:
+                            try:
+                                DatabaseService.update_sequence_log(owner_uid, log_id_41, {
+                                    "estado": "FAILED",
+                                    "motivo": f"DGII rechaz\u00f3: {error_msg}",
+                                    "respuestaDGII": json.dumps(res_41.get("responseBody"), indent=2) if res_41.get("responseBody") else ""
+                                }, sandbox=sandbox, company_id=company_id)
+                            except Exception as log_err:
+                                print(f"\u26a0\ufe0f Error al actualizar log de secuencia E41 fallido: {log_err}")
+
+                        msg = f'Factura proveedor {sinv_number} registrada exitosamente.\n'
+                        msg += f'\u26a0\ufe0f DGII rechaz\u00f3 el E41: {error_msg}'
+            except Exception as e41_sinv:
+                print(f"\u274c Error al emitir E41 desde factura proveedor {inv_data['id']}: {e41_sinv}")
+                SupplierInvoiceService.update(
+                    owner_uid, inv_data["id"], {
+                        "status": "rechazado_dgii",
+                        "dgiiError": f"Excepci\u00f3n en emisi\u00f3n: {str(e41_sinv)}"[:200],
+                        "updatedAt": datetime.now(timezone.utc).isoformat(),
+                    },
+                    sandbox=sandbox, company_id=company_id
+                )
+                try:
+                    if log_id_41:
+                        DatabaseService.update_sequence_log(owner_uid, log_id_41, {
+                            "estado": "FAILED",
+                            "motivo": f"Excepci\u00f3n en emisi\u00f3n: {str(e41_sinv)}"
+                        }, sandbox=sandbox, company_id=company_id)
+                except Exception:
+                    pass
+                msg = f'Factura proveedor {sinv_number} registrada exitosamente.\n'
+                msg += '\u26a0\ufe0f No se pudo emitir E41 autom\u00e1ticamente.'
+        else:
+            msg = f'Factura proveedor {sinv_number} registrada exitosamente.'
+
+        # === EMISIÓN ECF 43 (Comprobante de Gastos Menores) AUTOEMITIDO ===
+        # E43 es autoemitido por la empresa para gastos menores del negocio.
+        if is_e43:
+            try:
+                from app.services.ecf_emission import EcfEmissionService
+                from app.web.invoices import check_document_limit_exceeded, _build_supplier_invoice_ecf_payload
+
+                exceeded_43, limit_msg_43 = check_document_limit_exceeded(
+                    owner_uid, company_id=company_id, sandbox=sandbox
+                )
+                if exceeded_43:
+                    if limit_msg_43:
+                        flash(limit_msg_43, 'warning')
+                else:
+                    user_email_43 = session['user']['email']
+                    encf_43, log_id_43 = DatabaseService.consume_next_sequence(
+                        owner_uid, "E43", user_email_43, company_id=company_id, sandbox=sandbox
+                    )
+                    inv_data["encf"] = encf_43
+
+                    company_43 = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+                    ecf_payload_43 = _build_supplier_invoice_ecf_payload(inv_data)
+                    ecf_payload_43["encf"] = encf_43
+
+                    res_43 = EcfEmissionService.emit_electronic_comprobante(
+                        company_43, ecf_payload_43, sandbox=sandbox
+                    )
+
+                    try:
+                        from app.web.invoices import _log_dgii_emission_to_audit
+                        _log_dgii_emission_to_audit(
+                            owner_uid, inv_data, res_43,
+                            performed_by_email=session['user']['email'],
+                            performed_by_name=session['user'].get('displayName', 'Usuario'),
+                            company_id=company_id, sandbox=sandbox
+                        )
+                    except Exception as audit_err:
+                        print(f"Error al registrar auditoría DGII E43: {audit_err}")
+
+                    if res_43.get("success"):
+                        update_fields = {
+                            "encf":           res_43.get("encf", encf_43),
+                            "ecfNumber":      res_43.get("encf", encf_43),
+                            "ncf":            res_43.get("encf", encf_43),
+                            "xmlSignature":   res_43.get("xmlSignature", ""),
+                            "qrCodeURL":      res_43.get("qrCodeURL", ""),
+                            "trackId":        res_43.get("trackId", ""),
+                            "isSyncedWithDGII": True,
+                            "status":         "emitida",
+                            "updatedAt":      datetime.now(timezone.utc).isoformat(),
+                        }
+                        SupplierInvoiceService.update(
+                            owner_uid, inv_data["id"], update_fields,
+                            sandbox=sandbox, company_id=company_id
+                        )
+
+                        if log_id_43:
+                            try:
+                                if not msg.startswith('Factura'):
+                                    msg = f'Factura proveedor {sinv_number} registrada exitosamente.\n'
+                                msg += f'\u2705 E43 emitido ante DGII. e-NCF: {res_43.get("encf", encf_43)}'
+                            except Exception:
+                                pass
+
+                        if not msg.strip().endswith('DGII'):
+                            if not msg.startswith('Factura'):
+                                msg = f'Factura proveedor {sinv_number} registrada exitosamente.\n'
+                            msg += f' Comprobante E43 emitido: {res_43.get("encf", encf_43)}.'
+                    else:
+                        error_msg_43 = res_43.get('message', res_43.get('error', 'Error desconocido de DGII'))
+                        SupplierInvoiceService.update(
+                            owner_uid, inv_data["id"], {
+                                "status": "rechazado_dgii",
+                                "dgiiError": str(error_msg_43)[:200],
+                                "updatedAt": datetime.now(timezone.utc).isoformat(),
+                            },
+                            sandbox=sandbox, company_id=company_id
+                        )
+                        if log_id_43:
+                            try:
+                                DatabaseService.update_sequence_log(owner_uid, log_id_43, {
+                                    "estado": "FAILED",
+                                    "motivo": f"DGII rechaz\u00f3 E43: {error_msg_43}",
+                                }, sandbox=sandbox, company_id=company_id)
+                            except Exception:
+                                pass
+                        msg += f'\n\u26a0\ufe0f DGII rechaz\u00f3 el E43: {error_msg_43}'
+            except Exception as e43_sinv:
+                print(f"\u274c Error al emitir E43 desde factura proveedor {inv_data['id']}: {e43_sinv}")
+                SupplierInvoiceService.update(
+                    owner_uid, inv_data["id"], {
+                        "status": "rechazado_dgii",
+                        "dgiiError": f"Excepci\u00f3n en emisi\u00f3n E43: {str(e43_sinv)}"[:200],
+                        "updatedAt": datetime.now(timezone.utc).isoformat(),
+                    },
+                    sandbox=sandbox, company_id=company_id
+                )
+                msg += '\n\u26a0\ufe0f No se pudo emitir E43 autom\u00e1ticamente.'
+
         if file_upload_error:
             msg += ' El archivo no pudo subirse. Puede adjuntarlo después desde el detalle.'
         flash(msg, 'success')
@@ -1188,6 +1437,28 @@ def new_supplier_invoice_direct():
     tax_rules = DatabaseService.get_tax_rules(owner_uid, company_id=company_id)
     itbis_general = tax_rules.get('itbis', {}).get('general', 0.18)
     itbis_reduced = tax_rules.get('itbis', {}).get('reduced', 0.16)
+
+    e41_sequences = []
+    e43_sequences = []
+    try:
+        all_seqs = DatabaseService.get_sequences(owner_uid, company_id=company_id, sandbox=sandbox)
+        e41_sequences = [
+            {'tipoComprobante': s.get('tipoComprobante', 'E41')}
+            for s in all_seqs
+            if s.get('tipoComprobante') == 'E41'
+            and s.get('estado', '').upper() == 'ACTIVA'
+            and not s.get('bloqueadaManualmente', False)
+        ]
+        e43_sequences = [
+            {'tipoComprobante': s.get('tipoComprobante', 'E43')}
+            for s in all_seqs
+            if s.get('tipoComprobante') == 'E43'
+            and s.get('estado', '').upper() == 'ACTIVA'
+            and not s.get('bloqueadaManualmente', False)
+        ]
+    except Exception:
+        pass
+
     selected_bid = g.get('branch_id') or session.get('selected_branch_id')
     projects = DatabaseService.get_projects(owner_uid, branch_id=selected_bid, sandbox=sandbox, company_id=company_id) if selected_bid else []
     active_project_id = session.get('selected_project_id') or ''
@@ -1200,6 +1471,8 @@ def new_supplier_invoice_direct():
                            accounting_accounts=accounting_accounts,
                            itbis_general=itbis_general,
                            itbis_reduced=itbis_reduced,
+                           e41_sequences=e41_sequences,
+                           e43_sequences=e43_sequences,
                            projects=projects,
                            active_project_id=active_project_id,
                            cost_centers=active_cost_centers,
@@ -1428,7 +1701,7 @@ def supplier_invoice_detail(invoice_id):
     bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox, company_id=company_id)
 
     comments = DatabaseService.get_resource_comments(owner_uid, "purchase_orders", invoice_id, sandbox=sandbox, company_id=company_id)
-    taggable_users = _get_taggable_users(owner_uid)
+    taggable_users = _get_taggable_users(owner_uid, company_id=company_id)
 
     is_cxp = invoice.get('paymentType') == 'Crédito'
 
@@ -1439,6 +1712,14 @@ def supplier_invoice_detail(invoice_id):
             linked_entry = e
             break
 
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+
+    try:
+        history_logs = AuditService.get_entity_logs(owner_uid, invoice_id, company_id=company_id)
+    except Exception as e:
+        print(f"⚠️ Error al obtener logs de auditoría: {e}")
+        history_logs = []
+
     return render_template('purchase_orders/supplier_invoice_detail.html',
                            invoice=invoice, payments=payments,
                            bank_accounts=bank_accounts,
@@ -1446,7 +1727,238 @@ def supplier_invoice_detail(invoice_id):
                            format_mentions=format_mentions,
                            is_cxp=is_cxp, cxp_payments=payments,
                            linked_entry=linked_entry,
+                           company=company,
+                           history_logs=history_logs,
                            active_page='purchase_cxp')
+
+
+@web_purchase_orders_bp.route('/purchase-orders/invoices/<invoice_id>/reemit-e41', methods=['POST'])
+def reemit_supplier_invoice_e41(invoice_id):
+    """Reemite un E41 rechazado por la DGII usando el mismo e-NCF."""
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canManagePurchaseCXP'):
+        flash('No tienes permiso para reemitir comprobantes.', 'error')
+        return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+
+    invoice = SupplierInvoiceService.get(owner_uid=owner_uid, invoice_id=invoice_id, sandbox=sandbox, company_id=company_id)
+    if not invoice:
+        flash('Factura de proveedor no encontrada.', 'error')
+        return redirect(url_for('web_purchase_orders.list_purchase_cxp'))
+
+    if invoice.get('ecfType') not in ('E41', 'Comprobante de Compras (E41)'):
+        flash('Este comprobante no es un E41.', 'error')
+        return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
+
+    if invoice.get('status') != 'rechazado_dgii':
+        flash('Solo se pueden reemitir comprobantes E41 en estado rechazado por DGII.', 'error')
+        return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
+
+    existing_encf = invoice.get('encf', '')
+    if not existing_encf:
+        flash('Este E41 no tiene un e-NCF asignado para reemitir.', 'error')
+        return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
+
+    try:
+        from app.services.ecf_emission import EcfEmissionService
+        from app.web.invoices import _build_supplier_invoice_ecf_payload
+
+        company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+        ecf_payload = _build_supplier_invoice_ecf_payload(invoice)
+        ecf_payload["encf"] = existing_encf
+
+        res = EcfEmissionService.emit_electronic_comprobante(company, ecf_payload, sandbox=sandbox)
+
+        try:
+            from app.web.invoices import _log_dgii_emission_to_audit
+            _log_dgii_emission_to_audit(
+                owner_uid, invoice, res,
+                performed_by_email=session['user']['email'],
+                performed_by_name=session['user'].get('displayName', 'Usuario'),
+                company_id=company_id, sandbox=sandbox
+            )
+        except Exception as audit_err:
+            print(f"Error al registrar auditoría DGII para reemisión E41: {audit_err}")
+
+        if res.get("success"):
+            update_fields = {
+                "encf":             res.get("encf", existing_encf),
+                "ecfNumber":        res.get("encf", existing_encf),
+                "ncf":              res.get("encf", existing_encf),
+                "xmlSignature":     res.get("xmlSignature", ""),
+                "qrCodeURL":        res.get("qrCodeURL", ""),
+                "trackId":          res.get("trackId", ""),
+                "isSyncedWithDGII": True,
+                "status":           "emitida",
+                "dgiiError":        None,
+                "updatedAt":        datetime.now(timezone.utc).isoformat(),
+            }
+            SupplierInvoiceService.update(owner_uid, invoice_id, update_fields, sandbox=sandbox, company_id=company_id)
+            flash(f'E41 reemitido exitosamente. e-NCF: {res.get("encf", existing_encf)}', 'success')
+        else:
+            error_msg = res.get('message', res.get('error', 'Error desconocido de DGII'))
+            SupplierInvoiceService.update(owner_uid, invoice_id, {
+                "dgiiError": str(error_msg)[:200],
+                "updatedAt": datetime.now(timezone.utc).isoformat(),
+            }, sandbox=sandbox, company_id=company_id)
+            flash(f'DGII rechaz\u00f3 el E41: {error_msg}. Corrige y reintenta.', 'error')
+    except Exception as e:
+        print(f"\u274c Error al reemitir E41 desde factura proveedor {invoice_id}: {e}")
+        flash(f'Error al reemitir: {str(e)}', 'error')
+
+    return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
+
+
+@web_purchase_orders_bp.route('/purchase-orders/invoices/<invoice_id>/emit', methods=['POST'])
+def emit_supplier_invoice(invoice_id):
+    """Emite o reemite una factura de proveedor a la DGII."""
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canManagePurchaseCXP'):
+        flash('No tienes permiso para emitir comprobantes.', 'error')
+        return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+
+    invoice = SupplierInvoiceService.get(owner_uid=owner_uid, invoice_id=invoice_id, sandbox=sandbox, company_id=company_id)
+    if not invoice:
+        flash('Factura de proveedor no encontrada.', 'error')
+        return redirect(url_for('web_purchase_orders.list_purchase_cxp'))
+
+    existing_encf = invoice.get('encf', '')
+    is_reemit = bool(existing_encf)
+    log_id = None
+
+    try:
+        from app.services.ecf_emission import EcfEmissionService
+        from app.web.invoices import check_document_limit_exceeded, _build_supplier_invoice_ecf_payload
+
+        company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+        ecf_payload = _build_supplier_invoice_ecf_payload(invoice)
+
+        if not is_reemit:
+            exceeded, limit_msg = check_document_limit_exceeded(
+                owner_uid, company_id=company_id, sandbox=sandbox
+            )
+            if exceeded:
+                if limit_msg:
+                    flash(limit_msg, 'warning')
+                return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
+
+            user_email = session['user']['email']
+            ecf_code = invoice.get("ecfType", "E41")
+            encf, log_id = DatabaseService.consume_next_sequence(
+                owner_uid, ecf_code, user_email,
+                company_id=company_id, sandbox=sandbox
+            )
+            ecf_payload["encf"] = encf
+        else:
+            ecf_payload["encf"] = existing_encf
+            log_id = None
+
+        if not ecf_payload.get("fechaVencimientoSecuencia"):
+            ecf_payload["fechaVencimientoSecuencia"] = \
+                datetime.now(timezone.utc).replace(year=datetime.now(timezone.utc).year + 2, month=12, day=31).strftime("%Y-%m-%d")
+
+        res = EcfEmissionService.emit_electronic_comprobante(company, ecf_payload, sandbox=sandbox)
+
+        try:
+            from app.web.invoices import _log_dgii_emission_to_audit
+            _log_dgii_emission_to_audit(
+                owner_uid, invoice, res,
+                performed_by_email=session['user']['email'],
+                performed_by_name=session['user'].get('displayName', 'Usuario'),
+                company_id=company_id, sandbox=sandbox
+            )
+        except Exception as audit_err:
+            print(f"Error al registrar auditoría DGII para factura proveedor: {audit_err}")
+
+        if res.get("success"):
+            update_fields = {
+                "encf":             res.get("encf", ecf_payload.get("encf")),
+                "ecfNumber":        res.get("encf", ecf_payload.get("encf")),
+                "ncf":              res.get("encf", ecf_payload.get("encf")),
+                "xmlSignature":     res.get("xmlSignature", ""),
+                "qrCodeURL":        res.get("qrCodeURL", ""),
+                "trackId":          res.get("trackId", ""),
+                "isSyncedWithDGII": True,
+                "status":           "emitida",
+                "dgiiError":        None,
+                "updatedAt":        datetime.now(timezone.utc).isoformat(),
+            }
+            SupplierInvoiceService.update(owner_uid, invoice_id, update_fields, sandbox=sandbox, company_id=company_id)
+            ...
+            error_msg = res.get('message', res.get('error', 'Error desconocido de DGII'))
+            update_fields = {
+                "dgiiError": str(error_msg)[:200],
+                "status": "rechazado_dgii",
+                "updatedAt": datetime.now(timezone.utc).isoformat(),
+            }
+            SupplierInvoiceService.update(owner_uid, invoice_id, update_fields, sandbox=sandbox, company_id=company_id)
+            if log_id:
+                try:
+                    DatabaseService.update_sequence_log(owner_uid, log_id, {
+                        "estado": "FAILED",
+                        "motivo": f"Rechazado por DGII: {str(error_msg)[:200]}",
+                    }, company_id=company_id, sandbox=sandbox)
+                except Exception as log_err:
+                    print(f"Error al registrar fallo en sequence_log: {log_err}")
+            flash(f'DGII rechazó el comprobante: {error_msg}. Corrige y reintenta.', 'error')
+    except Exception as e:
+        print(f"Error al emitir factura proveedor {invoice_id}: {e}")
+        if not is_reemit and log_id:
+            try:
+                DatabaseService.update_sequence_log(owner_uid, log_id, {
+                    "estado": "FAILED",
+                    "motivo": f"Error técnico: {str(e)[:200]}",
+                }, company_id=company_id, sandbox=sandbox)
+            except:
+                pass
+        flash(f'Error al emitir: {str(e)}', 'error')
+
+    return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
+
+
+@web_purchase_orders_bp.route('/purchase-orders/invoices/<invoice_id>/xml')
+def supplier_invoice_xml_download(invoice_id):
+    if 'user' not in session:
+        return "No autorizado", 401
+    if not check_permission('canManagePurchaseCXP'):
+        return "Acceso denegado", 403
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+
+    invoice = SupplierInvoiceService.get(owner_uid=owner_uid, invoice_id=invoice_id, sandbox=sandbox, company_id=company_id)
+    if not invoice:
+        return "Factura no encontrada", 404
+
+    xml_content = invoice.get('xmlSignature') or invoice.get('xmlContent') or ''
+
+    if not xml_content or not (xml_content.strip().startswith('<?xml') or xml_content.strip().startswith('<ECF') or xml_content.strip().startswith('<eCF')):
+        try:
+            from app.services.dgii_xml_builder import DgiiXmlBuilder
+            from app.services.dgii_signer import DgiiSigner
+            from app.web.invoices import _build_supplier_invoice_ecf_payload
+
+            company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+            ecf_payload = _build_supplier_invoice_ecf_payload(invoice)
+            ecf_payload["encf"] = invoice.get("encf", "PENDIENTE")
+            raw_xml = DgiiXmlBuilder.build_invoice_xml(company, ecf_payload)
+            signed_xml_bytes = DgiiSigner.sign_xml(raw_xml, company)
+            xml_content = signed_xml_bytes.decode('utf-8')
+        except Exception:
+            xml_content = invoice.get('xmlSignature') or invoice.get('xmlContent') or ''
+
+    filename = f"eCF_{invoice.get('encf', invoice.get('invoiceNumber', invoice_id))}.xml"
+    resp = make_response(xml_content)
+    resp.headers['Content-Type'] = 'application/xml; charset=utf-8'
+    resp.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return resp
 
 
 @web_purchase_orders_bp.route('/purchase-orders/invoices/<invoice_id>/pay', methods=['POST'])

@@ -202,30 +202,49 @@
                                 <select id="ecfType" name="ecfType" class="form-select" style="width:100%;">
                                     <option value="E31" selected>E31 / B01 — Factura de Crédito Fiscal</option>
                                     <option value="E32">E32 / B02 — Factura de Consumo</option>
-                                    <option value="E41">E41 / B06 — Comprobante de Compras <span style="color:#d97706;font-weight:600;">(Tipo B)</span></option>
-                                    <option value="E43">E43 / B07 — Gastos Menores</option>
+                                    <option value="E41">E41 / B06 — Comprobante de Compras <span style="color:#d97706;font-weight:600;">(Autoemitido)</span></option>
+                                    <option value="E43">E43 / B07 — Gastos Menores <span style="color:#d97706;font-weight:600;">(Autoemitido)</span></option>
                                     <option value="E45">E45 / B08 — Gubernamental</option>
                                     <option value="E47">E47 / B10 — Pagos al Exterior</option>
                                 </select>
-                                <small style="color:var(--text-muted);font-size:0.7rem;margin-top:4px;display:block;">
-                                    💡 Para compras a <strong>proveedores informales</strong> selecciona <strong>E41/B06 — Comprobante de Compras</strong> (Tipo B en el Reporte 606).
-                                </small>
-                            </div>
+                                 <small style="color:var(--text-muted);font-size:0.7rem;margin-top:4px;display:block;" id="ecf-help">
+                                     💡 Para compras a <strong>proveedores informales</strong> selecciona <strong>E41/B06 — Comprobante de Compras</strong> (Tipo B en el Reporte 606).
+                                 </small>
+                             </div>
 
-                            <div class="form-group">
-                                <label for="ncf">NCF / e-CF del Proveedor</label>
-                                <input type="text" id="ncf" name="ncf" class="form-input" placeholder="Ej: E310120000452" style="width:100%; font-family:monospace;">
-                            </div>
+                             <div class="form-group e41-hideable">
+                                 <label for="ncf">NCF / e-CF del Proveedor</label>
+                                 <input type="text" id="ncf" name="ncf" class="form-input" placeholder="Ej: E310120000452" style="width:100%; font-family:monospace;">
+                             </div>
 
-                            <div class="form-group">
-                                <label for="cne">CNE / Código Seguridad</label>
-                                <input type="text" id="cne" name="cne" class="form-input" placeholder="Firma digital DGII" style="width:100%; font-family:monospace;">
-                            </div>
+                             <div class="form-group e41-hideable">
+                                 <label for="cne">CNE / Código Seguridad</label>
+                                 <input type="text" id="cne" name="cne" class="form-input" placeholder="Firma digital DGII" style="width:100%; font-family:monospace;">
+                             </div>
 
-                            <div class="form-group">
-                                <label for="invoiceNumber">No. Factura del Proveedor *</label>
-                                <input type="text" id="invoiceNumber" name="invoiceNumber" class="form-input" placeholder="Ej: F001-123" required style="width:100%;">
-                            </div>
+                             <div class="form-group" id="cedula-group" style="display:none;">
+                                 <label for="supplierCedula">Cédula del Beneficiario <span style="color:var(--accent-red);">*</span></label>
+                                 <input type="text" id="supplierCedula" name="supplierCedula" class="form-input" placeholder="Ej: 40212345678" style="width:100%; font-family:monospace;" maxlength="11">
+                                 <small style="color:var(--text-muted);font-size:0.7rem;margin-top:4px;display:block;">
+                                     El E41 requiere un identificador fiscal v\u00e1lido del beneficiario de la compra (RNC o c\u00e9dula).
+                                 </small>
+                             </div>
+
+                             <div class="form-group" id="e41-sequence-group" style="display:none;">
+                                 <label>Secuencia Fiscal E41</label>
+                                 <div id="e41-sequence-badge" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:var(--radius-sm);font-size:0.78rem;color:var(--accent-purple);font-weight:600;">
+                                     <i class="fa-solid fa-ticket"></i>
+                                     <span id="e41-sequence-label">Sin secuencias activas</span>
+                                 </div>
+                                 <small style="color:var(--text-muted);font-size:0.7rem;margin-top:4px;display:block;">
+                                     El comprobante E41 es <strong>autoemitido</strong> por la empresa compradora usando su propia secuencia fiscal.
+                                 </small>
+                             </div>
+
+                             <div class="form-group">
+                                 <label for="invoiceNumber">No. Factura del Proveedor *</label>
+                                 <input type="text" id="invoiceNumber" name="invoiceNumber" class="form-input" placeholder="Ej: F001-123" required style="width:100%;">
+                             </div>
 
                             <div class="form-group">
                                 <label for="date">Fecha de Emisión *</label>
@@ -464,7 +483,7 @@
             <button type="submit" name="save_action" value="save_and_new" class="btn btn-secondary" style="background:var(--accent-yellow);border-color:var(--accent-yellow);">
                 <i class="fa-solid fa-plus"></i> Guardar y Nuevo
             </button>
-            <button type="submit" name="save_action" value="save" class="btn btn-primary" style="background:var(--accent-purple);border-color:var(--accent-purple);color:#fff;">
+            <button type="submit" name="save_action" value="save" class="btn btn-primary" style="height: 32px; font-size: 0.78rem; padding: 0 12px; display: inline-flex; align-items: center; gap: 4px;">
                 <i class="fa-solid fa-floppy-disk"></i> Registrar Factura de Compra
             </button>
         </div>
@@ -509,6 +528,8 @@
     const accountingAccounts = {{ accounting_accounts | tojson | safe }};
     const itbisGeneral = {{ itbis_general }};
     const itbisReduced = {{ itbis_reduced }};
+    const e41Sequences = {{ e41_sequences | tojson | safe }};
+    const e43Sequences = {{ e43_sequences | tojson | safe }};
 
     let rowIndex = 0;
     let openDropdownCell = null;
@@ -982,6 +1003,58 @@
     handleCurrencyChange();
     togglePaymentFields();
     recalculateRetBadge();
+    toggleE41Fields();
+
+    // ── E41/E43: Comprobantes autoemitidos (sin NCF/CNE del proveedor) ──
+    function toggleE41Fields() {
+        const ecfType = document.getElementById('ecfType').value;
+        const isE41 = ecfType === 'E41';
+        const isE43 = ecfType === 'E43';
+        const isAutoEmitted = isE41 || isE43;
+        const rncValue = (document.getElementById('supplierRnc').value || '').replace(/\D/g, '');
+
+        // Show/hide NCF and CNE fields (hidden for auto-emitted types)
+        document.querySelectorAll('.e41-hideable').forEach(function(el) {
+            el.style.display = isAutoEmitted ? 'none' : '';
+        });
+
+        // Show/hide cédula field (only when E41 and RNC is empty)
+        const cedulaGroup = document.getElementById('cedula-group');
+        cedulaGroup.style.display = (isE41 && rncValue.length < 9) ? '' : 'none';
+
+        // Show/hide sequence info for auto-emitted types
+        const seqGroup = document.getElementById('e41-sequence-group');
+        const seqLabel = document.getElementById('e41-sequence-label');
+        seqGroup.style.display = isAutoEmitted ? '' : 'none';
+        if (isE41) {
+            if (e41Sequences && e41Sequences.length > 0) {
+                seqLabel.innerHTML = '<i class="fa-solid fa-check-circle" style="color:var(--accent-emerald);"></i> ' + e41Sequences[0].tipoComprobante + ' — Activa';
+            } else {
+                seqLabel.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-yellow);"></i> Sin secuencias E41 activas';
+            }
+        } else if (isE43) {
+            if (e43Sequences && e43Sequences.length > 0) {
+                seqLabel.innerHTML = '<i class="fa-solid fa-check-circle" style="color:var(--accent-emerald);"></i> ' + e43Sequences[0].tipoComprobante + ' — Activa';
+            } else {
+                seqLabel.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-yellow);"></i> Sin secuencias E43 activas';
+            }
+        }
+
+        // Update help text
+        const helpEl = document.getElementById('ecf-help');
+        if (helpEl) {
+            if (isE41) {
+                helpEl.innerHTML = '\u26a0\ufe0f El comprobante E41 es <strong>autoemitido</strong> por la empresa. No requiere NCF ni CNE del proveedor. Debe registrar un identificador v\u00e1lido del beneficiario (RNC o c\u00e9dula).';
+            } else if (isE43) {
+                helpEl.innerHTML = '\u26a0\ufe0f El comprobante E43 es <strong>autoemitido</strong> para gastos menores del negocio. No requiere NCF ni CNE del proveedor. Use este tipo para parqueos, peajes, compras menores sin comprobante fiscal.';
+            } else {
+                helpEl.innerHTML = '\ud83d\udca1 Para gastos menores sin comprobante fiscal use <strong>E43/B07</strong>. Para compras a proveedores informales use <strong>E41/B06</strong>.';
+            }
+        }
+    }
+
+    document.getElementById('ecfType').addEventListener('change', toggleE41Fields);
+    document.getElementById('supplierRnc').addEventListener('input', toggleE41Fields);
 
     // ── Creacion desde Archivo/Imagen (OCR) ────────────────────────────
     let pendingOcrSupplierData = null;
