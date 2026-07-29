@@ -132,8 +132,17 @@ class DGIIService:
         return float(Decimal(str(float(value))).quantize(Decimal(quantize_str), rounding=ROUND_HALF_UP))
 
     @staticmethod
-    def calculate_invoice_totals(items, discount_rate=0.0, retained_isr_rate=0.0, retained_itbis_rate=0.0):
+    def _itbis_rate_to_factor(rate):
+        """Convierte tasa ITBIS a factor DGII (1=18%, 2=16%, 3=0%, 4=Exento)."""
+        if rate >= 0.17: return '1'
+        if rate >= 0.15: return '2'
+        if rate <= 0.001: return '4'
+        return '3'
+
+    @staticmethod
+    def calculate_invoice_totals(items, discount_rate=0.0, retained_isr_rate=0.0, retained_itbis_rate=0.0, descuentos_recargos=None):
         subtotal_raw = 0.0
+        total_exento = 0.0
         total_discount = 0.0
         total_itbis = 0.0
         total_isc_especifico = 0.0
@@ -229,6 +238,10 @@ class DGIIService:
             total_isc_advalorem += isc_advalorem
             total_otros_impuestos += otros_impuestos
 
+            # Acumular monto exento (itbis_rate == 0.0)
+            if itbis_rate == 0.0:
+                total_exento += item_subtotal
+
             calculated_items.append({
                 **item,
                 'subtotal_raw': item_subtotal_raw,
@@ -243,6 +256,38 @@ class DGIIService:
 
         global_discount = DGIIService.dgii_round((subtotal_raw - total_discount) * discount_rate, 2)
         total_discount += global_discount
+
+        # ─── DescuentosORecargos DGII (document-level) ───
+        if descuentos_recargos:
+            for dr in descuentos_recargos:
+                tipo_ajuste = str(dr.get("tipo_ajuste", "D"))
+                tipo_valor = str(dr.get("tipo_valor", "$"))
+                valor = float(dr.get("valor", 0))
+                itbis_f = str(dr.get("itbis_factor", "1"))
+
+                if valor <= 0:
+                    continue
+
+                dor_amount = 0.0
+                if tipo_valor == "$":
+                    dor_amount = valor
+                else:
+                    # Porcentaje sobre items con ese ITBIS
+                    items_subtotal = sum(
+                        (float(it.get('price', 0)) * float(it.get('quantity', 1)) * (1.0 - float(it.get('discountRate', 0))))
+                        for it in items
+                        if str(DGIIService._itbis_rate_to_factor(float(it.get('itbisRate', 0.18)))) == itbis_f
+                    )
+                    dor_amount = items_subtotal * (valor / 100.0)
+
+                sign = -1 if tipo_ajuste == 'D' else 1
+                total_discount = DGIIService.dgii_round(total_discount + sign * dor_amount, 2)
+
+                if itbis_f == '1':
+                    total_itbis = DGIIService.dgii_round(total_itbis + sign * dor_amount * 0.18, 2)
+                elif itbis_f == '2':
+                    total_itbis = DGIIService.dgii_round(total_itbis + sign * dor_amount * 0.16, 2)
+        # ─── Fin DescuentosORecargos ───
 
         subtotal = subtotal_raw - total_discount
 
@@ -272,6 +317,7 @@ class DGIIService:
             'global_discount': DGIIService.dgii_round(global_discount, 2),
             'total_discount': DGIIService.dgii_round(total_discount, 2),
             'subtotal': DGIIService.dgii_round(subtotal, 2),
+            'monto_exento': DGIIService.dgii_round(total_exento, 2),
             'total_isc_especifico': DGIIService.dgii_round(total_isc_especifico, 2),
             'total_isc_advalorem': DGIIService.dgii_round(total_isc_advalorem, 2),
             'total_otros_impuestos': DGIIService.dgii_round(total_otros_impuestos, 2),

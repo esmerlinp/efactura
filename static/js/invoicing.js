@@ -213,6 +213,59 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    const rncCreateInput = document.getElementById('new-client-rnc');
+    if (rncCreateInput) {
+        rncCreateInput.addEventListener('blur', async () => {
+            const rawVal = rncCreateInput.value.trim();
+            const cleanedVal = rawVal.replace(/[^0-9]/g, '');
+
+            if (cleanedVal.length !== 9 && cleanedVal.length !== 11) {
+                if (createClientAlert && cleanedVal.length === 0) {
+                    createClientAlert.style.display = 'none';
+                }
+                return;
+            }
+
+            const razonField = document.getElementById('new-client-razon');
+            const categoryField = document.getElementById('new-client-category');
+
+            try {
+                const response = await fetch(`/api/rnc-lookup?rnc=${cleanedVal}`);
+                const data = await response.json();
+
+                if (response.ok && !data.error) {
+                    if (razonField && !razonField.value.trim()) {
+                        razonField.value = data.razon_social || '';
+                        razonField.style.border = '1px solid var(--accent-emerald)';
+                        razonField.style.boxShadow = '0 0 10px rgba(16, 185, 129, 0.15)';
+                        setTimeout(() => {
+                            razonField.style.border = '';
+                            razonField.style.boxShadow = '';
+                        }, 2000);
+                    }
+                    if (data.regimen && categoryField) {
+                        const regimenMap = { 'NORMAL': 'NORMAL', 'RST': 'SPECIAL_REGIME', 'GOBIERNO': 'GOVERNMENT' };
+                        const mapped = regimenMap[data.regimen.toUpperCase()] || null;
+                        if (mapped) categoryField.value = mapped;
+                    }
+                    showCreateAlert(`✓ RNC validado: ${data.razon_social}`, false);
+                } else {
+                    showCreateAlert(data.message || 'RNC no encontrado en DGII.', true);
+                }
+            } catch (err) {
+                showCreateAlert('Error de red al consultar padrón DGII.', true);
+            }
+        });
+
+        // Limpiar feedback visual al editar directamente la razón social
+        const razonField = document.getElementById('new-client-razon');
+        if (razonField) {
+            razonField.addEventListener('input', () => {
+                if (createClientAlert) createClientAlert.style.display = 'none';
+            });
+        }
+    }
+
     if (btnSaveNewClient) {
         btnSaveNewClient.addEventListener('click', async () => {
             const rnc = (document.getElementById('new-client-rnc')?.value || '').trim();
@@ -725,7 +778,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button type="button" class="btn-search-product" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;"><i class="fa-solid fa-magnifying-glass" style="font-size:0.65rem;"></i></button>
                   </div>
                 </td>
-                <td style="text-align:center;"><input type="number" class="form-input item-qty-input" name="items[${rowIndex}][quantity]" min="1" value="1" style="width:60px;text-align:center;" required></td>
+                <td style="text-align:center;"><input type="number" class="form-input item-qty-input" name="items[${rowIndex}][quantity]" min="1" value="1" style="width:90px;text-align:center;" required></td>
                 <td style="text-align:right;"><input type="number" class="form-input item-price-input" name="items[${rowIndex}][price]" step="0.01" value="0.00" style="width:110px;" required></td>
                 <td style="text-align:right;"><input type="number" class="form-input item-discount-input" name="items[${rowIndex}][discountRate]" step="0.01" min="0" max="1" value="0.00" style="width:75px;"></td>
 <td style="text-align:center;"><select class="form-select item-itbis-select" name="items[${rowIndex}][itbisRate]" style="width:75px;"><option value="0.18" selected>18%</option><option value="0.16">16%</option><option value="0.0108">1.08%</option><option value="0.0">0%</option></select></td>
@@ -889,6 +942,43 @@ document.addEventListener('DOMContentLoaded', () => {
             row.querySelector('.item-total-label').textContent = formatCurrencyDOP(rowTotal);
         });
 
+        // ─── Calcular DescuentosORecargos DGII (antes del subtotal) ───
+        let totalDor = 0.0;
+        let totalDorITBIS = 0.0;
+        const hiddenDor = document.getElementById('dor-hidden-inputs');
+        if (hiddenDor) {
+            const allInputs = hiddenDor.querySelectorAll('input');
+            const dorData = {};
+            allInputs.forEach(inp => {
+                const m = inp.name.match(/dor\[(\d+)\]\[(\w+)\]/);
+                if (m) {
+                    const i = m[1], key = m[2];
+                    if (!dorData[i]) dorData[i] = {};
+                    dorData[i][key] = inp.value;
+                }
+            });
+            Object.values(dorData).forEach(dr => {
+                const tipo = dr.tipo_ajuste || 'D';
+                const tipovalor = dr.tipo_valor || '$';
+                const valor = parseFloat(dr.valor) || 0;
+                const itbisF = dr.itbis_factor || '1';
+                if (valor <= 0) return;
+                const dorAmount = (tipovalor === '$') ? valor : 0;
+                if (tipo === 'D') {
+                    totalDor += dorAmount;
+                    if (itbisF === '1') totalDorITBIS += dorAmount * 0.18;
+                    else if (itbisF === '2') totalDorITBIS += dorAmount * 0.16;
+                } else {
+                    totalDor -= dorAmount;
+                    if (itbisF === '1') totalDorITBIS -= dorAmount * 0.18;
+                    else if (itbisF === '2') totalDorITBIS -= dorAmount * 0.16;
+                }
+            });
+        }
+        totalDiscount += totalDor;
+        totalITBIS = Math.max(0, totalITBIS - totalDorITBIS);
+        // ─── Fin DescuentosORecargos ───
+
         const globalDiscRate = parseFloat(discountGlobalInput.value) || 0.0;
         const globalDiscount = (subtotalRaw - totalDiscount) * globalDiscRate;
         totalDiscount += globalDiscount;
@@ -1047,7 +1137,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button type="button" class="btn-search-product" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;"><i class="fa-solid fa-magnifying-glass" style="font-size:0.65rem;"></i></button>
                   </div>
                 </td>
-                <td style="text-align:center;"><input type="number" class="form-input item-qty-input" name="items[${rowIndex}][quantity]" min="1" value="1" style="width:60px;text-align:center;" required></td>
+                <td style="text-align:center;"><input type="number" class="form-input item-qty-input" name="items[${rowIndex}][quantity]" min="1" value="1" style="width:90px;text-align:center;" required></td>
                 <td style="text-align:right;"><input type="number" class="form-input item-price-input" name="items[${rowIndex}][price]" step="0.01" value="0.00" style="width:110px;" required></td>
                 <td style="text-align:right;"><input type="number" class="form-input item-discount-input" name="items[${rowIndex}][discountRate]" step="0.01" min="0" max="1" value="0.00" style="width:75px;"></td>
                 <td style="text-align:center;"><select class="form-select item-itbis-select" name="items[${rowIndex}][itbisRate]" style="width:75px;"><option value="0.18" selected>18%</option><option value="0.16">16%</option><option value="0.0108">1.08%</option><option value="0.0">0%</option></select></td>
@@ -1093,6 +1183,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const t = document.getElementById('new-product-type'); if (t) t.value = 'Bien';
         const i = document.getElementById('new-product-itbis'); if (i) i.value = '0.18';
         const c = document.getElementById('new-product-cost'); if (c) c.value = '0.00';
+        const u = document.getElementById('new-product-unit'); if (u) u.value = 'Unidad';
         if (productCreateAlertEl) { productCreateAlertEl.style.display = 'none'; }
         if (btnSaveNewProduct) btnSaveNewProduct.disabled = false;
         const lbl = document.getElementById('btn-save-new-product-label');
@@ -1121,6 +1212,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const type = document.getElementById('new-product-type')?.value || 'Bien';
             const itbisRate = parseFloat(document.getElementById('new-product-itbis')?.value || '0.18');
             const costPrice = parseFloat(document.getElementById('new-product-cost')?.value || '0');
+            const unit = (document.getElementById('new-product-unit')?.value || '').trim() || 'Unidad';
 
             if (!name) {
                 if (productCreateAlertEl) { productCreateAlertEl.textContent = 'El nombre del producto es obligatorio.'; productCreateAlertEl.style.display = 'block'; productCreateAlertEl.style.background = 'rgba(239,68,68,0.12)'; productCreateAlertEl.style.color = '#dc2626'; }
@@ -1141,7 +1233,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const resp = await fetch('/api/quick-create-product', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfMeta ? csrfMeta.getAttribute('content') : '' },
-                    body: JSON.stringify({ name, price, type, itbisRate: itbisRate, costPrice })
+                    body: JSON.stringify({ name, price, type, itbisRate: itbisRate, costPrice, unit })
                 });
                 const result = await resp.json();
                 if (result.success) {
@@ -1473,7 +1565,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (ecfReadinessCard) {
         checkCompanyReadiness();
     }
+    // Exponer funciones al scope global para uso desde inline event handlers
+    window.recalculateTotals = recalculateTotals;
 });
+
+// ─── DescuentosORecargos DGII — funciones definidas en new.html (global scope) ───
 
 // Helper para formatear valores monetarios de DOP en la UI
 function formatCurrencyDOP(amount) {

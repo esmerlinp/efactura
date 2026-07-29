@@ -142,7 +142,12 @@
                 data-expiracion="{{ seq.fechaExpiracion }}"
                 data-alerta="{{ seq.alertaMinimoDisponible }}"
                 data-disponible="{{ seq.cantidadDisponible }}"
-                style="background-color: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 20px; position: relative; display: flex; flex-direction: column; justify-content: space-between;">
+                data-blocked="{{ 'true' if seq.bloqueadaManualmente else 'false' }}"
+                data-seq-id="{{ seq.id }}"
+                style="background-color: rgba(255, 255, 255, 0.01); border: 1px solid {% if seq.bloqueadaManualmente %}var(--accent-red){% else %}var(--border-color){% endif %}; border-radius: var(--radius-sm); padding: 20px; position: relative; display: flex; flex-direction: column; justify-content: space-between;{% if seq.bloqueadaManualmente %} opacity: 0.7; background: rgba(239,68,68,0.04);{% endif %}">
+                {% if seq.bloqueadaManualmente %}
+                <div class="blocked-tag" style="position:absolute;top:12px;left:-4px;background:var(--accent-red);color:#fff;font-size:0.6rem;font-weight:700;padding:2px 10px 2px 8px;border-radius:0 6px 6px 0;letter-spacing:0.5px;text-transform:uppercase;z-index:1;">Bloqueada</div>
+                {% endif %}
                 <div>
                     <div
                         style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
@@ -155,11 +160,20 @@
                                 'Comprobante Electrónico') }}
                             </span>
                         </div>
-                        <div style="text-align: right;">
+                        <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
                             <span
                                 class="badge {% if seq.estado == 'ACTIVA' %}badge-success{% else %}badge-secondary{% endif %}">
                                 {{ seq.estado }}
                             </span>
+                            {% if seq.estado == 'ACTIVA' %}
+                            <button type="button" class="btn-toggle-seq-block" data-seq-id="{{ seq.id }}"
+                                data-blocked="{{ 'true' if seq.bloqueadaManualmente else 'false' }}"
+                                title="{{ 'Desbloquear secuencia' if seq.bloqueadaManualmente else 'Bloquear secuencia' }}"
+                                style="background: {% if seq.bloqueadaManualmente %}rgba(16,185,129,0.1){% else %}none{% endif %}; border: 1px solid {% if seq.bloqueadaManualmente %}var(--accent-emerald){% else %}var(--border-color){% endif %}; border-radius: var(--radius-xs); cursor: pointer; padding: 2px 8px; font-size: 0.7rem; display: flex; align-items: center; gap: 4px; color: {% if seq.bloqueadaManualmente %}var(--accent-emerald){% else %}var(--text-muted){% endif %}; transition: all var(--transition-fast); white-space:nowrap;">
+                                <i class="fa-solid {% if seq.bloqueadaManualmente %}fa-lock{% else %}fa-lock-open{% endif %}" style="font-size: 0.65rem;"></i>
+                                <span>{{ 'Desbloquear' if seq.bloqueadaManualmente else 'Bloquear' }}</span>
+                            </button>
+                            {% endif %}
                         </div>
                     </div>
 
@@ -536,6 +550,76 @@
                 applySequenceFilters();
             });
         }
+
+        document.querySelectorAll('.btn-toggle-seq-block').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const seqId = btn.getAttribute('data-seq-id');
+                const card = document.querySelector(`.sequence-card[data-seq-id="${seqId}"]`);
+                const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                const wasBlocked = btn.getAttribute('data-blocked') === 'true';
+                btn.disabled = true;
+                try {
+                    const resp = await fetch(`/sequences/${seqId}/toggle-block`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfMeta ? csrfMeta.getAttribute('content') : ''
+                        }
+                    });
+                    const data = await resp.json();
+                    if (data.success) {
+                        const nowBlocked = data.bloqueadaManualmente;
+                        btn.setAttribute('data-blocked', nowBlocked ? 'true' : 'false');
+                        if (card) {
+                            card.setAttribute('data-blocked', nowBlocked ? 'true' : 'false');
+                            if (nowBlocked) {
+                                card.style.border = '1px solid var(--accent-red)';
+                                card.style.opacity = '0.7';
+                                card.style.background = 'rgba(239,68,68,0.04)';
+                                if (!card.querySelector('.blocked-tag')) {
+                                    const badge = document.createElement('div');
+                                    badge.className = 'blocked-tag';
+                                    badge.style.cssText = 'position:absolute;top:12px;left:-4px;background:var(--accent-red);color:#fff;font-size:0.6rem;font-weight:700;padding:2px 10px 2px 8px;border-radius:0 6px 6px 0;letter-spacing:0.5px;text-transform:uppercase;z-index:1;';
+                                    badge.textContent = 'Bloqueada';
+                                    card.appendChild(badge);
+                                }
+                            } else {
+                                card.style.border = '1px solid var(--border-color)';
+                                card.style.opacity = '1';
+                                card.style.background = '';
+                                const badge = card.querySelector('.blocked-tag');
+                                if (badge) badge.remove();
+                            }
+                        }
+                        // Actualizar estilo del botón
+                        const icon = btn.querySelector('i');
+                        const label = btn.querySelector('span');
+                        if (nowBlocked) {
+                            if (icon) { icon.className = 'fa-solid fa-lock'; }
+                            if (label) label.textContent = 'Desbloquear';
+                            btn.style.background = 'rgba(16,185,129,0.1)';
+                            btn.style.border = '1px solid var(--accent-emerald)';
+                            btn.style.color = 'var(--accent-emerald)';
+                            btn.title = 'Desbloquear secuencia';
+                        } else {
+                            if (icon) { icon.className = 'fa-solid fa-lock-open'; }
+                            if (label) label.textContent = 'Bloquear';
+                            btn.style.background = 'none';
+                            btn.style.border = '1px solid var(--border-color)';
+                            btn.style.color = 'var(--text-muted)';
+                            btn.title = 'Bloquear secuencia';
+                        }
+                        btn.disabled = false;
+                    } else {
+                        alert(data.message || 'Error al cambiar el estado de la secuencia.');
+                        btn.disabled = false;
+                    }
+                } catch (err) {
+                    alert('Error de conexión al bloquear/desbloquear secuencia.');
+                    btn.disabled = false;
+                }
+            });
+        });
     });
 </script>
 {% endblock %}
