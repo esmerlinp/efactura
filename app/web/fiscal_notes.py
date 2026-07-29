@@ -10,6 +10,13 @@ from app.models.fiscal_document_type import by_code as _by_code
 web_fiscal_notes_bp = Blueprint('web_fiscal_notes', __name__)
 
 
+def _ecf_code(ecf_type: str) -> str | None:
+    try:
+        return _by_code(ecf_type).code
+    except KeyError:
+        return None
+
+
 @web_fiscal_notes_bp.before_request
 def restrict_to_do():
     if session.get('company_country', 'DO') != 'DO':
@@ -28,7 +35,7 @@ def list_fiscal_notes():
     sandbox = session.get('is_sandbox_mode', True)
 
     invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
-    credit_debit = [inv for inv in invoices if inv.get('ecfType') in ('Nota de Crédito (E34)', 'Nota de Débito (E33)')]
+    credit_debit = [inv for inv in invoices if _ecf_code(inv.get('ecfType', '')) in ('E34', 'E33')]
     credit_debit.sort(key=lambda x: x.get('createdAt', ''), reverse=True)
 
     return render_template('fiscal_notes/list.html', notes=credit_debit, active_page='fiscal_notes')
@@ -59,7 +66,7 @@ def create_fiscal_note():
 
     invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
     real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') not in ('Anulada', 'Borrador')
-                     and inv.get('ecfType') not in ('Nota de Crédito (E34)', 'Nota de Débito (E33)', 'Cotización')]
+                     and _ecf_code(inv.get('ecfType', '')) not in ('E34', 'E33', None)]
 
     catalog = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id) or []
     catalog_json = json.dumps(catalog, default=str)
@@ -122,7 +129,7 @@ def save_fiscal_note():
 
     ref_total = float(ref_invoice.get('netPayable', ref_invoice.get('total', 0)))
 
-    ecf_type_label = 'Nota de Crédito (E34)' if note_type == 'E34' else 'Nota de Débito (E33)'
+    ecf_type_label = note_type
 
     if ref_invoice.get('status') in ('Borrador', 'Anulada'):
         flash('❌ No puedes crear una nota basada en un documento no emitido o anulado.', 'error')
@@ -284,7 +291,7 @@ def api_credit_available(invoice_id):
     total_credited = sum(
         float(inv.get('netPayable', inv.get('total', 0)))
         for inv in all_invoices
-        if inv.get('ecfType') == 'Nota de Crédito (E34)'
+        if _ecf_code(inv.get('ecfType', '')) == 'E34'
         and inv.get('informationReference', {}).get('ncfModified') == invoice.get('encf', invoice.get('ncf', ''))
         and inv.get('status') not in ('Anulada', 'Borrador')
     )

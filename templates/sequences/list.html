@@ -68,11 +68,11 @@
 
             <div style="display: flex; align-items: center; gap: 10px; margin-left: auto; flex-wrap: wrap;">
                 <!-- Filtro por Estado -->
-                <select id="filter-estado"
+                        <select id="filter-estado"
                     style="background: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 6px 10px; font-size: 0.8rem; height: 32px; color: var(--text-primary); cursor: pointer;">
-                    <option value="">Todos los estados</option>
-                    <option value="ACTIVA">Activas</option>
-                    <option value="EXPIRADA">Expiradas</option>
+                    <option value="" style="color: #0F172A; background: #F8FAFC;">Todos los estados</option>
+                    <option value="ACTIVA" style="color: #0F172A; background: #F8FAFC;">Activas</option>
+                    <option value="EXPIRADA" style="color: #0F172A; background: #F8FAFC;">Expiradas</option>
                 </select>
 
                 <!-- Control de Filtro Premium (Segmented Control) -->
@@ -406,7 +406,7 @@
                     <label for="tipo_comprobante">Tipo de e-CF</label>
 <select id="tipo_comprobante" name="tipoComprobante" class="form-select" required>
     {% for t in fiscal_types %}
-    <option value="{{ t.code }}">{{ t.code }} - {{ t.short_label }}</option>
+    <option value="{{ t.code }}" style="color: #0F172A; background: #F8FAFC;">{{ t.code }} - {{ t.short_label }}</option>
     {% endfor %}
 </select>
                 </div>

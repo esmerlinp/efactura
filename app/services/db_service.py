@@ -338,7 +338,7 @@ def _cached_items(owner_uid, sandbox, company_id=None):
     return items
 
 
-@cache.memoize(timeout=120)
+@cache.memoize(timeout=10)
 def _cached_sequences(owner_uid, sandbox, company_id=None):
     seqs = []
     if firebase_initialized:

@@ -39,6 +39,54 @@ from app.models.fiscal_document_type import all_types as _all_fiscal_types, Fami
 from flask import Blueprint
 web_invoices_bp = Blueprint('web_invoices', __name__)
 
+
+def _is_credit_debit_note(ecf_type: str) -> bool:
+    """Detecta si un ecfType corresponde a una nota de crédito (E34) o débito (E33)."""
+    try:
+        return _by_code(ecf_type).code in ("E33", "E34")
+    except KeyError:
+        return False
+
+
+def _log_dgii_emission_to_audit(owner_uid, invoice, res, performed_by_email, performed_by_name="Sistema", company_id=None, sandbox=True, entity_id=None):
+    """Registra el resultado de una emisión DGII en el historial de auditoría."""
+    try:
+        from app.services.audit_service import AuditService
+        encf = res.get("encf", invoice.get("encf", ""))
+        status = res.get("dgiiStatus") or res.get("status", "")
+        mode = res.get("mode", "API")
+        success = res.get("success", False)
+        error = res.get("message", res.get("error", ""))
+        track_id = res.get("trackId", "")
+        eid = entity_id or invoice.get("id", "")
+
+        if success:
+            action = "DGII_ACEPTADO"
+            details = f"e-NCF: {encf} | TrackID: {track_id} | Modo: {mode}"
+            if mode == "FALLBACK":
+                details += " | Emitido en contingencia (pendiente sincronización)"
+        else:
+            action = "DGII_RECHAZADO"
+            details = f"e-NCF: {encf} | Motivo: {error}" if error else f"e-NCF: {encf} | Rechazado por DGII"
+
+        AuditService.log(
+            owner_uid=owner_uid,
+            action=action,
+            module="Invoices",
+            entity_id=eid,
+            entity_label=f"{invoice.get('ecfType', 'Factura')} - {encf or invoice.get('invoiceNumber', '')}",
+            performed_by_name=performed_by_name,
+            performed_by_email=performed_by_email,
+            after={"dgiiResponse": {"success": success, "status": status, "mode": mode, "encf": encf, "trackId": track_id, "error": error[:300] if error else "", "details": details}},
+            sandbox=sandbox,
+            company_id=company_id,
+        )
+    except Exception as e:
+        import traceback
+        print(f"!!! ERROR _log_dgii_emission_to_audit: {e}")
+        traceback.print_exc()
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # ROLES Y PERMISOS — Presets + merge con overrides
 # ═══════════════════════════════════════════════════════════════════════
@@ -1038,6 +1086,8 @@ def list_invoices():
                 "notes": exp.get("notes", "")
             })
     all_docs = invoices + ecf_expenses
+    # Excluir notas de crédito/débito (tienen su propia sección en /fiscal-notes)
+    all_docs = [d for d in all_docs if not _is_credit_debit_note(d.get("ecfType", ""))]
     all_docs.sort(key=lambda d: d.get("date", "") or "", reverse=True)
     
     # Filtrar
@@ -1320,7 +1370,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         if not existing_invoice:
             flash('Documento no encontrado.', 'error')
             return redirect(url_for('web_invoices.list_invoices'))
-        if existing_invoice.get('status') not in ['Borrador', 'Rechazada', 'Pagado pero no emitido']:
+        if existing_invoice.get('status') not in ['Borrador', 'Rechazada', 'Rechazado DGII', 'Pagado pero no emitido']:
             flash('Solo se pueden editar documentos en estado Borrador.', 'error')
             return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
     else:
@@ -1330,7 +1380,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                 ref_inv = DatabaseService.get_invoice(owner_uid, ref_id, company_id=company_id, sandbox=sandbox)
                 if ref_inv:
                     note_type = request.args.get('note_type', _by_code("E34").code)
-                    ecf_type_str = "Nota de Crédito (E34)" if note_type == 'E34' else "Nota de Débito (E33)"
+                    ecf_type_str = note_type
                     
                     # Clone original document information and items
                     existing_invoice = {
@@ -1701,7 +1751,11 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             }
         
         # Guardar información de referencia para Notas de Crédito / Débito (Ley 32-23)
-        if ecf_type in ["Nota de Débito (E33)", "Nota de Crédito (E34)"]:
+        try:
+            _ecf_obj = _by_code(ecf_type)
+        except KeyError:
+            _ecf_obj = None
+        if _ecf_obj and _ecf_obj.code in ("E33", "E34"):
             ref_ncf = request.form.get("refNcfModified", "").strip()
             ref_date = request.form.get("refNcfModifiedDate", "").strip()
             ref_code = request.form.get("refModificationCode", "3")
@@ -1881,7 +1935,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                         DatabaseService.save_invoice(owner_uid, target_invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
                         # Generar asiento contable automático para notas de crédito/débito
                         from app.services.accounting_service import AccountingService
-                        if ecf_type in ["Nota de Crédito (E34)", "Nota de Débito (E33)"]:
+                        if _by_code(ecf_type).code in ("E34", "E33"):
                             entry = AccountingService.auto_generate_credit_note_entry(company_id, invoice_dict, sandbox=sandbox)
                         else:
                             entry = AccountingService.auto_generate_invoice_entry(company_id, invoice_dict, sandbox=sandbox)
@@ -1924,6 +1978,10 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                             "respuestaDGII": json.dumps(res.get("responseBody"), indent=2) if res.get("responseBody") else ""
                         }, company_id=company_id, sandbox=sandbox)
                         
+                    _log_dgii_emission_to_audit(owner_uid, invoice_dict, res, session['user']['email'],
+                                                 performed_by_name=session['user'].get('name', 'Sistema'),
+                                                 company_id=company_id, sandbox=sandbox,
+                                                 entity_id=target_invoice_id)
                     msg = f"¡Comprobante emitido con éxito! e-NCF: {res.get('encf')}"
                     if action == 'emitir_cobrar':
                         msg = f"¡Comprobante emitido y cobrado con éxito! e-NCF: {res.get('encf')}"
@@ -1937,6 +1995,11 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                     invoice_dict["dgiiError"] = str(error_msg)[:200]
                     invoice_dict["enviadoADGII"] = True
                     DatabaseService.save_invoice(owner_uid, target_invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
+                    
+                    _log_dgii_emission_to_audit(owner_uid, invoice_dict, res, session['user']['email'],
+                                                 performed_by_name=session['user'].get('name', 'Sistema'),
+                                                 company_id=company_id, sandbox=sandbox,
+                                                 entity_id=target_invoice_id)
                     
                     # Marcar el sequence log como FALLIDO
                     if log_id:
@@ -2272,7 +2335,7 @@ def invoice_detail(invoice_id):
     # Obtener el historial de auditoría
     try:
         from app.services.audit_service import AuditService
-        history_logs = AuditService.get_entity_logs(owner_uid, invoice_id)
+        history_logs = AuditService.get_entity_logs(owner_uid, invoice_id, company_id=company_id)
     except Exception as e:
         print(f"⚠️ Error al obtener logs de auditoría: {e}")
         history_logs = []
@@ -3506,6 +3569,10 @@ def sign_invoice_route(invoice_id):
             
             DatabaseService.save_invoice(owner_uid, invoice_id, invoice, company_id=company_id, sandbox=sandbox)
             
+            _log_dgii_emission_to_audit(owner_uid, invoice, res, session['user']['email'],
+                                         performed_by_name=session['user'].get('name', 'Sistema'),
+                                         company_id=company_id, sandbox=sandbox)
+            
             # Sincronizar en log de auditoría
             logs = DatabaseService.get_sequence_logs(owner_uid, company_id=company_id, sandbox=sandbox)
             log = next((l for l in logs if l["encf"] == res.get("encf")), None)
@@ -3533,14 +3600,76 @@ def sign_invoice_route(invoice_id):
             flash(msg, "success")
         else:
             flash(f"Error al certificar comprobante: {res.get('message')}", "error")
+            _log_dgii_emission_to_audit(owner_uid, invoice, res, session['user']['email'],
+                                         performed_by_name=session['user'].get('name', 'Sistema'),
+                                         company_id=company_id, sandbox=sandbox)
             
     except Exception as e:
         flash(f"Fallo en la emisión de comprobante: {str(e)}", "error")
         
     return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
-@web_invoices_bp.route('/invoices/<invoice_id>/convert', methods=['POST'])
-def convert_quotation_route(invoice_id):
+
+@web_invoices_bp.route('/invoices/<invoice_id>/reemit', methods=['POST'])
+def reemit_invoice_route(invoice_id):
+    """Reemite un documento en estado 'Rechazado DGII' a la DGII."""
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canInvoice'):
+        return render_template('auth/restricted.html', feature_name="Reemitir Comprobante", required_permission="canInvoice")
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
+    if not invoice:
+        flash('Documento no encontrado.', 'error')
+        return redirect(url_for('web_invoices.list_invoices'))
+
+    if invoice.get('status') != 'Rechazado DGII':
+        flash('Este documento no está en estado Rechazado DGII.', 'error')
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+
+    try:
+        res = EcfEmissionService.emit_electronic_comprobante(company, invoice, sandbox=sandbox)
+
+        if res.get("success"):
+            pending_dgii = res.get("status") == "PENDING" or res.get("mode") == "FALLBACK"
+            invoice["status"] = "Pendiente DGII" if pending_dgii else "Emitida"
+            invoice["xmlSignature"] = res.get("xmlSignature", "")
+            invoice["qrCodeURL"] = res.get("qrCodeURL", "")
+            invoice["isSyncedWithDGII"] = (res.get("mode", "API") == "API" and res.get("status") != "PENDING")
+            invoice["emisionMode"] = res.get("mode", "API")
+            invoice["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
+            invoice["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat() if res.get("mode") == "FALLBACK" else None
+            invoice.pop("dgiiError", None)
+            invoice.pop("enviadoADGII", None)
+
+            DatabaseService.save_invoice(owner_uid, invoice_id, invoice, company_id=company_id, sandbox=sandbox)
+
+            _log_dgii_emission_to_audit(owner_uid, invoice, res, session['user']['email'],
+                                         performed_by_name=session['user'].get('name', 'Sistema'),
+                                         company_id=company_id, sandbox=sandbox)
+
+            msg = f"¡Comprobante reemitido con éxito! e-NCF: {res.get('encf')} (Modo: {res.get('mode', 'API')})"
+            if res.get("mode") == "FALLBACK":
+                msg = f"⚠️ Comprobante reemitido en contingencia. Sincronizar con DGII en 72h."
+            flash(msg, "success")
+        else:
+            error_msg = res.get('message', res.get('error', 'Error desconocido de DGII'))
+            invoice["dgiiError"] = str(error_msg)[:200]
+            DatabaseService.save_invoice(owner_uid, invoice_id, invoice, company_id=company_id, sandbox=sandbox)
+            _log_dgii_emission_to_audit(owner_uid, invoice, res, session['user']['email'],
+                                         performed_by_name=session['user'].get('name', 'Sistema'),
+                                         company_id=company_id, sandbox=sandbox)
+            flash(f"❌ DGII rechazó nuevamente: {error_msg}", "error")
+
+    except Exception as e:
+        flash(f"Fallo en la reemisión: {str(e)}", "error")
+
+    return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
     """Convierte una Cotización (COT-) en un Comprobante Fiscal Electrónico real (FAC-)."""
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
