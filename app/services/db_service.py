@@ -438,8 +438,8 @@ def _cached_invoices(owner_uid, sandbox, quotations_only, include_all, company_i
                 total_paid = float(data.get("totalPaid", data.get("netPayable", 0.0) if status == "Cobrada" else 0.0))
                 remaining_balance = float(data.get("remainingBalance", 0.0 if status == "Cobrada" else data.get("netPayable", 0.0)))
 
-                # Si el saldo es cero, forzar estado Cobrada (evita mostrar como Vencida con $0)
-                if remaining_balance <= 0.01:
+                # Solo forzar Cobrada si hay pagos registrados y el saldo es 0
+                if remaining_balance <= 0.01 and total_paid > 0.01:
                     status = "Cobrada"
 
                 installments = data.get("installments")
@@ -727,45 +727,45 @@ def _invalidate_crm_contacts(owner_uid):
         print(f"⚠️ Error al invalidar caché de CRM para {owner_uid}: {e}")
 
 
-def _invalidate_clients(owner_uid):
+def _invalidate_clients(owner_uid, company_id=None):
     try:
-        cache.delete_memoized(_cached_clients, owner_uid, True)
-        cache.delete_memoized(_cached_clients, owner_uid, False)
+        cache.delete_memoized(_cached_clients, owner_uid, True, company_id)
+        cache.delete_memoized(_cached_clients, owner_uid, False, company_id)
     except Exception as e:
         print(f"⚠️ Error al invalidar caché de clientes para {owner_uid}: {e}")
 
 
-def _invalidate_expenses(owner_uid):
+def _invalidate_expenses(owner_uid, company_id=None):
     try:
-        cache.delete_memoized(_cached_expenses, owner_uid, True)
-        cache.delete_memoized(_cached_expenses, owner_uid, False)
+        cache.delete_memoized(_cached_expenses, owner_uid, True, company_id)
+        cache.delete_memoized(_cached_expenses, owner_uid, False, company_id)
     except Exception as e:
         print(f"⚠️ Error al invalidar caché de gastos para {owner_uid}: {e}")
 
 
-def _invalidate_items(owner_uid):
+def _invalidate_items(owner_uid, company_id=None):
     try:
-        cache.delete_memoized(_cached_items, owner_uid, True)
-        cache.delete_memoized(_cached_items, owner_uid, False)
+        cache.delete_memoized(_cached_items, owner_uid, True, company_id)
+        cache.delete_memoized(_cached_items, owner_uid, False, company_id)
     except Exception as e:
         print(f"⚠️ Error al invalidar caché de ítems para {owner_uid}: {e}")
 
 
-def _invalidate_sequences(owner_uid):
+def _invalidate_sequences(owner_uid, company_id=None):
     try:
-        cache.delete_memoized(_cached_sequences, owner_uid, True)
-        cache.delete_memoized(_cached_sequences, owner_uid, False)
+        cache.delete_memoized(_cached_sequences, owner_uid, True, company_id)
+        cache.delete_memoized(_cached_sequences, owner_uid, False, company_id)
     except Exception as e:
         print(f"⚠️ Error al invalidar caché de secuencias para {owner_uid}: {e}")
 
 
-def _invalidate_invoices(owner_uid):
+def _invalidate_invoices(owner_uid, company_id=None):
     try:
         for sandbox in [True, False]:
-            cache.delete_memoized(_cached_contingency_invoices, owner_uid, sandbox)
+            cache.delete_memoized(_cached_contingency_invoices, owner_uid, sandbox, company_id)
             for quotations_only in [True, False]:
                 for include_all in [True, False]:
-                    cache.delete_memoized(_cached_invoices, owner_uid, sandbox, quotations_only, include_all)
+                    cache.delete_memoized(_cached_invoices, owner_uid, sandbox, quotations_only, include_all, company_id)
     except Exception as e:
         print(f"⚠️ Error al invalidar caché de facturas para {owner_uid}: {e}")
 
@@ -2004,7 +2004,7 @@ class DatabaseService:
                 coll_name = "sandbox_clients" if sandbox else "clients"
                 ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name) if company_id else _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name)
                 ref.document(client_id).set(client_dict)
-                _invalidate_clients(owner_uid)
+                _invalidate_clients(owner_uid, company_id=company_id)
                 _invalidate_crm_contacts(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al respaldar cliente en Firestore: {e}")
@@ -2022,7 +2022,7 @@ class DatabaseService:
                     "pipelineStage": pipeline_stage, 
                     "updatedAt": firestore.SERVER_TIMESTAMP
                 })
-                _invalidate_clients(owner_uid)
+                _invalidate_clients(owner_uid, company_id=company_id)
                 _invalidate_crm_contacts(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al actualizar pipeline de cliente: {e}")
@@ -2034,7 +2034,7 @@ class DatabaseService:
             try:
                 coll_name = "sandbox_clients" if sandbox else "clients"
                 _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(client_id).delete()
-                _invalidate_clients(owner_uid)
+                _invalidate_clients(owner_uid, company_id=company_id)
                 _invalidate_crm_contacts(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al borrar cliente de Firestore: {e}")
@@ -2154,7 +2154,7 @@ class DatabaseService:
             try:
                 coll_name = "sandbox_items" if sandbox else "items"
                 _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(item_id).set(item_dict)
-                _invalidate_items(owner_uid)
+                _invalidate_items(owner_uid, company_id=company_id)
             except Exception as e:
                 print(f"⚠️ Fallo al respaldar producto en Firestore: {e}")
 
@@ -2168,7 +2168,7 @@ class DatabaseService:
             try:
                 coll_name = "sandbox_items" if sandbox else "items"
                 _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(item_id).delete()
-                _invalidate_items(owner_uid)
+                _invalidate_items(owner_uid, company_id=company_id)
             except Exception as e:
                 print(f"⚠️ Fallo al borrar producto de Firestore: {e}")
 
@@ -2445,7 +2445,7 @@ class DatabaseService:
             try:
                 coll_name = "sandbox_sequences" if sandbox else "sequences"
                 _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(seq_id).set(seq_dict)
-                _invalidate_sequences(owner_uid)
+                _invalidate_sequences(owner_uid, company_id=company_id)
             except Exception as e:
                 print(f"⚠️ Fallo al respaldar secuencia en Firestore: {e}")
         return seq_dict
@@ -2739,7 +2739,7 @@ class DatabaseService:
                     total_paid = float(data.get("totalPaid", data.get("netPayable", 0.0) if status == "Cobrada" else 0.0))
                     remaining_balance = float(data.get("remainingBalance", 0.0 if status == "Cobrada" else data.get("netPayable", 0.0)))
 
-                    if remaining_balance <= 0.01:
+                    if remaining_balance <= 0.01 and total_paid > 0.01:
                         status = "Cobrada"
                     
                     installments = data.get("installments")
@@ -2902,7 +2902,7 @@ class DatabaseService:
             try:
                 coll_name = "sandbox_invoices" if sandbox else "invoices"
                 _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(invoice_id).update({"status": new_status, "updatedAt": firestore.SERVER_TIMESTAMP})
-                _invalidate_invoices(owner_uid)
+                _invalidate_invoices(owner_uid, company_id=company_id)
                 _invalidate_crm_contacts(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al actualizar estado de la factura/cotización: {e}")
@@ -2922,7 +2922,7 @@ class DatabaseService:
                     })
                 else:
                     doc_ref.delete()
-                _invalidate_invoices(owner_uid)
+                _invalidate_invoices(owner_uid, company_id=company_id)
                 _invalidate_crm_contacts(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al eliminar factura en Firestore: {e}")
@@ -3106,7 +3106,7 @@ class DatabaseService:
             try:
                 coll_name = "sandbox_invoices" if sandbox else "invoices"
                 _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(invoice_id).set(inv_dict)
-                _invalidate_invoices(owner_uid)
+                _invalidate_invoices(owner_uid, company_id=company_id)
                 _invalidate_crm_contacts(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al respaldar factura en Firestore: {e}")
@@ -3312,7 +3312,7 @@ class DatabaseService:
             except Exception as acc_err:
                 print(f"⚠️ Error al generar asiento contable en pago: {acc_err}")
 
-            _invalidate_invoices(owner_uid)
+            _invalidate_invoices(owner_uid, company_id=company_id)
             _invalidate_crm_contacts(owner_uid)
             return payment_dict
         except Exception as e:
@@ -3660,7 +3660,7 @@ class DatabaseService:
             try:
                 coll_name = "sandbox_expenses" if sandbox else "expenses"
                 _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(expense_id).set(exp_dict)
-                _invalidate_expenses(owner_uid)
+                _invalidate_expenses(owner_uid, company_id=company_id)
             except Exception as e:
                 print(f"⚠️ Fallo al respaldar gasto en Firestore: {e}")
 
@@ -3704,7 +3704,7 @@ class DatabaseService:
                 "cxpRemainingBalance": new_rem,
                 "cxpStatus": new_status
             })
-            _invalidate_expenses(owner_uid)
+            _invalidate_expenses(owner_uid, company_id=company_id)
             return True, f"Pago de RD$ {payment_amount:,.2f} registrado con éxito. Nuevo balance: RD$ {new_rem:,.2f}."
         except Exception as e:
             print(f"⚠️ Error en save_cxp_payment: {e}")
@@ -3739,7 +3739,7 @@ class DatabaseService:
             try:
                 coll_name = "sandbox_expenses" if sandbox else "expenses"
                 _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(expense_id).delete()
-                _invalidate_expenses(owner_uid)
+                _invalidate_expenses(owner_uid, company_id=company_id)
             except Exception as e:
                 print(f"⚠️ Fallo al borrar gasto de Firestore: {e}")
 

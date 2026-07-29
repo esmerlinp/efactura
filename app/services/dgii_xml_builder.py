@@ -212,7 +212,7 @@ class DgiiXmlBuilder:
         if cfg["vencimiento"] and tipo_ecf != "34":
             fv = invoice_data.get("fechaVencimientoSecuencia", invoice_data.get("fechaExpiracion", ""))
             if not fv:
-                fv = now.replace(year=now.year + 2).strftime("%d-%m-%Y")
+                fv = now.replace(year=now.year + 2, month=12, day=31).strftime("%d-%m-%Y")
             else:
                 fv = cls._fmt_date(fv)
             ET.SubElement(id_doc, "FechaVencimientoSecuencia").text = fv
@@ -283,20 +283,28 @@ class DgiiXmlBuilder:
 
         # ======================== Comprador ========================
         if cfg["has_comprador"]:
-            comp = ET.SubElement(enc, "Comprador")
+            comp_children = 0
+            comp = ET.Element("Comprador")
             if cfg["foreign_payment"]:
                 ext = invoice_data.get("clientRNC", invoice_data.get("clientPassport", invoice_data.get("clientId", ""))).replace("-", "").strip()
-                ET.SubElement(comp, "IdentificadorExtranjero").text = ext or "000000000"
+                if ext:
+                    ET.SubElement(comp, "IdentificadorExtranjero").text = ext
+                    comp_children += 1
                 rz = invoice_data.get("razonSocial", invoice_data.get("clientName", "Proveedor Extranjero"))
                 ET.SubElement(comp, "RazonSocialComprador").text = rz
+                comp_children += 1
             elif cfg["expense"]:
                 crnc = company_profile.get("companyRNC", "").replace("-", "").strip()
-                ET.SubElement(comp, "RNCComprador").text = crnc or "000000000"
+                if crnc and crnc != "000000000":
+                    ET.SubElement(comp, "RNCComprador").text = crnc
+                    comp_children += 1
                 rzs_expense = company_profile.get("companyName", "")
                 if rzs_expense:
                     ET.SubElement(comp, "RazonSocialComprador").text = rzs_expense
+                    comp_children += 1
                 ET.SubElement(comp, "MunicipioComprador").text = mu
                 ET.SubElement(comp, "ProvinciaComprador").text = pr
+                comp_children += 2
             else:
                 crnc = invoice_data.get("clientRNC", "").replace("-", "").strip()
                 rzs = invoice_data.get("razonSocial", invoice_data.get("clientName", "")).strip()
@@ -306,24 +314,43 @@ class DgiiXmlBuilder:
                 if consumo_250:
                     if crnc:
                         ET.SubElement(comp, "RNCComprador").text = crnc
+                        comp_children += 1
                     if rzs:
                         ET.SubElement(comp, "RazonSocialComprador").text = rzs
+                        comp_children += 1
                     if invoice_data.get("clientMunicipality"):
                         cm = cls.map_province_or_municipality(invoice_data.get("clientMunicipality"), is_province=False)
                         ET.SubElement(comp, "MunicipioComprador").text = cm
+                        comp_children += 1
                     if invoice_data.get("clientProvince"):
                         cp = cls.map_province_or_municipality(invoice_data.get("clientProvince"), is_province=True)
                         ET.SubElement(comp, "ProvinciaComprador").text = cp
+                        comp_children += 1
                 else:
-                    ET.SubElement(comp, "RNCComprador").text = crnc if crnc else "000000000"
-                    ET.SubElement(comp, "RazonSocialComprador").text = rzs if rzs else "Consumidor Final"
-                    cm = cls.map_province_or_municipality(invoice_data.get("clientMunicipality", "Santo Domingo de Guzmán"), is_province=False)
-                    cp = cls.map_province_or_municipality(invoice_data.get("clientProvince", "Santo Domingo"), is_province=True)
-                    ET.SubElement(comp, "MunicipioComprador").text = cm
-                    ET.SubElement(comp, "ProvinciaComprador").text = cp
+                    if crnc and crnc not in ("000000000", "0"):
+                        ET.SubElement(comp, "RNCComprador").text = crnc
+                        comp_children += 1
+                    rzs = rzs if rzs and rzs != "Consumidor Final" else ""
+                    if rzs:
+                        ET.SubElement(comp, "RazonSocialComprador").text = rzs
+                        comp_children += 1
+                    cm = cls.map_province_or_municipality(invoice_data.get("clientMunicipality", invoice_data.get("clientProvince", "")), is_province=False)
+                    cp = cls.map_province_or_municipality(invoice_data.get("clientProvince", invoice_data.get("clientMunicipality", "")), is_province=True)
+                    if invoice_data.get("clientMunicipality") or invoice_data.get("clientProvince"):
+                        ET.SubElement(comp, "MunicipioComprador").text = cm
+                        comp_children += 1
+                        ET.SubElement(comp, "ProvinciaComprador").text = cp
+                        comp_children += 1
 
                 if cfg["export"]:
                     ET.SubElement(comp, "PaisComprador").text = cls._country_name(invoice_data.get("clientCountry", "DO"))
+                    comp_children += 1
+
+            if comp_children > 0:
+                enc.append(comp)
+            elif tipo_ecf != "43":
+                ET.SubElement(comp, "RazonSocialComprador").text = "Consumidor Final"
+                enc.append(comp)
 
         # ======================== InformacionesAdicionales (export) ========================
         if cfg["export"]:
@@ -355,7 +382,8 @@ class DgiiXmlBuilder:
         monto_exento = float(invoice_data.get("montoExento", 0.0))
         gravado = subtotal - monto_exento
         if has_itbis_breakdown(tipo_ecf):
-            ET.SubElement(totales, "MontoGravadoTotal").text = cls._sd(gravado)
+            if gravado > 0:
+                ET.SubElement(totales, "MontoGravadoTotal").text = cls._sd(gravado)
 
             if tipo_ecf == "46":
                 if gravado > 0:
@@ -367,10 +395,11 @@ class DgiiXmlBuilder:
             else:
                 if gravado > 0:
                     ET.SubElement(totales, "MontoGravadoI1").text = cls._sd(gravado)
-                if monto_exento > 0:
+                if monto_exento > 0 or gravado > 0:
                     ET.SubElement(totales, "MontoExento").text = cls._sd(monto_exento)
-                if total_itbis > 0:
+                if gravado > 0:
                     ET.SubElement(totales, "ITBIS1").text = "18"
+                if total_itbis > 0:
                     ET.SubElement(totales, "TotalITBIS").text = cls._sd(total_itbis)
                     ET.SubElement(totales, "TotalITBIS1").text = cls._sd(total_itbis)
 
@@ -415,7 +444,15 @@ class DgiiXmlBuilder:
         for idx, item in enumerate(invoice_data.get("items", [])):
             item_elem = ET.SubElement(detalles_items, "Item")
             ET.SubElement(item_elem, "NumeroLinea").text = str(idx + 1)
-            ET.SubElement(item_elem, "IndicadorFacturacion").text = "1"
+            itbis_rate = float(item.get("itbisRate", 0.18))
+            if itbis_rate >= 0.17:
+                ET.SubElement(item_elem, "IndicadorFacturacion").text = "1"
+            elif itbis_rate >= 0.15:
+                ET.SubElement(item_elem, "IndicadorFacturacion").text = "2"
+            elif itbis_rate <= 0.001:
+                ET.SubElement(item_elem, "IndicadorFacturacion").text = "4"
+            else:
+                ET.SubElement(item_elem, "IndicadorFacturacion").text = "3"
             if has_retencion_item(tipo_ecf):
                 ret_elem = ET.SubElement(item_elem, "Retencion")
                 ET.SubElement(ret_elem, "IndicadorAgenteRetencionoPercepcion").text = "1"
@@ -428,17 +465,46 @@ class DgiiXmlBuilder:
             ET.SubElement(item_elem, "CantidadItem").text = f"{float(item.get('quantity', 1.0)):.2f}"
             unit_code = cls.map_unit_of_measure(item.get("unit", "Unidad"))
             ET.SubElement(item_elem, "UnidadMedida").text = unit_code
+            desc_monto = float(item.get("discount_amount", 0.0) or item.get("DescuentoMonto", 0.0))
+            rec_monto = float(item.get("recargoMonto", 0.0))
+            if desc_monto > 0:
+                ET.SubElement(item_elem, "DescuentoMonto").text = cls._sd(desc_monto)
+            if rec_monto > 0:
+                ET.SubElement(item_elem, "RecargoMonto").text = cls._sd(rec_monto)
             ET.SubElement(item_elem, "PrecioUnitarioItem").text = f"{float(item.get('price', 0.0)):.2f}"
             ET.SubElement(item_elem, "MontoItem").text = f"{float(item.get('subtotal', 0.0)):.2f}"
 
+        # ======================== DescuentosORecargos ========================
+        descuentos_recargos = invoice_data.get("descuentosRecargos", [])
+        if descuentos_recargos:
+            delem = ET.SubElement(root, "DescuentosORecargos")
+            for idx, dr in enumerate(descuentos_recargos):
+                dor = ET.SubElement(delem, "DescuentoORecargo")
+                ET.SubElement(dor, "NumeroLinea").text = str(idx + 1)
+                ET.SubElement(dor, "TipoAjuste").text = str(dr.get("tipo_ajuste", "D"))
+                tipo_valor = str(dr.get("tipo_valor", "$"))
+                ET.SubElement(dor, "TipoValor").text = tipo_valor
+                valor = float(dr.get("valor", 0))
+                itbis_f = str(dr.get("itbis_factor", "1"))
+                if tipo_valor == "$":
+                    ET.SubElement(dor, "MontoDescuentooRecargo").text = cls._sd(valor)
+                else:
+                    ET.SubElement(dor, "ValorDescuentooRecargo").text = cls._sd(valor)
+                if dr.get("descripcion"):
+                    ET.SubElement(dor, "DescripcionDescuentooRecargo").text = str(dr.get("descripcion", ""))[:45]
+                ET.SubElement(dor, "IndicadorFacturacionDescuentooRecargo").text = itbis_f
+
         # ======================== Subtotales + Paginacion ========================
-        pag = ET.SubElement(root, "Paginacion")
-        pagina = ET.SubElement(pag, "Pagina")
-        ET.SubElement(pagina, "PaginaNo").text = "1"
         num_items = len(invoice_data.get("items", []))
-        ET.SubElement(pagina, "NoLineaDesde").text = "1"
-        ET.SubElement(pagina, "NoLineaHasta").text = str(num_items) if num_items > 0 else "1"
-        ET.SubElement(pagina, "MontoSubtotalPagina").text = cls._sd(subtotal)
+        if num_items > 0:
+            total_paginas = int(invoice_data.get("totalPaginas", 1) or 1)
+            if total_paginas > 1 or invoice_data.get("multiPage"):
+                pag = ET.SubElement(root, "Paginacion")
+                pagina = ET.SubElement(pag, "Pagina")
+                ET.SubElement(pagina, "PaginaNo").text = "1"
+                ET.SubElement(pagina, "NoLineaDesde").text = "1"
+                ET.SubElement(pagina, "NoLineaHasta").text = str(num_items) if num_items > 0 else "1"
+                ET.SubElement(pagina, "MontoSubtotalPagina").text = cls._sd(subtotal)
 
         # ======================== InformacionReferencia (NC/ND) ========================
         if tipo_ecf in ("33", "34"):
@@ -458,4 +524,6 @@ class DgiiXmlBuilder:
         xml_str = xml_str.replace("\u00a9", "&copy;")
         xml_str = xml_str.replace("\u20ac", "&euro;")
         xml_str = xml_str.replace("\u00ae", "&reg;")
+        import logging
+        logging.getLogger(__name__).debug(f"[build_invoice_xml] tipo={tipo_ecf} gravado={gravado:.2f} exento={monto_exento:.2f} itbis={total_itbis:.2f} total={total_global:.2f}")
         return xml_str.encode("utf-8")

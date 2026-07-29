@@ -33,7 +33,7 @@ from app.utils.decorators import check_permission, require_permission
 from app.utils.module_gate import require_module
 from app.utils.ecf_utils import get_ecf_type_short_code
 from app.brand import get_product_name
-from app.models.fiscal_document_type import all_types as _all_fiscal_types, Family as _Family, by_code as _by_code, invoice_types as _invoice_types
+from app.models.fiscal_document_type import all_types as _all_fiscal_types, Family as _Family, by_code as _by_code
 
 
 from flask import Blueprint
@@ -766,7 +766,7 @@ def quick_create_product():
         'isActive': True,
     }
     DatabaseService.save_item(owner_uid, item_id, item_dict, company_id=company_id, sandbox=sandbox)
-    return jsonify({'success': True, 'item': {'id': item_id, 'code': code, 'name': name, 'price': price, 'type': item_type, 'itbisRate': itbis_rate, 'costPrice': cost_price}})
+    return jsonify({'success': True, 'item': {'id': item_id, 'code': code, 'name': name, 'price': price, 'type': item_type, 'itbisRate': itbis_rate, 'costPrice': cost_price, 'unit': data.get('unit', 'Unidad')}})
 
 
 # =========================================================================
@@ -1415,6 +1415,27 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         retained_isr_rate = float(request.form.get('retainedISRRate', 0.0))
         retained_itbis_rate = float(request.form.get('retainedITBISRate', 0.0))
         income_type = request.form.get('incomeType', '01 - Ingresos por operaciones')
+
+        # Parse DescuentosORecargos (document-level DGII adjustments)
+        descuentos_recargos = []
+        dor_idx = 0
+        while True:
+            tipo_ajuste = request.form.get(f'dor[{dor_idx}][tipo_ajuste]')
+            if not tipo_ajuste:
+                break
+            tipo_valor = request.form.get(f'dor[{dor_idx}][tipo_valor]', '$')
+            valor = float(request.form.get(f'dor[{dor_idx}][valor]', '0'))
+            descripcion = request.form.get(f'dor[{dor_idx}][descripcion]', '')
+            itbis_factor = request.form.get(f'dor[{dor_idx}][itbis_factor]', '1')
+            if valor > 0:
+                descuentos_recargos.append({
+                    'tipo_ajuste': tipo_ajuste,  # D or R
+                    'tipo_valor': tipo_valor,     # $ or %
+                    'valor': valor,
+                    'descripcion': descripcion,
+                    'itbis_factor': itbis_factor,  # 1=18%, 2=16%, 3=0%, 4=Exento
+                })
+            dor_idx += 1
         comentario = request.form.get('comentario', '').strip()
         
         # Parámetros de recurrencia
@@ -1518,7 +1539,8 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             parsed_items,
             discount_rate=discount_rate,
             retained_isr_rate=retained_isr_rate,
-            retained_itbis_rate=retained_itbis_rate
+            retained_itbis_rate=retained_itbis_rate,
+            descuentos_recargos=descuentos_recargos
         )
         
         # Determinar si es Cotización o Factura Real
@@ -1588,6 +1610,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             invoice_dict["netPayable"] = calcs["net_payable"]
             invoice_dict["subtotal"] = calcs["subtotal"]
             invoice_dict["totalITBIS"] = calcs["total_itbis"]
+            invoice_dict["montoExento"] = calcs["monto_exento"]
             invoice_dict["total"] = calcs["total"]
             invoice_dict["totalISCEspecifico"] = calcs["total_isc_especifico"]
             invoice_dict["totalISCAdValorem"] = calcs["total_isc_advalorem"]
@@ -1614,6 +1637,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             invoice_dict["installments"] = installments
             invoice_dict["costCenterId"] = request.form.get('costCenterId', '') or ''
             invoice_dict["priceListId"] = request.form.get('priceListId', '') or ''
+            invoice_dict["descuentosRecargos"] = descuentos_recargos
         else:
             random_num = f"{random.randint(1, 999999):06d}"
             inv_number = f"COT-{random_num}" if is_quotation else f"FAC-{random_num}"
@@ -1642,6 +1666,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                 "netPayable": calcs["net_payable"],
                 "subtotal": calcs["subtotal"],
                 "totalITBIS": calcs["total_itbis"],
+                "montoExento": calcs["monto_exento"],
                 "total": calcs["total"],
                 "totalISCEspecifico": calcs["total_isc_especifico"],
                 "totalISCAdValorem": calcs["total_isc_advalorem"],
@@ -1672,6 +1697,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                 "installments": installments,
                 "costCenterId": request.form.get('costCenterId', '') or '',
                 "priceListId": request.form.get('priceListId', '') or '',
+                "descuentosRecargos": descuentos_recargos,
             }
         
         # Guardar información de referencia para Notas de Crédito / Débito (Ley 32-23)
@@ -1773,6 +1799,17 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                 return redirect(url_for('web_invoices.list_invoices'))
 
             company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+            
+            # Validar RNCComprador para tipos que DGII lo exige
+            rnc_cliente = str(invoice_dict.get("clientRNC", "")).replace("-", "").strip()
+            tipos_requieren_rnc = ["31", "33", "34", "41", "44", "45", "46", "47"]
+            ecf_short = get_ecf_type_short_code(invoice_dict.get("ecfType", ""))
+            # E32 >= 250K requiere RNC; < 250K no
+            is_e32_mayor = ecf_short == "32" and float(invoice_dict.get("total", 0)) >= 250000
+            if (ecf_short in tipos_requieren_rnc or is_e32_mayor) and (not rnc_cliente or len(rnc_cliente) not in (9, 11)):
+                flash("Para este tipo de comprobante es obligatorio seleccionar un cliente con RNC válido (9 u 11 dígitos).", "error")
+                return redirect(url_for('web_invoices.list_invoices'))
+
             log_id = None
             try:
                 if not invoice_dict.get("encf"):
@@ -1801,6 +1838,8 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                         invoice_dict["totalPaid"] = invoice_dict["netPayable"]
                         invoice_dict["remainingBalance"] = 0.0
                         invoice_dict["paymentDate"] = datetime.now(timezone.utc).isoformat()
+
+                        DatabaseService.save_invoice(owner_uid, target_invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
                         
                         # Registrar pago inmediato en subcolección para el historial
                         payment_dict = {
@@ -1885,19 +1924,29 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                             "respuestaDGII": json.dumps(res.get("responseBody"), indent=2) if res.get("responseBody") else ""
                         }, company_id=company_id, sandbox=sandbox)
                         
-                    msg = f"¡Comprobante emitido y cobrado con éxito! e-NCF: {res.get('encf')}"
+                    msg = f"¡Comprobante emitido con éxito! e-NCF: {res.get('encf')}"
+                    if action == 'emitir_cobrar':
+                        msg = f"¡Comprobante emitido y cobrado con éxito! e-NCF: {res.get('encf')}"
                     if res.get("mode") == "FALLBACK":
                         msg = f"⚠️ ¡Comprobante emitido en modalidad de contingencia (sin conexión a DGII)! e-NCF: {res.get('encf')}. Recuerde sincronizarlo con la DGII en un plazo máximo de 72 horas."
                     flash(msg, "success")
                 else:
-                    # Marcar el sequence log como FALLIDO cuando DGII rechaza
+                    # DGII rechazó — marcar como rechazado, NO como emitido
+                    error_msg = res.get('message', res.get('error', 'Error desconocido de DGII'))
+                    invoice_dict["status"] = "Rechazado DGII"
+                    invoice_dict["dgiiError"] = str(error_msg)[:200]
+                    invoice_dict["enviadoADGII"] = True
+                    DatabaseService.save_invoice(owner_uid, target_invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
+                    
+                    # Marcar el sequence log como FALLIDO
                     if log_id:
                         DatabaseService.update_sequence_log(owner_uid, log_id, {
                             "estado": "FAILED",
-                            "motivo": f"DGII rechazó: {res.get('message', res.get('error', 'Error desconocido'))}",
+                            "motivo": f"DGII rechazó: {error_msg}",
                             "respuestaDGII": json.dumps(res.get("responseBody"), indent=2) if res.get("responseBody") else ""
                         }, company_id=company_id, sandbox=sandbox)
-                    flash(f"Borrador creado, pero error al emitir: {res.get('message')}", "warning")
+                    flash(f"❌ DGII rechazó el comprobante: {error_msg}. Corrige y reintenta.", "error")
+                    return redirect(url_for('web_invoices.edit_invoice', invoice_id=target_invoice_id))
             except Exception as e:
                 # Marcar el sequence log como FALLIDO ante excepción no manejada
                 if log_id:
@@ -1949,13 +1998,20 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
     default_date = (existing_invoice.get('date', datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d %H:%M:%S"))[:10] if existing_invoice else datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d"))
     default_due_date = existing_invoice.get('dueDate', (datetime.now(timezone(timedelta(hours=-4))) + timedelta(days=30)).strftime("%Y-%m-%d")) if existing_invoice else (datetime.now(timezone(timedelta(hours=-4))) + timedelta(days=30)).strftime("%Y-%m-%d")
 
-    # --- ECF types: intersección de tipos de factura de venta × régimen del emisor ---
+    # --- ECF types: tipos con secuencia activa × régimen del emisor ---
+    all_seqs = DatabaseService.get_sequences(owner_uid, company_id=company_id, sandbox=sandbox)
+    active_seqs = [s for s in all_seqs
+                   if s.get('estado', '').upper() == 'ACTIVA'
+                   and not s.get('bloqueadaManualmente', False)
+                   and (not g.get('branch_id') or s.get('branchId') == g.get('branch_id'))
+                   and (not g.get('project_id') or s.get('projectId') == g.get('project_id'))]
+    seq_codes = sorted({s['tipoComprobante'] for s in active_seqs if s.get('tipoComprobante')})
+
     profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     regimen = DGIIService.normalize_regimen(profile.get("regimenFiscal", "ordinary")) if profile else "ordinary"
     regimen_rules = DGIIService.get_regimen_rules(regimen)
     allowed_by_regimen = set(regimen_rules.get("allowed_ecf_types", []))
-    base_invoice_types = _invoice_types()
-    _ecf_types = [t for t in base_invoice_types if t.code in allowed_by_regimen]
+    _ecf_types = [_by_code(c) for c in seq_codes if c in allowed_by_regimen]
     if existing_invoice:
         current_code = _by_code(existing_invoice.get("ecfType", "E32")).code
         if current_code not in {t.code for t in _ecf_types}:
@@ -4746,7 +4802,8 @@ def invoice_preview_route():
         parsed_items,
         discount_rate=discount_rate,
         retained_isr_rate=retained_isr_rate,
-        retained_itbis_rate=retained_itbis_rate
+        retained_itbis_rate=retained_itbis_rate,
+        descuentos_recargos=None  # preview no tiene acceso a DOR
     )
     
     invoice_number = "VISTA-PREVIA"
@@ -7329,6 +7386,27 @@ def new_sequence_route():
     DatabaseService.save_sequence(owner_uid, seq_id, seq_dict, company_id=company_id, sandbox=sandbox)
     flash('Secuencia fiscal autorizada por la DGII registrada con éxito.', 'success')
     return redirect(url_for('web_invoices.list_sequences'))
+
+@web_invoices_bp.route('/sequences/<seq_id>/toggle-block', methods=['POST'])
+def toggle_sequence_block(seq_id):
+    if 'user' not in session:
+        return jsonify({"success": False, "message": "No autorizado"}), 401
+    if not check_permission('canModifySettings'):
+        return jsonify({"success": False, "message": "No autorizado"}), 403
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+
+    sequences = DatabaseService.get_sequences(owner_uid, company_id=company_id, sandbox=sandbox)
+    seq = next((s for s in sequences if s.get('id') == seq_id), None)
+    if not seq:
+        return jsonify({"success": False, "message": "Secuencia no encontrada"}), 404
+
+    seq['bloqueadaManualmente'] = not seq.get('bloqueadaManualmente', False)
+    DatabaseService.save_sequence(owner_uid, seq_id, seq, company_id=company_id, sandbox=sandbox)
+
+    estado = "bloqueada" if seq['bloqueadaManualmente'] else "desbloqueada"
+    return jsonify({"success": True, "message": f"Secuencia {estado} correctamente", "bloqueadaManualmente": seq['bloqueadaManualmente']})
 
 @web_invoices_bp.route('/cancellations/new', methods=['POST'])
 def new_cancellation_route():

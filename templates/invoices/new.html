@@ -50,6 +50,11 @@
     .more-settings-backdrop.show { display:block; }
     .ret-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:12px; font-size:0.72rem; font-weight:600; background:rgba(245,158,11,0.1); color:#d97706; border:1px solid rgba(245,158,11,0.25); cursor:pointer; }
     .ret-badge.has-values { background:rgba(16,185,129,0.1); color:var(--accent-emerald); border-color:rgba(16,185,129,0.25); }
+
+    #emitting-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center; flex-direction:column; gap:20px; }
+    #emitting-overlay .spinner { width:48px; height:48px; border:4px solid rgba(255,255,255,0.2); border-top-color:var(--accent-emerald); border-radius:50%; animation:spin 0.8s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    #emitting-overlay .emit-text { color:#fff; font-size:1rem; font-weight:600; }
 </style>
 
 <div id="catalog-data-json" style="display:none;">{{ catalog_json }}</div>
@@ -156,8 +161,8 @@
     <h3 style="display:flex;justify-content:space-between;">
       <span><i class="fa-solid fa-list-check"></i> Productos y servicios</span>
       <div style="display:flex;align-items:center;gap:10px;">
-        <span id="ret-badge" class="ret-badge" onclick="openRetentionsModal()" title="Agregar retenciones">
-          <i class="fa-solid fa-percent"></i> Retenciones
+        <span id="ret-badge" class="ret-badge" onclick="openRetentionsModal()" title="Retenciones y descuentos">
+          <i class="fa-solid fa-percent"></i> Retenciones y Desc.
         </span>
         <button type="button" id="btn-add-item" class="btn btn-sm btn-secondary"><i class="fa-solid fa-plus"></i> Agregar línea</button>
         <button type="button" id="btn-create-product" class="btn btn-sm btn-secondary" onclick="window.openProductCreateModal(null)"><i class="fa-solid fa-cube"></i> Crear producto</button>
@@ -186,7 +191,7 @@
                 <button type="button" class="btn-search-product" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;"><i class="fa-solid fa-magnifying-glass" style="font-size:0.65rem;"></i></button>
               </div>
             </td>
-            <td style="text-align:center;"><input type="number" class="form-input item-qty-input" name="items[{{ loop.index0 }}][quantity]" min="1" value="{{ item.quantity }}" style="width:60px;text-align:center;" required></td>
+            <td style="text-align:center;"><input type="number" class="form-input item-qty-input" name="items[{{ loop.index0 }}][quantity]" min="1" value="{{ item.quantity }}" style="width:90px;text-align:center;" required></td>
             <td style="text-align:right;"><input type="number" class="form-input item-price-input" name="items[{{ loop.index0 }}][price]" step="0.01" value="{{ item.price }}" style="width:110px;" required></td>
             <td style="text-align:right;"><input type="number" class="form-input item-discount-input" name="items[{{ loop.index0 }}][discountRate]" step="0.01" min="0" max="1" value="{{ item.discountRate }}" style="width:75px;"></td>
 <td style="text-align:center;"><select class="form-select item-itbis-select" name="items[{{ loop.index0 }}][itbisRate]" style="width:90px;"><option value="0.18" {% if item.itbisRate==0.18 %}selected{% endif %}>18%</option><option value="0.16" {% if item.itbisRate==0.16 %}selected{% endif %}>16%</option><option value="0.0108" {% if item.itbisRate==0.0108 %}selected{% endif %}>1.08%</option><option value="0.0" {% if item.itbisRate==0.0 %}selected{% endif %}>0%</option></select></td>
@@ -274,19 +279,28 @@
     <a href="{% if active_page == 'quotations' %}/quotations{% else %}{{ url_for('web_invoices.list_invoices') }}{% endif %}" class="btn-link">Cancelar</a>
     <button type="submit" formaction="/invoices/preview" formtarget="_blank" id="preview-invoice-btn" class="btn-subtle"><i class="fa-solid fa-eye"></i> Vista Previa</button>
     <button type="submit" name="action" value="guardar" id="submit-invoice-btn" class="btn btn-secondary" style="padding:9px 20px;font-size:0.85rem;"><i class="fa-solid fa-floppy-disk"></i> Guardar Borrador</button>
-    <button type="submit" id="submit-invoice-cobrar-btn" name="action" value="emitir_cobrar" class="btn btn-primary" style="padding:10px 28px;font-size:0.9rem;"><i class="fa-solid fa-paper-plane"></i> Emitir Documento</button>
+    <button type="submit" id="submit-invoice-cobrar-btn" name="action" value="emitir_credito" class="btn btn-primary" style="padding:10px 28px;font-size:0.9rem;"><i class="fa-solid fa-paper-plane"></i> Emitir Documento</button>
   </div>
   <div id="payment-helper-container" style="text-align:right;font-size:0.72rem;color:var(--text-muted);margin-top:0;"></div>
 
 </div><!-- /doc-main-col -->
+<div id="emitting-overlay"><div class="spinner"></div><div class="emit-text">Emitiendo documento...</div></div>
 </form>
 
 <!-- MODAL: RETENCIONES Y RECURRENCIA -->
 <div class="search-modal" id="retentions-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;align-items:center;justify-content:center;z-index:1050;">
   <div class="modal-content" style="max-width:460px;position:relative;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
-    <div class="modal-header" style="padding:20px 24px;border-bottom:1px solid var(--border-color);"><h3 style="font-size:0.95rem;"><i class="fa-solid fa-sliders" style="color:var(--accent-emerald);margin-right:8px;"></i>Retenciones y Ajustes</h3><button type="button" id="btn-close-retentions-modal" class="btn-close-modal"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-header" style="padding:20px 24px;border-bottom:1px solid var(--border-color);"><h3 style="font-size:0.95rem;"><i class="fa-solid fa-sliders" style="color:var(--accent-emerald);margin-right:8px;"></i>Retenciones, Descuentos y Recargos</h3><button type="button" id="btn-close-retentions-modal" class="btn-close-modal"><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body" style="padding:22px 24px;">
       <div class="inp-group" style="margin-bottom:16px;"><label>Descuento Global (%)</label><input type="number" id="discount-global-modal" class="form-input" min="0" max="1" step="0.01" value="" placeholder="Ej: 0.10 = 10%" oninput="document.getElementById('discount-global').value=this.value;recalculateRetBadge();"></div>
+      <!-- Descuentos y Recargos DGII (DescuentosORecargos) -->
+      <div id="dor-section" style="margin-bottom:16px;border:1px solid var(--border-color);border-radius:8px;padding:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <label style="font-size:0.78rem;font-weight:600;color:var(--text-muted);">DESCUENTOS / RECARGOS DGII</label>
+          <button type="button" onclick="addDorEntry()" style="font-size:0.72rem;color:var(--accent-emerald);background:none;border:1px solid var(--accent-emerald);border-radius:4px;cursor:pointer;padding:2px 8px;">+ Agregar</button>
+        </div>
+        <div id="dor-entries" style="display:flex;flex-direction:column;gap:6px;"></div>
+      </div>
       <div class="inp-group" style="margin-bottom:16px;"><label>Retención ISR</label><select id="isr-rate-select-modal" class="form-select" onchange="document.getElementById('isr-rate-select').value=this.value;recalculateRetBadge();"><option value="0.0">Sin retención (0%)</option><option value="0.02">2% — Bienes y servicios</option><option value="0.10">10% — Honorarios / Alquiler</option></select></div>
       <div class="inp-group" style="margin-bottom:16px;"><label>Retención ITBIS</label><select id="itbis-rate-select-modal" class="form-select" onchange="document.getElementById('itbis-rate-select').value=this.value;recalculateRetBadge();"><option value="0.0">Sin retención (0%)</option><option value="0.30">30% — Bienes corporativos</option><option value="0.75">75% — Servicios jurídicos</option><option value="1.00">100% — Profesionales independientes</option></select></div>
       <div class="inp-group" style="margin-bottom:16px;"><label>Factura Recurrente</label><select id="is-recurring-modal" class="form-select" onchange="document.getElementById('is-recurring').value=this.value;document.getElementById('recurrence-fields-modal').style.display=this.value==='true'?'flex':'none';recalculateRetBadge();"><option value="false">No, emisión única</option><option value="true">Sí, programar recurrencia</option></select></div>
@@ -307,6 +321,7 @@
   <select id="recurrence-interval" name="recurrenceInterval"><option value="semanal">Semanal</option><option value="quincenal">Quincenal</option><option value="mensual" selected>Mensual</option></select>
   <input type="date" id="next-recurrence" name="nextOccurrenceDate">
   <span id="lbl-subtotal-raw" style="display:none !important;">RD$ 0.00</span>
+  <div id="dor-hidden-inputs"></div>
 </div>
 
 <!-- PANEL LATERAL: MÁS AJUSTES -->
@@ -324,6 +339,7 @@
     <div class="inp-group"><label style="display:flex;justify-content:space-between;"><span>Centro de Costo</span><button type="button" onclick="openInvoiceCostCenterModal()" style="font-size:0.72rem;color:var(--accent-emerald);background:none;border:none;cursor:pointer;">+ Nuevo</button></label><select id="cost-center-select-side" class="form-select" onchange="document.querySelector('[name=costCenterId]').value=this.value"><option value="">— Sin centro de costo —</option>{% for cc in cost_centers %}<option value="{{ cc.id }}" {% if invoice and invoice.costCenterId==cc.id %}selected{% endif %}>{% if cc.code %}[{{ cc.code }}] {% endif %}{{ cc.name }}</option>{% endfor %}</select></div>
     <div class="inp-group"><label style="display:flex;justify-content:space-between;"><span>Lista de Precios</span><button type="button" onclick="openInvoicePriceListModal()" style="font-size:0.72rem;color:var(--accent-emerald);background:none;border:none;cursor:pointer;">+ Nueva</button></label><select id="price-list-select-side" class="form-select" onchange="document.querySelector('[name=priceListId]').value=this.value"><option value="">— Sin lista —</option>{% for pl in price_lists %}<option value="{{ pl.id }}" {% if invoice and invoice.priceListId==pl.id %}selected{% elif not invoice and pl.id==default_price_list_id %}selected{% endif %}>{{ pl.name }}{% if pl.tipo %} ({{ pl.tipo }}){% endif %}</option>{% endfor %}</select></div>
     <div class="inp-group"><label>Tipo de Ingreso (DGII)</label><select id="income-type-select-side" class="form-select" onchange="document.querySelector('[name=incomeType]').value=this.value"><option value="01 - Ingresos por operaciones" selected>01 — Operaciones</option><option value="02 - Ingresos Financieros">02 — Financieros</option><option value="03 - Ingresos Extraordinarios">03 — Extraordinarios</option><option value="04 - Arrendamientos">04 — Arrendamientos</option><option value="05 - Venta de Activo Depreciable">05 — Activo Depreciable</option><option value="06 - Otros Ingresos">06 — Otros</option></select></div>
+    <div class="inp-group"><label>Forma de Pago</label><select id="payment-method-select-side" class="form-select" onchange="document.querySelector('[name=paymentMethod]').value=this.value"><option value="Efectivo" {% if not invoice or invoice.paymentMethod=='Efectivo' %}selected{% endif %}>Efectivo</option><option value="Cheque / Transferencia" {% if invoice and invoice.paymentMethod=='Cheque / Transferencia' %}selected{% endif %}>Cheque / Transferencia</option><option value="Tarjeta de Crédito / Débito" {% if invoice and invoice.paymentMethod=='Tarjeta de Crédito / Débito' %}selected{% endif %}>Tarjeta de Crédito / Débito</option><option value="Crédito" {% if invoice and invoice.paymentMethod=='Crédito' %}selected{% endif %}>Crédito</option><option value="Mixto" {% if invoice and invoice.paymentMethod=='Mixto' %}selected{% endif %}>Mixto</option></select></div>
     <div class="inp-group"><label>Proyecto</label><select id="project-select-side" class="form-select" onchange="document.getElementById('project-id-hidden').value=this.value"><option value="">— Sin proyecto —</option>{% for p in projects %}<option value="{{ p.id }}" {% if (invoice and invoice.get('projectId','')==p.id) or (not invoice and p.id == active_project_id) %}selected{% endif %}>{{ p.name }} ({{ p.code }})</option>{% endfor %}</select></div>
   </div>
   <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border-color);display:flex;gap:10px;">
@@ -382,6 +398,7 @@
         <div class="inp-group"><label>Tipo</label><select id="new-product-type" class="form-select"><option value="Bien">Bien</option><option value="Servicio">Servicio</option></select></div>
         <div class="inp-group"><label>ITBIS</label><select id="new-product-itbis" class="form-select"><option value="0.18" selected>18%</option><option value="0.16">16%</option><option value="0.0">0%</option></select></div>
         <div class="inp-group"><label>Costo</label><input type="number" id="new-product-cost" class="form-input" step="0.01" value="0.00" style="text-align:right;"></div>
+        <div class="inp-group" style="grid-column:1/-1;"><label>Unidad de Medida</label><select id="new-product-unit" class="form-select"><option value="Unidad">Unidad (ud)</option><option value="Hora">Hora (hr)</option><option value="Servicio">Servicio (srv)</option><option value="Caja">Caja (cj)</option><option value="Mes">Mes (mes)</option><option value="Otros">Otros</option></select></div>
       </div>
     </div>
     <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:10px;padding:16px 24px;border-top:1px solid var(--border-color);"><button type="button" id="btn-cancel-product-create" class="btn btn-secondary">Cancelar</button><button type="button" id="btn-save-new-product" class="btn btn-primary">Guardar y Seleccionar</button></div>
@@ -493,13 +510,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isCredit) {
             if (paymentAgreementGroup) paymentAgreementGroup.style.display = 'flex';
             if (dueDateInput) { const today = new Date().toISOString().split('T')[0]; if (dueDateInput.value <= today) { const d = new Date(); d.setDate(d.getDate()+30); dueDateInput.value = d.toISOString().split('T')[0]; } }
-            if (submitCobrarBtn) { submitCobrarBtn.setAttribute('value','emitir_credito'); }
         } else {
             if (paymentAgreementGroup) paymentAgreementGroup.style.display = 'none';
             if (agreementEnabledSelect) agreementEnabledSelect.value = 'false';
             if (agreementDetailsFields) agreementDetailsFields.style.display = 'none';
-            if (submitCobrarBtn) { submitCobrarBtn.setAttribute('value','emitir_cobrar'); }
         }
+        // Emitir sin cobrar — el cobro se hace desde el detalle de la factura
+        if (submitCobrarBtn) { submitCobrarBtn.setAttribute('value','emitir_credito'); }
     }
     function handleAgreementToggle() { if (!agreementEnabledSelect || !agreementDetailsFields) return; agreementDetailsFields.style.display = agreementEnabledSelect.value === 'true' ? 'flex' : 'none'; }
     if (paymentTypeSelect) { paymentTypeSelect.addEventListener('change', handlePaymentTypeChange); handlePaymentTypeChange(); }
@@ -702,8 +719,53 @@ function handleCurrencySideChange(val) { const c = document.getElementById('exch
 
 // Modal de retenciones
 function openRetentionsModal() { var m = document.getElementById('retentions-modal'); if (!m) return; document.getElementById('discount-global-modal').value = document.getElementById('discount-global').value; document.getElementById('isr-rate-select-modal').value = document.getElementById('isr-rate-select').value; document.getElementById('itbis-rate-select-modal').value = document.getElementById('itbis-rate-select').value; document.getElementById('is-recurring-modal').value = document.getElementById('is-recurring').value; document.getElementById('recurrence-interval-modal').value = document.getElementById('recurrence-interval').value; document.getElementById('next-recurrence-modal').value = document.getElementById('next-recurrence').value; document.getElementById('recurrence-fields-modal').style.display = document.getElementById('is-recurring-modal').value === 'true' ? 'flex' : 'none'; recalculateRetBadge(); m.style.display = 'flex'; }
-function closeRetentionsModal() { var m = document.getElementById('retentions-modal'); if (m) m.style.display = 'none'; }
-function recalculateRetBadge() { var d = parseFloat(document.getElementById('discount-global').value) || 0, i = document.getElementById('isr-rate-select').value, b = document.getElementById('itbis-rate-select').value, r = document.getElementById('is-recurring').value, badge = document.getElementById('ret-badge'); if (badge) { var has = d > 0 || i !== '0.0' || b !== '0.0' || r === 'true'; badge.classList.toggle('has-values', has); badge.querySelector('span') ? badge.querySelector('span').textContent = has ? 'Retenciones ✓' : 'Retenciones' : null; } }
+function closeRetentionsModal() { var m = document.getElementById('retentions-modal'); if (m) m.style.display = 'none'; if (typeof recalculateTotals === 'function') recalculateTotals(); }
+function recalculateRetBadge() { var d = parseFloat(document.getElementById('discount-global').value) || 0, i = document.getElementById('isr-rate-select').value, b = document.getElementById('itbis-rate-select').value, r = document.getElementById('is-recurring').value, badge = document.getElementById('ret-badge'); var hasDor = document.querySelectorAll('#dor-entries [id^="dor-entry-"]').length > 0; if (badge) { var has = d > 0 || i !== '0.0' || b !== '0.0' || r === 'true' || hasDor; badge.classList.toggle('has-values', has); var span = badge.querySelector('span'); if (!span) { span = document.createElement('span'); badge.appendChild(span); } span.textContent = has ? 'Ret. y Desc. ✓' : 'Retenciones y Desc.'; } }
+
+// ─── DescuentosORecargos DGII (global, para event handlers inline) ───
+var dorCounter = 0;
+function addDorEntry() {
+    var container = document.getElementById('dor-entries');
+    if (!container) return;
+    var idx = dorCounter++;
+    var entry = document.createElement('div');
+    entry.id = 'dor-entry-' + idx;
+    entry.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px;background:var(--bg-input);border-radius:4px;';
+    entry.innerHTML = '<select onchange="syncDorHiddenInputs()" style="width:90px;font-size:0.75rem;padding:4px;" id="dor-tipo-'+idx+'"><option value="D">Descuento</option><option value="R">Recargo</option></select><select onchange="syncDorHiddenInputs()" style="width:55px;font-size:0.75rem;padding:4px;" id="dor-tipovalor-'+idx+'"><option value="$">$</option><option value="%">%</option></select><input type="number" placeholder="Valor" oninput="syncDorHiddenInputs()" id="dor-valor-'+idx+'" style="width:85px;font-size:0.75rem;padding:4px;" step="0.01" min="0"><select onchange="syncDorHiddenInputs()" style="width:75px;font-size:0.75rem;padding:4px;" id="dor-itbis-'+idx+'"><option value="1">ITBIS 18%</option><option value="2">ITBIS 16%</option><option value="3">ITBIS 0%</option><option value="4">Exento</option></select><button type="button" onclick="removeDorEntry('+idx+')" style="font-size:0.7rem;color:var(--danger);background:none;border:none;cursor:pointer;">×</button>';
+    container.appendChild(entry);
+    syncDorHiddenInputs();
+}
+function removeDorEntry(idx) {
+    var entry = document.getElementById('dor-entry-' + idx);
+    if (entry) entry.remove();
+    syncDorHiddenInputs();
+}
+function syncDorHiddenInputs() {
+    var hiddenContainer = document.getElementById('dor-hidden-inputs');
+    if (!hiddenContainer) return;
+    hiddenContainer.innerHTML = '';
+    var entries = document.getElementById('dor-entries');
+    if (!entries) return;
+    var i = 0;
+    entries.querySelectorAll('[id^="dor-entry-"]').forEach(function(entry) {
+        var m = entry.id.match(/dor-entry-(\d+)/);
+        if (!m) return;
+        var idx = m[1];
+        var tipo = (document.getElementById('dor-tipo-' + idx) || {}).value || 'D';
+        var tipovalor = (document.getElementById('dor-tipovalor-' + idx) || {}).value || '$';
+        var valor = (document.getElementById('dor-valor-' + idx) || {}).value || '0';
+        var itbis = (document.getElementById('dor-itbis-' + idx) || {}).value || '1';
+        hiddenContainer.innerHTML += '<input type="hidden" name="dor['+i+'][tipo_ajuste]" value="'+tipo+'">';
+        hiddenContainer.innerHTML += '<input type="hidden" name="dor['+i+'][tipo_valor]" value="'+tipovalor+'">';
+        hiddenContainer.innerHTML += '<input type="hidden" name="dor['+i+'][valor]" value="'+valor+'">';
+        hiddenContainer.innerHTML += '<input type="hidden" name="dor['+i+'][descripcion]" value="">';
+        hiddenContainer.innerHTML += '<input type="hidden" name="dor['+i+'][itbis_factor]" value="'+itbis+'">';
+        i++;
+    });
+    recalculateRetBadge();
+    if (typeof recalculateTotals === 'function') recalculateTotals();
+}
+
 document.getElementById('btn-close-retentions-modal')?.addEventListener('click', closeRetentionsModal);
 document.getElementById('btn-close-retentions-ok')?.addEventListener('click', closeRetentionsModal);
 document.getElementById('retentions-modal')?.addEventListener('click', function(e) { if (e.target === this) closeRetentionsModal(); });
@@ -728,5 +790,9 @@ function openInvoicePriceListModal() { document.getElementById('ipl-name').value
 function closeInvoicePriceListModal() { document.getElementById('invoice-pl-modal').style.display = 'none'; }
 function saveInvoicePriceList() { const n = document.getElementById('ipl-name').value.trim(), t = document.getElementById('ipl-tipo').value.trim(), d = document.getElementById('ipl-description').value.trim(), e = document.getElementById('ipl-error'), b = document.getElementById('ipl-save-btn'); if (!n) { e.textContent = 'El nombre es obligatorio.'; e.style.display = 'block'; return; } if (!t) { e.textContent = 'El tipo es obligatorio.'; e.style.display = 'block'; return; } e.style.display = 'none'; b.disabled = true; b.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; fetch('/price-lists/ajax_create', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrf_token]').value }, body: JSON.stringify({ name: n, tipo: t, description: d }) }).then(r => r.json()).then(data => { b.disabled = false; b.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar'; if (data.success) { const s = document.getElementById('price-list-select-side'), l = `${n} (${t})`; s.appendChild(new Option(l, data.id, true, true)); s.value = data.id; closeInvoicePriceListModal(); } else { e.textContent = data.error || 'Error.'; e.style.display = 'block'; } }).catch(() => { b.disabled = false; b.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar'; e.textContent = 'Error de conexión.'; e.style.display = 'block'; }); }
 document.getElementById('invoice-pl-modal').addEventListener('click', function(e) { if (e.target === this) closeInvoicePriceListModal(); });
+
+document.getElementById('submit-invoice-cobrar-btn').addEventListener('click', function() {
+    document.getElementById('emitting-overlay').style.display = 'flex';
+});
 </script>
 {% endblock %}

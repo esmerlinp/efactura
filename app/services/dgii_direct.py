@@ -401,6 +401,18 @@ class DgiiDirectService:
                                                  codigo_seguridad)
 
                 if status_code >= 200 and status_code < 300:
+                    # DGII devuelve HTTP 200 incluso cuando rechaza el contenido
+                    # El campo "error" en el JSON indica rechazo de validación
+                    if isinstance(response_data, dict) and response_data.get("error"):
+                        return {
+                            "success": False,
+                            "encf": encf,
+                            "error": response_data.get("error"),
+                            "message": response_data.get("mensaje") or response_data.get("error"),
+                            "responseBody": response_data,
+                            "statusCode": status_code,
+                        }
+
                     return {
                         "success": True,
                         "encf": encf,
@@ -503,6 +515,20 @@ class DgiiDirectService:
                 qr_url = cls._build_qr_url_rfce(company_rnc, encf, invoice_data.get("total", 0.0), codigo_seguridad)
 
                 if status_code >= 200 and status_code < 300:
+                    # RFCE: codigo != 1 o estado == "Rechazado" indica rechazo
+                    if isinstance(response_data, dict) and (
+                        (codigo is not None and codigo != 1) or
+                        (estado and str(estado).lower() == "rechazado")
+                    ):
+                        return {
+                            "success": False,
+                            "encf": encf,
+                            "error": f"RFCE rechazado (codigo={codigo}, estado={estado})",
+                            "message": f"RFCE rechazado",
+                            "responseBody": response_data,
+                            "statusCode": status_code,
+                        }
+
                     return {
                         "success": True,
                         "encf": encf,
