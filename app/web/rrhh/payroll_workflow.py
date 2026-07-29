@@ -51,24 +51,26 @@ IMMUTABLE_STATUSES = ("cerrada", "cancelled")
 def _transition(period, to_status, comment="", owner_uid="", sandbox=True):
     user_email = session.get("user", {}).get("email", "")
     user_uid = session.get("user", {}).get("uid", "")
+    user_role = session.get("user", {}).get("role", "")
     now_iso = datetime.now(timezone.utc).isoformat()
     from_status = period.get("status", "borrador")
 
     if to_status not in _VALID_TRANSITIONS.get(from_status, []):
         return False, f"Transición inválida: no se puede pasar de «{STATUS_LABELS.get(from_status, from_status)}» a «{STATUS_LABELS.get(to_status, to_status)}»."
 
-    if to_status == "aprobada":
-        calculator = period.get("calculatedBy", "")
-        if calculator and calculator == user_email:
-            return False, "Conflicto SoD: quien calculó la nómina no puede aprobarla. Otro miembro del equipo debe aprobar."
-    elif to_status == "contabilizada":
-        approver = period.get("approvedBy", "")
-        if approver and approver == user_email:
-            return False, "Conflicto SoD: quien aprobó la nómina no puede contabilizarla. Otro miembro del equipo debe contabilizar."
-    elif to_status == "pagada":
-        poster = period.get("postedBy", "")
-        if poster and poster == user_email:
-            return False, "Conflicto SoD: quien contabilizó la nómina no puede autorizar el pago. Otro miembro del equipo debe ejecutar el pago."
+    if user_role != "owner":
+        if to_status == "aprobada":
+            calculator = period.get("calculatedBy", "")
+            if calculator and calculator == user_email:
+                return False, "Conflicto SoD: quien calculó la nómina no puede aprobarla. Otro miembro del equipo debe aprobar."
+        elif to_status == "contabilizada":
+            approver = period.get("approvedBy", "")
+            if approver and approver == user_email:
+                return False, "Conflicto SoD: quien aprobó la nómina no puede contabilizarla. Otro miembro del equipo debe contabilizar."
+        elif to_status == "pagada":
+            poster = period.get("postedBy", "")
+            if poster and poster == user_email:
+                return False, "Conflicto SoD: quien contabilizó la nómina no puede autorizar el pago. Otro miembro del equipo debe ejecutar el pago."
 
     period["status"] = to_status
     history = period.get("statusHistory", [])
@@ -187,7 +189,7 @@ def payroll_validate(period_id):
         return redirect(url_for("web_rrhh.payroll_list"))
 
     ok, msg = _transition(period, "validada", request.form.get("comment", ""),
-                          company_id=company_id, sandbox=sandbox)
+                          sandbox=sandbox)
     if not ok:
         flash(msg, "error")
     else:
@@ -209,7 +211,7 @@ def payroll_approve(period_id):
         return redirect(url_for("web_rrhh.payroll_list"))
 
     ok, msg = _transition(period, "aprobada", request.form.get("comment", ""),
-                          company_id=company_id, sandbox=sandbox)
+                          sandbox=sandbox)
     if not ok:
         flash(msg, "error")
     else:
@@ -236,9 +238,8 @@ def payroll_post(period_id):
         from app.services.accounting_service import AccountingService
         from app.services.db_service import DatabaseService
         from app.services.hr_data_service import get_tax_rates_snapshot
-        company_id = _resolve_company_id(owner_uid)
         snapshot = get_tax_rates_snapshot(period)
-        tax_rates_data = snapshot if snapshot else hr.get_tax_rates(company_id, sandbox=sandbox)
+        tax_rates_data = snapshot if isinstance(snapshot, dict) and snapshot else hr.get_tax_rates(company_id, sandbox=sandbox)
         now_str = date.today().isoformat()
         employees_list = hr.get_employees(company_id, sandbox=sandbox)
         emp_map = {e["id"]: e for e in employees_list}
@@ -279,7 +280,7 @@ def payroll_post(period_id):
         return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
 
     ok, msg = _transition(period, "contabilizada", request.form.get("comment", ""),
-                          company_id=company_id, sandbox=sandbox)
+                          sandbox=sandbox)
     if not ok:
         flash(msg, "error")
         return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
@@ -302,7 +303,7 @@ def payroll_pay(period_id):
         return redirect(url_for("web_rrhh.payroll_list"))
 
     ok, msg = _transition(period, "pagada", request.form.get("comment", ""),
-                          company_id=company_id, sandbox=sandbox)
+                          sandbox=sandbox)
     if not ok:
         flash(msg, "error")
     else:
@@ -325,7 +326,7 @@ def payroll_close(period_id):
         return redirect(url_for("web_rrhh.payroll_list"))
 
     ok, msg = _transition(period, "cerrada", request.form.get("comment", ""),
-                          company_id=company_id, sandbox=sandbox)
+                          sandbox=sandbox)
     if not ok:
         flash(msg, "error")
     else:

@@ -24,7 +24,7 @@ from app.services.recurring_service import get_recurring_movements
 
 def _service():
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
-    return OffboardingService(company_id, sandbox), owner_uid, sandbox
+    return OffboardingService(company_id, sandbox), owner_uid, sandbox, company_id
 
 
 def _user():
@@ -51,7 +51,7 @@ def _ctx(**kw):
 def offboarding_dashboard():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    svc, owner_uid, sandbox = _service()
+    svc, owner_uid, sandbox, company_id = _service()
 
     all_requests = svc.list_requests(limit=500)
     today = datetime.now(timezone.utc)
@@ -124,7 +124,7 @@ def offboarding_dashboard():
 def offboarding_list():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    svc, owner_uid, sandbox = _service()
+    svc, owner_uid, sandbox, company_id = _service()
     status_filter = request.args.get("status", "")
     search = request.args.get("search", "").strip().lower()
     requests = svc.list_requests()
@@ -165,7 +165,7 @@ def offboarding_list():
 def offboarding_new():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    svc, owner_uid, sandbox = _service()
+    svc, owner_uid, sandbox, company_id = _service()
 
     if request.method == "POST":
         employee_id = request.form.get("employeeId", "").strip()
@@ -217,7 +217,7 @@ def offboarding_new():
 def offboarding_edit(request_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    svc, owner_uid, sandbox = _service()
+    svc, owner_uid, sandbox, company_id = _service()
     req = svc.get_request(request_id)
     if not req:
         flash("Solicitud no encontrada.", "error")
@@ -261,7 +261,7 @@ def offboarding_edit(request_id):
 def offboarding_cancel(request_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    svc, owner_uid, sandbox = _service()
+    svc, owner_uid, sandbox, company_id = _service()
     req = svc.get_request(request_id)
     if not req:
         flash("Solicitud no encontrada.", "error")
@@ -288,7 +288,7 @@ def offboarding_cancel(request_id):
 def offboarding_detail(request_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    svc, owner_uid, sandbox = _service()
+    svc, owner_uid, sandbox, company_id = _service()
     req = svc.get_request(request_id)
     if not req:
         flash("Solicitud no encontrada.", "error")
@@ -340,7 +340,7 @@ def offboarding_detail(request_id):
 def offboarding_transition(request_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    svc, owner_uid, sandbox = _service()
+    svc, owner_uid, sandbox, company_id = _service()
 
     new_status = request.form.get("newStatus", "").strip()
     comment = request.form.get("comment", "").strip()
@@ -374,7 +374,7 @@ def offboarding_transition(request_id):
 def offboarding_approve(request_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    svc, owner_uid, sandbox = _service()
+    svc, owner_uid, sandbox, company_id = _service()
 
     decision = request.form.get("decision", "").strip()
     comment = request.form.get("comment", "").strip()
@@ -394,7 +394,7 @@ def offboarding_approve(request_id):
 def offboarding_revoke_access(request_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    svc, owner_uid, sandbox = _service()
+    svc, owner_uid, sandbox, company_id = _service()
 
     revoke = request.form.get("action") == "revoke"
     try:
@@ -422,7 +422,7 @@ def offboarding_revoke_access(request_id):
 def offboarding_settlement_calculate(request_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    svc, owner_uid, sandbox = _service()
+    svc, owner_uid, sandbox, company_id = _service()
     req = svc.get_request(request_id)
     if not req:
         flash("Solicitud no encontrada.", "error")
@@ -526,7 +526,7 @@ def offboarding_settlement_calculate(request_id):
 def offboarding_settlement_approve(request_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    svc, owner_uid, sandbox = _service()
+    svc, owner_uid, sandbox, company_id = _service()
     req = svc.get_request(request_id)
     s_id = request.form.get("settlementId", "")
     comment = request.form.get("comment", "")
@@ -542,7 +542,7 @@ def offboarding_settlement_approve(request_id):
 def offboarding_checklist_toggle(request_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    svc, owner_uid, sandbox = _service()
+    svc, owner_uid, sandbox, company_id = _service()
     checklist_id = request.form.get("checklistId", "")
     item_id = request.form.get("itemId", "")
     completed = request.form.get("completed") == "1"
@@ -568,7 +568,7 @@ def offboarding_checklist_toggle(request_id):
 def offboarding_interview(request_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    svc, owner_uid, sandbox = _service()
+    svc, owner_uid, sandbox, company_id = _service()
     req = svc.get_request(request_id)
 
     data = {
@@ -602,7 +602,7 @@ def offboarding_interview(request_id):
 def offboarding_payment(request_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    svc, owner_uid, sandbox = _service()
+    svc, owner_uid, sandbox, company_id = _service()
 
     data = {
         "requestId": request_id,
@@ -629,7 +629,7 @@ def offboarding_payment(request_id):
 def offboarding_risk(request_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    svc, owner_uid, sandbox = _service()
+    svc, owner_uid, sandbox, company_id = _service()
 
     data = {
         "requestId": request_id,
@@ -655,7 +655,7 @@ def offboarding_risk(request_id):
 def offboarding_upload_document(request_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    svc, owner_uid, sandbox = _service()
+    svc, owner_uid, sandbox, company_id = _service()
     req = svc.get_request(request_id)
     if not req:
         flash("Solicitud no encontrada.", "error")
@@ -701,7 +701,7 @@ def offboarding_upload_document(request_id):
 def offboarding_download_document(request_id, doc_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    svc, owner_uid, sandbox = _service()
+    svc, owner_uid, sandbox, company_id = _service()
     docs = svc.get_documents(request_id)
     doc = next((d for d in docs if d.get("id") == doc_id), None)
     if not doc or not doc.get("fileUrl"):
@@ -734,7 +734,7 @@ def offboarding_download_document(request_id, doc_id):
 def offboarding_rehire(request_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    svc, owner_uid, sandbox = _service()
+    svc, owner_uid, sandbox, company_id = _service()
     req = svc.get_request(request_id)
     if not req:
         flash("Solicitud no encontrada.", "error")
@@ -796,7 +796,7 @@ def offboarding_rehire(request_id):
 def offboarding_pdf_letter(request_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    svc, owner_uid, sandbox = _service()
+    svc, owner_uid, sandbox, company_id = _service()
     req = svc.get_request(request_id)
     if not req:
         flash("Solicitud no encontrada.", "error")
@@ -836,7 +836,7 @@ def offboarding_pdf_letter(request_id):
 def offboarding_pdf_settlement(request_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    svc, owner_uid, sandbox = _service()
+    svc, owner_uid, sandbox, company_id = _service()
     req = svc.get_request(request_id)
     if not req:
         flash("Solicitud no encontrada.", "error")
@@ -1011,7 +1011,7 @@ def offboarding_fix_status():
 def offboarding_legal_save(request_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    svc, owner_uid, sandbox = _service()
+    svc, owner_uid, sandbox, company_id = _service()
     req = svc.get_request(request_id)
     if not req:
         flash("Solicitud no encontrada.", "error")
@@ -1058,7 +1058,7 @@ def offboarding_legal_save(request_id):
 def offboarding_employee_data(request_id):
     if _login_required():
         return {"error": "No autorizado"}, 401
-    svc, owner_uid, sandbox = _service()
+    svc, owner_uid, sandbox, company_id = _service()
     req = svc.get_request(request_id)
     if not req:
         return {"error": "No encontrada"}, 404
