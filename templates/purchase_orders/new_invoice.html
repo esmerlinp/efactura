@@ -95,6 +95,9 @@
         background:rgba(16,185,129,0.1); color:var(--accent-emerald);
         border-color:rgba(16,185,129,0.25);
     }
+    .ecf-badge.ecf-e41 { background:rgba(59,130,246,0.1); color:#3b82f6; border:1px solid rgba(59,130,246,0.25); }
+    .ecf-badge.ecf-e43 { background:rgba(245,158,11,0.1); color:#d97706; border:1px solid rgba(245,158,11,0.25); }
+    .ecf-badge.ecf-e47 { background:rgba(139,92,246,0.1); color:#8b5cf6; border:1px solid rgba(139,92,246,0.25); }
 
     .search-modal { display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.55); z-index:1050; justify-content:center; align-items:center; }
     .search-modal .modal-content { background:var(--bg-card); border-radius:var(--radius-md); box-shadow:var(--shadow-xl); width:100%; overflow:hidden; }
@@ -141,7 +144,10 @@
         <input type="hidden" id="ocr-attachment-url" name="ocr_attachment_url" value="">
         <input type="hidden" id="ocr-attachment-json" name="ocr_attachment_json" value="">
         {% if po_id %}<input type="hidden" name="po_id" value="{{ po_id }}">{% endif %}
-        <input type="hidden" name="ecfType" value="E41">
+        <input type="hidden" name="ecfType" id="ecfType" value="E41">
+        <span id="ecf-type-badge" class="ecf-badge" style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:0.72rem;font-weight:700;margin-left:8px;">
+            <i class="fa-solid fa-stamp"></i> <span id="ecf-type-label">Compras (E41)</span>
+        </span>
 
         <div class="section-card">
             <h3 style="display:flex;justify-content:space-between;align-items:center;">
@@ -239,7 +245,7 @@
                                 <div class="acco-dropdown"></div>
                             </td>
                             <td style="text-align:right;font-weight:600;">
-                                <span class="item-total-label">RD$ 0.00</span>
+                                <span class="item-total-label">0.00</span>
                             </td>
                             <td style="text-align:center;">
                                 <button type="button" class="row-menu-btn remove-row-btn" title="Eliminar"><i class="fa-solid fa-xmark"></i></button>
@@ -253,6 +259,8 @@
                 <div class="tl-row"><span>Descuento</span><span id="sum-discount">RD$ 0.00</span></div>
                 <div class="tl-row"><span>ITBIS</span><span id="sum-itbis">RD$ 0.00</span></div>
                 <div class="tl-row total"><span>Total</span><span id="sum-total">RD$ 0.00</span></div>
+                <div class="tl-row" id="row-isr-retenido" style="display:none;"><span>ISR Retenido <span id="isr-rate-label"></span></span><span id="sum-isr" style="color:#ef4444;">RD$ 0.00</span></div>
+                <div class="tl-row" id="row-neto-pagar" style="display:none;border-top:2px solid var(--border-color);padding-top:6px;margin-top:4px;"><span style="font-weight:700;">Neto a Pagar</span><span id="sum-neto" style="font-weight:800;font-size:1.15rem;">RD$ 0.00</span></div>
             </div>
             <div style="margin-top:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
                 <button type="button" id="btn-add-item" class="btn btn-sm btn-secondary"><i class="fa-solid fa-plus"></i> Añadir Partida</button>
@@ -331,8 +339,18 @@
                 <div class="modal-header" style="padding:20px 24px;border-bottom:1px solid var(--border-color);"><h3 style="font-size:0.95rem;"><i class="fa-solid fa-sliders" style="color:var(--accent-emerald);margin-right:8px;"></i>Retenciones, Descuentos y Recargos</h3><button type="button" id="btn-close-retentions-modal" class="btn-close-modal" onclick="closeRetentionsModal()"><i class="fa-solid fa-xmark"></i></button></div>
                 <div class="modal-body" style="padding:22px 24px;">
                     <div class="inp-group" style="margin-bottom:16px;"><label>Descuento Global (%)</label><input type="number" id="discount-global-modal" class="form-input" min="0" max="1" step="0.01" value="" placeholder="Ej: 0.10 = 10%" oninput="document.getElementById('discount-global').value=this.value;recalculateRetBadge();"></div>
-                    <div class="inp-group" style="margin-bottom:16px;"><label>Retención ISR</label><select id="isr-rate-select-modal" class="form-select" onchange="document.getElementById('isr-rate-select').value=this.value;recalculateRetBadge();"><option value="0.0">Sin retención (0%)</option><option value="0.02">2% — Bienes y servicios</option><option value="0.10">10% — Honorarios / Alquiler</option></select></div>
+                    <div class="inp-group" style="margin-bottom:16px;"><label>Retención ISR</label><select id="isr-rate-select-modal" class="form-select" onchange="document.getElementById('isr-rate-select').value=this.value;recalculateRetBadge();"><option value="0.0">Sin retención (0%)</option><option value="0.27">27% — Pagos al Exterior (E47)</option><option value="0.02">2% — Bienes y servicios</option><option value="0.10">10% — Honorarios / Alquiler</option></select></div>
                     <div class="inp-group" style="margin-bottom:16px;"><label>Retención ITBIS</label><select id="itbis-rate-select-modal" class="form-select" onchange="document.getElementById('itbis-rate-select').value=this.value;recalculateRetBadge();"><option value="0.0">Sin retención (0%)</option><option value="0.30">30% — Bienes corporativos</option><option value="0.75">75% — Servicios jurídicos</option><option value="1.00">100% — Profesionales independientes</option></select></div>
+                    <div class="inp-group e47-field" style="display:none;margin-bottom:8px;padding:12px;border-radius:8px;background:rgba(139,92,246,0.04);border:1px solid rgba(139,92,246,0.15);">
+                        <label style="display:flex;align-items:center;gap:8px;font-weight:400;font-size:0.78rem;cursor:pointer;">
+                            <input type="checkbox" id="isrAsumido" name="isrAsumido" onchange="onIsrAsumidoChange()">
+                            <strong style="color:#8b5cf6;">ISR Asumido</strong> — El 27% de ISR lo paga la empresa, el proveedor recibe el monto bruto
+                        </label>
+                        <div style="margin-top:8px;font-size:0.7rem;color:var(--text-muted);line-height:1.5;">
+                            Si NO está marcado, el proveedor recibe el total <em>menos</em> el 27% de ISR.
+                            En ambos casos el E47 reporta la retención del 27% a la DGII.
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:10px;padding:16px 24px;border-top:1px solid var(--border-color);"><button type="button" id="btn-close-retentions-ok" class="btn btn-primary">Listo</button></div>
             </div>
@@ -341,7 +359,7 @@
         <!-- Hidden fields for retenciones (synced from modal) -->
         <div style="display:none !important;">
             <input type="number" id="discount-global" name="discountRate" min="0" max="1" step="0.01" value="0.00">
-            <select id="isr-rate-select" name="retainedISRRate"><option value="0.0" selected>0%</option><option value="0.02">2%</option><option value="0.10">10%</option></select>
+            <select id="isr-rate-select" name="retainedISRRate"><option value="0.0" selected>0%</option><option value="0.27">27%</option><option value="0.02">2%</option><option value="0.10">10%</option></select>
             <select id="itbis-rate-select" name="retainedITBISRate"><option value="0.0" selected>0%</option><option value="0.30">30%</option><option value="0.75">75%</option><option value="1.00">100%</option></select>
         </div>
 
@@ -432,6 +450,34 @@
                         <label for="invoiceNumber">No. Factura Proveedor</label>
                         <input type="text" id="invoiceNumber" name="invoiceNumber" class="form-input" placeholder="Ej: F001-123" style="width:100%;">
                     </div>
+                    <div class="inp-group e47-field" style="margin-bottom:14px;display:none;">
+                        <label for="paisDestino">País Destino (Pago al Exterior)</label>
+                        <select id="paisDestino" name="paisDestino" class="form-select" style="width:100%;">
+                            <option value="US">Estados Unidos</option>
+                            <option value="ES">España</option>
+                            <option value="MX">México</option>
+                            <option value="CO">Colombia</option>
+                            <option value="AR">Argentina</option>
+                            <option value="CL">Chile</option>
+                            <option value="PE">Perú</option>
+                            <option value="BR">Brasil</option>
+                            <option value="UK">Reino Unido</option>
+                            <option value="DE">Alemania</option>
+                            <option value="FR">Francia</option>
+                            <option value="IT">Italia</option>
+                            <option value="CN">China</option>
+                            <option value="JP">Japón</option>
+                            <option value="CA">Canadá</option>
+                            <option value="PA">Panamá</option>
+                            <option value="CR">Costa Rica</option>
+                            <option value="GT">Guatemala</option>
+                            <option value="SV">El Salvador</option>
+                            <option value="HN">Honduras</option>
+                            <option value="NI">Nicaragua</option>
+                            <option value="PR">Puerto Rico</option>
+                            <option value="OT">Otro</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div style="border-top:1px solid var(--border-color);padding-top:16px;">
@@ -512,7 +558,7 @@
                 <div class="acco-dropdown"></div>
             </td>
             <td style="text-align:right;font-weight:600;">
-                <span class="item-total-label">RD$ 0.00</span>
+                <span class="item-total-label">0.00</span>
             </td>
             <td style="text-align:center;">
                 <button type="button" class="row-menu-btn remove-row-btn" title="Eliminar"><i class="fa-solid fa-xmark"></i></button>
@@ -534,7 +580,19 @@
                 const rows = document.querySelectorAll('#items-body .item-row');
                 if (rows.length <= 1) return;
                 tr.remove();
-                recalculateTotals();
+        recalculateTotals();
+
+        // Lock currency to DOP for E47 (DGII exige pesos dominicanos)
+        var currencySide = document.getElementById('currency-side');
+        if (currencySide) {
+            if (isE47) {
+                currencySide.value = 'DOP';
+                currencySide.disabled = true;
+                handleCurrencySideChange('DOP');
+            } else {
+                currencySide.disabled = false;
+            }
+        }
                 updateRemoveButtons();
             });
         }
@@ -552,6 +610,8 @@
 
     function recalculateTotals() {
         const includesTax = document.getElementById('price-mode-toggle').checked;
+        const currency = document.getElementById('currency')?.value || 'DOP';
+        const sym = currency === 'USD' ? 'US$ ' : currency === 'EUR' ? '€ ' : 'RD$ ';
         let subtotal = 0, totalItbis = 0, totalDiscount = 0;
         const rows = document.querySelectorAll('#items-body .item-row');
         rows.forEach(function(row) {
@@ -568,13 +628,36 @@
             totalDiscount += lineDiscount;
             totalItbis += lineItbis;
             const label = row.querySelector('.item-total-label');
-            if (label) label.textContent = 'RD$ ' + lineTotal.toFixed(2);
+            if (label) label.textContent = sym + lineTotal.toFixed(2);
         });
-        document.getElementById('sum-subtotal').textContent = 'RD$ ' + subtotal.toFixed(2);
-        document.getElementById('sum-discount').textContent = 'RD$ ' + totalDiscount.toFixed(2);
-        document.getElementById('sum-itbis').textContent = 'RD$ ' + totalItbis.toFixed(2);
+        document.getElementById('sum-subtotal').textContent = sym + subtotal.toFixed(2);
+        document.getElementById('sum-discount').textContent = sym + totalDiscount.toFixed(2);
+        document.getElementById('sum-itbis').textContent = sym + totalItbis.toFixed(2);
         const grandTotal = subtotal - totalDiscount + totalItbis;
-        document.getElementById('sum-total').textContent = 'RD$ ' + grandTotal.toFixed(2);
+        document.getElementById('sum-total').textContent = sym + grandTotal.toFixed(2);
+
+        // ISR Retenido & Neto a Pagar
+        const isrRate = parseFloat(document.getElementById('isr-rate-select')?.value || '0') || 0;
+        const isrRow = document.getElementById('row-isr-retenido');
+        const netoRow = document.getElementById('row-neto-pagar');
+        const isrLabel = document.getElementById('isr-rate-label');
+        const isrEl = document.getElementById('sum-isr');
+        const netoEl = document.getElementById('sum-neto');
+        const isAsumido = document.getElementById('isrAsumido')?.checked || false;
+        const ecfType = document.getElementById('ecfType')?.value || 'E41';
+
+        if (isrRate > 0 && ecfType !== 'E41') {
+            const isrAmount = grandTotal * isrRate;
+            const netoAmount = isAsumido ? grandTotal : grandTotal - isrAmount;
+            isrRow.style.display = '';
+            netoRow.style.display = '';
+            isrLabel.textContent = '(' + (isrRate * 100).toFixed(0) + '%)';
+            isrEl.textContent = sym + isrAmount.toFixed(2);
+            netoEl.textContent = sym + netoAmount.toFixed(2);
+        } else {
+            isrRow.style.display = 'none';
+            netoRow.style.display = 'none';
+        }
     }
 
     document.getElementById('btn-add-item').addEventListener('click', addItemRow);
@@ -641,6 +724,7 @@
         } else {
             rateContainer.style.display = '';
         }
+        recalculateTotals();
     }
 
     function showFileName(input) {
@@ -865,12 +949,28 @@
         }
     });
 
+    function setSupplierTypeAndDispatch(val) {
+        var st = document.getElementById('supplierType');
+        if (st) {
+            st.value = val;
+            st.dispatchEvent(new Event('change'));
+        }
+    }
+
     // ── Validación RNC/ Cédula contra DGII ────────────────────
     function validateRncFromDgii(rnc) {
         var clean = rnc.replace(/[^0-9]/g, '');
         var status = document.getElementById('rnc-status');
         var warning = document.getElementById('rnc-warning');
         var cedulaInput = document.getElementById('supplierCedula');
+        // Skip DGII validation for international suppliers (E47)
+        var supplierType = document.getElementById('supplierType');
+        if (supplierType && supplierType.value === 'internacional') {
+            if (status) status.innerHTML = '';
+            if (warning) warning.style.display = 'none';
+            if (cedulaInput) cedulaInput.value = '';
+            return;
+        }
         if (clean.length !== 9 && clean.length !== 11) {
             if (status) status.innerHTML = '';
             if (warning) warning.style.display = 'none';
@@ -886,7 +986,7 @@
                     if (status) status.innerHTML = '<span style="color:#ef4444;">✗ RNC/Cédula no registrado en la DGII</span>';
                     if (warning) warning.style.display = 'none';
                 } else if (data.razon_social) {
-                    document.getElementById('supplierType').value = 'formal';
+                    setSupplierTypeAndDispatch('formal');
                     var nameInput = document.getElementById('supplierName');
                     if (nameInput && !nameInput.value.trim()) {
                         nameInput.value = data.razon_social;
@@ -897,7 +997,7 @@
                         warning.style.display = 'block';
                     }
                 } else {
-                    document.getElementById('supplierType').value = 'informal';
+                    setSupplierTypeAndDispatch('informal');
                     if (status) status.innerHTML = '<span style="color:#d97706;">✗ No registrado en DGII — Informal</span>';
                     if (warning) warning.style.display = 'none';
                 }
@@ -930,7 +1030,7 @@
             suppliers.push({ id: s.id, rnc: s.rnc, name: s.name });
         }
         if (s.rnc) {
-            document.getElementById('supplierType').value = 'formal';
+            setSupplierTypeAndDispatch('formal');
             validateRncFromDgii(s.rnc);
         }
     }
@@ -943,7 +1043,7 @@
         searchInput.value = name;
         searchResults.style.display = 'none';
         if (rnc) {
-            document.getElementById('supplierType').value = 'formal';
+            setSupplierTypeAndDispatch('formal');
             validateRncFromDgii(rnc);
         }
     }
@@ -956,7 +1056,7 @@
         searchInput.value = name;
         searchResults.style.display = 'none';
         if (rnc) {
-            document.getElementById('supplierType').value = 'formal';
+            setSupplierTypeAndDispatch('formal');
             validateRncFromDgii(rnc);
         }
     }
@@ -1030,6 +1130,87 @@
         setSupplierCedula(initialRnc.value);
         validateRncFromDgii(initialRnc.value);
     }
+
+    // ── E47: Auto-detección según tipo proveedor ─────────────────
+    function onEcfTypeChange() {
+        var ecfType = document.getElementById('ecfType').value;
+        var isE47 = ecfType === 'E47';
+        var isE43 = ecfType === 'E43';
+
+        // Update badge
+        var badge = document.getElementById('ecf-type-badge');
+        var label = document.getElementById('ecf-type-label');
+        badge.className = 'ecf-badge ecf-' + ecfType.toLowerCase();
+        if (ecfType === 'E41') {
+            label.textContent = 'Compras (E41)';
+        } else if (ecfType === 'E43') {
+            label.textContent = 'Gastos Menores (E43)';
+        } else if (ecfType === 'E47') {
+            label.textContent = 'Pagos al Exterior (E47)';
+        }
+
+        // Toggle NCF/CNE fields (hide for E43 and E47)
+        document.querySelectorAll('.e41-hideable').forEach(function(el) {
+            el.style.display = (isE43 || isE47) ? 'none' : 'block';
+        });
+
+        // Toggle E47-specific fields
+        document.querySelectorAll('.e47-field').forEach(function(el) {
+            el.style.display = isE47 ? 'block' : 'none';
+        });
+
+        // Change supplier RNC label for E47
+        var rncLabel = document.querySelector('label[for="supplierRnc"]');
+        var rncInput = document.getElementById('supplierRnc');
+        if (isE47) {
+            if (rncLabel) rncLabel.textContent = 'ID Tributario Extranjero';
+            if (rncInput) rncInput.placeholder = 'NIT / VAT / EIN';
+        } else {
+            if (rncLabel) rncLabel.textContent = 'RNC / Cédula';
+            if (rncInput) rncInput.placeholder = '101001011';
+        }
+
+        // Force ISR to 27% for E47
+        var isrSelect = document.getElementById('isr-rate-select');
+        var isrSelectModal = document.getElementById('isr-rate-select-modal');
+        if (isE47) {
+            if (isrSelect) isrSelect.value = '0.27';
+            if (isrSelectModal) isrSelectModal.value = '0.27';
+            recalculateRetBadge();
+        }
+
+        // Force items to 0% ITBIS for E47/E43 and disable the select
+        document.querySelectorAll('.item-itbis').forEach(function(sel) {
+            if (isE47 || isE43) {
+                sel.value = '0.0';
+                sel.disabled = true;
+            } else {
+                sel.disabled = false;
+            }
+        });
+        recalculateTotals();
+    }
+
+    function onIsrAsumidoChange() {
+        recalculateTotals();
+    }
+
+    // Detect supplier type change → auto-set ecfType
+    document.addEventListener('change', function(e) {
+        if (e.target && e.target.id === 'supplierType') {
+            var val = e.target.value;
+            var ecfInput = document.getElementById('ecfType');
+            if (val === 'internacional') {
+                ecfInput.value = 'E47';
+            } else {
+                ecfInput.value = 'E41';
+            }
+            onEcfTypeChange();
+        }
+    });
+
+    // Initial call to set correct state
+    onEcfTypeChange();
 
     // ── E41/E43: Comprobantes autoemitidos (sin NCF/CNE del proveedor) ──
     document.querySelectorAll('.e41-hideable').forEach(function(el) {

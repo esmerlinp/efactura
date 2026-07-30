@@ -1170,6 +1170,7 @@
         {% endif %}
 
         {% else %}
+        {% if not company.get('logoUrl') or not company.get('signatureUrl') %}
         <!-- Módulo Fiscal DGII e-CF (documento ya convertido) -->
         <div class="card-table-wrapper" style="padding: 24px; text-align: center;">
             <h4
@@ -1255,7 +1256,7 @@
                     <span>Descargar XML</span>
                 </a>
                 <button type="button" onclick="openNotifyEmailModal()" class="btn btn-primary"
-                    style="width: 100%; font-size: 0.82rem; padding: 8px 16px; margin-top: 4px; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; border-radius: var(--radius-sm); border: none; background: linear-gradient(135deg, var(--accent-emerald), var(--accent-emerald-hover)); color: white;">
+                    style="width: 100%; font-size: 0.82rem; padding: 8px 16px; margin-top: 4px; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; border-radius: var(--radius-sm); border: none; background: #10b981; color: #fff;">
                     <i class="fa-solid fa-envelope"></i>
                     <span>Notificar por Correo</span>
                 </button>
@@ -1290,6 +1291,7 @@
             {% endif %}
             {% endif %}
         </div>
+        {% endif %}
         {% endif %}
 
         {% if not invoice.isQuotation and invoice.status == 'Cobrada' %}

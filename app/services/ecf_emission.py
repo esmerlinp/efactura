@@ -27,10 +27,13 @@ class EcfEmissionService:
         if "E45" in ecf_type or "Gubernamental" in ecf_type:
             if client_rnc == "000000000" or not client_rnc or len(client_rnc) != 9:
                 raise ValueError("Para emitir un Comprobante Gubernamental (E45) se requiere un RNC de cliente de 9 dígitos.")
-
         if "E46" in ecf_type or "Exportación" in ecf_type:
             if not client_rnc:
                 raise ValueError("Para emitir un Comprobante de Exportación (E46) se requiere el RNC o Pasaporte del cliente.")
+
+        if "E44" in ecf_type or "Regímenes Especiales" in ecf_type:
+            if not client_rnc or len(client_rnc) != 9:
+                raise ValueError("Para emitir un Comprobante de Regímenes Especiales (E44) se requiere un RNC de cliente de 9 dígitos.")
 
         if cls._es_rfce(ecf_type, total):
             return DgiiDirectService.emit_rfce(company, invoice_dict, sandbox=sandbox)

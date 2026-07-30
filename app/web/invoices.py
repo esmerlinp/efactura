@@ -1552,6 +1552,9 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             itbis_rate = float(request.form.get(f'items[{idx}][itbisRate]', 0.18))
             if not regimen_rules.get("itbis_enabled", True):
                 itbis_rate = 0.0
+            ecf_code_from_type = ecf_type.split("(")[-1].replace(")", "").strip() if "(" in ecf_type else ecf_type
+            if ecf_code_from_type == "E44":
+                itbis_rate = 0.0
             item_disc = float(request.form.get(f'items[{idx}][discountRate]', 0.0))
             
             if name:
@@ -2017,7 +2020,12 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                         "estado": "FAILED",
                         "motivo": f"Excepción en emisión: {str(e)}"
                     }, company_id=company_id, sandbox=sandbox)
-                flash(f"Borrador creado, pero fallo en emisión: {str(e)}", "error")
+                err_str = str(e)
+                is_no_seq = any(kw in err_str.lower() for kw in ['secuencia', 'agotada', 'expirada', 'no hay una secuencia'])
+                if is_no_seq:
+                    flash('No hay comprobantes fiscales disponibles. La factura se guardó como borrador. Puede emitirla más tarde desde el detalle.', 'warning')
+                else:
+                    flash(f"Borrador creado, pero fallo en emisión: {err_str}", "error")
             return redirect(url_for('web_invoices.invoice_detail', invoice_id=target_invoice_id))
         else:
             flash('Borrador de documento guardado exitosamente.', 'success')
@@ -2080,8 +2088,14 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         if current_code not in {t.code for t in _ecf_types}:
             _ecf_types.append(_by_code(current_code))
 
+    _sale_codes = ('E31', 'E32', 'E44', 'E45')
+    _ecf_types = [t for t in _ecf_types if t.code in _sale_codes]
+    for code in _sale_codes:
+        if code in allowed_by_regimen and code not in {t.code for t in _ecf_types}:
+            _ecf_types.append(_by_code(code))
+
     CLIENT_ECF_RULES = {
-        "NORMAL": {"hasRnc": {"def": "E31", "types": ["E31", "E32"]}, "noRnc": {"def": "E32", "types": ["E32"]}},
+        "NORMAL": {"hasRnc": {"def": "E31", "types": ["E31", "E32", "E45"]}, "noRnc": {"def": "E32", "types": ["E32"]}},
         "GOVERNMENT": {"def": "E45", "types": ["E45"]},
         "SPECIAL_REGIME": {"def": "E44", "types": ["E44", "E31"]},
         "FOREIGN": {"def": "E46", "types": ["E46"]},
@@ -3531,6 +3545,7 @@ def sign_invoice_route(invoice_id):
         flash(limit_msg, 'warning')
         
     company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+    log_id = None
     
     try:
         # Consumir el siguiente consecutivo del rango fiscal DGII si no se ha asignado
@@ -3599,14 +3614,35 @@ def sign_invoice_route(invoice_id):
                 msg = f"⚠️ ¡Comprobante firmado en modalidad de contingencia (sin conexión a DGII)! e-NCF: {res.get('encf')}. Recuerde sincronizarlo con la DGII en un plazo máximo de 72 horas."
             flash(msg, "success")
         else:
-            flash(f"Error al certificar comprobante: {res.get('message')}", "error")
+            error_msg = res.get('message', res.get('error', 'Error desconocido de DGII'))
+            invoice["status"] = "Rechazado DGII"
+            invoice["dgiiError"] = str(error_msg)[:200]
+            invoice["enviadoADGII"] = True
+            DatabaseService.save_invoice(owner_uid, invoice_id, invoice, company_id=company_id, sandbox=sandbox)
+            if log_id:
+                DatabaseService.update_sequence_log(owner_uid, log_id, {
+                    "estado": "FAILED",
+                    "motivo": f"DGII rechazó: {error_msg}",
+                    "respuestaDGII": json.dumps(res.get("responseBody"), indent=2) if res.get("responseBody") else ""
+                }, company_id=company_id, sandbox=sandbox)
+            flash(f"Error al certificar comprobante: {error_msg}", "error")
             _log_dgii_emission_to_audit(owner_uid, invoice, res, session['user']['email'],
                                          performed_by_name=session['user'].get('name', 'Sistema'),
                                          company_id=company_id, sandbox=sandbox)
             
     except Exception as e:
-        flash(f"Fallo en la emisión de comprobante: {str(e)}", "error")
-        
+        if log_id:
+            DatabaseService.update_sequence_log(owner_uid, log_id, {
+                "estado": "FAILED",
+                "motivo": f"Excepción en emisión: {str(e)}"
+            }, company_id=company_id, sandbox=sandbox)
+        err_str = str(e)
+        is_no_seq = any(kw in err_str.lower() for kw in ['secuencia', 'agotada', 'expirada', 'no hay una secuencia'])
+        if is_no_seq:
+            flash('No hay comprobantes fiscales disponibles. La factura se guardó como borrador. Puede emitirla más tarde desde el detalle cuando tenga una secuencia activa.', 'warning')
+        else:
+            flash(f"Fallo en la emisión de comprobante: {err_str}", "error")
+
     return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
 
@@ -4602,7 +4638,7 @@ def invoice_retention_letter_email(invoice_id):
 
         from app.services.mailer import Mailer
         mailer = Mailer()
-        attachments = [("Carta_Retencion_{}.pdf".format(inv_num), pdf_bytes, "application/pdf")] if pdf_bytes else []
+        attachments = [{"filename": "Carta_Retencion_{}.pdf".format(inv_num), "data": pdf_bytes, "mimetype": "application/pdf"}] if pdf_bytes else []
 
         mailer.send(
             app=app._get_current_object(),
@@ -4797,7 +4833,7 @@ def expense_retention_letter_email(expense_id):
 
         from app.services.mailer import Mailer
         mailer = Mailer()
-        attachments = [("Carta_Retencion_{}.pdf".format(inv_num), pdf_bytes, "application/pdf")] if pdf_bytes else []
+        attachments = [{"filename": "Carta_Retencion_{}.pdf".format(inv_num), "data": pdf_bytes, "mimetype": "application/pdf"}] if pdf_bytes else []
 
         mailer.send(
             app=app._get_current_object(),
@@ -5800,7 +5836,7 @@ def _build_supplier_invoice_ecf_payload(inv_data):
     """
     Adapta un supplier_invoice dict al formato invoice_dict que espera
     EcfEmissionService, con TODOS los items reales de la factura.
-    Usado para emitir E41 desde facturas de proveedor con RNC formal.
+    Usado para emitir E41/E43/E47 desde facturas de proveedor.
     """
     amount   = float(inv_data.get("total", 0.0))
     itbis    = float(inv_data.get("itbis", 0.0))
@@ -5809,35 +5845,6 @@ def _build_supplier_invoice_ecf_payload(inv_data):
 
     date_str = inv_data.get("date", "")
     due_str  = inv_data.get("dueDate") or date_str
-
-    items = []
-    for item in inv_data.get("items", []):
-        unit_price    = float(item.get("unitPrice", 0.0))
-        qty           = float(item.get("quantity", 0.0))
-        item_subtotal = float(item.get("subtotal", 0.0))
-        itbis_rate    = float(item.get("itbisRate", 0.0))
-        items.append({
-            "name":      item.get("name", "Item"),
-            "quantity":  qty,
-            "price":     unit_price,
-            "subtotal":  item_subtotal,
-            "itbisRate": itbis_rate,
-            "unit":      item.get("unit", "Unidad"),
-            "type":      "Servicio" if item.get("accountingAccountId", "") else "producto",
-        })
-
-    if not items:
-        items = [{
-            "name":      inv_data.get("supplierName", "Compra"),
-            "quantity":  1,
-            "price":     subtotal,
-            "subtotal":  subtotal,
-            "itbisRate": round(itbis / subtotal, 4) if subtotal > 0 else 0.0,
-            "unit":      "Unidad",
-        }]
-
-    payment_map = {"Contado": "Efectivo", "Cr\u00e9dito": "Cr\u00e9dito", "credito_30d": "Cr\u00e9dito"}
-    payment_method = payment_map.get(inv_data.get("paymentType", "Contado"), "Efectivo")
 
     ecf_type_raw = inv_data.get("ecfType", "")
     ecf_type_map = {
@@ -5848,11 +5855,48 @@ def _build_supplier_invoice_ecf_payload(inv_data):
         "E47": "Pagos al Exterior (E47)",
     }
     ecf_type_full = ecf_type_map.get(ecf_type_raw, "Comprobante de Compras (E41)")
+    is_e47 = "E47" in ecf_type_raw
+
+    items = []
+    for item in inv_data.get("items", []):
+        unit_price    = float(item.get("unitPrice", 0.0))
+        qty           = float(item.get("quantity", 0.0))
+        item_subtotal = float(item.get("subtotal", 0.0))
+        itbis_rate    = 0.0 if is_e47 else float(item.get("itbisRate", 0.0))
+        item_data = {
+            "name":      item.get("name", "Item"),
+            "quantity":  qty,
+            "price":     unit_price,
+            "subtotal":  item_subtotal,
+            "itbisRate": itbis_rate,
+            "unit":      item.get("unit", "Unidad"),
+            "type":      "Servicio" if item.get("accountingAccountId", "") else "producto",
+        }
+        if is_e47:
+            item_isr_rate = float(inv_data.get("retainedISR", 0.27))
+            item_data["retainedISR"] = round(item_subtotal * item_isr_rate, 2)
+        items.append(item_data)
+
+    if not items:
+        items = [{
+            "name":      inv_data.get("supplierName", "Compra"),
+            "quantity":  1,
+            "price":     subtotal,
+            "subtotal":  subtotal,
+            "itbisRate": 0.0 if is_e47 else (round(itbis / subtotal, 4) if subtotal > 0 else 0.0),
+            "unit":      "Unidad",
+        }]
+        if is_e47:
+            item_isr_rate = float(inv_data.get("retainedISR", 0.27))
+            items[0]["retainedISR"] = round(subtotal * item_isr_rate, 2)
+
+    payment_map = {"Contado": "Efectivo", "Cr\u00e9dito": "Cr\u00e9dito", "credito_30d": "Cr\u00e9dito"}
+    payment_method = payment_map.get(inv_data.get("paymentType", "Contado"), "Efectivo")
 
     ret_isr_rate = float(inv_data.get("retainedISR", 0.0))
     ret_itbis_rate = float(inv_data.get("retainedITBIS", 0.0))
 
-    return {
+    payload = {
         "id":                       inv_data.get("id", ""),
         "ecfType":                  ecf_type_full,
         "encf":                     inv_data.get("encf", "PENDIENTE"),
@@ -5866,13 +5910,21 @@ def _build_supplier_invoice_ecf_payload(inv_data):
         "subtotal":                 subtotal,
         "totalITBIS":               itbis,
         "total":                    amount,
-        "montoExento":              0.0,
+        "montoExento":              amount if is_e47 else 0.0,
         "retainedITBIS":            round(itbis * ret_itbis_rate, 2),
         "retainedISR":              round(amount * ret_isr_rate, 2),
         "items":                    items,
         "invoiceNumber":            inv_data.get("supplierInvoiceNumber", ""),
         "internalInvoiceNumber":    inv_data.get("invoiceNumber", ""),
     }
+
+    if is_e47:
+        payload.update({
+            "paisDestino":  inv_data.get("paisDestino", "US"),
+            "isrAsumido":   inv_data.get("isrAsumido", False),
+        })
+
+    return payload
 
 
 def _update_expense_sequence_log(owner_uid, log_id, emission_res, expense_dict, sandbox):
@@ -7085,8 +7137,18 @@ def edit_expense_route(expense_id):
                             ecf_edit_msg = ("success",
                                 f"✅ Gasto actualizado y {ecf_short_edit} emitido ante la DGII. e-NCF: {expense_dict['encf']}")
                     else:
+                        error_msg = res_edit.get('message', res_edit.get('error', 'Error desconocido'))
+                        expense_dict["dgiiError"] = str(error_msg)[:200]
+                        expense_dict["enviadoADGII"] = True
+                        DatabaseService.save_expense(owner_uid, expense_id, expense_dict, company_id=company_id, sandbox=sandbox)
+                        if log_id_edit:
+                            DatabaseService.update_sequence_log(owner_uid, log_id_edit, {
+                                "estado": "FAILED",
+                                "motivo": f"DGII rechazó: {error_msg}",
+                                "respuestaDGII": json.dumps(res_edit.get("responseBody"), indent=2) if res_edit.get("responseBody") else ""
+                            }, company_id=company_id, sandbox=sandbox)
                         ecf_edit_msg = ("warning",
-                            f"Gasto actualizado, pero error al emitir e-CF: {res_edit.get('message', 'Error desconocido')}")
+                            f"Gasto actualizado, pero error al emitir e-CF: {error_msg}")
 
             except Exception as e:
                 print(f"❌ Error al emitir e-CF en edición de gasto {expense_id}: {e}")

@@ -235,7 +235,7 @@ class DgiiXmlBuilder:
             ET.SubElement(id_doc, "IndicadorEnvioDiferido").text = "1"
 
         if cfg["monto_gravado"]:
-            ET.SubElement(id_doc, "IndicadorMontoGravado").text = "0" if tipo_ecf in ("31", "32", "33", "34", "41") else "1"
+            ET.SubElement(id_doc, "IndicadorMontoGravado").text = "0" if tipo_ecf in ("31", "32", "33", "34", "41", "45") else "1"
 
         if cfg["ingresos"]:
             ET.SubElement(id_doc, "TipoIngresos").text = cls._income_code(invoice_data)
@@ -394,28 +394,57 @@ class DgiiXmlBuilder:
         total_global = float(invoice_data.get("total", 0.0))
         total_itbis = float(invoice_data.get("totalITBIS", 0.0))
         monto_exento = float(invoice_data.get("montoExento", 0.0))
-        gravado = subtotal - monto_exento
+
+        gravado_i1 = 0.0
+        gravado_i2 = 0.0
+        gravado_i3 = 0.0
+        for item in invoice_data.get("items", []):
+            itbis_rate = float(item.get("itbisRate", 0.18))
+            item_val = float(item.get("subtotal", 0.0))
+            item_desc = float(item.get("discount_amount", 0.0) or item.get("DescuentoMonto", 0.0))
+            item_rec = float(item.get("recargoMonto", 0.0))
+            item_net = item_val - item_desc + item_rec
+            if itbis_rate >= 0.17:
+                gravado_i1 += item_net
+            elif itbis_rate >= 0.15:
+                gravado_i2 += item_net
+            elif itbis_rate > 0.001 and itbis_rate < 0.15:
+                gravado_i3 += item_net
+
+        gravado_total = gravado_i1 + gravado_i2 + gravado_i3
+
         if has_itbis_breakdown(tipo_ecf):
-            if gravado > 0:
-                ET.SubElement(totales, "MontoGravadoTotal").text = cls._sd(gravado)
+            if gravado_total > 0:
+                ET.SubElement(totales, "MontoGravadoTotal").text = cls._sd(gravado_total)
 
             if tipo_ecf == "46":
-                if gravado > 0:
-                    ET.SubElement(totales, "MontoGravadoI3").text = cls._sd(gravado)
+                if gravado_total > 0:
+                    ET.SubElement(totales, "MontoGravadoI3").text = cls._sd(gravado_total)
                 if total_itbis > 0:
                     ET.SubElement(totales, "ITBIS3").text = "18"
                     ET.SubElement(totales, "TotalITBIS").text = cls._sd(total_itbis)
                     ET.SubElement(totales, "TotalITBIS3").text = cls._sd(total_itbis)
             else:
-                if gravado > 0:
-                    ET.SubElement(totales, "MontoGravadoI1").text = cls._sd(gravado)
-                if monto_exento > 0 or gravado > 0:
+                if gravado_i1 > 0:
+                    ET.SubElement(totales, "MontoGravadoI1").text = cls._sd(gravado_i1)
+                if gravado_i2 > 0:
+                    ET.SubElement(totales, "MontoGravadoI2").text = cls._sd(gravado_i2)
+                if gravado_i3 > 0:
+                    ET.SubElement(totales, "MontoGravadoI3").text = cls._sd(gravado_i3)
+                if monto_exento > 0 or gravado_total > 0:
                     ET.SubElement(totales, "MontoExento").text = cls._sd(monto_exento)
-                if gravado > 0:
+                if gravado_i1 > 0:
                     ET.SubElement(totales, "ITBIS1").text = "18"
+                if gravado_i2 > 0:
+                    ET.SubElement(totales, "ITBIS2").text = "16"
+                if gravado_i3 > 0:
+                    ET.SubElement(totales, "ITBIS3").text = "0"
                 if total_itbis > 0:
                     ET.SubElement(totales, "TotalITBIS").text = cls._sd(total_itbis)
-                    ET.SubElement(totales, "TotalITBIS1").text = cls._sd(total_itbis)
+                    if gravado_i1 > 0:
+                        ET.SubElement(totales, "TotalITBIS1").text = cls._sd(total_itbis)
+                elif gravado_total > 0:
+                    ET.SubElement(totales, "TotalITBIS").text = "0.00"
 
         elif tipo_ecf == "44":
             ET.SubElement(totales, "MontoExento").text = cls._sd(total_global)
@@ -463,7 +492,9 @@ class DgiiXmlBuilder:
             item_elem = ET.SubElement(detalles_items, "Item")
             ET.SubElement(item_elem, "NumeroLinea").text = str(idx + 1)
             itbis_rate = float(item.get("itbisRate", 0.18))
-            if tipo_ecf == "43":
+            if tipo_ecf == "44":
+                ET.SubElement(item_elem, "IndicadorFacturacion").text = "4"
+            elif tipo_ecf == "43":
                 ET.SubElement(item_elem, "IndicadorFacturacion").text = "4"
             elif itbis_rate >= 0.17:
                 ET.SubElement(item_elem, "IndicadorFacturacion").text = "1"
@@ -484,6 +515,7 @@ class DgiiXmlBuilder:
                     ET.SubElement(ret_elem, "MontoISRRetenido").text = cls._sd(item.get("retainedISR", 0.0))
             ET.SubElement(item_elem, "NombreItem").text = item.get("name", "Artículo")
             is_service = "servicio" in item.get("unit", "").lower() or "service" in item.get("unit", "").lower() or item.get("type", "").lower() == "servicio"
+            is_service = is_service or tipo_ecf == "47"
             ET.SubElement(item_elem, "IndicadorBienoServicio").text = "2" if is_service else "1"
             ET.SubElement(item_elem, "CantidadItem").text = f"{float(item.get('quantity', 1.0)):.2f}"
             unit_code = cls.map_unit_of_measure(item.get("unit", "Unidad"))
@@ -572,4 +604,5 @@ class DgiiXmlBuilder:
         xml_str = xml_str.replace("\u00a9", "&copy;")
         xml_str = xml_str.replace("\u20ac", "&euro;")
         xml_str = xml_str.replace("\u00ae", "&reg;")
+
         return xml_str.encode("utf-8")

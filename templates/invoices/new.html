@@ -93,6 +93,10 @@
   {% endfor %}
 </select>
     {% if is_referencing %}<input type="hidden" name="ecfType" value="{{ invoice.ecfType }}">{% endif %}
+    <div id="e45-rnc-warning" style="display:none;margin-top:8px;padding:8px 12px;font-size:0.78rem;background:rgba(251,191,36,0.12);border:1px solid #f59e0b;border-radius:var(--radius-sm);color:#d97706;">
+        <i class="fa-solid fa-circle-info"></i>
+        <span>E45 — Comprobante Gubernamental. El RNC del cliente debería comenzar con <strong>4</strong> (entidad del Estado). Verifique antes de emitir.</span>
+    </div>
     {% endif %}
     <button type="button" class="btn btn-sm btn-secondary" onclick="toggleMoreSettings()" style="margin-left:auto;">
       <i class="fa-solid fa-sliders"></i> Más ajustes
@@ -535,8 +539,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (isNote) { referenceInfoGroup.style.display = 'block'; document.getElementById('ref-ncf-modified')?.setAttribute('required','true'); document.getElementById('ref-ncf-modified-date')?.setAttribute('required','true'); document.getElementById('ref-reason-modification')?.setAttribute('required','true'); const nb = document.getElementById('note-helper-banner'); if (nb) { nb.style.display = 'block'; let bannerType = val; if (isReferencing && !bannerType.includes('Nota de')) { const he = document.querySelector('input[name="ecfType"]'); bannerType = he ? he.value : val; } if (bannerType === 'E34' || bannerType.includes('Nota de Crédito')) { nb.style.borderColor = 'var(--accent-red)'; document.getElementById('note-banner-icon').className = 'fa-solid fa-file-circle-minus'; document.getElementById('note-banner-title').innerText = 'E34 - Nota de Crédito'; document.getElementById('note-banner-text').innerText = 'Resta, anula o aplica devolución a un comprobante previo.'; } else { nb.style.borderColor = 'var(--accent-purple)'; document.getElementById('note-banner-icon').className = 'fa-solid fa-file-circle-plus'; document.getElementById('note-banner-title').innerText = 'E33 - Nota de Débito'; document.getElementById('note-banner-text').innerText = 'Incrementa el valor de un comprobante previo.'; } } }
         else { referenceInfoGroup.style.display = 'none'; document.getElementById('ref-ncf-modified')?.removeAttribute('required'); document.getElementById('ref-ncf-modified-date')?.removeAttribute('required'); document.getElementById('ref-reason-modification')?.removeAttribute('required'); const nb = document.getElementById('note-helper-banner'); if (nb) nb.style.display = 'none'; }
+        updateE45RncWarning();
     }
     if (ecfTypeSelect) { ecfTypeSelect.addEventListener('change', handleEcfTypeChange); handleEcfTypeChange(); }
+
+    function updateE45RncWarning() {
+        const warningEl = document.getElementById('e45-rnc-warning');
+        if (!warningEl || !ecfTypeSelect) return;
+        const code = extractCodeFromLabel(ecfTypeSelect.value);
+        if (code !== 'E45') { warningEl.style.display = 'none'; return; }
+        const rncInput = document.getElementById('client-rnc-input');
+        const rnc = rncInput ? rncInput.value.replace(/[^0-9]/g, '') : '';
+        if (rnc && !rnc.startsWith('4')) {
+            warningEl.style.display = 'block';
+        } else {
+            warningEl.style.display = 'none';
+        }
+    }
+    const _rncInput = document.getElementById('client-rnc-input');
+    if (_rncInput) _rncInput.addEventListener('input', updateE45RncWarning);
 
     // --- ECF type filtering by client category + regimen ---
     const ecfRulesEl = document.getElementById('ecf-rules-data');
@@ -645,6 +666,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const clientIdHidden = document.getElementById('client-id-hidden');
     const clientRncInput = document.getElementById('client-rnc-input');
     const clientSearchInput = document.getElementById('client-search-input');
+    function syncItemItbisForE44() {
+        const code = extractCodeFromLabel(ecfTypeSelect ? ecfTypeSelect.value : '');
+        const isE44 = code === 'E44';
+        document.querySelectorAll('.item-itbis-select').forEach(sel => {
+            if (isE44) {
+                sel.value = '0.0';
+                sel.disabled = true;
+                sel.style.opacity = '0.6';
+                sel.style.cursor = 'not-allowed';
+            } else {
+                sel.disabled = false;
+                sel.style.opacity = '';
+                sel.style.cursor = '';
+            }
+        });
+    }
     if (ecfTypeSelect) {
         ecfTypeSelect.addEventListener('change', () => {
             ecfTypeSelect.setAttribute('data-manual-override','true');
@@ -659,6 +696,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (clientRncInput) clientRncInput.value = '';
                 }
             }
+            syncItemItbisForE44();
             syncRncState();
         });
     }
@@ -681,6 +719,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setConsumerClient();
         }
         syncRncState();
+        syncItemItbisForE44();
     }
 
     if (submitCobrarBtn) {
