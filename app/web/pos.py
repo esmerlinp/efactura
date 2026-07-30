@@ -912,6 +912,12 @@ def create_pos_sale():
                 ))
             except Exception:
                 pass
+        elif res:
+            error_msg = res.get('message', res.get('error', 'Error desconocido de DGII'))
+            invoice_dict["status"] = "Rechazado DGII"
+            invoice_dict["dgiiError"] = str(error_msg)[:200]
+            invoice_dict["enviadoADGII"] = True
+            DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)
     except Exception as e:
         # Si falla, operamos en contingencia local
         print(f"⚠️ Error al emitir e-CF en POS: {e}")

@@ -763,11 +763,23 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================================
     // AGREGAR PARTIDA DINÁMICA A LA TABLA
     // =========================================================================
+    const _isE44Selected = () => {
+        if (!ecfTypeSelect) return false;
+        const val = ecfTypeSelect.value;
+        return val.includes('E44') || val.includes('Regímenes Especiales') || val.includes('Regimenes Especiales');
+    };
+    const _itbisOpts = (selected) => {
+        const rates = ['0.18', '0.16', '0.0108', '0.0'];
+        return rates.map(r =>
+            `<option value="${r}"${r === selected ? ' selected' : ''}>${r === '0.0108' ? '1.08%' : (parseFloat(r) * 100).toFixed(0) + '%'}</option>`
+        ).join('');
+    };
     if (btnAddItem) {
         btnAddItem.addEventListener('click', () => {
             const rowIndex = itemsTableBody.children.length;
             const newRow = document.createElement('tr');
             newRow.className = 'item-row animate-fade-in';
+            const defaultItbis = _isE44Selected() ? '0.0' : '0.18';
 
             newRow.innerHTML = `
                 <td>
@@ -781,7 +793,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td style="text-align:center;"><input type="number" class="form-input item-qty-input" name="items[${rowIndex}][quantity]" min="1" value="1" style="width:90px;text-align:center;" required></td>
                 <td style="text-align:right;"><input type="number" class="form-input item-price-input" name="items[${rowIndex}][price]" step="0.01" value="0.00" style="width:110px;" required></td>
                 <td style="text-align:right;"><input type="number" class="form-input item-discount-input" name="items[${rowIndex}][discountRate]" step="0.01" min="0" max="1" value="0.00" style="width:75px;"></td>
-<td style="text-align:center;"><select class="form-select item-itbis-select" name="items[${rowIndex}][itbisRate]" style="width:75px;"><option value="0.18" selected>18%</option><option value="0.16">16%</option><option value="0.0108">1.08%</option><option value="0.0">0%</option></select></td>
+<td style="text-align:center;"><select class="form-select item-itbis-select" name="items[${rowIndex}][itbisRate]" style="width:75px;">${_itbisOpts(defaultItbis)}</select></td>
                 <td style="text-align:right;font-weight:600;"><span class="item-total-label">RD$ 0.00</span></td>
                 <td>
                   <div style="position:relative;">
@@ -1128,6 +1140,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const rowIndex = 0;
             const newRow = document.createElement('tr');
             newRow.className = 'item-row animate-fade-in';
+            const defaultItbis = _isE44Selected() ? '0.0' : '0.18';
             newRow.innerHTML = `
                 <td>
                   <div style="position:relative;">
@@ -1140,7 +1153,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td style="text-align:center;"><input type="number" class="form-input item-qty-input" name="items[${rowIndex}][quantity]" min="1" value="1" style="width:90px;text-align:center;" required></td>
                 <td style="text-align:right;"><input type="number" class="form-input item-price-input" name="items[${rowIndex}][price]" step="0.01" value="0.00" style="width:110px;" required></td>
                 <td style="text-align:right;"><input type="number" class="form-input item-discount-input" name="items[${rowIndex}][discountRate]" step="0.01" min="0" max="1" value="0.00" style="width:75px;"></td>
-                <td style="text-align:center;"><select class="form-select item-itbis-select" name="items[${rowIndex}][itbisRate]" style="width:75px;"><option value="0.18" selected>18%</option><option value="0.16">16%</option><option value="0.0108">1.08%</option><option value="0.0">0%</option></select></td>
+                <td style="text-align:center;"><select class="form-select item-itbis-select" name="items[${rowIndex}][itbisRate]" style="width:75px;">${_itbisOpts(defaultItbis)}</select></td>
                 <td style="text-align:right;font-weight:600;"><span class="item-total-label">RD$ 0.00</span></td>
                 <td>
                   <div style="position:relative;">

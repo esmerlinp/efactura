@@ -17,6 +17,7 @@ company_profile = {
 }
 
 def make_invoice_data(ecf_type_label, tipo_ecf):
+    is_exempt = tipo_ecf in ("44", "43", "47")
     return {
         "ecfType": ecf_type_label,
         "encf": f"E{tipo_ecf}0100000001",
@@ -24,8 +25,8 @@ def make_invoice_data(ecf_type_label, tipo_ecf):
         "incomeType": "01",
         "paymentMethod": "Efectivo",
         "subtotal": "1000.00",
-        "totalITBIS": "180.00",
-        "total": "1180.00",
+        "totalITBIS": "0.00" if is_exempt else "180.00",
+        "total": "1000.00" if is_exempt else "1180.00",
         "discountRate": "0",
         "retainedITBIS": "0",
         "retainedISR": "0",
@@ -41,7 +42,8 @@ def make_invoice_data(ecf_type_label, tipo_ecf):
                 "quantity": "1",
                 "price": "1000.00",
                 "subtotal": "1000.00",
-                "itbisAmount": "180.00",
+                "itbisAmount": "0.00" if is_exempt else "180.00",
+                "itbisRate": 0.0 if is_exempt else 0.18,
                 "codigoImpuesto": "",
                 "tasaImpuestoAdicional": "0",
             },

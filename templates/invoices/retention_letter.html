@@ -5,8 +5,8 @@
     <title>Carta de Retención - {{ invoice.invoiceNumber }}</title>
     <style>
         @page {
-            size: letter;
-            margin: 2.5cm 2.5cm 2.5cm 2.5cm;
+            size: A4;
+            margin: 1.8cm 2cm 1.8cm 2cm;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -14,7 +14,7 @@
             font-size: 11pt;
             line-height: 1.6;
             color: #1a1a1a;
-            padding: 0;
+            padding: 0 0.5cm;
         }
         .header {
             display: flex;
@@ -195,6 +195,21 @@
 {% set m = now.month %}
 {% set y = now.year %}
 
+{% set total = invoice.get('total', 0) | float %}
+{% set total_itbis = invoice.get('totalITBIS', 0) | float %}
+{% set has_isr = retained_isr | float > 0 %}
+{% set has_itbis_ret = retained_itbis | float > 0 %}
+{% set isr_pct = (retained_isr / total * 100) | round if has_isr and total > 0 else 0 %}
+{% set itbis_pct = (retained_itbis / total_itbis * 100) | round if has_itbis_ret and total_itbis > 0 else 0 %}
+
+{% if has_isr and has_itbis_ret %}
+  {% set subject_text = "Certificación de Retención de ISR (" ~ isr_pct ~ "%) + ITBIS (" ~ itbis_pct ~ "%)" %}
+{% elif has_isr %}
+  {% set subject_text = "Certificación de Retención de ISR (" ~ isr_pct ~ "%)" %}
+{% else %}
+  {% set subject_text = "Certificación de Retención del " ~ itbis_pct ~ "% de ITBIS" %}
+{% endif %}
+
 <div class="date-line">
     Santo Domingo, R.D.<br>
     {{ d }} de {{ months[m - 1] }} del {{ y }}
@@ -208,7 +223,7 @@
 </div>
 
 <div class="subject">
-    Asunto: Certificación de Retención del {{ retention_percent }}% de ITBIS
+    Asunto: {{ subject_text }}
 </div>
 
 <div class="title">
@@ -220,10 +235,10 @@
         <strong>{{ company.get('companyName', '') }}</strong>, sociedad comercial constituida de acuerdo a las leyes de la República Dominicana, con su domicilio social sito en <strong>{{ company.get('companyAddress', '') }}</strong>, con RNC No. <strong>{{ company.get('companyRNC', '') }}</strong>, debidamente representada por su <strong>Presidente Ejecutivo</strong>, el/la señor(a) <strong>{{ representative_name }}</strong>, portador(a) de la cédula no. <strong>{{ representative_id or '__________' }}</strong>,
     </p>
     <p>
-        por medio de la presente certifica que mediante <strong>{{ payment_method }}</strong>, de fecha <strong>{{ invoice.get('paymentDate', invoice.get('date', ''))[:10] }}</strong>, por valor de <strong>RD$ {{ "{:,.2f}".format(net_amount) }}</strong>, procedimos a pagar la factura no. <strong>{{ invoice.get('invoiceNumber', '') }}</strong>, de fecha <strong>{{ invoice.get('date', '')[:10] }}</strong>, por un monto de <strong>RD$ {{ "{:,.2f}".format(invoice.get('total', 0)) }}</strong>, más un ITBIS de <strong>RD$ {{ "{:,.2f}".format(invoice.get('totalITBIS', 0)) }}</strong>, emitida por el/la señor(a) <strong>{{ invoice.get('clientName', '') }}</strong>, portador(a) de la cédula/RNC No. <strong>{{ invoice.get('clientRNC', '') }}</strong>, por concepto de <strong>{{ invoice.get('concept', invoice.get('notes', 'Servicios prestados')) }}</strong>,
+        por medio de la presente certifica que mediante <strong>{{ payment_method }}</strong>, de fecha <strong>{{ invoice.get('paymentDate', invoice.get('date', ''))[:10] }}</strong>, por valor de <strong>RD$ {{ "{:,.2f}".format(net_amount) }}</strong>, procedimos a pagar la factura no. <strong>{{ invoice.get('invoiceNumber', '') }}</strong>, de fecha <strong>{{ invoice.get('date', '')[:10] }}</strong>, por un monto de <strong>RD$ {{ "{:,.2f}".format(total) }}</strong>{% if total_itbis > 0 %}, más un ITBIS de <strong>RD$ {{ "{:,.2f}".format(total_itbis) }}</strong>{% endif %}, emitida por el/la señor(a) <strong>{{ invoice.get('clientName', '') }}</strong>, portador(a) de la cédula/RNC No. <strong>{{ invoice.get('clientRNC', '') }}</strong>, por concepto de <strong>{{ invoice.get('concept', '') or 'Servicios prestados' }}</strong>,
     </p>
     <p>
-        y en tal virtud procedimos a retener la suma de <strong class="amount-highlight">RD$ {{ "{:,.2f}".format(retained_total) }}</strong>, correspondiente al <strong>{{ retention_percent }}%</strong> del ITBIS facturado.
+        y en tal virtud procedimos a retener la suma de <strong class="amount-highlight">RD$ {{ "{:,.2f}".format(retained_total) }}</strong>{% if has_isr and has_itbis_ret %}, correspondiente al <strong>{{ isr_pct }}% de ISR</strong> y al <strong>{{ itbis_pct }}% de ITBIS</strong> facturado{% elif has_isr %}, correspondiente al <strong>{{ isr_pct }}% de ISR</strong> sobre el monto facturado{% else %}, correspondiente al <strong>{{ itbis_pct }}% del ITBIS</strong> facturado{% endif %}.
     </p>
 </div>
 

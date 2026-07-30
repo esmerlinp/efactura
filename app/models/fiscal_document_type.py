@@ -186,7 +186,7 @@ E44 = _reg(FiscalDocumentType(
     family=Family.ECF, category=Category.SPECIAL,
     description="Comprobante para regímenes especiales de ITBIS",
     has_itbis=False, has_itbis_breakdown=False,
-    requires_rnc=False,
+    requires_rnc=True,
     xsd_file="Schemas/e-CF 44 v1.0.xsd",
 ))
 

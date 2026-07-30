@@ -947,6 +947,7 @@ def new_supplier_invoice_direct():
         ecf_type = request.form.get('ecfType', _by_code("E31").code)
         is_e41 = ecf_type in ("E41", "Comprobante de Compras (E41)")
         is_e43 = ecf_type in ("E43", "Comprobante para Gastos Menores (E43)")
+        is_e47 = ecf_type in ("E47", "Pagos al Exterior (E47)")
 
         today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
         if inv_date > today_str:
@@ -957,7 +958,7 @@ def new_supplier_invoice_direct():
             return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=po_id))
 
         # Skip NCF uniqueness check for E41/E43 (NCF is auto-generated from company's sequence)
-        if ncf and not is_e41 and not is_e43 and not SupplierInvoiceService._check_ncf_unique(owner_uid=owner_uid, ncf=ncf, sandbox=sandbox, company_id=company_id):
+        if ncf and not is_e41 and not is_e43 and not is_e47 and not SupplierInvoiceService._check_ncf_unique(owner_uid=owner_uid, ncf=ncf, sandbox=sandbox, company_id=company_id):
             flash('El NCF ya está registrado en otra factura.', 'error')
             return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=po_id))
 
@@ -1057,8 +1058,10 @@ def new_supplier_invoice_direct():
             "supplierCedula": supplier_cedula,
             "supplierType": request.form.get('supplierType', 'formal'),
             "ecfType": ecf_type,
+            "paisDestino": request.form.get('paisDestino', 'US'),
+            "isrAsumido": request.form.get('isrAsumido') == 'on',
             "cne": request.form.get('cne', ''),
-            "isAutoEmitted": is_e41 or is_e43,
+            "isAutoEmitted": is_e41 or is_e43 or is_e47,
             "date": inv_date,
             "dueDate": due_date,
             "paymentTerms": "contado" if payment_type == 'Contado' else "credito_30d",
@@ -1435,6 +1438,109 @@ def new_supplier_invoice_direct():
                 else:
                     msg += '\n\u26a0\ufe0f No se pudo emitir E43 autom\u00e1ticamente.'
 
+        # === EMISIÓN ECF 47 (Pagos al Exterior) AUTOEMITIDO ===
+        if is_e47:
+            try:
+                from app.services.ecf_emission import EcfEmissionService
+                from app.web.invoices import check_document_limit_exceeded, _build_supplier_invoice_ecf_payload
+
+                exceeded_47, limit_msg_47 = check_document_limit_exceeded(
+                    owner_uid, company_id=company_id, sandbox=sandbox
+                )
+                if exceeded_47:
+                    if limit_msg_47:
+                        flash(limit_msg_47, 'warning')
+                else:
+                    user_email_47 = session['user']['email']
+                    encf_47, log_id_47 = DatabaseService.consume_next_sequence(
+                        owner_uid, "E47", user_email_47, company_id=company_id, sandbox=sandbox
+                    )
+                    inv_data["encf"] = encf_47
+
+                    company_47 = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+                    ecf_payload_47 = _build_supplier_invoice_ecf_payload(inv_data)
+                    ecf_payload_47["encf"] = encf_47
+
+                    res_47 = EcfEmissionService.emit_electronic_comprobante(
+                        company_47, ecf_payload_47, sandbox=sandbox
+                    )
+
+                    try:
+                        from app.web.invoices import _log_dgii_emission_to_audit
+                        _log_dgii_emission_to_audit(
+                            owner_uid, inv_data, res_47,
+                            performed_by_email=session['user']['email'],
+                            performed_by_name=session['user'].get('displayName', 'Usuario'),
+                            company_id=company_id, sandbox=sandbox
+                        )
+                    except Exception as audit_err:
+                        print(f"Error al registrar auditoría DGII E47: {audit_err}")
+
+                    if res_47.get("success"):
+                        update_fields = {
+                            "encf":           res_47.get("encf", encf_47),
+                            "ecfNumber":      res_47.get("encf", encf_47),
+                            "ncf":            res_47.get("encf", encf_47),
+                            "xmlSignature":   res_47.get("xmlSignature", ""),
+                            "qrCodeURL":      res_47.get("qrCodeURL", ""),
+                            "trackId":        res_47.get("trackId", ""),
+                            "isSyncedWithDGII": True,
+                            "status":         "emitida",
+                            "updatedAt":      datetime.now(timezone.utc).isoformat(),
+                        }
+                        SupplierInvoiceService.update(
+                            owner_uid, inv_data["id"], update_fields,
+                            sandbox=sandbox, company_id=company_id
+                        )
+
+                        if log_id_47:
+                            try:
+                                if not msg.startswith('Factura'):
+                                    msg = f'Factura proveedor {sinv_number} registrada exitosamente.\n'
+                                msg += f'\u2705 E47 emitido ante DGII. e-NCF: {res_47.get("encf", encf_47)}'
+                            except Exception:
+                                pass
+
+                        if not msg.strip().endswith('DGII'):
+                            if not msg.startswith('Factura'):
+                                msg = f'Factura proveedor {sinv_number} registrada exitosamente.\n'
+                            msg += f' Comprobante E47 emitido: {res_47.get("encf", encf_47)}.'
+                    else:
+                        error_msg_47 = res_47.get('message', res_47.get('error', 'Error desconocido de DGII'))
+                        SupplierInvoiceService.update(
+                            owner_uid, inv_data["id"], {
+                                "status": "rechazado_dgii",
+                                "dgiiError": str(error_msg_47)[:200],
+                                "updatedAt": datetime.now(timezone.utc).isoformat(),
+                            },
+                            sandbox=sandbox, company_id=company_id
+                        )
+                        if log_id_47:
+                            try:
+                                DatabaseService.update_sequence_log(owner_uid, log_id_47, {
+                                    "estado": "FAILED",
+                                    "motivo": f"DGII rechaz\u00f3 E47: {error_msg_47}",
+                                }, sandbox=sandbox, company_id=company_id)
+                            except Exception:
+                                pass
+                        msg += f'\n\u26a0\ufe0f DGII rechaz\u00f3 el E47: {error_msg_47}'
+            except Exception as e47_sinv:
+                err_str = str(e47_sinv)
+                is_no_seq = any(kw in err_str.lower() for kw in ['secuencia', 'agotada', 'expirada', 'no hay una secuencia'])
+                print(f"\u274c Error al emitir E47 desde factura proveedor {inv_data['id']}: {e47_sinv}")
+                SupplierInvoiceService.update(
+                    owner_uid, inv_data["id"], {
+                        "status": "borrador" if is_no_seq else "rechazado_dgii",
+                        "dgiiError": "" if is_no_seq else f"Excepci\u00f3n en emisi\u00f3n E47: {str(e47_sinv)}"[:200],
+                        "updatedAt": datetime.now(timezone.utc).isoformat(),
+                    },
+                    sandbox=sandbox, company_id=company_id
+                )
+                if is_no_seq:
+                    msg += '\nNo hay comprobantes fiscales disponibles. La factura se guard\u00f3 como borrador.'
+                else:
+                    msg += '\n\u26a0\ufe0f No se pudo emitir E47 autom\u00e1ticamente.'
+
         if file_upload_error:
             msg += ' El archivo no pudo subirse. Puede adjuntarlo después desde el detalle.'
         flash(msg, 'success')
@@ -1453,6 +1559,7 @@ def new_supplier_invoice_direct():
 
     e41_sequences = []
     e43_sequences = []
+    e47_sequences = []
     try:
         all_seqs = DatabaseService.get_sequences(owner_uid, company_id=company_id, sandbox=sandbox)
         e41_sequences = [
@@ -1466,6 +1573,13 @@ def new_supplier_invoice_direct():
             {'tipoComprobante': s.get('tipoComprobante', 'E43')}
             for s in all_seqs
             if s.get('tipoComprobante') == 'E43'
+            and s.get('estado', '').upper() == 'ACTIVA'
+            and not s.get('bloqueadaManualmente', False)
+        ]
+        e47_sequences = [
+            {'tipoComprobante': s.get('tipoComprobante', 'E47')}
+            for s in all_seqs
+            if s.get('tipoComprobante') == 'E47'
             and s.get('estado', '').upper() == 'ACTIVA'
             and not s.get('bloqueadaManualmente', False)
         ]
@@ -1484,8 +1598,9 @@ def new_supplier_invoice_direct():
                            accounting_accounts=accounting_accounts,
                            itbis_general=itbis_general,
                            itbis_reduced=itbis_reduced,
-                           e41_sequences=e41_sequences,
-                           e43_sequences=e43_sequences,
+                            e41_sequences=e41_sequences,
+                            e43_sequences=e43_sequences,
+                            e47_sequences=e47_sequences,
                            projects=projects,
                            active_project_id=active_project_id,
                            cost_centers=active_cost_centers,
@@ -2756,7 +2871,7 @@ def supplier_retention_letter_email(invoice_id):
 
         from app.services.mailer import Mailer
         mailer = Mailer()
-        attachments = [("Carta_Retencion_{}.pdf".format(inv_num), pdf_bytes, "application/pdf")] if pdf_bytes else []
+        attachments = [{"filename": "Carta_Retencion_{}.pdf".format(inv_num), "data": pdf_bytes, "mimetype": "application/pdf"}] if pdf_bytes else []
 
         mailer.send(
             app=app._get_current_object(),
