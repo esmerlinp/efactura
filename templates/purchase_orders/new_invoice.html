@@ -5,12 +5,30 @@
 
 {% block content %}
 <style>
-    {% include 'components/_accordion_css.html' %}
+    .doc-main-col { max-width:960px; margin:0 auto; display:flex; flex-direction:column; gap:36px; }
+    .section-card { background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:22px 24px; margin-bottom:24px; }
+    .section-card:last-child { margin-bottom:0; }
+    .section-card h3 { font-size:0.95rem; font-weight:700; color:var(--text-primary); margin:0 0 16px 0; display:flex; align-items:center; gap:10px; }
+    .section-card h3 i { font-size:0.95rem; }
+    .inp-row { display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; }
+    .inp-row > .inp-group { flex:1; min-width:150px; }
+    .inp-group.wide { flex:2; min-width:220px; }
+    .inp-group label { font-size:0.78rem; color:var(--text-secondary); display:block; margin-bottom:4px; font-weight:500; }
 
-    .items-table { width:100%; border-collapse:collapse; font-size:0.85rem; }
-    .items-table th { padding:8px 12px; text-align:left; font-size:0.72rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid var(--border-color); white-space:nowrap; }
-    .items-table td { padding:6px 10px; border-bottom:1px solid var(--border-color); vertical-align:middle; }
-    .items-table td:last-child { text-align:center; width:40px; padding:6px 8px; }
+    .more-settings-panel { position:fixed; top:0; right:-440px; width:420px; height:100vh; background:var(--bg-card); border-left:1px solid var(--border-color); box-shadow:-10px 0 40px rgba(0,0,0,0.1); z-index:2000; transition:right 0.3s cubic-bezier(0.22,1,0.36,1); overflow-y:auto; padding:28px; }
+    .more-settings-panel.open { right:0; }
+    .more-settings-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.25); z-index:1999; display:none; }
+    .more-settings-backdrop.show { display:block; }
+
+.items-table { width:100%; border-collapse:collapse; font-size:0.75rem; }
+.items-table th { padding:5px 6px; text-align:left; font-size:0.65rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.3px; border-bottom:2px solid var(--border-color); white-space:nowrap; }
+.items-table td { padding:3px 4px; border-bottom:1px solid var(--border-color); vertical-align:middle; }
+.items-table td:last-child { text-align:center; width:28px; padding:3px 4px; }
+.items-table .form-input,
+.items-table .form-select { font-size:0.72rem !important; padding-top:3px !important; padding-bottom:3px !important; }
+.items-table .form-input { min-height:26px; }
+.items-table .form-select { min-height:26px; padding-right:20px !important; }
+.items-table .item-price-wrap .item-price-badge { font-size:0.6rem; padding:1px 4px; }
 
     .totals-strip { display:flex; justify-content:flex-end; align-items:flex-end; flex-direction:column; gap:4px; padding-top:14px; border-top:1px solid var(--border-color); margin-top:10px; font-size:0.82rem; }
     .totals-strip .tl-row { display:flex; justify-content:space-between; width:260px; }
@@ -32,6 +50,11 @@
     .acco-tree-item .acco-toggle { font-size:0.6rem; color:var(--text-muted); width:14px; text-align:center; flex-shrink:0; cursor:pointer; user-select:none; }
     .acco-tree-item .acco-toggle:hover { color:var(--accent-emerald); }
     .acco-tree-item .acco-icon { font-size:0.65rem; width:14px; text-align:center; flex-shrink:0; color:var(--text-muted); }
+
+    #emitting-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center; flex-direction:column; gap:20px; }
+    #emitting-overlay .spinner { width:48px; height:48px; border:4px solid rgba(255,255,255,0.2); border-top-color:var(--accent-emerald); border-radius:50%; animation:spin 0.8s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    #emitting-overlay .emit-text { color:#fff; font-size:1rem; font-weight:600; }
     .acco-tree-item .acco-name { color:var(--text-primary); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
     .acco-search-no-results { padding:12px; text-align:center; font-size:0.75rem; color:var(--text-muted); }
     .acco-search-box { padding:8px 12px; border-bottom:1px solid var(--border-color); position:sticky; top:0; background:var(--bg-card); z-index:1; }
@@ -55,7 +78,7 @@
     .uploader-zone { border:2px dashed var(--border-color); border-radius:var(--radius-md); padding:40px 20px; text-align:center; background:rgba(0,0,0,0.01); cursor:pointer; transition:all 0.25s ease; }
     .uploader-zone:hover { border-color:var(--accent-emerald); background:rgba(16,185,129,0.03); }
 
-    .help-banner { background:rgba(59,130,246,0.05); border:1px solid rgba(59,130,246,0.15); border-radius:var(--radius-sm); padding:14px 18px; font-size:0.78rem; color:var(--text-secondary); line-height:1.5; margin-bottom:20px; }
+    .help-banner { background:rgba(59,130,246,0.05); border:1px solid rgba(59,130,246,0.15); border-radius:var(--radius-sm); padding:14px 18px; font-size:0.78rem; color:var(--text-secondary); line-height:1.5; }
     .help-banner i { color:var(--accent-blue); margin-right:6px; }
 
     .form-inner-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -82,9 +105,6 @@
     .btn-close-modal { background:none; border:none; color:var(--text-muted); font-size:1.2rem; cursor:pointer; padding:4px; border-radius:4px; }
     .btn-close-modal:hover { color:var(--text-primary); background:var(--bg-nav-hover); }
 
-    #sec-partidas.active { overflow: visible !important; }
-    #sec-partidas.active .accordion-content { overflow: visible !important; }
-
     .ocr-modal-content { max-width:520px; width:95%; }
     .ocr-drop-zone { border:2px dashed var(--border-color); border-radius:var(--radius-md); padding:48px 24px; text-align:center; background:rgba(0,0,0,0.01); cursor:pointer; transition:all 0.25s ease; }
     .ocr-drop-zone:hover, .ocr-drop-zone.dragover { border-color:var(--accent-emerald); background:rgba(16,185,129,0.04); }
@@ -99,7 +119,7 @@
     .ocr-loading span { font-size:0.88rem; color:var(--text-muted); }
 </style>
 
-<div style="max-width:1050px; margin:0 auto 50px auto; width:100%;">
+<div class="doc-main-col">
 
     {% if po %}
     <div class="help-banner" style="background:rgba(139,92,246,0.06); border-color:rgba(139,92,246,0.2);">
@@ -112,8 +132,7 @@
     {% else %}
     <div class="help-banner">
         <i class="fa-solid fa-circle-info"></i>
-        Registra una factura de compra directamente, sin necesidad de crear una orden de compra previa.
-        Completa los datos del proveedor, comprobante fiscal y partidas para llevar el control de CxP.
+        Registra una factura de compra directamente. Completa los datos del proveedor, comprobante fiscal y partidas.
     </div>
     {% endif %}
 
@@ -122,404 +141,322 @@
         <input type="hidden" id="ocr-attachment-url" name="ocr_attachment_url" value="">
         <input type="hidden" id="ocr-attachment-json" name="ocr_attachment_json" value="">
         {% if po_id %}<input type="hidden" name="po_id" value="{{ po_id }}">{% endif %}
+        <input type="hidden" name="ecfType" value="E41">
 
-        <div class="settings-accordion">
-
-            <!-- SECCIÓN 1: PROVEEDOR -->
-            <div class="accordion-item active" id="sec-proveedor">
-                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
-                    <div class="accordion-title">
-                        <i class="fa-solid fa-truck" style="color:var(--accent-purple);"></i>
-                        <span>1. Proveedor</span>
-                    </div>
-                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+        <div class="section-card">
+            <h3 style="display:flex;justify-content:space-between;align-items:center;">
+                <span><i class="fa-solid fa-truck" style="color:var(--accent-purple);"></i> Proveedor</span>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="toggleMoreSettings()">
+                    <i class="fa-solid fa-sliders"></i> Más ajustes
                 </button>
-                <div class="accordion-content" style="max-height:none;">
-                    <div class="accordion-body">
-                        <div class="form-inner-grid">
-                            <div class="form-group span-full" style="position:relative;">
-                                <label for="supplier-search">Buscar Proveedor del Catálogo <span style="font-size:0.7rem; color:var(--text-muted);">(opcional — autocompleta RNC y datos)</span></label>
-                                <button type="button" id="btn-create-supplier-modal" style="position:absolute;top:0;right:0;background:none;border:none;color:var(--accent-emerald);font-size:0.72rem;font-weight:600;cursor:pointer;padding:0;">+ Nuevo</button>
-                                <input type="text" id="supplier-search" class="form-input" placeholder="Escribe el nombre o RNC del proveedor..." autocomplete="off" style="width:100%;">
-                                <div id="supplier-search-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:var(--shadow-lg); z-index:999; max-height:250px; overflow-y:auto; margin-top:4px;"></div>
-                                <input type="hidden" id="supplierId" name="supplierId" value="{{ po_supplier_id if po else '' }}">
-                            </div>
-
-                            <div class="form-group">
-                                <label for="supplierType">Tipo de Proveedor</label>
-                                <select id="supplierType" name="supplierType" class="form-select" style="width:100%;">
-                                    <option value="formal" selected>Proveedor Formal (RNC)</option>
-                                    <option value="informal">Proveedor Informal</option>
-                                    <option value="internacional">Proveedor Internacional</option>
-                                </select>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="supplierName">Razón Social *</label>
-                                <input type="text" id="supplierName" name="supplierName" class="form-input" placeholder="Nombre del proveedor" required style="width:100%;" value="{{ po_supplier_name if po else '' }}">
-                            </div>
-
-                            <div class="form-group">
-                                <label for="supplierRnc">RNC</label>
-                                <input type="text" id="supplierRnc" name="supplierRnc" class="form-input" placeholder="101001011" style="width:100%; font-family:monospace;" value="{{ po_supplier_rnc if po else '' }}">
-                            </div>
-
-                            <div class="form-group">
-                                <label for="tipoGastoDGII">Tipo Gasto Deducible DGII</label>
-                                <select id="tipoGastoDGII" name="tipoGastoDGII" class="form-select" style="width:100%;">
-                                    <option value="01">01 - Gastos de Personal</option>
-                                    <option value="02" selected>02 - Gastos por Trabajos, Suministros y Servicios</option>
-                                    <option value="03">03 - Arrendamientos</option>
-                                    <option value="04">04 - Gastos de Activos Fijos</option>
-                                    <option value="05">05 - Gastos de Representación</option>
-                                    <option value="06">06 - Otras Deducciones Admitidas</option>
-                                    <option value="07">07 - Gastos Financieros</option>
-                                    <option value="08">08 - Gastos Extraordinarios</option>
-                                    <option value="09">09 - Compras y Gastos del Costo de Venta</option>
-                                    <option value="10">10 - Adquisiciones de Activos</option>
-                                    <option value="11">11 - Gastos de Seguros</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
+            </h3>
+            <div class="inp-row">
+                <div class="inp-group wide" style="position:relative;">
+                    <label for="supplier-search">Buscar Proveedor</label>
+                    <button type="button" id="btn-create-supplier-modal" style="position:absolute;top:0;right:0;background:none;border:none;color:var(--accent-emerald);font-size:0.72rem;font-weight:600;cursor:pointer;padding:0;">+ Nuevo</button>
+                    <input type="text" id="supplier-search" class="form-input" placeholder="Escribe el nombre o RNC..." autocomplete="off" value="{{ po_supplier_name if po else '' }}" style="width:100%;">
+                    <div id="supplier-search-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:var(--shadow-lg); z-index:999; max-height:250px; overflow-y:auto; margin-top:4px;"></div>
+                    <input type="hidden" id="supplierId" name="supplierId" value="{{ po_supplier_id if po else '' }}">
+                </div>
+                <div class="inp-group" style="max-width:150px;">
+                    <label for="supplierType">Tipo</label>
+                    <select id="supplierType" name="supplierType" class="form-select" style="width:100%;">
+                        <option value="formal">Formal (RNC)</option>
+                        <option value="informal" selected>Informal</option>
+                        <option value="internacional">Internacional</option>
+                    </select>
+                </div>
+                <div class="inp-group">
+                    <label for="supplierName">Razón Social *</label>
+                    <input type="text" id="supplierName" name="supplierName" class="form-input" placeholder="Nombre del proveedor" required style="width:100%;" value="{{ po_supplier_name if po else '' }}">
+                </div>
+                <div class="inp-group" style="max-width:155px;">
+                    <label for="supplierRnc">RNC / Cédula</label>
+                    <input type="text" id="supplierRnc" name="supplierRnc" class="form-input" placeholder="101001011" style="width:100%; font-family:monospace;" value="{{ po_supplier_rnc if po else '' }}">
+                    <input type="hidden" id="supplierCedula" name="supplierCedula" value="">
                 </div>
             </div>
+            <span id="rnc-status" style="font-size:0.72rem;font-weight:600;margin-top:8px;display:block;"></span>
+            <div id="rnc-warning" style="display:none;margin-top:6px;padding:10px 14px;border-radius:8px;font-size:0.78rem;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);color:#d97706;"></div>
+        </div>
 
-            <!-- SECCIÓN 2: DATOS FISCALES -->
-            <div class="accordion-item" id="sec-fiscal">
-                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
-                    <div class="accordion-title">
-                        <i class="fa-solid fa-stamp" style="color:var(--accent-blue);"></i>
-                        <span>2. Datos del Comprobante Fiscal</span>
-                    </div>
-                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
-                </button>
-                <div class="accordion-content">
-                    <div class="accordion-body">
-                        <div class="form-inner-grid">
-                            <div class="form-group">
-                                <label for="ecfType">Tipo de Comprobante</label>
-                                <select id="ecfType" name="ecfType" class="form-select" style="width:100%;">
-                                    <option value="E31" selected>E31 / B01 — Factura de Crédito Fiscal</option>
-                                    <option value="E32">E32 / B02 — Factura de Consumo</option>
-                                    <option value="E41">E41 / B06 — Comprobante de Compras <span style="color:#d97706;font-weight:600;">(Autoemitido)</span></option>
-                                    <option value="E43">E43 / B07 — Gastos Menores <span style="color:#d97706;font-weight:600;">(Autoemitido)</span></option>
-                                    <option value="E45">E45 / B08 — Gubernamental</option>
-                                    <option value="E47">E47 / B10 — Pagos al Exterior</option>
-                                </select>
-                                 <small style="color:var(--text-muted);font-size:0.7rem;margin-top:4px;display:block;" id="ecf-help">
-                                     💡 Para compras a <strong>proveedores informales</strong> selecciona <strong>E41/B06 — Comprobante de Compras</strong> (Tipo B en el Reporte 606).
-                                 </small>
-                             </div>
-
-                             <div class="form-group e41-hideable">
-                                 <label for="ncf">NCF / e-CF del Proveedor</label>
-                                 <input type="text" id="ncf" name="ncf" class="form-input" placeholder="Ej: E310120000452" style="width:100%; font-family:monospace;">
-                             </div>
-
-                             <div class="form-group e41-hideable">
-                                 <label for="cne">CNE / Código Seguridad</label>
-                                 <input type="text" id="cne" name="cne" class="form-input" placeholder="Firma digital DGII" style="width:100%; font-family:monospace;">
-                             </div>
-
-                             <div class="form-group" id="cedula-group" style="display:none;">
-                                 <label for="supplierCedula">Cédula del Beneficiario <span style="color:var(--accent-red);">*</span></label>
-                                 <input type="text" id="supplierCedula" name="supplierCedula" class="form-input" placeholder="Ej: 40212345678" style="width:100%; font-family:monospace;" maxlength="11">
-                                 <small style="color:var(--text-muted);font-size:0.7rem;margin-top:4px;display:block;">
-                                     El E41 requiere un identificador fiscal v\u00e1lido del beneficiario de la compra (RNC o c\u00e9dula).
-                                 </small>
-                             </div>
-
-                             <div class="form-group" id="e41-sequence-group" style="display:none;">
-                                 <label>Secuencia Fiscal E41</label>
-                                 <div id="e41-sequence-badge" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:var(--radius-sm);font-size:0.78rem;color:var(--accent-purple);font-weight:600;">
-                                     <i class="fa-solid fa-ticket"></i>
-                                     <span id="e41-sequence-label">Sin secuencias activas</span>
-                                 </div>
-                                 <small style="color:var(--text-muted);font-size:0.7rem;margin-top:4px;display:block;">
-                                     El comprobante E41 es <strong>autoemitido</strong> por la empresa compradora usando su propia secuencia fiscal.
-                                 </small>
-                             </div>
-
-                             <div class="form-group">
-                                 <label for="invoiceNumber">No. Factura del Proveedor *</label>
-                                 <input type="text" id="invoiceNumber" name="invoiceNumber" class="form-input" placeholder="Ej: F001-123" required style="width:100%;">
-                             </div>
-
-                            <div class="form-group">
-                                <label for="date">Fecha de Emisión *</label>
-                                <input type="date" id="date" name="date" class="form-input" value="{{ today }}" required max="{{ today }}" style="width:100%;">
-                            </div>
-
-                            <div class="form-group">
-                                <label for="dueDate">Fecha de Vencimiento</label>
-                                <input type="date" id="dueDate" name="dueDate" class="form-input" style="width:100%;">
-                            </div>
-                        </div>
-                    </div>
-                </div>
+        <div class="section-card" style="overflow:visible;">
+            <h3 style="display:flex;justify-content:space-between;align-items:center;">
+                <span><i class="fa-solid fa-box" style="color:var(--accent-emerald);"></i> Partidas</span>
+                <span id="ret-badge" class="ret-badge" onclick="openRetentionsModal()" title="Retenciones y descuentos">
+                    <i class="fa-solid fa-percent"></i> Retenciones y Desc.
+                </span>
+            </h3>
+            <div class="price-mode-bar" id="price-mode-bar">
+                <label class="price-mode-switch">
+                    <input type="checkbox" id="price-mode-toggle" onchange="onPriceModeChange()">
+                    <span class="slider"></span>
+                </label>
+                <span class="price-mode-label" onclick="togglePriceMode()">Los precios incluyen <em>ITBIS</em></span>
+                <span class="price-mode-hint">Al activar, el sistema calculará la base imponible automáticamente</span>
             </div>
-
-            <!-- SECCIÓN 3: PARTIDAS (TABLA DINÁMICA) -->
-            <div class="accordion-item active" id="sec-partidas">
-                <button type="button" class="accordion-header" onclick="toggleAccordionPartidas(this)">
-                    <div class="accordion-title">
-                        <i class="fa-solid fa-box" style="color:var(--accent-emerald);"></i>
-                        <span>3. Partidas</span>
-                    </div>
-                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
-                </button>
-                <div class="accordion-content" style="max-height:none;" id="partidas-content">
-                    <div class="accordion-body" style="overflow:visible;">
-                        <div class="price-mode-bar" id="price-mode-bar">
-                            <label class="price-mode-switch">
-                                <input type="checkbox" id="price-mode-toggle" onchange="onPriceModeChange()">
-                                <span class="slider"></span>
-                            </label>
-                            <span class="price-mode-label" onclick="togglePriceMode()">
-                                Los precios incluyen <em>ITBIS</em>
-                            </span>
-                            <span class="price-mode-hint">Al activar, el sistema calculará la base imponible automáticamente</span>
-                        </div>
-                        <div style="overflow:visible;">
-                            <table class="items-table" id="items-table">
-                                <thead>
-                                    <tr>
-                                        <th style="width:21%;">Descripción *</th>
-                                        <th style="width:8%;text-align:center;">Cant.</th>
-                                        <th style="width:12%;text-align:right;">Precio U.</th>
-                                        <th style="width:10%;text-align:center;">ITBIS</th>
-                                        <th style="width:5%;text-align:right;">Desc%</th>
-                                        <th style="width:24%;">Cuenta Contable</th>
-                                        <th style="width:12%;text-align:right;">Total</th>
-                                        <th style="width:2%;"></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="items-body">
-                                    <tr class="item-row">
-                                        <td>
-                                            <input type="text" class="form-input item-name" name="items[0][name]" placeholder="Descripción del producto/servicio" required style="width:100%;">
-                                        </td>
-                                        <td style="text-align:center;">
-                                            <input type="number" class="form-input item-qty" name="items[0][quantity]" value="1" min="0.01" step="0.01" required style="width:100%;min-width:40px;text-align:center;" oninput="recalculateTotals()">
-                                        </td>
-                                        <td style="text-align:right;">
-                                            <div class="item-price-wrap">
-                                                <input type="number" class="form-input item-price" name="items[0][unitPrice]" value="0.00" step="0.01" min="0" required style="width:100%;min-width:60px;text-align:right;" oninput="recalculateTotals()">
-                                                <span class="item-price-badge">c/ITBIS</span>
-                                            </div>
-                                        </td>
-                                        <td style="text-align:center;">
-                                            <select class="form-select item-itbis" name="items[0][itbisRate]" onchange="recalculateTotals()" style="width:100%;font-size:0.8rem;padding:6px 24px 6px 6px;background-position:right 6px center;">
-                                                <option value="{{ itbis_general }}">{{ "%.0f"|format(itbis_general * 100) }}%</option>
-                                                <option value="{{ itbis_reduced }}">{{ "%.0f"|format(itbis_reduced * 100) }}%</option>
-                                                <option value="0.0">0%</option>
-                                            </select>
-                                        </td>
-                                        <td style="text-align:right;">
-                                            <input type="number" class="form-input item-discount" name="items[0][discount]" value="0" step="0.01" min="0" max="100" style="width:100%;min-width:40px;text-align:right;" oninput="recalculateTotals()">
-                                        </td>
-                                        <td class="account-cell">
-                                            <input type="text" class="form-input item-account-display" value="" placeholder="Buscar cuenta..." autocomplete="off" onfocus="openAccountDropdown(this)" oninput="filterAccountDropdown(this)" style="width:100%;font-size:0.78rem;">
-                                            <input type="hidden" class="item-account-id" name="items[0][accountingAccountId]" value="">
-                                            <div class="acco-dropdown"></div>
-                                        </td>
-                                        <td style="text-align:right;font-weight:600;">
-                                            <span class="item-total-label">RD$ 0.00</span>
-                                        </td>
-                                        <td style="text-align:center;">
-                                            <button type="button" class="row-menu-btn remove-row-btn" title="Eliminar"><i class="fa-solid fa-xmark"></i></button>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="totals-strip">
-                            <div class="tl-row"><span>Subtotal</span><span id="sum-subtotal">RD$ 0.00</span></div>
-                            <div class="tl-row"><span>Descuento</span><span id="sum-discount">RD$ 0.00</span></div>
-                            <div class="tl-row"><span>ITBIS</span><span id="sum-itbis">RD$ 0.00</span></div>
-                            <div class="tl-row total"><span>Total</span><span id="sum-total">RD$ 0.00</span></div>
-                        </div>
-                        <div style="margin-top:12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-                            <button type="button" id="btn-add-item" class="btn btn-sm btn-secondary"><i class="fa-solid fa-plus"></i> Añadir Partida</button>
-                            <span id="ret-badge" class="ret-badge" onclick="openRetencionesModal()" title="Agregar retenciones">
-                                <i class="fa-solid fa-percent"></i> Retenciones
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- SECCIÓN 4: CONDICIONES DE PAGO, MONEDA Y PROYECTO -->
-            <div class="accordion-item" id="sec-pago">
-                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
-                    <div class="accordion-title">
-                        <i class="fa-solid fa-credit-card" style="color:var(--accent-orange);"></i>
-                        <span>4. Condiciones de Pago, Moneda y Proyecto</span>
-                    </div>
-                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
-                </button>
-                <div class="accordion-content">
-                    <div class="accordion-body">
-                        <div class="form-inner-grid">
-                            <div class="form-group">
-                                <label for="paymentType">Estado del Pago</label>
-                                <select id="paymentType" name="paymentType" class="form-select" onchange="togglePaymentFields()" style="width:100%;">
-                                    <option value="Contado" selected>Pagado (Contado)</option>
-                                    <option value="Crédito">Pendiente de pago (Crédito / CxP)</option>
-                                </select>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="paymentMethod">Forma de Pago</label>
-                                <select id="paymentMethod" name="paymentMethod" class="form-select" style="width:100%;">
-                                    <option value="transferencia" selected>Transferencia bancaria</option>
-                                    <option value="cheque">Cheque</option>
-                                    <option value="efectivo">Efectivo</option>
-                                    <option value="tarjeta">Tarjeta</option>
-                                    <option value="otro">Otro</option>
-                                </select>
-                            </div>
-
-                            <div class="form-group span-full">
-                                <label for="bankAccountId">Cuenta Bancaria <span style="color:var(--accent-red);" id="bank-required">*</span></label>
-                                <select id="bankAccountId" name="bankAccountId" class="form-select" style="width:100%;">
-                                    <option value="">-- Seleccionar Cuenta --</option>
-                                    {% for acc in bank_accounts %}
-                                    <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.type|capitalize }}) — RD$ {{ "{:,.2f}".format(acc.currentBalance) }}</option>
-                                    {% endfor %}
-                                </select>
-                                <small style="color:var(--text-muted); font-size:0.72rem;">El saldo se descontará automáticamente al registrar la factura si es Contado.</small>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="currency">Moneda</label>
-                                <select id="currency" name="currency" class="form-select" style="width:100%;" onchange="handleCurrencyChange()">
-                                    <option value="DOP" {% if not po or po_currency == 'DOP' %}selected{% endif %}>DOP - Peso Dominicano</option>
-                                    <option value="USD" {% if po and po_currency == 'USD' %}selected{% endif %}>USD - Dólar</option>
-                                    <option value="EUR" {% if po and po_currency == 'EUR' %}selected{% endif %}>EUR - Euro</option>
-                                </select>
-                            </div>
-
-                            <div class="form-group" id="exchange-rate-container">
-                                <label for="exchangeRate">Tasa de Cambio</label>
-                                <input type="number" id="exchangeRate" name="exchangeRate" class="form-input" value="{{ "%.2f"|format(po_exchange_rate) if po else "1.00" }}" step="0.01" min="0.01" style="width:100%;">
-                            </div>
-
-                            <div class="form-group">
-                                <label for="projectId">Proyecto</label>
-                                <select id="projectId" name="projectId" class="form-select" style="width:100%;">
-                                    <option value="">Sin proyecto</option>
-                                    {% for p in projects %}
-                                    <option value="{{ p.id }}" {% if p.id == active_project_id %}selected{% endif %}>{{ p.name }} ({{ p.code }})</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-
-                            <div class="form-group">
-                                <label style="display:flex;justify-content:space-between;">
-                                    <span>Centro de Costo</span>
-                                    <button type="button" onclick="openCostCenterModal()" style="font-size:0.72rem;color:var(--accent-emerald);background:none;border:none;cursor:pointer;">+ Nuevo</button>
-                                </label>
-                                <select id="costCenterId" name="costCenterId" class="form-select" style="width:100%;">
-                                    <option value="">— Sin centro de costo —</option>
-                                    {% for cc in cost_centers %}
-                                    <option value="{{ cc.id }}">{% if cc.code %}[{{ cc.code }}] {% endif %}{{ cc.name }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- SECCIÓN 5: ADJUNTOS Y NOTAS -->
-            <div class="accordion-item" id="sec-adjuntos">
-                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
-                    <div class="accordion-title">
-                        <i class="fa-solid fa-paperclip" style="color:var(--text-muted);"></i>
-                        <span>5. Adjuntos y Notas</span>
-                    </div>
-                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
-                </button>
-                <div class="accordion-content">
-                    <div class="accordion-body">
-                        <div class="form-inner-grid">
-                            <div class="form-group span-full">
-                                <div class="uploader-zone" id="drop-zone" onclick="document.getElementById('attachment-input').click()">
-                                    <i class="fa-solid fa-cloud-arrow-up" style="font-size:2.5rem; color:var(--text-muted); margin-bottom:12px;"></i>
-                                    <p style="font-size:0.9rem; font-weight:600; margin:0 0 6px 0; color:var(--text-primary);">Arrastra o haz clic para adjuntar</p>
-                                    <span style="font-size:0.75rem; color:var(--text-muted);">PDF, JPG o PNG (máx. 10 MB)</span>
-                                    <input type="file" id="attachment-input" name="attachment" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="showFileName(this)">
+            <div style="overflow:visible;">
+                <table class="items-table" id="items-table">
+                    <thead>
+                        <tr>
+                            <th style="width:21%;">Descripción *</th>
+                            <th style="width:8%;text-align:center;">Cant.</th>
+                            <th style="width:12%;text-align:right;">Precio U.</th>
+                            <th style="width:10%;text-align:center;">ITBIS</th>
+                <th style="width:9%;text-align:right;">Desc%</th>
+                <th style="width:22%;">Cuenta Contable</th>
+                            <th style="width:12%;text-align:right;">Total</th>
+                            <th style="width:2%;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="items-body">
+                        <tr class="item-row">
+                            <td>
+                                <input type="text" class="form-input item-name" name="items[0][name]" placeholder="Descripción del producto/servicio" required style="width:100%;">
+                            </td>
+                            <td style="text-align:center;">
+                                <input type="number" class="form-input item-qty" name="items[0][quantity]" value="1" min="0.01" step="0.01" required style="width:100%;min-width:40px;text-align:center;" oninput="recalculateTotals()">
+                            </td>
+                            <td style="text-align:right;">
+                                <div class="item-price-wrap">
+                                    <input type="number" class="form-input item-price" name="items[0][unitPrice]" value="0.00" step="0.01" min="0" required style="width:100%;min-width:60px;text-align:right;" oninput="recalculateTotals()">
+                                    <span class="item-price-badge">c/ITBIS</span>
                                 </div>
-                                <div id="file-name-display" style="margin-top:12px; font-size:0.8rem; color:var(--text-secondary); display:none;">
-                                    <i class="fa-solid fa-file" style="color:var(--accent-emerald); margin-right:6px;"></i>
-                                    <span id="file-name-text"></span>
-                                </div>
-                            </div>
+                            </td>
+                            <td style="text-align:center;">
+                                <select class="form-select item-itbis" name="items[0][itbisRate]" onchange="recalculateTotals()" style="width:100%;font-size:0.8rem;padding:6px 24px 6px 6px;background-position:right 6px center;">
+                                    <option value="{{ itbis_general }}">{{ "%.0f"|format(itbis_general * 100) }}%</option>
+                                    <option value="{{ itbis_reduced }}">{{ "%.0f"|format(itbis_reduced * 100) }}%</option>
+                                    <option value="0.0">0%</option>
+                                </select>
+                            </td>
+                            <td style="text-align:right;">
+                                <input type="number" class="form-input item-discount" name="items[0][discount]" value="0" step="0.01" min="0" max="100" style="width:100%;min-width:40px;text-align:right;" oninput="recalculateTotals()">
+                            </td>
+                            <td class="account-cell">
+                                <input type="text" class="form-input item-account-display" value="" placeholder="Buscar cuenta..." autocomplete="off" onfocus="openAccountDropdown(this)" oninput="filterAccountDropdown(this)" style="width:100%;font-size:0.78rem;">
+                                <input type="hidden" class="item-account-id" name="items[0][accountingAccountId]" value="">
+                                <div class="acco-dropdown"></div>
+                            </td>
+                            <td style="text-align:right;font-weight:600;">
+                                <span class="item-total-label">RD$ 0.00</span>
+                            </td>
+                            <td style="text-align:center;">
+                                <button type="button" class="row-menu-btn remove-row-btn" title="Eliminar"><i class="fa-solid fa-xmark"></i></button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="totals-strip">
+                <div class="tl-row"><span>Subtotal</span><span id="sum-subtotal">RD$ 0.00</span></div>
+                <div class="tl-row"><span>Descuento</span><span id="sum-discount">RD$ 0.00</span></div>
+                <div class="tl-row"><span>ITBIS</span><span id="sum-itbis">RD$ 0.00</span></div>
+                <div class="tl-row total"><span>Total</span><span id="sum-total">RD$ 0.00</span></div>
+            </div>
+            <div style="margin-top:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+                <button type="button" id="btn-add-item" class="btn btn-sm btn-secondary"><i class="fa-solid fa-plus"></i> Añadir Partida</button>
+                <div class="inp-group" style="min-width:140px;max-width:200px;">
+                    <select id="projectId-side" class="form-select" onchange="document.getElementById('projectId').value=this.value" style="height:28px;font-size:0.78rem;padding:0 24px 0 8px;">
+                        <option value="">Sin proyecto</option>
+                        {% for p in projects %}
+                        <option value="{{ p.id }}" {% if p.id == active_project_id %}selected{% endif %}>{{ p.name }} ({{ p.code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
 
-                            <div class="form-group span-full">
-                                <label for="notes">Notas</label>
-                                <textarea id="notes" name="notes" class="form-textarea" rows="3" placeholder="Detalles adicionales de la factura..." style="width:100%; resize:vertical;"></textarea>
-                            </div>
+        <div class="section-card">
+            <h3><i class="fa-solid fa-credit-card" style="color:var(--accent-orange);"></i> Pago</h3>
+            <div class="inp-row">
+                <div class="inp-group" style="max-width:180px;">
+                    <label for="paymentType">Estado del Pago</label>
+                    <select id="paymentType" name="paymentType" class="form-select" onchange="togglePaymentFields()" style="width:100%;">
+                        <option value="Contado" selected>Pagado (Contado)</option>
+                        <option value="Crédito">Pendiente (Crédito / CxP)</option>
+                    </select>
+                </div>
+                <div class="inp-group" style="max-width:180px;">
+                    <label for="paymentMethod">Forma de Pago</label>
+                    <select id="paymentMethod" name="paymentMethod" class="form-select" style="width:100%;">
+                        <option value="transferencia" selected>Transferencia bancaria</option>
+                        <option value="cheque">Cheque</option>
+                        <option value="efectivo">Efectivo</option>
+                        <option value="tarjeta">Tarjeta</option>
+                        <option value="otro">Otro</option>
+                    </select>
+                </div>
+                <div class="inp-group wide">
+                    <label for="bankAccountId">Cuenta Bancaria <span style="color:var(--accent-red);" id="bank-required">*</span></label>
+                    <select id="bankAccountId" name="bankAccountId" class="form-select" style="width:100%;">
+                        <option value="">-- Seleccionar Cuenta --</option>
+                        {% for acc in bank_accounts %}
+                        <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.type|capitalize }}) — RD$ {{ "{:,.2f}".format(acc.currentBalance) }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <small style="color:var(--text-muted); font-size:0.72rem; display:block; margin-top:4px;">El saldo se descontará automáticamente al registrar la factura si es Contado.</small>
+        </div>
 
-                            <div class="form-group span-full">
-                                <label for="comentario">Comentarios Internos</label>
-                                <textarea id="comentario" name="comentario" class="form-textarea" rows="2" placeholder="Comentarios para tu equipo (no visibles en impresión)..." style="width:100%; resize:vertical;"></textarea>
-                            </div>
-                        </div>
+        <!-- NOTAS -->
+        <div class="section-card">
+            <h3 style="display:flex;justify-content:space-between;align-items:center;">
+                <span><i class="fa-regular fa-note-sticky" style="color:var(--accent-emerald);"></i> Notas y configuraciones</span>
+            </h3>
+            <div id="additional-info-container">
+                <div class="collapse-field" style="border-bottom:1px solid var(--border-color);">
+                    <div class="collapse-field-header" onclick="toggleCollapseField(this)" style="display:flex;align-items:center;gap:8px;padding:10px 0;cursor:pointer;">
+                        <i class="fa-regular fa-note-sticky" style="color:var(--accent-emerald);"></i><span style="font-weight:600;font-size:0.85rem;">Notas</span><span class="collapse-field-preview" style="color:var(--text-muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.78rem;">Agrega comentarios visibles en el PDF…</span><i class="fa-solid fa-chevron-down" style="font-size:0.65rem;color:var(--text-muted);"></i>
+                    </div>
+                    <div class="collapse-field-body" style="max-height:0;overflow:hidden;transition:max-height 0.25s ease;">
+                        <textarea name="comentario" class="form-textarea" rows="2" oninput="updateCollapsePreview(this)" placeholder="Agrega comentarios para aclarar datos, serán visibles en el PDF…" style="min-height:60px;width:100%;resize:vertical;margin-bottom:8px;"></textarea>
+                    </div>
+                </div>
+                <div class="collapse-field">
+                    <div class="collapse-field-header" onclick="toggleCollapseField(this)" style="display:flex;align-items:center;gap:8px;padding:10px 0;cursor:pointer;">
+                        <i class="fa-regular fa-file-lines" style="color:var(--accent-purple);"></i><span style="font-weight:600;font-size:0.85rem;">Términos y condiciones</span><span class="collapse-field-preview" style="color:var(--text-muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.78rem;">Agregue condiciones o cláusulas…</span><i class="fa-solid fa-chevron-down" style="font-size:0.65rem;color:var(--text-muted);"></i>
+                    </div>
+                    <div class="collapse-field-body" style="max-height:0;overflow:hidden;transition:max-height 0.25s ease;">
+                        <textarea name="notes" class="form-textarea" rows="2" oninput="updateCollapsePreview(this)" placeholder="Agregue condiciones o cláusulas relacionadas, serán visibles en el PDF…" style="min-height:60px;width:100%;resize:vertical;margin-bottom:8px;"></textarea>
                     </div>
                 </div>
             </div>
+        </div>
 
+        <!-- MODAL: RETENCIONES -->
+        <div class="search-modal" id="retentions-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;align-items:center;justify-content:center;z-index:1050;">
+            <div class="modal-content" style="max-width:460px;position:relative;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
+                <div class="modal-header" style="padding:20px 24px;border-bottom:1px solid var(--border-color);"><h3 style="font-size:0.95rem;"><i class="fa-solid fa-sliders" style="color:var(--accent-emerald);margin-right:8px;"></i>Retenciones, Descuentos y Recargos</h3><button type="button" id="btn-close-retentions-modal" class="btn-close-modal" onclick="closeRetentionsModal()"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="modal-body" style="padding:22px 24px;">
+                    <div class="inp-group" style="margin-bottom:16px;"><label>Descuento Global (%)</label><input type="number" id="discount-global-modal" class="form-input" min="0" max="1" step="0.01" value="" placeholder="Ej: 0.10 = 10%" oninput="document.getElementById('discount-global').value=this.value;recalculateRetBadge();"></div>
+                    <div class="inp-group" style="margin-bottom:16px;"><label>Retención ISR</label><select id="isr-rate-select-modal" class="form-select" onchange="document.getElementById('isr-rate-select').value=this.value;recalculateRetBadge();"><option value="0.0">Sin retención (0%)</option><option value="0.02">2% — Bienes y servicios</option><option value="0.10">10% — Honorarios / Alquiler</option></select></div>
+                    <div class="inp-group" style="margin-bottom:16px;"><label>Retención ITBIS</label><select id="itbis-rate-select-modal" class="form-select" onchange="document.getElementById('itbis-rate-select').value=this.value;recalculateRetBadge();"><option value="0.0">Sin retención (0%)</option><option value="0.30">30% — Bienes corporativos</option><option value="0.75">75% — Servicios jurídicos</option><option value="1.00">100% — Profesionales independientes</option></select></div>
+                </div>
+                <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:10px;padding:16px 24px;border-top:1px solid var(--border-color);"><button type="button" id="btn-close-retentions-ok" class="btn btn-primary">Listo</button></div>
+            </div>
         </div>
 
         <!-- Hidden fields for retenciones (synced from modal) -->
-        <input type="hidden" name="retainedISRRate" value="0.0">
-        <input type="hidden" name="retainedITBISRate" value="0.0">
+        <div style="display:none !important;">
+            <input type="number" id="discount-global" name="discountRate" min="0" max="1" step="0.01" value="0.00">
+            <select id="isr-rate-select" name="retainedISRRate"><option value="0.0" selected>0%</option><option value="0.02">2%</option><option value="0.10">10%</option></select>
+            <select id="itbis-rate-select" name="retainedITBISRate"><option value="0.0" selected>0%</option><option value="0.30">30%</option><option value="0.75">75%</option><option value="1.00">100%</option></select>
+        </div>
+
+        <!-- Hidden fields for sidebar -->
+        <input type="hidden" id="currency" name="currency" value="{{ 'USD' if po and po_currency == 'USD' else 'EUR' if po and po_currency == 'EUR' else 'DOP' }}">
+        <input type="hidden" id="exchangeRate" name="exchangeRate" value="{{ "%.2f"|format(po_exchange_rate) if po else "1.00" }}">
+        <input type="hidden" id="projectId" name="projectId" value="">
+        <input type="hidden" id="costCenterId" name="costCenterId" value="">
 
         <div class="actions-bar">
-            <a href="{{ url_for('web_purchase_orders.list_purchase_cxp') }}" class="btn btn-secondary">Cancelar</a>
-            <button type="submit" name="save_action" value="save_and_new" class="btn btn-secondary" style="background:var(--accent-yellow);border-color:var(--accent-yellow);">
+            <a href="{{ url_for('web_purchase_orders.list_purchase_cxp') }}" class="btn btn-secondary" style="height:32px;font-size:0.78rem;padding:0 12px;display:inline-flex;align-items:center;gap:4px;">Cancelar</a>
+            <button type="submit" name="save_action" value="save_and_new" class="btn btn-secondary" style="background:var(--accent-yellow);border-color:var(--accent-yellow);height:32px;font-size:0.78rem;padding:0 12px;display:inline-flex;align-items:center;gap:4px;">
                 <i class="fa-solid fa-plus"></i> Guardar y Nuevo
             </button>
-            <button type="submit" name="save_action" value="save" class="btn btn-primary" style="height: 32px; font-size: 0.78rem; padding: 0 12px; display: inline-flex; align-items: center; gap: 4px;">
+            <button type="submit" name="save_action" value="save" class="btn btn-primary" style="height:32px;font-size:0.78rem;padding:0 12px;display:inline-flex;align-items:center;gap:4px;">
                 <i class="fa-solid fa-floppy-disk"></i> Registrar Factura de Compra
             </button>
         </div>
 
-        <!-- MODAL: Retenciones -->
-        <div class="search-modal" id="ret-modal" style="display:none;">
-            <div class="modal-content" style="max-width:460px;">
-                <div class="modal-header">
-                    <h3><i class="fa-solid fa-percent"></i> Retenciones</h3>
-                    <button type="button" class="btn-close-modal" onclick="closeRetencionesModal()"><i class="fa-solid fa-xmark"></i></button>
+        <!-- PANEL LATERAL: MÁS AJUSTES -->
+        <div class="more-settings-backdrop" id="more-settings-backdrop" onclick="toggleMoreSettings()"></div>
+        <div class="more-settings-panel" id="more-settings-panel">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+                <h4 style="margin:0;font-size:0.95rem;font-weight:700;"><i class="fa-solid fa-sliders" style="color:var(--accent-emerald);margin-right:8px;"></i> Más ajustes</h4>
+                <button type="button" onclick="toggleMoreSettings()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.2rem;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:20px;">
+                <div class="inp-group">
+                    <label>Moneda</label>
+                    <select id="currency-side" class="form-select" onchange="handleCurrencySideChange(this.value)">
+                        <option value="DOP" {% if not po or po_currency == 'DOP' %}selected{% endif %}>DOP - Peso Dominicano</option>
+                        <option value="USD" {% if po and po_currency == 'USD' %}selected{% endif %}>USD - Dólar</option>
+                        <option value="EUR" {% if po and po_currency == 'EUR' %}selected{% endif %}>EUR - Euro</option>
+                    </select>
                 </div>
-                <div class="modal-body">
-                    <div class="form-group" style="margin-bottom:14px;">
-                        <label>Retención ISR</label>
-                        <select id="isr-rate-modal" class="form-select" style="width:100%;" onchange="syncRetenciones()">
-                            <option value="0.0">Sin retención (0%)</option>
-                            <option value="0.02">2% — Bienes y servicios</option>
-                            <option value="0.10">10% — Honorarios / Alquiler</option>
-                        </select>
+                <div class="inp-group" id="exchange-rate-container-side" {% if (po and po_currency == 'DOP') or (not po) %}style="display:none;"{% endif %}>
+                    <label>Tasa de Cambio</label>
+                    <input type="number" id="exchangeRate-side" class="form-input" step="0.01" value="{{ "%.2f"|format(po_exchange_rate) if po else "1.00" }}" min="0.01" oninput="document.getElementById('exchangeRate').value=this.value">
+                </div>
+                <div class="inp-group">
+                    <label style="display:flex;justify-content:space-between;">
+                        <span>Centro de Costo</span>
+                        <button type="button" onclick="openCostCenterModal()" style="font-size:0.72rem;color:var(--accent-emerald);background:none;border:none;cursor:pointer;">+ Nuevo</button>
+                    </label>
+                    <select id="costCenterId-side" class="form-select" onchange="document.getElementById('costCenterId').value=this.value">
+                        <option value="">— Sin centro de costo —</option>
+                        {% for cc in cost_centers %}
+                        <option value="{{ cc.id }}">{% if cc.code %}[{{ cc.code }}] {% endif %}{{ cc.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="inp-group">
+                    <label for="tipoGastoDGII">Tipo Gasto Deducible DGII</label>
+                    <select id="tipoGastoDGII" name="tipoGastoDGII" class="form-select">
+                        <option value="01">01 - Gastos de Personal</option>
+                        <option value="02" selected>02 - Gastos por Trabajos, Suministros y Servicios</option>
+                        <option value="03">03 - Arrendamientos</option>
+                        <option value="04">04 - Gastos de Activos Fijos</option>
+                        <option value="05">05 - Gastos de Representación</option>
+                        <option value="06">06 - Otras Deducciones Admitidas</option>
+                        <option value="07">07 - Gastos Financieros</option>
+                        <option value="08">08 - Gastos Extraordinarios</option>
+                        <option value="09">09 - Compras y Gastos del Costo de Venta</option>
+                        <option value="10">10 - Adquisiciones de Activos</option>
+                        <option value="11">11 - Gastos de Seguros</option>
+                    </select>
+                </div>
+
+                <div style="border-top:1px solid var(--border-color);padding-top:16px;margin-bottom:8px;">
+                    <h5 style="font-size:0.82rem;font-weight:600;margin:0 0 12px 0;color:var(--text-secondary);display:flex;align-items:center;gap:6px;"><i class="fa-solid fa-stamp" style="color:var(--accent-blue);"></i> Comprobante Fiscal</h5>
+                    <div class="inp-group e41-hideable" style="margin-bottom:14px;">
+                        <label for="ncf">NCF / e-CF del Proveedor</label>
+                        <input type="text" id="ncf" name="ncf" class="form-input" placeholder="E310120000452" style="width:100%;font-family:monospace;">
                     </div>
-                    <div class="form-group">
-                        <label>Retención ITBIS</label>
-                        <select id="itbis-rate-modal" class="form-select" style="width:100%;" onchange="syncRetenciones()">
-                            <option value="0.0">Sin retención (0%)</option>
-                            <option value="0.30">30% — Bienes corporativos</option>
-                            <option value="0.75">75% — Servicios jurídicos</option>
-                            <option value="1.00">100% — Profesionales independientes</option>
-                        </select>
+                    <div class="inp-group e41-hideable" style="margin-bottom:14px;">
+                        <label for="cne">CNE / Código Seguridad</label>
+                        <input type="text" id="cne" name="cne" class="form-input" placeholder="Firma digital DGII" style="width:100%;font-family:monospace;">
+                    </div>
+                    <div class="inp-group" style="margin-bottom:14px;">
+                        <label for="date">Fecha de Emisión *</label>
+                        <input type="date" id="date" name="date" class="form-input" value="{{ today }}" required max="{{ today }}" style="width:100%;">
+                    </div>
+                    <div class="inp-group" style="margin-bottom:14px;">
+                        <label for="dueDate">Fecha de Vencimiento</label>
+                        <input type="date" id="dueDate" name="dueDate" class="form-input" style="width:100%;">
+                    </div>
+                    <div class="inp-group" style="margin-bottom:14px;">
+                        <label for="invoiceNumber">No. Factura Proveedor</label>
+                        <input type="text" id="invoiceNumber" name="invoiceNumber" class="form-input" placeholder="Ej: F001-123" style="width:100%;">
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" onclick="closeRetencionesModal()">Listo</button>
+
+                <div style="border-top:1px solid var(--border-color);padding-top:16px;">
+                    <div class="inp-group">
+                        <label>Adjunto</label>
+                        <div class="uploader-zone" id="drop-zone" onclick="document.getElementById('attachment-input').click()" style="padding:24px 16px;">
+                            <i class="fa-solid fa-cloud-arrow-up" style="font-size:1.5rem; color:var(--text-muted); margin-bottom:8px;"></i>
+                            <p style="font-size:0.78rem; font-weight:600; margin:0 0 4px 0; color:var(--text-primary);">Arrastra o haz clic</p>
+                            <span style="font-size:0.68rem; color:var(--text-muted);">PDF, JPG o PNG (máx. 10 MB)</span>
+                            <input type="file" id="attachment-input" name="attachment" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="showFileName(this)">
+                        </div>
+                        <div id="file-name-display" style="margin-top:8px; font-size:0.75rem; color:var(--text-secondary); display:none;">
+                            <i class="fa-solid fa-file" style="color:var(--accent-emerald); margin-right:6px;"></i>
+                            <span id="file-name-text"></span>
+                        </div>
+                    </div>
                 </div>
             </div>
+            <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border-color);display:flex;gap:10px;">
+                <button type="button" onclick="toggleMoreSettings()" class="btn btn-secondary" style="flex:1;">Cancelar</button>
+                <button type="button" onclick="toggleMoreSettings()" class="btn btn-primary" style="flex:1;">Guardar</button>
+            </div>
         </div>
-    </form>
+
+        </form>
 </div>
 
 
@@ -528,8 +465,6 @@
     const accountingAccounts = {{ accounting_accounts | tojson | safe }};
     const itbisGeneral = {{ itbis_general }};
     const itbisReduced = {{ itbis_reduced }};
-    const e41Sequences = {{ e41_sequences | tojson | safe }};
-    const e43Sequences = {{ e43_sequences | tojson | safe }};
 
     let rowIndex = 0;
     let openDropdownCell = null;
@@ -691,25 +626,18 @@
         }
     }
 
-    function toggleAccordionPartidas(header) {
-        const item = header.parentElement;
-        const content = item.querySelector('.accordion-content');
-        const isActive = item.classList.contains('active');
-        if (isActive) {
-            item.classList.remove('active');
-            content.style.maxHeight = null;
-        } else {
-            item.classList.add('active');
-            content.style.maxHeight = 'none';
-        }
+    function toggleMoreSettings() {
+        document.getElementById('more-settings-panel').classList.toggle('open');
+        document.getElementById('more-settings-backdrop').classList.toggle('show');
     }
 
-    function handleCurrencyChange() {
-        const currency = document.getElementById('currency').value;
-        const rateContainer = document.getElementById('exchange-rate-container');
-        if (currency === 'DOP') {
+    function handleCurrencySideChange(value) {
+        document.getElementById('currency').value = value;
+        const rateContainer = document.getElementById('exchange-rate-container-side');
+        if (value === 'DOP') {
             rateContainer.style.display = 'none';
             document.getElementById('exchangeRate').value = '1.00';
+            document.getElementById('exchangeRate-side').value = '1.00';
         } else {
             rateContainer.style.display = '';
         }
@@ -868,6 +796,7 @@
     });
 
     const suppliers = {{ suppliers | tojson | safe }};
+    console.log('[new_invoice] suppliers count:', suppliers ? suppliers.length : 'null/undefined', suppliers);
     const searchInput = document.getElementById('supplier-search');
     const searchResults = document.getElementById('supplier-search-results');
     let clientLookupTimeout = null;
@@ -936,14 +865,73 @@
         }
     });
 
+    // ── Validación RNC/ Cédula contra DGII ────────────────────
+    function validateRncFromDgii(rnc) {
+        var clean = rnc.replace(/[^0-9]/g, '');
+        var status = document.getElementById('rnc-status');
+        var warning = document.getElementById('rnc-warning');
+        var cedulaInput = document.getElementById('supplierCedula');
+        if (clean.length !== 9 && clean.length !== 11) {
+            if (status) status.innerHTML = '';
+            if (warning) warning.style.display = 'none';
+            if (cedulaInput) cedulaInput.value = '';
+            return;
+        }
+        if (cedulaInput) cedulaInput.value = clean.length === 11 ? clean : '';
+        if (status) status.innerHTML = '<span style="color:#94a3b8;">⏳ Validando con DGII…</span>';
+        fetch('/api/rnc-lookup?rnc=' + encodeURIComponent(clean))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.error) {
+                    if (status) status.innerHTML = '<span style="color:#ef4444;">✗ RNC/Cédula no registrado en la DGII</span>';
+                    if (warning) warning.style.display = 'none';
+                } else if (data.razon_social) {
+                    document.getElementById('supplierType').value = 'formal';
+                    var nameInput = document.getElementById('supplierName');
+                    if (nameInput && !nameInput.value.trim()) {
+                        nameInput.value = data.razon_social;
+                    }
+                    if (status) status.innerHTML = '<span style="color:#10b981;">✓ Formal — ' + data.razon_social + '</span>';
+                    if (warning) {
+                        warning.innerHTML = '⚠️ Este proveedor está registrado en DGII. Considere solicitar un e-CF (E31/E32) en lugar de usar E41.';
+                        warning.style.display = 'block';
+                    }
+                } else {
+                    document.getElementById('supplierType').value = 'informal';
+                    if (status) status.innerHTML = '<span style="color:#d97706;">✗ No registrado en DGII — Informal</span>';
+                    if (warning) warning.style.display = 'none';
+                }
+            })
+            .catch(function() {
+                if (status) status.innerHTML = '<span style="color:#d97706;">⚠️ No se pudo verificar (fallo de red)</span>';
+                if (warning) warning.style.display = 'none';
+            });
+    }
+
+    document.getElementById('supplierRnc').addEventListener('input', function() {
+        setSupplierCedula(this.value);
+        validateRncFromDgii(this.value);
+    });
+
+    function setSupplierCedula(rnc) {
+        var clean = (rnc || '').replace(/[^0-9]/g, '');
+        var el = document.getElementById('supplierCedula');
+        if (el) el.value = clean.length === 11 ? clean : '';
+    }
+
     function selectSupplier(s) {
         document.getElementById('supplierId').value = s.id || '';
         document.getElementById('supplierName').value = s.name || '';
         document.getElementById('supplierRnc').value = s.rnc || '';
+        setSupplierCedula(s.rnc);
         searchInput.value = s.name || '';
         searchResults.style.display = 'none';
         if (s.id && !suppliers.some(function(sp) { return sp.id === s.id; })) {
             suppliers.push({ id: s.id, rnc: s.rnc, name: s.name });
+        }
+        if (s.rnc) {
+            document.getElementById('supplierType').value = 'formal';
+            validateRncFromDgii(s.rnc);
         }
     }
 
@@ -951,16 +939,26 @@
         document.getElementById('supplierId').value = '';
         document.getElementById('supplierName').value = name;
         document.getElementById('supplierRnc').value = rnc;
+        setSupplierCedula(rnc);
         searchInput.value = name;
         searchResults.style.display = 'none';
+        if (rnc) {
+            document.getElementById('supplierType').value = 'formal';
+            validateRncFromDgii(rnc);
+        }
     }
 
     function selectDgiiAsSupplier(name, rnc) {
         document.getElementById('supplierId').value = '';
         document.getElementById('supplierName').value = name;
         document.getElementById('supplierRnc').value = rnc;
+        setSupplierCedula(rnc);
         searchInput.value = name;
         searchResults.style.display = 'none';
+        if (rnc) {
+            document.getElementById('supplierType').value = 'formal';
+            validateRncFromDgii(rnc);
+        }
     }
 
     document.addEventListener('click', function(e) {
@@ -969,92 +967,74 @@
         }
     });
 
-    // ===== MODAL: RETENCIONES =====
-    function openRetencionesModal() {
-        var m = document.getElementById('ret-modal');
+    // ── Modal de retenciones ──────────────────────────────────
+    function openRetentionsModal() {
+        var m = document.getElementById('retentions-modal');
         if (!m) return;
-        document.getElementById('isr-rate-modal').value = document.querySelector('[name=retainedISRRate]').value;
-        document.getElementById('itbis-rate-modal').value = document.querySelector('[name=retainedITBISRate]').value;
+        document.getElementById('discount-global-modal').value = document.getElementById('discount-global').value;
+        document.getElementById('isr-rate-select-modal').value = document.getElementById('isr-rate-select').value;
+        document.getElementById('itbis-rate-select-modal').value = document.getElementById('itbis-rate-select').value;
+        recalculateRetBadge();
         m.style.display = 'flex';
     }
-    function closeRetencionesModal() {
-        var m = document.getElementById('ret-modal');
+    function closeRetentionsModal() {
+        var m = document.getElementById('retentions-modal');
         if (m) m.style.display = 'none';
-    }
-    function syncRetenciones() {
-        document.querySelector('[name=retainedISRRate]').value = document.getElementById('isr-rate-modal').value;
-        document.querySelector('[name=retainedITBISRate]').value = document.getElementById('itbis-rate-modal').value;
-        recalculateRetBadge();
+        if (typeof recalculateTotals === 'function') recalculateTotals();
     }
     function recalculateRetBadge() {
-        var isr = document.querySelector('[name=retainedISRRate]').value;
-        var itbis = document.querySelector('[name=retainedITBISRate]').value;
+        var d = parseFloat(document.getElementById('discount-global').value) || 0;
+        var i = document.getElementById('isr-rate-select').value;
+        var b = document.getElementById('itbis-rate-select').value;
         var badge = document.getElementById('ret-badge');
         if (badge) {
-            var has = isr !== '0.0' || itbis !== '0.0';
+            var has = d > 0 || i !== '0.0' || b !== '0.0';
             badge.classList.toggle('has-values', has);
-            badge.innerHTML = has ? '<i class="fa-solid fa-percent"></i> Retenciones \u2713' : '<i class="fa-solid fa-percent"></i> Retenciones';
+            badge.innerHTML = has ? '<i class="fa-solid fa-percent"></i> Retenciones \u2713' : '<i class="fa-solid fa-percent"></i> Retenciones y Desc.';
         }
     }
-    document.getElementById('ret-modal')?.addEventListener('click', function(e) {
-        if (e.target === this) closeRetencionesModal();
+    document.getElementById('btn-close-retentions-modal')?.addEventListener('click', closeRetentionsModal);
+    document.getElementById('btn-close-retentions-ok')?.addEventListener('click', closeRetentionsModal);
+    document.getElementById('retentions-modal')?.addEventListener('click', function(e) { if (e.target === this) closeRetentionsModal(); });
+
+    // ── Colapsables ───────────────────────────────────────────
+    function toggleCollapseField(h) {
+        const b = h.nextElementSibling, cv = h.querySelector('.fa-chevron-down');
+        if (b.style.maxHeight && b.style.maxHeight !== '0px') {
+            b.style.maxHeight = '0';
+            if (cv) cv.style.transform = '';
+        } else {
+            b.style.maxHeight = b.scrollHeight + 'px';
+            if (cv) cv.style.transform = 'rotate(180deg)';
+        }
+    }
+    function updateCollapsePreview(t) {
+        const h = t.closest('.collapse-field').querySelector('.collapse-field-preview');
+        if (h) h.textContent = t.value || t.placeholder;
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('#additional-info-container .collapse-field').forEach(function(el) {
+            const t = el.querySelector('textarea');
+            if (t && t.value.trim()) {
+                const h = el.querySelector('.collapse-field-header');
+                if (h) toggleCollapseField(h);
+            }
+        });
     });
 
-    handleCurrencyChange();
+    handleCurrencySideChange(document.getElementById('currency-side').value);
     togglePaymentFields();
     recalculateRetBadge();
-    toggleE41Fields();
-
-    // ── E41/E43: Comprobantes autoemitidos (sin NCF/CNE del proveedor) ──
-    function toggleE41Fields() {
-        const ecfType = document.getElementById('ecfType').value;
-        const isE41 = ecfType === 'E41';
-        const isE43 = ecfType === 'E43';
-        const isAutoEmitted = isE41 || isE43;
-        const rncValue = (document.getElementById('supplierRnc').value || '').replace(/\D/g, '');
-
-        // Show/hide NCF and CNE fields (hidden for auto-emitted types)
-        document.querySelectorAll('.e41-hideable').forEach(function(el) {
-            el.style.display = isAutoEmitted ? 'none' : '';
-        });
-
-        // Show/hide cédula field (only when E41 and RNC is empty)
-        const cedulaGroup = document.getElementById('cedula-group');
-        cedulaGroup.style.display = (isE41 && rncValue.length < 9) ? '' : 'none';
-
-        // Show/hide sequence info for auto-emitted types
-        const seqGroup = document.getElementById('e41-sequence-group');
-        const seqLabel = document.getElementById('e41-sequence-label');
-        seqGroup.style.display = isAutoEmitted ? '' : 'none';
-        if (isE41) {
-            if (e41Sequences && e41Sequences.length > 0) {
-                seqLabel.innerHTML = '<i class="fa-solid fa-check-circle" style="color:var(--accent-emerald);"></i> ' + e41Sequences[0].tipoComprobante + ' — Activa';
-            } else {
-                seqLabel.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-yellow);"></i> Sin secuencias E41 activas';
-            }
-        } else if (isE43) {
-            if (e43Sequences && e43Sequences.length > 0) {
-                seqLabel.innerHTML = '<i class="fa-solid fa-check-circle" style="color:var(--accent-emerald);"></i> ' + e43Sequences[0].tipoComprobante + ' — Activa';
-            } else {
-                seqLabel.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-yellow);"></i> Sin secuencias E43 activas';
-            }
-        }
-
-        // Update help text
-        const helpEl = document.getElementById('ecf-help');
-        if (helpEl) {
-            if (isE41) {
-                helpEl.innerHTML = '\u26a0\ufe0f El comprobante E41 es <strong>autoemitido</strong> por la empresa. No requiere NCF ni CNE del proveedor. Debe registrar un identificador v\u00e1lido del beneficiario (RNC o c\u00e9dula).';
-            } else if (isE43) {
-                helpEl.innerHTML = '\u26a0\ufe0f El comprobante E43 es <strong>autoemitido</strong> para gastos menores del negocio. No requiere NCF ni CNE del proveedor. Use este tipo para parqueos, peajes, compras menores sin comprobante fiscal.';
-            } else {
-                helpEl.innerHTML = '\ud83d\udca1 Para gastos menores sin comprobante fiscal use <strong>E43/B07</strong>. Para compras a proveedores informales use <strong>E41/B06</strong>.';
-            }
-        }
+    var initialRnc = document.getElementById('supplierRnc');
+    if (initialRnc && initialRnc.value.trim()) {
+        setSupplierCedula(initialRnc.value);
+        validateRncFromDgii(initialRnc.value);
     }
 
-    document.getElementById('ecfType').addEventListener('change', toggleE41Fields);
-    document.getElementById('supplierRnc').addEventListener('input', toggleE41Fields);
+    // ── E41/E43: Comprobantes autoemitidos (sin NCF/CNE del proveedor) ──
+    document.querySelectorAll('.e41-hideable').forEach(function(el) {
+        el.style.display = 'none';
+    });
 
     // ── Creacion desde Archivo/Imagen (OCR) ────────────────────────────
     let pendingOcrSupplierData = null;
@@ -1362,10 +1342,11 @@ function saveCostCenter() {
         btn.disabled = false;
         btn.innerHTML = 'Guardar';
         if (data.success) {
-            const sel = document.getElementById('costCenterId');
             const label = c ? '[' + c + '] ' + n : n;
-            sel.appendChild(new Option(label, data.id, true, true));
-            sel.value = data.id;
+            const sideSel = document.getElementById('costCenterId-side');
+            sideSel.appendChild(new Option(label, data.id, true, true));
+            sideSel.value = data.id;
+            document.getElementById('costCenterId').value = data.id;
             closeCostCenterModal();
         } else {
             errEl.textContent = data.error || 'Error al crear.';
@@ -1378,6 +1359,14 @@ function saveCostCenter() {
         errEl.style.display = 'block';
     });
 }
+</script>
+
+<div id="emitting-overlay"><div class="spinner"></div><div class="emit-text">Emitiendo comprobante...</div></div>
+
+<script>
+document.getElementById('invoice-form').addEventListener('submit', function() {
+    document.getElementById('emitting-overlay').style.display = 'flex';
+});
 </script>
 
 {% endblock %}

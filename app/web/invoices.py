@@ -5752,8 +5752,11 @@ def _build_expense_ecf_payload(expense_dict, ecf_full_type):
     Usado para emitir E41 (Comprobante de Compras) y E43 (Gastos Menores) desde
     el módulo de gastos.
     """
+    is_e43 = "E43" in ecf_full_type or "Gastos Menores" in ecf_full_type
     amount   = float(expense_dict.get("amount", 0.0))
     itbis    = float(expense_dict.get("itbisAmount", 0.0))
+    if is_e43:
+        itbis = 0.0
     subtotal = round(amount - itbis, 2)
     if subtotal < 0:
         subtotal = amount
@@ -5787,7 +5790,7 @@ def _build_expense_ecf_payload(expense_dict, ecf_full_type):
             "quantity":  1,
             "price":     subtotal,
             "subtotal":  subtotal,
-            "itbisRate": round(itbis / subtotal, 4) if subtotal > 0 else 0.0,
+            "itbisRate": 0.0 if is_e43 else (round(itbis / subtotal, 4) if subtotal > 0 else 0.0),
             "total":     amount
         }]
     }
@@ -6285,22 +6288,54 @@ def minor_new_route():
         expense_id = str(uuid.uuid4())
         currency = request.form.get('currency', 'DOP')
         exchange_rate = float(request.form.get('exchangeRate', 1.0)) if currency != 'DOP' else 1.0
+        payment_type = request.form.get('paymentType', 'Contado')
+
+        inv_date = request.form.get('date', '')
+        today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+        if inv_date > today_str:
+            flash('La fecha de emisión no puede ser futura.', 'error')
+            return redirect(url_for('web_invoices.minor_new_route'))
+
+        due_date = request.form.get('dueDate', '')
+        if due_date and due_date < inv_date:
+            flash('La fecha de vencimiento no puede ser anterior a la fecha de emisión.', 'error')
+            return redirect(url_for('web_invoices.minor_new_route'))
+
+        bank_account_id = request.form.get('bankAccountId', '')
+        if payment_type == 'Contado' and not bank_account_id:
+            flash('Debe seleccionar una cuenta bancaria para pagos al contado.', 'error')
+            return redirect(url_for('web_invoices.minor_new_route'))
 
         account_items = []
         idx = 0
+        subtotal = 0.0
+        total_itbis = 0.0
+        total_discount = 0.0
         while True:
             concept = request.form.get(f'account_items[{idx}][concept]')
             if concept is None:
                 break
             concept_id = request.form.get(f'account_items[{idx}][concept_id]', '')
             value = float(request.form.get(f'account_items[{idx}][value]', 0) or 0)
-            tax = float(request.form.get(f'account_items[{idx}][tax]', 0) or 0)
-            qty = int(request.form.get(f'account_items[{idx}][quantity]', 1) or 1)
+            tax_raw = request.form.get(f'account_items[{idx}][tax]', '0')
+            is_exento = tax_raw == 'exento'
+            tax = 0.0 if is_exento else (float(tax_raw or 0))
+            qty = float(request.form.get(f'account_items[{idx}][quantity]', 1) or 1)
+            discount_pct = float(request.form.get(f'account_items[{idx}][discount]', 0) or 0)
             obs = request.form.get(f'account_items[{idx}][observations]', '')
-            total = float(request.form.get(f'account_items[{idx}][total]', 0) or 0)
+            total_raw = float(request.form.get(f'account_items[{idx}][total]', 0) or 0)
+
+            line_sub = qty * value
+            line_discount = line_sub * (discount_pct / 100.0)
+            line_itbis = (line_sub - line_discount) * tax
+            line_total = line_sub - line_discount + line_itbis
+            subtotal += line_sub
+            total_discount += line_discount
+            total_itbis += line_itbis
+
             account_items.append({
                 'concept': concept, 'concept_id': concept_id, 'value': value, 'tax': tax,
-                'quantity': qty, 'observations': obs, 'total': total
+                'quantity': qty, 'discount': discount_pct, 'observations': obs, 'total': round(line_total, 2)
             })
             idx += 1
 
@@ -6312,40 +6347,53 @@ def minor_new_route():
             flash('El concepto del gasto es obligatorio.', 'error')
             return redirect(url_for('web_invoices.minor_new_route'))
 
+        is_credit = payment_type == 'Crédito'
+        provider_name = request.form.get('providerName') or request.form.get('supplierName', '')
+        rnc_emisor = request.form.get('rncEmisor') or request.form.get('supplierRnc', '')
+
         expense_dict = {
-            'supplierType': 'informal',
+            'supplierType': request.form.get('supplierType', 'informal'),
+            'supplierId': request.form.get('supplierId', ''),
+            'supplierCedula': request.form.get('supplierCedula', ''),
             'concept': account_items[0]['concept'] if account_items else request.form.get('notes', 'Gasto Menor'),
             'category': request.form.get('category', 'Comida y Restaurantes'),
             'currency': currency,
             'exchangeRate': exchange_rate,
             'amountOriginal': total_amount,
             'amount': amount,
-            'date': request.form['date'],
-            'rncEmisor': '',
-            'providerName': '',
+            'subtotal': round(subtotal, 2),
+            'itbis': round(total_itbis, 2),
+            'discount': round(total_discount, 2),
+            'date': inv_date,
+            'rncEmisor': rnc_emisor,
+            'providerName': provider_name,
             'ncf': '',
             'isMinorExpense': True,
             'isSyncedWithDGII': False,
             'notes': request.form.get('notes', ''),
             'isRecurring': False,
-            'itbisAmountOriginal': 0.0,
-            'itbisAmount': 0.0,
+            'itbisAmountOriginal': round(total_itbis, 2),
+            'itbisAmount': round(total_itbis * exchange_rate, 2),
             'isITBISDeductible': True,
             'isDeductible': True,
             'ecfType': 'E43',
             'cne': '',
             'tipoGastoDGII': request.form.get('tipoGastoDGII', '02'),
-            'paymentType': 'Contado',
-            'cxpStatus': 'Pagado',
-            'cxpRemainingBalance': 0.0,
+            'paymentType': payment_type,
+            'paymentMethod': request.form.get('paymentMethod', 'transferencia'),
+            'cxpStatus': 'Pendiente' if is_credit else 'Pagado',
+            'cxpRemainingBalance': amount if is_credit else 0.0,
             'approvalStatus': 'Aprobado',
-            'dueDate': request.form.get('date', ''),
-            'bankAccountId': request.form.get('bankAccountId', ''),
+            'dueDate': due_date if is_credit else inv_date,
+            'bankAccountId': bank_account_id,
             'accountItems': account_items,
             'expense_type': 'minor',
             'comentario': request.form.get('comentario', ''),
+            'retainedISR': float(request.form.get('retainedISRRate', 0.0) or 0.0),
+            'retainedITBIS': float(request.form.get('retainedITBISRate', 0.0) or 0.0),
             "branchId": request.form.get('branchId') or session.get('selected_branch_id') or 'default-sucursal-principal',
-            "projectId": request.form.get('projectId') or session.get('selected_project_id') or None
+            "projectId": request.form.get('projectId') or session.get('selected_project_id') or None,
+            "costCenterId": request.form.get('costCenterId', ''),
         }
 
         try:
@@ -6386,15 +6434,61 @@ def minor_new_route():
                 expense_dict['trackId'] = res.get('trackId', '')
                 DatabaseService.save_expense(owner_uid, expense_id, expense_dict, company_id=company_id, sandbox=sandbox)
                 _update_expense_sequence_log(owner_uid, log_id, res, expense_dict, sandbox)
+                try:
+                    _log_dgii_emission_to_audit(
+                        owner_uid, expense_dict, res,
+                        performed_by_email=session['user']['email'],
+                        performed_by_name=session['user'].get('displayName', 'Usuario'),
+                        company_id=company_id, sandbox=sandbox,
+                        entity_id=expense_id
+                    )
+                except Exception as audit_err:
+                    print(f"Error al registrar auditoría DGII E43: {audit_err}")
                 flash(f'E43 emitido ante DGII: {expense_dict["encf"]}', 'success')
             else:
-                flash(f'Gasto guardado, pero error al emitir E43: {res.get("message", "Error")}', 'warning')
+                try:
+                    _log_dgii_emission_to_audit(
+                        owner_uid, expense_dict, res,
+                        performed_by_email=session['user']['email'],
+                        performed_by_name=session['user'].get('displayName', 'Usuario'),
+                        company_id=company_id, sandbox=sandbox,
+                        entity_id=expense_id
+                    )
+                except Exception as audit_err:
+                    print(f"Error al registrar auditoría DGII E43: {audit_err}")
+                if log_id:
+                    try:
+                        motivo = f"DGII rechazó E43: {res.get('message', 'Error desconocido')}"
+                        DatabaseService.update_sequence_log(owner_uid, log_id, {
+                            "estado": "FAILED",
+                            "motivo": motivo,
+                            "respuestaDGII": json.dumps(res.get("responseBody"), indent=2) if res.get("responseBody") else "",
+                            "xmlEnviado": json.dumps(res.get("requestPayload"), indent=2) if res.get("requestPayload") else ""
+                        }, company_id=company_id, sandbox=sandbox)
+                    except Exception as log_err:
+                        print(f"Error al actualizar log de secuencia E43 fallido: {log_err}")
+                detalle = res.get("error") or res.get("message", "Error")
+                print(f"❌ DGII rechazó E43. Detalle: {detalle}")
+                print(f"   Status Code DGII: {res.get('statusCode', 'N/A')}")
+                print(f"   Response Body: {str(res.get('responseBody', 'N/A'))[:500]}")
+                flash(f'Gasto guardado, pero error al emitir E43: {detalle}', 'warning')
         except Exception as e:
+            err_str = str(e)
+            is_no_seq = any(kw in err_str.lower() for kw in ['secuencia', 'agotada', 'expirada', 'no hay una secuencia'])
             print(f"Error al emitir E43 para gasto menor {expense_id}: {e}")
-            flash(f'Gasto menor guardado. Error E43: {str(e)}', 'warning')
+            if is_no_seq:
+                expense_dict['status'] = 'Borrador'
+                expense_dict['isSyncedWithDGII'] = False
+                try:
+                    DatabaseService.save_expense(owner_uid, expense_id, expense_dict, company_id=company_id, sandbox=sandbox)
+                except Exception:
+                    pass
+                flash('No hay comprobantes fiscales disponibles. El gasto se guard\u00f3 como borrador.', 'warning')
+            else:
+                flash(f'Gasto menor guardado. Error E43: {err_str}', 'warning')
 
-        bank_account_id = expense_dict.get('bankAccountId')
-        if bank_account_id:
+        # Debit bank account only for Contado payments
+        if payment_type == 'Contado' and bank_account_id:
             try:
                 bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, company_id=company_id, sandbox=sandbox)
                 if bank_acc:
@@ -6405,12 +6499,30 @@ def minor_new_route():
             except Exception as e:
                 print(f"Error al actualizar saldo: {e}")
 
+        # Audit log
+        try:
+            from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_GASTOS
+            AuditService.log_from_request(
+                owner_uid=owner_uid,
+                action=ACTION_CREATE,
+                module=MODULE_GASTOS,
+                entity_id=expense_id,
+                entity_label=f"Gasto Menor E43 · {expense_dict.get('concept', '')}",
+                user_session=session.get('user', {}),
+                before={},
+                after=expense_dict,
+                sandbox=sandbox,
+                company_id=company_id
+            )
+        except Exception as audit_err:
+            print(f"Error al registrar auditoría del gasto menor: {audit_err}")
+
         if request.form.get('save_action') == 'save_and_new':
             flash('Gasto menor guardado correctamente. Puedes crear otro.', 'success')
             return redirect(url_for('web_invoices.minor_new_route'))
         return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
 
-    today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    today    = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     bank_accounts = DatabaseService.get_bank_accounts(owner_uid, company_id=company_id, sandbox=sandbox)
     accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
     tax_rules = DatabaseService.get_tax_rules(owner_uid, company_id=company_id)
@@ -6419,14 +6531,45 @@ def minor_new_route():
     selected_bid = g.get('branch_id') or session.get('selected_branch_id')
     projects = DatabaseService.get_projects(owner_uid, company_id=company_id, branch_id=selected_bid, sandbox=sandbox) if selected_bid else []
     active_project_id = session.get('selected_project_id') or ''
+
+    suppliers = []
+    try:
+        from app.services.supplier_service import SupplierService
+        suppliers = SupplierService.get_suppliers(owner_uid, sandbox=sandbox, company_id=company_id)
+    except Exception as e:
+        print(f"⚠️ Error loading suppliers for minor_new (GET): {e}")
+        suppliers = []
+
+    cost_centers = []
+    try:
+        cost_centers = DatabaseService.get_cost_centers(owner_uid, company_id=company_id, sandbox=sandbox)
+    except Exception:
+        pass
+
+    e43_sequences = []
+    try:
+        all_seqs = DatabaseService.get_sequences(owner_uid, company_id=company_id, sandbox=sandbox)
+        e43_sequences = [
+            {'tipoComprobante': s.get('tipoComprobante', 'E43')}
+            for s in all_seqs
+            if s.get('tipoComprobante') == 'E43'
+            and s.get('estado', '').upper() == 'ACTIVA'
+            and not s.get('bloqueadaManualmente', False)
+        ]
+    except Exception:
+        pass
+
     return render_template(
         'expenses/minor_new.html',
         active_page='expenses_minor',
-        today_str=today_str,
+        today=today,
         bank_accounts=bank_accounts,
         accounting_accounts=accounting_accounts,
         itbis_general=itbis_general,
         itbis_reduced=itbis_reduced,
+        suppliers=suppliers,
+        cost_centers=cost_centers,
+        e43_sequences=e43_sequences,
         projects=projects,
         active_project_id=active_project_id,
     )
@@ -6717,7 +6860,12 @@ def edit_expense_route(expense_id):
     if not expense:
         flash('Gasto no encontrado.', 'error')
         return redirect(url_for('web_invoices.list_expenses'))
-        
+
+    already_emitted = bool(expense.get('encf') and expense.get('isSyncedWithDGII'))
+    if already_emitted:
+        flash('❌ No se puede editar un gasto que ya fue emitido a la DGII.', 'error')
+        return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
+
     if request.method == 'POST':
         # Procesar MÚLTIPLES archivos nuevos (se agregan a los existentes)
         existing_attachments = expense.get('attachments', [])
@@ -6984,11 +7132,32 @@ def edit_expense_route(expense_id):
         'accounting_accounts': accounting_accounts,
         'itbis_general': itbis_general,
         'itbis_reduced': itbis_reduced,
+        'today': today_str,
         'today_str': today_str,
         'projects': projects,
         'active_project_id': active_project_id,
         'cost_centers': active_cost_centers,
+        'suppliers': [],
+        'e43_sequences': [],
     }
+
+    try:
+        from app.services.supplier_service import SupplierService
+        common_vars['suppliers'] = SupplierService.get_suppliers(owner_uid, sandbox=sandbox, company_id=company_id)
+    except Exception as e:
+        print(f"⚠️ Error loading suppliers for minor_new edit: {e}")
+
+    try:
+        all_seqs = DatabaseService.get_sequences(owner_uid, company_id=company_id, sandbox=sandbox)
+        common_vars['e43_sequences'] = [
+            {'tipoComprobante': s.get('tipoComprobante', 'E43')}
+            for s in all_seqs
+            if s.get('tipoComprobante') == 'E43'
+            and s.get('estado', '').upper() == 'ACTIVA'
+            and not s.get('bloqueadaManualmente', False)
+        ]
+    except Exception:
+        pass
 
     if expense.get('isMinorExpense'):
         return render_template('expenses/minor_new.html', **common_vars)
@@ -7019,6 +7188,15 @@ def sync_expense_ecf_route(expense_id):
     ecf_short = "E41" if "E41" in ecf_type_raw else "E43"
     ecf_full_type = "Comprobante de Compras (E41)" if ecf_short == "E41" else "Gastos Menores (E43)"
     company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+
+    if not expense.get("encf") or expense.get("encf") == "PENDIENTE":
+        user_email = session['user']['email']
+        new_encf, seq_log_id = DatabaseService.consume_next_sequence(
+            owner_uid, ecf_short, user_email, company_id=company_id, sandbox=sandbox
+        )
+        expense["encf"] = new_encf
+        expense["ecfNumber"] = new_encf
+        expense["ncf"] = new_encf
 
     try:
         invoice_payload = _build_expense_ecf_payload(expense, ecf_full_type)
@@ -7064,8 +7242,45 @@ def sync_expense_ecf_route(expense_id):
                 flash(f"Gasto {ecf_short} enviado a la DGII y pendiente de validación. e-NCF: {expense.get('encf')}", 'warning')
             else:
                 flash(f"Gasto {ecf_short} sincronizado con la DGII exitosamente! e-NCF: {expense.get('encf')}", 'success')
+
+            try:
+                _log_dgii_emission_to_audit(
+                    owner_uid, expense, res,
+                    performed_by_email=session['user']['email'],
+                    performed_by_name=session['user'].get('displayName', 'Usuario'),
+                    company_id=company_id, sandbox=sandbox,
+                    entity_id=expense_id
+                )
+            except Exception as audit_err:
+                print(f"Error al registrar auditoría DGII sync: {audit_err}")
         else:
-            flash(f"No se pudo sincronizar: {res.get('message') or 'Sigue en modalidad de contingencia (sin conexión a DGII).'}", 'warning')
+            try:
+                _log_dgii_emission_to_audit(
+                    owner_uid, expense, res,
+                    performed_by_email=session['user']['email'],
+                    performed_by_name=session['user'].get('displayName', 'Usuario'),
+                    company_id=company_id, sandbox=sandbox,
+                    entity_id=expense_id
+                )
+            except Exception as audit_err:
+                print(f"Error al registrar auditoría DGII sync: {audit_err}")
+            try:
+                logs_s = DatabaseService.get_sequence_logs(owner_uid, company_id=company_id, sandbox=sandbox)
+                log_s = next((l for l in logs_s if l.get("encf") == expense.get("encf")), None)
+                if log_s:
+                    DatabaseService.update_sequence_log(owner_uid, log_s["id"], {
+                        "estado": "FAILED",
+                        "motivo": f"DGII rechazó: {res.get('message', 'Error desconocido')}",
+                        "respuestaDGII": json.dumps(res.get("responseBody"), indent=2) if res.get("responseBody") else "",
+                        "xmlEnviado": json.dumps(res.get("requestPayload"), indent=2) if res.get("requestPayload") else ""
+                    }, company_id=company_id, sandbox=sandbox)
+            except Exception as log_err:
+                print(f"Error al actualizar log de secuencia sync fallido: {log_err}")
+            detalle_sync = res.get("error") or res.get("message", "Error")
+            print(f"❌ DGII rechazó E43 sync. Detalle: {detalle_sync}")
+            print(f"   Status Code DGII: {res.get('statusCode', 'N/A')}")
+            print(f"   Response Body: {str(res.get('responseBody', 'N/A'))[:500]}")
+            flash(f"No se pudo sincronizar: {detalle_sync}", 'warning')
     except Exception as e:
         flash(f"Error durante la sincronización: {str(e)}", 'error')
 
@@ -11274,17 +11489,54 @@ def expense_detail(expense_id):
         if e.get("status") != "voided" and e.get("referenceType") == "expense" and e.get("referenceId") == expense_id:
             linked_entry = e
             break
-        
+
+    company = None
+    try:
+        company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+    except Exception:
+        pass
+
+    bank_accounts = []
+    try:
+        bank_accounts = DatabaseService.get_bank_accounts(owner_uid, company_id=company_id, sandbox=sandbox)
+    except Exception:
+        pass
+
+    history_logs = []
+    try:
+        from app.services.audit_service import AuditService
+        history_logs = AuditService.get_entity_logs(owner_uid, expense_id, company_id=company_id)
+    except Exception as e:
+        print(f"Error al obtener logs de auditoría del gasto: {e}")
+
+    qr_base64 = None
+    if expense.get('encf') and expense.get('qrCodeURL'):
+        try:
+            import qrcode, io, base64
+            qr = qrcode.QRCode(version=1, box_size=10, border=0)
+            qr.add_data(expense['qrCodeURL'])
+            qr.make(fit=True)
+            img = qr.make_image(fill_color="black", back_color="white")
+            stream = io.BytesIO()
+            img.save(stream, format='PNG')
+            qr_base64 = base64.b64encode(stream.getvalue()).decode('utf-8')
+        except Exception as qr_err:
+            print(f"Error al generar QR del gasto {expense_id}: {qr_err}")
+
     return render_template(
         'expenses/detail.html',
         active_page='expenses',
         expense=expense,
+        company=company,
         comments=comments,
         taggable_users=taggable_users,
         is_cxp=is_cxp,
         cxp_payments=cxp_payments,
         format_mentions=format_mentions,
         linked_entry=linked_entry,
+        bank_accounts=bank_accounts,
+        history_logs=history_logs,
+        qr_base64=qr_base64,
     )
 
 

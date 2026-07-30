@@ -139,6 +139,20 @@
                 </div>
             </div>
 
+            <!-- ── TIPO e-CF ─────────────────────────────────────── -->
+            <div style="margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+                <span style="font-size:0.95rem; font-weight:600; color:var(--accent-purple);">
+                    <i class="fa-solid fa-file-invoice"></i> Tipo e-CF:
+                    {% if invoice.ecfType == 'E41' %}E41/B06 – Compras
+                    {% elif invoice.ecfType == 'E43' %}E43/B07 – Gastos Menores
+                    {% elif invoice.ecfType == 'E31' %}E31/B01 – Crédito Fiscal
+                    {% elif invoice.ecfType == 'E32' %}E32/B02 – Consumo
+                    {% elif invoice.ecfType == 'E45' %}E45/B08 – Gubernamental
+                    {% elif invoice.ecfType == 'E47' %}E47/B10 – Pagos al Exterior
+                    {% else %}{{ invoice.ecfType or '—' }}{% endif %}
+                </span>
+            </div>
+
             <!-- ── SUPPLIER INFO ─────────────────────────────────────────── -->
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; background-color: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 20px; margin-bottom: 30px;">
                 <div>
@@ -162,11 +176,11 @@
                     <span style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 500; display: block; margin-bottom: 6px;">Detalles</span>
                     <span style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">Tipo Proveedor:
                         {% set stype = invoice.supplierType|default('formal') %}
-                        {% if stype == 'formal' %}<span class="badge-pill badge-green">Formal</span>
-                        {% elif stype == 'informal' %}<span class="badge-pill badge-amber">Informal</span>
-                        {% elif stype == 'internacional' %}<span class="badge-pill badge-blue">Internacional</span>
-                        {% elif stype == 'interno' %}<span class="badge-pill badge-gray">Gasto Interno</span>
-                        {% else %}{{ stype }}{% endif %}
+                        {% if stype == 'formal' %}<strong>Formal</strong>
+                        {% elif stype == 'informal' %}<strong>Informal</strong>
+                        {% elif stype == 'internacional' %}<strong>Internacional</strong>
+                        {% elif stype == 'interno' %}<strong>Gasto Interno</strong>
+                        {% else %}<strong>{{ stype }}</strong>{% endif %}
                     </span>
                     <span style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">Moneda: <strong>{{ invoice.currency or 'DOP' }}</strong>
                         {% if invoice.currency and invoice.currency != 'DOP' and invoice.exchangeRate %}
@@ -174,8 +188,7 @@
                         {% endif %}
                     </span>
                     <span style="font-size: 0.85rem; color: var(--text-secondary); display: block;">Pago:
-                        {% if invoice.paymentType == 'Crédito' %}<span class="badge-pill badge-amber">Crédito</span>
-                        {% else %}<span class="badge-pill badge-green">Contado</span>{% endif %}
+                        <strong>{{ 'Crédito' if invoice.paymentType == 'Crédito' else 'Contado' }}</strong>
                     </span>
                     {% if invoice.tipoGastoDGII %}
                     <span style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-top: 4px;">DGII 606: <strong>
@@ -286,15 +299,17 @@
             <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">{{ linked_entry.concept }}</div>
             {% endif %}
             <div style="margin-top: 10px; font-size:0.75rem;">
-                <div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--border-color); padding: 4px 0; font-weight:600; color:var(--text-muted); text-transform:uppercase; font-size:0.65rem;">
-                    <span>Cuenta</span><span style="text-align:right;">Débito / Crédito</span>
+                <div style="display:grid; grid-template-columns:1fr 110px 110px; gap:8px; border-bottom: 1px solid var(--border-color); padding: 4px 0; font-weight:600; color:var(--text-muted); text-transform:uppercase; font-size:0.65rem;">
+                    <span>Cuenta</span><span style="text-align:right;">Débito</span><span style="text-align:right;">Crédito</span>
                 </div>
                 {% for line in linked_entry.lines %}
-                <div style="display:flex; justify-content:space-between; padding:4px 0; font-size:0.72rem;">
+                <div style="display:grid; grid-template-columns:1fr 110px 110px; gap:8px; padding:4px 0; font-size:0.72rem;">
                     <span style="color:var(--text-primary);">{{ line.accountName }}</span>
-                    <span style="text-align:right; font-family:monospace;">
-                        {% if line.debit > 0 %}<span style="color:var(--accent-purple);">RD$ {{ "{:,.2f}".format(line.debit) }}</span>
-                        {% else %}<span style="color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(line.credit) }}</span>{% endif %}
+                    <span style="text-align:right; font-family:monospace; color:var(--accent-purple);">
+                        {% if line.debit > 0 %}RD$ {{ "{:,.2f}".format(line.debit) }}{% endif %}
+                    </span>
+                    <span style="text-align:right; font-family:monospace; color:var(--accent-emerald);">
+                        {% if line.credit > 0 %}RD$ {{ "{:,.2f}".format(line.credit) }}{% endif %}
                     </span>
                 </div>
                 {% endfor %}
@@ -350,9 +365,9 @@
                 {% endif %}
             {% endif %}
 
-            {% if invoice.encf and invoice.qrCodeURL %}
+            {% if invoice.encf and qr_base64 %}
             <div style="background-color: white; padding: 12px; border-radius: var(--radius-sm); display: inline-block; box-shadow: var(--shadow-sm); margin-bottom: 12px;">
-                <img src="{{ invoice.qrCodeURL }}" alt="QR DGII" style="width: 140px; height: 140px; display: block; cursor:pointer;" onclick="window.open('{{ invoice.qrCodeURL }}', '_blank')">
+                <img src="data:image/png;base64,{{ qr_base64 }}" alt="QR DGII" style="width: 140px; height: 140px; display: block; cursor:pointer;" onclick="window.open('{{ invoice.qrCodeURL }}', '_blank')">
             </div>
             <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 16px; line-height: 1.3;">
                 Código QR exigido por la Ley 32-23 para validación en la DGII.
@@ -459,8 +474,14 @@
 
         <!-- ── ACTIONS ────────────────────────────────────────────────────── -->
         <div class="card-table-wrapper" style="padding: 20px; display: flex; flex-direction: column; gap: 10px;">
+            {% if not is_emitted %}
             <a href="{{ url_for('web_purchase_orders.edit_supplier_invoice', invoice_id=invoice.id) }}" style="width:100%; display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:10px 16px; background:linear-gradient(135deg,#8b5cf6,#7c3aed); border:none; border-radius:var(--radius-sm); color:#fff; font-size:0.88rem; font-weight:600; text-decoration:none; cursor:pointer;">
                 <i class="fa-solid fa-pen-to-square"></i> Editar
+            </a>
+            {% endif %}
+
+            <a href="{{ url_for('web_purchase_orders.new_supplier_invoice_direct') }}" class="btn btn-primary" style="width:100%; display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:10px 16px; font-size:0.88rem; font-weight:600;">
+                <i class="fa-solid fa-plus"></i> Nueva Factura de Compra
             </a>
 
             {% set total_attachments = invoice.attachmentUrls|length if invoice.attachmentUrls else 0 %}

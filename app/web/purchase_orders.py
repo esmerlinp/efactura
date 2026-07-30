@@ -936,11 +936,8 @@ def new_supplier_invoice_direct():
 
     if request.method == 'POST':
         invoice_number = request.form.get('invoiceNumber', '').strip()
-        if not invoice_number:
-            flash('El número de factura del proveedor es obligatorio.', 'error')
-            return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=po_id))
 
-        if not SupplierInvoiceService._check_ncf_unique(owner_uid=owner_uid, ncf=invoice_number, sandbox=sandbox, company_id=company_id):
+        if invoice_number and not SupplierInvoiceService._check_ncf_unique(owner_uid=owner_uid, ncf=invoice_number, sandbox=sandbox, company_id=company_id):
             flash('El número de factura del proveedor ya existe. Verifique los datos.', 'error')
             return redirect(url_for('web_purchase_orders.new_supplier_invoice_direct', po_id=po_id))
 
@@ -1188,13 +1185,19 @@ def new_supplier_invoice_direct():
             supplier_cedula_emit_raw = inv_data.get("supplierCedula", "").strip()
             tax_id_for_emission = supplier_rnc_emit_raw or supplier_cedula_emit_raw
 
-            from app.countries.do.dgii_client import clean_rnc, validate_rnc
+            from app.countries.do.dgii_client import clean_rnc
             clean_id = clean_rnc(tax_id_for_emission)
-            validation = validate_rnc(clean_id)
-            should_emit_41 = not validation.get("error", True)
+            should_emit_41 = len(clean_id) in (9, 11)
 
             if not should_emit_41:
-                flash('Para emitir un comprobante E41 debe registrar un RNC o una cédula del beneficiario de la compra.', 'error')
+                SupplierInvoiceService.update(
+                    owner_uid, inv_data["id"], {
+                        "status": "borrador",
+                        "updatedAt": datetime.now(timezone.utc).isoformat(),
+                    },
+                    sandbox=sandbox, company_id=company_id
+                )
+                flash('Factura guardada como borrador. Para emitir E41 debe registrar un RNC o cédula del proveedor.', 'warning')
         else:
             should_emit_41 = False
 
@@ -1301,11 +1304,13 @@ def new_supplier_invoice_direct():
                         msg = f'Factura proveedor {sinv_number} registrada exitosamente.\n'
                         msg += f'\u26a0\ufe0f DGII rechaz\u00f3 el E41: {error_msg}'
             except Exception as e41_sinv:
+                err_str = str(e41_sinv)
+                is_no_seq = any(kw in err_str.lower() for kw in ['secuencia', 'agotada', 'expirada', 'no hay una secuencia'])
                 print(f"\u274c Error al emitir E41 desde factura proveedor {inv_data['id']}: {e41_sinv}")
                 SupplierInvoiceService.update(
                     owner_uid, inv_data["id"], {
-                        "status": "rechazado_dgii",
-                        "dgiiError": f"Excepci\u00f3n en emisi\u00f3n: {str(e41_sinv)}"[:200],
+                        "status": "borrador" if is_no_seq else "rechazado_dgii",
+                        "dgiiError": "" if is_no_seq else f"Excepci\u00f3n en emisi\u00f3n: {str(e41_sinv)}"[:200],
                         "updatedAt": datetime.now(timezone.utc).isoformat(),
                     },
                     sandbox=sandbox, company_id=company_id
@@ -1319,7 +1324,10 @@ def new_supplier_invoice_direct():
                 except Exception:
                     pass
                 msg = f'Factura proveedor {sinv_number} registrada exitosamente.\n'
-                msg += '\u26a0\ufe0f No se pudo emitir E41 autom\u00e1ticamente.'
+                if is_no_seq:
+                    msg += 'No hay comprobantes fiscales disponibles. La factura se guard\u00f3 como borrador.'
+                else:
+                    msg += '\u26a0\ufe0f No se pudo emitir E41 autom\u00e1ticamente.'
         else:
             msg = f'Factura proveedor {sinv_number} registrada exitosamente.'
 
@@ -1411,16 +1419,21 @@ def new_supplier_invoice_direct():
                                 pass
                         msg += f'\n\u26a0\ufe0f DGII rechaz\u00f3 el E43: {error_msg_43}'
             except Exception as e43_sinv:
+                err_str = str(e43_sinv)
+                is_no_seq = any(kw in err_str.lower() for kw in ['secuencia', 'agotada', 'expirada', 'no hay una secuencia'])
                 print(f"\u274c Error al emitir E43 desde factura proveedor {inv_data['id']}: {e43_sinv}")
                 SupplierInvoiceService.update(
                     owner_uid, inv_data["id"], {
-                        "status": "rechazado_dgii",
-                        "dgiiError": f"Excepci\u00f3n en emisi\u00f3n E43: {str(e43_sinv)}"[:200],
+                        "status": "borrador" if is_no_seq else "rechazado_dgii",
+                        "dgiiError": "" if is_no_seq else f"Excepci\u00f3n en emisi\u00f3n E43: {str(e43_sinv)}"[:200],
                         "updatedAt": datetime.now(timezone.utc).isoformat(),
                     },
                     sandbox=sandbox, company_id=company_id
                 )
-                msg += '\n\u26a0\ufe0f No se pudo emitir E43 autom\u00e1ticamente.'
+                if is_no_seq:
+                    msg += '\nNo hay comprobantes fiscales disponibles. La factura se guard\u00f3 como borrador.'
+                else:
+                    msg += '\n\u26a0\ufe0f No se pudo emitir E43 autom\u00e1ticamente.'
 
         if file_upload_error:
             msg += ' El archivo no pudo subirse. Puede adjuntarlo después desde el detalle.'
@@ -1516,11 +1529,8 @@ def register_supplier_invoice(po_id):
 
     if request.method == 'POST':
         invoice_number = request.form.get('invoiceNumber', '').strip()
-        if not invoice_number:
-            flash('❌ El número de factura del proveedor es obligatorio.', 'error')
-            return render_template('purchase_orders/register_invoice.html', po=po, today=datetime.now(timezone.utc).strftime('%Y-%m-%d'), active_page='purchase_orders')
 
-        if not SupplierInvoiceService._check_ncf_unique(owner_uid=owner_uid, ncf=invoice_number, sandbox=sandbox, company_id=company_id):
+        if invoice_number and not SupplierInvoiceService._check_ncf_unique(owner_uid=owner_uid, ncf=invoice_number, sandbox=sandbox, company_id=company_id):
             flash('❌ El número de factura del proveedor o NCF ya existe. Verifique los datos.', 'error')
             return render_template('purchase_orders/register_invoice.html', po=po, today=datetime.now(timezone.utc).strftime('%Y-%m-%d'), active_page='purchase_orders')
 
@@ -1720,6 +1730,20 @@ def supplier_invoice_detail(invoice_id):
         print(f"⚠️ Error al obtener logs de auditoría: {e}")
         history_logs = []
 
+    qr_base64 = None
+    if invoice.get('encf') and invoice.get('qrCodeURL'):
+        try:
+            import qrcode, io, base64
+            qr = qrcode.QRCode(version=1, box_size=10, border=0)
+            qr.add_data(invoice['qrCodeURL'])
+            qr.make(fit=True)
+            img = qr.make_image(fill_color="black", back_color="white")
+            stream = io.BytesIO()
+            img.save(stream, format='PNG')
+            qr_base64 = base64.b64encode(stream.getvalue()).decode('utf-8')
+        except Exception as qr_err:
+            print(f"⚠️ Error al generar QR de factura proveedor {invoice_id}: {qr_err}")
+
     return render_template('purchase_orders/supplier_invoice_detail.html',
                            invoice=invoice, payments=payments,
                            bank_accounts=bank_accounts,
@@ -1729,6 +1753,7 @@ def supplier_invoice_detail(invoice_id):
                            linked_entry=linked_entry,
                            company=company,
                            history_logs=history_logs,
+                           qr_base64=qr_base64,
                            active_page='purchase_cxp')
 
 
@@ -1891,7 +1916,9 @@ def emit_supplier_invoice(invoice_id):
                 "updatedAt":        datetime.now(timezone.utc).isoformat(),
             }
             SupplierInvoiceService.update(owner_uid, invoice_id, update_fields, sandbox=sandbox, company_id=company_id)
-            ...
+            flash(f'\u2705 Comprobante emitido exitosamente. e-NCF: {update_fields["encf"]}', 'success')
+            return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
+        else:
             error_msg = res.get('message', res.get('error', 'Error desconocido de DGII'))
             update_fields = {
                 "dgiiError": str(error_msg)[:200],
@@ -1907,7 +1934,7 @@ def emit_supplier_invoice(invoice_id):
                     }, company_id=company_id, sandbox=sandbox)
                 except Exception as log_err:
                     print(f"Error al registrar fallo en sequence_log: {log_err}")
-            flash(f'DGII rechazó el comprobante: {error_msg}. Corrige y reintenta.', 'error')
+            flash(f'DGII rechaz\u00f3 el comprobante: {error_msg}. Corrige y reintenta.', 'error')
     except Exception as e:
         print(f"Error al emitir factura proveedor {invoice_id}: {e}")
         if not is_reemit and log_id:
@@ -2020,13 +2047,15 @@ def edit_supplier_invoice(invoice_id):
         flash('❌ Factura proveedor no encontrada.', 'error')
         return redirect(url_for('web_purchase_orders.list_purchase_cxp'))
 
+    is_emitted = invoice.get('status') == 'emitida' or (invoice.get('isSyncedWithDGII') and invoice.get('encf') and not invoice.get('dgiiError'))
+    if is_emitted:
+        flash('❌ No se puede editar una factura que ya fue emitida a la DGII.', 'error')
+        return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
+
     if request.method == 'POST':
         inv_number = request.form.get('invoiceNumber', '').strip()
-        if not inv_number:
-            flash('El número de factura del proveedor es obligatorio.', 'error')
-            return redirect(url_for('web_purchase_orders.edit_supplier_invoice', invoice_id=invoice_id))
 
-        if inv_number != invoice.get('supplierInvoiceNumber', ''):
+        if inv_number and inv_number != invoice.get('supplierInvoiceNumber', ''):
             if not SupplierInvoiceService._check_ncf_unique(owner_uid=owner_uid, ncf=inv_number, sandbox=sandbox, exclude_id=invoice_id, company_id=company_id):
                 flash('El número de factura del proveedor ya existe. Verifique los datos.', 'error')
                 return redirect(url_for('web_purchase_orders.edit_supplier_invoice', invoice_id=invoice_id))

@@ -463,7 +463,9 @@ class DgiiXmlBuilder:
             item_elem = ET.SubElement(detalles_items, "Item")
             ET.SubElement(item_elem, "NumeroLinea").text = str(idx + 1)
             itbis_rate = float(item.get("itbisRate", 0.18))
-            if itbis_rate >= 0.17:
+            if tipo_ecf == "43":
+                ET.SubElement(item_elem, "IndicadorFacturacion").text = "4"
+            elif itbis_rate >= 0.17:
                 ET.SubElement(item_elem, "IndicadorFacturacion").text = "1"
             elif itbis_rate >= 0.15:
                 ET.SubElement(item_elem, "IndicadorFacturacion").text = "2"
