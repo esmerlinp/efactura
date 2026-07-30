@@ -262,9 +262,11 @@
                                     <i class="fa-solid fa-check-double"></i> Aprobar Gasto
                                 </button>
                                 {% endif %}
+                                {% if not (exp.isSyncedWithDGII and exp.encf and not exp.dgiiError) %}
                                 <a href="{{ url_for('web_invoices.edit_expense_route', expense_id=exp.id) }}" class="action-menu-item">
                                     <i class="fa-solid fa-pen-to-square"></i> Editar
                                 </a>
+                                {% endif %}
                                 {% if exp.firebaseAttachmentURLs and exp.firebaseAttachmentURLs[0] %}
                                 <a href="{{ exp.firebaseAttachmentURLs[0] }}" target="_blank" class="action-menu-item">
                                     <i class="fa-solid fa-paperclip"></i> Ver Soporte
