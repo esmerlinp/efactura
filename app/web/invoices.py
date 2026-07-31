@@ -1506,15 +1506,18 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             late_fee_percentage = 5.0
 
         # Buscar datos del cliente
-        client_name = "Consumidor Final"
+        client_name = request.form.get('clientName', '').strip() or "Consumidor Final"
         client_rnc = request.form.get('clientRNC', '')
+        client_foreign_tax_id = request.form.get('foreignTaxId', '')
         client_project_id = None
         if client_id:
             clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
             client = next((c for c in clients if c['id'] == client_id), None)
             if client:
                 client_name = client['razonSocial']
-                client_rnc = client['rnc']
+                client_foreign_tax_id = client.get('foreignTaxId', '') or (client.get('rnc', '') if client.get('customer_category') == 'FOREIGN' else '')
+                # Cliente extranjero: no propaga su RNC (es su Tax ID); RNCComprador usa fallback de la compañía
+                client_rnc = '' if client.get('customer_category') == 'FOREIGN' else client.get('rnc', '')
                 client_project_id = client.get('projectId')
                 
         # 2. Reconstruir items dinámicos enviados por el cliente en el DOM
@@ -1553,7 +1556,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             if not regimen_rules.get("itbis_enabled", True):
                 itbis_rate = 0.0
             ecf_code_from_type = ecf_type.split("(")[-1].replace(")", "").strip() if "(" in ecf_type else ecf_type
-            if ecf_code_from_type == "E44":
+            if ecf_code_from_type in ("E44", "E46"):
                 itbis_rate = 0.0
             item_disc = float(request.form.get(f'items[{idx}][discountRate]', 0.0))
             
@@ -1657,6 +1660,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             invoice_dict["clientId"] = client_id
             invoice_dict["clientName"] = client_name
             invoice_dict["clientRNC"] = client_rnc
+            invoice_dict["foreignTaxId"] = client_foreign_tax_id
             invoice_dict["ecfType"] = ecf_type
             invoice_dict["retainedISR"] = calcs["retained_isr"]
             invoice_dict["retainedITBIS"] = calcs["retained_itbis"]
@@ -1707,6 +1711,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                 "clientId": client_id,
                 "clientName": client_name,
                 "clientRNC": client_rnc,
+                "foreignTaxId": client_foreign_tax_id,
                 "status": "Borrador",
                 "ecfType": ecf_type,
                 "encf": "",
@@ -1859,8 +1864,9 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             
             # Validar RNCComprador para tipos que DGII lo exige
             rnc_cliente = str(invoice_dict.get("clientRNC", "")).replace("-", "").strip()
-            tipos_requieren_rnc = ["31", "33", "34", "41", "44", "45", "46", "47"]
+            tipos_requieren_rnc = ["31", "33", "34", "41", "44", "45", "47"]
             ecf_short = get_ecf_type_short_code(invoice_dict.get("ecfType", ""))
+            # E46 no requiere RNC dominicano (usa RNC de la compañía o identificador extranjero)
             # E32 >= 250K requiere RNC; < 250K no
             is_e32_mayor = ecf_short == "32" and float(invoice_dict.get("total", 0)) >= 250000
             if (ecf_short in tipos_requieren_rnc or is_e32_mayor) and (not rnc_cliente or len(rnc_cliente) not in (9, 11)):
@@ -1884,7 +1890,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                     invoice_dict["firebasePDFURL"] = res.get("pdfUrl", "")
                     invoice_dict["firebaseXMLURL"] = res.get("xmlUrl", "")
                     # FALLBACK = emitido offline, aún pendiente de sincronizar con la DGII
-                    invoice_dict["isSyncedWithDGII"] = (res.get("mode", "API") == "API" and res.get("status") != "PENDING")
+                    invoice_dict["isSyncedWithDGII"] = (res.get("mode") in ("API", "RFCE_API") and res.get("status") != "PENDING")
                     invoice_dict["emisionMode"] = res.get("mode", "API")
                     pending_dgii = res.get("status") == "PENDING" or res.get("mode") == "FALLBACK"
                     invoice_dict["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
@@ -2012,7 +2018,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                             "respuestaDGII": json.dumps(res.get("responseBody"), indent=2) if res.get("responseBody") else ""
                         }, company_id=company_id, sandbox=sandbox)
                     flash(f"❌ DGII rechazó el comprobante: {error_msg}. Corrige y reintenta.", "error")
-                    return redirect(url_for('web_invoices.edit_invoice', invoice_id=target_invoice_id))
+                    return redirect(url_for('web_invoices.invoice_detail', invoice_id=target_invoice_id))
             except Exception as e:
                 # Marcar el sequence log como FALLIDO ante excepción no manejada
                 if log_id:
@@ -2088,7 +2094,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         if current_code not in {t.code for t in _ecf_types}:
             _ecf_types.append(_by_code(current_code))
 
-    _sale_codes = ('E31', 'E32', 'E44', 'E45')
+    _sale_codes = ('E31', 'E32', 'E44', 'E45', 'E46')
     _ecf_types = [t for t in _ecf_types if t.code in _sale_codes]
     for code in _sale_codes:
         if code in allowed_by_regimen and code not in {t.code for t in _ecf_types}:
@@ -3576,7 +3582,7 @@ def sign_invoice_route(invoice_id):
             invoice["firebasePDFURL"] = res.get("pdfUrl", "")
             invoice["firebaseXMLURL"] = res.get("xmlUrl", "")
             # FALLBACK = emitido offline, aún pendiente de sincronizar con la DGII
-            invoice["isSyncedWithDGII"] = (res.get("mode", "API") == "API" and res.get("status") != "PENDING")
+            invoice["isSyncedWithDGII"] = (res.get("mode") in ("API", "RFCE_API") and res.get("status") != "PENDING")
             invoice["emisionMode"] = res.get("mode", "API")
             invoice["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
             invoice["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat() if res.get("mode") == "FALLBACK" else None
@@ -3676,7 +3682,7 @@ def reemit_invoice_route(invoice_id):
             invoice["status"] = "Pendiente DGII" if pending_dgii else "Emitida"
             invoice["xmlSignature"] = res.get("xmlSignature", "")
             invoice["qrCodeURL"] = res.get("qrCodeURL", "")
-            invoice["isSyncedWithDGII"] = (res.get("mode", "API") == "API" and res.get("status") != "PENDING")
+            invoice["isSyncedWithDGII"] = (res.get("mode") in ("API", "RFCE_API") and res.get("status") != "PENDING")
             invoice["emisionMode"] = res.get("mode", "API")
             invoice["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
             invoice["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat() if res.get("mode") == "FALLBACK" else None
@@ -4882,7 +4888,7 @@ def invoice_preview_route():
     comentario = request.form.get('comentario', '').strip()
     footer = request.form.get('footer', '').strip()
     
-    client_name = "Consumidor Final"
+    client_name = request.form.get('clientName', '').strip() or "Consumidor Final"
     client_rnc = request.form.get('clientRNC', '')
     client_contact = ""
     client_email = ""
@@ -5455,7 +5461,7 @@ def sync_contingency_invoices():
             full_inv = DatabaseService.get_invoice(owner_uid, inv_id, company_id=company_id, sandbox=sandbox)
             target_invoice = full_inv or inv
             res = EcfEmissionService.emit_electronic_comprobante(company, target_invoice, sandbox=sandbox)
-            if res.get("success") and res.get("mode", "API") == "API":
+            if res.get("success") and res.get("mode") in ("API", "RFCE_API"):
                 target_invoice["isSyncedWithDGII"] = True
                 target_invoice["emisionMode"] = "API"
                 target_invoice["dgiiStatus"] = res.get("dgiiStatus") or "ACCEPTED"
@@ -5535,7 +5541,7 @@ def sync_single_invoice_route(invoice_id):
     
     try:
         res = EcfEmissionService.emit_electronic_comprobante(company, invoice, sandbox=sandbox)
-        if res.get("success") and res.get("mode", "API") == "API":
+        if res.get("success") and res.get("mode") in ("API", "RFCE_API"):
             invoice["isSyncedWithDGII"] = True
             invoice["emisionMode"] = "API"
             invoice["dgiiStatus"] = res.get("dgiiStatus") or "ACCEPTED"
@@ -7264,7 +7270,7 @@ def sync_expense_ecf_route(expense_id):
         invoice_payload = _build_expense_ecf_payload(expense, ecf_full_type)
         res = EcfEmissionService.emit_electronic_comprobante(company, invoice_payload, sandbox=sandbox)
 
-        if res.get("success") and res.get("mode", "API") == "API":
+        if res.get("success") and res.get("mode") in ("API", "RFCE_API"):
             pending_dgii = res.get("status") == "PENDING"
             expense["isSyncedWithDGII"] = not pending_dgii
             expense["emisionMode"] = "API"

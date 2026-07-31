@@ -122,15 +122,18 @@ def create_client():
             return jsonify({"success": False, "error": "RNC y razon_social son campos requeridos."}), 400
             
         client_id = data.get('id') or str(uuid.uuid4())
+        customer_category = data.get('customer_category', 'NORMAL')
+        foreign_tax_id = data.get('foreign_tax_id', data.get('foreignTaxId', '')) or (rnc if customer_category == 'FOREIGN' else '')
         client_dict = {
             "rnc": rnc,
             "razonSocial": razon_social,
             "email": data.get('email', ''),
             "telefono": data.get('telefono', ''),
             "direccion": data.get('direccion', ''),
+            "foreignTaxId": foreign_tax_id,
             "crmNotes": data.get('crm_notes', data.get('crmNotes', 'Creado mediante la API externa')),
             "nextContactDate": data.get('next_contact_date') or data.get('nextContactDate'),
-            "customer_category": data.get('customer_category', 'NORMAL')
+            "customer_category": customer_category
         }
         
         DatabaseService.save_client(g.owner_uid, client_id, client_dict, company_id=g.company_id, sandbox=g.sandbox_mode)
@@ -203,16 +206,20 @@ def update_client(client_id):
             return jsonify({"success": False, "error": "Cliente no encontrado."}), 404
             
         data = request.json or {}
+        customer_category = data.get('customer_category', client.get('customer_category', 'NORMAL'))
+        rnc_value = data.get('rnc', client.get('rnc', ''))
+        foreign_tax_id = data.get('foreign_tax_id', data.get('foreignTaxId', client.get('foreignTaxId', ''))) or (rnc_value if customer_category == 'FOREIGN' else '')
         client_dict = {
             **client,
-            "rnc": data.get('rnc', client.get('rnc')),
+            "rnc": rnc_value,
             "razonSocial": data.get('razon_social', data.get('razonSocial', client.get('razonSocial'))),
             "email": data.get('email', client.get('email')),
             "telefono": data.get('telefono', client.get('telefono')),
             "direccion": data.get('direccion', client.get('direccion')),
+            "foreignTaxId": foreign_tax_id,
             "crmNotes": data.get('crm_notes', data.get('crmNotes', client.get('crmNotes'))),
             "nextContactDate": data.get('next_contact_date', data.get('nextContactDate', client.get('nextContactDate'))),
-            "customer_category": data.get('customer_category', client.get('customer_category', 'NORMAL'))
+            "customer_category": customer_category
         }
         
         DatabaseService.save_client(g.owner_uid, client_id, client_dict, company_id=g.company_id, sandbox=g.sandbox_mode)

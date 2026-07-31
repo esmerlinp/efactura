@@ -111,6 +111,7 @@ def _sync_to_legacy_clients(owner_uid=None, contact=None, sandbox=True, company_
         "disableAutoReminders": contact.get("disableAutoReminders", False),
         "createdAt": contact.get("createdAt", datetime.now(timezone.utc).isoformat()),
         "customer_category": contact.get("customer_category", "NORMAL"),
+        "foreignTaxId": contact.get("foreignTaxId", ""),
     }
     DatabaseService.save_client(owner_uid, contact["id"], client_dict, sandbox=sandbox, company_id=company_id)
 

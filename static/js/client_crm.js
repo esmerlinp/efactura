@@ -11,6 +11,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (rncInput) {
         // Escuchar el evento input con un sutil debounce o longitud exacta
         rncInput.addEventListener('input', async (e) => {
+            const catEl = document.getElementById('customer_category');
+            if (catEl && catEl.value === 'FOREIGN') return;
+
             const rawVal = e.target.value;
             const cleanedVal = rawVal.replace(/[^0-9]/g, '');
             

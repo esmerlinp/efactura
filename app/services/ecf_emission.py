@@ -29,7 +29,10 @@ class EcfEmissionService:
                 raise ValueError("Para emitir un Comprobante Gubernamental (E45) se requiere un RNC de cliente de 9 dígitos.")
         if "E46" in ecf_type or "Exportación" in ecf_type:
             if not client_rnc:
-                raise ValueError("Para emitir un Comprobante de Exportación (E46) se requiere el RNC o Pasaporte del cliente.")
+                invoice_dict["clientRNC"] = "000000000"
+            # Asegurar que identificadorExtranjero esté presente si tenemos foreignTaxId
+            if not invoice_dict.get("identificadorExtranjero") and invoice_dict.get("foreignTaxId"):
+                invoice_dict["identificadorExtranjero"] = invoice_dict["foreignTaxId"]
 
         if "E44" in ecf_type or "Regímenes Especiales" in ecf_type:
             if not client_rnc or len(client_rnc) != 9:

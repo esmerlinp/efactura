@@ -141,12 +141,16 @@ def new_client():
         if not access_pin or len(access_pin) != 6 or not access_pin.isdigit():
             access_pin = "".join([str(random.randint(0, 9)) for _ in range(6)])
 
+        customer_category = request.form.get('customer_category', 'NORMAL')
+        rnc_value = request.form.get('rnc', '')
+        foreign_tax_id = request.form.get('foreignTaxId', '').strip() or (rnc_value if customer_category == 'FOREIGN' else '')
         client_dict = {
-            "rnc": request.form['rnc'],
+            "rnc": rnc_value,
             "razonSocial": request.form['razonSocial'],
             "email": request.form.get('email', ''),
             "telefono": request.form.get('telefono', ''),
             "direccion": request.form.get('direccion', ''),
+            "foreignTaxId": foreign_tax_id,
             "crmNotes": request.form.get('crmNotes', ''),
             "nextContactDate": request.form.get('nextContactDate', ''),
             "pipelineStage": request.form.get('pipelineStage', 'Cliente Activo'),
@@ -156,7 +160,7 @@ def new_client():
             "accessPin": access_pin,
             "priceListId": request.form.get('priceListId', ''),
             "projectId": request.form.get('projectId') or None,
-            "customer_category": request.form.get('customer_category', 'NORMAL'),
+            "customer_category": customer_category,
             "creditLimit": float(request.form.get('creditLimit', 0) or 0),
         }
         
@@ -204,19 +208,22 @@ def ajax_create_client():
     access_pin = "".join([str(random.randint(0, 9)) for _ in range(6)])
     
     client_id = str(uuid.uuid4())
+    customer_category = (data.get('customer_category') or 'NORMAL').strip()
+    foreign_tax_id = (data.get('foreignTaxId') or '').strip() or (rnc if customer_category == 'FOREIGN' else '')
     client_dict = {
         "rnc": rnc,
         "razonSocial": razon_social,
         "email": (data.get('email') or '').strip(),
         "telefono": (data.get('telefono') or '').strip(),
         "direccion": (data.get('direccion') or '').strip(),
+        "foreignTaxId": foreign_tax_id,
         "crmNotes": "Registrado desde formulario de facturación",
         "nextContactDate": "",
         "pipelineStage": "Cliente Activo",
         "createdAt": datetime.now(timezone.utc).isoformat(),
         "accessPin": access_pin,
         "projectId": (data.get('projectId') or '').strip() or None,
-        "customer_category": (data.get('customer_category') or 'NORMAL').strip()
+        "customer_category": customer_category
     }
     
     DatabaseService.save_client(owner_uid, client_id, client_dict, company_id=company_id, sandbox=sandbox)
@@ -243,6 +250,7 @@ def ajax_create_client():
             "email": client_dict["email"],
             "telefono": client_dict["telefono"],
             "direccion": client_dict["direccion"],
+            "foreignTaxId": client_dict.get("foreignTaxId", ""),
             "projectId": client_dict.get("projectId") or "",
             "customer_category": client_dict.get("customer_category", "NORMAL")
         }
@@ -289,12 +297,16 @@ def edit_client(client_id):
             if not access_pin:
                 access_pin = "".join([str(random.randint(0, 9)) for _ in range(6)])
 
+        customer_category = request.form.get('customer_category', client.get('customer_category', 'NORMAL'))
+        rnc_value = request.form.get('rnc', '')
+        foreign_tax_id = request.form.get('foreignTaxId', '').strip() or (rnc_value if customer_category == 'FOREIGN' else '')
         client_dict = {
-            "rnc": request.form['rnc'],
+            "rnc": rnc_value,
             "razonSocial": request.form['razonSocial'],
             "email": request.form.get('email', ''),
             "telefono": request.form.get('telefono', ''),
             "direccion": request.form.get('direccion', ''),
+            "foreignTaxId": foreign_tax_id,
             "crmNotes": request.form.get('crmNotes', ''),
             "nextContactDate": request.form.get('nextContactDate', ''),
             "createdAt": client["createdAt"],
@@ -305,7 +317,7 @@ def edit_client(client_id):
             "accessPin": access_pin,
             "priceListId": request.form.get('priceListId', ''),
             "projectId": request.form.get('projectId') or None,
-            "customer_category": request.form.get('customer_category', client.get('customer_category', 'NORMAL'))
+            "customer_category": customer_category
         }
         DatabaseService.save_client(owner_uid, client_id, client_dict, company_id=company_id, sandbox=sandbox)
         
