@@ -489,16 +489,17 @@
                 <i class="fa-solid fa-paperclip"></i> Adjuntos{% if total_attachments > 0 %} ({{ total_attachments }}){% endif %}
             </button>
 
+            <a href="{{ url_for('web_purchase_orders.supplier_invoice_pdf', invoice_id=invoice.id) }}?action=download"
+                class="btn btn-secondary" style="width:100%; display:inline-flex; align-items:center; justify-content:center; gap:6px; font-size:0.82rem; border-color:var(--accent-blue); color:var(--accent-blue);">
+                <i class="fa-solid fa-file-pdf"></i> Descargar PDF
+            </a>
+
             {% set ret_isr = invoice.retainedISR|default(0) %}
             {% set ret_itbis = invoice.retainedITBIS|default(0) %}
             {% if ret_isr > 0 or ret_itbis > 0 %}
             <a href="{{ url_for('web_purchase_orders.supplier_retention_letter', invoice_id=invoice.id) }}?action=print" target="_blank"
                 class="btn btn-secondary" style="width:100%; display:inline-flex; align-items:center; justify-content:center; gap:6px; font-size:0.82rem; border-color:var(--accent-blue); color:var(--accent-blue);">
                 <i class="fa-solid fa-file-invoice"></i> Carta Retención
-            </a>
-            <a href="{{ url_for('web_purchase_orders.supplier_retention_letter', invoice_id=invoice.id) }}?action=download"
-                class="btn btn-secondary" style="width:100%; display:inline-flex; align-items:center; justify-content:center; gap:6px; font-size:0.82rem; border-color:var(--accent-blue); color:var(--accent-blue);">
-                <i class="fa-solid fa-file-pdf"></i> Descargar PDF
             </a>
             <button type="button" onclick="openRetentionEmailModal()"
                 style="width:100%; display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:10px 16px; font-size:0.82rem; background:linear-gradient(135deg,#3b82f6,#2563eb); border:none; border-radius:var(--radius-sm); color:#fff; font-weight:600; cursor:pointer;">
