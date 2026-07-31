@@ -3,16 +3,16 @@
 {% set company_color_marca = brand_color %}
 {% set current_color = brand_color %}
 {% set current_light_color = brand_color if apply_brand else '#E2E8F0' %}
-{% set exp_subtotal = (expense.amount or 0) - (expense.itbisAmount or 0) %}
-{% set exp_neto = (expense.amount or 0) - (expense.retainedITBIS or 0) - (expense.retainedISR or 0) %}
-{% set exp_itbis_rate = ((expense.itbisAmount or 0) / exp_subtotal) if exp_subtotal > 0 else 0 %}
+{% set ret_isr_amount = (invoice.total or 0) * (invoice.retainedISR or 0) %}
+{% set ret_itbis_amount = (invoice.itbis or 0) * (invoice.retainedITBIS or 0) %}
+{% set neto_pagar = (invoice.total or 0) - ret_isr_amount - ret_itbis_amount %}
 <!DOCTYPE html>
 <html lang="es">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>e-CF {{ expense.ecfType | ecf_label }} - {{ expense.encf or expense.ncf }}</title>
+    <title>e-CF {{ invoice.ecfType | ecf_label }} - {{ invoice.encf or invoice.ncf }}</title>
     {% if auto_print %}
     <script>
         window.addEventListener('load', function () {
@@ -253,41 +253,6 @@
             font-size: 15px;
         }
 
-        /* ---- Sección DGII e-CF ---- */
-        .certification-section {
-            margin: 0 20px 28px;
-            padding: 16px 20px;
-            background: #f0f9ff;
-            border: 1px solid #bae6fd;
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            gap: 24px;
-        }
-        .certification-section .cert-text {
-            flex: 1;
-        }
-        .certification-section .cert-label {
-            font-size: 9px;
-            text-transform: uppercase;
-            color: #0369a1;
-            font-weight: 700;
-            letter-spacing: 0.1em;
-            margin-bottom: 4px;
-        }
-        .certification-section .encf-code {
-            font-family: monospace;
-            font-size: 16px;
-            font-weight: 800;
-            color: {{ company_color_marca or '#1E3A8A' }};
-            letter-spacing: 0.05em;
-        }
-        .certification-section .cert-mode {
-            font-size: 10px;
-            color: #64748b;
-            margin-top: 4px;
-        }
-
         /* ---- Notas ---- */
         .notes-section {
             margin: 0 20px 24px;
@@ -442,32 +407,32 @@
                 <p><strong>RNC:</strong> {{ company.companyRNC }}</p>
                 <p><strong>Dirección:</strong> {{ company.companyAddress }}</p>
                 <p><strong>Tel/Correo:</strong> {{ company.companyPhone }} &nbsp;|&nbsp; {{ company.companyEmail }}</p>
-                <p><strong>Fecha Emisión:</strong> {{ expense.date | format_date }}</p>
+                <p><strong>Fecha Emisión:</strong> {{ invoice.date | format_date }}</p>
             </div>
             <div class="document-block" style="text-align: right;">
-                {% if expense.encf or expense.ncf %}
+                {% if invoice.encf or invoice.ncf %}
                 <div style="font-size: 14px; font-weight: bold; color: {{ current_color }}; margin-bottom: 4px;">
-                    {{ expense.ecfType | ecf_label }}</div>
+                    {{ invoice.ecfType | ecf_label }}</div>
                 <div class="doc-number" style="font-size: 13px; font-weight: normal; color: #111827;">e-NCF: {{
-                    expense.encf or expense.ncf }}</div>
-                {% if expense.dueDate %}
+                    invoice.encf or invoice.ncf }}</div>
+                {% if invoice.dueDate %}
                 <div style="font-size: 11px; color: #111827; margin-top: 4px;">
-                    <strong>Fecha Vencimiento:</strong> {{ expense.dueDate | format_date }}
+                    <strong>Fecha Vencimiento:</strong> {{ invoice.dueDate | format_date }}
                 </div>
                 {% endif %}
-                {% if expense.emisionMode == 'FALLBACK' %}
+                {% if invoice.emisionMode == 'FALLBACK' %}
                 <div style="margin-top: 8px;">
                     <span class="badge badge-amber">Modo Contingencia</span>
                 </div>
                 {% endif %}
                 <div style="font-size: 10px; color: #64748b; margin-top: 8px;">
-                    Moneda: {{ expense.currency or 'DOP' }} | Condición: {{ expense.paymentMethod or 'Contado' }}
+                    Moneda: {{ invoice.currency or 'DOP' }} | Condición: {{ invoice.paymentType or 'Contado' }}
                 </div>
                 {% else %}
                 <div style="font-size: 14px; font-weight: bold; color: {{ current_color }}; margin-bottom: 4px;">
-                    Comprobante de Gastos</div>
+                    Factura de Proveedor</div>
                 <div class="doc-number" style="font-size: 13px; font-weight: normal; color: #111827;">Doc. Interno: {{
-                    expense.id }}</div>
+                    invoice.invoiceNumber or invoice.id }}</div>
                 {% endif %}
             </div>
         </div>
@@ -476,8 +441,8 @@
         <div class="parties-grid">
             <div class="party-block">
                 <div class="party-label">Emisor (Proveedor)</div>
-                <div class="party-name">{{ expense.providerName or 'Proveedor' }}</div>
-                <div class="party-rnc">RNC: {{ expense.rncEmisor or 'N/A' }}</div>
+                <div class="party-name">{{ invoice.supplierName or 'Proveedor' }}</div>
+                <div class="party-rnc">RNC: {{ invoice.supplierRnc or invoice.supplierCedula or 'N/A' }}</div>
             </div>
             <div class="party-block">
                 <div class="party-label">Receptor (Empresa)</div>
@@ -486,9 +451,9 @@
             </div>
         </div>
 
-        <!-- Detalle del Gasto -->
+        <!-- Detalle -->
         <div class="items-section">
-            <div class="section-title">Detalle del Gasto</div>
+            <div class="section-title">Detalle de la Factura</div>
             <table>
                 <thead>
                     <tr>
@@ -502,21 +467,29 @@
                     </tr>
                 </thead>
                 <tbody>
+                    {% for item in invoice['items'] or [] %}
+                    {% set item_qty = item.quantity or item.qty or 1 %}
+                    {% set item_price = item.price if item.price is defined and item.price else (item.total / item_qty if item.total else 0) %}
+                    <tr>
+                        <td class="mono">{{ item.code or 'S/C' }}</td>
+                        <td class="bold">{{ item.name or item.description or 'Concepto' }}</td>
+                        <td class="right">RD$ {{ "{:,.2f}".format(item_price) }}</td>
+                        <td class="center">{{ item_qty }}</td>
+                        <td class="right">{{ "{:.0%}".format(item.itbisRate or 0) }}</td>
+                        <td class="right">{{ "{:.0%}".format(item.discountRate or 0) }}</td>
+                        <td class="right bold">RD$ {{ "{:,.2f}".format(item.total or 0) }}</td>
+                    </tr>
+                    {% else %}
                     <tr>
                         <td class="mono">S/C</td>
-                        <td class="bold">
-                            {{ expense.concept or 'Gasto Operativo' }}
-                            {% if expense.category %}
-                            <div style="font-size: 9px; color: #64748b; font-weight: normal; margin-top: 2px;">{{
-                                expense.category }}</div>
-                            {% endif %}
-                        </td>
-                        <td class="right">RD$ {{ "{:,.2f}".format(expense.amount or 0) }}</td>
+                        <td class="bold">{{ invoice.comentario or invoice.notes or 'Compra de bienes/servicios' }}</td>
+                        <td class="right">RD$ {{ "{:,.2f}".format(invoice.total or 0) }}</td>
                         <td class="center">1</td>
-                        <td class="right">{{ "{:.0%}".format(exp_itbis_rate) }}</td>
                         <td class="right">0%</td>
-                        <td class="right bold">RD$ {{ "{:,.2f}".format(expense.amount or 0) }}</td>
+                        <td class="right">0%</td>
+                        <td class="right bold">RD$ {{ "{:,.2f}".format(invoice.total or 0) }}</td>
                     </tr>
+                    {% endfor %}
                 </tbody>
             </table>
         </div>
@@ -526,7 +499,7 @@
             style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 10px;">
 
             <!-- Bloque QR DGII (Izquierda) -->
-            {% if expense.encf or expense.ncf %}
+            {% if invoice.encf or invoice.ncf %}
             <div class="qr-block" style="text-align: left; padding-bottom: 8px;">
                 {% if qr_base64 %}
                 <div style="padding: 3mm 3mm 3mm 0; background: white; display: inline-block;">
@@ -534,17 +507,17 @@
                         style="width: 84px; height: 84px; display: block;">
                 </div>
                 {% endif %}
-                {% if expense.xmlSignature %}
+                {% if invoice.xmlSignature %}
                 <div style="font-size: 10px; color: #111827; margin-top: 2px;">
-                    Código de Seguridad: {{ expense.xmlSignature[:6] }}
+                    Código de Seguridad: {{ invoice.xmlSignature[:6] }}
                 </div>
                 {% endif %}
-                {% if expense.xmlSignature and fecha_firma_str %}
+                {% if invoice.xmlSignature and fecha_firma_str %}
                 <div style="font-size: 10px; color: #111827; margin-top: 2px;">
                     Fecha de Firma Digital: {{ fecha_firma_str }}
                 </div>
                 {% endif %}
-                {% if expense.emisionMode == 'FALLBACK' %}
+                {% if invoice.emisionMode == 'FALLBACK' %}
                 <div
                     style="font-size: 8px; font-weight: bold; color: #b91c1c; margin-top: 4px; border: 1px solid #b91c1c; padding: 2px 4px; border-radius: 3px; display: block; text-align: center; text-transform: uppercase;">
                     e-CF emitido en modalidad de contingencia
@@ -559,38 +532,49 @@
             <div class="totals-table">
                 <div class="totals-row">
                     <span class="label">Subtotal:</span>
-                    <span class="value">RD$ {{ "{:,.2f}".format(exp_subtotal) }}</span>
+                    <span class="value">RD$ {{ "{:,.2f}".format(invoice.subtotal or invoice.total or 0) }}</span>
                 </div>
                 <div class="totals-row">
                     <span class="label">Total ITBIS:</span>
-                    <span class="value">RD$ {{ "{:,.2f}".format(expense.itbisAmount or 0) }}</span>
+                    <span class="value">RD$ {{ "{:,.2f}".format(invoice.itbis or 0) }}</span>
                 </div>
-                {% if expense.retainedITBIS and expense.retainedITBIS > 0 %}
+                {% if invoice.discount and invoice.discount > 0 %}
                 <div class="totals-row">
-                    <span class="label">(-) ITBIS Retenido:</span>
-                    <span class="value">-RD$ {{ "{:,.2f}".format(expense.retainedITBIS) }}</span>
+                    <span class="label">(-) Descuento:</span>
+                    <span class="value">-RD$ {{ "{:,.2f}".format(invoice.discount) }}</span>
                 </div>
                 {% endif %}
-                {% if expense.retainedISR and expense.retainedISR > 0 %}
+                {% if ret_itbis_amount > 0 %}
+                <div class="totals-row">
+                    <span class="label">(-) ITBIS Retenido:</span>
+                    <span class="value">-RD$ {{ "{:,.2f}".format(ret_itbis_amount) }}</span>
+                </div>
+                {% endif %}
+                {% if ret_isr_amount > 0 %}
                 <div class="totals-row">
                     <span class="label">(-) ISR Retenido:</span>
-                    <span class="value">-RD$ {{ "{:,.2f}".format(expense.retainedISR) }}</span>
+                    <span class="value">-RD$ {{ "{:,.2f}".format(ret_isr_amount) }}</span>
                 </div>
                 {% endif %}
                 <div class="totals-row total-bold">
                     <span class="label">Total:</span>
-                    <span class="value">RD$ {{ "{:,.2f}".format(expense.amount or 0) }}</span>
+                    <span class="value">RD$ {{ "{:,.2f}".format(invoice.total or 0) }}</span>
                 </div>
                 <div class="totals-row net-payable">
                     <span class="label">Neto a Pagar:</span>
-                    <span class="value">RD$ {{ "{:,.2f}".format(exp_neto) }}</span>
+                    <span class="value">RD$ {{ "{:,.2f}".format(neto_pagar) }}</span>
                 </div>
             </div>
         </div>
 
-        {% if expense.notes %}
+        {% if invoice.notes or invoice.comentario %}
         <div class="notes-section" style="margin-top: 20px;">
-            <strong>Notas:</strong> {{ expense.notes }}
+            {% if invoice.comentario %}
+            <div><strong>Notas:</strong> {{ invoice.comentario }}</div>
+            {% endif %}
+            {% if invoice.notes %}
+            <div style="margin-top: 4px;"><strong>Términos y condiciones:</strong> {{ invoice.notes }}</div>
+            {% endif %}
         </div>
         {% endif %}
 
@@ -598,11 +582,8 @@
         <div class="footer"
             style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: auto;">
             <div style="text-align: left; font-size: 10px;">
-                {% if expense.footer %}
-                <div style="margin-bottom: 4px;">{{ expense.footer }}</div>
-                {% endif %}
                 *Este modelo cumple con la Ley 32-23 de la República Dominicana.<br>
-                {% if expense.encf or expense.ncf %}Valide este documento en:
+                {% if invoice.encf or invoice.ncf %}Valide este documento en:
                 <strong>https://dgii.gov.do/validaecf</strong>{% endif %}
             </div>
             <div style="text-align: right; font-weight: bold; font-size: 10px;">

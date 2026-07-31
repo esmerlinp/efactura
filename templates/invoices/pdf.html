@@ -574,18 +574,22 @@
             <div class="document-block" style="text-align: right;">
                 {% if invoice.encf %}
                 <div style="font-size: 14px; font-weight: bold; color: {{ current_color }}; margin-bottom: 4px;">
-                    {{ invoice.ecfType }}</div>
+                    {{ invoice.ecfType | ecf_label }}</div>
                 <div class="doc-number" style="font-size: 13px; font-weight: normal; color: #111827;">e-NCF: {{
                     invoice.encf }}</div>
-                {% if invoice.modifiedNCF %}
+                {% set ref_info = invoice.get('informationReference') or {} %}
+                {% set ncf_mod = invoice.get('ncfModified') or invoice.get('ncfModificado') or invoice.get('modifiedNCF') or ref_info.get('ncfModified') or ref_info.get('ncfModificado') %}
+                {% if ncf_mod %}
                 <div style="font-size: 11px; color: #111827; margin-top: 2px;">
-                    <strong>NCF Modificado:</strong> {{ invoice.modifiedNCF }}
+                    <strong>NCF Modificado:</strong> {{ ncf_mod }}
+                </div>
+                {% set mod_code = invoice.get('modificationCode') or ref_info.get('modificationCode') %}
+                {% set mod_reason = invoice.get('reasonForModification') or invoice.get('modificationReason') or invoice.get('razonModificacion') or ref_info.get('reasonForModification') or ref_info.get('razonModificacion') %}
+                {% if mod_code or mod_reason %}
+                <div style="font-size: 11px; color: #111827; margin-top: 2px;">
+                    {{ mod_code | ecf_mod_reason(mod_reason, invoice.get('ecfType', '')) }}
                 </div>
                 {% endif %}
-                {% if invoice.modificationReason %}
-                <div style="font-size: 11px; color: #111827; margin-top: 2px;">
-                    {{ invoice.modificationReason }}
-                </div>
                 {% endif %}
                 {% else %}
                 <div style="font-size: 14px; font-weight: bold; color: {{ current_color }}; margin-bottom: 4px;">
@@ -594,7 +598,7 @@
                     invoice.invoiceNumber }}</div>
                 {% endif %}
 
-                {% if invoice.ecfType and 'Nota de' not in invoice.ecfType and 'Consumo' not in invoice.ecfType %}
+                {% if invoice.ecfType and 'Nota de' not in (invoice.ecfType | ecf_label) and 'Consumo' not in (invoice.ecfType | ecf_label) %}
                 <div style="font-size: 11px; color: #111827; margin-top: 4px;">
                     <strong>Fecha Vencimiento:</strong> {{ invoice.dueDate | format_date }}
                 </div>
@@ -612,7 +616,7 @@
         </div>
 
         <!-- Emisor / Receptor -->
-        {% set is_consumo = 'Consumo' in (invoice.ecfType or '') %}
+        {% set is_consumo = 'Consumo' in (invoice.ecfType | ecf_label) %}
         {% set is_minor = (invoice.total or 0) < 250000 %} {% set hide_client=is_consumo and is_minor and (not
             invoice.clientRNC or invoice.clientRNC=='000000000' or not invoice.clientName) %} {% if not hide_client %}
             <div

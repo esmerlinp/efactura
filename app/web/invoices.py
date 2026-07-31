@@ -48,6 +48,14 @@ def _is_credit_debit_note(ecf_type: str) -> bool:
         return False
 
 
+def _is_consumo(ecf_type: str) -> bool:
+    """Detecta si un ecfType corresponde a una factura de consumo (E32)."""
+    try:
+        return _by_code(ecf_type).code == "E32"
+    except KeyError:
+        return False
+
+
 def _log_dgii_emission_to_audit(owner_uid, invoice, res, performed_by_email, performed_by_name="Sistema", company_id=None, sandbox=True, entity_id=None):
     """Registra el resultado de una emisión DGII en el historial de auditoría."""
     try:
@@ -2769,7 +2777,7 @@ def send_invoice_email(owner_uid, invoice, recipient_email, sandbox=True, base_u
             if not rnc_comprador: rnc_comprador = "000000000"
             monto_total = f"{invoice.get('total', 0.0):.2f}"
             
-            is_consumo = 'Consumo' in invoice.get("ecfType", "")
+            is_consumo = _is_consumo(invoice.get("ecfType", ""))
             if is_consumo and invoice.get("total", 0.0) < 250000:
                 query_params = {
                     "RncEmisor": rnc_emisor,
@@ -4428,7 +4436,7 @@ def invoice_pdf_download(invoice_id):
         # DGII exception: Facturas de Consumo (E32) menores a RD$250,000
         # Usa dominio fc.dgii.gov.do segun especificacion DGII
         env = Config.DGII_ENVIRONMENT
-        is_consumo = 'Consumo' in invoice.get("ecfType", "")
+        is_consumo = _is_consumo(invoice.get("ecfType", ""))
         if is_consumo and invoice.get("total", 0.0) < 250000:
             query_params = {
                 "rncemisor": rnc_emisor,
@@ -5172,12 +5180,14 @@ def expense_pdf_download(expense_id):
     from datetime import datetime
 
     qr_url = expense.get("qrCodeURL")
+    fecha_firma_str = ""
     if expense.get("encf") and expense.get("xmlSignature"):
         try:
             fecha_emision_dt = datetime.strptime(expense.get("date", "")[:10], "%Y-%m-%d")
             fecha_emision_str = fecha_emision_dt.strftime("%d-%m-%Y")
         except:
             fecha_emision_str = ""
+        fecha_firma_str = fecha_emision_str + " 12:00:00"
         codigo_seg = expense.get("xmlSignature", "")[:6]
         rnc_emisor = company.get("companyRNC", "").replace("-", "").strip()
         monto_total = f"{expense.get('amount', 0.0):.2f}"
@@ -5202,15 +5212,20 @@ def expense_pdf_download(expense_id):
     img.save(stream, format="PNG")
     qr_base64 = base64.b64encode(stream.getvalue()).decode('utf-8')
 
+    branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox)
+    branch = next((b for b in branches if b['id'] == expense.get("branchId")), None)
+    if not branch and branches:
+        branch = branches[0]
+
     if WEASYPRINT_AVAILABLE:
-        rendered_html = render_template('expenses/pdf.html', expense=expense, company=company, auto_print=False, qr_base64=qr_base64, sandbox=sandbox)
+        rendered_html = render_template('expenses/pdf.html', expense=expense, company=company, branch=branch, auto_print=False, qr_base64=qr_base64, fecha_firma_str=fecha_firma_str, sandbox=sandbox)
         pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf()
         response = make_response(pdf_bytes)
         response.headers['Content-Type'] = 'application/pdf'
         response.headers['Content-Disposition'] = f'attachment; filename="{inv_num}.pdf"'
         return response
     else:
-        rendered_html = render_template('expenses/pdf.html', expense=expense, company=company, auto_print=True, qr_base64=qr_base64, sandbox=sandbox)
+        rendered_html = render_template('expenses/pdf.html', expense=expense, company=company, branch=branch, auto_print=True, qr_base64=qr_base64, fecha_firma_str=fecha_firma_str, sandbox=sandbox)
         response = make_response(rendered_html)
         response.headers['Content-Type'] = 'text/html; charset=utf-8'
         return response

@@ -50,6 +50,14 @@ def init_extensions(app):
     app.template_filter('formatted')(formatted_filter)
     app.template_filter('money')(formatted_filter)
     app.template_filter('format_date')(format_date_filter)
+
+    # Filtro para etiqueta DGII del tipo de comprobante (seguro ante valores crudos)
+    from app.models.fiscal_document_type import label_for
+    app.template_filter('ecf_label')(label_for)
+
+    # Filtro para el motivo DGII de modificación de notas de crédito/débito
+    from app.utils.ecf_utils import get_modification_reason_dgii
+    app.template_filter('ecf_mod_reason')(get_modification_reason_dgii)
     
     # Registrar funciones matemáticas y utilidades en Jinja2
     from datetime import datetime

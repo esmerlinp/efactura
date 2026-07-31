@@ -247,24 +247,27 @@
                         style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">Método
                         Pago: <strong>{{ invoice.paymentMethod }}</strong></span>
                     <span style="font-size: 0.85rem; color: var(--text-secondary); display: block;">Tipo de Documento:
-                        <strong>{{ invoice.ecfType }}</strong></span>
-                    {% set ref = invoice.informationReference %}
-                    {% if ref and ref.ncfModified %}
+                        <strong>{{ invoice.ecfType | ecf_label }}</strong></span>
+                    {% set ref = invoice.informationReference or {} %}
+                    {% set ncf_mod = invoice.get('ncfModified') or invoice.get('modifiedNCF') or ref.get('ncfModified') %}
+                    {% if ncf_mod %}
                     <div style="margin-top: 10px; padding: 10px 14px; background: var(--bg-card-alt, rgba(255,255,255,0.04)); border-radius: var(--radius-sm); border-left: 3px solid var(--accent-purple);">
                         <span style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 6px;">
                             <i class="fa-solid fa-link"></i> Documento de Referencia
                         </span>
                         <span style="font-size: 0.82rem; color: var(--text-secondary); display: block; margin-bottom: 3px;">
-                            e-CF: <strong style="font-family: monospace; color: var(--text-primary);">{{ ref.ncfModified }}</strong>
+                            NCF Modificado: <strong style="font-family: monospace; color: var(--text-primary);">{{ ncf_mod }}</strong>
                         </span>
                         {% if ref.ncfModifiedDate %}
                         <span style="font-size: 0.82rem; color: var(--text-secondary); display: block; margin-bottom: 3px;">
                             Fecha: <strong>{{ ref.ncfModifiedDate }}</strong>
                         </span>
                         {% endif %}
-                        {% if ref.reasonForModification %}
+                        {% set mod_code = invoice.get('modificationCode') or ref.get('modificationCode') %}
+                        {% set mod_reason = invoice.get('reasonForModification') or ref.get('reasonForModification') %}
+                        {% if mod_code or mod_reason %}
                         <span style="font-size: 0.82rem; color: var(--text-secondary); display: block;">
-                            Motivo: <strong>{{ ref.reasonForModification }}</strong>
+                            Motivo: <strong>{{ mod_code | ecf_mod_reason(mod_reason, invoice.get('ecfType', '')) }}</strong>
                         </span>
                         {% endif %}
                     </div>
@@ -1335,6 +1338,14 @@
             {% endif %}
 
             <!-- Unified Premium Print Button -->
+            <a href="{{ url_for('web_invoices.invoice_pdf_download', invoice_id=invoice.id) }}" target="_blank"
+                class="btn btn-secondary"
+                style="width: 100%; font-size: 0.82rem; padding: 8px 16px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                <i class="fa-solid fa-file-pdf" style="color: var(--accent-red);"></i>
+                <span>Descargar PDF</span>
+            </a>
+
+            <!-- Unified Premium Print Button -->
             <a href="{{ url_for('web_invoices.invoice_pdf_download', invoice_id=invoice.id) }}?action=print" target="_blank"
                 class="btn btn-secondary"
                 style="width: 100%; border-color: var(--accent-emerald); color: var(--accent-emerald); display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
@@ -1362,7 +1373,7 @@
             </button>
             {% endif %}
 
-            {% set is_note = invoice.ecfType in ['E33', 'E34'] or 'Nota de Débito' in invoice.ecfType or 'Nota de Crédito' in invoice.ecfType %}
+            {% set is_note = 'Nota de' in (invoice.ecfType | ecf_label) %}
             {% if not invoice.isQuotation and invoice.encf and not is_note and invoice.status != 'Rechazado DGII' %}
             <!-- Notas de Crédito / Débito (Ley 32-23) -->
             <a href="{{ url_for('web_invoices.new_invoice_route') }}?reference_invoice_id={{ invoice.id }}&note_type=E34"

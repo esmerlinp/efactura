@@ -1872,6 +1872,89 @@ def supplier_invoice_detail(invoice_id):
                            active_page='purchase_cxp')
 
 
+@web_purchase_orders_bp.route('/purchase-orders/invoices/<invoice_id>/pdf')
+def supplier_invoice_pdf(invoice_id):
+    if 'user' not in session: return "No autorizado", 401
+    if not check_permission('canManagePurchaseCXP'):
+        return "Acceso denegado: requiere permiso de CxP", 403
+    owner_uid = session['user']['ownerUID']
+    company_id = session.get('selected_company_id')
+    sandbox = session.get('is_sandbox_mode', True)
+
+    invoice = SupplierInvoiceService.get(owner_uid=owner_uid, invoice_id=invoice_id, sandbox=sandbox, company_id=company_id)
+    if not invoice:
+        return "Factura no encontrada", 404
+
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+
+    import io
+    import base64
+    import qrcode
+    import urllib.parse
+    from datetime import datetime
+
+    doc_num = invoice.get('ncf') or invoice.get('encf') or invoice.get('invoiceNumber', '') or invoice_id
+    inv_num = doc_num.replace('/', '-').replace(' ', '_')
+
+    qr_url = invoice.get("qrCodeURL")
+    fecha_firma_str = ""
+    if invoice.get("encf") and invoice.get("xmlSignature"):
+        try:
+            fecha_emision_dt = datetime.strptime(invoice.get("date", "")[:10], "%Y-%m-%d")
+            fecha_emision_str = fecha_emision_dt.strftime("%d-%m-%Y")
+        except:
+            fecha_emision_str = ""
+        fecha_firma_str = fecha_emision_str + " 12:00:00"
+        if not qr_url:
+            codigo_seg = invoice.get("xmlSignature", "")[:6]
+            rnc_emisor = (invoice.get("supplierRnc") or company.get("companyRNC", "")).replace("-", "").strip()
+            monto_total = f"{invoice.get('total', 0.0):.2f}"
+            query_params = {
+                "RncEmisor": rnc_emisor,
+                "ENCF": invoice.get("encf"),
+                "MontoTotal": monto_total,
+                "FechaEmision": fecha_emision_str,
+                "CodigoSeguridad": codigo_seg
+            }
+            qs = urllib.parse.urlencode(query_params, quote_via=urllib.parse.quote)
+            qr_url = "https://ecf.dgii.gov.do/ecf/ConsultaTimbre?" + qs
+
+    if not qr_url:
+        qr_url = "https://dgii.gov.do/validaecf"
+
+    qr = qrcode.QRCode(version=1, box_size=10, border=0)
+    qr.add_data(qr_url)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    stream = io.BytesIO()
+    img.save(stream, format="PNG")
+    qr_base64 = base64.b64encode(stream.getvalue()).decode('utf-8')
+
+    branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox)
+    branch = next((b for b in branches if b['id'] == invoice.get("branchId")), None)
+    if not branch and branches:
+        branch = branches[0]
+
+    action = request.args.get('action', 'download')
+
+    if WEASYPRINT_AVAILABLE and action == 'download':
+        rendered_html = render_template('purchase_orders/supplier_invoice_pdf.html',
+            invoice=invoice, company=company, branch=branch, auto_print=False,
+            qr_base64=qr_base64, fecha_firma_str=fecha_firma_str, sandbox=sandbox)
+        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf()
+        response = make_response(pdf_bytes)
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'attachment; filename="Factura_{inv_num}.pdf"'
+        return response
+    else:
+        rendered_html = render_template('purchase_orders/supplier_invoice_pdf.html',
+            invoice=invoice, company=company, branch=branch, auto_print=True,
+            qr_base64=qr_base64, fecha_firma_str=fecha_firma_str, sandbox=sandbox)
+        response = make_response(rendered_html)
+        response.headers['Content-Type'] = 'text/html; charset=utf-8'
+        return response
+
+
 @web_purchase_orders_bp.route('/purchase-orders/invoices/<invoice_id>/reemit-e41', methods=['POST'])
 def reemit_supplier_invoice_e41(invoice_id):
     """Reemite un E41 rechazado por la DGII usando el mismo e-NCF."""

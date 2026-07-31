@@ -2847,7 +2847,15 @@ class DatabaseService:
                         "includeInRui": bool(data.get("includeInRui", True)),
                         "ruiId": data.get("ruiId", ""),
                         "ruiNcf": data.get("ruiNcf", ""),
-                        "excludeFromRuiReason": data.get("excludeFromRuiReason", "")
+                        "excludeFromRuiReason": data.get("excludeFromRuiReason", ""),
+                        "informationReference": data.get("informationReference"),
+                        "ncfModified": data.get("ncfModified"),
+                        "ncfModificado": data.get("ncfModificado"),
+                        "modificationCode": data.get("modificationCode"),
+                        "reasonForModification": data.get("reasonForModification"),
+                        "modificationReason": data.get("modificationReason"),
+                        "razonModificacion": data.get("razonModificacion"),
+                        "ncfModifiedDate": serialize_field(data.get("ncfModifiedDate"))
                     }
             except Exception as e:
                 print(f"⚠️ Error al obtener factura por ID desde Firestore: {e}")

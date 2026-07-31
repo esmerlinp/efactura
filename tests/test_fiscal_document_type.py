@@ -8,7 +8,7 @@ import pytest
 from app.models.fiscal_document_type import (
     by_code, by_numeric, by_ncf_prefix, emitables, all_types,
     has_code, get_tipo_config, has_itbis_breakdown, has_retencion_item,
-    select_options, report_labels,
+    select_options, report_labels, label_for,
     FiscalDocumentType, Family, Category,
 )
 
@@ -398,6 +398,37 @@ class TestLabelProperties:
     def test_report_label(self):
         assert by_code("E31").report_label == "E-31 (Factura de Crédito Fiscal)"
         assert by_code("B04").report_label == "B-04 (Nota de Crédito)"
+
+    def test_dgii_label_ecf(self):
+        assert by_code("E31").dgii_label == "Factura de Crédito Fiscal Electrónica"
+        assert by_code("E32").dgii_label == "Factura de Consumo Electrónica"
+        assert by_code("E33").dgii_label == "Nota de Débito Electrónica"
+        assert by_code("E34").dgii_label == "Nota de Crédito Electrónica"
+        assert by_code("E41").dgii_label == "Comprobante de Compras Electrónico"
+
+    def test_dgii_label_empty_for_traditional(self):
+        assert by_code("B01").dgii_label == ""
+        assert by_code("B12").dgii_label == ""
+
+    def test_display_label_ecf_uses_dgii_name(self):
+        assert by_code("E31").display_label == "Factura de Crédito Fiscal Electrónica"
+        assert by_code("E34").display_label == "Nota de Crédito Electrónica"
+
+    def test_display_label_fallback_with_code(self):
+        assert by_code("B01").display_label == "Factura de Crédito Fiscal (B01)"
+
+    def test_label_for_resolves_all_formats(self):
+        assert label_for("E32") == "Factura de Consumo Electrónica"
+        assert label_for("Factura de Consumo (E32)") == "Factura de Consumo Electrónica"
+        assert label_for("E34") == "Nota de Crédito Electrónica"
+        assert label_for("Nota de Crédito (E34)") == "Nota de Crédito Electrónica"
+        assert label_for("Nota de Débito Electrónica") == "Nota de Débito Electrónica"
+
+    def test_label_for_unknown_and_empty(self):
+        assert label_for("") == ""
+        assert label_for("Cotización") == "Cotización"
+        assert label_for("Invento Raro") == "Invento Raro"
+        assert label_for(None) == ""
 
     def test_str(self):
         s = str(by_code("E31"))

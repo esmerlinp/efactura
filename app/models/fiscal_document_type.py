@@ -73,6 +73,9 @@ class FiscalDocumentType:
     # --- XSD ---
     xsd_file: Optional[str] = None
 
+    # --- Nombre oficial DGII (ej. "Factura de Consumo Electrónica") ---
+    dgii_label: str = ""
+
     @property
     def short_label(self) -> str:
         return self.label.partition(" (")[0]
@@ -80,6 +83,11 @@ class FiscalDocumentType:
     @property
     def label_with_code(self) -> str:
         return f"{self.short_label} ({self.code})"
+
+    @property
+    def display_label(self) -> str:
+        """Nombre oficial DGII si existe; si no, etiqueta con código."""
+        return self.dgii_label or self.label_with_code
 
     @property
     def report_label(self) -> str:
@@ -113,6 +121,7 @@ E31 = _reg(FiscalDocumentType(
     has_retention=True, in_reporte_607=True,
     accounting_entry_type="invoice",
     xsd_file="Schemas/e-CF 31 v1.0.xsd",
+    dgii_label="Factura de Crédito Fiscal Electrónica",
 ))
 
 E32 = _reg(FiscalDocumentType(
@@ -126,6 +135,7 @@ E32 = _reg(FiscalDocumentType(
     in_reporte_607=True,
     accounting_entry_type="invoice",
     xsd_file="Schemas/e-CF 32 v1.0.xsd",
+    dgii_label="Factura de Consumo Electrónica",
 ))
 
 E33 = _reg(FiscalDocumentType(
@@ -137,6 +147,7 @@ E33 = _reg(FiscalDocumentType(
     in_reporte_607=True,
     accounting_entry_type="invoice",
     xsd_file="Schemas/e-CF 33 v1.0.xsd",
+    dgii_label="Nota de Débito Electrónica",
 ))
 
 E34 = _reg(FiscalDocumentType(
@@ -150,6 +161,7 @@ E34 = _reg(FiscalDocumentType(
     in_reporte_607=True,
     accounting_entry_type="credit_note",
     xsd_file="Schemas/e-CF 34 v1.0.xsd",
+    dgii_label="Nota de Crédito Electrónica",
 ))
 
 E41 = _reg(FiscalDocumentType(
@@ -163,6 +175,7 @@ E41 = _reg(FiscalDocumentType(
     in_reporte_606=True,
     accounting_entry_type="expense",
     xsd_file="Schemas/e-CF 41 v1.0.xsd",
+    dgii_label="Comprobante de Compras Electrónico",
 ))
 
 E43 = _reg(FiscalDocumentType(
@@ -178,6 +191,7 @@ E43 = _reg(FiscalDocumentType(
     in_reporte_606=True, in_reporte_623=True,
     accounting_entry_type="expense",
     xsd_file="Schemas/e-CF 43 v1.0.xsd",
+    dgii_label="Comprobante para Gastos Menores Electrónico",
 ))
 
 E44 = _reg(FiscalDocumentType(
@@ -188,6 +202,7 @@ E44 = _reg(FiscalDocumentType(
     has_itbis=False, has_itbis_breakdown=False,
     requires_rnc=True,
     xsd_file="Schemas/e-CF 44 v1.0.xsd",
+    dgii_label="Regímenes Especiales Electrónico",
 ))
 
 E45 = _reg(FiscalDocumentType(
@@ -202,6 +217,7 @@ E45 = _reg(FiscalDocumentType(
     in_reporte_606=True, in_reporte_607=True,
     accounting_entry_type="invoice",
     xsd_file="Schemas/e-CF 45 v1.0.xsd",
+    dgii_label="Gubernamental Electrónico",
 ))
 
 E46 = _reg(FiscalDocumentType(
@@ -216,6 +232,7 @@ E46 = _reg(FiscalDocumentType(
     in_reporte_607=True,
     accounting_entry_type="invoice",
     xsd_file="Schemas/e-CF 46 v1.0.xsd",
+    dgii_label="Exportación Electrónico",
 ))
 
 E47 = _reg(FiscalDocumentType(
@@ -230,6 +247,7 @@ E47 = _reg(FiscalDocumentType(
     in_reporte_606=True, in_reporte_623=True,
     accounting_entry_type="expense",
     xsd_file="Schemas/e-CF 47 v1.0.xsd",
+    dgii_label="Pagos al Exterior Electrónico",
 ))
 
 E48 = _reg(FiscalDocumentType(
@@ -244,6 +262,7 @@ E48 = _reg(FiscalDocumentType(
     in_reporte_607=True,
     accounting_entry_type="invoice",
     xsd_file=None,
+    dgii_label="Clientes del Exterior Electrónico",
 ))
 
 E49 = _reg(FiscalDocumentType(
@@ -258,6 +277,7 @@ E49 = _reg(FiscalDocumentType(
     in_reporte_606=True, in_reporte_607=True,
     accounting_entry_type="invoice",
     xsd_file=None,
+    dgii_label="Zonas Francas Electrónico",
 ))
 
 E50 = _reg(FiscalDocumentType(
@@ -271,6 +291,7 @@ E50 = _reg(FiscalDocumentType(
     has_payment_schedule=False, has_discounts=False,
     has_deferred_shipping=False, has_itbis_breakdown=False,
     xsd_file=None,
+    dgii_label="Comprobante de Retención Electrónico",
 ))
 
 # -----------------------------------------------------------------------
@@ -501,6 +522,21 @@ def all_types() -> list[FiscalDocumentType]:
 
 def has_code(code: str) -> bool:
     return code.strip().upper() in _TYPES
+
+
+def label_for(ecf_type_value: str) -> str:
+    """Resuelve cualquier formato almacenado a la etiqueta DGII.
+
+    Acepta código crudo (``'E32'``), ``label_with_code`` (``'Factura de
+    Consumo (E32)'``) o el nombre completo. Ante valores desconocidos
+    devuelve el valor original (nunca lanza).
+    """
+    if not ecf_type_value:
+        return ""
+    try:
+        return by_code(ecf_type_value).display_label
+    except (KeyError, ValueError, AttributeError, TypeError):
+        return str(ecf_type_value)
 
 
 # =========================================================================
