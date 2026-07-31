@@ -365,6 +365,7 @@ class DgiiDirectService:
             signed_xml = DgiiSigner.sign_xml(raw_xml, company_profile)
             xml_signature = DgiiSigner.extract_signature_value(signed_xml) or hashlib.sha256(signed_xml).hexdigest()
             codigo_seguridad = xml_signature[:6]
+            invoice_data["xmlContent"] = signed_xml.decode("utf-8", errors="replace")
 
             token, token_error = cls.get_dgii_token(company_profile, sandbox=sandbox)
             if not token:
@@ -440,6 +441,7 @@ class DgiiDirectService:
                         "encf": encf,
                         "trackId": track_id,
                         "xmlSignature": xml_signature,
+                        "signedXml": signed_xml.decode("utf-8", errors="replace"),
                         "codigoSeguridad": codigo_seguridad,
                         "qrCodeURL": qr_url,
                         "mode": "API",
@@ -493,6 +495,10 @@ class DgiiDirectService:
             signed_e32 = DgiiSigner.sign_xml(full_e32, company_profile)
             xml_sig = DgiiSigner.extract_signature_value(signed_e32) or hashlib.sha256(signed_e32).hexdigest()
             codigo_seguridad = xml_sig[:6]
+            # Persistir el XML firmado en el dict para que la descarga posterior
+            # sirva EXACTAMENTE el archivo cuya firma generó CodigoSeguridadeCF
+            # (FechaHoraFirma cambia en cada build → re-firmar produce otro signature value).
+            invoice_data["xmlContent"] = signed_e32.decode("utf-8", errors="replace")
 
             # Paso 2: Construir RFCE summary con CodigoSeguridadeCF
             rfce_raw = DgiiXmlBuilder.build_rfce_summary_xml(company_profile, invoice_data, codigo_seguridad)
@@ -563,6 +569,7 @@ class DgiiDirectService:
                         "encf": encf,
                         "trackId": uuid.uuid4().hex[:20].upper(),
                         "xmlSignature": rfce_xml_signature,
+                        "signedXml": signed_e32.decode("utf-8", errors="replace"),
                         "codigoSeguridad": codigo_seguridad,
                         "qrCodeURL": qr_url,
                         "mode": "RFCE_API",

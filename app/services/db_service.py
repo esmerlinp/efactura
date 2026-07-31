@@ -2794,6 +2794,7 @@ class DatabaseService:
                         "ecfType": data.get("ecfType", "Factura de Consumo (E32)"),
                         "encf": data.get("encf", ""),
                         "xmlSignature": data.get("xmlSignature", ""),
+                        "xmlContent": data.get("xmlContent", ""),
                         "qrCodeURL": data.get("qrCodeURL", ""),
                         "isSyncedWithDGII": bool(data.get("isSyncedWithDGII", False)),
                         "emisionMode": data.get("emisionMode", ""),
