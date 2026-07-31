@@ -3578,6 +3578,7 @@ def sign_invoice_route(invoice_id):
                 invoice["status"] = "Pendiente DGII" if pending_dgii else "Emitida"
             invoice["encf"] = res.get("encf", invoice.get("encf", ""))
             invoice["xmlSignature"] = res.get("xmlSignature", "")
+            invoice["xmlContent"] = res.get("signedXml") or invoice.get("xmlContent", "")
             invoice["qrCodeURL"] = res.get("qrCodeURL", "")
             invoice["firebasePDFURL"] = res.get("pdfUrl", "")
             invoice["firebaseXMLURL"] = res.get("xmlUrl", "")
