@@ -361,6 +361,7 @@ class DgiiDirectService:
                 }
 
             raw_xml = DgiiXmlBuilder.build_invoice_xml(company_profile, invoice_data)
+            print(f"\n{'='*60}\n📄 XML GENERADO:\n{'='*60}\n{raw_xml.decode('utf-8', errors='replace')}\n{'='*60}\n", flush=True)
             signed_xml = DgiiSigner.sign_xml(raw_xml, company_profile)
             xml_signature = DgiiSigner.extract_signature_value(signed_xml) or hashlib.sha256(signed_xml).hexdigest()
             codigo_seguridad = xml_signature[:6]
@@ -487,10 +488,16 @@ class DgiiDirectService:
                     "message": "DGII_RFCE_RECEPCION_URL no configurado."
                 }
 
-            raw_xml = DgiiXmlBuilder.build_invoice_xml(company_profile, invoice_data)
-            signed_xml = DgiiSigner.sign_xml(raw_xml, company_profile)
-            xml_signature = DgiiSigner.extract_signature_value(signed_xml) or hashlib.sha256(signed_xml).hexdigest()
-            codigo_seguridad = xml_signature[:6]
+            # Paso 1: Generar E32 completo + firmar → extraer CodigoSeguridadeCF
+            full_e32 = DgiiXmlBuilder.build_invoice_xml(company_profile, invoice_data)
+            signed_e32 = DgiiSigner.sign_xml(full_e32, company_profile)
+            xml_sig = DgiiSigner.extract_signature_value(signed_e32) or hashlib.sha256(signed_e32).hexdigest()
+            codigo_seguridad = xml_sig[:6]
+
+            # Paso 2: Construir RFCE summary con CodigoSeguridadeCF
+            rfce_raw = DgiiXmlBuilder.build_rfce_summary_xml(company_profile, invoice_data, codigo_seguridad)
+            signed_rfce = DgiiSigner.sign_xml(rfce_raw, company_profile)
+            rfce_xml_signature = DgiiSigner.extract_signature_value(signed_rfce) or hashlib.sha256(signed_rfce).hexdigest()
 
             token, token_error = cls.get_dgii_token(company_profile, sandbox=sandbox)
             if not token:
@@ -509,10 +516,11 @@ class DgiiDirectService:
             encf = invoice_data.get("encf", "E320000000001")
             filename = f"{company_rnc}{encf}.xml"
 
+            # Paso 3: Enviar RFCE firmado al endpoint de resúmenes
             cert_path = cls._prepare_tls_cert(company_profile)
             try:
                 response = cls._multipart_post(
-                    rfce_url, signed_xml, token=token,
+                    rfce_url, signed_rfce, token=token,
                     filename=filename, cert_path=cert_path
                 )
 
@@ -554,12 +562,12 @@ class DgiiDirectService:
                         "success": True,
                         "encf": encf,
                         "trackId": uuid.uuid4().hex[:20].upper(),
-                        "xmlSignature": xml_signature,
+                        "xmlSignature": rfce_xml_signature,
                         "codigoSeguridad": codigo_seguridad,
                         "qrCodeURL": qr_url,
                         "mode": "RFCE_API",
-                        "status": dgii_status or "PENDING",
-                        "dgiiStatus": dgii_status or "PENDING",
+                        "status": dgii_status or "ACCEPTED",
+                        "dgiiStatus": dgii_status or "ACCEPTED",
                         "codigoRFCE": codigo,
                         "estadoRFCE": estado,
                         "secuenciaUtilizada": secuencia_utilizada,

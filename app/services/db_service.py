@@ -2951,15 +2951,27 @@ class DatabaseService:
         
         fs_items = []
         for item in items:
+            _price = float(item["price"])
+            _quantity = int(item["quantity"])
+            _subtotal_raw = float(item.get("subtotal_raw", 0.0))
+            if _subtotal_raw == 0.0:
+                _subtotal_raw = round(_price * _quantity, 2)
+            _discount_amount = float(item.get("discount_amount", 0.0))
+            if _discount_amount == 0.0:
+                _discount_rate = float(item.get("discountRate", 0.0))
+                if _discount_rate > 0.0:
+                    _discount_amount = round(_subtotal_raw * _discount_rate, 2)
             fs_items.append({
                 "id": item.get("id") or str(uuid.uuid4()),
                 "code": item.get("code", ""),
                 "type": item.get("type", "Bien"),
                 "name": item["name"],
-                "price": float(item["price"]),
-                "quantity": int(item["quantity"]),
+                "price": _price,
+                "quantity": _quantity,
                 "itbisRate": float(item.get("itbisRate", 0.18)),
                 "discountRate": float(item.get("discountRate", 0.0)),
+                "subtotal_raw": _subtotal_raw,
+                "discount_amount": _discount_amount,
                 "subtotal": float(item["subtotal"]),
                 "itbisAmount": float(item.get("itbisAmount", item.get("itbis_amount", 0.0))),
                 "total": float(item["total"]),

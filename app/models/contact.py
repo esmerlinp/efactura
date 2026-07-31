@@ -17,6 +17,7 @@ class Contact(BaseModel):
     ownerUID: str = ""
     types: list[str] = Field(default_factory=list)
     rnc: str = ""
+    foreignTaxId: str = ""
     razonSocial: str = ""
     email: str = ""
     telefono: str = ""

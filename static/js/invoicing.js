@@ -78,14 +78,33 @@ document.addEventListener('DOMContentLoaded', () => {
     const clientIdHidden = document.getElementById('client-id-hidden');
     const projectIdHidden = document.getElementById('project-id-hidden');
 
+    const isExportE46Selected = () => {
+        const ecfSel = document.getElementById('ecf-type-select');
+        if (!ecfSel) return false;
+        const val = ecfSel.value;
+        return val.includes('E46') || val.includes('Exportación') || val.includes('exportación') || val.includes('exportacion');
+    };
+
     const renderClients = (filterText = '') => {
         const query = filterText.toLowerCase().trim();
+        const exportOnly = isExportE46Selected();
         const filtered = crmClients.filter(c =>
-            c.razonSocial.toLowerCase().includes(query) ||
+            (!exportOnly || c.customer_category === 'FOREIGN') &&
+            (c.razonSocial.toLowerCase().includes(query) ||
             (c.rnc || '').toLowerCase().includes(query) ||
             (c.email || '').toLowerCase().includes(query) ||
-            (c.phone || '').toLowerCase().includes(query)
+            (c.phone || '').toLowerCase().includes(query))
         );
+
+        if (filtered.length === 0) {
+            modalClientListBody.innerHTML = `
+            <tr>
+                <td colspan="3" style="padding: 24px 16px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
+                    ${exportOnly ? 'No hay clientes extranjeros que coincidan. Puede crear uno nuevo con categoría "Extranjero".' : 'No se encontraron clientes que coincidan.'}
+                </td>
+            </tr>`;
+            return;
+        }
 
         modalClientListBody.innerHTML = filtered.map(c => `
             <tr style="border-bottom: 1px solid var(--border-color);">
@@ -93,9 +112,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div style="font-weight: 500; font-size: 0.95rem; color: var(--text-primary); line-height: 1.3; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${c.razonSocial}">
                         ${c.razonSocial}
                     </div>
-                    <div style="font-family: monospace; font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; display: flex; align-items: center; gap: 6px;">
+                    <div style="font-family: monospace; font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                         <i class="fa-solid fa-id-card" style="font-size: 0.72rem; opacity: 0.7;"></i>
                         <span>RNC: ${c.rnc || 'Consumidor Final'}</span>
+                        ${c.foreignTaxId ? `<span style="color:var(--accent-amber);">· Tax ID: ${c.foreignTaxId}</span>` : ''}
+                        ${c.customer_category === 'FOREIGN' ? `<span class="badge badge-warning" style="font-size:0.7rem;padding:1px 6px;background:rgba(245,158,11,0.15);color:#d97706;border-radius:4px;">Extranjero</span>` : ''}
                     </div>
                 </td>
                 <td style="padding: 14px 16px; vertical-align: middle;">
@@ -109,7 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </td>
                 <td style="padding: 14px 16px; text-align: center; vertical-align: middle;">
-                    <button type="button" class="btn btn-primary btn-select-client" data-id="${c.id}" data-name="${c.razonSocial}" data-rnc="${c.rnc || ''}" style="height: 36px; padding: 0 16px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-sm); border: none; cursor: pointer; transition: all var(--transition-fast);">
+                    <button type="button" class="btn btn-primary btn-select-client" data-id="${c.id}" data-name="${c.razonSocial}" data-rnc="${c.rnc || ''}" data-foreign-tax-id="${c.foreignTaxId || ''}" style="height: 36px; padding: 0 16px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-sm); border: none; cursor: pointer; transition: all var(--transition-fast);">
                         <i class="fa-solid fa-check" style="font-size: 0.8rem;"></i> Seleccionar
                     </button>
                 </td>
@@ -122,8 +143,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const id = btn.getAttribute('data-id');
                 const name = btn.getAttribute('data-name');
                 const rnc = btn.getAttribute('data-rnc');
+                const foreignTaxId = btn.getAttribute('data-foreign-tax-id') || '';
 
                 clientIdHidden.value = id;
+                const clientNameHidden = document.getElementById('client-name-hidden');
+                if (clientNameHidden) clientNameHidden.value = name;
+                const clientForeignTaxId = document.getElementById('client-foreign-tax-id-hidden');
+                if (clientForeignTaxId) clientForeignTaxId.value = foreignTaxId;
                 clientSearchInput.value = `${name} (${rnc || 'Consumidor Final'})`;
                 if (clientRncInput) {
                     clientRncInput.value = rnc;
@@ -133,6 +159,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Establecer la lista de precios activa según el cliente seleccionado
                 const client = crmClients.find(c => c.id === id);
                 activePriceListId = (client && client.priceListId) || defaultPriceListId;
+                if (clientForeignTaxId && client && client.foreignTaxId) {
+                    clientForeignTaxId.value = client.foreignTaxId;
+                }
 
                 // Heredar proyecto del cliente si tiene uno asignado
                 if (projectIdHidden && client && client.projectId) {
@@ -178,6 +207,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnSaveNewClientLabel = document.getElementById('btn-save-new-client-label');
     const createClientAlert = document.getElementById('create-client-alert');
 
+    const toggleModalForeignFields = () => {
+        const cat = document.getElementById('new-client-category');
+        const rncField = document.getElementById('new-client-rnc');
+        const rncLabel = document.getElementById('new-client-rnc-label');
+        if (!cat) return;
+        const isForeign = cat.value === 'FOREIGN';
+        if (rncLabel) rncLabel.textContent = isForeign ? 'Tax ID / RNC Extranjero' : 'RNC / Cédula';
+        if (rncField) {
+            rncField.placeholder = isForeign ? 'Ej: EIN 12-3456789, NIF B-12345678' : 'Ej: 101234567';
+            rncField.style.fontFamily = isForeign ? '' : 'monospace';
+        }
+    };
+
     const openCreateClientModal = () => {
         if (!clientCreateModal) return;
         // Reset campos del modal
@@ -186,6 +228,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (createClientAlert) { createClientAlert.style.display = 'none'; createClientAlert.textContent = ''; }
         if (btnSaveNewClientLabel) btnSaveNewClientLabel.textContent = 'Guardar Cliente';
         if (btnSaveNewClient) btnSaveNewClient.disabled = false;
+        const catSelect = document.getElementById('new-client-category');
+        if (catSelect) catSelect.value = isExportE46Selected() ? 'FOREIGN' : 'NORMAL';
+        toggleModalForeignFields();
         clientCreateModal.style.display = 'flex';
         const rncField = document.getElementById('new-client-rnc');
         if (rncField) rncField.focus();
@@ -212,10 +257,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target === clientCreateModal) closeCreateClientModal();
         });
     }
+    const catSelect = document.getElementById('new-client-category');
+    if (catSelect) {
+        catSelect.addEventListener('change', toggleModalForeignFields);
+    }
 
     const rncCreateInput = document.getElementById('new-client-rnc');
     if (rncCreateInput) {
         rncCreateInput.addEventListener('blur', async () => {
+            const categoryField = document.getElementById('new-client-category');
+            if (categoryField && categoryField.value === 'FOREIGN') return;
+
             const rawVal = rncCreateInput.value.trim();
             const cleanedVal = rawVal.replace(/[^0-9]/g, '');
 
@@ -227,7 +279,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const razonField = document.getElementById('new-client-razon');
-            const categoryField = document.getElementById('new-client-category');
 
             try {
                 const response = await fetch(`/api/rnc-lookup?rnc=${cleanedVal}`);
@@ -287,10 +338,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 const customerCategory = (document.getElementById('new-client-category')?.value || 'NORMAL');
+                const foreignTaxId = customerCategory === 'FOREIGN' ? rnc : '';
                 const response = await fetch('/clients/ajax_create', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rnc, razonSocial, email, telefono, direccion, projectId: projectIdHidden ? projectIdHidden.value : '', customer_category: customerCategory })
+                    body: JSON.stringify({ rnc, razonSocial, email, telefono, direccion, foreignTaxId, projectId: projectIdHidden ? projectIdHidden.value : '', customer_category: customerCategory })
                 });
 
                 const result = await response.json();
@@ -308,11 +360,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         direccion: newClient.direccion,
                         phone: newClient.telefono,
                         projectId: newClient.projectId || '',
-                        customer_category: newClient.customer_category || customerCategory
+                        customer_category: newClient.customer_category || customerCategory,
+                        foreignTaxId: newClient.foreignTaxId || ''
                     });
 
                     // Autoseleccionar en el formulario de factura
                     if (clientIdHidden) clientIdHidden.value = newClient.id;
+                    const clientNameHidden = document.getElementById('client-name-hidden');
+                    if (clientNameHidden) clientNameHidden.value = newClient.razonSocial;
                     if (clientSearchInput) {
                         clientSearchInput.value = `${newClient.razonSocial} (${newClient.rnc || 'Consumidor Final'})`;
                     }
@@ -436,7 +491,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 searchInput.value = `${name} (${code || 'N/A'})`;
                 nameInput.value = name;
                 priceInput.value = parseFloat(price).toFixed(2);
-                itbisSelect.value = itbis;
+                itbisSelect.value = (typeof ecfTypeSelect !== 'undefined' && ecfTypeSelect && _isZeroItbisType()) ? '0.0' : itbis;
 
                 const product = catalogItems.find(p => p.id === id || p.code === code);
                 if (product) {
@@ -513,6 +568,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const selectClient = (id, name, rnc, client) => {
         if (clientIdHidden) clientIdHidden.value = id;
+        const clientNameHidden = document.getElementById('client-name-hidden');
+        if (clientNameHidden) clientNameHidden.value = name;
+        const clientForeignTaxId = document.getElementById('client-foreign-tax-id-hidden');
+        if (clientForeignTaxId) clientForeignTaxId.value = (client && client.foreignTaxId) || '';
         if (clientSearchInput) {
             clientSearchInput.value = rnc ? `${name} (${rnc})` : name;
         }
@@ -550,14 +609,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 dropdown.style.display = 'none';
                 return;
             }
+            const exportOnly = isExportE46Selected();
             const filtered = crmClients.filter(c =>
-                (c.razonSocial || '').toLowerCase().includes(query) ||
+                (!exportOnly || c.customer_category === 'FOREIGN') &&
+                ((c.razonSocial || '').toLowerCase().includes(query) ||
                 (c.rnc || '').toLowerCase().includes(query) ||
                 (c.email || '').toLowerCase().includes(query) ||
-                (c.phone || '').toLowerCase().includes(query)
+                (c.phone || '').toLowerCase().includes(query))
             );
             if (filtered.length === 0) {
-                dropdown.innerHTML = '<div style="padding:12px 16px; font-size:0.85rem; color:var(--text-muted,#999);">No se encontraron clientes. <button type="button" id="autocomplete-new-client-link" style="color:var(--accent-emerald); background:none; border:none; cursor:pointer; font-weight:600; padding:0;">Crear nuevo cliente</button></div>';
+                dropdown.innerHTML = exportOnly
+                    ? '<div style="padding:12px 16px; font-size:0.85rem; color:var(--text-muted,#999);">No hay clientes extranjeros que coincidan. <button type="button" id="autocomplete-new-client-link" style="color:var(--accent-emerald); background:none; border:none; cursor:pointer; font-weight:600; padding:0;">Crear nuevo cliente extranjero</button></div>'
+                    : '<div style="padding:12px 16px; font-size:0.85rem; color:var(--text-muted,#999);">No se encontraron clientes. <button type="button" id="autocomplete-new-client-link" style="color:var(--accent-emerald); background:none; border:none; cursor:pointer; font-weight:600; padding:0;">Crear nuevo cliente</button></div>';
                 const newClientLink = dropdown.querySelector('#autocomplete-new-client-link');
                 if (newClientLink) {
                     newClientLink.addEventListener('click', () => {
@@ -569,15 +632,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 dropdown.style.display = 'block';
                 return;
             }
-            dropdown.innerHTML = filtered.map(c => `
-                <div class="autocomplete-item" data-id="${c.id}" data-name="${c.razonSocial}" data-rnc="${c.rnc || ''}" style="padding:10px 16px; cursor:pointer; border-bottom:1px solid var(--border-color,#f0f0f0); display:flex; align-items:center; gap:10px; font-size:0.9rem;">
-                    <div style="flex:1; min-width:0;">
-                        <div style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${c.razonSocial}</div>
-                        <div style="font-size:0.78rem; color:var(--text-muted,#888);">RNC: ${c.rnc || 'Consumidor Final'}</div>
-                    </div>
-                    <div style="font-size:0.78rem; color:var(--text-muted,#888); white-space:nowrap;">${c.email || ''}</div>
+            dropdown.innerHTML = filtered.map(c => {
+                const ident = exportOnly
+                    ? (c.rnc || c.foreignTaxId || 'Consumidor Final')
+                    : (c.rnc || 'Consumidor Final');
+                return `
+                <div class="autocomplete-item" data-id="${c.id}" data-name="${c.razonSocial}" data-rnc="${c.rnc || ''}" title="${c.razonSocial} — ${ident}" style="padding:10px 16px; cursor:pointer; border-bottom:1px solid var(--border-color,#f0f0f0); font-size:0.9rem; overflow:hidden;">
+                    <div style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${c.razonSocial}</div>
+                    <div style="font-size:0.78rem; color:var(--text-muted,#888); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${exportOnly ? 'Identificación: ' : 'RNC: '}${ident}</div>
                 </div>
-            `).join('');
+                `;
+            }).join('');
             dropdown.querySelectorAll('.autocomplete-item').forEach(item => {
                 item.addEventListener('click', (ev) => {
                     ev.preventDefault();
@@ -620,7 +685,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (searchInput) searchInput.value = displayName;
         if (nameInput) nameInput.value = product.name || displayName;
         if (priceInput) priceInput.value = parseFloat(price).toFixed(2);
-        if (itbisSelect) itbisSelect.value = itbis;
+        if (itbisSelect) itbisSelect.value = (_isZeroItbisType()) ? '0.0' : itbis;
         if (product) {
             row.dataset.codigoImpuesto = product.codigoImpuesto || '';
             row.dataset.tasaImpuestoAdicional = product.tasaImpuestoAdicional || 0.0;
@@ -763,10 +828,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================================
     // AGREGAR PARTIDA DINÁMICA A LA TABLA
     // =========================================================================
-    const _isE44Selected = () => {
+    const _isZeroItbisType = () => {
         if (!ecfTypeSelect) return false;
         const val = ecfTypeSelect.value;
-        return val.includes('E44') || val.includes('Regímenes Especiales') || val.includes('Regimenes Especiales');
+        return val.includes('E44') || val.includes('Regímenes Especiales') || val.includes('Regimenes Especiales')
+            || val.includes('E46') || val.includes('Exportación');
     };
     const _itbisOpts = (selected) => {
         const rates = ['0.18', '0.16', '0.0108', '0.0'];
@@ -774,12 +840,27 @@ document.addEventListener('DOMContentLoaded', () => {
             `<option value="${r}"${r === selected ? ' selected' : ''}>${r === '0.0108' ? '1.08%' : (parseFloat(r) * 100).toFixed(0) + '%'}</option>`
         ).join('');
     };
+    const _syncItbisForZeroItbis = () => {
+        const isZero = _isZeroItbisType();
+        document.querySelectorAll('.item-itbis-select').forEach(sel => {
+            if (isZero) {
+                sel.value = '0.0';
+                sel.disabled = true;
+                sel.style.opacity = '0.6';
+                sel.style.cursor = 'not-allowed';
+            } else {
+                sel.disabled = false;
+                sel.style.opacity = '';
+                sel.style.cursor = '';
+            }
+        });
+    };
     if (btnAddItem) {
         btnAddItem.addEventListener('click', () => {
             const rowIndex = itemsTableBody.children.length;
             const newRow = document.createElement('tr');
             newRow.className = 'item-row animate-fade-in';
-            const defaultItbis = _isE44Selected() ? '0.0' : '0.18';
+            const defaultItbis = _isZeroItbisType() ? '0.0' : '0.18';
 
             newRow.innerHTML = `
                 <td>
@@ -809,6 +890,7 @@ document.addEventListener('DOMContentLoaded', () => {
             bindRowEvents(newRow);
             const searchInput = newRow.querySelector('.item-catalog-search-input');
             if (searchInput) createProductAutocomplete(newRow, searchInput);
+            _syncItbisForZeroItbis();
             recalculateTotals();
             // Abrir modal de búsqueda de producto inmediatamente
             activeProductRow = newRow;
@@ -1128,6 +1210,25 @@ document.addEventListener('DOMContentLoaded', () => {
                         disableSubmitButtons(false);
                     });
             }
+        } else if (type.includes('E46')) {
+            const clientId = document.getElementById('client-id-hidden');
+            const hasClient = clientId && clientId.value && clientId.value.length > 0;
+            const selectedClient = hasClient ? crmClients.find(c => c.id === clientId.value) : null;
+            const isForeign = selectedClient && selectedClient.customer_category === 'FOREIGN';
+            if (!hasClient) {
+                clientWarning.textContent = '⚠️ Para Exportación (E46) debe seleccionar un cliente extranjero de la lista o crear uno nuevo con categoría "Extranjero".';
+                clientWarning.style.display = 'block';
+                clientWarning.style.color = '#ef4444';
+                disableSubmitButtons(true);
+            } else if (!isForeign) {
+                clientWarning.textContent = '⚠️ Para Exportación (E46) el cliente debe tener categoría "Extranjero". Seleccione uno de la lista (badge Extranjero).';
+                clientWarning.style.display = 'block';
+                clientWarning.style.color = '#ef4444';
+                disableSubmitButtons(true);
+            } else {
+                clientWarning.style.display = 'none';
+                disableSubmitButtons(false);
+            }
         } else {
             clientWarning.style.display = 'none';
             disableSubmitButtons(false);
@@ -1140,7 +1241,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const rowIndex = 0;
             const newRow = document.createElement('tr');
             newRow.className = 'item-row animate-fade-in';
-            const defaultItbis = _isE44Selected() ? '0.0' : '0.18';
+            const defaultItbis = _isZeroItbisType() ? '0.0' : '0.18';
             newRow.innerHTML = `
                 <td>
                   <div style="position:relative;">
@@ -1168,11 +1269,13 @@ document.addEventListener('DOMContentLoaded', () => {
             bindRowEvents(newRow);
             const searchInput = newRow.querySelector('.item-catalog-search-input');
             if (searchInput) createProductAutocomplete(newRow, searchInput);
+            _syncItbisForZeroItbis();
             recalculateTotals();
         } else {
             const existingRows = itemsTableBody.querySelectorAll('.item-row');
             existingRows.forEach(row => bindRowEvents(row));
             if (existingRows.length > 0) {
+                _syncItbisForZeroItbis();
                 recalculateTotals();
             }
         }

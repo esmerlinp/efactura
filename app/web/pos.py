@@ -333,7 +333,7 @@ def _emit_consolidated_ecf(owner_uid, shift_id, pending_invoices, sandbox):
             consolidado_dict["xmlSignature"] = res.get('xmlSignature', '')
             consolidado_dict["qrCodeURL"] = res.get('qrCodeURL', '')
             pending_dgii = res.get("status") == "PENDING" or res.get("mode") == "FALLBACK"
-            is_synced = (res.get("mode", "API") == "API" and res.get("status") != "PENDING")
+            is_synced = (res.get("mode") in ("API", "RFCE_API") and res.get("status") != "PENDING")
             emision_mode = res.get("mode", "API")
             dgii_status = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
             consolidado_dict["isSyncedWithDGII"] = is_synced
@@ -884,7 +884,7 @@ def create_pos_sale():
             invoice_dict["xmlSignature"] = res.get('xmlSignature', '')
             invoice_dict["qrCodeURL"] = res.get('qrCodeURL', '')
             pending_dgii = res.get("status") == "PENDING" or res.get("mode") == "FALLBACK"
-            invoice_dict["isSyncedWithDGII"] = (res.get("mode", "API") == "API" and res.get("status") != "PENDING")
+            invoice_dict["isSyncedWithDGII"] = (res.get("mode") in ("API", "RFCE_API") and res.get("status") != "PENDING")
             invoice_dict["emisionMode"] = res.get("mode", "API")
             invoice_dict["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
             invoice_dict["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat() if res.get("mode") == "FALLBACK" else None

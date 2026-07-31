@@ -40,19 +40,19 @@
 
             <!-- RNC con validador y autocompletado en tiempo real -->
             <div class="form-group" style="grid-column: 1 / -1;">
-                <label for="rnc-input">RNC o Cédula (Padrón DGII)</label>
+                <label for="rnc-input" id="rnc-field-label">RNC o Cédula (Padrón DGII)</label>
                 <div style="position: relative; display: flex; gap: 10px;">
                     <div style="position: relative; flex-grow: 1;">
                         <i id="lookup-icon" class="fa-solid fa-fingerprint"
                             style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-muted); transition: color var(--transition-fast);"></i>
                         <input type="text" id="rnc-input" name="rnc" class="form-input"
-                            placeholder="Ingresa RNC (9 dígitos) o Cédula (11 dígitos)" required
+                            placeholder="Ingresa RNC (9 dígitos) o Cédula (11 dígitos)"
                             style="padding-left: 45px; width: 100%; font-family: monospace;"
-                            value="{{ client.rnc if client else '' }}">
+                            value="{{ client.rnc if client else (client.foreignTaxId if client and client.customer_category == 'FOREIGN' else '') }}">
                     </div>
                 </div>
                 <small id="lookup-status" style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px;">Ingresa
-                    9 dígitos para RNC o 11 dígitos para Cédula.</small>
+                    9 dígitos para RNC o 11 dígitos para Cédula. Deja vacío si es cliente extranjero.</small>
             </div>
 
             <div class="form-group" style="grid-column: 1 / -1;">
@@ -188,6 +188,35 @@
 {% block extra_scripts %}
 <script src="{{ url_for('static', filename='js/client_crm.js') }}"></script>
 <script>
+function toggleForeignFields() {
+    const cat = document.getElementById('customer_category');
+    const rncInput = document.getElementById('rnc-input');
+    const rncLabel = document.getElementById('rnc-field-label');
+    const lookupStatus = document.getElementById('lookup-status');
+    const lookupIcon = document.getElementById('lookup-icon');
+    if (!cat) return;
+    const isForeign = cat.value === 'FOREIGN';
+    if (rncInput) {
+        rncInput.required = !isForeign;
+        rncInput.placeholder = isForeign ? 'Ej: EIN 12-3456789, NIF B-12345678' : 'Ingresa RNC (9 dígitos) o Cédula (11 dígitos)';
+        rncInput.style.fontFamily = isForeign ? '' : 'monospace';
+    }
+    if (rncLabel) rncLabel.textContent = isForeign ? 'Tax ID / RNC Extranjero' : 'RNC o Cédula (Padrón DGII)';
+    if (lookupStatus) {
+        lookupStatus.textContent = isForeign
+            ? 'Cliente extranjero — el identificador fiscal se usará como Tax ID en el e-CF.'
+            : 'Ingresa 9 dígitos para RNC o 11 dígitos para Cédula.';
+    }
+    if (lookupIcon) lookupIcon.className = 'fa-solid fa-fingerprint';
+}
+document.addEventListener('DOMContentLoaded', function() {
+    const cat = document.getElementById('customer_category');
+    if (cat) {
+        cat.addEventListener('change', toggleForeignFields);
+        toggleForeignFields();
+    }
+});
+
 function previewImage(input) {
     const preview = document.getElementById('avatar-preview');
     const fallback = document.getElementById('avatar-fallback');

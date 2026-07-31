@@ -73,6 +73,7 @@
                     <option value="" style="color: #0F172A; background: #F8FAFC;">Todos los estados</option>
                     <option value="ACTIVA" style="color: #0F172A; background: #F8FAFC;">Activas</option>
                     <option value="EXPIRADA" style="color: #0F172A; background: #F8FAFC;">Expiradas</option>
+                    <option value="BLOQUEADA" style="color: #0F172A; background: #F8FAFC;">Bloqueadas</option>
                 </select>
 
                 <!-- Control de Filtro Premium (Segmented Control) -->
@@ -492,12 +493,18 @@
             let visibleCount = 0;
             sequenceCards.forEach(card => {
                 const isAvailable = card.getAttribute('data-available') === 'true';
+                const isBlocked = card.getAttribute('data-blocked') === 'true';
                 const estado = card.getAttribute('data-estado') || '';
 
-                // Filtro de disponibilidad
-                const passesAvailability = currentFilter === 'all' || isAvailable;
-                // Filtro de estado
-                const passesEstado = currentEstado === '' || estado === currentEstado;
+                // Filtro de disponibilidad: excluye bloqueadas de la vista "Disponibles"
+                const passesAvailability = currentFilter === 'all' || (isAvailable && !isBlocked);
+                // Filtro de estado: BLOQUEADA es un caso especial (flag boolean)
+                let passesEstado;
+                if (currentEstado === 'BLOQUEADA') {
+                    passesEstado = isBlocked;
+                } else {
+                    passesEstado = currentEstado === '' || estado === currentEstado;
+                }
 
                 if (passesAvailability && passesEstado) {
                     card.style.display = 'flex';

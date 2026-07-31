@@ -189,6 +189,31 @@ class DgiiXmlBuilder:
             ET.SubElement(parent, tag).text = str(value)
 
     @classmethod
+    def _calculate_gravado_bands(cls, invoice_data):
+        gravado_i1 = 0.0
+        gravado_i2 = 0.0
+        gravado_i3 = 0.0
+        for item in invoice_data.get("items", []):
+            itbis_rate = float(item.get("itbisRate", 0.18))
+            _p = float(item.get('price', 0.0))
+            _q = float(item.get('quantity', 1.0))
+            _sr = float(item.get('subtotal_raw', 0.0)) or round(_p * _q, 2)
+            _dr = float(item.get('discountRate', 0.0))
+            _da = float(item.get("discount_amount", 0.0) or item.get("DescuentoMonto", 0.0))
+            if _da == 0.0 and _dr > 0.0:
+                _da = round(_sr * _dr, 2)
+            _rm = float(item.get("recargoMonto", 0.0))
+            item_net = _sr - _da + _rm
+            if itbis_rate >= 0.17:
+                gravado_i1 += item_net
+            elif itbis_rate >= 0.15:
+                gravado_i2 += item_net
+            elif itbis_rate > 0.001 and itbis_rate < 0.15:
+                gravado_i3 += item_net
+        gravado_total = gravado_i1 + gravado_i2 + gravado_i3
+        return {"i1": gravado_i1, "i2": gravado_i2, "i3": gravado_i3, "total": gravado_total}
+
+    @classmethod
     def build_invoice_xml(cls, company_profile, invoice_data):
         raw_type = invoice_data.get("ecfType", "Factura de Consumo (E32)")
         tipo_ecf = cls._detect_tipo_ecf(raw_type)
@@ -325,7 +350,22 @@ class DgiiXmlBuilder:
                 total_amt = float(invoice_data.get("total", 0.0))
                 consumo_250 = tipo_ecf in ("32", "33", "34") and total_amt < 250000.00
 
-                if consumo_250:
+                if tipo_ecf == "46":
+                    # RNCComprador e IdentificadorExtranjero son mutuamente excluyentes para la DGII:
+                    # si el e-CF posee RNCComprador, IdentificadorExtranjero no es válido.
+                    comp_rnc = crnc if crnc and crnc not in ("000000000", "0") else company_profile.get("companyRNC", "").replace("-", "").strip()
+                    if comp_rnc:
+                        ET.SubElement(comp, "RNCComprador").text = comp_rnc
+                        comp_children += 1
+                    else:
+                        ext_id = invoice_data.get("identificadorExtranjero", invoice_data.get("foreignTaxId", ""))
+                        if ext_id:
+                            ET.SubElement(comp, "IdentificadorExtranjero").text = str(ext_id)[:20]
+                            comp_children += 1
+                    if rzs:
+                        ET.SubElement(comp, "RazonSocialComprador").text = rzs
+                        comp_children += 1
+                elif consumo_250:
                     if crnc:
                         ET.SubElement(comp, "RNCComprador").text = crnc
                         comp_children += 1
@@ -395,23 +435,17 @@ class DgiiXmlBuilder:
         total_itbis = float(invoice_data.get("totalITBIS", 0.0))
         monto_exento = float(invoice_data.get("montoExento", 0.0))
 
-        gravado_i1 = 0.0
-        gravado_i2 = 0.0
-        gravado_i3 = 0.0
-        for item in invoice_data.get("items", []):
-            itbis_rate = float(item.get("itbisRate", 0.18))
-            item_val = float(item.get("subtotal", 0.0))
-            item_desc = float(item.get("discount_amount", 0.0) or item.get("DescuentoMonto", 0.0))
-            item_rec = float(item.get("recargoMonto", 0.0))
-            item_net = item_val - item_desc + item_rec
-            if itbis_rate >= 0.17:
-                gravado_i1 += item_net
-            elif itbis_rate >= 0.15:
-                gravado_i2 += item_net
-            elif itbis_rate > 0.001 and itbis_rate < 0.15:
-                gravado_i3 += item_net
-
-        gravado_total = gravado_i1 + gravado_i2 + gravado_i3
+        bands = cls._calculate_gravado_bands(invoice_data)
+        gravado_i1 = bands["i1"]
+        gravado_i2 = bands["i2"]
+        gravado_i3 = bands["i3"]
+        gravado_total = bands["total"]
+        if tipo_ecf == "46":
+            gravado_total = sum(
+                float(item.get("subtotal") or item.get("subtotal_raw") or
+                      float(item.get("price", 0.0)) * float(item.get("quantity", 1.0)))
+                for item in invoice_data.get("items", [])
+            )
 
         if has_itbis_breakdown(tipo_ecf):
             if gravado_total > 0:
@@ -420,10 +454,9 @@ class DgiiXmlBuilder:
             if tipo_ecf == "46":
                 if gravado_total > 0:
                     ET.SubElement(totales, "MontoGravadoI3").text = cls._sd(gravado_total)
-                if total_itbis > 0:
-                    ET.SubElement(totales, "ITBIS3").text = "18"
-                    ET.SubElement(totales, "TotalITBIS").text = cls._sd(total_itbis)
-                    ET.SubElement(totales, "TotalITBIS3").text = cls._sd(total_itbis)
+                ET.SubElement(totales, "ITBIS3").text = "0"
+                ET.SubElement(totales, "TotalITBIS").text = cls._sd(0.0)
+                ET.SubElement(totales, "TotalITBIS3").text = cls._sd(0.0)
             else:
                 if gravado_i1 > 0:
                     ET.SubElement(totales, "MontoGravadoI1").text = cls._sd(gravado_i1)
@@ -431,7 +464,7 @@ class DgiiXmlBuilder:
                     ET.SubElement(totales, "MontoGravadoI2").text = cls._sd(gravado_i2)
                 if gravado_i3 > 0:
                     ET.SubElement(totales, "MontoGravadoI3").text = cls._sd(gravado_i3)
-                if monto_exento > 0 or gravado_total > 0:
+                if monto_exento > 0:
                     ET.SubElement(totales, "MontoExento").text = cls._sd(monto_exento)
                 if gravado_i1 > 0:
                     ET.SubElement(totales, "ITBIS1").text = "18"
@@ -492,10 +525,10 @@ class DgiiXmlBuilder:
             item_elem = ET.SubElement(detalles_items, "Item")
             ET.SubElement(item_elem, "NumeroLinea").text = str(idx + 1)
             itbis_rate = float(item.get("itbisRate", 0.18))
-            if tipo_ecf == "44":
+            if tipo_ecf in ("44", "43"):
                 ET.SubElement(item_elem, "IndicadorFacturacion").text = "4"
-            elif tipo_ecf == "43":
-                ET.SubElement(item_elem, "IndicadorFacturacion").text = "4"
+            elif tipo_ecf == "46":
+                ET.SubElement(item_elem, "IndicadorFacturacion").text = "3"
             elif itbis_rate >= 0.17:
                 ET.SubElement(item_elem, "IndicadorFacturacion").text = "1"
             elif itbis_rate >= 0.15:
@@ -520,14 +553,27 @@ class DgiiXmlBuilder:
             ET.SubElement(item_elem, "CantidadItem").text = f"{float(item.get('quantity', 1.0)):.2f}"
             unit_code = cls.map_unit_of_measure(item.get("unit", "Unidad"))
             ET.SubElement(item_elem, "UnidadMedida").text = unit_code
+            _price = float(item.get('price', 0.0))
+            _quantity = float(item.get('quantity', 1.0))
+            _subtotal_raw = float(item.get('subtotal_raw', 0.0)) or round(_price * _quantity, 2)
+            ET.SubElement(item_elem, "PrecioUnitarioItem").text = cls._sd(_price)
+            _discount_rate = float(item.get('discountRate', 0.0))
             desc_monto = float(item.get("discount_amount", 0.0) or item.get("DescuentoMonto", 0.0))
-            rec_monto = float(item.get("recargoMonto", 0.0))
+            if desc_monto == 0.0 and _discount_rate > 0.0:
+                desc_monto = round(_subtotal_raw * _discount_rate, 2)
             if desc_monto > 0:
                 ET.SubElement(item_elem, "DescuentoMonto").text = cls._sd(desc_monto)
+                tsd = ET.SubElement(item_elem, "TablaSubDescuento")
+                sd_elem = ET.SubElement(tsd, "SubDescuento")
+                ET.SubElement(sd_elem, "TipoSubDescuento").text = "$"
+                ET.SubElement(sd_elem, "MontoSubDescuento").text = cls._sd(desc_monto)
+            rec_monto = float(item.get("recargoMonto", 0.0))
             if rec_monto > 0:
                 ET.SubElement(item_elem, "RecargoMonto").text = cls._sd(rec_monto)
-            ET.SubElement(item_elem, "PrecioUnitarioItem").text = f"{float(item.get('price', 0.0)):.2f}"
-            ET.SubElement(item_elem, "MontoItem").text = f"{float(item.get('subtotal', 0.0)):.2f}"
+            _subtotal = float(item.get('subtotal', 0.0))
+            if _subtotal == 0.0:
+                _subtotal = _subtotal_raw - desc_monto
+            ET.SubElement(item_elem, "MontoItem").text = cls._sd(_subtotal + rec_monto)
 
         # ======================== DescuentosORecargos ========================
         descuentos_recargos = invoice_data.get("descuentosRecargos", [])
@@ -598,6 +644,103 @@ class DgiiXmlBuilder:
 
         # ======================== FechaHoraFirma ========================
         ET.SubElement(root, "FechaHoraFirma").text = now_dt
+
+        xml_bytes = ET.tostring(root, encoding="utf-8")
+        xml_str = xml_bytes.decode("utf-8")
+        xml_str = xml_str.replace("\u00a9", "&copy;")
+        xml_str = xml_str.replace("\u20ac", "&euro;")
+        xml_str = xml_str.replace("\u00ae", "&reg;")
+
+        return xml_str.encode("utf-8")
+
+    @classmethod
+    def build_rfce_summary_xml(cls, company_profile, invoice_data, codigo_seguridad):
+        now = datetime.now(timezone(timedelta(hours=-4)))
+        today_ddmm = now.strftime("%d-%m-%Y")
+
+        root = ET.Element("RFCE")
+        enc = ET.SubElement(root, "Encabezado")
+        ET.SubElement(enc, "Version").text = "1.0"
+
+        # ── IdDoc ──
+        id_doc = ET.SubElement(enc, "IdDoc")
+        ET.SubElement(id_doc, "TipoeCF").text = "32"
+        ET.SubElement(id_doc, "eNCF").text = invoice_data.get("encf", "E320000000001")
+        ET.SubElement(id_doc, "TipoIngresos").text = cls._income_code(invoice_data)
+        pay_method = invoice_data.get("paymentMethod", "Efectivo")
+        tipo_pago = "2" if "crédito" in pay_method.lower() or "credito" in pay_method.lower() else "1"
+        ET.SubElement(id_doc, "TipoPago").text = tipo_pago
+        fpv = "1"
+        pm = pay_method.lower()
+        if "tarjeta" in pm:
+            fpv = "3"
+        elif "cheque" in pm:
+            fpv = "2"
+        elif any(x in pm for x in ("transferencia", "depósito", "deposito")):
+            fpv = "2"
+        tfp = ET.SubElement(id_doc, "TablaFormasPago")
+        fdp = ET.SubElement(tfp, "FormaDePago")
+        ET.SubElement(fdp, "FormaPago").text = fpv
+        ET.SubElement(fdp, "MontoPago").text = cls._sd(invoice_data.get("total", 0.0))
+
+        # ── Emisor ──
+        emisor_elem = ET.SubElement(enc, "Emisor")
+        rnc_emisor = company_profile.get("companyRNC", "").replace("-", "")
+        if rnc_emisor:
+            ET.SubElement(emisor_elem, "RNCEmisor").text = rnc_emisor
+        razon_social = company_profile.get("companyName", "")
+        if razon_social:
+            ET.SubElement(emisor_elem, "RazonSocialEmisor").text = razon_social
+        fecha_emision = invoice_data.get("date", "")
+        ET.SubElement(emisor_elem, "FechaEmision").text = cls._fmt_date(fecha_emision) if fecha_emision else today_ddmm
+
+        # ── Comprador ──
+        client_rnc = str(invoice_data.get("clientRNC", "000000000")).replace("-", "").strip() or "000000000"
+        client_name = invoice_data.get("clientName", invoice_data.get("buyer", "Consumidor Final"))
+        if client_rnc or client_name:
+            comp_elem = ET.SubElement(enc, "Comprador")
+            if client_rnc:
+                ET.SubElement(comp_elem, "RNCComprador").text = client_rnc
+            if client_name:
+                ET.SubElement(comp_elem, "RazonSocialComprador").text = str(client_name)[:80]
+
+        # ── Totales ──
+        totales_elem = ET.SubElement(enc, "Totales")
+        total_global = float(invoice_data.get("total", 0.0))
+        total_itbis = float(invoice_data.get("totalITBIS", 0.0))
+        monto_exento = float(invoice_data.get("montoExento", 0.0))
+        bands = cls._calculate_gravado_bands(invoice_data)
+        gravado_total = bands["total"]
+        if gravado_total > 0:
+            ET.SubElement(totales_elem, "MontoGravadoTotal").text = cls._sd(gravado_total)
+        if bands["i1"] > 0:
+            ET.SubElement(totales_elem, "MontoGravadoI1").text = cls._sd(bands["i1"])
+        if bands["i2"] > 0:
+            ET.SubElement(totales_elem, "MontoGravadoI2").text = cls._sd(bands["i2"])
+        if bands["i3"] > 0:
+            ET.SubElement(totales_elem, "MontoGravadoI3").text = cls._sd(bands["i3"])
+        if monto_exento > 0 or gravado_total > 0:
+            ET.SubElement(totales_elem, "MontoExento").text = cls._sd(monto_exento)
+        if total_itbis > 0:
+            ET.SubElement(totales_elem, "TotalITBIS").text = cls._sd(total_itbis)
+            if bands["i1"] > 0:
+                ET.SubElement(totales_elem, "TotalITBIS1").text = cls._sd(total_itbis)
+            if bands["i2"] > 0:
+                ET.SubElement(totales_elem, "TotalITBIS2").text = cls._sd(total_itbis)
+            if bands["i3"] > 0:
+                ET.SubElement(totales_elem, "TotalITBIS3").text = cls._sd(total_itbis)
+        elif gravado_total > 0:
+            ET.SubElement(totales_elem, "TotalITBIS").text = "0.00"
+        total_isc_esp = float(invoice_data.get("total_isc_especifico", invoice_data.get("totalISCEspecifico", invoice_data.get("totalIscEspecifico", 0.0))))
+        total_isc_adv = float(invoice_data.get("total_isc_advalorem", invoice_data.get("totalISCAdValorem", invoice_data.get("totalIscAdvalorem", 0.0))))
+        otros_imp = float(invoice_data.get("totalOtrosImpuestos", 0.0))
+        monto_imp_adicional = total_isc_esp + total_isc_adv + otros_imp
+        if monto_imp_adicional > 0:
+            ET.SubElement(totales_elem, "MontoImpuestoAdicional").text = cls._sd(monto_imp_adicional)
+        ET.SubElement(totales_elem, "MontoTotal").text = cls._sd(total_global)
+
+        # ── CodigoSeguridadeCF ──
+        ET.SubElement(enc, "CodigoSeguridadeCF").text = str(codigo_seguridad)[:6]
 
         xml_bytes = ET.tostring(root, encoding="utf-8")
         xml_str = xml_bytes.decode("utf-8")
