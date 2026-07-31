@@ -8,6 +8,7 @@ from app.web.rrhh import (
 )
 from app.services import hr_data_service as hr
 from app.services.payroll_service import PayrollService
+from app.utils.pdf import pdf_write_options
 import os
 
 
@@ -64,7 +65,7 @@ def employee_payslip_pdf(employee_id, period_id):
         from weasyprint import HTML as WeasyprintHTML
         rendered = render_template("rrhh/employee_payslip.html",
                                    employee=employee, period=period, line=line)
-        pdf_bytes = WeasyprintHTML(string=rendered, base_url=request.host_url).write_pdf()
+        pdf_bytes = WeasyprintHTML(string=rendered, base_url=request.host_url).write_pdf(**pdf_write_options())
         filename = f"volante_{period.get('periodKey','')}_{employee.get('fullName','empleado')}.pdf"
         return send_file(io.BytesIO(pdf_bytes), mimetype="application/pdf",
                          as_attachment=True, download_name=filename)

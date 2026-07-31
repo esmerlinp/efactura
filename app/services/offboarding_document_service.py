@@ -16,6 +16,7 @@ from typing import Optional
 from flask import render_template, request
 from app.web.rrhh.work_certificate import _format_date_es, _today_es
 from app.models.offboarding import OFFBOARDING_STATES
+from app.utils.pdf import pdf_write_options
 
 
 MONTHS_ES_FULL = [
@@ -95,7 +96,7 @@ def generate_termination_letter(
         representative_name=representative_name,
         representative_position=representative_position,
     )
-    return WeasyprintHTML(string=rendered, base_url=host_url).write_pdf()
+    return WeasyprintHTML(string=rendered, base_url=host_url).write_pdf(**pdf_write_options())
 
 
 def generate_settlement_acta(
@@ -130,4 +131,4 @@ def generate_settlement_acta(
         representative_position=representative_position,
         settlement_completed=settlement_completed,
     )
-    return WeasyprintHTML(string=rendered, base_url=host_url).write_pdf()
+    return WeasyprintHTML(string=rendered, base_url=host_url).write_pdf(**pdf_write_options())

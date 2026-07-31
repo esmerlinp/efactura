@@ -13,6 +13,7 @@ from app.web.rrhh import (
 from app.services import hr_data_service as hr
 from app.services.db_service import DatabaseService
 from app.utils.spanish_numbers import numero_a_letras
+from app.utils.pdf import pdf_write_options
 
 
 MONTHS_ES_FULL = [
@@ -219,7 +220,7 @@ def certificate_pdf(employee_id, cert_id):
                                    company=company,
                                    qr_base64=qr_b64,
                                    format_date_es=_format_date_es)
-        pdf_bytes = WeasyprintHTML(string=rendered, base_url=request.host_url).write_pdf()
+        pdf_bytes = WeasyprintHTML(string=rendered, base_url=request.host_url).write_pdf(**pdf_write_options())
         filename = f"carta_trabajo_{cert['referenceCode']}.pdf"
         return send_file(io.BytesIO(pdf_bytes), mimetype="application/pdf",
                          as_attachment=True, download_name=filename)
@@ -267,7 +268,7 @@ def certificate_email(employee_id, cert_id):
                                    company=company,
                                    qr_base64=qr_b64,
                                    format_date_es=_format_date_es)
-        pdf_bytes = WeasyprintHTML(string=rendered, base_url=request.host_url).write_pdf()
+        pdf_bytes = WeasyprintHTML(string=rendered, base_url=request.host_url).write_pdf(**pdf_write_options())
     except Exception as e:
         print(f"Error generando PDF para email: {e}")
         flash("Error al generar el PDF.", "error")

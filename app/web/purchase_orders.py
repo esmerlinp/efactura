@@ -10,6 +10,7 @@ from app.services.goods_receipt_service import GoodsReceiptService
 from app.services.supplier_invoice_service import SupplierInvoiceService, ALLOWED_MIME_TYPES, MAX_FILE_SIZE
 from app.services.purchase_credit_note_service import PurchaseCreditNoteService
 from app.utils.decorators import check_permission
+from app.utils.pdf import pdf_write_options
 from app.services.audit_service import AuditService, ACTION_CREATE, ACTION_UPDATE, ACTION_DELETE
 from app.services.dgii import DGIIService
 from app.web.invoices import format_mentions, _get_taggable_users, process_resource_comment_mentions
@@ -1941,7 +1942,7 @@ def supplier_invoice_pdf(invoice_id):
         rendered_html = render_template('purchase_orders/supplier_invoice_pdf.html',
             invoice=invoice, company=company, branch=branch, auto_print=False,
             qr_base64=qr_base64, fecha_firma_str=fecha_firma_str, sandbox=sandbox)
-        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf()
+        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf(**pdf_write_options())
         response = make_response(pdf_bytes)
         response.headers['Content-Type'] = 'application/pdf'
         response.headers['Content-Disposition'] = f'attachment; filename="Factura_{inv_num}.pdf"'
@@ -2839,7 +2840,7 @@ def supplier_retention_letter(invoice_id):
             net_amount=net_amount, payment_method=payment_method,
             representative_name=representative_name, representative_id=representative_id,
             auto_print=False)
-        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf()
+        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf(**pdf_write_options())
         response = make_response(pdf_bytes)
         response.headers['Content-Type'] = 'application/pdf'
         response.headers['Content-Disposition'] = f'attachment; filename="Carta_Retencion_{inv_num}.pdf"'
@@ -2919,11 +2920,11 @@ def supplier_retention_letter_email(invoice_id):
 
     pdf_bytes = None
     if WEASYPRINT_AVAILABLE:
-        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf()
+        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf(**pdf_write_options())
     else:
         import io
         try:
-            pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf()
+            pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf(**pdf_write_options())
         except:
             pdf_bytes = rendered_html.encode('utf-8')
 

@@ -25,6 +25,7 @@ from app.services.db_service import DatabaseService
 from app.services.mailer import Mailer
 from app.services.dgii import DGIIService
 from app.utils.currency import CurrencyService
+from app.utils.pdf import pdf_write_options
 from app.services.ecf_emission import EcfEmissionService
 from app.utils.country_context import get_current_country
 from app.services.dgii_direct import DgiiDirectService
@@ -2821,7 +2822,7 @@ def send_invoice_email(owner_uid, invoice, recipient_email, sandbox=True, base_u
         
         pdf_bytes = None
         if WEASYPRINT_AVAILABLE:
-            pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=base_url).write_pdf()
+            pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=base_url).write_pdf(**pdf_write_options())
             
         # 4. Construir y enviar correo
         encf = invoice.get('encf', 'N/A')
@@ -4037,7 +4038,7 @@ def send_quotation_to_client(invoice_id):
         pdf_bytes = None
         if WEASYPRINT_AVAILABLE:
             try:
-                pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf()
+                pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf(**pdf_write_options())
             except Exception as e:
                 print(f"⚠️ WeasyPrint falló para cotización PDF: {e}")
         
@@ -4478,7 +4479,7 @@ def invoice_pdf_download(invoice_id):
     if WEASYPRINT_AVAILABLE and action == 'download':
         # Generar PDF binario con WeasyPrint
         rendered_html = render_template('invoices/pdf.html', invoice=invoice, company=company, branch=branch, auto_print=False, qr_base64=qr_base64, fecha_firma_str=fecha_firma_str, sandbox=sandbox)
-        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf()
+        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf(**pdf_write_options())
         response = make_response(pdf_bytes)
         response.headers['Content-Type'] = 'application/pdf'
         response.headers['Content-Disposition'] = f'attachment; filename="{inv_num}.pdf"'
@@ -4548,7 +4549,7 @@ def invoice_retention_letter(invoice_id):
             net_amount=net_amount, payment_method=payment_method,
             representative_name=representative_name, representative_id=representative_id,
             auto_print=False)
-        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf()
+        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf(**pdf_write_options())
         response = make_response(pdf_bytes)
         response.headers['Content-Type'] = 'application/pdf'
         response.headers['Content-Disposition'] = f'attachment; filename="Carta_Retencion_{inv_num}.pdf"'
@@ -4616,12 +4617,12 @@ def invoice_retention_letter_email(invoice_id):
 
     pdf_bytes = None
     if WEASYPRINT_AVAILABLE:
-        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf()
+        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf(**pdf_write_options())
     else:
         import io
         import weasyprint as _wp
         try:
-            pdf_bytes = _wp.HTML(string=rendered_html, base_url=request.host_url).write_pdf()
+            pdf_bytes = _wp.HTML(string=rendered_html, base_url=request.host_url).write_pdf(**pdf_write_options())
         except:
             pdf_bytes = rendered_html.encode('utf-8')
 
@@ -4733,7 +4734,7 @@ def expense_retention_letter(expense_id):
             net_amount=net_amount, payment_method=payment_method,
             representative_name=representative_name, representative_id=representative_id,
             auto_print=False)
-        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf()
+        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf(**pdf_write_options())
         response = make_response(pdf_bytes)
         response.headers['Content-Type'] = 'application/pdf'
         response.headers['Content-Disposition'] = f'attachment; filename="Carta_Retencion_{inv_num}.pdf"'
@@ -4812,12 +4813,12 @@ def expense_retention_letter_email(expense_id):
 
     pdf_bytes = None
     if WEASYPRINT_AVAILABLE:
-        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf()
+        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf(**pdf_write_options())
     else:
         import io
         import weasyprint as _wp
         try:
-            pdf_bytes = _wp.HTML(string=rendered_html, base_url=request.host_url).write_pdf()
+            pdf_bytes = _wp.HTML(string=rendered_html, base_url=request.host_url).write_pdf(**pdf_write_options())
         except:
             pdf_bytes = rendered_html.encode('utf-8')
 
@@ -5036,7 +5037,7 @@ def invoice_preview_route():
                 fecha_firma_str=None,
                 sandbox=sandbox
             )
-            pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf()
+            pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf(**pdf_write_options())
             response = make_response(pdf_bytes)
             response.headers['Content-Type'] = 'application/pdf'
             response.headers['Content-Disposition'] = 'inline; filename="preview.pdf"'
@@ -5219,10 +5220,10 @@ def expense_pdf_download(expense_id):
 
     if WEASYPRINT_AVAILABLE:
         rendered_html = render_template('expenses/pdf.html', expense=expense, company=company, branch=branch, auto_print=False, qr_base64=qr_base64, fecha_firma_str=fecha_firma_str, sandbox=sandbox)
-        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf()
+        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf(**pdf_write_options())
         response = make_response(pdf_bytes)
         response.headers['Content-Type'] = 'application/pdf'
-        response.headers['Content-Disposition'] = f'attachment; filename="{inv_num}.pdf"'
+        response.headers['Content-Disposition'] = f'attachment; filename="Gasto_{inv_num}.pdf"'
         return response
     else:
         rendered_html = render_template('expenses/pdf.html', expense=expense, company=company, branch=branch, auto_print=True, qr_base64=qr_base64, fecha_firma_str=fecha_firma_str, sandbox=sandbox)
