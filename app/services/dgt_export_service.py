@@ -139,6 +139,7 @@ class DGTExportService:
         """Genera PDF usando WeasyPrint (debe existir el template)."""
         from flask import render_template
         import weasyprint
+        from app.utils.pdf import pdf_write_options
 
         html = render_template(
             f"rrhh/dgt/{form_type}_pdf.html",
@@ -147,7 +148,7 @@ class DGTExportService:
             owner_info=owner_info or {},
             now=datetime.now(),
         )
-        pdf = weasyprint.HTML(string=html).write_pdf()
+        pdf = weasyprint.HTML(string=html).write_pdf(**pdf_write_options())
         output = io.BytesIO(pdf)
         output.seek(0)
         return output

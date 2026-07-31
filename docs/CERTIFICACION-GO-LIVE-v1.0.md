@@ -118,6 +118,35 @@ VykOne ERP ha completado su Programa de Certificación para Producción (PCP). T
 
 **Nota:** El venv local tiene incompatibilidad de arquitectura (ARM64 vs x86_64) en `pydantic_core` y `cryptography`. Esto es un issue de entorno de desarrollo, no de la aplicación. En Cloud Run (Docker Linux x86_64) las dependencias se instalan correctamente como demuestra el `Dockerfile` que usa `python:3.11-slim`.
 
+### 3.5 Variables de entorno — Peso de PDFs generados
+
+El portal de certificación de la DGII exige que la **suma total de los documentos
+cargados como evidencia no exceda los 10MB** (ej. 11 facturas e-CF). Los PDFs se
+generan con WeasyPrint y su peso se controla desde el `.env` (o variables de
+entorno en Cloud Run) sin tocar código:
+
+| Variable | Default | Descripción |
+|----------|---------|-------------|
+| `PDF_OPTIMIZE_IMAGES` | `true` | Re-encoda imágenes embebidas eficientemente (sin pérdida de calidad). |
+| `PDF_DPI` | `150` | Resolución máxima (DPI) de imágenes embebidas — principalmente el **logo de la empresa**, que se sube a resolución nativa y es la causa principal de PDFs de ~2MB. Menor valor = PDF más liviano. |
+| `PDF_JPEG_QUALITY` | `80` | Calidad de imágenes JPEG embebidas (0-95). Menor valor = más compresión. |
+
+Ajustes recomendados para el portal de certificación:
+
+```
+PDF_OPTIMIZE_IMAGES=true
+PDF_DPI=96
+PDF_JPEG_QUALITY=70
+```
+
+Con `PDF_DPI=96` un logo nativo de 4000px mostrado a 180px se reduce a ~180px
+embebido, bajando cada factura de ~2MB a ~100-300KB (11 documentos ≈ 1-3MB).
+
+Se aplica a todas las generaciones de PDF de la app: facturas e-CF, cotizaciones,
+cartas de retención, gastos, órdenes de compra, nóminas, certificados laborales,
+formularios DGT y documentos de offboarding. Implementación: helper
+`pdf_write_options()` en `app/utils/pdf.py`.
+
 ---
 
 ## 4. Scripts de Operación

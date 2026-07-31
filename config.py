@@ -254,4 +254,12 @@ class Config:
     # Templates — recargar automáticamente sin necesidad de reiniciar el servidor
     TEMPLATES_AUTO_RELOAD = True
 
+    # ─── Generación PDF (WeasyPrint) ─────────────────────────────
+    # Controla el peso de los PDFs generados. Si el portal de la DGII
+    # exige que la suma de documentos no exceda un límite (ej. 10MB),
+    # baja PDF_DPI y PDF_JPEG_QUALITY para obtener archivos más livianos.
+    PDF_OPTIMIZE_IMAGES = os.getenv('PDF_OPTIMIZE_IMAGES', 'true').lower() in ('true', '1', 'yes')
+    PDF_DPI = int(os.getenv('PDF_DPI', '150'))
+    PDF_JPEG_QUALITY = int(os.getenv('PDF_JPEG_QUALITY', '80'))
+
 

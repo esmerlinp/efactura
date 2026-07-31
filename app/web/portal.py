@@ -10,6 +10,7 @@ from app.services.azul_service import AzulService
 from app.services.paypal_service import PayPalService, PAYPAL_SUPPORTED_CURRENCIES
 from app.utils.currency import CurrencyService
 from app.utils.security import encrypt_field, decrypt_field
+from app.utils.pdf import pdf_write_options
 from cryptography.hazmat.primitives.serialization import pkcs12
 from app.brand import get_product_name
 from app.utils.decorators import check_permission
@@ -1928,7 +1929,7 @@ def portal_document_pdf(invoice_id):
     )
     
     if WEASYPRINT_AVAILABLE and WeasyprintHTML:
-        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf()
+        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf(**pdf_write_options())
         response = make_response(pdf_bytes)
         response.headers['Content-Type'] = 'application/pdf'
         inv_num = invoice.get('invoiceNumber', invoice_id).replace('/', '-').replace(' ', '_')
