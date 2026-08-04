@@ -48,7 +48,7 @@ STATUS_LABELS = {
 IMMUTABLE_STATUSES = ("cerrada", "cancelled")
 
 
-def _transition(period, to_status, comment="", owner_uid="", sandbox=True):
+def _transition(period, to_status, comment="", owner_uid="", sandbox=True, skip_sod=False):
     user_email = session.get("user", {}).get("email", "")
     user_uid = session.get("user", {}).get("uid", "")
     user_role = session.get("user", {}).get("role", "")
@@ -58,7 +58,7 @@ def _transition(period, to_status, comment="", owner_uid="", sandbox=True):
     if to_status not in _VALID_TRANSITIONS.get(from_status, []):
         return False, f"Transición inválida: no se puede pasar de «{STATUS_LABELS.get(from_status, from_status)}» a «{STATUS_LABELS.get(to_status, to_status)}»."
 
-    if user_role != "owner":
+    if not skip_sod and user_role != "owner":
         if to_status == "aprobada":
             calculator = period.get("calculatedBy", "")
             if calculator and calculator == user_email:
@@ -139,6 +139,131 @@ def _transition(period, to_status, comment="", owner_uid="", sandbox=True):
     return True, "OK"
 
 
+def _ensure_payroll_accounting_entry(period, period_id, owner_uid, company_id, sandbox) -> tuple:
+    """Genera el asiento contable de nómina si aún no se generó. Retorna (ok, msg)."""
+    if period.get("accountingEntryGenerated"):
+        return True, "OK"
+    from app.services.payroll_service import PayrollService
+    try:
+        from app.services.accounting_service import AccountingService
+        from app.services.db_service import DatabaseService
+        from app.services.hr_data_service import get_tax_rates_snapshot
+        snapshot = get_tax_rates_snapshot(period)
+        tax_rates_data = snapshot if isinstance(snapshot, dict) and snapshot else hr.get_tax_rates(company_id, sandbox=sandbox)
+        now_str = date.today().isoformat()
+        employees_list = hr.get_employees(company_id, sandbox=sandbox)
+        emp_map = {e["id"]: e for e in employees_list}
+        acct_lines = PayrollService.build_payroll_accounting_lines(period, employees=emp_map, tax_rates=tax_rates_data,
+                                                                   company_id=company_id, sandbox=sandbox)
+        if acct_lines:
+            AccountingService.seed_default_accounts(company_id, country=get_current_country())
+            accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
+            full_lines = []
+            for al in acct_lines:
+                acc = next((a for a in accounts if a.get("code") == al["accountCode"]), None)
+                if acc:
+                    full_lines.append({
+                        "accountId": acc["id"],
+                        "accountCode": al["accountCode"],
+                        "accountName": al["accountName"],
+                        "debit": al["debit"],
+                        "credit": al["credit"],
+                        "description": al["description"],
+                    })
+            if full_lines:
+                AccountingService.generate_entry(company_id, {
+                    "entryType": "payroll",
+                    "date": now_str,
+                    "concept": f"Nómina período {period.get('periodRange') or period.get('periodKey')}",
+                    "referenceType": "payroll",
+                    "referenceId": period_id,
+                    "referenceNumber": period.get("periodKey", ""),
+                    "lines": full_lines,
+                    "createdBy": session.get("user", {}).get("email", "system"),
+                    "prefix": "NOM",
+                }, sandbox=sandbox)
+                period["accountingEntryGenerated"] = True
+        else:
+            return False, "No se generaron líneas contables para este período."
+    except Exception as e:
+        return False, f"Error al generar asiento contable: {e}"
+    return True, "OK"
+
+
+def apply_payroll_authorization(company_id, period_id, to_status, comment="",
+                                owner_uid="", sandbox=True, skip_sod=False) -> tuple:
+    """Aplica una autorizacion resuelta en la cola sobre el periodo de nomina.
+
+    Maquina de estados de autorizacion de nomina
+    =============================================
+
+    La autorizacion controla el *avance* del flujo de nomina, NO el estado de
+    negocio de la nomina en si.  El status principal del periodo solo cambia
+    cuando la autorizacion es aprobada (avanza a la siguiente etapa); los
+    rechazos y devoluciones dejan el status principal intacto y solo actualizan
+    el ``authorizationStageHistory``.
+
+    ┌────────────────────┬──────────────────┬──────────────────────────────────┐
+    │ Tipo autorizacion  │ Estado nomina    │ Decision  →  Efecto              │
+    ├────────────────────┼──────────────────┼──────────────────────────────────┤
+    │ payroll_approval   │ validada         │ approved   → status = aprobada   │
+    │ payroll_approval   │ validada         │ rejected   → permanece validada  │
+    │                    │                  │              stage = rechazada    │
+    │ payroll_approval   │ validada         │ returned   → permanece validada  │
+    │                    │                  │              stage = devuelta     │
+    ├────────────────────┼──────────────────┼──────────────────────────────────┤
+    │ payroll_post_      │ aprobada         │ approved   → status =            │
+    │ accounting         │                  │              contabilizada       │
+    │ payroll_post_      │ aprobada         │ rejected   → permanece aprobada  │
+    │ accounting         │                  │              stage = rechazada    │
+    │ payroll_post_      │ aprobada         │ returned   → permanece aprobada  │
+    │ accounting         │                  │              stage = devuelta     │
+    └────────────────────┴──────────────────┴──────────────────────────────────┘
+
+    La transicion del status principal (validada→aprobada→contabilizada) solo
+    ocurre con decision ``approved``.  ``rejected`` y ``returned`` actualizan
+    unicamente el stage dentro de ``authorizationStageHistory`` sin tocar
+    ``status``.
+    """
+    from app.services import hr_data_service as hr
+    from datetime import datetime, timezone
+
+    period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
+    if not period:
+        return False, "Periodo de nomina no encontrado"
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    # ── Solo-stage: rechazada / devuelta ──
+    if to_status in ("rechazada", "devuelta"):
+        for stage in period.get("authorizationStageHistory", []):
+            if stage.get("status") == "pending":
+                stage["status"] = to_status
+                stage["resolvedAt"] = now
+                stage["resolvedBy"] = owner_uid
+                break
+        hr.save_payroll_period(company_id, period_id, period, sandbox=sandbox)
+        return True, "OK"
+
+    # ── Transicion de status principal: aprobada / contabilizada ──
+    for stage in period.get("authorizationStageHistory", []):
+        if stage.get("status") == "pending":
+            stage["status"] = to_status
+            stage["resolvedAt"] = now
+            stage["resolvedBy"] = owner_uid
+            break
+
+    if to_status == "contabilizada":
+        ok, msg = _ensure_payroll_accounting_entry(period, period_id, owner_uid, company_id, sandbox)
+        if not ok:
+            return False, msg
+
+    ok, msg = _transition(period, to_status, comment, sandbox=sandbox, skip_sod=skip_sod)
+    if ok:
+        hr.save_payroll_period(company_id, period_id, period, sandbox=sandbox)
+    return ok, msg
+
+
 @web_rrhh_bp.route("/rrhh/payroll/<period_id>/bank-export")
 def payroll_bank_export(period_id):
     if _login_required():
@@ -210,13 +335,46 @@ def payroll_approve(period_id):
         flash("Período no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_list"))
 
+    from app.services.hr_authorization_service import create_authorization_request
+    from datetime import datetime, timezone
+    user = session.get("user", {})
+    now = datetime.now(timezone.utc).isoformat()
+    req_result = create_authorization_request(
+        company_id,
+        doc_type="payroll_approval",
+        doc_id=period_id,
+        doc_number=period.get("periodKey", ""),
+        entity_type="payroll",
+        created_by_uid=user.get("uid", ""),
+        created_by_email=user.get("email", ""),
+        created_by_name=user.get("name", ""),
+        sandbox=sandbox,
+        metadata={"periodKey": period.get("periodKey", "")},
+        link=f"/rrhh/payroll/{period_id}",
+        owner_uid=owner_uid,
+    )
+
+    stage = {"stage": "payroll_approval", "requestId": req_result["request"]["id"],
+             "status": "pending", "createdAt": now, "createdBy": user.get("email","")}
+    period.setdefault("authorizationStageHistory", []).append(stage)
+
+    if not req_result["approved"]:
+        period["authorizationRequestId"] = req_result["request"]["id"]
+        period["authorizationStatus"] = "pending"
+        hr.save_payroll_period(company_id, period_id, period, sandbox=sandbox)
+        flash("Nomina enviada a la cola de autorizacion.", "success")
+        return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
+
+    stage["status"] = "approved"
+    stage["resolvedAt"] = now
+    stage["resolvedBy"] = user.get("email","")
     ok, msg = _transition(period, "aprobada", request.form.get("comment", ""),
-                          sandbox=sandbox)
+                          sandbox=sandbox, skip_sod=req_result["request"].get("isFallback", False))
     if not ok:
         flash(msg, "error")
     else:
         hr.save_payroll_period(company_id, period_id, period, sandbox=sandbox)
-        flash("Nómina aprobada.", "success")
+        flash("Nomina aprobada.", "success")
     return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
 
 
@@ -233,54 +391,48 @@ def payroll_post(period_id):
         flash("Período no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_list"))
 
+    # Enviar a la cola de autorización antes de contabilizar
+    from app.services.hr_authorization_service import create_authorization_request
+    from datetime import datetime, timezone
+    user = session.get("user", {})
+    now = datetime.now(timezone.utc).isoformat()
+    req_result = create_authorization_request(
+        company_id,
+        doc_type="payroll_post_accounting",
+        doc_id=period_id,
+        doc_number=period.get("periodKey", ""),
+        entity_type="payroll",
+        created_by_uid=user.get("uid", ""),
+        created_by_email=user.get("email", ""),
+        created_by_name=user.get("name", ""),
+        sandbox=sandbox,
+        metadata={"periodKey": period.get("periodKey", "")},
+        link=f"/rrhh/payroll/{period_id}",
+        owner_uid=owner_uid,
+    )
+
+    stage = {"stage": "payroll_post_accounting", "requestId": req_result["request"]["id"],
+             "status": "pending", "createdAt": now, "createdBy": user.get("email","")}
+    period.setdefault("authorizationStageHistory", []).append(stage)
+
+    if not req_result["approved"]:
+        period["authorizationRequestId"] = req_result["request"]["id"]
+        period["authorizationStatus"] = "pending"
+        hr.save_payroll_period(company_id, period_id, period, sandbox=sandbox)
+        flash("Contabilización enviada a la cola de autorización.", "success")
+        return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
+
+    stage["status"] = "approved"
+    stage["resolvedAt"] = now
+    stage["resolvedBy"] = user.get("email","")
     # Generar asiento contable
-    try:
-        from app.services.accounting_service import AccountingService
-        from app.services.db_service import DatabaseService
-        from app.services.hr_data_service import get_tax_rates_snapshot
-        snapshot = get_tax_rates_snapshot(period)
-        tax_rates_data = snapshot if isinstance(snapshot, dict) and snapshot else hr.get_tax_rates(company_id, sandbox=sandbox)
-        now_str = date.today().isoformat()
-        employees_list = hr.get_employees(company_id, sandbox=sandbox)
-        emp_map = {e["id"]: e for e in employees_list}
-        acct_lines = PayrollService.build_payroll_accounting_lines(period, employees=emp_map, tax_rates=tax_rates_data,
-                                                                   company_id=company_id, sandbox=sandbox)
-        if acct_lines:
-            AccountingService.seed_default_accounts(company_id, country=get_current_country())
-            accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
-            full_lines = []
-            for al in acct_lines:
-                acc = next((a for a in accounts if a.get("code") == al["accountCode"]), None)
-                if acc:
-                    full_lines.append({
-                        "accountId": acc["id"],
-                        "accountCode": al["accountCode"],
-                        "accountName": al["accountName"],
-                        "debit": al["debit"],
-                        "credit": al["credit"],
-                        "description": al["description"],
-                    })
-            if full_lines:
-                AccountingService.generate_entry(company_id, {
-                    "entryType": "payroll",
-                    "date": now_str,
-                    "concept": f"Nómina período {period.get('periodRange') or period.get('periodKey')}",
-                    "referenceType": "payroll",
-                    "referenceId": period_id,
-                    "referenceNumber": period.get("periodKey", ""),
-                    "lines": full_lines,
-                    "createdBy": session.get("user", {}).get("email", "system"),
-                    "prefix": "NOM",
-                }, sandbox=sandbox)
-                period["accountingEntryGenerated"] = True
-        else:
-            flash("No se generaron líneas contables para este período.", "warning")
-    except Exception as e:
-        flash(f"Error al generar asiento contable: {e}", "error")
+    ok, msg = _ensure_payroll_accounting_entry(period, period_id, owner_uid, company_id, sandbox)
+    if not ok:
+        flash(msg, "error")
         return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
 
     ok, msg = _transition(period, "contabilizada", request.form.get("comment", ""),
-                          sandbox=sandbox)
+                          sandbox=sandbox, skip_sod=req_result["request"].get("isFallback", False))
     if not ok:
         flash(msg, "error")
         return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))

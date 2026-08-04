@@ -1,0 +1,63 @@
+{% extends "certificacion/wizard.html" %}
+{% block step_content %}
+<div class="cert-step-card">
+    <h3><i class="fa-solid fa-gavel"></i> Declaración Jurada</h3>
+    <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:16px;">
+        Firma legalmente que la certificación se realizó de manera íntegra y sin irregularidades.
+    </p>
+    <div class="cert-form-group">
+        <label>Nombre del Representante Legal</label>
+        <input type="text" id="nombre-rep" class="cert-form-input" placeholder="Nombre completo">
+    </div>
+    <div class="cert-form-group">
+        <label>Cédula del Representante Legal</label>
+        <input type="text" id="cedula-rep" class="cert-form-input" placeholder="000-0000000-0">
+    </div>
+    <button type="button" class="cert-btn cert-btn-primary" onclick="generateDeclaracion()">
+        <i class="fa-solid fa-signature"></i> Generar y Descargar XML Firmado
+    </button>
+    <span id="decl-msg" style="font-size:0.82rem; color:var(--text-secondary); margin-left:12px;"></span>
+    <div style="margin-top:16px;"></div>
+    <form method="POST" action="{{ url_for('web_certificacion.step_advance', step=step) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="cert-btn cert-btn-secondary cert-btn-sm" style="margin-top:12px;">
+            Marcar como completado y avanzar
+        </button>
+    </form>
+</div>
+<script>
+async function generateDeclaracion() {
+    const nombre = document.getElementById("nombre-rep").value.trim();
+    const cedula = document.getElementById("cedula-rep").value.trim();
+    const msg = document.getElementById("decl-msg");
+
+    try {
+        const resp = await certFetch("/certificacion/step-13/generate-declaracion", {
+            method: "POST",
+            body: { nombre_representante: nombre, cedula_representante: cedula },
+        });
+        if (resp.ok) {
+            const blob = await resp.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "declaracion_jurada_firmada.xml";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+            showToast("Declaración Jurada descargada", "success");
+            msg.textContent = "✓ Descargado. Súbelo al portal DGII.";
+            msg.style.color = "var(--accent-emerald)";
+        } else {
+            const data = await resp.json();
+            showToast(data.error || "Error", "error");
+            msg.textContent = "✗ Error";
+            msg.style.color = "var(--accent-red)";
+        }
+    } catch (e) {
+        showToast("Error de conexión", "error");
+    }
+}
+</script>
+{% endblock %}

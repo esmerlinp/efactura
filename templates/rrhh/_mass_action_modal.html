@@ -1,0 +1,668 @@
+{% if action_types is defined and action_types %}
+<style>
+.ma-steps {
+    display: flex;
+    gap: 0;
+    margin-bottom: 20px;
+    background: var(--bg-card);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+.ma-step {
+    flex: 1;
+    padding: 12px;
+    text-align: center;
+    border-right: 1px solid var(--border-color);
+    opacity: 0.4;
+    transition: opacity 0.2s;
+}
+.ma-step:last-child { border-right: none; }
+.ma-step .ma-step-num {
+    font-size: 1rem;
+    font-weight: 700;
+}
+.ma-step .ma-step-label {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+}
+.ma-step.active {
+    opacity: 1;
+    background: rgba(59, 130, 246, 0.06);
+}
+.ma-step.active .ma-step-num { color: var(--accent-blue); }
+.ma-step.completed { opacity: 0.7; }
+.ma-step.completed .ma-step-num { color: var(--accent-emerald); }
+
+.ma-type-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+.ma-type-card {
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--bg-card);
+}
+.ma-type-card:hover {
+    border-color: var(--accent-blue);
+    box-shadow: 0 2px 12px rgba(59, 130, 246, 0.15);
+}
+.ma-type-card.selected {
+    border-color: var(--accent-blue);
+    background: rgba(59, 130, 246, 0.05);
+}
+.ma-type-icon { font-size: 1.4rem; margin-bottom: 6px; color: var(--accent-blue); }
+.ma-type-label { font-weight: 600; margin-bottom: 2px; font-size: 0.9rem; }
+.ma-type-desc { font-size: 0.76rem; color: var(--text-muted); }
+
+.ma-emp-card {
+    margin-top: 16px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+.ma-emp-card .ma-emp-head {
+    padding: 10px 14px;
+    background: var(--bg-secondary, rgba(0,0,0,0.02));
+    font-size: 0.82rem;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border-color);
+}
+.ma-emp-card .table-responsive { max-height: 200px; overflow-y: auto; }
+.ma-emp-card table { margin: 0; }
+
+.ma-footer {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    align-items: center;
+    border-top: 1px solid var(--border-color);
+    padding-top: 16px;
+    margin-top: 20px;
+}
+.ma-footer.space-between { justify-content: space-between; }
+</style>
+
+<div class="search-modal" id="ma-modal" style="display:none; animation:none;">
+    <div class="modal-backdrop" onclick="maClose()"></div>
+    <div class="modal-content" style="max-width:820px; max-height:92vh;">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-people-arrows"></i> Acción de Personal Masiva</h3>
+            <button type="button" class="btn-close-modal" onclick="maClose()">&times;</button>
+        </div>
+        <div style="flex:1; overflow-y:auto; padding:20px 24px;">
+            <div class="ma-steps">
+                <div class="ma-step" data-step="1">
+                    <div class="ma-step-num">1</div>
+                    <div class="ma-step-label">Seleccionar Tipo</div>
+                </div>
+                <div class="ma-step" data-step="2">
+                    <div class="ma-step-num">2</div>
+                    <div class="ma-step-label">Configurar Acción</div>
+                </div>
+                <div class="ma-step" data-step="3">
+                    <div class="ma-step-num">3</div>
+                    <div class="ma-step-label">Previsualizar</div>
+                </div>
+                <div class="ma-step" data-step="4">
+                    <div class="ma-step-num">4</div>
+                    <div class="ma-step-label">Resultado</div>
+                </div>
+            </div>
+
+            <!-- Step 1: Select type -->
+            <div id="ma-step1">
+                <h3 style="font-size:0.95rem; margin:0 0 4px;"><i class="fa-solid fa-list"></i> Selecciona el tipo de acción</h3>
+                <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:16px;"><strong id="ma-emp-count">0</strong> empleados seleccionados.</p>
+                <div class="ma-type-grid">
+                    {% for key, type_info in action_types.items() %}
+                    <div class="ma-type-card" data-type="{{ key }}" onclick="maSelectType('{{ key }}')">
+                        <div class="ma-type-icon"><i class="{{ type_info.icon }}"></i></div>
+                        <div class="ma-type-label">{{ type_info.label }}</div>
+                        <div class="ma-type-desc">{{ type_info.desc }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="ma-footer space-between">
+                    <button type="button" class="btn btn-ghost" onclick="maClose()"><i class="fa-solid fa-xmark"></i> Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="ma-btn-to-config" disabled onclick="maGoToConfig()">
+                        <i class="fa-solid fa-arrow-right"></i> Configurar acción
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 2: Configure -->
+            <div id="ma-step2" style="display:none;">
+                <h3 style="font-size:0.95rem; margin:0 0 4px;"><i class="fa-solid fa-gear"></i> Configurar <span id="ma-step2-label"></span></h3>
+                <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:16px;">Define los parámetros de la acción para <strong class="ma-emp-count-2">0</strong> empleados.</p>
+                <form id="ma-action-form">
+                    <input type="hidden" name="actionType" id="ma-frm-type">
+                    <input type="hidden" name="employeeIds" id="ma-frm-ids">
+                    <div id="ma-dynamic-fields"></div>
+                    <div class="ma-footer space-between">
+                        <button type="button" class="btn btn-ghost" onclick="maGoToStep(1)"><i class="fa-solid fa-arrow-left"></i> Cambiar tipo</button>
+                        <button type="button" class="btn btn-primary" onclick="maPreview()"><i class="fa-solid fa-eye"></i> Previsualizar</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Step 3: Preview -->
+            <div id="ma-step3" style="display:none;">
+                <h3 style="font-size:0.95rem; margin:0 0 4px;"><i class="fa-solid fa-file-pen"></i> Previsualización</h3>
+                <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:16px;">Revisa los detalles antes de aplicar la acción.</p>
+                <div id="ma-preview-content">
+                    <div class="text-center text-muted" style="padding:40px;">Cargando previsualización...</div>
+                </div>
+                <div class="ma-footer space-between">
+                    <button type="button" class="btn btn-ghost" onclick="maGoToStep(2)"><i class="fa-solid fa-arrow-left"></i> Ajustar parámetros</button>
+                    <div style="display:flex; gap:8px;">
+                        <button type="button" class="btn btn-success" id="ma-btn-execute" disabled onclick="maExecute(false)"><i class="fa-solid fa-check"></i> Confirmar y ejecutar</button>
+                        <button type="button" class="btn btn-primary" id="ma-btn-submit" disabled onclick="maExecute(true)"><i class="fa-solid fa-paper-plane"></i> Enviar a aprobación</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 4: Result -->
+            <div id="ma-step4" style="display:none;">
+                <div id="ma-result-content">
+                    <div class="text-center text-muted" style="padding:40px;"><i class="fa-solid fa-spinner fa-spin"></i> Procesando...</div>
+                </div>
+            </div>
+
+            <!-- Selected employees -->
+            <div id="ma-emp-card" class="ma-emp-card">
+                <div class="ma-emp-head"><i class="fa-solid fa-users"></i> Empleados seleccionados (<span id="ma-emp-count-2">0</span>)</div>
+                <div class="table-responsive">
+                    <table class="table-premium">
+                        <thead>
+                            <tr><th>Empleado</th><th>Cédula</th><th>Cargo</th><th>Departamento</th><th>Salario Base</th></tr>
+                        </thead>
+                        <tbody id="ma-emp-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+var maCsrf = "{{ csrf_token() }}";
+var maUrls = {
+    preview: "{{ url_for('web_rrhh.mass_action_preview') }}",
+    execute: "{{ url_for('web_rrhh.mass_action_execute') }}",
+    detail: "{{ url_for('web_rrhh.mass_action_detail', action_id='__ID__') }}",
+    pending: "{{ url_for('web_rrhh.mass_action_pending_list') }}",
+    employees: "{{ url_for('web_rrhh.employee_list') }}",
+};
+var maSupervisors = [
+    {% for s in supervisors %}
+    {id: {{ s.id|tojson }}, name: {{ s.fullName|tojson }}, position: {{ (s.position or '')|tojson }}},
+    {% endfor %}
+];
+
+var maEmployees = [];
+var maEmpIds = [];
+var maSelectedType = '';
+
+function maOpen(preType) {
+    maEmployees = (window.MASS_ACTION_EMPLOYEES || []).slice();
+    maEmpIds = maEmployees.map(function (e) { return e.id; });
+    if (!maEmployees.length) { alert('Selecciona al menos un empleado.'); return; }
+    document.getElementById('ma-modal').style.display = 'flex';
+    document.getElementById('ma-frm-ids').value = maEmpIds.join(',');
+    maSelectedType = preType || '';
+    maRenderEmployees();
+    if (preType && maEmpIds.length >= 1) {
+        document.querySelectorAll('.ma-type-card').forEach(function (c) {
+            c.classList.toggle('selected', c.dataset.type === preType);
+        });
+        maGoToConfig();
+        setTimeout(function(){ maPreFillPayload(); }, 100);
+    } else {
+        maSelectType(preType);
+        maGoToStep(1);
+    }
+}
+function maClose() { document.getElementById('ma-modal').style.display = 'none'; }
+
+function maSelectType(key) {
+    maSelectedType = key || '';
+    var has = false;
+    document.querySelectorAll('.ma-type-card').forEach(function (c) {
+        var sel = c.dataset.type === key;
+        c.classList.toggle('selected', sel);
+        if (sel) has = true;
+    });
+    document.getElementById('ma-btn-to-config').disabled = !has;
+}
+
+function maGoToConfig() {
+    document.getElementById('ma-frm-type').value = maSelectedType;
+    var label = '';
+    document.querySelectorAll('.ma-type-card').forEach(function (c) {
+        if (c.dataset.type === maSelectedType) label = c.querySelector('.ma-type-label').textContent;
+    });
+    document.getElementById('ma-step2-label').textContent = label || maSelectedType;
+    maRenderDynamicForm(maSelectedType);
+    maGoToStep(2);
+}
+
+function maGoToStep(n) {
+    for (var i = 1; i <= 4; i++) {
+        var el = document.getElementById('ma-step' + i);
+        if (el) el.style.display = (i === n) ? 'block' : 'none';
+        var ws = document.querySelector('.ma-step[data-step="' + i + '"]');
+        if (ws) {
+            ws.classList.toggle('active', i === n);
+            ws.classList.toggle('completed', i < n);
+            ws.style.opacity = (i <= n) ? '1' : '0.4';
+        }
+    }
+    var empCard = document.getElementById('ma-emp-card');
+    if (empCard) empCard.style.display = (n === 1 || n === 2) ? 'block' : 'none';
+}
+
+function maRenderEmployees() {
+    document.getElementById('ma-emp-count').textContent = maEmployees.length;
+    document.getElementById('ma-emp-count-2').textContent = maEmployees.length;
+    document.querySelectorAll('.ma-emp-count-2').forEach(function (el) { el.textContent = maEmployees.length; });
+    var tbody = document.getElementById('ma-emp-tbody');
+    tbody.innerHTML = '';
+    maEmployees.forEach(function (e) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + (e.fullName || '') + '</td>' +
+            '<td>' + (e.cedula || e.idNumber || '') + '</td>' +
+            '<td>' + (e.position || '') + '</td>' +
+            '<td>' + (e.department || e.area || '—') + '</td>' +
+            '<td>RD$ ' + (Number(e.baseSalary) || 0).toLocaleString('es-DO', {minimumFractionDigits: 2}) + '</td>';
+        tbody.appendChild(tr);
+    });
+}
+
+function maRenderDynamicForm(type) {
+    var container = document.getElementById('ma-dynamic-fields');
+    var html = '';
+    var today = new Date().toISOString().slice(0, 10);
+
+    if (type === 'salary_change' || type === 'promotion') {
+        html += `
+        <div class="form-group">
+            <label class="form-label">Tipo de ajuste</label>
+            <select name="changeType" id="ma-fld-change-type" class="form-select" onchange="maToggleSalaryFields()">
+                <option value="fixed_amount">Monto fijo (nuevo salario)</option>
+                <option value="percentage">Porcentaje (%)</option>
+            </select>
+        </div>
+        <div id="ma-fixed-amount-field" class="form-group">
+            <label class="form-label">Nuevo salario (RD$)</label>
+            <input type="number" name="amount" id="ma-fld-amount" class="form-input" step="0.01" min="0" placeholder="Ej: 25000.00">
+        </div>
+        <div id="ma-percentage-field" class="form-group" style="display:none;">
+            <label class="form-label">Porcentaje de ajuste (%)</label>
+            <input type="number" name="percentage" id="ma-fld-percentage" class="form-input" step="0.1" min="-50" max="200" placeholder="Ej: 10 (para +10%)">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Fecha efectiva</label>
+            <input type="date" name="effectiveDate" id="ma-fld-effective-date" class="form-input" value="${today}">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Período de nómina (opcional)</label>
+            <select name="payrollPeriodKey" id="ma-fld-payroll-period" class="form-select">
+                <option value="">Auto-detectar según fecha efectiva</option>`;
+        {% for p in payroll_periods %}
+        html += `<option value="{{ p.key }}">{{ p.label }}</option>`;
+        {% endfor %}
+        html += `
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label">
+                <input type="checkbox" name="prorate" id="ma-fld-prorate" checked>
+                Prorratear salario dentro del período
+            </label>
+            <small class="form-hint" style="display:block; margin-left:24px; color:var(--text-muted);">Si la fecha cae a mitad del período, calcular días en cada tasa.</small>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Justificación <span style="color:var(--danger);">*</span></label>
+            <textarea name="reason" id="ma-fld-reason" class="form-input" rows="2" required placeholder="Explica el motivo de este ajuste (obligatorio para aprobación)..."></textarea>
+        </div>`;
+    }
+
+    if (type === 'position_change' || type === 'promotion') {
+        html += `
+        <div class="form-group">
+            <label class="form-label">Nuevo puesto</label>
+            <select name="newPosition" id="ma-fld-new-position" class="form-select">
+                <option value="">Seleccionar...</option>`;
+        {% for p in positions %}
+        html += `<option value="{{ p.name or p }}">{{ p.name or p }}</option>`;
+        {% endfor %}
+        html += `</select>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Nuevo departamento / área</label>
+            <input type="text" name="newDepartment" id="ma-fld-new-department" class="form-input" placeholder="Nuevo departamento">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Fecha efectiva</label>
+            <input type="date" name="effectiveDate" id="ma-fld-effective-date" class="form-input" value="${today}">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Justificación <span style="color:var(--danger);">*</span></label>
+            <textarea name="reason" id="ma-fld-reason" class="form-input" rows="2" required placeholder="Explica el motivo del cambio (obligatorio para aprobación)..."></textarea>
+        </div>`;
+    }
+
+    if (type === 'supervisor_change') {
+        html += `
+        <div class="form-group">
+            <label class="form-label">Nuevo supervisor</label>
+            <div class="combo-wrapper" style="position:relative;">
+                <input type="text" class="form-input" id="ma-supervisor-input"
+                       placeholder="Escribe para buscar y seleccionar supervisor..."
+                       autocomplete="off"
+                       oninput="maFilterSupervisors(this.value)"
+                       onfocus="maFilterSupervisors(this.value)">
+                <input type="hidden" name="newSupervisorId" id="ma-supervisor-id">
+                <div id="ma-supervisor-dropdown"
+                     style="display:none; position:absolute; top:100%; left:0; right:0; z-index:100;
+                            background:#ffffff; border:1px solid #d1d5db;
+                            border-radius:8px; max-height:240px; overflow-y:auto;
+                            box-shadow:0 4px 16px rgba(0,0,0,0.15);"></div>
+            </div>
+            <small class="form-hint" style="display:block; margin-top:2px; color:var(--text-muted);">{{ supervisors|length }} empleados activos disponibles.</small>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Fecha efectiva</label>
+            <input type="date" name="effectiveDate" id="ma-fld-effective-date" class="form-input" value="${today}">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Justificación <span style="color:var(--danger);">*</span></label>
+            <textarea name="reason" id="ma-fld-reason" class="form-input" rows="2" required placeholder="Explica el motivo de la reasignación (obligatorio para aprobación)..."></textarea>
+        </div>`;
+    }
+
+    if (type === 'mass_absence') {
+        html += `
+        <div class="form-group">
+            <label class="form-label">Tipo de ausencia</label>
+            <select name="absenceType" id="ma-fld-absence-type" class="form-select" onchange="maToggleLeaveTypeField()">
+                <option value="vacation">Vacaciones</option>
+                <option value="leave">Permiso / Licencia</option>
+            </select>
+        </div>
+        <div id="ma-leave-type-field" class="form-group" style="display:none;">
+            <label class="form-label">Tipo de licencia</label>
+            <select name="leaveType" id="ma-fld-leave-type" class="form-select">
+                <option value="enfermedad">Enfermedad</option>
+                <option value="maternidad">Maternidad</option>
+                <option value="luto">Luto</option>
+                <option value="sindical">Sindical</option>
+                <option value="otro">Otro</option>
+            </select>
+        </div>
+        <div class="form-row" style="display:flex; gap:16px;">
+            <div class="form-group" style="flex:1;">
+                <label class="form-label">Fecha inicio</label>
+                <input type="date" name="startDate" id="ma-fld-start-date" class="form-input" value="${today}">
+            </div>
+            <div class="form-group" style="flex:1;">
+                <label class="form-label">Fecha fin</label>
+                <input type="date" name="endDate" id="ma-fld-end-date" class="form-input" value="${today}">
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Días</label>
+            <input type="number" name="days" id="ma-fld-days" class="form-input" min="1" placeholder="Ej: 10">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Justificación <span style="color:var(--danger);">*</span></label>
+            <textarea name="reason" id="ma-fld-reason" class="form-input" rows="2" required placeholder="Explica el motivo de la ausencia (obligatorio para aprobación)..."></textarea>
+        </div>`;
+    }
+
+    container.innerHTML = html;
+}
+
+function maToggleSalaryFields() {
+    var ct = document.getElementById('ma-fld-change-type')?.value;
+    document.getElementById('ma-fixed-amount-field').style.display = (ct === 'fixed_amount' || !ct) ? 'block' : 'none';
+    document.getElementById('ma-percentage-field').style.display = (ct === 'percentage') ? 'block' : 'none';
+}
+
+function maToggleLeaveTypeField() {
+    var at = document.getElementById('ma-fld-absence-type')?.value;
+    document.getElementById('ma-leave-type-field').style.display = (at === 'leave') ? 'block' : 'none';
+}
+
+function maPreFillPayload() {
+    var payload = window.MASS_ACTION_EDIT_PAYLOAD;
+    if (!payload) return;
+    setFieldValue('ma-fld-change-type', payload.changeType); maToggleSalaryFields();
+    setFieldValue('ma-fld-amount', payload.amount);
+    setFieldValue('ma-fld-percentage', payload.percentage);
+    setFieldValue('ma-fld-new-position', payload.newPosition);
+    setFieldValue('ma-fld-new-department', payload.newDepartment || payload.newArea);
+    setFieldValue('ma-supervisor-id', payload.newSupervisorId);
+    if (payload.newSupervisorId && maSupervisors.length) {
+        var sup = maSupervisors.find(function(s){ return s.id === payload.newSupervisorId; });
+        if (sup) setFieldValue('ma-supervisor-input', sup.name);
+    }
+    setFieldValue('ma-fld-effective-date', payload.effectiveDate);
+    setFieldValue('ma-fld-payroll-period', payload.payrollPeriodKey);
+    setFieldValue('ma-fld-reason', payload.reason);
+    setFieldValue('ma-fld-absence-type', payload.absenceType); maToggleLeaveTypeField();
+    setFieldValue('ma-fld-leave-type', payload.leaveType);
+    setFieldValue('ma-fld-start-date', payload.startDate);
+    setFieldValue('ma-fld-end-date', payload.endDate);
+    setFieldValue('ma-fld-days', payload.days);
+}
+function setFieldValue(id, val) {
+    var el = document.getElementById(id);
+    if (!el || val === null || val === undefined) return;
+    if (el.type === 'checkbox') el.checked = !!val;
+    else el.value = val;
+}
+
+function maGetPayload() {
+    var payload = {};
+    var form = document.getElementById('ma-action-form');
+    form.querySelectorAll('input, select, textarea').forEach(function (inp) {
+        if (inp.name && inp.name !== 'actionType' && inp.name !== 'employeeIds') {
+            if (inp.type === 'checkbox') payload[inp.name] = inp.checked;
+            else if (inp.type === 'number') payload[inp.name] = parseFloat(inp.value) || 0;
+            else payload[inp.name] = inp.value;
+        }
+    });
+    return payload;
+}
+
+function maPreview() {
+    var type = document.getElementById('ma-frm-type').value;
+    var ids = maEmpIds;
+
+    document.getElementById('ma-preview-content').innerHTML = '<div class="text-center text-muted" style="padding:40px;"><i class="fa-solid fa-spinner fa-spin"></i> Validando...</div>';
+    maGoToStep(3);
+
+    fetch(maUrls.preview, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': maCsrf},
+        body: JSON.stringify({actionType: type, employeeIds: ids, payload: maGetPayload()})
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+        var html = '';
+        if (!data.valid) {
+            html += '<div class="alert alert-danger"><i class="fa-solid fa-circle-exclamation"></i> Se encontraron errores de validación:</div>';
+            html += '<ul style="color:var(--danger);">';
+            (data.errors || []).forEach(function (e) {
+                html += '<li><strong>' + (e.employeeName || 'General') + ':</strong> ' + e.message + '</li>';
+            });
+            html += '</ul>';
+            document.getElementById('ma-btn-execute').disabled = true;
+            document.getElementById('ma-btn-submit').disabled = true;
+        } else {
+            html += '<div class="alert alert-success"><i class="fa-solid fa-circle-check"></i> Validación exitosa. ' + data.affectedCount + ' empleados afectados.</div>';
+            document.getElementById('ma-btn-execute').disabled = false;
+            document.getElementById('ma-btn-submit').disabled = false;
+        }
+
+        html += '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:12px; margin:16px 0;">';
+        html += '<div class="stat-box"><span class="stat-label">Acción</span><span class="stat-value" style="font-size:1rem;">' + (data.actionTypeLabel || type) + '</span></div>';
+        html += '<div class="stat-box"><span class="stat-label">Empleados</span><span class="stat-value">' + data.affectedCount + '</span></div>';
+        html += '</div>';
+
+        if (data.payload) {
+            html += '<div class="card-table-wrapper" style="padding:16px; margin-bottom:16px; background:var(--bg-secondary); border-radius:8px;">';
+            html += '<h5 style="margin-bottom:8px;">Parámetros:</h5>';
+            html += '<table class="table-premium" style="font-size:0.85rem;">';
+            for (var key in data.payload) {
+                if (data.payload.hasOwnProperty(key) && data.payload[key] !== '' && data.payload[key] !== null) {
+                    var label = key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/\b\w/g, function (l) { return l.toUpperCase(); });
+                    var val = data.payload[key];
+                    if (key === 'newSupervisorId') {
+                        val = document.getElementById('ma-supervisor-input')?.value || val;
+                    } else if (typeof val === 'boolean') {
+                        val = val ? 'Sí' : 'No';
+                    } else if (typeof val === 'number') {
+                        val = 'RD$ ' + Number(val).toLocaleString('es-DO', {minimumFractionDigits: 2});
+                    }
+                    html += '<tr><td style="padding:4px 8px; font-weight:600;">' + label + '</td><td style="padding:4px 8px;">' + val + '</td></tr>';
+                }
+            }
+            html += '</table></div>';
+        }
+
+        if (data.employees && data.employees.length > 0) {
+            html += '<h5 style="margin:12px 0 8px;">Empleados afectados:</h5>';
+            html += '<div class="table-responsive" style="max-height:220px; overflow-y:auto;">';
+            html += '<table class="table-premium"><thead><tr><th>Empleado</th><th>Cédula</th><th>Cargo</th><th>Salario Actual</th></tr></thead><tbody>';
+            data.employees.forEach(function (e) {
+                html += '<tr><td>' + e.fullName + '</td><td>' + e.cedula + '</td><td>' + e.position + '</td><td>RD$ ' + Number(e.baseSalary).toLocaleString('es-DO', {minimumFractionDigits: 2}) + '</td></tr>';
+            });
+            html += '</tbody></table></div>';
+        }
+
+        document.getElementById('ma-preview-content').innerHTML = html;
+    })
+    .catch(function (err) {
+        document.getElementById('ma-preview-content').innerHTML = '<div class="alert alert-danger">Error al validar: ' + err.message + '</div>';
+    });
+}
+
+function maExecute(submitForApproval) {
+    var type = document.getElementById('ma-frm-type').value;
+    var ids = maEmpIds;
+    var reason = document.getElementById('ma-fld-reason')?.value?.trim() || '';
+
+    if (submitForApproval && !reason) {
+        alert('Debes proporcionar una justificación para enviar la acción a aprobación.');
+        document.getElementById('ma-fld-reason')?.focus();
+        return;
+    }
+
+    document.getElementById('ma-btn-execute').disabled = true;
+    document.getElementById('ma-btn-submit').disabled = true;
+    maGoToStep(4);
+    document.getElementById('ma-result-content').innerHTML = '<div class="text-center text-muted" style="padding:40px;"><i class="fa-solid fa-spinner fa-spin"></i> Procesando...</div>';
+
+    fetch(maUrls.execute, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': maCsrf},
+        body: JSON.stringify({
+            actionType: type, employeeIds: ids, payload: maGetPayload(),
+            submitForApproval: !!submitForApproval,
+            actionId: window.MASS_ACTION_EDIT_ID || null,
+        })
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+        var html = '';
+        if (data.error) {
+            html += '<div class="alert alert-danger"><i class="fa-solid fa-circle-exclamation"></i> ' + data.error + '</div>';
+            if (data.errors) {
+                html += '<ul style="color:var(--danger);">';
+                data.errors.forEach(function (e) {
+                    html += '<li>' + (e.employeeName || '') + ': ' + e.message + '</li>';
+                });
+                html += '</ul>';
+            }
+            html += '<div class="ma-footer"><button type="button" class="btn btn-ghost" onclick="maClose()">Cerrar</button></div>';
+        } else if (data.status === 'pending_approval') {
+            html += '<div style="text-align:center; padding:32px;">';
+            html += '<i class="fa-solid fa-paper-plane" style="font-size:3rem; color:var(--accent-blue, #3b82f6); margin-bottom:16px;"></i>';
+            html += '<h3 style="color:var(--accent-blue, #3b82f6);">Enviada a aprobación</h3>';
+            html += '<p style="color:var(--text-muted);">La acción fue guardada y enviada para revisión. Un aprobador debe autorizarla antes de ejecutarla.</p>';
+            html += '<div style="margin-top:16px;">';
+            html += '<a href="' + maUrls.detail.replace('__ID__', data.actionId) + '" class="btn btn-primary"><i class="fa-solid fa-eye"></i> Ver detalle</a>';
+            html += ' <a href="' + maUrls.pending + '" class="btn btn-ghost"><i class="fa-solid fa-clock"></i> Ver pendientes de aprobación</a>';
+            html += ' <button type="button" class="btn btn-ghost" onclick="maClose()"><i class="fa-solid fa-xmark"></i> Cerrar</button>';
+            html += '</div></div>';
+        } else {
+            var icon = data.status === 'completed' ? 'fa-circle-check' : 'fa-triangle-exclamation';
+            var color = data.status === 'completed' ? 'var(--accent-emerald)' : 'var(--warning)';
+            html += '<div style="text-align:center; padding:32px;">';
+            html += '<i class="fa-solid ' + icon + '" style="font-size:3rem; color:' + color + '; margin-bottom:16px;"></i>';
+            html += '<h3 style="color:' + color + ';">Acción ' + (data.status === 'completed' ? 'Completada' : 'Parcial') + '</h3>';
+            html += '<div style="display:flex; gap:24px; justify-content:center; margin:24px 0;">';
+            html += '<div><strong style="font-size:1.5rem;">' + data.totalEmployees + '</strong><br><span class="text-muted">Total</span></div>';
+            html += '<div><strong style="font-size:1.5rem; color:var(--accent-emerald);">' + data.successCount + '</strong><br><span class="text-muted">Exitosos</span></div>';
+            html += '<div><strong style="font-size:1.5rem; color:var(--danger);">' + data.errorCount + '</strong><br><span class="text-muted">Errores</span></div>';
+            html += '</div>';
+            html += '<div style="margin-top:16px;">';
+            html += '<a href="' + maUrls.detail.replace('__ID__', data.actionId) + '" class="btn btn-primary"><i class="fa-solid fa-eye"></i> Ver detalle</a>';
+            html += ' <a href="' + maUrls.employees + '" class="btn btn-ghost"><i class="fa-solid fa-users"></i> Ir a empleados</a>';
+            html += ' <button type="button" class="btn btn-ghost" onclick="maClose()"><i class="fa-solid fa-xmark"></i> Cerrar</button>';
+            html += '</div></div>';
+        }
+        document.getElementById('ma-result-content').innerHTML = html;
+    })
+    .catch(function (err) {
+        document.getElementById('ma-result-content').innerHTML = '<div class="alert alert-danger">Error al ejecutar: ' + err.message + '</div>';
+    });
+}
+
+function maFilterSupervisors(q) {
+    q = (q || '').toLowerCase();
+    var list = document.getElementById('ma-supervisor-dropdown');
+    if (!list) return;
+    list.innerHTML = '';
+    var hasResults = false;
+    maSupervisors.forEach(function (s) {
+        var full = s.name + ' ' + s.position;
+        if (!q || full.toLowerCase().includes(q)) {
+            hasResults = true;
+            var div = document.createElement('div');
+            div.style.cssText = 'padding:8px 12px; cursor:pointer; border-bottom:1px solid var(--border-color); font-size:0.85rem; display:flex; justify-content:space-between; align-items:center;';
+            div.innerHTML = '<span>' + s.name + '</span><span style="color:var(--text-muted); font-size:0.78rem;">' + s.position + '</span>';
+            div.dataset.id = s.id;
+            div.onclick = function () {
+                document.getElementById('ma-supervisor-input').value = s.name;
+                document.getElementById('ma-supervisor-id').value = s.id;
+                list.style.display = 'none';
+            };
+            div.onmouseenter = function () { this.style.background = 'var(--bg-secondary)'; };
+            div.onmouseleave = function () { this.style.background = ''; };
+            list.appendChild(div);
+        }
+    });
+    if (!hasResults && q) {
+        var div = document.createElement('div');
+        div.style.cssText = 'padding:12px; font-size:0.82rem; color:var(--text-muted); text-align:center;';
+        div.textContent = 'Sin resultados para "' + q + '"';
+        list.appendChild(div);
+    }
+    list.style.display = q ? 'block' : 'none';
+}
+
+document.addEventListener('click', function (e) {
+    var dd = document.getElementById('ma-supervisor-dropdown');
+    if (dd && !e.target.closest('.combo-wrapper')) dd.style.display = 'none';
+});
+</script>
+{% endif %}

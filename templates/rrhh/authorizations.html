@@ -1,0 +1,176 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Autorizaciones — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+
+{% set status_badge = {'pending': 'warning', 'approved': 'success', 'rejected': 'danger', 'returned': 'warning', 'cancelled': 'secondary'} %}
+
+<div class="page-header hr-page-header" style="margin-bottom:14px;">
+    <div>
+        <h1 class="page-title" style="margin-bottom:2px;"><i class="fa-solid fa-file-signature"></i> Autorizaciones</h1>
+        <span style="font-size:0.8rem; color:var(--text-muted);">{{ requests|length }} solicitud(es)</span>
+    </div>
+    <div class="hr-page-actions">
+        {% if can_manage_rules %}
+        <a href="{{ url_for('web_rrhh.authorization_rules_list') }}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-sliders"></i> Reglas</a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Filter bar -->
+<div class="card-table-wrapper" style="padding:8px 16px; margin-bottom:12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+    <div style="display:flex; gap:4px; flex-wrap:wrap;" id="filter-tabs">
+        <button class="btn btn-xs btn-primary" data-filter="mine" onclick="setFilter('mine')">Para mí {% if pending_mine %}<strong>({{ pending_mine }})</strong>{% endif %}</button>
+        <button class="btn btn-xs btn-ghost" data-filter="pending" onclick="setFilter('pending')">Pendientes</button>
+        {% if is_owner %}
+        <button class="btn btn-xs btn-ghost" data-filter="all" onclick="setFilter('all')">Todas</button>
+        <button class="btn btn-xs btn-ghost" data-filter="approved" onclick="setFilter('approved')">Aprobadas</button>
+        <button class="btn btn-xs btn-ghost" data-filter="rejected" onclick="setFilter('rejected')">Rechazadas</button>
+        <button class="btn btn-xs btn-ghost" data-filter="returned" onclick="setFilter('returned')">Devueltas</button>
+        {% endif %}
+    </div>
+    <input type="text" class="form-input" id="search-input" placeholder="Buscar..." style="margin-left:auto; width:200px; font-size:0.82rem; padding:5px 10px;" oninput="filterRows()">
+</div>
+
+<!-- Grid -->
+<div class="card-table-wrapper hr-table-card" style="margin-bottom:0;">
+    <div class="table-responsive">
+        <table class="table-premium" id="auth-table">
+            <thead>
+                <tr>
+                    <th>Tipo</th>
+                    <th>Ref</th>
+                    <th>Creado por</th>
+                    <th>Asignado a</th>
+                    <th>Fecha</th>
+                    <th>Estado</th>
+                    <th style="width:40px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in requests %}
+                {% set mine = r._pendingForMe %}
+                {% set row_class = 'filter-mine' if mine else 'filter-' + r.status %}
+                <tr class="auth-row {{ row_class }}" data-search="{{ r.docTypeLabel or r.docType }} {{ r.documentNumber or '' }} {{ r.createdByName or '' }} {{ r.createdByEmail or '' }} {{ (r.assignedTo or {}).name or '' }}" data-mine="{{ '1' if mine else '0' }}" data-status="{{ r.status }}">
+                    <td>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="width:30px; height:30px; border-radius:6px; background:{% if mine %}rgba(245,158,11,0.15){% else %}var(--bg-nav-hover){% endif %}; color:{% if mine %}var(--accent-yellow){% else %}var(--text-muted){% endif %}; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                <i class="fa-solid {% if mine %}fa-hourglass-half{% elif r.status == 'approved' %}fa-circle-check{% elif r.status == 'rejected' %}fa-circle-xmark{% else %}fa-file-lines{% endif %}" style="font-size:0.75rem;"></i>
+                            </span>
+                            <div>
+                                <strong style="font-size:0.85rem; display:block; line-height:1.2;">{{ r.docTypeLabel or r.docType }}</strong>
+                                <span style="font-size:0.7rem; color:var(--text-muted);">{{ r.documentNumber or r.documentId or '—' }}</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        {% if r._entityLink %}
+                        <a href="{{ r._entityLink }}" class="btn btn-ghost btn-xs" title="Ver documento"><i class="fa-solid fa-up-right-from-square"></i></a>
+                        {% else %}
+                        <span style="font-size:0.75rem; color:var(--text-muted);">—</span>
+                        {% endif %}
+                    </td>
+                    <td><span style="font-size:0.8rem;">{{ r.createdByName or r.createdByEmail or '—' }}</span></td>
+                    <td>
+                        {% set a = r.assignedTo or {} %}
+                        <span style="font-size:0.8rem; {% if a.id == current_user_uid %}color:var(--accent-emerald); font-weight:600;{% endif %}">{{ a.name or a.email or a.id or '—' }}</span>
+                    </td>
+                    <td><span style="font-size:0.78rem; white-space:nowrap; color:var(--text-muted);">{{ (r.createdAt or '')[:16]|replace('T', ' ') }}</span></td>
+                    <td><span class="badge badge-{{ status_badge.get(r.status, 'secondary') }} btn-xs">{{ status_labels.get(r.status, r.status) }}</span></td>
+                    <td>
+                        <div style="display:flex; gap:2px;">
+                            <a href="{{ url_for('web_rrhh.authorization_detail', request_id=r.id) }}" class="btn btn-ghost btn-xs" title="Ver detalle"><i class="fa-regular fa-eye"></i></a>
+                            {% if mine %}
+                            <form method="POST" action="{{ url_for('web_rrhh.authorization_decide', request_id=r.id) }}" style="display:inline; margin:0;" onsubmit="return confirm('¿Aprobar esta solicitud?')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="decision" value="approve">
+                                <button type="submit" class="btn btn-ghost btn-xs" style="color:var(--accent-emerald);" title="Aprobar"><i class="fa-solid fa-check"></i></button>
+                            </form>
+                            <button type="button" class="btn btn-ghost btn-xs" style="color:var(--danger);" title="Rechazar" onclick="showDecideModal('{{ r.id }}', 'reject')"><i class="fa-solid fa-xmark"></i></button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if not requests %}
+    <div class="hr-empty-state">
+        <div class="hr-empty-icon"><i class="fa-solid fa-inbox"></i></div>
+        <p>No hay solicitudes de autorización.</p>
+        <span>Cuando se envíen acciones de personal o nóminas a aprobación aparecerán aquí.</span>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Decide Modal (reject / return) -->
+<div class="search-modal" id="decide-modal" style="display:none; animation:none;">
+    <div class="modal-backdrop" onclick="closeDecideModal()"></div>
+    <div class="modal-content" style="max-width:440px;">
+        <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; padding:14px 20px; border-bottom:1px solid var(--border-color);">
+            <span id="decide-modal-title" style="font-weight:600;">Rechazar</span>
+            <button type="button" onclick="closeDecideModal()" style="background:none; border:none; color:var(--text-muted); font-size:1.3rem; cursor:pointer;">&times;</button>
+        </div>
+        <form method="POST" id="decide-form" style="padding:20px; display:flex; flex-direction:column; gap:12px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="decision" id="decide-decision" value="reject">
+            <div>
+                <label id="decide-comment-label" style="font-size:0.82rem; font-weight:500; display:block; margin-bottom:6px;">Motivo</label>
+                <textarea name="comment" class="form-input" rows="3" required placeholder="Indique el motivo..."></textarea>
+            </div>
+            <div style="display:flex; gap:8px; justify-content:flex-end; padding-top:8px; border-top:1px solid var(--border-color);">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="closeDecideModal()">Cancelar</button>
+                <button type="submit" id="decide-submit" class="btn btn-danger btn-sm">Rechazar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+var currentFilter = 'mine';
+
+function setFilter(filter) {
+    currentFilter = filter;
+    document.querySelectorAll('#filter-tabs .btn').forEach(function(b) {
+        b.className = b.dataset.filter === filter ? 'btn btn-xs btn-primary' : 'btn btn-xs btn-ghost';
+    });
+    filterRows();
+}
+
+function filterRows() {
+    var q = (document.getElementById('search-input').value || '').toLowerCase();
+    document.querySelectorAll('.auth-row').forEach(function(row) {
+        var show = true;
+        if (currentFilter === 'mine') {
+            show = row.dataset.mine === '1';
+        } else if (currentFilter !== 'all') {
+            show = row.dataset.status === currentFilter;
+        }
+        if (show && q) {
+            show = row.dataset.search.toLowerCase().indexOf(q) !== -1;
+        }
+        row.style.display = show ? '' : 'none';
+    });
+}
+
+function showDecideModal(requestId, decision) {
+    var action = "{{ url_for('web_rrhh.authorization_decide', request_id='__ID__') }}".replace('__ID__', requestId);
+    document.getElementById('decide-form').action = action;
+    document.getElementById('decide-decision').value = decision;
+    if (decision === 'return') {
+        document.getElementById('decide-modal-title').textContent = 'Devolver para corrección';
+        document.getElementById('decide-comment-label').textContent = 'Motivo de la devolución';
+        document.getElementById('decide-submit').textContent = 'Devolver';
+        document.getElementById('decide-submit').className = 'btn btn-sm';
+    } else {
+        document.getElementById('decide-modal-title').textContent = 'Rechazar solicitud';
+        document.getElementById('decide-comment-label').textContent = 'Motivo del rechazo';
+        document.getElementById('decide-submit').textContent = 'Rechazar';
+        document.getElementById('decide-submit').className = 'btn btn-danger btn-sm';
+    }
+    document.getElementById('decide-modal').style.display = 'flex';
+}
+function closeDecideModal() { document.getElementById('decide-modal').style.display = 'none'; }
+</script>
+{% endblock %}

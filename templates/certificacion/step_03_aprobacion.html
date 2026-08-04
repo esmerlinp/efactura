@@ -1,0 +1,187 @@
+{% extends "certificacion/wizard.html" %}
+
+{% block step_content %}
+<div class="cert-step-card">
+    <h3><i class="fa-solid fa-file-excel"></i> Cargar Set de Aprobaciones Comerciales (ACECF)</h3>
+    {% if step_status.get('status') == 'failed' %}
+    <div class="cert-result-failed" style="margin-bottom:16px;">
+        <strong>⚠️ REGLA DGII:</strong> Si alguna aprobación es <strong>RECHAZADA</strong>, todo el paso se reinicia.
+    </div>
+    {% endif %}
+
+    <div class="cert-dropzone" id="step3-dropzone">
+        <input type="file" accept=".xlsx,.xls" style="display:none;" id="step3-file-input">
+        <i class="fa-solid fa-cloud-arrow-up"></i>
+        <p>Arrastra aquí el Excel de Aprobaciones Comerciales DGII (.xlsx)</p>
+        <div class="file-name" id="step3-file-name"></div>
+    </div>
+
+    <div id="step3-preview" style="display:none; margin-top:16px;">
+        <div class="cert-result-success" style="font-weight:normal;" id="step3-preview-info"></div>
+        <table class="cert-table" style="margin-top:12px; max-width:500px;" id="step3-preview-table"></table>
+        <div class="cert-actions-row" style="margin-top:14px;">
+            <button type="button" class="cert-btn cert-btn-primary" onclick="generateStep3()">
+                <i class="fa-solid fa-paper-plane"></i> Generar y Enviar Aprobaciones
+            </button>
+            <button type="button" class="cert-btn cert-btn-secondary" onclick="generateStep3DryRun()">
+                <i class="fa-solid fa-flask"></i> Dry Run
+            </button>
+        </div>
+    </div>
+
+    <div id="step3-progress" style="display:none; margin-top:20px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+            <span class="cert-progress-spinner"></span>
+            <span style="font-size:0.9rem; color:var(--text-secondary);" id="step3-progress-text">Enviando aprobaciones comerciales...</span>
+        </div>
+    </div>
+</div>
+
+<div id="step3-results-section" style="display:none;">
+    <div class="cert-step-card">
+        <h3><i class="fa-solid fa-list-check"></i> Resultados — <span id="step3-run-label"></span></h3>
+        <div id="step3-result-summary"></div>
+        <div id="step3-result-tables"></div>
+        <div class="cert-actions-row">
+            <button type="button" class="cert-btn cert-btn-secondary" onclick="downloadAllStep3()">
+                <i class="fa-solid fa-download"></i> Descargar todas las evidencias (.zip)
+            </button>
+            <form method="POST" action="{{ url_for('web_certificacion.step_advance', step=step) }}" id="step3-advance-form" style="display:none;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="cert-btn cert-btn-primary">
+                    <i class="fa-solid fa-arrow-right"></i> Paso Completado — Avanzar al Paso 4
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    let parsedStep3Data = null;
+    let currentStep3Run = {{ step_status.get('current_run', 0) }};
+
+    enableDropzone("#step3-dropzone", async function(file, zone) {
+        zone.querySelector(".file-name").textContent = "✓ " + file.name + " (cargando...)";
+
+        const formData = new FormData();
+        formData.append("excelFile", file);
+
+        try {
+            const resp = await certFetch("/certificacion/step-3/upload-excel", { method: "POST", body: formData });
+            const data = await resp.json();
+            if (resp.ok && data.success) {
+                parsedStep3Data = data;
+                zone.querySelector(".file-name").textContent = "✓ " + file.name + " — " + data.total_cases + " aprobaciones detectadas";
+                showStep3Preview(data);
+            } else {
+                showToast(data.error || "Error al leer el Excel", "error");
+                zone.querySelector(".file-name").textContent = "✗ Error";
+            }
+        } catch (e) {
+            showToast("Error de conexión", "error");
+            zone.querySelector(".file-name").textContent = "✗ Error";
+        }
+    });
+
+    function showStep3Preview(data) {
+        document.getElementById("step3-preview").style.display = "block";
+        document.getElementById("step3-preview-info").innerHTML =
+            `<strong>${data.total_cases} aprobaciones comerciales</strong> detectadas`;
+
+        const table = document.getElementById("step3-preview-table");
+        table.innerHTML = `<thead><tr><th>#</th><th>eNCF Referencia</th><th>Tipo</th></tr></thead><tbody>` +
+            (data.casos || []).map((c, i) =>
+                `<tr><td>${i+1}</td><td style="font-family:monospace;">${c.encf}</td><td><span class="cert-badge cert-badge-info">${c.tipo}</span></td></tr>`
+            ).join("") + `</tbody>`;
+    }
+
+    async function generateStep3(dryRun = false) {
+        if (!parsedStep3Data) { showToast("Sube el Excel primero", "warning"); return; }
+
+        const progress = document.getElementById("step3-progress");
+        progress.style.display = "block";
+
+        try {
+            const resp = await certFetch("/certificacion/step-3/generate", {
+                method: "POST",
+                body: { parsed_data: parsedStep3Data, dry_run: dryRun },
+            });
+            const data = await resp.json();
+            progress.style.display = "none";
+
+            if (data.success) {
+                showToast("Aprobaciones enviadas exitosamente", "success");
+            } else {
+                showToast(`${data.rejected} caso(s) con error. El paso debe reiniciarse.`, "error");
+            }
+
+            currentStep3Run = data.run_number;
+            showStep3Results(data);
+        } catch (e) {
+            showToast("Error en la generación", "error");
+            progress.style.display = "none";
+        }
+    }
+
+    function generateStep3DryRun() { generateStep3(true); }
+
+    function showStep3Results(data) {
+        const section = document.getElementById("step3-results-section");
+        const summary = document.getElementById("step3-result-summary");
+        const tables = document.getElementById("step3-result-tables");
+        const runLabel = document.getElementById("step3-run-label");
+        const advanceForm = document.getElementById("step3-advance-form");
+
+        section.style.display = "block";
+        runLabel.textContent = `Intento #${data.run_number}`;
+
+        const allOk = data.rejected === 0;
+        summary.innerHTML = `
+            <div class="cert-result-${allOk ? 'success' : 'failed'}">
+                ${allOk ? '✅ PASO 3 COMPLETADO' : '❌ ESTE INTENTO HA FALLADO'} &mdash;
+                ${data.accepted}/${data.total} aceptados · ${data.rejected} rechazados
+                ${!allOk ? '<br><strong>REGLA DGII:</strong> Debes reiniciar todo el paso.' : ''}
+            </div>
+        `;
+
+        if (allOk) advanceForm.style.display = "block";
+
+        const results = data.results || [];
+        let html = `<table class="cert-table"><thead><tr><th>Tipo</th><th>eNCF Ref</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>`;
+        results.forEach(c => {
+            const statusLabel = c.success ? (c.dry_run ? 'Dry Run' : 'Enviado') : 'Error';
+            const statusClass = c.success ? 'cert-badge-success' : 'cert-badge-danger';
+            html += `<tr>
+                <td><span class="cert-badge cert-badge-info">ACECF</span></td>
+                <td style="font-family:monospace; font-size:0.8rem;">${c.encf}</td>
+                <td><span class="cert-badge ${statusClass}">${statusLabel}</span>${c.error_message ? '<br><small style="color:var(--accent-red);">'+c.error_message+'</small>' : ''}</td>
+                <td><a href="/api/v1/certificacion/step-3/download/${c.encf}?run=${data.run_number}" class="cert-btn cert-btn-secondary cert-btn-sm"><i class="fa-solid fa-download"></i> XML</a></td>
+            </tr>`;
+        });
+        html += `</tbody></table>`;
+        tables.innerHTML = html;
+    }
+
+    function downloadAllStep3() {
+        window.open(`/api/v1/certificacion/step-3/download-all?run=${currentStep3Run}`, "_blank");
+    }
+
+    (function init() {
+        const sd = {{ step_status | tojson }};
+        const runs = (sd.runs || []);
+        if (runs.length > 0) {
+            currentStep3Run = sd.current_run;
+            const lastRun = runs[runs.length - 1];
+            if (lastRun && lastRun.cases) {
+                showStep3Results({
+                    total: lastRun.total_cases,
+                    accepted: lastRun.accepted,
+                    rejected: lastRun.rejected,
+                    results: lastRun.cases,
+                    run_number: lastRun.run_number,
+                });
+            }
+        }
+    })();
+</script>
+{% endblock %}

@@ -350,6 +350,24 @@ def offboarding_transition(request_id):
         old_status = old_req.get("status", "") if old_req else ""
         svc.transition(request_id, new_status, _email(), _role(), comment)
 
+        if new_status == "pending_hr_approval":
+            from app.services.hr_authorization_service import create_authorization_request
+            req_data = svc.get_request(request_id)
+            result = create_authorization_request(
+                company_id, "termination", request_id,
+                doc_number=req_data.get("employeeName", "") or req_data.get("employeeId", "") or request_id,
+                entity_type="offboarding",
+                created_by_uid=_user().get("uid", ""),
+                created_by_email=_email(),
+                created_by_name=_user().get("name", ""),
+                sandbox=sandbox,
+                link=url_for("web_rrhh.offboarding_detail", request_id=request_id),
+                owner_uid=owner_uid,
+            )
+            if not req_data.get("authorizationRequestId"):
+                req_data["authorizationRequestId"] = result["request"]["id"]
+                svc.save_request_raw(request_id, req_data, _email())
+
         from app.services.offboarding_notifications import notify_transition
         from flask import current_app
         app = current_app._get_current_object()

@@ -1,0 +1,13 @@
+{% extends "certificacion/wizard.html" %}
+{% block step_content %}
+<div class="cert-step-card">
+    <h3><i class="fa-solid fa-link"></i> URL Servicios de Prueba</h3>
+    <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:16px;">
+        Actualiza las URLs de los servicios web si hubo cambios durante el proceso de certificación.
+    </p>
+    <form method="POST" action="{{ url_for('web_certificacion.step_advance', step=step) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="cert-btn cert-btn-primary"><i class="fa-solid fa-check"></i> Marcar como completado y avanzar</button>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,39 @@
+<div class="wizard-progress-bar" style="display:flex; justify-content:space-between; align-items:center; position:relative; background:var(--bg-card); border:1px solid var(--border-color); padding:16px 24px; border-radius:12px; margin-bottom:30px; overflow-x:auto;">
+    <div style="position:absolute; top:50%; left:5%; right:5%; height:2px; background:var(--border-color); z-index:1; transform:translateY(-50%);"></div>
+    <div id="certActiveLine" style="position:absolute; top:50%; left:5%; width:0%; height:2px; background:var(--accent-emerald); z-index:1; transform:translateY(-50%); transition:width 0.3s ease;"></div>
+
+    {% for n in range(1, 16) %}
+    {% set s = steps.get(n|string, {}) %}
+    {% set st = s.get('status', 'pending') %}
+    {% set is_active = (n == current_step) %}
+    {% set is_completed = (st == 'completed') %}
+    {% set is_failed = (st == 'failed') %}
+    <a href="{{ url_for('web_certificacion.step_view', step=n) }}"
+       class="wizard-step-node" data-step-indicator="{{ n }}" style="z-index:2; display:flex; flex-direction:column; align-items:center; gap:6px; text-decoration:none; cursor:pointer; min-width:44px;">
+        <div class="node-circle" style="width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:0.75rem; transition:all 0.3s ease;
+            {% if is_completed %}background:var(--accent-emerald); color:white; border:3px solid var(--accent-emerald);
+            {% elif is_failed %}background:var(--accent-red); color:white; border:3px solid var(--accent-red);
+            {% elif is_active %}background:var(--accent-emerald); color:white; border:3px solid var(--bg-card); box-shadow:0 0 0 2px var(--accent-emerald);
+            {% else %}background:var(--bg-body); color:var(--text-muted); border:3px solid var(--border-color);{% endif %}">
+            {% if is_completed %}<i class="fa-solid fa-check" style="font-size:0.65rem;"></i>{% elif is_failed %}<i class="fa-solid fa-xmark" style="font-size:0.65rem;"></i>{% else %}{{ n }}{% endif %}
+        </div>
+        <span style="font-size:0.65rem; font-weight:600; white-space:nowrap; color:
+            {% if is_active %}var(--accent-emerald)
+            {% elif is_completed %}var(--accent-emerald)
+            {% elif is_failed %}var(--accent-red)
+            {% else %}var(--text-muted){% endif %};">
+            {% if n <= 9 %}Paso {{ n }}{% else %}P{{ n }}{% endif %}
+        </span>
+    </a>
+    {% endfor %}
+</div>
+
+<script>
+(function(){
+    const activeStep = {{ current_step }};
+    const totalSteps = 15;
+    const pct = ((activeStep - 1) / (totalSteps - 1)) * 100;
+    const line = document.getElementById("certActiveLine");
+    if (line) line.style.width = pct + "%";
+})();
+</script>

@@ -881,6 +881,7 @@ def create_app():
     from app.api.v1.liquidacion import api_liquidacion_bp
     from app.api.v1.supplier_invoices import api_supplier_invoices_bp
     from app.api.v1.receptor import api_receptor_bp
+    from app.api.v1.certificacion import api_certificacion_bp
     
     app.register_blueprint(api_expenses_bp, url_prefix='/api/v1')
     app.register_blueprint(api_invoices_bp, url_prefix='/api/v1')
@@ -893,6 +894,7 @@ def create_app():
     app.register_blueprint(api_liquidacion_bp, url_prefix='/api/v1')
     app.register_blueprint(api_supplier_invoices_bp, url_prefix='/api/v1')
     app.register_blueprint(api_receptor_bp, url_prefix='/api/v1')
+    app.register_blueprint(api_certificacion_bp, url_prefix='/api/v1')
 
     # 2. Web UI Blueprints
     from app.web.auth import web_auth_bp
@@ -930,6 +932,7 @@ def create_app():
     from app.web.herramientas import web_herramientas_bp
     from app.web.company import web_company_bp
     from app.web.recepcion import web_recepcion_bp
+    from app.web.certificacion import web_certificacion_bp
 
     app.register_blueprint(web_herramientas_bp)
     app.register_blueprint(web_auth_bp)
@@ -966,6 +969,7 @@ def create_app():
     app.register_blueprint(web_rui_bp)
     app.register_blueprint(web_company_bp)
     app.register_blueprint(web_recepcion_bp)
+    app.register_blueprint(web_certificacion_bp)
 
     # Eximir rutas /api/ de validación CSRF (los blueprints de API se registraron arriba)
     for rule in app.url_map.iter_rules():

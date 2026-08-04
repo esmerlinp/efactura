@@ -1,0 +1,329 @@
+{% extends "certificacion/wizard.html" %}
+
+{% block step_content %}
+<style>
+    .cert-group-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 0 8px 0;
+        border-bottom: 2px solid var(--border-color);
+        margin-bottom: 12px;
+    }
+    .cert-group-header h4 {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0;
+    }
+    .cert-group-header .cert-badge {
+        margin-left: 10px;
+    }
+    .cert-manual-instr {
+        background: rgba(245, 158, 11, 0.06);
+        border: 1px solid rgba(245, 158, 11, 0.2);
+        border-radius: var(--radius-sm);
+        padding: 10px 14px;
+        margin: 12px 0;
+        font-size: 0.82rem;
+        color: var(--text-secondary);
+    }
+    .cert-manual-instr i { color: #D97706; }
+</style>
+
+<div class="cert-step-card">
+    <h3><i class="fa-solid fa-file-excel"></i> Cargar Set de Pruebas DGII</h3>
+    {% if step_status.get('status') == 'failed' %}
+    <div class="cert-result-failed" style="margin-bottom:16px;">
+        <strong>⚠️ REGLA DGII:</strong> Si algún comprobante es <strong>RECHAZADO</strong>, todo el paso se reinicia.
+        Debes volver a generar y enviar todos los casos desde cero.
+    </div>
+    {% endif %}
+
+    <div class="cert-dropzone" id="step2-dropzone">
+        <input type="file" accept=".xlsx,.xls" style="display:none;" id="step2-file-input">
+        <i class="fa-solid fa-cloud-arrow-up"></i>
+        <p>Arrastra aquí el Excel del Set de Pruebas DGII (.xlsx)</p>
+        <div class="file-name" id="step2-file-name"></div>
+    </div>
+
+    <div id="step2-preview" style="display:none; margin-top:16px;">
+        <div class="cert-result-success" style="font-weight:normal;" id="step2-preview-info"></div>
+        <table class="cert-table" style="margin-top:12px;">
+            <thead>
+                <tr>
+                    <th>Grupo</th>
+                    <th>Casos</th>
+                    <th>Tipos</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody id="step2-preview-body"></tbody>
+        </table>
+        <div class="cert-actions-row" style="margin-top:14px;">
+            <button type="button" class="cert-btn cert-btn-primary" onclick="generateStep2()">
+                <i class="fa-solid fa-play"></i> Generar y Enviar a DGII
+            </button>
+            <button type="button" class="cert-btn cert-btn-secondary" onclick="generateStep2DryRun()">
+                <i class="fa-solid fa-flask"></i> Dry Run (solo generar, no enviar)
+            </button>
+        </div>
+    </div>
+
+    <div id="step2-progress" style="display:none; margin-top:20px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+            <span class="cert-progress-spinner"></span>
+            <span style="font-size:0.9rem; color:var(--text-secondary);" id="step2-progress-text">Procesando casos...</span>
+        </div>
+        <div style="margin-top:8px; background:var(--bg-body); border-radius:100px; height:6px; overflow:hidden;">
+            <div id="step2-progress-bar" style="height:100%; background:var(--accent-emerald); width:0%; transition:width 0.3s;"></div>
+        </div>
+    </div>
+</div>
+
+<div id="step2-results-section" style="display:none;">
+    <div class="cert-step-card" id="step2-results-card">
+        <h3><i class="fa-solid fa-list-check"></i> Resultados — <span id="step2-run-label"></span></h3>
+        <div id="step2-result-summary"></div>
+        <div id="step2-result-tables"></div>
+        <div class="cert-actions-row">
+            <button type="button" class="cert-btn cert-btn-secondary" onclick="downloadAllStep2()">
+                <i class="fa-solid fa-download"></i> Descargar todas las evidencias (.zip)
+            </button>
+            <form method="POST" action="{{ url_for('web_certificacion.step_advance', step=step) }}" id="step2-advance-form" style="display:none;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="cert-btn cert-btn-primary">
+                    <i class="fa-solid fa-arrow-right"></i> Paso Completado — Avanzar al Paso 3
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="cert-step-card" id="step2-history-card" style="display:none;">
+        <h3><i class="fa-solid fa-clock-rotate-left"></i> Historial de Intentos</h3>
+        <div id="step2-history-list"></div>
+    </div>
+</div>
+
+<script>
+    let parsedStep2Data = null;
+    let currentStep2Run = {{ step_status.get('current_run', 0) }};
+
+    enableDropzone("#step2-dropzone", async function(file, zone) {
+        zone.querySelector(".file-name").textContent = "✓ " + file.name + " (cargando...)";
+
+        const formData = new FormData();
+        formData.append("excelFile", file);
+
+        try {
+            const resp = await certFetch("/certificacion/step-2/upload-excel", { method: "POST", body: formData });
+            const data = await resp.json();
+            if (resp.ok && data.success) {
+                parsedStep2Data = data;
+                zone.querySelector(".file-name").textContent = "✓ " + file.name + " — " + data.total_cases + " casos detectados";
+                showStep2Preview(data);
+            } else {
+                showToast(data.error || "Error al leer el Excel", "error");
+                zone.querySelector(".file-name").textContent = "✗ Error";
+            }
+        } catch (e) {
+            showToast("Error de conexión", "error");
+            zone.querySelector(".file-name").textContent = "✗ Error";
+        }
+    });
+
+    function showStep2Preview(data) {
+        const preview = document.getElementById("step2-preview");
+        const info = document.getElementById("step2-preview-info");
+        const body = document.getElementById("step2-preview-body");
+
+        info.innerHTML = `<strong>${data.total_cases} casos detectados</strong> en el Set de Pruebas`;
+
+        const groups = [
+            { g: 1, label: "Grupo 1 — ECF principales", count: data.grupo_1_count, action: "Envío automático a DGII" },
+            { g: 2, label: "Grupo 2 — Notas (Crédito/Débito)", count: data.grupo_2_count, action: "Envío automático a DGII" },
+            { g: 3, label: "Grupo 3 — RFCE (E32 <250K)", count: data.grupo_3_count, action: "Envío automático a FC" },
+            { g: 4, label: "Grupo 4 — Subida manual al portal", count: data.grupo_4_count, action: "Descargar y subir manualmente" },
+        ];
+
+        body.innerHTML = groups.map(g => `
+            <tr>
+                <td><span class="cert-badge cert-badge-info">Grupo ${g.g}</span></td>
+                <td><strong>${g.count}</strong></td>
+                <td style="font-size:0.8rem; color:var(--text-secondary);">${g.label.replace(" — ", " — ")}</td>
+                <td style="font-size:0.78rem; color:var(--text-muted);">${g.action}</td>
+            </tr>
+        `).join("");
+
+        preview.style.display = "block";
+    }
+
+    async function generateStep2(dryRun = false) {
+        if (!parsedStep2Data) { showToast("Sube el Excel primero", "warning"); return; }
+
+        const progress = document.getElementById("step2-progress");
+        const progressText = document.getElementById("step2-progress-text");
+        const progressBar = document.getElementById("step2-progress-bar");
+        progress.style.display = "block";
+        progressBar.style.width = "10%";
+        progressText.textContent = dryRun ? "Generando XMLs (dry run)..." : "Generando y enviando a DGII...";
+
+        try {
+            const resp = await certFetch("/certificacion/step-2/generate", {
+                method: "POST",
+                body: { parsed_data: parsedStep2Data, dry_run: dryRun },
+            });
+            progressBar.style.width = "100%";
+            const data = await resp.json();
+
+            if (data.success) {
+                showToast("Generación completada exitosamente", "success");
+            } else {
+                showToast(`${data.rejected} caso(s) con error. El paso debe reiniciarse.`, "error");
+            }
+
+            currentStep2Run = data.run_number;
+            showStep2Results(data);
+        } catch (e) {
+            showToast("Error en la generación", "error");
+            progressBar.style.width = "100%";
+            progressText.textContent = "Error en la generación";
+        }
+    }
+
+    function generateStep2DryRun() { generateStep2(true); }
+
+    function showStep2Results(data) {
+        const section = document.getElementById("step2-results-section");
+        const summary = document.getElementById("step2-result-summary");
+        const tables = document.getElementById("step2-result-tables");
+        const runLabel = document.getElementById("step2-run-label");
+        const advanceForm = document.getElementById("step2-advance-form");
+        const progress = document.getElementById("step2-progress");
+
+        section.style.display = "block";
+        progress.style.display = "none";
+        runLabel.textContent = `Intento #${data.run_number}`;
+
+        const allOk = data.rejected === 0;
+        summary.innerHTML = `
+            <div class="cert-result-${allOk ? 'success' : 'failed'}">
+                ${allOk ? '✅ PASO 2 COMPLETADO' : '❌ ESTE INTENTO HA FALLADO'} &mdash;
+                ${data.accepted}/${data.total} aceptados · ${data.rejected} rechazados
+                ${!allOk ? '<br><strong>REGLA DGII:</strong> Debes reiniciar todo el paso.' : ''}
+            </div>
+        `;
+
+        if (allOk) advanceForm.style.display = "block";
+
+        const results = data.results || [];
+        const byGroup = {};
+        results.forEach(r => {
+            const g = r.grupo;
+            if (!byGroup[g]) byGroup[g] = [];
+            byGroup[g].push(r);
+        });
+
+        let html = "";
+        [1, 2, 3, 4].forEach(g => {
+            const cases = byGroup[g] || [];
+            if (cases.length === 0) return;
+            const isManual = g === 4;
+            html += `<div class="cert-group-header"><h4>Grupo ${g} — ${isManual ? 'Subida Manual al Portal DGII' : 'Envío Automático'} (${cases.length} casos)</h4></div>`;
+            html += `<table class="cert-table"><thead><tr>
+                <th>Tipo</th><th>eNCF</th><th>Total</th><th>Estado</th>${g !== 4 ? '<th>Track ID</th>' : ''}<th>Acciones</th></tr></thead><tbody>`;
+            cases.forEach(c => {
+                const statusLabel = c.success
+                    ? (c.dry_run ? 'Dry Run' : (c.dgii_status || 'Enviado'))
+                    : 'Error';
+                const statusClass = c.success ? 'cert-badge-success' : 'cert-badge-danger';
+                html += `<tr>
+                    <td><span class="cert-badge cert-badge-info">${c.tipo}</span></td>
+                    <td style="font-family:monospace; font-size:0.8rem;">${c.encf}</td>
+                    <td>RD$ ${formatCurrency(c.total)}</td>
+                    <td><span class="cert-badge ${statusClass}">${statusLabel}</span>${c.error_message ? '<br><small style="color:var(--accent-red);">'+c.error_message+'</small>' : ''}</td>
+                    ${g !== 4 ? '<td style="font-family:monospace; font-size:0.75rem;">'+(c.track_id || '—')+'</td>' : ''}
+                    <td>
+                        <a href="/api/v1/certificacion/step-2/download/${c.encf}?run=${data.run_number}" class="cert-btn cert-btn-secondary cert-btn-sm">
+                            <i class="fa-solid fa-download"></i> XML
+                        </a>
+                        ${g === 4 && c.success ? '<button class="cert-btn cert-btn-secondary cert-btn-sm" onclick="markManual(\''+c.encf+'\', '+data.run_number+')" style="margin-left:4px;"><i class="fa-solid fa-check"></i> Subido</button>' : ''}
+                    </td></tr>`;
+            });
+            html += `</tbody></table>`;
+            if (isManual) {
+                html += `<div class="cert-manual-instr">
+                    <i class="fa-solid fa-circle-info"></i> <strong>Instrucciones Grupo 4:</strong> 
+                    Descarga cada XML y súbelo manualmente al portal DGII > Certificación > Facturas de Consumo. Marca cada uno como "Subido" cuando lo hayas hecho.
+                </div>`;
+            }
+        });
+
+        tables.innerHTML = html;
+
+        if (data.rejected > 0 && data.run_number > 1) {
+            loadStep2History();
+        }
+    }
+
+    async function markManual(encf, run) {
+        try {
+            const resp = await certFetch(`/certificacion/step-2/mark-manual-uploaded/${encf}?run=${run}`, { method: "POST" });
+            const d = await resp.json();
+            if (d.success) showToast(`XML ${encf} marcado como subido (${d.manual_uploaded} de 4)`, "success");
+        } catch (e) { showToast("Error", "error"); }
+    }
+
+    async function checkTrackStatus(trackId, btn) {
+        try {
+            const resp = await certFetch(`/certificacion/step-2/check-status/${trackId}`);
+            const data = await resp.json();
+            showToast(`Estado: ${data.dgii_status}`, data.dgii_status === 'ACCEPTED' ? 'success' : 'warning');
+        } catch (e) { showToast("Error", "error"); }
+    }
+
+    function downloadAllStep2() {
+        window.open(`/api/v1/certificacion/step-2/download-all?run=${currentStep2Run}`, "_blank");
+    }
+
+    function loadStep2History() {
+        const steps = {{ steps | tojson }};
+        const step2Data = steps["2"] || {};
+        const runs = step2Data.runs || [];
+        if (runs.length <= 1) return;
+
+        const historyCard = document.getElementById("step2-history-card");
+        const historyList = document.getElementById("step2-history-list");
+        historyCard.style.display = "block";
+
+        historyList.innerHTML = runs.slice().reverse().slice(0, 5).map((r, i) => {
+            const s = r.status === "completed" ? "✅" : "❌";
+            const date = r.completed_at ? r.completed_at.substring(0, 10) : "—";
+            return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-color);font-size:0.84rem;">
+                <strong>Intento #${r.run_number}</strong> ${s}
+                <span style="color:var(--text-muted);">${r.accepted || 0}/${r.total_cases || 0}</span>
+                <span style="color:var(--text-muted);font-size:0.75rem;">${date}</span>
+            </div>`;
+        }).join("");
+    }
+
+    (function init() {
+        const sd = {{ step_status | tojson }};
+        const runs = (sd.runs || []);
+        if (runs.length > 0) {
+            currentStep2Run = sd.current_run;
+            const lastRun = runs[runs.length - 1];
+            if (lastRun && lastRun.cases) {
+                showStep2Results({
+                    total: lastRun.total_cases,
+                    accepted: lastRun.accepted,
+                    rejected: lastRun.rejected,
+                    results: lastRun.cases,
+                    run_number: lastRun.run_number,
+                });
+                loadStep2History();
+            }
+        }
+    })();
+</script>
+{% endblock %}

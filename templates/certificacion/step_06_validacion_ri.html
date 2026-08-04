@@ -1,0 +1,19 @@
+{% extends "certificacion/wizard.html" %}
+{% block step_content %}
+<div class="cert-step-card">
+    <h3><i class="fa-solid fa-check-double"></i> Validación Representación Impresa</h3>
+    <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:16px;">
+        La DGII valida que las representaciones impresas (PDF) cumplan con el formato y contenido especificado
+        en el Informe Técnico e-CF.
+    </p>
+    <ol style="font-size:0.86rem; color:var(--text-secondary); line-height:1.8; padding-left:20px; margin-bottom:20px;">
+        <li>Sube los PDF generados al portal de certificación DGII</li>
+        <li>Espera la validación: <strong>"Representación Impresa Aprobada"</strong> o <strong>"Rechazada"</strong></li>
+        <li>Si es rechazada, corrige el formato del PDF y vuelve a subir</li>
+    </ol>
+    <form method="POST" action="{{ url_for('web_certificacion.step_advance', step=step) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="cert-btn cert-btn-primary"><i class="fa-solid fa-check"></i> Marcar como completado y avanzar</button>
+    </form>
+</div>
+{% endblock %}

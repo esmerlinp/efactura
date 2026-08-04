@@ -32,7 +32,7 @@ def check_permission(permission_name):
     user = session['user']
     if user.get('role') == 'owner':
         return True
-    default_val = False if permission_name in ('isPosSupervisor', 'canSupervisePOS', 'canUseChatbot') else True
+    default_val = False if permission_name in ('isPosSupervisor', 'canSupervisePOS', 'canUseChatbot', 'canAssignApprovers') else True
     return user.get('permissions', {}).get(permission_name, default_val)
 
 

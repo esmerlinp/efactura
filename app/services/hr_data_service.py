@@ -1075,6 +1075,42 @@ def delete_mass_action(company_id: str, action_id: str, sandbox: bool = True):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# COLA DE AUTORIZACIÓN (reglas y solicitudes genéricas)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_authorization_rules(company_id: str, sandbox: bool = True) -> list:
+    return _get_all(company_id, "authorization_rules", sandbox)
+
+
+def get_authorization_rule(company_id: str, rule_id: str, sandbox: bool = True) -> dict | None:
+    return _get_one(company_id, "authorization_rules", rule_id, sandbox)
+
+
+def save_authorization_rule(company_id: str, rule_id: str, data: dict, sandbox: bool = True):
+    _save(company_id, "authorization_rules", rule_id, data, sandbox)
+
+
+def delete_authorization_rule(company_id: str, rule_id: str, sandbox: bool = True):
+    _delete(company_id, "authorization_rules", rule_id, sandbox)
+
+
+def get_authorization_requests(company_id: str, sandbox: bool = True) -> list:
+    return _get_all(company_id, "authorization_requests", sandbox)
+
+
+def get_authorization_request(company_id: str, req_id: str, sandbox: bool = True) -> dict | None:
+    return _get_one(company_id, "authorization_requests", req_id, sandbox)
+
+
+def save_authorization_request(company_id: str, req_id: str, data: dict, sandbox: bool = True):
+    _save(company_id, "authorization_requests", req_id, data, sandbox)
+
+
+def delete_authorization_request(company_id: str, req_id: str, sandbox: bool = True):
+    _delete(company_id, "authorization_requests", req_id, sandbox)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # PAYROLL POLICIES
 # ═══════════════════════════════════════════════════════════════════════════
 

@@ -251,6 +251,13 @@ class OffboardingService:
         if new_status == "pending_hr_approval":
             if req.get("createdBy") == user_email:
                 return "El creador no puede aprobar su propia solicitud"
+        if current == "pending_hr_approval" and new_status == "pending_settlement":
+            auth_id = req.get("authorizationRequestId", "")
+            if auth_id:
+                from app.services import hr_data_service as _hr
+                auth = _hr.get_authorization_request(self.company_id, auth_id, sandbox=self.sandbox)
+                if auth and auth.get("status") != "approved":
+                    return "La solicitud debe estar aprobada en la cola de autorizaciones antes de continuar"
         if new_status == "pending_payment":
             calc_by = req.get("settlementCalculatedBy", "")
             if calc_by == user_email:

@@ -41,6 +41,19 @@
                     </a>
                 </div>
 
+                <!-- ── Autorizaciones (aplica a empleados y nómina) ── -->
+                <div class="sidebar-section {% if active_page == 'rrhh_authorizations' %}active-parent{% endif %}">
+                    <a href="{{ url_for('web_rrhh.authorization_queue') }}" class="sidebar-section-header" style="text-decoration: none;">
+                        <div class="header-left">
+                            <i class="fa-solid fa-file-signature section-icon"></i>
+                            <span>Autorizaciones</span>
+                        </div>
+                        {% if rrhh_pending_authorizations %}
+                        <span class="badge badge-warning" style="font-size:0.7rem; padding:2px 7px; border-radius:10px; margin-left:auto;">{{ rrhh_pending_authorizations }}</span>
+                        {% endif %}
+                    </a>
+                </div>
+
                 <!-- ── Personal ── -->
                 <div class="sidebar-section" id="sidebar-section-rrhh-personal">
                     <div class="sidebar-section-header">
@@ -68,8 +81,8 @@
                             <a href="{{ url_for('web_rrhh.attendance') }}"><span>Asistencia</span></a>
                         </li>
                         <li class="nav-item {% if active_page == 'rrhh_mass_actions' %}active{% endif %}"
-                            data-tooltip="Acciones masivas">
-                            <a href="{{ url_for('web_rrhh.mass_action_pending_list') }}"><span>Acciones masivas</span></a>
+                            data-tooltip="Historial de solicitudes">
+                            <a href="{{ url_for('web_rrhh.mass_action_pending_list') }}"><span>Historial de Solicitudes</span></a>
                         </li>
                         <li class="nav-item {% if active_page == 'rrhh_offboarding' %}active{% endif %}"
                             data-tooltip="Offboarding">
@@ -193,6 +206,10 @@
                         <li class="nav-item {% if active_page == 'rrhh_audit' %}active{% endif %}"
                             data-tooltip="Auditoría">
                             <a href="{{ url_for('web_rrhh.audit_log') }}"><span>Auditoría</span></a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'rrhh_authorization_rules' %}active{% endif %}"
+                            data-tooltip="Reglas de autorización">
+                            <a href="{{ url_for('web_rrhh.authorization_rules_list') }}"><span>Reglas de autorización</span></a>
                         </li>
                         <li class="nav-item {% if active_page == 'herramientas' %}active{% endif %}"
                             data-tooltip="Activos y Herramientas">

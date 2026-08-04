@@ -1,0 +1,334 @@
+{% extends "layout_wizard.html" %}
+
+{% block title %}Certificación DGII — {{ step_label }}{% endblock %}
+
+{% block content %}
+<style>
+    .cert-wizard-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    .cert-wizard-header {
+        text-align: center;
+        margin-bottom: 12px;
+    }
+    .cert-wizard-header h2 {
+        font-family: var(--font-heading);
+        font-size: 1.75rem;
+        color: var(--text-main);
+        margin-bottom: 6px;
+        font-weight: 700;
+    }
+    .cert-wizard-header p {
+        font-size: 0.92rem;
+        color: var(--text-secondary);
+        max-width: 650px;
+        margin: 0 auto;
+    }
+
+    .cert-step-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: 28px 32px;
+        margin-bottom: 24px;
+    }
+    .cert-step-card h3 {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .cert-step-card h3 i {
+        color: var(--accent-emerald);
+        font-size: 1.1rem;
+    }
+
+    .cert-form-group {
+        margin-bottom: 16px;
+    }
+    .cert-form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin-bottom: 6px;
+    }
+    .cert-form-input {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        background: var(--bg-body);
+        color: var(--text-primary);
+        font-size: 0.9rem;
+        font-family: inherit;
+        transition: border-color 0.2s;
+    }
+    .cert-form-input:focus {
+        outline: none;
+        border-color: var(--accent-emerald);
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    }
+
+    .cert-dropzone {
+        border: 2px dashed var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 36px 24px;
+        text-align: center;
+        background: var(--bg-body);
+        cursor: pointer;
+        transition: all 0.25s ease;
+        margin-bottom: 16px;
+    }
+    .cert-dropzone:hover, .cert-dropzone.dragover {
+        border-color: var(--accent-emerald);
+        background: rgba(16, 185, 129, 0.03);
+    }
+    .cert-dropzone i {
+        font-size: 2rem;
+        color: var(--text-muted);
+        margin-bottom: 10px;
+    }
+    .cert-dropzone p {
+        font-size: 0.88rem;
+        color: var(--text-secondary);
+        margin: 0;
+    }
+    .cert-dropzone .file-name {
+        font-size: 0.82rem;
+        color: var(--accent-emerald);
+        font-weight: 600;
+        margin-top: 8px;
+    }
+
+    .cert-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 22px;
+        border-radius: var(--radius-sm);
+        font-size: 0.88rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: none;
+        font-family: inherit;
+        text-decoration: none;
+    }
+    .cert-btn-primary {
+        background: var(--accent-emerald);
+        color: white;
+    }
+    .cert-btn-primary:hover {
+        filter: brightness(1.1);
+    }
+    .cert-btn-secondary {
+        background: var(--bg-body);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+    }
+    .cert-btn-secondary:hover {
+        background: var(--bg-nav-hover);
+    }
+    .cert-btn-danger {
+        background: var(--accent-red);
+        color: white;
+    }
+    .cert-btn-sm {
+        padding: 6px 14px;
+        font-size: 0.8rem;
+    }
+
+    .cert-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 10px;
+        border-radius: 100px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .cert-badge-success {
+        background: rgba(16, 185, 129, 0.12);
+        color: #16A34A;
+    }
+    .cert-badge-danger {
+        background: rgba(220, 38, 38, 0.12);
+        color: #DC2626;
+    }
+    .cert-badge-warning {
+        background: rgba(245, 158, 11, 0.12);
+        color: #D97706;
+    }
+    .cert-badge-info {
+        background: rgba(59, 130, 246, 0.12);
+        color: #2563EB;
+    }
+
+    .cert-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+    }
+    .cert-table th {
+        text-align: left;
+        padding: 10px 12px;
+        background: var(--bg-body);
+        color: var(--text-secondary);
+        font-weight: 600;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid var(--border-color);
+    }
+    .cert-table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border-color);
+        color: var(--text-primary);
+        vertical-align: middle;
+    }
+    .cert-table tr:hover td {
+        background: rgba(0,0,0,0.01);
+    }
+
+    .cert-toast-container {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .cert-toast {
+        padding: 12px 20px;
+        border-radius: var(--radius-sm);
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: white;
+        box-shadow: var(--shadow-lg);
+        animation: slideInRight 0.3s ease;
+        max-width: 380px;
+    }
+
+    @keyframes slideInRight {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+
+    .cert-result-summary {
+        padding: 16px 20px;
+        border-radius: var(--radius-md);
+        margin-bottom: 20px;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    .cert-result-success {
+        background: rgba(16, 185, 129, 0.08);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .cert-result-failed {
+        background: rgba(220, 38, 38, 0.08);
+        border: 1px solid rgba(220, 38, 38, 0.3);
+    }
+
+    .cert-actions-row {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-top: 20px;
+    }
+
+    .cert-progress-spinner {
+        display: inline-block;
+        width: 18px;
+        height: 18px;
+        border: 2px solid var(--border-color);
+        border-top-color: var(--accent-emerald);
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+</style>
+
+<div class="cert-wizard-container">
+    <div class="cert-wizard-header">
+        <h2>Certificación e-CF ante DGII</h2>
+        <p>Asistente paso a paso para completar el proceso de certificación como Emisor Electrónico.</p>
+    </div>
+
+    {% if is_locked %}
+    <div class="cert-result-success" style="text-align:center; margin-bottom:24px; padding:20px;">
+        <i class="fa-solid fa-lock" style="font-size:1.5rem; margin-bottom:8px; display:block; color:var(--accent-emerald);"></i>
+        <strong>Certificación completada</strong> — El ambiente CerteCF está bloqueado.
+        <br><small style="color:var(--text-secondary);">La emisión de comprobantes ahora debe realizarse en el ambiente de producción (ecf).</small>
+    </div>
+    {% endif %}
+
+    {% include 'certificacion/_progress_bar.html' %}
+
+    <div class="cert-toast-container" id="cert-toast-container"></div>
+
+    {% block step_content %}{% endblock %}
+</div>
+
+<script>
+    const CERT_CSRF_TOKEN = "{{ csrf_token() }}";
+    const CERT_API_BASE = "/api/v1";
+
+    function certFetch(url, options = {}) {
+        const headers = {
+            "X-CSRFToken": CERT_CSRF_TOKEN,
+            ...(options.headers || {}),
+        };
+        if (options.body && !(options.body instanceof FormData)) {
+            headers["Content-Type"] = "application/json";
+            options.body = JSON.stringify(options.body);
+        }
+        return fetch(CERT_API_BASE + url, { ...options, headers });
+    }
+
+    function showToast(message, type = "info") {
+        const colors = { success: "#16A34A", error: "#DC2626", warning: "#D97706", info: "#2563EB" };
+        const container = document.getElementById("cert-toast-container");
+        const toast = document.createElement("div");
+        toast.className = "cert-toast";
+        toast.style.background = colors[type] || colors.info;
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => { toast.style.opacity = "0"; toast.style.transition = "opacity 0.3s"; setTimeout(() => toast.remove(), 300); }, 4000);
+    }
+
+    function enableDropzone(selector, onFile) {
+        const zone = document.querySelector(selector);
+        if (!zone) return;
+        const input = zone.querySelector("input[type=file]");
+        if (!input) return;
+
+        zone.addEventListener("click", () => input.click());
+        zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.classList.add("dragover"); });
+        zone.addEventListener("dragleave", () => zone.classList.remove("dragover"));
+        zone.addEventListener("drop", (e) => {
+            e.preventDefault();
+            zone.classList.remove("dragover");
+            const file = e.dataTransfer.files[0];
+            if (file) onFile(file, zone);
+        });
+        input.addEventListener("change", () => {
+            const file = input.files[0];
+            if (file) onFile(file, zone);
+        });
+    }
+
+    function formatCurrency(amount) {
+        return new Intl.NumberFormat("es-DO", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
+    }
+</script>
+{% endblock %}

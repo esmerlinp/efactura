@@ -138,6 +138,38 @@
     </div>
 </div>
 
+<!-- Authorization Stage History -->
+{% set stage_history = period.get('authorizationStageHistory') or [] %}
+{% if stage_history %}
+<div class="card-table-wrapper" style="margin-bottom:16px;">
+    <div class="table-header-row" style="padding:8px 16px;">
+        <h3 style="font-size:0.85rem;margin:0;"><i class="fa-solid fa-file-signature"></i> Historial de autorizaciones</h3>
+    </div>
+    <div style="padding:4px 16px 12px;position:relative;">
+        <div style="position:absolute;left:19px;top:10px;bottom:10px;width:1px;background:var(--border-color);"></div>
+        {% for stage in stage_history %}
+        {% set stage_label = {'payroll_approval':'Aprobación de nómina','payroll_post_accounting':'Contabilización'}.get(stage.stage,stage.stage) %}
+        {% set is_approved = stage.status in ('approved','aprobada','contabilizada') %}
+        {% set is_rejected = stage.status in ('rejected','rechazada') %}
+        <div style="display:flex;gap:8px;align-items:flex-start;padding:4px 0;position:relative;">
+            <span style="width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:6px;background:{% if is_approved %}var(--accent-emerald){% elif is_rejected %}var(--danger){% elif stage.status=='returned' %}var(--accent-orange,#f59e0b){% else %}var(--text-muted){% endif %};"></span>
+            <div style="font-size:0.78rem;flex:1;min-width:0;">
+                <span style="font-weight:600;">{{ stage_label }}</span>
+                {% if stage.status == 'pending' %}<span class="badge badge-warning btn-xs">Pendiente</span>
+                {% elif is_approved %}<span class="badge badge-success btn-xs">Completada</span>
+                {% elif stage.status == 'returned' %}<span class="badge badge-warning btn-xs">Devuelta</span>
+                {% else %}<span class="badge badge-{{ 'danger' if is_rejected else 'secondary' }} btn-xs">{{ stage.status }}</span>{% endif %}
+                <div style="color:var(--text-muted);font-size:0.7rem;">
+                    {{ (stage.createdAt or '')[:16]|replace('T',' ') }} · {{ stage.createdBy or '' }}
+                    {% if stage.resolvedAt %} → {{ (stage.resolvedAt or '')[:16]|replace('T',' ') }}{% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
 <!-- Workflow Actions -->
 {% set s = period.get('status','borrador') %}
 <div class="card-table-wrapper" style="padding:14px 24px; margin-bottom:16px; background:var(--bg-nav-hover); border-style:dashed;">

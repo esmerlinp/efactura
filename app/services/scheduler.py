@@ -294,6 +294,23 @@ def monitored_tax_obligation_reminders(company_id=None):
     )
 
 
+def run_authorization_timeout(company_id=None):
+    """Job diario: procesa timeout y purga de autorizaciones."""
+    from app.services.hr_authorization_timeout import run_authorization_timeout_job
+    logger.info("⏰ APScheduler — Iniciando timeout de autorizaciones pendientes...")
+    run_authorization_timeout_job(company_id=company_id)
+    logger.info("✅ APScheduler — Timeout de autorizaciones finalizado.")
+
+
+def monitored_authorization_timeout(company_id=None):
+    return _run_monitored(
+        "authorization_timeout",
+        "Timeout y Escalacion de Autorizaciones Pendientes",
+        run_authorization_timeout,
+        company_id=company_id,
+    )
+
+
 def get_scheduler_jobs():
     if _scheduler is None:
         return []
@@ -369,9 +386,17 @@ def init_scheduler(app):
 
     _scheduler.add_job(
         func=monitored_tax_obligation_reminders,
-        trigger=CronTrigger(hour=7, minute=0),   # 7:00 AM RD cada día
+        trigger=CronTrigger(hour=7, minute=0),   # 7:00 AM RD cada dia
         id="tax_obligation_reminders",
         name="Recordatorios de Obligaciones Tributarias DGII",
+        replace_existing=True,
+    )
+
+    _scheduler.add_job(
+        func=monitored_authorization_timeout,
+        trigger=CronTrigger(hour=8, minute=0),   # 8:00 AM RD cada dia
+        id="authorization_timeout",
+        name="Timeout y Escalacion de Autorizaciones Pendientes",
         replace_existing=True,
     )
 
