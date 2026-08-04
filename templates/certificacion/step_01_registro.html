@@ -1,0 +1,176 @@
+{% extends "certificacion/wizard.html" %}
+
+{% block step_content %}
+<div class="cert-step-card">
+    <h3><i class="fa-solid fa-file-signature"></i> Certificado de Firma Digital (.p12)</h3>
+    {% if cert_status and cert_status.valid %}
+    <div class="cert-result-success" style="font-weight:normal;">
+        <strong>Certificado cargado</strong> &mdash; {{ cert_status.name }}
+        {% if cert_status.not_after %}<br><small>Vence: {{ cert_status.not_after[:10] }}</small>{% endif %}
+    </div>
+    <p style="font-size:0.85rem; color:var(--text-secondary); margin-top:8px;">
+        ¿Necesitas cambiar el certificado? Ve a 
+        <a href="{{ url_for('web_invoices.company_settings') }}#certificado" target="_blank">Configuración de Empresa <i class="fa-solid fa-external-link-alt" style="font-size:0.7rem;"></i></a>
+    </p>
+    {% else %}
+    <div class="cert-result-failed" style="font-weight:normal;">
+        <strong>No hay certificado digital cargado.</strong> Cárgalo aquí o en Configuración de Empresa.
+    </div>
+    <form id="cert-upload-form" enctype="multipart/form-data" style="margin-top:16px;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:12px;">
+            <div>
+                <div class="cert-dropzone" id="cert-dropzone">
+                    <input type="file" accept=".p12,.pfx" style="display:none;" id="cert-file-input" name="certificateFile">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <p>Arrastra aquí tu certificado digital (.p12 / .pfx)</p>
+                    <div class="file-name" id="cert-file-name"></div>
+                </div>
+            </div>
+            <div>
+                <div class="cert-form-group">
+                    <label for="cert-password">Contraseña del Certificado</label>
+                    <input type="password" id="cert-password" name="certificatePassword" class="cert-form-input" placeholder="••••••••">
+                </div>
+                <button type="button" class="cert-btn cert-btn-primary" onclick="uploadCertificate()" style="width:100%; margin-top:8px;">
+                    <i class="fa-solid fa-upload"></i> Cargar y Validar
+                </button>
+                <small id="cert-upload-msg" style="display:block; margin-top:8px; font-size:0.8rem;"></small>
+            </div>
+        </div>
+    </form>
+    {% endif %}
+</div>
+
+<div class="cert-step-card">
+    <h3><i class="fa-solid fa-file-code"></i> XML de Postulación</h3>
+    <p style="font-size:0.88rem; color:var(--text-secondary); margin-bottom:16px;">
+        La DGII proporciona el XML de postulación. Súbelo aquí para firmarlo digitalmente con tu certificado.
+    </p>
+    <div class="cert-dropzone" id="postulacion-dropzone">
+        <input type="file" accept=".xml" style="display:none;" id="postulacion-file-input">
+        <i class="fa-solid fa-file-lines"></i>
+        <p>Arrastra aquí el XML de postulación de la DGII</p>
+        <div class="file-name" id="postulacion-file-name"></div>
+    </div>
+    <div style="margin-top:12px;">
+        <button type="button" id="sign-postulacion-btn" class="cert-btn cert-btn-primary" onclick="signPostulacion()" disabled>
+            <i class="fa-solid fa-signature"></i> Firmar y Descargar XML
+        </button>
+        <span id="sign-postulacion-msg" style="font-size:0.82rem; color:var(--text-secondary); margin-left:12px;"></span>
+    </div>
+</div>
+
+<div class="cert-step-card">
+    <h3><i class="fa-solid fa-globe"></i> Enviar al Portal DGII</h3>
+    <p style="font-size:0.88rem; color:var(--text-secondary); margin-bottom:12px;">
+        Con el XML firmado, debes completar la postulación en el portal de certificación de la DGII.
+    </p>
+    <ol style="font-size:0.86rem; color:var(--text-secondary); line-height:1.8; padding-left:20px; margin-bottom:20px;">
+        <li>Ingresa al portal de certificación: <a href="https://dgii.gov.do" target="_blank">dgii.gov.do <i class="fa-solid fa-external-link-alt" style="font-size:0.65rem;"></i></a></li>
+        <li>Completa el formulario con los datos de tu empresa y software</li>
+        <li>URLs requeridas: Recepción, Aprobación Comercial y Autenticación (opcional)</li>
+        <li>Adjunta el XML firmado que descargaste en el paso anterior</li>
+        <li>Envía la postulación y espera la aprobación</li>
+    </ol>
+    <div style="display:flex; gap:12px; align-items:center;">
+        <form method="POST" action="{{ url_for('web_certificacion.step_advance', step=step) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="cert-btn cert-btn-primary">
+                <i class="fa-solid fa-circle-check"></i> Marcar como Completado y Avanzar
+            </button>
+        </form>
+        <span style="font-size:0.82rem; color:var(--text-muted);">Marca este paso solo cuando la DGII haya aprobado tu postulación.</span>
+    </div>
+</div>
+
+<script>
+    let selectedCertFile = null;
+    let selectedPostulacionFile = null;
+
+    enableDropzone("#cert-dropzone", function(file, zone) {
+        selectedCertFile = file;
+        zone.querySelector(".file-name").textContent = "✓ " + file.name;
+    });
+
+    enableDropzone("#postulacion-dropzone", function(file, zone) {
+        selectedPostulacionFile = file;
+        zone.querySelector(".file-name").textContent = "✓ " + file.name;
+        document.getElementById("sign-postulacion-btn").disabled = false;
+    });
+
+    async function uploadCertificate() {
+        if (!selectedCertFile) { showToast("Selecciona un archivo .p12", "warning"); return; }
+        const password = document.getElementById("cert-password").value;
+        if (!password) { showToast("Ingresa la contraseña", "warning"); return; }
+
+        const formData = new FormData();
+        formData.append("certificateFile", selectedCertFile);
+        formData.append("certificatePassword", password);
+
+        const msg = document.getElementById("cert-upload-msg");
+        msg.textContent = "Validando certificado...";
+        msg.style.color = "var(--text-secondary)";
+
+        try {
+            const resp = await certFetch("/certificacion/certificate", { method: "POST", body: formData });
+            const data = await resp.json();
+            if (resp.ok && data.success) {
+                showToast("Certificado cargado correctamente", "success");
+                msg.textContent = "✓ Certificado válido. Recarga la página.";
+                msg.style.color = "var(--accent-emerald)";
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showToast(data.error || "Error al cargar certificado", "error");
+                msg.textContent = "✗ " + (data.error || "Error");
+                msg.style.color = "var(--accent-red)";
+            }
+        } catch (e) {
+            showToast("Error de conexión", "error");
+            msg.textContent = "✗ Error de conexión";
+            msg.style.color = "var(--accent-red)";
+        }
+    }
+
+    async function signPostulacion() {
+        if (!selectedPostulacionFile) { showToast("Selecciona el XML de postulación", "warning"); return; }
+
+        const formData = new FormData();
+        formData.append("xmlFile", selectedPostulacionFile);
+
+        const btn = document.getElementById("sign-postulacion-btn");
+        const msg = document.getElementById("sign-postulacion-msg");
+        btn.disabled = true;
+        btn.innerHTML = '<span class="cert-progress-spinner"></span> Firmando...';
+        msg.textContent = "";
+
+        try {
+            const resp = await certFetch("/certificacion/step-1/sign-postulacion", { method: "POST", body: formData });
+            if (resp.ok) {
+                const blob = await resp.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "postulacion_firmada.xml";
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+                showToast("XML firmado descargado", "success");
+                msg.textContent = "✓ Descargado. Ahora súbelo al portal DGII.";
+                msg.style.color = "var(--accent-emerald)";
+            } else {
+                const data = await resp.json();
+                showToast(data.error || "Error al firmar", "error");
+                msg.textContent = "✗ " + (data.error || "Error");
+                msg.style.color = "var(--accent-red)";
+            }
+        } catch (e) {
+            showToast("Error de conexión", "error");
+            msg.textContent = "✗ Error de conexión";
+            msg.style.color = "var(--accent-red)";
+        }
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-signature"></i> Firmar y Descargar XML';
+    }
+</script>
+{% endblock %}

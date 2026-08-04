@@ -1,200 +1,277 @@
 {% extends "rrhh/layout_hr.html" %}
-{% block title %}Detalle Acción Masiva — {{ product_name }}{% endblock %}
+{% block title %}Acción Masiva — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
 
-<div class="page-header hr-page-header">
-    <h1 class="page-title"><i class="fa-solid fa-file-lines"></i> Detalle de Acción Masiva</h1>
+{% set status_badge = {'completed':'success','partial':'warning','processing':'info','failed':'danger','pending_approval':'warning','approved':'primary','rejected':'danger','returned':'warning','draft':'secondary'} %}
+{% set status_label = {'completed':'Completada','partial':'Parcial','processing':'Procesando','failed':'Fallida','pending_approval':'Pendiente','approved':'Aprobada','rejected':'Rechazada','returned':'Devuelta','draft':'Borrador'} %}
+{% set is_executed = action.status in ('completed','partial','processing','failed') %}
+{% set payload = action.payload or {} %}
+
+<!-- ═══════════════ HEADER ──── -->
+<div class="page-header hr-page-header" style="margin-bottom:12px;">
+    <div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <h1 class="page-title" style="margin:0;">{{ action_type_label }}</h1>
+            <span class="badge badge-{{ status_badge.get(action.status,'secondary') }}" style="font-size:0.78rem;padding:3px 10px;">{{ status_label.get(action.status,action.status) }}</span>
+            <span style="font-size:0.78rem;color:var(--text-muted);">{{ action.totalEmployees }} empleado(s)</span>
+        </div>
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-top:3px;">
+            {{ action.createdBy or '—' }} · {{ (action.createdAt or '')[:16]|replace('T',' ') }}
+        </div>
+    </div>
     <div class="hr-page-actions">
-        <a href="{{ url_for('web_rrhh.employee_list') }}" class="btn btn-ghost">
-            <i class="fa-solid fa-arrow-left"></i> Volver a empleados
-        </a>
+        <a href="{{ url_for('web_rrhh.mass_action_pending_list') }}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i> Volver</a>
     </div>
 </div>
 
-<!-- Status Banner -->
-<div class="card-table-wrapper hr-document-sheet" style="padding:24px; margin-bottom:16px;">
-    <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
-        <div>
-            {% if action.status == 'completed' %}
-            <span class="badge badge-success" style="font-size:0.95rem; padding:6px 14px;">Completada</span>
-            {% elif action.status == 'partial' %}
-            <span class="badge badge-warning" style="font-size:0.95rem; padding:6px 14px;">Parcial</span>
-            {% elif action.status == 'processing' %}
-            <span class="badge badge-info" style="font-size:0.95rem; padding:6px 14px;">Procesando</span>
-            {% elif action.status == 'failed' %}
-            <span class="badge badge-danger" style="font-size:0.95rem; padding:6px 14px;">Fallida</span>
-            {% else %}
-            <span class="badge badge-secondary" style="font-size:0.95rem; padding:6px 14px;">Borrador</span>
-            {% endif %}
-        </div>
-        <div><strong>Tipo:</strong> {{ action_type_label }}</div>
-        <div><strong>Creado por:</strong> {{ action.createdBy or '—' }}</div>
-        <div><strong>Fecha:</strong> {{ action.createdAt[:19]|replace('T', ' ') if action.createdAt else '—' }}</div>
-        {% if action.processedAt %}
-        <div><strong>Procesado:</strong> {{ action.processedAt[:19]|replace('T', ' ') }}</div>
+<!-- ═══════════════ WORKFLOW BAR ──── -->
+{% if action.status in ('draft','pending_approval','approved','returned') %}
+<div class="card-table-wrapper hr-table-card" style="padding:10px 18px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+    <span style="font-size:0.82rem;color:var(--text-secondary);">
+        {% if action.status == 'draft' %}Borrador — aún no enviada a aprobación.
+        {% elif action.status == 'pending_approval' %}En cola de autorización — la decisión se toma en la página de autorizaciones.
+        {% elif action.status == 'returned' %}Esperando corrección del creador.
+        {% elif action.status == 'approved' %}Lista para ejecutar.{% endif %}
+    </span>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        {% if action.status == 'draft' %}
+        <form method="POST" action="{{ url_for('web_rrhh.mass_action_submit',action_id=action.id) }}" style="display:inline;" onsubmit="return confirm('¿Enviar esta acción a aprobación?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-paper-plane"></i> Enviar a aprobación</button>
+        </form>
+        <a href="{{ url_for('web_rrhh.mass_action_edit',action_id=action.id) }}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-pen-to-square"></i> Editar</a>
+        {% elif action.status == 'pending_approval' %}
+        {% if action.authorizationRequestId %}
+        <a href="{{ url_for('web_rrhh.authorization_detail',request_id=action.authorizationRequestId) }}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-user-check"></i> Ver solicitud</a>
         {% endif %}
-    </div>
-</div>
-
-<!-- Summary Stats -->
-<div class="hr-summary-grid" style="margin-bottom:16px;">
-    <div class="stat-box">
-        <span class="stat-label">Total empleados</span>
-        <span class="stat-value">{{ action.totalEmployees }}</span>
-    </div>
-    <div class="stat-box">
-        <span class="stat-label">Exitosos</span>
-        <span class="stat-value" style="color:var(--accent-emerald);">{{ action.successCount }}</span>
-    </div>
-    <div class="stat-box">
-        <span class="stat-label">Errores</span>
-        <span class="stat-value" style="color:var(--danger);">{{ action.errorCount }}</span>
-    </div>
-    <div class="stat-box">
-        <span class="stat-label">Progreso</span>
-        <span class="stat-value">
-            {% if action.totalEmployees > 0 %}
-            {{ ((action.successCount + action.errorCount) / action.totalEmployees * 100)|round|int }}%
-            {% else %}
-            0%
-            {% endif %}
-        </span>
-    </div>
-</div>
-
-<!-- Payload Details -->
-<div class="card-table-wrapper hr-document-sheet" style="padding:24px; margin-bottom:16px;">
-    <h4 style="margin-bottom:12px;"><i class="fa-solid fa-gear"></i> Parámetros aplicados</h4>
-    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(250px,1fr)); gap:8px;">
-        {% if action.payload %}
-        {% for key, value in action.payload.items() %}
-        {% if value is not none and value != '' %}
-        <div>
-            <strong style="font-size:0.78rem; color:var(--text-muted); text-transform:capitalize;">
-                {{ key|replace('_', ' ') }}:
-            </strong>
-            <span>
-                {% if value is boolean %}
-                {{ 'Sí' if value else 'No' }}
-                {% elif value is number and key in ('amount', 'salary', 'baseSalary') %}
-                RD$ {{ "{:,.2f}".format(value) }}
-                {% else %}
-                {{ value }}
-                {% endif %}
-            </span>
-        </div>
+        <form method="POST" action="{{ url_for('web_rrhh.mass_action_cancel_submit',action_id=action.id) }}" style="display:inline;" onsubmit="return confirm('¿Cancelar el envío a aprobación y volver a borrador?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--danger);"><i class="fa-solid fa-xmark"></i> Cancelar envío</button>
+        </form>
+        {% elif action.status == 'returned' %}
+        {% if action.authorizationRequestId %}
+        <a href="{{ url_for('web_rrhh.authorization_detail',request_id=action.authorizationRequestId) }}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-user-check"></i> Ver solicitud</a>
         {% endif %}
-        {% endfor %}
-        {% else %}
-        <span class="text-muted">Sin parámetros</span>
+        <form method="POST" action="{{ url_for('web_rrhh.mass_action_back_to_draft',action_id=action.id) }}" style="display:inline;" onsubmit="return confirm('¿Volver esta acción a borrador para editarla?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-sm" style="background:var(--accent-orange,#f59e0b);color:#fff;"><i class="fa-solid fa-pen-to-square"></i> Volver a borrador</button>
+        </form>
+        <form method="POST" action="{{ url_for('web_rrhh.authorization_resubmit',request_id=action.authorizationRequestId) }}" style="display:inline;" onsubmit="return confirm('¿Reenviar la acción a aprobación?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-paper-plane"></i> Reenviar</button>
+        </form>
+        {% elif action.status == 'approved' %}
+        <form method="POST" action="{{ url_for('web_rrhh.mass_action_approved_execute',action_id=action.id) }}" style="display:inline;" onsubmit="return confirm('¿Ejecutar esta acción?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-success btn-sm"><i class="fa-solid fa-bolt"></i> Ejecutar</button>
+        </form>
         {% endif %}
-    </div>
-</div>
-
-<!-- Selection Criteria -->
-<div class="card-table-wrapper hr-document-sheet" style="padding:24px; margin-bottom:16px;">
-    <h4 style="margin-bottom:8px;"><i class="fa-solid fa-users"></i> Criterio de selección</h4>
-    {% set criteria = action.selectionCriteria or {} %}
-    {% set emp_ids = criteria.get('employeeIds', []) %}
-    <p class="text-muted">{{ emp_ids|length }} empleados incluidos en esta acción.</p>
-    {% set filters = criteria.get('filters', {}) %}
-    {% if filters %}
-    <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:8px;">
-        {% for fk, fv in filters.items() %}
-        <span class="badge badge-secondary">{{ fk }}: {{ fv }}</span>
-        {% endfor %}
-    </div>
-    {% endif %}
-</div>
-
-<!-- Results Table -->
-<div class="card-table-wrapper hr-table-card">
-    <div class="table-header-row">
-        <div>
-            <h3>Resultados por empleado</h3>
-        </div>
-        <div>
-            {% if action.errorCount > 0 %}
-            <a href="{{ url_for('web_rrhh.mass_action_errors_csv', action_id=action.id) }}" class="btn btn-sm btn-secondary">
-                <i class="fa-solid fa-download"></i> Exportar errores CSV
-            </a>
-            {% endif %}
-        </div>
-    </div>
-
-    {% if action.results %}
-    <div class="table-responsive">
-        <table class="table-premium">
-            <thead>
-                <tr>
-                    <th>Empleado</th>
-                    <th>Estado</th>
-                    <th>Cambios</th>
-                    <th>Error</th>
-                    <th>Procesado</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for r in action.results %}
-                <tr>
-                    <td><strong>{{ r.employeeName or '—' }}</strong></td>
-                    <td>
-                        {% if r.status == 'success' %}
-                        <span class="badge badge-success">✓</span>
-                        {% elif r.status == 'error' %}
-                        <span class="badge badge-danger">✗</span>
-                        {% else %}
-                        <span class="badge badge-secondary">—</span>
-                        {% endif %}
-                    </td>
-                    <td style="font-size:0.78rem;">
-                        {% if r.changes and r.changes.before and r.changes.after %}
-                        {% set before = r.changes.before %}
-                        {% set after = r.changes.after %}
-                        {% if before.salary != after.salary %}
-                        Salario: RD$ {{ "{:,.0f}".format(before.salary) }} → RD$ {{ "{:,.0f}".format(after.salary) }}<br>
-                        {% endif %}
-                        {% if before.position != after.position %}
-                        Puesto: {{ before.position }} → {{ after.position }}<br>
-                        {% endif %}
-                        {% if before.reportsTo != after.reportsTo %}
-                        Supervisor: {{ before.reportsTo }} → {{ after.reportsTo }}<br>
-                        {% endif %}
-                        {% endif %}
-                    </td>
-                    <td style="color:var(--danger); font-size:0.78rem;">{{ r.errorMessage or '—' }}</td>
-                    <td style="font-size:0.78rem;">{{ r.processedAt[:19]|replace('T', ' ') if r.processedAt else '—' }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% else %}
-    <div class="text-center text-muted" style="padding:40px;">
-        <p>No hay resultados disponibles.</p>
-    </div>
-    {% endif %}
-</div>
-
-<!-- Status History -->
-{% if action.statusHistory %}
-<div class="card-table-wrapper hr-document-sheet" style="padding:24px; margin-top:16px;">
-    <h4 style="margin-bottom:12px;"><i class="fa-solid fa-timeline"></i> Historial de estados</h4>
-    <div style="display:flex; gap:0; flex-wrap:wrap;">
-        {% for entry in action.statusHistory %}
-        <div style="display:flex; align-items:center; gap:8px;">
-            {% if entry.from %}
-            <span class="badge badge-secondary">{{ entry.from }}</span>
-            <i class="fa-solid fa-arrow-right" style="color:var(--text-muted);"></i>
-            {% endif %}
-            <span class="badge badge-info">{{ entry.to }}</span>
-            <span style="font-size:0.78rem; color:var(--text-muted);">{{ entry.at[:19]|replace('T', ' ') if entry.at else '' }}</span>
-            <span style="font-size:0.78rem; color:var(--text-muted);">por {{ entry.by }}</span>
-        </div>
-        {% if not loop.last %}<i class="fa-solid fa-chevron-right" style="margin:0 8px; color:var(--text-muted); opacity:0.3;"></i>{% endif %}
-        {% endfor %}
     </div>
 </div>
 {% endif %}
+
+{% if action.status == 'rejected' and action.rejectionReason %}
+<div class="card-table-wrapper hr-table-card" style="padding:8px 16px;margin-bottom:12px;border-left:3px solid var(--danger);">
+    <span style="font-size:0.82rem;"><strong style="color:var(--danger);">Rechazada:</strong> {{ action.rejectionReason }}</span>
+</div>
+{% endif %}
+
+<!-- ═══════════════ MAIN GRID ──── -->
+<div id="ma-detail-grid" style="display:grid;grid-template-columns:1fr 320px;gap:12px;align-items:start;">
+
+    <!-- ── LEFT ──────────────────────────────────────────── -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+
+        <!-- Details -->
+        <div class="card-table-wrapper hr-table-card" style="margin-bottom:0;">
+            <div class="table-header-row" style="padding:8px 16px;cursor:pointer;" onclick="toggleSection('sec-details')">
+                <h3 style="font-size:0.88rem;margin:0;"><i class="fa-solid fa-chevron-down" id="sec-details-arrow" style="font-size:0.7rem;margin-right:2px;"></i> Detalles</h3>
+            </div>
+            <div id="sec-details" style="padding:6px 16px 14px;">
+                {% set just = (payload.get('reason') or '')|trim %}
+                {% if just %}
+                <div style="background:rgba(245,158,11,0.07);border-left:3px solid var(--accent-orange,#f59e0b);padding:8px 12px;margin-bottom:10px;border-radius:0 var(--radius-sm) var(--radius-sm) 0;font-size:0.82rem;">
+                    <strong style="color:var(--accent-orange,#f59e0b);">Justificación:</strong> {{ just }}
+                </div>
+                {% endif %}
+                <div style="display:flex;flex-wrap:wrap;gap:5px;">
+                    {% if payload.changeType %}<span class="badge badge-secondary" style="font-size:0.72rem;padding:2px 7px;">{{ 'Porcentaje' if payload.changeType=='percentage' else 'Monto fijo' }}</span>{% endif %}
+                    {% if payload.amount %}<span class="badge badge-secondary" style="font-size:0.72rem;padding:2px 7px;">RD$ {{ "{:,.0f}".format(payload.amount|float) }}</span>{% endif %}
+                    {% if payload.percentage %}<span class="badge badge-secondary" style="font-size:0.72rem;padding:2px 7px;">{{ payload.percentage }}%</span>{% endif %}
+                    {% if payload.newPosition %}<span class="badge badge-secondary" style="font-size:0.72rem;padding:2px 7px;">Puesto: {{ payload.newPosition }}</span>{% endif %}
+                    {% set nd = payload.newDepartment or payload.newArea %}
+                    {% if nd %}<span class="badge badge-secondary" style="font-size:0.72rem;padding:2px 7px;">Depto: {{ nd }}</span>{% endif %}
+                    {% if payload.newSupervisorId %}<span class="badge badge-secondary" style="font-size:0.72rem;padding:2px 7px;">Nuevo supervisor</span>{% endif %}
+                    {% if payload.effectiveDate %}<span class="badge badge-secondary" style="font-size:0.72rem;padding:2px 7px;">Efectivo: {{ payload.effectiveDate }}</span>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Employees -->
+        {% if selected_employees %}
+        <div class="card-table-wrapper hr-table-card" style="margin-bottom:0;">
+            <div class="table-header-row" style="padding:8px 16px;cursor:pointer;" onclick="toggleSection('sec-employees')">
+                <h3 style="font-size:0.88rem;margin:0;"><i class="fa-solid fa-chevron-down" id="sec-employees-arrow" style="font-size:0.7rem;margin-right:2px;"></i> Empleados ({{ selected_employees|length }})</h3>
+            </div>
+            <div id="sec-employees">
+                <div class="table-responsive" style="max-height:260px;overflow-y:auto;">
+                    <table class="table-premium" style="font-size:0.8rem;">
+                        <thead>
+                            <tr>
+                                <th>Empleado</th>
+                                {% if action.actionType == 'salary_change' %}<th>Salario actual → propuesto</th>
+                                {% elif action.actionType == 'position_change' %}<th>Puesto</th><th>Depto</th>
+                                {% elif action.actionType == 'promotion' %}<th>Salario</th><th>Puesto</th>
+                                {% elif action.actionType == 'supervisor_change' %}<th>Supervisor</th>
+                                {% else %}<th>Cambio</th>{% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for emp in selected_employees %}
+                            {% set p = emp.proposed or {} %}
+                            <tr>
+                                <td><strong>{{ emp.fullName or emp.id }}</strong></td>
+                                {% if action.actionType == 'salary_change' %}
+                                <td>RD$ {{ "{:,.0f}".format(emp.baseSalary or 0) }}{% if p.salary %} → <strong style="color:var(--accent-emerald);">RD$ {{ "{:,.0f}".format(p.salary) }}</strong>{% endif %}</td>
+                                {% elif action.actionType == 'position_change' %}
+                                <td>{{ emp.position or '—' }}{% if p.position %} → <strong style="color:var(--accent-emerald);">{{ p.position }}</strong>{% endif %}</td>
+                                <td>{{ emp.department or '—' }}{% if p.department %} → <strong style="color:var(--accent-emerald);">{{ p.department }}</strong>{% endif %}</td>
+                                {% elif action.actionType == 'promotion' %}
+                                <td>RD$ {{ "{:,.0f}".format(emp.baseSalary or 0) }}{% if p.salary %} → <strong style="color:var(--accent-emerald);">RD$ {{ "{:,.0f}".format(p.salary) }}</strong>{% endif %}</td>
+                                <td>{{ emp.position or '—' }}{% if p.position %} → <strong style="color:var(--accent-emerald);">{{ p.position }}</strong>{% endif %}</td>
+                                {% elif action.actionType == 'supervisor_change' %}
+                                <td>{{ emp.reportsTo or '—' }}{% if p.reportsTo %} → <strong style="color:var(--accent-emerald);">{{ p.reportsTo }}</strong>{% endif %}</td>
+                                {% else %}
+                                <td>{{ emp.department or '—' }}</td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Results (executed) -->
+        {% if action.results %}
+        <div class="card-table-wrapper hr-table-card" style="margin-bottom:0;">
+            <div class="table-header-row" style="padding:8px 16px;">
+                <h3 style="font-size:0.88rem;margin:0;">Resultados</h3>
+            </div>
+            <div class="table-responsive" style="max-height:260px;overflow-y:auto;">
+                <table class="table-premium" style="font-size:0.8rem;">
+                    <thead><tr><th>Empleado</th><th style="width:36px;"></th><th>Cambios</th></tr></thead>
+                    <tbody>
+                        {% for r in action.results %}
+                        <tr>
+                            <td><strong>{{ r.employeeName or '—' }}</strong></td>
+                            <td>{% if r.status=='success' %}<span class="badge badge-success btn-xs">✓</span>{% else %}<span class="badge badge-danger btn-xs">✗</span>{% endif %}</td>
+                            <td style="font-size:0.78rem;">
+                                {% if r.status=='error' %}<span style="color:var(--danger);">{{ r.errorMessage or '' }}</span>
+                                {% elif r.changes and r.changes.before and r.changes.after %}
+                                {% set b=r.changes.before %}{% set a=r.changes.after %}
+                                {% if b.salary!=a.salary %}Salario: RD$ {{ "{:,.0f}".format(b.salary or 0) }} → <strong>RD$ {{ "{:,.0f}".format(a.salary or 0) }}</strong>{% endif %}
+                                {% if b.position!=a.position %}{% if b.salary!=a.salary %}<br>{% endif %}Puesto: {{ b.position or '—' }} → <strong>{{ a.position or '—' }}</strong>{% endif %}
+                                {% else %}—{% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Comments -->
+        <div class="card-table-wrapper hr-table-card" style="margin-bottom:0;">
+            <div class="table-header-row" style="padding:8px 16px;cursor:pointer;" onclick="toggleSection('sec-comments')">
+                <h3 style="font-size:0.88rem;margin:0;"><i class="fa-solid fa-chevron-down" id="sec-comments-arrow" style="font-size:0.7rem;margin-right:2px;"></i> Comentarios ({{ comments|length }})</h3>
+            </div>
+            <div id="sec-comments" style="padding:0 16px 16px;">
+                {% set submit_url = "/rrhh/mass-actions/" ~ action.id ~ "/comments/new" %}
+                {% set edit_url_prefix = "/rrhh/mass-actions/" ~ action.id ~ "/comments" %}
+                {% set delete_url_prefix = "/rrhh/mass-actions/" ~ action.id ~ "/comments" %}
+                {% include 'components/_comments.html' %}
+            </div>
+        </div>
+    </div>
+
+    <!-- ── RIGHT ──────────────────────────────────────────── -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+
+        <!-- Assigned to -->
+        {% set adata = assigned_to or {} %}
+        {% if adata.get('id') %}
+        <div class="card-table-wrapper hr-table-card" style="margin-bottom:0;">
+            <div class="table-header-row" style="padding:8px 14px;">
+                <h3 style="font-size:0.82rem;margin:0;">Asignado a</h3>
+            </div>
+            <div style="padding:4px 14px 12px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="width:28px;height:28px;border-radius:50%;background:rgba(124,58,237,0.1);color:var(--accent-purple);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.75rem;"><i class="fa-solid fa-user"></i></span>
+                    <strong style="font-size:0.85rem;">{{ adata.name or adata.email or adata.id }}</strong>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Stats (if executed) -->
+        {% if is_executed %}
+        <div class="card-table-wrapper hr-table-card" style="margin-bottom:0;">
+            <div class="table-header-row" style="padding:8px 14px;">
+                <h3 style="font-size:0.82rem;margin:0;">Resultado</h3>
+            </div>
+            <div style="padding:4px 14px 12px;display:flex;gap:8px;">
+                <div class="hr-info-item" style="flex:1;padding:6px 8px;text-align:center;">
+                    <span class="hr-info-label">Éxito</span>
+                    <span class="hr-info-value" style="font-size:1rem;color:var(--accent-emerald);">{{ action.successCount or 0 }}</span>
+                </div>
+                <div class="hr-info-item" style="flex:1;padding:6px 8px;text-align:center;">
+                    <span class="hr-info-label">Errores</span>
+                    <span class="hr-info-value" style="font-size:1rem;color:var(--danger);">{{ action.errorCount or 0 }}</span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- History -->
+        {% if action.statusHistory %}
+        <div class="card-table-wrapper hr-table-card" style="margin-bottom:0;">
+            <div class="table-header-row" style="padding:8px 14px;cursor:pointer;" onclick="toggleSection('sec-history')">
+                <h3 style="font-size:0.82rem;margin:0;"><i class="fa-solid fa-chevron-down" id="sec-history-arrow" style="font-size:0.65rem;margin-right:2px;"></i> Historial ({{ action.statusHistory|length }})</h3>
+            </div>
+            <div id="sec-history" style="position:relative;padding:6px 14px 14px;">
+                <div style="position:absolute;left:18px;top:10px;bottom:10px;width:1px;background:var(--border-color);"></div>
+                {% for h in action.statusHistory|reverse %}
+                <div style="display:flex;gap:8px;align-items:flex-start;padding:3px 0;position:relative;">
+                    <span style="width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:5px;background:{% if h.to in ('completed','approved') %}var(--accent-emerald){% elif h.to in ('rejected','failed') %}var(--danger){% elif h.to=='processing' %}var(--accent-blue,#3b82f6){% else %}var(--text-muted){% endif %};"></span>
+                    <div style="font-size:0.72rem;flex:1;min-width:0;">
+                        <span style="font-weight:600;">{{ h.to|replace('_',' ')|capitalize }}</span>
+                        <span style="color:var(--text-muted);">{{ (h.at or '')[:16]|replace('T',' ') }}</span>
+                        {% if h.by %}<span style="color:var(--text-muted);">· {{ h.by }}</span>{% endif %}
+                        {% if h.comment %}<div style="color:var(--text-muted);margin-top:1px;">{{ h.comment }}</div>{% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+@media screen and (max-width:800px){[id="ma-detail-grid"]{grid-template-columns:1fr!important;}}
+</style>
+
+<script>
+function toggleSection(id){
+    var el=document.getElementById(id), arrow=document.getElementById(id+'-arrow');
+    if(!el||!arrow)return;
+    var open=el.style.display!=='none';
+    el.style.display=open?'none':'';
+    arrow.className=open?'fa-solid fa-chevron-right':'fa-solid fa-chevron-down';
+}
+</script>
 {% endblock %}

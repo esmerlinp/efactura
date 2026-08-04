@@ -1,0 +1,371 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Autorización — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+
+{% set badge_c = {'pending':'warning','approved':'success','rejected':'danger','returned':'warning','cancelled':'secondary'} %}
+{% set done_count = request_data.approvalSteps|selectattr('status','equalto','approved')|list|length %}
+{% set meta = request_data.metadata or {} %}
+{% set assigned = request_data.assignedTo or {} %}
+
+<!-- ═══════════════════════════════════════════════════ HEADER ──── -->
+<div class="page-header hr-page-header" style="margin-bottom:12px;">
+    <div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <h1 class="page-title" style="margin:0;">{{ request_data.docTypeLabel or request_data.docType }}</h1>
+            <span class="badge badge-{{ badge_c.get(request_data.status,'secondary') }}" style="font-size:0.78rem;padding:3px 10px;">{{ status_labels.get(request_data.status,request_data.status) }}</span>
+            <span style="font-size:0.78rem;color:var(--text-muted);">{{ request_data.documentNumber or request_data.documentId or '—' }}</span>
+            {% if meta.totalEmployees %}<span style="font-size:0.78rem;color:var(--text-muted);">{{ meta.totalEmployees }} empleado(s)</span>{% endif %}
+        </div>
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-top:3px;">
+            {{ request_data.createdByName or request_data.createdByEmail or '—' }} · {{ (request_data.createdAt or '')[:16]|replace('T',' ') }}
+        </div>
+    </div>
+    <div class="hr-page-actions">
+        <a href="{{ url_for('web_rrhh.authorization_queue') }}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i> Volver</a>
+        {% if entity_link %}<a href="{{ entity_link }}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-up-right-from-square"></i> Documento</a>{% endif %}
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ DECISION BAR ──── -->
+{% set show_approver = request_data.status == 'pending' and is_pending_approver %}
+{% set show_creator = mass_action and is_creator and mass_action.status in ('draft','pending_approval','returned','approved') %}
+{% if show_approver or show_creator %}
+<div class="card-table-wrapper" style="padding:10px 18px;margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-color:rgba(245,158,11,0.25);">
+    {% if show_approver %}
+    <span style="font-size:0.82rem;color:var(--accent-yellow);font-weight:600;"><i class="fa-solid fa-hourglass-half"></i> Tu decision pendiente</span>
+    <div style="display:flex;gap:6px;margin-left:auto;flex-wrap:wrap;">
+        <form method="POST" action="{{ url_for('web_rrhh.authorization_decide',request_id=request_data.id) }}" style="display:inline;margin:0;" onsubmit="return confirm('¿Aprobar esta solicitud?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="decision" value="approve">
+            <input type="hidden" name="comment" value="Aprobado">
+            <button type="submit" class="btn btn-success btn-sm"><i class="fa-solid fa-check"></i> Aprobar</button>
+        </form>
+        <button type="button" class="btn btn-danger btn-sm" onclick="openDecideModal('reject')"><i class="fa-solid fa-xmark"></i> Rechazar</button>
+        {% if not show_creator %}
+        <button type="button" class="btn btn-sm" onclick="openDecideModal('return')"><i class="fa-solid fa-rotate-left"></i> Devolver</button>
+        {% endif %}
+        {% if show_creator and mass_action.status == 'pending_approval' %}
+        <form method="POST" action="{{ url_for('web_rrhh.mass_action_edit_from_pending',action_id=mass_action.id) }}" style="display:inline;margin:0;" onsubmit="return confirm('¿Cancelar la solicitud y abrir el editor?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-ghost btn-sm"><i class="fa-solid fa-pen-to-square"></i> Editar</button>
+        </form>
+        <form method="POST" action="{{ url_for('web_rrhh.mass_action_cancel_submit',action_id=mass_action.id) }}" style="display:inline;margin:0;" onsubmit="return confirm('¿Cancelar esta solicitud y volver a borrador?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--danger);"><i class="fa-solid fa-ban"></i> Cancelar solicitud</button>
+        </form>
+        {% endif %}
+    </div>
+    {% elif show_creator %}
+    <span style="font-size:0.82rem;color:var(--text-secondary);"></span>
+    <div style="display:flex;gap:6px;margin-left:auto;flex-wrap:wrap;">
+        {% if mass_action.status == 'draft' %}
+        <form method="POST" action="{{ url_for('web_rrhh.mass_action_submit',action_id=mass_action.id) }}" style="display:inline;margin:0;" onsubmit="return confirm('¿Enviar a aprobación?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-paper-plane"></i> Enviar a aprobación</button>
+        </form>
+        <a href="{{ url_for('web_rrhh.mass_action_edit',action_id=mass_action.id) }}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-pen-to-square"></i> Editar</a>
+        {% elif mass_action.status == 'pending_approval' %}
+        <form method="POST" action="{{ url_for('web_rrhh.mass_action_edit_from_pending',action_id=mass_action.id) }}" style="display:inline;margin:0;" onsubmit="return confirm('¿Cancelar la solicitud y abrir el editor?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-pen-to-square"></i> Editar</button>
+        </form>
+        <form method="POST" action="{{ url_for('web_rrhh.mass_action_cancel_submit',action_id=mass_action.id) }}" style="display:inline;margin:0;" onsubmit="return confirm('¿Cancelar esta solicitud y volver a borrador?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-sm" style="background:var(--accent-orange,#f59e0b);color:#fff;"><i class="fa-solid fa-ban"></i> Cancelar solicitud</button>
+        </form>
+        {% elif mass_action.status == 'returned' %}
+        <form method="POST" action="{{ url_for('web_rrhh.mass_action_back_to_draft',action_id=mass_action.id) }}" style="display:inline;margin:0;" onsubmit="return confirm('¿Volver a borrador para editar?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-sm" style="background:var(--accent-orange,#f59e0b);color:#fff;"><i class="fa-solid fa-pen-to-square"></i> Volver a borrador</button>
+        </form>
+        <form method="POST" action="{{ url_for('web_rrhh.authorization_resubmit',request_id=request_data.id) }}" style="display:inline;margin:0;" onsubmit="return confirm('¿Reenviar a aprobación?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-paper-plane"></i> Reenviar</button>
+        </form>
+        {% elif mass_action.status == 'approved' %}
+        <form method="POST" action="{{ url_for('web_rrhh.mass_action_approved_execute',action_id=mass_action.id) }}" style="display:inline;margin:0;" onsubmit="return confirm('¿Ejecutar esta acción?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-success btn-sm"><i class="fa-solid fa-bolt"></i> Ejecutar</button>
+        </form>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% elif request_data.status == 'pending' %}
+<div class="card-table-wrapper" style="padding:8px 18px;margin-bottom:12px;border-color:rgba(245,158,11,0.15);">
+    <span style="font-size:0.82rem;color:var(--text-muted);"><i class="fa-solid fa-clock"></i> Esperando decisión de otros aprobadores</span>
+</div>
+{% elif request_data.status == 'approved' %}
+<div class="card-table-wrapper" style="padding:8px 18px;margin-bottom:12px;border-left:3px solid var(--accent-emerald);">
+    <span style="font-size:0.82rem;"><strong style="color:var(--accent-emerald);"><i class="fa-solid fa-circle-check"></i> Aprobada</strong>{% if request_data.approvedBy %} por {{ request_data.approvedBy }}{% endif %}</span>
+</div>
+{% elif request_data.status == 'rejected' %}
+<div class="card-table-wrapper" style="padding:8px 18px;margin-bottom:12px;border-left:3px solid var(--danger);">
+    <span style="font-size:0.82rem;"><strong style="color:var(--danger);"><i class="fa-solid fa-circle-xmark"></i> Rechazada</strong>{% if request_data.rejectedBy %} por {{ request_data.rejectedBy }}{% endif %}</span>
+</div>
+{% elif request_data.status == 'returned' %}
+<div class="card-table-wrapper" style="padding:10px 18px;margin-bottom:12px;display:flex;align-items:center;gap:8px;border-color:rgba(245,158,11,0.25);">
+    <span style="font-size:0.82rem;"><strong style="color:var(--accent-orange,#f59e0b);">Devuelta:</strong> {{ request_data.returnComment or '—' }}</span>
+    {% if can_resubmit %}
+    <form method="POST" action="{{ url_for('web_rrhh.authorization_resubmit',request_id=request_data.id) }}" style="margin-left:auto;display:inline;" onsubmit="return confirm('¿Reenviar la solicitud a aprobación?')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-paper-plane"></i> Reenviar</button>
+    </form>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- ════════════════════════════════════════════════════ MAIN GRID ──── -->
+<div id="auth-detail-grid" style="display:grid;grid-template-columns:1fr 320px;gap:12px;align-items:start;">
+
+    <!-- ── LEFT ─────────────────────────────────────────────────────────── -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+
+        <!-- Details -->
+        <div class="card-table-wrapper hr-table-card" style="margin-bottom:0;">
+            <div class="table-header-row" style="padding:8px 16px;cursor:pointer;" onclick="toggleSection('sec-details')">
+                <h3 style="font-size:0.88rem;margin:0;"><i class="fa-solid fa-chevron-down" id="sec-details-arrow" style="font-size:0.7rem;margin-right:2px;"></i> Detalles de la solicitud</h3>
+            </div>
+            <div id="sec-details" style="padding:6px 16px 14px;">
+                {% if meta.justification %}
+                <div style="background:rgba(245,158,11,0.07);border-left:3px solid var(--accent-orange,#f59e0b);padding:8px 12px;margin-bottom:10px;border-radius:0 var(--radius-sm) var(--radius-sm) 0;font-size:0.82rem;">
+                    <strong style="color:var(--accent-orange,#f59e0b);">Justificación:</strong> {{ meta.justification }}
+                </div>
+                {% endif %}
+                <div style="display:flex;flex-wrap:wrap;gap:5px;">
+                    {% if meta.actionTypeLabel %}<span class="badge badge-primary" style="font-size:0.72rem;padding:2px 7px;">{{ meta.actionTypeLabel }}</span>{% endif %}
+                    {% if meta.changeType %}<span class="badge badge-secondary" style="font-size:0.72rem;padding:2px 7px;">{{ 'Porcentaje' if meta.changeType=='percentage' else 'Monto fijo' }}</span>{% endif %}
+                    {% if meta.amount and meta.amount != 0 %}<span class="badge badge-secondary" style="font-size:0.72rem;padding:2px 7px;">RD$ {{ "{:,.0f}".format(meta.amount|float) }}</span>{% endif %}
+                    {% if meta.percentage %}<span class="badge badge-secondary" style="font-size:0.72rem;padding:2px 7px;">{{ meta.percentage }}%</span>{% endif %}
+                    {% if meta.newPosition %}<span class="badge badge-secondary" style="font-size:0.72rem;padding:2px 7px;">Puesto: {{ meta.newPosition }}</span>{% endif %}
+                    {% if meta.newDepartment or meta.newArea %}<span class="badge badge-secondary" style="font-size:0.72rem;padding:2px 7px;">Depto: {{ meta.newDepartment or meta.newArea }}</span>{% endif %}
+                    {% if meta.newSupervisorId %}<span class="badge badge-secondary" style="font-size:0.72rem;padding:2px 7px;">Nuevo supervisor</span>{% endif %}
+                    {% if meta.effectiveDate %}<span class="badge badge-secondary" style="font-size:0.72rem;padding:2px 7px;">Efectivo: {{ meta.effectiveDate }}</span>{% endif %}
+                    {% if meta.absenceType %}<span class="badge badge-secondary" style="font-size:0.72rem;padding:2px 7px;">{{ meta.absenceType }}</span>{% endif %}
+                    {% if meta.startDate and meta.endDate %}<span class="badge badge-secondary" style="font-size:0.72rem;padding:2px 7px;">{{ meta.startDate }} → {{ meta.endDate }}</span>{% endif %}
+                    {% if meta.days %}<span class="badge badge-secondary" style="font-size:0.72rem;padding:2px 7px;">{{ meta.days }} día(s)</span>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Employees -->
+        {% if selected_employees %}
+        <div class="card-table-wrapper hr-table-card" style="margin-bottom:0;">
+            <div class="table-header-row" style="padding:8px 16px;cursor:pointer;" onclick="toggleSection('sec-employees')">
+                <h3 style="font-size:0.88rem;margin:0;"><i class="fa-solid fa-chevron-down" id="sec-employees-arrow" style="font-size:0.7rem;margin-right:2px;"></i> Empleados ({{ selected_employees|length }})</h3>
+            </div>
+            <div id="sec-employees">
+                <div class="table-responsive" style="max-height:260px;overflow-y:auto;">
+                    <table class="table-premium" style="font-size:0.8rem;">
+                        <thead>
+                            <tr>
+                                <th>Empleado</th>
+                                {% set atype = request_data.docType or '' %}
+                                {% if atype == 'salary_change' %}<th>Salario actual → propuesto</th>
+                                {% elif atype == 'position_change' %}<th>Puesto</th><th>Depto</th>
+                                {% elif atype == 'promotion' %}<th>Salario</th><th>Puesto</th>
+                                {% elif atype == 'supervisor_change' %}<th>Supervisor</th>
+                                {% else %}<th>Cambio</th>{% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for emp in selected_employees %}
+                            {% set p = emp.proposed or {} %}
+                            <tr>
+                                <td><strong>{{ emp.fullName or emp.id }}</strong></td>
+                                {% if atype == 'salary_change' %}
+                                <td>RD$ {{ "{:,.0f}".format(emp.baseSalary or 0) }}{% if p.salary %} → <strong style="color:var(--accent-emerald);">RD$ {{ "{:,.0f}".format(p.salary) }}</strong>{% endif %}</td>
+                                {% elif atype == 'position_change' %}
+                                <td>{{ emp.position or '—' }}{% if p.position %} → <strong style="color:var(--accent-emerald);">{{ p.position }}</strong>{% endif %}</td>
+                                <td>{{ emp.department or '—' }}{% if p.department %} → <strong style="color:var(--accent-emerald);">{{ p.department }}</strong>{% endif %}</td>
+                                {% elif atype == 'promotion' %}
+                                <td>RD$ {{ "{:,.0f}".format(emp.baseSalary or 0) }}{% if p.salary %} → <strong style="color:var(--accent-emerald);">RD$ {{ "{:,.0f}".format(p.salary) }}</strong>{% endif %}</td>
+                                <td>{{ emp.position or '—' }}{% if p.position %} → <strong style="color:var(--accent-emerald);">{{ p.position }}</strong>{% endif %}</td>
+                                {% elif atype == 'supervisor_change' %}
+                                <td>{{ emp.reportsTo or '—' }}{% if p.reportsTo %} → <strong style="color:var(--accent-emerald);">{{ p.reportsTo }}</strong>{% endif %}</td>
+                                {% else %}
+                                <td>{{ emp.department or '—' }}</td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Comments -->
+        <div class="card-table-wrapper hr-table-card" style="margin-bottom:0;">
+            <div class="table-header-row" style="padding:8px 16px;cursor:pointer;" onclick="toggleSection('sec-comments')">
+                <h3 style="font-size:0.88rem;margin:0;"><i class="fa-solid fa-chevron-down" id="sec-comments-arrow" style="font-size:0.7rem;margin-right:2px;"></i> Comentarios ({{ comments|length }})</h3>
+            </div>
+            <div id="sec-comments" style="padding:0 16px 16px;">
+                {% set submit_url        = "/rrhh/authorizations/" ~ request_data.id ~ "/comments/new" %}
+                {% set edit_url_prefix   = "/rrhh/authorizations/" ~ request_data.id ~ "/comments" %}
+                {% set delete_url_prefix = "/rrhh/authorizations/" ~ request_data.id ~ "/comments" %}
+                {% include 'components/_comments.html' %}
+            </div>
+        </div>
+    </div>
+
+    <!-- ── RIGHT ────────────────────────────────────────────────────────── -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+
+        <!-- Assigned to -->
+        <div class="card-table-wrapper hr-table-card" style="margin-bottom:0;">
+            <div class="table-header-row" style="padding:8px 14px;">
+                <h3 style="font-size:0.82rem;margin:0;">Asignado a</h3>
+            </div>
+            <div style="padding:4px 14px 12px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <span style="width:28px;height:28px;border-radius:50%;background:rgba(124,58,237,0.1);color:var(--accent-purple);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.75rem;"><i class="fa-solid fa-user"></i></span>
+                    <strong style="font-size:0.85rem;">{{ assigned.name or assigned.email or assigned.id or '—' }}</strong>
+                </div>
+                {% if request_data.status == 'pending' %}
+                <button type="button" class="btn btn-sm btn-ghost" style="width:100%;font-size:0.78rem;color:var(--accent-orange,#f59e0b);" onclick="openReturnModal()"><i class="fa-solid fa-rotate-left"></i> Devolver para revisión</button>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Quorum -->
+        <div class="card-table-wrapper hr-table-card" style="margin-bottom:0;">
+            <div class="table-header-row" style="padding:8px 14px;">
+                <h3 style="font-size:0.82rem;margin:0;">Quórum {{ done_count }}/{{ request_data.minApprovals }}</h3>
+                {% if request_data.isFallback %}<span style="font-size:0.65rem;color:var(--text-muted);">Auto-aprobación</span>{% endif %}
+            </div>
+            <div style="padding:4px 14px 12px;display:flex;flex-direction:column;gap:4px;">
+                {% for s in request_data.approvalSteps %}
+                {% set is_me = (s.id == current_user_uid) %}
+                <div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.02);">
+                    <span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:{% if s.status=='approved' %}var(--accent-emerald){% elif s.status=='rejected' %}var(--danger){% else %}var(--text-muted){% endif %};"></span>
+                    <span style="flex:1;font-size:0.8rem;{% if is_me %}font-weight:600;color:var(--accent-emerald);{% endif %}">{{ s.name or s.email or s.id or '—' }}{% if is_me %} (tú){% endif %}</span>
+                    {% if s.status == 'pending' %}<span style="font-size:0.7rem;color:var(--text-muted);">Pendiente</span>
+                    {% elif s.status == 'approved' %}<span style="font-size:0.7rem;color:var(--accent-emerald);">{{ (s.decidedAt or '')[:16]|replace('T',' ') }}</span>
+                    {% elif s.status == 'rejected' %}<span style="font-size:0.7rem;color:var(--danger);">Rechazó</span>{% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- History -->
+        <div class="card-table-wrapper hr-table-card" style="margin-bottom:0;">
+            <div class="table-header-row" style="padding:8px 14px;cursor:pointer;" onclick="toggleSection('sec-history')">
+                <h3 style="font-size:0.82rem;margin:0;"><i class="fa-solid fa-chevron-down" id="sec-history-arrow" style="font-size:0.65rem;margin-right:2px;"></i> Historial ({{ request_data.approvalHistory|length }})</h3>
+            </div>
+            <div id="sec-history" style="position:relative;padding:6px 14px 14px;">
+                <div style="position:absolute;left:18px;top:10px;bottom:10px;width:1px;background:var(--border-color);"></div>
+                {% for h in request_data.approvalHistory|reverse %}
+                <div style="display:flex;gap:8px;align-items:flex-start;padding:3px 0;position:relative;">
+                    <span style="width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:5px;background:{% if h.action=='approved' %}var(--accent-emerald){% elif h.action=='rejected' %}var(--danger){% elif h.action=='returned' %}var(--accent-orange,#f59e0b){% else %}var(--text-muted){% endif %};"></span>
+                    <div style="font-size:0.72rem;flex:1;min-width:0;">
+                        <span style="font-weight:600;">{{ h.action|replace('_',' ')|capitalize }}</span>
+                        <span style="color:var(--text-muted);">{{ h.at[:16]|replace('T',' ') if h.at else '' }}</span>
+                        {% if h.by %}<span style="color:var(--text-muted);">· {{ h.by }}</span>{% endif %}
+                        {% if h.comment %}<div style="color:var(--text-muted);margin-top:1px;">{{ h.comment }}</div>{% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ DECIDE MODAL ──── -->
+<div class="search-modal" id="decide-modal" style="display:none;animation:none;">
+    <div class="modal-backdrop" onclick="closeDecideModal()"></div>
+    <div class="modal-content" style="max-width:440px;">
+        <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid var(--border-color);">
+            <span id="decide-modal-title" style="font-weight:600;"></span>
+            <button type="button" onclick="closeDecideModal()" style="background:none;border:none;color:var(--text-muted);font-size:1.3rem;cursor:pointer;">&times;</button>
+        </div>
+        <form method="POST" id="decide-form" style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="decision" id="decide-decision" value="">
+            <div>
+                <label id="decide-label" style="font-size:0.82rem;font-weight:500;display:block;margin-bottom:6px;"></label>
+                <textarea name="comment" class="form-input" rows="3" id="decide-comment" required></textarea>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;padding-top:8px;border-top:1px solid var(--border-color);">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="closeDecideModal()">Cancelar</button>
+                <button type="submit" id="decide-submit" class="btn btn-sm"></button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Return to review modal -->
+<div class="search-modal" id="return-modal" style="display:none;animation:none;">
+    <div class="modal-backdrop" onclick="closeReturnModal()"></div>
+    <div class="modal-content" style="max-width:440px;">
+        <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid var(--border-color);">
+            <span style="font-weight:600;">Devolver para revisión</span>
+            <button type="button" onclick="closeReturnModal()" style="background:none;border:none;color:var(--text-muted);font-size:1.3rem;cursor:pointer;">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('web_rrhh.authorization_decide',request_id=request_data.id) }}" style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="decision" value="return">
+            <div>
+                <label style="font-size:0.82rem;font-weight:500;display:block;margin-bottom:6px;">Devolver a</label>
+                <select name="returnAssigneeId" class="form-input" style="width:100%;font-size:0.82rem;padding:6px 10px;" required>
+                    <option value="">Seleccionar persona...</option>
+                    {% for s in request_data.approvalSteps %}
+                    <option value="{{ s.id }}">{{ s.name or s.email or s.id }}</option>
+                    {% endfor %}
+                    <option value="{{ request_data.createdByUid or request_data.createdByEmail }}">{{ request_data.createdByName or request_data.createdByEmail }} (Creador)</option>
+                </select>
+            </div>
+            <div>
+                <label style="font-size:0.82rem;font-weight:500;display:block;margin-bottom:6px;">Motivo de la devolución</label>
+                <textarea name="comment" class="form-input" rows="3" required placeholder="Explica qué debe corregirse..."></textarea>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;padding-top:8px;border-top:1px solid var(--border-color);">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="closeReturnModal()">Cancelar</button>
+                <button type="submit" class="btn btn-sm">Devolver</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+@media screen and (max-width:800px){
+    #auth-detail-grid{grid-template-columns:1fr !important;}
+}
+.collapsed-section > i.fa-chevron-down{transform:rotate(-90deg);}
+</style>
+
+<script>
+var authActionUrl = "{{ url_for('web_rrhh.authorization_decide',request_id=request_data.id) }}";
+function toggleSection(id){
+    var el = document.getElementById(id);
+    var arrow = document.getElementById(id+'-arrow');
+    if(!el||!arrow)return;
+    var open = el.style.display !== 'none';
+    el.style.display = open ? 'none' : '';
+    arrow.className = open ? 'fa-solid fa-chevron-right' : 'fa-solid fa-chevron-down';
+}
+
+function openDecideModal(decision){
+    document.getElementById('decide-form').action = authActionUrl;
+    document.getElementById('decide-decision').value = decision;
+    if(decision==='return'){
+        document.getElementById('decide-modal-title').textContent = 'Devolver para corrección';
+        document.getElementById('decide-label').textContent = 'Motivo de la devolución';
+        document.getElementById('decide-submit').textContent = 'Devolver';
+        document.getElementById('decide-submit').className = 'btn btn-sm';
+    }else{
+        document.getElementById('decide-modal-title').textContent = 'Rechazar solicitud';
+        document.getElementById('decide-label').textContent = 'Motivo del rechazo';
+        document.getElementById('decide-submit').textContent = 'Rechazar';
+        document.getElementById('decide-submit').className = 'btn btn-danger btn-sm';
+    }
+    document.getElementById('decide-comment').value = '';
+    document.getElementById('decide-modal').style.display = 'flex';
+}
+function closeDecideModal(){ document.getElementById('decide-modal').style.display = 'none'; }
+function openReturnModal(){ document.getElementById('return-modal').style.display = 'flex'; }
+function closeReturnModal(){ document.getElementById('return-modal').style.display = 'none'; }
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeDecideModal();closeReturnModal();}});
+</script>
+{% endblock %}

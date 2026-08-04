@@ -53,7 +53,7 @@ def _detect_period(owner_uid: str, effective_date: str, sandbox: bool, company_i
     if not effective_date:
         return None
     config = hr.get_payroll_config(company_id, sandbox=sandbox)
-    frequency = config.get("payroll", {}).get("frequency", "mensual")
+    frequency = config.get("payrollFrequency") or config.get("payroll", {}).get("frequency", "mensual")
     year = effective_date[:4]
     try:
         periods = _generate_periods_simple(frequency, int(year))
@@ -139,6 +139,236 @@ def create_mass_action(owner_uid: str, action_type: str, employee_ids: list,
 
     hr.save_mass_action(company_id, action_id, data, sandbox=sandbox)
     return data
+
+
+def update_mass_action(company_id: str, action_id: str, action_type: str,
+                       employee_ids: list, payload: dict, updated_by: str,
+                       sandbox: bool = True) -> dict:
+    """Actualiza una acción masiva existente (solo en estado draft)."""
+    action = hr.get_mass_action(company_id, action_id, sandbox=sandbox)
+    if not action:
+        raise ValueError("Acción masiva no encontrada.")
+    if action.get("status") != "draft":
+        raise ValueError("Solo se pueden actualizar acciones en borrador.")
+
+    now = _now()
+    action["actionType"] = action_type
+    action["payload"] = payload
+    action["selectionCriteria"] = {"employeeIds": employee_ids}
+    action["totalEmployees"] = len(employee_ids)
+    action["results"] = []
+    action["errorLog"] = []
+    action["successCount"] = 0
+    action["errorCount"] = 0
+    action["updatedAt"] = now
+    action.setdefault("statusHistory", []).append({
+        "from": "draft", "to": "draft", "by": updated_by, "at": now,
+        "comment": "Parámetros actualizados",
+    })
+    hr.save_mass_action(company_id, action_id, action, sandbox=sandbox)
+    return action
+
+
+def submit_mass_action(company_id: str, action_id: str, user_email: str, sandbox: bool = True,
+                       created_by_uid: str = "", created_by_name: str = "",
+                       owner_uid: str = "") -> dict:
+    """Transición draft → pending_approval para enviar a aprobación.
+
+    Crea la solicitud en la cola genérica de autorizaciones. Sin regla
+    configurada, el creador se auto-aprueba (quórum 1) y la acción pasa
+    directamente a approved.
+    """
+    action = hr.get_mass_action(company_id, action_id, sandbox=sandbox)
+    if not action:
+        raise ValueError("Acción masiva no encontrada.")
+    if action.get("status") != "draft":
+        raise ValueError("Solo se pueden enviar a aprobación acciones en estado borrador.")
+
+    from app.services.hr_authorization_service import create_authorization_request, AUTHORIZATION_DOC_TYPES
+
+    payload = action.get("payload") or {}
+    meta = {
+        "actionType": action["actionType"],
+        "actionTypeLabel": AUTHORIZATION_DOC_TYPES.get(action["actionType"], action["actionType"]),
+        "totalEmployees": action.get("totalEmployees", 0),
+    }
+    justification = (payload.get("reason") or "").strip()
+    if justification:
+        meta["justification"] = justification
+    for key in ("changeType", "amount", "percentage", "newPosition", "newDepartment",
+                 "newArea", "newSupervisorId", "effectiveDate", "absenceType", "leaveType",
+                 "startDate", "endDate", "days"):
+        val = payload.get(key)
+        if val is not None and val != "" and val != 0:
+            meta[key] = val
+
+    req_result = create_authorization_request(
+        company_id,
+        doc_type=action["actionType"],
+        doc_id=action_id,
+        doc_number=action_id,
+        entity_type="mass_action",
+        created_by_uid=created_by_uid,
+        created_by_email=user_email,
+        created_by_name=created_by_name or user_email,
+        sandbox=sandbox,
+        metadata=meta,
+        link=f"/rrhh/mass-actions/{action_id}",
+        owner_uid=owner_uid,
+    )
+    request = req_result["request"]
+
+    now = _now()
+    action["authorizationRequestId"] = request["id"]
+    action["authorizationStatus"] = request["status"]
+
+    if req_result["approved"]:
+        action["status"] = "approved"
+        action["approvedBy"] = user_email
+        action["approvedAt"] = now
+        action["statusHistory"] = action.get("statusHistory", []) + [
+            {"from": "draft", "to": "approved", "by": user_email,
+             "at": now, "comment": "Auto-aprobada: sin regla de autorización configurada"}
+        ]
+    else:
+        action["status"] = "pending_approval"
+        action["submittedAt"] = now
+        action["statusHistory"] = action.get("statusHistory", []) + [
+            {"from": "draft", "to": "pending_approval", "by": user_email, "at": now, "comment": "Enviado a aprobación"}
+        ]
+    hr.save_mass_action(company_id, action_id, action, sandbox=sandbox)
+    return action
+
+
+def approve_mass_action(company_id: str, action_id: str, approver_email: str, comment: str = "",
+                        sandbox: bool = True, approver_uid: str = "") -> dict:
+    """Transicion pending_approval -> approved.
+
+    Delega en decide_authorization que a su vez llama a _stamp_entity para
+    actualizar la mass action.  No reescribe la entidad manualmente.
+    """
+    action = hr.get_mass_action(company_id, action_id, sandbox=sandbox)
+    if not action:
+        raise ValueError("Accion masiva no encontrada.")
+    if action.get("status") != "pending_approval":
+        raise ValueError("Solo se pueden aprobar acciones en estado pendiente de aprobacion.")
+
+    request_id = action.get("authorizationRequestId")
+    if not request_id:
+        now = _now()
+        action["status"] = "approved"
+        action["approvedBy"] = approver_email
+        action["approvedAt"] = now
+        action["statusHistory"] = action.get("statusHistory", []) + [
+            {"from": "pending_approval", "to": "approved", "by": approver_email,
+             "at": now, "comment": comment or "Aprobado"}
+        ]
+        hr.save_mass_action(company_id, action_id, action, sandbox=sandbox)
+        return action
+
+    from app.services.hr_authorization_service import decide_authorization
+    result = decide_authorization(
+        company_id, request_id, approver_uid or approver_email,
+        approved=True, comment=comment, approver_name=approver_email, sandbox=sandbox,
+    )
+    if not result.get("success"):
+        raise ValueError(result.get("error", "No se pudo registrar la aprobacion."))
+    return {"success": True, "status": result["status"], "authorizationStatus": result["status"]}
+
+
+def reject_mass_action(company_id: str, action_id: str, user_email: str, reason: str,
+                       sandbox: bool = True, approver_uid: str = "") -> dict:
+    """Transicion pending_approval -> rejected.
+
+    Delega en decide_authorization que a su vez llama a _stamp_entity para
+    actualizar la mass action.
+    """
+    if not reason or not reason.strip():
+        raise ValueError("Debes proporcionar un motivo para el rechazo.")
+
+    action = hr.get_mass_action(company_id, action_id, sandbox=sandbox)
+    if not action:
+        raise ValueError("Accion masiva no encontrada.")
+    if action.get("status") != "pending_approval":
+        raise ValueError("Solo se pueden rechazar acciones en estado pendiente de aprobacion.")
+
+    request_id = action.get("authorizationRequestId")
+    if not request_id:
+        now = _now()
+        action["status"] = "rejected"
+        action["rejectedBy"] = user_email
+        action["rejectedAt"] = now
+        action["rejectionReason"] = reason.strip()
+        action["statusHistory"] = action.get("statusHistory", []) + [
+            {"from": "pending_approval", "to": "rejected", "by": user_email, "at": now, "comment": reason.strip()}
+        ]
+        hr.save_mass_action(company_id, action_id, action, sandbox=sandbox)
+        return action
+
+    from app.services.hr_authorization_service import decide_authorization
+    result = decide_authorization(
+        company_id, request_id, approver_uid or user_email,
+        approved=False, comment=reason.strip(), approver_name=user_email, sandbox=sandbox,
+    )
+    if not result.get("success"):
+        raise ValueError(result.get("error", "No se pudo registrar el rechazo."))
+    return {"success": True, "status": result["status"], "authorizationStatus": result["status"]}
+
+
+def return_mass_action(company_id: str, action_id: str, user_email: str, reason: str,
+                       sandbox: bool = True, approver_uid: str = "") -> dict:
+    """Devuelve la accion masiva al creador para correccion.
+
+    Delega en return_for_correction que a su vez llama a _stamp_entity para
+    actualizar la mass action.
+    """
+    action = hr.get_mass_action(company_id, action_id, sandbox=sandbox)
+    if not action:
+        raise ValueError("Accion masiva no encontrada.")
+    if action.get("status") != "pending_approval":
+        raise ValueError("Solo se pueden devolver acciones en estado pendiente de aprobacion.")
+
+    request_id = action.get("authorizationRequestId")
+    if not request_id:
+        raise ValueError("La accion no tiene una solicitud de autorizacion activa.")
+
+    from app.services.hr_authorization_service import return_for_correction
+    result = return_for_correction(
+        company_id, request_id, approver_uid or user_email, reason,
+        approver_name=user_email, sandbox=sandbox,
+    )
+    if not result.get("success"):
+        raise ValueError(result.get("error", "No se pudo devolver la accion."))
+    return {"success": True, "status": "returned", "authorizationStatus": "returned"}
+
+
+def resubmit_mass_action(company_id: str, action_id: str, user_email: str,
+                         sandbox: bool = True) -> dict:
+    """Reenvía una acción devuelta a aprobación tras corregirla."""
+    action = hr.get_mass_action(company_id, action_id, sandbox=sandbox)
+    if not action:
+        raise ValueError("Acción masiva no encontrada.")
+    if action.get("status") != "returned":
+        raise ValueError("Solo se pueden reenviar acciones devueltas para corrección.")
+
+    request_id = action.get("authorizationRequestId")
+    if not request_id:
+        raise ValueError("La acción no tiene una solicitud de autorización activa.")
+
+    from app.services.hr_authorization_service import resubmit_authorization
+    result = resubmit_authorization(company_id, request_id, resubmitted_by=user_email, sandbox=sandbox)
+    if not result.get("success"):
+        raise ValueError(result.get("error", "No se pudo reenviar la acción."))
+
+    action = hr.get_mass_action(company_id, action_id, sandbox=sandbox)
+    action["authorizationStatus"] = "pending"
+    action["status"] = "pending_approval"
+    action["resubmittedAt"] = _now()
+    action["statusHistory"] = action.get("statusHistory", []) + [
+        {"from": "returned", "to": "pending_approval", "by": user_email, "at": _now(), "comment": "Reenviada tras corrección"}
+    ]
+    hr.save_mass_action(company_id, action_id, action, sandbox=sandbox)
+    return action
 
 
 def validate_action(owner_uid: str, action_type: str, employee_ids: list,
@@ -240,8 +470,9 @@ def execute_action(owner_uid: str, action_id: str,
     sm.validate_transition(action["status"], "processing", "acción masiva")
 
     now = _now()
+    prev_status = action["status"]
     action["status"] = "processing"
-    action["statusHistory"].append({"from": "draft", "to": "processing", "by": created_by, "at": now})
+    action["statusHistory"].append({"from": prev_status, "to": "processing", "by": created_by, "at": now})
     hr.save_mass_action(company_id, action_id, action, sandbox=sandbox)
 
     action_type = action["actionType"]

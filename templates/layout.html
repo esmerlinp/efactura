@@ -1451,6 +1451,14 @@
                         <span>Portal de Clientes</span>
                     </a>
                     {% endif %}
+                    {% if module_enabled('certificacion') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canCertifyDGII', True)) %}
+                    <a href="{{ url_for('web_certificacion.wizard') }}"
+                        class="sidebar-discover-item {% if active_page == 'certificacion' %}active{% endif %}"
+                        data-tooltip="Certificación DGII">
+                        <i class="fa-solid fa-certificate"></i>
+                        <span>Certificación DGII</span>
+                    </a>
+                    {% endif %}
                     {% if module_enabled('ia_bi') and (session.get('user', {}).get('role') == 'owner' or
                     session.get('user', {}).get('permissions', {}).get('canViewBI', True)) %}
                     <a href="{{ url_for('web_bi.drilldown', metric='sales') }}"

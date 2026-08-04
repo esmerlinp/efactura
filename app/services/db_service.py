@@ -147,7 +147,8 @@ def _cached_user_profile(uid):
                     "canManageSuppliers": bool(perms.get("canManageSuppliers", True)),
                     "canManagePurchaseCXP": bool(perms.get("canManagePurchaseCXP", True)),
                     "canUseChatbot": bool(perms.get("canUseChatbot", False)),
-                    "canAccounting": bool(perms.get("canAccounting", False))
+                    "canAccounting": bool(perms.get("canAccounting", False)),
+                    "canAssignApprovers": bool(perms.get("canAssignApprovers", False)),
                 },
                 "createdAt": serialize_field(data.get("createdAt")),
                 "two_factor_enabled": bool(data.get("two_factor_enabled", False)),
@@ -1070,6 +1071,7 @@ class DatabaseService:
                     "canApprovePayroll": False,
                     "canApproveExpenses": False,
                     "canSupervisePOS": False,
+                    "canAssignApprovers": False,
                 },
                 "createdAt": created_at,
                 "posSupervisorPin": ""
@@ -5992,7 +5994,9 @@ class DatabaseService:
                     "shifts": "sandbox_cash_shifts" if sandbox else "cash_shifts",
                     "expenses": "sandbox_expenses" if sandbox else "expenses",
                     "contracts": "sandbox_contracts" if sandbox else "contracts",
-                    "purchase_orders": "sandbox_purchase_orders" if sandbox else "purchase_orders"
+                    "purchase_orders": "sandbox_purchase_orders" if sandbox else "purchase_orders",
+                    "authorizations": "sandbox_hr_authorization_requests" if sandbox else "hr_authorization_requests",
+                    "mass_actions": "sandbox_mass_actions" if sandbox else "mass_actions"
                 }
                 coll_name = coll_map.get(resource_type)
                 if not coll_name:
@@ -6038,7 +6042,9 @@ class DatabaseService:
                     "shifts": "sandbox_cash_shifts" if sandbox else "cash_shifts",
                     "expenses": "sandbox_expenses" if sandbox else "expenses",
                     "contracts": "sandbox_contracts" if sandbox else "contracts",
-                    "purchase_orders": "sandbox_purchase_orders" if sandbox else "purchase_orders"
+                    "purchase_orders": "sandbox_purchase_orders" if sandbox else "purchase_orders",
+                    "authorizations": "sandbox_hr_authorization_requests" if sandbox else "hr_authorization_requests",
+                    "mass_actions": "sandbox_mass_actions" if sandbox else "mass_actions"
                 }
                 coll_name = coll_map.get(resource_type)
                 if coll_name:
@@ -6057,7 +6063,9 @@ class DatabaseService:
                     "shifts": "sandbox_cash_shifts" if sandbox else "cash_shifts",
                     "expenses": "sandbox_expenses" if sandbox else "expenses",
                     "contracts": "sandbox_contracts" if sandbox else "contracts",
-                    "purchase_orders": "sandbox_purchase_orders" if sandbox else "purchase_orders"
+                    "purchase_orders": "sandbox_purchase_orders" if sandbox else "purchase_orders",
+                    "authorizations": "sandbox_hr_authorization_requests" if sandbox else "hr_authorization_requests",
+                    "mass_actions": "sandbox_mass_actions" if sandbox else "mass_actions"
                 }
                 coll_name = coll_map.get(resource_type)
                 if coll_name:
@@ -6097,7 +6105,9 @@ class DatabaseService:
                     "shifts": "sandbox_cash_shifts" if sandbox else "cash_shifts",
                     "expenses": "sandbox_expenses" if sandbox else "expenses",
                     "contracts": "sandbox_contracts" if sandbox else "contracts",
-                    "purchase_orders": "sandbox_purchase_orders" if sandbox else "purchase_orders"
+                    "purchase_orders": "sandbox_purchase_orders" if sandbox else "purchase_orders",
+                    "authorizations": "sandbox_hr_authorization_requests" if sandbox else "hr_authorization_requests",
+                    "mass_actions": "sandbox_mass_actions" if sandbox else "mass_actions"
                 }
                 coll_name = coll_map.get(resource_type)
                 if coll_name:

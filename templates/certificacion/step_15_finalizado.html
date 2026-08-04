@@ -1,0 +1,23 @@
+{% extends "certificacion/wizard.html" %}
+{% block step_content %}
+<div class="cert-step-card">
+    <div class="cert-result-success" style="text-align:center; padding:40px;">
+        <i class="fa-solid fa-circle-check" style="font-size:3rem; color:var(--accent-emerald); margin-bottom:16px; display:block;"></i>
+        <h3 style="font-size:1.5rem; margin-bottom:8px;">¡Certificación Completada!</h3>
+        <p style="font-size:0.95rem; color:var(--text-secondary); max-width:600px; margin:0 auto;">
+            Has completado los 15 pasos del proceso de certificación e-CF ante la DGII.
+            La DGII habilitará en tu Oficina Virtual el menú de facturación electrónica con:
+        </p>
+        <ul style="text-align:left; max-width:500px; margin: 20px auto; font-size:0.86rem; color:var(--text-secondary);">
+            <li>Registro de contingencia</li>
+            <li>Delegación de usuarios</li>
+            <li>Consulta de e-CF emitidos, recibidos y anulados</li>
+            <li>Directorio electrónico</li>
+            <li>Solicitud de rangos de secuencias electrónicas (e-NCF)</li>
+        </ul>
+        <a href="{{ url_for('web_dashboard.dashboard') }}" class="cert-btn cert-btn-primary" style="margin-top:20px;">
+            <i class="fa-solid fa-house"></i> Volver al Dashboard
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "certificacion/wizard.html" %}
+{% block step_content %}
+<div class="cert-step-card">
+    <h3><i class="fa-solid fa-magnifying-glass"></i> Verificación de Estatus</h3>
+    <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:16px;">
+        Confirma que el contribuyente mantiene el estatus requerido:
+    </p>
+    <ul style="font-size:0.86rem; color:var(--text-secondary); line-height:2; padding-left:20px; margin-bottom:20px;">
+        <li>✓ RNC activo y en Régimen Ordinario</li>
+        <li>✓ Al día en obligaciones tributarias</li>
+        <li>✓ Clave de acceso a la Oficina Virtual (OFV) activa</li>
+        <li>✓ Autorización de NCF (Alta NCF) vigente</li>
+        <li>✓ Representante legal registrado en la DGII</li>
+    </ul>
+    <form method="POST" action="{{ url_for('web_certificacion.step_advance', step=step) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="cert-btn cert-btn-primary"><i class="fa-solid fa-check"></i> Marcar como completado y avanzar</button>
+    </form>
+</div>
+{% endblock %}

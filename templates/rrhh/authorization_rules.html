@@ -1,0 +1,364 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Reglas de Autorización — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-sliders"></i> Reglas de Autorización</h1>
+    <p style="color:var(--text-secondary); margin:4px 0 0; font-size:0.9rem;">Define quiénes aprueban cada tipo de documento y cuántas aprobaciones se requieren (quórum N de M).</p>
+    <div class="hr-page-actions">
+        <a href="{{ url_for('web_rrhh.authorization_queue') }}" class="btn btn-ghost">
+            <i class="fa-solid fa-arrow-left"></i> Volver a la cola
+        </a>
+        <button type="button" class="btn btn-primary" onclick="openNewRule()">
+            <i class="fa-solid fa-plus"></i> Nueva regla
+        </button>
+    </div>
+</div>
+
+<!-- Info -->
+<div class="card-table-wrapper hr-document-sheet" style="padding:18px 24px; margin-bottom:20px; border-color:rgba(16,185,129,0.3);">
+    <p style="font-size:0.88rem; color:var(--text-secondary); margin:0;">
+        <i class="fa-solid fa-circle-info" style="color:var(--accent-emerald); margin-right:6px;"></i>
+        <strong>Auto-aprobación:</strong> si un tipo de documento no tiene regla activa, la solicitud la autoriza automáticamente su creador (quórum 1), incluso para nómina. Crea una regla para exigir aprobación de otras personas.
+    </p>
+</div>
+
+<!-- Existing rules -->
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-header-row">
+        <div>
+            <h3>Reglas configuradas</h3>
+            <p>{{ rules|length }} regla(s) registrada(s)</p>
+        </div>
+    </div>
+    {% if rules %}
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th>Tipo de documento</th>
+                    <th>Aprobadores</th>
+                    <th>Quórum</th>
+                    <th>Asignado por defecto</th>
+                    <th>Estado</th>
+                    <th>Actualizada</th>
+                    <th style="width:120px;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in rules %}
+                <tr>
+                    <td><strong style="font-size:0.9rem;">{{ doc_types.get(r.docType, r.docType) }}</strong></td>
+                    <td>
+                        {% for a in r.approvers %}
+                        <span class="badge badge-secondary" style="margin-right:4px; margin-bottom:2px;">{{ a.name or a.email or a.id }}</span>
+                        {% endfor %}
+                    </td>
+                    <td><span style="font-size:0.85rem;">{{ r.minApprovals }} de {{ r.approvers|length }}</span></td>
+                    <td><span style="font-size:0.82rem; color:var(--text-secondary);">{{ r.defaultAssignee.name or r.defaultAssignee.email or r.defaultAssignee.id if r.defaultAssignee else '—' }}</span></td>
+                    <td>{% if r.isActive %}<span class="badge badge-success">Activa</span>{% else %}<span class="badge badge-secondary">Inactiva</span>{% endif %}</td>
+                    <td><span style="font-size:0.82rem; color:var(--text-muted); white-space:nowrap;">{{ (r.updatedAt or '')[:16].replace('T', ' ') }}</span></td>
+                    <td>
+                        <div style="display:flex; gap:4px;">
+                            <button type="button" class="btn btn-sm btn-ghost" title="Editar" onclick="safeEditRule('{{ r.id }}', '{{ r.docType }}', {{ r.minApprovals or 1 }}, {{ 'true' if r.isActive else 'false' }}, {{ (r._approver_ids or [])|tojson }}, '{{ r.defaultAssignee.id if r.defaultAssignee else '' }}')"><i class="fa-solid fa-pen"></i></button>
+                            <form method="POST" action="{{ url_for('web_rrhh.authorization_rule_delete', rule_id=r.id) }}" style="display:inline; margin:0;" onsubmit="return confirm('¿Eliminar esta regla? Las solicitudes futuras usarán la auto-aprobación.')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-ghost" style="color:var(--danger);" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="hr-empty-state">
+        <div class="hr-empty-icon"><i class="fa-solid fa-sliders"></i></div>
+        <p>No hay reglas configuradas.</p>
+        <span>Todas las solicitudes se auto-aprueban. Crea una regla para exigir aprobación de un equipo.</span>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal -->
+<div class="search-modal" id="rule-modal" style="display:none; animation:none;">
+    <div class="modal-backdrop" onclick="closeRuleModal()"></div>
+    <div class="modal-content" style="max-width:640px; max-height:92vh; overflow-y:auto;">
+        <div class="modal-header">
+            <h3 id="rule-modal-title"><i class="fa-solid fa-sliders"></i> Nueva regla</h3>
+            <button type="button" class="btn-close-modal" onclick="closeRuleModal()">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('web_rrhh.authorization_rule_save') }}" style="display:flex; flex-direction:column; gap:16px; padding:0 24px 24px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="ruleId" id="ruleId" value="">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:var(--space-3);">
+                <div>
+                    <label style="font-size:0.85rem; font-weight:500; display:block; margin-bottom:6px;">Tipo de documento</label>
+                    <select name="docType" id="docType" class="form-input" required>
+                        <option value="">Seleccionar...</option>
+                        {% for code, label in doc_types.items() %}
+                        <option value="{{ code }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:0.85rem; font-weight:500; display:block; margin-bottom:6px;">Aprobaciones requeridas (N de M)</label>
+                    <input type="number" name="minApprovals" id="minApprovals" class="form-input" value="1" min="1" required>
+                </div>
+                <div style="display:flex; align-items:flex-end; gap:var(--space-2);">
+                    <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:500; margin-bottom:6px;">
+                        <input type="checkbox" name="isActive" id="isActive" value="1" checked style="width:16px; height:16px;"> Regla activa
+                    </label>
+                </div>
+            </div>
+            <div>
+                <label style="font-size:0.85rem; font-weight:500; display:block; margin-bottom:6px;">Aprobadores</label>
+                <div class="multiselect-container" id="approver-multiselect">
+                    <div class="multiselect-trigger" tabindex="0" role="button" onclick="toggleDropdown()">
+                        <div class="multiselect-chips" id="multiselect-chips">
+                            <span class="multiselect-placeholder">Seleccionar aprobadores...</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down multiselect-arrow"></i>
+                    </div>
+                    <div class="multiselect-dropdown" id="multiselect-dropdown">
+                        <div class="multiselect-search">
+                            <i class="fa-solid fa-search"></i>
+                            <input type="text" class="multiselect-search-input" placeholder="Filtrar aprobadores..." oninput="filterOptions(this)">
+                        </div>
+                        <div class="multiselect-options" id="multiselect-options">
+                            {% for m in team %}
+                            <label class="multiselect-option" data-value="{{ m.uid }}">
+                                <input type="checkbox" name="approverIds" value="{{ m.uid }}">
+                                <span>{{ m.name or m.email }} {% if m.role == 'owner' %}<small>(Owner)</small>{% endif %}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <input type="hidden" name="approverIds_hidden" id="approverIds-hidden" value="">
+                <small style="color:var(--text-muted); font-size:0.8rem;">Selecciona uno o varios aprobadores. Puedes filtrar escribiendo en la caja de búsqueda.</small>
+            </div>
+            <div>
+                <label style="font-size:0.85rem; font-weight:500; display:block; margin-bottom:6px;">Persona asignada por defecto</label>
+                <select name="defaultAssigneeId" id="defaultAssigneeId" class="form-input">
+                    <option value="">— Ninguno (se asigna al primer aprobador) —</option>
+                    {% for m in team %}
+                    <option value="{{ m.uid }}">{{ m.name or m.email }} {% if m.role == 'owner' %}(Owner){% endif %}</option>
+                    {% endfor %}
+                </select>
+                <small style="color:var(--text-muted); font-size:0.8rem;">Persona que aparece como asignada por defecto en las nuevas solicitudes.</small>
+            </div>
+            <div style="display:flex; gap:var(--space-2); padding-top:16px; border-top:1px solid var(--border-color);">
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Guardar regla</button>
+                <button type="button" class="btn btn-ghost" onclick="closeRuleModal()">Cancelar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.multiselect-container {
+    position: relative;
+    width: 100%;
+}
+.multiselect-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-card, #fff);
+    cursor: pointer;
+    min-height: 42px;
+    gap: 8px;
+}
+.multiselect-trigger:hover {
+    border-color: var(--accent-emerald, #10b981);
+}
+.multiselect-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    flex: 1;
+}
+.multiselect-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(16,185,129,0.12);
+    color: var(--accent-emerald, #10b981);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+.multiselect-chip i {
+    cursor: pointer;
+    font-size: 0.7rem;
+    opacity: 0.7;
+}
+.multiselect-chip i:hover { opacity: 1; }
+.multiselect-placeholder {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+.multiselect-arrow {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    transition: transform 0.2s;
+}
+.multiselect-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    z-index: 110;
+    max-height: 320px;
+    overflow: hidden;
+}
+.multiselect-dropdown.open {
+    display: block;
+}
+.multiselect-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+.multiselect-search i { color: var(--text-muted); }
+.multiselect-search-input {
+    border: none;
+    outline: none;
+    flex: 1;
+    background: transparent;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+.multiselect-options {
+    max-height: 220px;
+    overflow-y: auto;
+}
+.multiselect-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.multiselect-option:hover { background: rgba(0,0,0,0.04); }
+.multiselect-option input[type="checkbox"] {
+    accent-color: var(--accent-emerald, #10b981);
+}
+.multiselect-option small { color: var(--text-muted); }
+</style>
+
+<script>
+function $id(id) { return document.getElementById(id); }
+
+function openRuleModal(title) {
+    var titleEl = $id('rule-modal-title');
+    var modal = $id('rule-modal');
+    if (!titleEl || !modal) return;
+    titleEl.innerHTML = '<i class="fa-solid fa-sliders"></i> ' + title;
+    modal.style.display = 'flex';
+}
+
+function closeRuleModal() {
+    var modal = $id('rule-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function openNewRule() {
+    var el;
+    if (el = $id('ruleId')) el.value = '';
+    if (el = $id('docType')) el.value = '';
+    if (el = $id('minApprovals')) el.value = '1';
+    if (el = $id('isActive')) el.checked = true;
+    if (el = $id('defaultAssigneeId')) el.value = '';
+    document.querySelectorAll('#multiselect-options input[name="approverIds"]').forEach(function(cb) {
+        cb.checked = false;
+    });
+    updateMultiselect();
+    openRuleModal('Nueva regla');
+}
+
+function openEditRule(ruleId, docType, minApprovals, isActive, approverIds, defaultAssigneeId) {
+    var el;
+    if (el = $id('ruleId')) el.value = ruleId;
+    if (el = $id('docType')) el.value = docType;
+    if (el = $id('minApprovals')) el.value = minApprovals;
+    if (el = $id('isActive')) el.checked = isActive;
+    if (el = $id('defaultAssigneeId')) el.value = defaultAssigneeId || '';
+    var ids = Array.isArray(approverIds) ? approverIds : [];
+    document.querySelectorAll('#multiselect-options input[name="approverIds"]').forEach(function(cb) {
+        cb.checked = ids.indexOf(cb.value) !== -1;
+    });
+    updateMultiselect();
+    openRuleModal('Editar regla');
+}
+
+function toggleDropdown() {
+    document.getElementById('multiselect-dropdown').classList.toggle('open');
+}
+
+function filterOptions(input) {
+    var q = input.value.toLowerCase();
+    document.querySelectorAll('#multiselect-options .multiselect-option').forEach(function(opt) {
+        opt.style.display = opt.textContent.toLowerCase().indexOf(q) !== -1 ? 'flex' : 'none';
+    });
+}
+
+function updateMultiselect() {
+    var chips = document.getElementById('multiselect-chips');
+    var checked = document.querySelectorAll('#multiselect-options input[name="approverIds"]:checked');
+    var values = [];
+    var html = '';
+    checked.forEach(function(cb) {
+        var val = cb.value;
+        values.push(val);
+        var option = cb.closest('.multiselect-option');
+        var label = option ? (option.querySelector('span') || {}).textContent || '' : val;
+        html += '<span class="multiselect-chip" data-value="' + val + '">' + (label || '').trim() + ' <i class="fa-solid fa-xmark" onclick="removeChip(\'' + val + '\')"></i></span>';
+    });
+    if (values.length === 0) {
+        html = '<span class="multiselect-placeholder">Seleccionar aprobadores...</span>';
+    }
+    if (chips) chips.innerHTML = html;
+    var hidden = document.getElementById('approverIds-hidden');
+    if (hidden) hidden.value = values.join(',');
+}
+
+function removeChip(val) {
+    document.querySelectorAll('#multiselect-options input[name="approverIds"]').forEach(function(cb) {
+        if (cb.value === val) cb.checked = false;
+    });
+    updateMultiselect();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('#multiselect-options input[name="approverIds"]').forEach(function(cb) {
+        cb.addEventListener('change', updateMultiselect);
+    });
+    updateMultiselect();
+    document.addEventListener('click', function(e) {
+        var container = document.getElementById('approver-multiselect');
+        if (container && !container.contains(e.target)) {
+            document.getElementById('multiselect-dropdown').classList.remove('open');
+        }
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeRuleModal();
+    });
+});
+</script>
+{% endblock %}

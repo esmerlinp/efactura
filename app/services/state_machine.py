@@ -94,8 +94,28 @@ PURCHASE_ORDER_STATES = {
 MASS_ACTION_STATES = {
     "draft": {
         "label": "Borrador",
-        "transitions": ["processing", "failed"],
+        "transitions": ["processing", "pending_approval", "failed"],
         "color": "secondary",
+    },
+    "pending_approval": {
+        "label": "Pendiente de aprobación",
+        "transitions": ["approved", "rejected", "returned", "draft"],
+        "color": "warning",
+    },
+    "approved": {
+        "label": "Aprobada",
+        "transitions": ["processing"],
+        "color": "primary",
+    },
+    "rejected": {
+        "label": "Rechazada",
+        "transitions": [],
+        "color": "danger",
+    },
+    "returned": {
+        "label": "Devuelta para corrección",
+        "transitions": ["pending_approval", "draft"],
+        "color": "warning",
     },
     "processing": {
         "label": "Procesando",
@@ -140,13 +160,13 @@ OFFBOARDING_STATES = {
     },
     "pending_supervisor_approval": {
         "label": "Pendiente aprobación supervisor",
-        "transitions": ["pending_hr_approval", "rejected", "cancelled"],
+        "transitions": ["pending_hr_approval", "rejected", "cancelled", "returned"],
         "color": "info",
         "description": "Enviar al supervisor inmediato para que revise y apruebe la solicitud de desvinculación.",
     },
     "pending_hr_approval": {
         "label": "Pendiente aprobación RRHH",
-        "transitions": ["pending_settlement", "rejected", "cancelled"],
+        "transitions": ["pending_settlement", "rejected", "cancelled", "returned"],
         "color": "warning",
         "description": "El supervisor aprobó. Ahora RRHH debe revisar y validar la solicitud.",
     },
@@ -203,6 +223,12 @@ OFFBOARDING_STATES = {
         "transitions": [],
         "color": "danger",
         "description": "Solicitud rechazada. El empleado continúa activo y no se realiza ninguna acción adicional.",
+    },
+    "returned": {
+        "label": "Devuelta para corrección",
+        "transitions": ["pending_supervisor_approval", "pending_hr_approval", "draft"],
+        "color": "warning",
+        "description": "Devolución al creador para corregir parámetros o empleados antes de reenviar.",
     },
 }
 

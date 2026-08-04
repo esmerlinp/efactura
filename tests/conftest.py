@@ -41,6 +41,9 @@ _sys_modules_patch = patch.dict('sys.modules', {
     'google.cloud': MagicMock(),
     'google.cloud.firestore': MagicMock(),
     'google.cloud.firestore_v1': MagicMock(),
+    'pydantic': MagicMock(),
+    'pydantic_core': MagicMock(),
+    'pydantic_core._pydantic_core': MagicMock(),
 })
 _sys_modules_patch.start()
 

@@ -45,6 +45,24 @@ def _sanitize_for_role(employee: dict) -> dict:
     return safe
 
 
+@web_rrhh_bp.context_processor
+def _inject_hr_nav_counts():
+    """Inyecta badges de conteo en el sidebar de RRHH."""
+    counts = {"rrhh_pending_authorizations": 0}
+    user = session.get("user", {})
+    uid = user.get("uid", "")
+    sandbox = session.get("is_sandbox_mode", True)
+    company_id = session.get("selected_company_id")
+    if uid and company_id:
+        try:
+            from app.services.hr_authorization_service import get_pending_for_user
+            pending = get_pending_for_user(company_id, uid, sandbox=sandbox)
+            counts["rrhh_pending_authorizations"] = len(pending)
+        except Exception:
+            pass
+    return counts
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # HELPER: Generar períodos disponibles según frecuencia
 # ═══════════════════════════════════════════════════════════════════════════
@@ -136,3 +154,4 @@ from app.web.rrhh import overtime            # noqa: E402, F401
 from app.web.rrhh import overtime_import    # noqa: E402, F401
 from app.web.rrhh import work_certificate    # noqa: E402, F401
 from app.web.rrhh import offboarding         # noqa: E402, F401
+from app.web.rrhh import authorizations      # noqa: E402, F401

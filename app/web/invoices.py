@@ -110,7 +110,7 @@ ALL_PERMISSION_KEYS = [
     "canManagePurchaseCXP", "canUseChatbot", "canManageTools",
     "canHR", "canVoidInvoice", "canCreateSupplier",
     "canApprovePayments", "canApprovePayroll", "canApproveExpenses",
-    "canSupervisePOS",
+    "canSupervisePOS", "canAssignApprovers",
 ]
 
 ROLES_PRESETS = {
@@ -127,6 +127,7 @@ ROLES_PRESETS = {
         "canVoidInvoice": False, "canCreateSupplier": False,
         "canApprovePayments": False, "canApprovePayroll": False,
         "canApproveExpenses": False, "canSupervisePOS": False,
+        "canAssignApprovers": False,
     },
     "contador": {
         "canInvoice": True, "canExpenses": True, "canClients": False,
@@ -140,6 +141,7 @@ ROLES_PRESETS = {
         "canVoidInvoice": False, "canCreateSupplier": False,
         "canApprovePayments": False, "canApprovePayroll": False,
         "canApproveExpenses": False, "canSupervisePOS": False,
+        "canAssignApprovers": False,
     },
     "consulta": {
         "canInvoice": False, "canExpenses": False, "canClients": False,
@@ -153,6 +155,7 @@ ROLES_PRESETS = {
         "canVoidInvoice": False, "canCreateSupplier": False,
         "canApprovePayments": False, "canApprovePayroll": False,
         "canApproveExpenses": False, "canSupervisePOS": False,
+        "canAssignApprovers": False,
     },
 }
 
@@ -206,6 +209,13 @@ PERMISSION_GROUPS = [
             "canApprovePayments": "Aprobar pagos",
             "canApprovePayroll": "Autorizar pagos de nómina",
             "canApproveExpenses": "Aprobar gastos",
+        },
+    },
+    {
+        "name": "Autorizaciones",
+        "perms": ["canAssignApprovers"],
+        "labels": {
+            "canAssignApprovers": "Asignar usuarios aprobadores y configurar autorizaciones",
         },
     },
     {
@@ -11503,6 +11513,12 @@ def process_resource_comment_mentions(owner_uid, content, resource_type, resourc
             elif resource_type == "shifts":
                 link = f"/pos/admin/shift/{resource_id}?sandbox={'true' if sandbox else 'false'}"
                 msg = f"{session['user'].get('name', session['user']['email'])} te mencionó en un comentario del turno de caja: {resource_label}."
+            elif resource_type == "authorizations":
+                link = f"/rrhh/authorizations/{resource_id}?sandbox={'true' if sandbox else 'false'}"
+                msg = f"{session['user'].get('name', session['user']['email'])} te mencionó en un comentario de la autorización: {resource_label}."
+            elif resource_type == "mass_actions":
+                link = f"/rrhh/mass-actions/{resource_id}?sandbox={'true' if sandbox else 'false'}"
+                msg = f"{session['user'].get('name', session['user']['email'])} te mencionó en un comentario de la acción masiva: {resource_label}."
             else:
                 link = f"/invoices/{resource_id}?sandbox={'true' if sandbox else 'false'}"
                 msg = f"{session['user'].get('name', session['user']['email'])} te mencionó en un comentario del documento {resource_label}."

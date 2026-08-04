@@ -32,7 +32,7 @@
 
     {% if not onboard_all_done %}
     <!-- Onboarding Guide -->
-    <div class="card-table-wrapper" style="padding:24px; margin-bottom:16px; border:1.5px solid var(--accent-emerald); background:rgba(16,185,129,0.04);">
+    <div class="card-table-wrapper" style="padding:24px; margin-bottom:16px; border:1.5px solid var(--accent-emerald); background:var(--bg-card);">
         <div style="display:flex; flex-direction:column; align-items:center; gap:12px;">
             <div style="text-align:center;">
                 <i class="fa-solid fa-rocket" style="font-size:1.8rem;"></i>
@@ -42,22 +42,30 @@
                     {% if onboard_done_count == 5 %}¡Todo listo!{% else %}~{{ (5 - onboard_done_count) * 3 }} min restantes{% endif %}
                 </p>
             </div>
-            <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center;">
+            <div style="display:flex; gap:6px; align-items:flex-start; flex-wrap:wrap; justify-content:center;">
                 {% set step_labels = ['Frecuencia', 'Catálogos', 'Empleados', 'Conceptos', 'Nómina'] %}
                 {% set step_keys = ['frequency', 'catalogs', 'employees', 'concepts', 'payroll'] %}
+                {% set next_idx = namespace(n=5) %}
                 {% for i in range(5) %}
+                    {% if not onboard_steps[step_keys[i]] and next_idx.n == 5 %}{% set next_idx.n = i %}{% endif %}
+                {% endfor %}
+                {% for i in range(5) %}
+                {% set is_done = onboard_steps[step_keys[i]] %}
+                {% set is_current = (i == next_idx.n) %}
                 <div style="display:flex; flex-direction:column; align-items:center; min-width:60px;">
-                    <div style="width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.7rem; font-weight:700;
-                        {% if onboard_steps[step_keys[i]] %}
-                            background:var(--accent-emerald); color:#fff;
+                    <div style="width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:700;
+                        {% if is_done %}
+                            background:var(--bg-card); border:2px solid var(--accent-emerald); color:var(--accent-emerald); box-shadow:0 0 0 3px rgba(0,177,157,0.10);
+                        {% elif is_current %}
+                            background:rgba(0,177,157,0.10); border:2px solid var(--accent-emerald); color:var(--accent-emerald); box-shadow:0 0 0 5px rgba(0,177,157,0.18);
                         {% else %}
-                            background:var(--bg-nav-hover); color:var(--text-muted);
+                            background:var(--bg-card); border:2px solid #CBD5E1; color:#64748B;
                         {% endif %}">
-                        {% if onboard_steps[step_keys[i]] %}<i class="fa-solid fa-check"></i>{% else %}{{ i+1 }}{% endif %}
+                        {% if is_done %}<i class="fa-solid fa-check"></i>{% else %}{{ i+1 }}{% endif %}
                     </div>
-                    <span style="font-size:0.6rem; color:var(--text-muted); margin-top:3px;">{{ step_labels[i] }}</span>
+                    <span style="font-size:0.62rem; margin-top:4px; {% if is_done %}color:var(--text-secondary);{% elif is_current %}color:var(--accent-emerald); font-weight:700;{% else %}color:var(--text-muted);{% endif %}">{{ step_labels[i] }}</span>
                 </div>
-                {% if i < 4 %}<div style="width:20px; height:1px; background:var(--border-color); margin-bottom:14px;"></div>{% endif %}
+                {% if i < 4 %}<div style="width:22px; height:2px; margin-bottom:16px; {% if is_done %}background:var(--accent-emerald);{% else %}background:var(--border-color);{% endif %}"></div>{% endif %}
                 {% endfor %}
             </div>
             <a href="{{ url_for('web_rrhh.onboarding_guide') }}" class="btn btn-primary btn-sm">
