@@ -271,19 +271,39 @@ def payroll_bank_export(period_id):
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.bank_export_service import generate_bank_file
-    from app.services.db_service import _cached_company_profile
+    from app.services.db_service import _cached_company_profile, DatabaseService
 
     period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
     if not period:
         flash("Período no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_list"))
 
+    # Asegurar que las líneas estén cargadas, ya que pueden estar en una subcolección
+    period["lines"] = hr.get_payroll_lines_unified(period, company_id, sandbox=sandbox)
+
     # Obtener perfil de empresa para datos del header
-    profile = _cached_company_profile(company_id)
-    company_name = profile.get("companyName", "MI EMPRESA SRL") or "MI EMPRESA SRL"
-    company_rnc = (profile.get("companyRNC") or "").replace("-", "")[:9]
-    company_code = company_rnc or _cached_company_profile.__wrapped__(owner_uid).get("company_code", "101003383")
-    company_email = profile.get("companyEmail", "")
+    profile = _cached_company_profile(owner_uid, company_id=company_id)
+    company_doc = DatabaseService.get_company(company_id) or {}
+    
+    # 1. Resolver el nombre de la empresa
+    company_name = profile.get("companyName", "").strip()
+    # Si está vacío o tiene nombres por defecto, buscar en company_doc
+    if not company_name or company_name.upper() in ["MI EMPRESA SRL", "MI EMPRESA"]:
+        company_name = company_doc.get("trade_name") or company_doc.get("name") or company_doc.get("businessName") or company_doc.get("tradeName") or "MI EMPRESA SRL"
+        
+    # 2. Resolver el RNC
+    company_rnc = profile.get("companyRNC", "").strip()
+    if not company_rnc or company_rnc == "132109122":
+        company_rnc = company_doc.get("rnc") or company_doc.get("companyRNC") or ""
+    company_rnc = company_rnc.replace("-", "")[:9]
+    
+    # Resolver código de contrato (si no hay rnc, cae al predeterminado de profile)
+    company_code = company_rnc or _cached_company_profile.__wrapped__(owner_uid, company_id=company_id).get("company_code", "101003383")
+    
+    # 3. Resolver email
+    company_email = profile.get("companyEmail", "").strip()
+    if not company_email or company_email == "factura@miempresa.com.do":
+        company_email = company_doc.get("email", "")
     # Si no hay RNC, usar código de contrato del banco (configurable)
     bank_contract = request.args.get("contract_code", company_code.zfill(9)[:9])
 
@@ -335,10 +355,38 @@ def payroll_approve(period_id):
         flash("Período no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_list"))
 
+    period["lines"] = hr.get_payroll_lines_unified(period, company_id, sandbox=sandbox)
+
     from app.services.hr_authorization_service import create_authorization_request
     from datetime import datetime, timezone
     user = session.get("user", {})
     now = datetime.now(timezone.utc).isoformat()
+    
+    # Generate justification text
+    justification_text = f"Nómina {period.get('periodRange') or period.get('periodKey')}\n"
+    justification_text += f"Empleados: {len(period.get('lines', []))}\n"
+    total_neto = float(period.get('totalNet', 0) or 0)
+    total_bruto = float(period.get('totalGross', 0) or 0)
+    justification_text += f"Total Bruto: RD$ {total_bruto:,.2f}\n"
+    justification_text += f"Total Neto: RD$ {total_neto:,.2f}\n"
+    
+    # Find previous payroll
+    all_periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
+    group_id = period.get("groupId")
+    start_date = period.get("startDate", "")
+    prev_periods = [p for p in all_periods if p.get("groupId") == group_id and p.get("startDate", "") < start_date and p.get("status") in ("aprobada", "contabilizada", "pagada")]
+    prev_periods.sort(key=lambda x: x.get("startDate", ""), reverse=True)
+    
+    if prev_periods:
+        prev = prev_periods[0]
+        prev_neto = float(prev.get('totalNet', 0) or 0)
+        if prev_neto:
+            var_pct = ((total_neto - prev_neto) / prev_neto) * 100
+            sign = "+" if var_pct > 0 else ""
+            justification_text += f"Variación vs anterior: {sign}{var_pct:.2f}% (Anterior: RD$ {prev_neto:,.2f})"
+        else:
+            justification_text += f"Variación vs anterior: N/A (Anterior: RD$ {prev_neto:,.2f})"
+
     req_result = create_authorization_request(
         company_id,
         doc_type="payroll_approval",
@@ -349,9 +397,10 @@ def payroll_approve(period_id):
         created_by_email=user.get("email", ""),
         created_by_name=user.get("name", ""),
         sandbox=sandbox,
-        metadata={"periodKey": period.get("periodKey", "")},
+        metadata={"periodKey": period.get("periodKey", ""), "justification": justification_text},
         link=f"/rrhh/payroll/{period_id}",
         owner_uid=owner_uid,
+        justification=justification_text,
     )
 
     stage = {"stage": "payroll_approval", "requestId": req_result["request"]["id"],

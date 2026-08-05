@@ -37,12 +37,12 @@ designed specifically for Dominican Republic regulatory compliance.
 - **Stack**: Flask 3.x, Jinja2 templates, Firebase Firestore, Pydantic models,
   Redis (optional), APScheduler, WeasyPrint PDF, lxml XML signing
 - **Architecture**: Factory pattern with layered design
-  - `app/web/` — 33 Blueprint route files (Jinja2 UI)
-  - `app/api/v1/` — 9 REST API Blueprints
-  - `app/services/` — 60+ domain service files
+  - `app/web/` — 36 Blueprint route files (Jinja2 UI)
+  - `app/api/v1/` — 12 REST API Blueprints
+  - `app/services/` — 100+ domain service files
   - `app/models/` — Pydantic models for all entities
   - `app/repositories/` — Typed Firestore access layer
-  - `app/events/` — Event Bus (in-process/Redis Pub/Sub) with 9 domain events
+  - `app/events/` — Event Bus (in-process/Redis Pub/Sub) with 10 domain events
   - `app/utils/` — Security, decorators, module gating, currency helpers
 - **Multi-tenancy**: Every document scoped to `owner_uid` with sandbox/production
   environment split (`sandbox_` prefix on collections)
@@ -193,8 +193,10 @@ Events are published via the Event Bus and automatically trigger handlers:
 | `AssetDepreciated` | Depreciation calculation | `handle_asset_depreciated` | Auto-generates depreciation journal entry |
 | `BulkSalaryChanged` | Mass salary change | _(future)_ | Triggers payroll recalculation |
 | `BulkPositionChanged` | Mass position change | _(future)_ | Updates employee records |
+| `BulkSupervisorChanged` | Mass supervisor change | _(future)_ | Reassigns supervisors |
 | `BulkPromotionApplied` | Mass promotion | _(future)_ | Updates salary and position |
 | `BulkAbsenceApplied` | Mass absence | _(future)_ | Updates attendance records |
+| `RuiGenerated` | RUI Generation | _(future)_ | Fiscal only, no accounting effect |
 
 ## DGII Compliance Notes
 

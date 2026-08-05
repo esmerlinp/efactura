@@ -90,99 +90,16 @@
         :root,
         body.sandbox-mode,
         [data-theme="dark"] {
-            --accent-emerald: {
-                    {
-                    company_color_marca
-                }
-            }
-
-            ;
-
-            --accent-emerald-hover: {
-                    {
-                    company_color_marca
-                }
-            }
-
-            ;
-
-            --accent-purple: {
-                    {
-                    company_color_marca
-                }
-            }
-
-            ;
-
-            --accent-purple-hover: {
-                    {
-                    company_color_marca
-                }
-            }
-
-            ;
-
-                {
-                % if company_gradient_enabled %
-            }
-
-            --brand-gradient: linear-gradient(135deg, {
-                    {
-                    company_color_marca
-                }
-            }
-
-            , #60a5fa);
-
-            {
-            % else %
+            --color-accent: {{ company_color_marca }};
+            --color-on-accent: {{ company_color_on_accent }};
+            --accent-emerald: {{ company_color_marca }};
+            --accent-emerald-hover: {{ company_color_marca }};
+            --accent-purple: {{ company_color_marca }};
+            --accent-purple-hover: {{ company_color_marca }};
+            --brand-gradient: {% if company_gradient_enabled %}linear-gradient(135deg, {{ company_color_marca }}, #60a5fa){% else %}{{ company_color_marca }}{% endif %};
         }
-
-        --brand-gradient: {
-                {
-                company_color_marca
-            }
-        }
-
-        ;
-
-            {
-            % endif %
-        }
-        }
-
         .sandbox-banner {
-                {
-                % if company_gradient_enabled %
-            }
-
-            background: linear-gradient(90deg, {
-                    {
-                    company_color_marca
-                }
-            }
-
-            , #8b5cf6, {
-                {
-                company_color_marca
-            }
-        });
-
-            {
-            % else %
-        }
-
-        background: {
-                {
-                company_color_marca
-            }
-        }
-
-        ;
-
-            {
-            % endif %
-        }
+            background: {% if company_gradient_enabled %}linear-gradient(90deg, {{ company_color_marca }}, #8b5cf6, {{ company_color_marca }}){% else %}{{ company_color_marca }}{% endif %};
         }
     </style>
     {% endif %}
@@ -1751,7 +1668,7 @@
                             <a href="{{ url_for('web_invoices.tax_settings') }}" style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--radius-sm); color:var(--text-primary); text-decoration:none; font-size:0.85rem;" onmouseover="this.style.background='var(--bg-nav-hover)'" onmouseout="this.style.background='transparent'"><i class="fa-solid fa-coins" style="width:16px; text-align:center;"></i> Impuestos</a>
                             {% endif %}
 
-                            {% if session.get('user', {}).get('role') == 'owner' %}
+                            {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', False) %}
                             <a href="{{ url_for('web_invoices.team_settings') }}" style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--radius-sm); color:var(--text-primary); text-decoration:none; font-size:0.85rem;" onmouseover="this.style.background='var(--bg-nav-hover)'" onmouseout="this.style.background='transparent'"><i class="fa-solid fa-users-gear" style="width:16px; text-align:center;"></i> Usuarios y Permisos</a>
                             {% endif %}
 

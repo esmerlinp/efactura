@@ -542,6 +542,7 @@ def create_app():
         logo_url = ''
         gradient_enabled = False
         color_marca = ''
+        color_on_accent = '#FFFFFF'
         apply_ui = True
         apply_reports = True
         theme = 'moderno'
@@ -556,6 +557,9 @@ def create_app():
                 apply_reports = company.apply_color_marca_reports
                 theme = company.theme
                 is_configured = company.is_configured
+                if color_marca:
+                    from app.utils.color_utils import _contrast_text_color
+                    color_on_accent = _contrast_text_color(color_marca)
         user_companies = session.get('user_companies', [])
         has_multiple = len(user_companies) > 1
         return dict(

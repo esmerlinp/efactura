@@ -36,7 +36,7 @@ class PurchaseCreditNoteService:
         @firestore.transactional
         def increment(transaction):
             ref = cls._counter_ref(owner_uid=owner_uid, company_id=company_id)
-            snapshot = transaction.get(ref)
+            snapshot = ref.get(transaction=transaction)
             if snapshot.exists:
                 num = snapshot.to_dict().get("counter", 0) + 1
             else:

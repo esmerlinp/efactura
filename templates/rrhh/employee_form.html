@@ -297,9 +297,9 @@
                 <span style="font-size:0.75rem; color:var(--text-muted);">Requerido para DGT-3 (Ministerio de Trabajo)</span>
             </div>
             <div class="form-group">
-                <label>TSS Clave nómina <span style="color:var(--danger);">*</span></label>
+                <label>TSS Clave nómina</label>
                 <input type="text" name="tssKey" class="form-input" maxlength="3" pattern="[0-9]{3}"
-                       placeholder="001" required
+                       placeholder="001"
                        value="{{ employee.tssKey if employee else '' }}">
                 <span style="font-size:0.75rem; color:var(--text-muted);">La clave nómina es un número de 3 dígitos. Ejemplo: "001"</span>
             </div>
@@ -356,8 +356,8 @@
         <h3><i class="fa-solid fa-credit-card"></i> Datos de pago del empleado</h3>
         <div class="hr-form-grid">
             <div class="form-group">
-                <label>Método de pago <span style="color:var(--danger);">*</span></label>
-                <select name="paymentMethod" class="form-select" required>
+                <label>Método de pago</label>
+                <select name="paymentMethod" class="form-select">
                     <option value="">Seleccionar método</option>
                     {% for m in payment_methods %}
                     <option value="{{ m.value }}" {% if employee and employee.paymentMethod == m.value %}selected{% endif %}>{{ m.label }}</option>
@@ -365,13 +365,13 @@
                 </select>
             </div>
             <div class="form-group">
-                <label>Número de cuenta del empleado <span style="color:var(--danger);">*</span></label>
-                <input type="text" name="accountNumber" class="form-input" required
+                <label>Número de cuenta del empleado</label>
+                <input type="text" name="accountNumber" class="form-input"
                        value="{{ employee.accountNumber if employee else '' }}">
             </div>
             <div class="form-group">
-                <label>Banco <span style="color:var(--danger);">*</span></label>
-                <select name="bank" class="form-select" required>
+                <label>Banco</label>
+                <select name="bank" class="form-select">
                     <option value="">Seleccionar banco</option>
                     {% for b in bancos %}
                     <option value="{{ b }}" {% if employee and employee.bank == b %}selected{% endif %}>{{ b }}</option>
@@ -379,8 +379,8 @@
                 </select>
             </div>
             <div class="form-group">
-                <label>Tipo de cuenta <span style="color:var(--danger);">*</span></label>
-                <select name="accountType" class="form-select" required>
+                <label>Tipo de cuenta</label>
+                <select name="accountType" class="form-select">
                     <option value="">Seleccionar tipo</option>
                     {% for a in account_types %}
                     <option value="{{ a.value }}" {% if employee and employee.accountType == a.value %}selected{% endif %}>{{ a.label }}</option>

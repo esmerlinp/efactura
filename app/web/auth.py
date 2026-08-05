@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from config import Config
-from app.services.db_service import DatabaseService
+from app.services.db_service import DatabaseService, _resolve_company_id
 from app.services.session_service import SessionService
 from app.services.mailer import Mailer
 from app.utils.decorators import check_permission
@@ -1052,7 +1052,6 @@ def update_user_profile():
             "name": name,
             "phone": phone,
             "address": address,
-            "permissions": session['user'].get('permissions', {})
         }
         
         if profile_image_url:

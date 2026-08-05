@@ -292,29 +292,30 @@
         color: var(--text-primary);
     }
 
-    /* Save button */
+    /* Save button — uses brand accent color with system-computed contrast text */
     .profile-save-btn {
         display: flex;
         align-items: center;
         justify-content: center;
         gap: 8px;
         padding: 13px 32px;
-        background: linear-gradient(135deg, var(--accent-emerald), #059669);
-        color: white;
+        background: var(--accent-emerald);
+        color: var(--color-on-accent);
         border: none;
         border-radius: var(--radius-sm);
         font-size: 0.9rem;
         font-weight: 700;
         cursor: pointer;
         transition: all 0.25s ease;
-        box-shadow: 0 2px 12px rgba(16, 185, 129, 0.3);
+        box-shadow: var(--shadow-sm);
         font-family: var(--font-body);
         width: 100%;
     }
 
     .profile-save-btn:hover {
         transform: translateY(-1px);
-        box-shadow: 0 4px 18px rgba(16, 185, 129, 0.4);
+        box-shadow: var(--shadow-md);
+        filter: brightness(0.92);
     }
 
     .profile-save-btn:active {
@@ -322,12 +323,15 @@
     }
 
     .profile-save-btn.danger {
-        background: linear-gradient(135deg, var(--accent-red), #b91c1c);
-        box-shadow: 0 2px 12px rgba(239, 68, 68, 0.3);
+        background: var(--color-error);
+        color: var(--color-on-error);
+        border-color: transparent;
+        box-shadow: var(--shadow-sm);
     }
 
     .profile-save-btn.danger:hover {
-        box-shadow: 0 4px 18px rgba(239, 68, 68, 0.4);
+        filter: brightness(0.9);
+        box-shadow: var(--shadow-md);
     }
 
     .profile-save-btn:disabled {

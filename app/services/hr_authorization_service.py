@@ -292,6 +292,7 @@ def create_authorization_request(
     metadata: dict | None = None,
     link: str = "",
     owner_uid: str = "",
+    justification: str = "",
 ) -> dict:
     """Crea una solicitud de autorizacion para una entidad.
 
@@ -357,11 +358,12 @@ def create_authorization_request(
         "isFallback": resolved["isFallback"],
         "metadata": metadata or {},
         "link": link,
+        "justification": justification,
         "approvalHistory": [{
             "action": "created",
             "by": created_by_name or created_by_email or created_by_uid,
             "at": now,
-            "comment": "",
+            "comment": justification,
         }],
         "createdAt": now,
         "updatedAt": now,
@@ -527,7 +529,7 @@ def _decide_authorization_transactional(company_id, request_id, approver_id, app
 
     @fs.transactional
     def _do_decide(transaction):
-        snapshot = transaction.get(doc_ref)
+        snapshot = doc_ref.get(transaction=transaction)
         if not snapshot.exists:
             raise ValueError("Solicitud de autorizacion no encontrada")
         req = snapshot.to_dict()
@@ -588,9 +590,11 @@ def _decide_authorization_transactional(company_id, request_id, approver_id, app
     except ValueError as e:
         return {"success": False, "error": str(e)}
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         logger.error("Authorization transaction FAILED %s approver=%s: %s",
                      request_id, approver_id, e)
-        return {"success": False, "error": "Conflicto de concurrencia. Intenta de nuevo."}
+        return {"success": False, "error": "Conflicto de concurrencia. Intenta de nuevo. Detalles en consola."}
 
     if new_status in ("approved", "rejected"):
         _stamp_entity(company_id, req.get("entityType", ""), req.get("documentId", ""),

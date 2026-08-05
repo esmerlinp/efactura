@@ -52,17 +52,17 @@ EMPLOYEE_CSV_FIELDS = [
     ("workShift", "Turno de trabajo", False, ["turno", "workshift", "turno_trabajo"]),
     ("occupationCode", "Código ocupación (CNO-2019)", False, ["ocupacion", "ocupación", "occupation", "occupationcode", "cno"]),
     ("vacationGranted", "Concesión de vacaciones", False, ["vacaciones", "vacation", "vacationgranted"]),
-    ("*tssKey", "TSS Clave nómina", True, ["tss", "tsskey", "clave", "clave_nomina", "clave_tss"]),
+    ("tssKey", "TSS Clave nómina", False, ["tss", "tsskey", "clave", "clave_nomina", "clave_tss"]),
     ("*position", "Cargo", True, ["cargo", "position", "puesto", "posicion"]),
     ("department_catalog", "Departamento", False, ["departamento", "department", "depto"]),
     ("*area", "Área", True, ["area", "área", "area_trabajo"]),
     ("costCenter", "Centro de costo", False, ["costo", "costcenter", "centro_costo", "cc"]),
     ("branchId", "Sucursal", False, ["sucursal", "branch", "branchid", "branch_id"]),
     ("payrollGroupIds", "Grupos de nómina", False, ["nomina", "nómina", "payroll", "payrollgroup", "payrollgroupids", "grupo_nomina", "grupo"]),
-    ("*paymentMethod", "Método de pago", True, ["metodo", "metodo_pago", "paymentmethod", "método", "forma_pago"]),
-    ("*accountNumber", "Número de cuenta", True, ["cuenta", "account", "accountnumber", "numero_cuenta", "num_cuenta"]),
-    ("*bank", "Banco", True, ["banco", "bank", "entidad", "entidad_bancaria"]),
-    ("*accountType", "Tipo de cuenta", True, ["tipo_cuenta", "accounttype", "tipo"]),
+    ("paymentMethod", "Método de pago", False, ["metodo", "metodo_pago", "paymentmethod", "método", "forma_pago"]),
+    ("accountNumber", "Número de cuenta", False, ["cuenta", "account", "accountnumber", "numero_cuenta", "num_cuenta"]),
+    ("bank", "Banco", False, ["banco", "bank", "entidad", "entidad_bancaria"]),
+    ("accountType", "Tipo de cuenta", False, ["tipo_cuenta", "accounttype", "tipo"]),
 ]
 
 EMPLOYEE_REQUIRED_FIELDS = [f[0].lstrip("*") for f in EMPLOYEE_CSV_FIELDS if f[2]]
@@ -409,8 +409,8 @@ def employee_import_process():
                         errors.append({"row": row_num, "reason": "Falta jornada (workday)"})
                         skipped += 1
                         continue
-                    if not tss_key or not re.match(r'^\d{3}$', tss_key):
-                        errors.append({"row": row_num, "reason": "Falta o es inválida la clave TSS (tssKey). Debe ser 3 dígitos."})
+                    if tss_key and not re.match(r'^\d{3}$', tss_key):
+                        errors.append({"row": row_num, "reason": "La clave TSS (tssKey) debe ser 3 dígitos si se provee."})
                         skipped += 1
                         continue
                     if not position:
@@ -425,23 +425,6 @@ def employee_import_process():
                     hr.find_or_create_catalog_item(company_id, "positions", position, sandbox=sandbox)
                     if department_catalog:
                         hr.find_or_create_catalog_item(company_id, "departments", department_catalog, sandbox=sandbox)
-
-                    if not payment_method:
-                        errors.append({"row": row_num, "reason": "Falta método de pago (paymentMethod)"})
-                        skipped += 1
-                        continue
-                    if not account_number:
-                        errors.append({"row": row_num, "reason": "Falta número de cuenta (accountNumber)"})
-                        skipped += 1
-                        continue
-                    if not bank:
-                        errors.append({"row": row_num, "reason": "Falta banco (bank)"})
-                        skipped += 1
-                        continue
-                    if not account_type:
-                        errors.append({"row": row_num, "reason": "Falta tipo de cuenta (accountType)"})
-                        skipped += 1
-                        continue
 
                     if id_number in existing_cedulas:
                         errors.append({"row": row_num, "reason": f"La cédula {id_number} ya está registrada en el sistema."})

@@ -390,6 +390,38 @@ class PayrollService:
                     "field": "afpProvider",
                 })
 
+            if not emp.get("tssKey"):
+                errors.append({
+                    "employeeId": emp_id,
+                    "employeeName": emp_name,
+                    "issue": "Falta la clave de nómina TSS. Necesaria para generar archivos de pago y reportes.",
+                    "field": "tssKey",
+                })
+
+            pm = (emp.get("paymentMethod") or "").strip().lower()
+            if not pm:
+                errors.append({
+                    "employeeId": emp_id,
+                    "employeeName": emp_name,
+                    "issue": "No tiene un método de pago asignado.",
+                    "field": "paymentMethod",
+                })
+            elif pm == "transferencia" or pm == "ach":
+                if not emp.get("accountNumber"):
+                    errors.append({
+                        "employeeId": emp_id,
+                        "employeeName": emp_name,
+                        "issue": "Seleccionó transferencia pero no tiene número de cuenta.",
+                        "field": "accountNumber",
+                    })
+                if not emp.get("bank"):
+                    errors.append({
+                        "employeeId": emp_id,
+                        "employeeName": emp_name,
+                        "issue": "Seleccionó transferencia pero no tiene banco asignado.",
+                        "field": "bank",
+                    })
+
             base = float(emp.get("baseSalary") or emp.get("salary", 0) or 0)
             if base <= 0:
                 errors.append({

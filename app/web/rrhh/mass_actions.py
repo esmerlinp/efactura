@@ -195,7 +195,8 @@ def mass_action_execute():
         if submit_for_approval:
             action = submit_mass_action(company_id, existing_action_id, user_email, sandbox=sandbox,
                                         created_by_uid=session.get("user", {}).get("uid", ""),
-                                        created_by_name=session.get("user", {}).get("name", ""))
+                                        created_by_name=session.get("user", {}).get("name", ""),
+                                        owner_uid=owner_uid)
             return {"actionId": action["id"], "status": action["status"], "totalEmployees": action["totalEmployees"]}
 
         result = execute_action(owner_uid, existing_action_id, user_email, sandbox=sandbox, company_id=company_id)
