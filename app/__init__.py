@@ -202,7 +202,7 @@ def create_app():
                 if company:
                     company_profile = {
                         'ownerUID': company.get('owner_uid', owner_uid),
-                        'companyName': company.get('name', ''),
+                        'companyName': company.get('company_name') or company.get('name', ''),
                         'tradeName': company.get('trade_name', ''),
                         'companyRNC': company.get('rnc', ''),
                         'posEnabled': company.get('pos_enabled', True),

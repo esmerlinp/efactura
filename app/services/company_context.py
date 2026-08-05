@@ -156,7 +156,7 @@ def _load_company(company_id: str) -> Optional[CompanyContext]:
                 data = {
                     'id': company_id,
                     'owner_uid': legacy_data.get('ownerUID', company_id),
-                    'name': legacy_data.get('companyName', ''),
+                    'name': legacy_data.get('company_name') or legacy_data.get('companyName', ''),
                     'trade_name': legacy_data.get('tradeName', ''),
                     'rnc': legacy_data.get('companyRNC', ''),
                     'plan_id': legacy_data.get('planId', ''),
@@ -193,7 +193,7 @@ def _load_company(company_id: str) -> Optional[CompanyContext]:
     return CompanyContext(
             company_id=data.get('id', company_id),
             owner_uid=data.get('owner_uid', ''),
-            name=data.get('name', ''),
+            name=data.get('company_name') or data.get('name', ''),
             trade_name=data.get('trade_name', ''),
             rnc=data.get('rnc', ''),
             plan_id=data.get('plan_id', ''),
