@@ -63,6 +63,8 @@ EMPLOYEE_CSV_FIELDS = [
     ("accountNumber", "Número de cuenta", False, ["cuenta", "account", "accountnumber", "numero_cuenta", "num_cuenta"]),
     ("bank", "Banco", False, ["banco", "bank", "entidad", "entidad_bancaria"]),
     ("accountType", "Tipo de cuenta", False, ["tipo_cuenta", "accounttype", "tipo"]),
+    ("status", "Estado", False, ["estado", "status", "activo_inactivo", "situacion"]),
+    ("endDate", "Fecha fin de contrato", False, ["fin_contrato", "enddate", "fecha_fin", "terminacion", "baja"]),
 ]
 
 EMPLOYEE_REQUIRED_FIELDS = [f[0].lstrip("*") for f in EMPLOYEE_CSV_FIELDS if f[2]]
@@ -83,6 +85,7 @@ EMPLOYEE_EXAMPLE_ROW = [
     "2411", "1", "001", "Analista de Sistemas",
     "Tecnología", "Tecnología", "CC-TEC-01", "Sucursal Principal", "grupo-nomina-1,grupo-nomina-2", "transferencia",
     "00123456789", "Banco Popular Dominicano", "ahorro",
+    "activo", "",
 ]
 
 
@@ -297,11 +300,16 @@ def employee_import_process():
     from app.services.payroll_audit_service import log_action
 
     existing_candidates = hr.get_employees(company_id, sandbox=sandbox)
-    existing_cedulas = set()
+    active_cedulas = set()
+    inactive_cedulas = set()
     for e in existing_candidates:
         c = (e.get("cedula") or e.get("idNumber") or "").strip()
-        if c:
-            existing_cedulas.add(c)
+        if not c:
+            continue
+        if e.get("status") == "activo":
+            active_cedulas.add(c)
+        else:
+            inactive_cedulas.add(c)
 
     field_defaults = {}
     for key, value in request.form.items():
@@ -348,6 +356,8 @@ def employee_import_process():
                     account_number = _get_val(row_data, "accountNumber")
                     bank = _get_val(row_data, "bank")
                     account_type = _get_val(row_data, "accountType")
+                    status_csv = _get_val(row_data, "status", "").strip().lower()
+                    end_date_csv = _get_val(row_data, "endDate", "").strip()
 
                     if not first_name:
                         errors.append({"row": row_num, "reason": "Falta primer nombre (firstName)"})
@@ -422,12 +432,39 @@ def employee_import_process():
                         skipped += 1
                         continue
 
+                    if end_date_csv:
+                        if ' ' in end_date_csv:
+                            end_date_csv = end_date_csv.split(' ')[0]
+                        try:
+                            if re.match(r'^\d{2}/\d{2}/\d{4}$', end_date_csv):
+                                dt = datetime.strptime(end_date_csv, "%d/%m/%Y")
+                                end_date_csv = dt.strftime("%Y-%m-%d")
+                            elif re.match(r'^\d{4}-\d{2}-\d{2}$', end_date_csv):
+                                datetime.strptime(end_date_csv, "%Y-%m-%d")
+                            elif re.match(r'^\d{2}-\d{2}-\d{4}$', end_date_csv):
+                                dt = datetime.strptime(end_date_csv, "%d-%m-%Y")
+                                end_date_csv = dt.strftime("%Y-%m-%d")
+                            elif re.match(r'^\d{2}/\d{2}/\d{2}$', end_date_csv):
+                                dt = datetime.strptime(end_date_csv, "%d/%m/%y")
+                                end_date_csv = dt.strftime("%Y-%m-%d")
+                            else:
+                                raise ValueError
+                        except Exception:
+                            errors.append({"row": row_num, "reason": f"Fecha fin de contrato inválida: '{end_date_csv}'. Use DD/MM/AAAA o AAAA-MM-DD."})
+                            skipped += 1
+                            continue
+                        final_status = "inactivo"
+                    elif status_csv in ("activo", "inactivo", "suspendido"):
+                        final_status = status_csv
+                    else:
+                        final_status = "activo"
+
                     hr.find_or_create_catalog_item(company_id, "positions", position, sandbox=sandbox)
                     if department_catalog:
                         hr.find_or_create_catalog_item(company_id, "departments", department_catalog, sandbox=sandbox)
 
-                    if id_number in existing_cedulas:
-                        errors.append({"row": row_num, "reason": f"La cédula {id_number} ya está registrada en el sistema."})
+                    if id_number in active_cedulas:
+                        errors.append({"row": row_num, "reason": f"La cédula {id_number} ya está registrada como empleado activo."})
                         skipped += 1
                         continue
 
@@ -455,7 +492,7 @@ def employee_import_process():
                         "salary": salary,
                         "baseSalary": salary,
                         "salaryType": "fijo",
-                        "status": "activo",
+                        "status": final_status,
                         "email": email,
                         "phone": re.sub(r'\D', '', _get_val(row_data, "phone")),
                         "address": address,
@@ -476,6 +513,7 @@ def employee_import_process():
                         "gender": _get_val(row_data, "gender"),
                         "birthDate": _get_val(row_data, "birthDate"),
                         "probationEndDate": _get_val(row_data, "probationEndDate"),
+                        "terminationDate": end_date_csv if final_status == "inactivo" and end_date_csv else "",
                         "reportsTo": _get_val(row_data, "reportsTo"),
                         "maritalStatus": _get_val(row_data, "maritalStatus"),
                         "occupationCode": _get_val(row_data, "occupationCode"),
@@ -497,7 +535,7 @@ def employee_import_process():
                             "amount": salary,
                             "previousAmount": 0.0,
                             "effectiveDate": hire_date,
-                            "endDate": "",
+                            "endDate": end_date_csv if final_status == "inactivo" and end_date_csv else "",
                             "reason": "Salario inicial (importación masiva)",
                             "approvedBy": user_email,
                             "createdAt": date.today().isoformat(),
@@ -507,7 +545,10 @@ def employee_import_process():
                                changes={"name": data["fullName"], "salary": salary, "source": "csv_import"},
                                sandbox=sandbox)
 
-                    existing_cedulas.add(id_number)
+                    if final_status == "activo":
+                        active_cedulas.add(id_number)
+                    else:
+                        inactive_cedulas.add(id_number)
                     imported += 1
 
                 except Exception as e:
