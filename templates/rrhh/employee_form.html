@@ -144,6 +144,27 @@
                 <span style="font-size:0.75rem; color:var(--text-muted);">Requerido para reportes DGT (Ministerio de Trabajo)</span>
             </div>
             <div class="form-group">
+                <label>No. de hijos</label>
+                <input type="number" name="numberOfChildren" class="form-input" min="0" max="20"
+                       value="{{ employee.numberOfChildren if employee else '0' }}">
+                <span style="font-size:0.75rem; color:var(--text-muted);">Para reporte DGT-4</span>
+            </div>
+            <div class="form-group">
+                <label>Nacionalidad (código SIRLA)</label>
+                <select name="nationalityCode" class="form-select">
+                    <option value="">— (Dominicana)</option>
+                    <option value="USA" {% if employee and employee.nationalityCode == 'USA' %}selected{% endif %}>Estados Unidos</option>
+                    <option value="VEN" {% if employee and employee.nationalityCode == 'VEN' %}selected{% endif %}>Venezuela</option>
+                    <option value="COL" {% if employee and employee.nationalityCode == 'COL' %}selected{% endif %}>Colombia</option>
+                    <option value="CUB" {% if employee and employee.nationalityCode == 'CUB' %}selected{% endif %}>Cuba</option>
+                    <option value="HAI" {% if employee and employee.nationalityCode == 'HAI' %}selected{% endif %}>Haití</option>
+                    <option value="ESP" {% if employee and employee.nationalityCode == 'ESP' %}selected{% endif %}>España</option>
+                    <option value="MEX" {% if employee and employee.nationalityCode == 'MEX' %}selected{% endif %}>México</option>
+                    <option value="ARG" {% if employee and employee.nationalityCode == 'ARC' %}selected{% endif %}>Argentina</option>
+                    <option value="PER" {% if employee and employee.nationalityCode == 'PER' %}selected{% endif %}>Perú</option>
+                </select>
+            </div>
+            <div class="form-group">
                 <label>Contacto de emergencia</label>
                 <input type="text" name="emergencyContact" class="form-input"
                        value="{{ employee.emergencyContact if employee else '' }}">
@@ -295,6 +316,52 @@
                     <option value="2" {% if employee and employee.vacationGranted == 2 %}selected{% endif %}>Ya las tomó</option>
                 </select>
                 <span style="font-size:0.75rem; color:var(--text-muted);">Requerido para DGT-3 (Ministerio de Trabajo)</span>
+            </div>
+            <div class="form-group">
+                <label>Días trabajados</label>
+                <input type="number" name="daysWorked" class="form-input" min="0" max="31"
+                       value="{{ employee.daysWorked if employee else '0' }}">
+                <span style="font-size:0.75rem; color:var(--text-muted);">Para DGT-5 (personal temporero)</span>
+            </div>
+            <div class="form-group">
+                <label>Calidad (DGT-9)</label>
+                <select name="employeeType" class="form-select">
+                    <option value="empleado" {% if not employee or employee.employeeType == 'empleado' %}selected{% endif %}>Empleado</option>
+                    <option value="obrero" {% if employee and employee.employeeType == 'obrero' %}selected{% endif %}>Obrero</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Sueldo por día (RD$)</label>
+                <input type="number" step="0.01" name="dailySalary" class="form-input" min="0"
+                       placeholder="0.00"
+                       value="{{ employee.dailySalary if employee else '' }}">
+                <span style="font-size:0.75rem; color:var(--text-muted);">Para DGT-5. Sueldo mensual = días × sueldo/día</span>
+            </div>
+            <div class="form-group">
+                <label>No. SDSS (Seguridad Social)</label>
+                <input type="text" name="sdssNumber" class="form-input" maxlength="20"
+                       placeholder="Número de afiliación TSS"
+                       value="{{ employee.sdssNumber if employee else '' }}">
+                <span style="font-size:0.75rem; color:var(--text-muted);">Para reporte DGT-3</span>
+            </div>
+            <div class="form-group">
+                <label>Inicio de vacaciones</label>
+                <input type="date" name="vacationStartDate" class="form-input"
+                       value="{{ employee.vacationStartDate if employee else '' }}">
+                <span style="font-size:0.75rem; color:var(--text-muted);">Fecha inicio vacaciones para DGT-3/SIRLA</span>
+            </div>
+            <div class="form-group">
+                <label>Fin de vacaciones</label>
+                <input type="date" name="vacationEndDate" class="form-input"
+                       value="{{ employee.vacationEndDate if employee else '' }}">
+                <span style="font-size:0.75rem; color:var(--text-muted);">Fecha fin vacaciones para DGT-3/SIRLA</span>
+            </div>
+            <div class="form-group">
+                <label>Discapacidad (SIRLA)</label>
+                <input type="text" name="disability" class="form-input" maxlength="50"
+                       placeholder="Códigos separados por coma"
+                       value="{{ employee.disability if employee else '' }}">
+                <span style="font-size:0.75rem; color:var(--text-muted);">Código(s) de discapacidad según catálogo SIRLA</span>
             </div>
             <div class="form-group">
                 <label>TSS Clave nómina</label>

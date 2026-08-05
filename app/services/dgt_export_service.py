@@ -1,6 +1,6 @@
-"""DGTExportService — Exportación de formularios DGT en .txt (SIRLA), .xlsx y .pdf.
+"""DGTExportService — Exportación de formularios DGT en .txt (SIRLA fixed-width), .xlsx y .pdf.
 
-Formato principal: .txt tab-delimited, UTF-8 sin BOM, 22 columnas, sin cabecera.
+Formato principal: .txt fixed-width SIRLA con registros E (Encabezado), D (Detalle), S (Sumario).
 Formatos secundarios: .xlsx (revisión) y .pdf (visualización/impresión).
 """
 
@@ -14,39 +14,249 @@ def _format_date(d: str) -> str:
     return d
 
 
+def _ljust(value, length):
+    """Alinea a la izquierda y rellena con espacios a la derecha."""
+    s = str(value) if value is not None else ""
+    return s[:length].ljust(length)
+
+def _rjust_zero(value, length):
+    """Alinea a la derecha y rellena con ceros a la izquierda."""
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return "0".rjust(length, "0")
+    try:
+        s = str(int(value))
+    except (ValueError, TypeError):
+        s = "0"
+    return s[-length:].rjust(length, "0")
+
+
 class DGTExportService:
 
     @staticmethod
-    def to_txt(lines: list[dict]) -> str:
-        """Genera archivo .txt tab-delimited para SIRLA (22 columnas, sin cabecera)."""
-        output = io.StringIO()
-        writer = csv.writer(output, delimiter="\t", lineterminator="\n", quoting=csv.QUOTE_NONE)
+    def to_txt(lines: list[dict], company_info: dict = None, year: int = None) -> str:
+        """Genera archivo fixed-width para SIRLA con registros E (Header), D (Detalle), S (Sumario).
 
+        Especificación SIRLA DGT-3:
+          E: ET3<RNC_11><MMYYYY>                                                          → 20 chars
+          D: DNI<doc_type><doc_25><names_50><ap1_40><ap2_40><birth_8><sex_1><salary_16>
+             <hire_8><occup_6><cargo_150><vac_ini_8><vac_fin_8><turno_6><loc_6>
+             <pad_11><educ_5><disc_50>                                                    → 443 chars
+          S: S<total_6>                                                                    → 7 chars
+        """
+        ci = company_info or {}
+        rnc = (ci.get("companyRNC", "") or "").replace("-", "").replace(" ", "")[:11]
+        rnl = (ci.get("rnlNumber", "") or "").replace("-", "").replace(" ", "")
+        localidad = rnl[-4:].rjust(6, "0") if rnl else "000000"
+
+        periodo = f"{year:04d}"[-4:] if year else datetime.now().strftime("%Y")
+
+        output = io.StringIO()
+
+        # Registro E — Encabezado
+        header = f"ET3{rnc.rjust(11, '0')}{periodo}"
+        output.write(header.ljust(20) + "\n")
+
+        # Registros D — Detalle
+        num_registros = 2  # E + S (se suma un D por cada empleado)
         for emp in lines:
-            writer.writerow([
-                emp.get("tipoDocumento", 1),
-                emp.get("documento", ""),
-                emp.get("nombres", "")[:40],
-                emp.get("apellidos", "")[:40],
-                emp.get("nacionalidad", 1),
-                emp.get("sexo", ""),
-                _format_date(emp.get("fechaNacimiento", "")),
-                emp.get("estadoCivil", ""),
-                f"{float(emp.get('salario', 0)):.2f}",
-                emp.get("tipoMoneda", 1),
-                emp.get("frecuenciaPago", 1),
-                emp.get("ocupacionCodigo", ""),
-                emp.get("ocupacionTexto", ""),
-                _format_date(emp.get("fechaIngreso", "")),
-                emp.get("tipoContrato", 1),
-                str(emp.get("horasSemanales", 44)),
-                str(emp.get("turnoTrabajo", 1)),
-                str(emp.get("estadoTrabajador", 1)),
-                str(emp.get("tipoNovedad", 0)),
-                _format_date(emp.get("fechaNovedad", "")),
-                str(emp.get("gradoInstruccion", 0)),
-                str(emp.get("concesionVacaciones", 1)),
-            ])
+            doc_type = emp.get("docTypeSirla", "C")
+            doc_num = (emp.get("documento", "") or "")[:25]
+            nombres = emp.get("primerNombre", "")[:50]
+            ap1 = emp.get("primerApellido", "")[:40]
+            ap2 = emp.get("segundoApellido", "")[:40]
+            fnac = emp.get("fechaNacimientoSirla", "")[:8]
+            sexo = emp.get("sexo", "")[:1] or " "
+            salario = int(float(emp.get("salario", 0)))
+            fing = emp.get("fechaIngresoSirla", "")[:8]
+            oc_cod = (emp.get("ocupacionCodigo", "") or "").replace(" ", "")[:6]
+            cargo = (emp.get("cargo", "") or "")[:150]
+            vac_ini = emp.get("inicioVacaciones", "")[:8]
+            vac_fin = emp.get("finVacaciones", "")[:8]
+            turno = emp.get("turnoSirla", 1) or 1
+            educ = emp.get("gradoInstruccion", 0) or 0
+            disc = (emp.get("discapacidad", "") or "")[:50]
+
+            linea = (
+                f"D"
+                f"NI"
+                f"{doc_type}"
+                f"{_ljust(doc_num, 25)}"
+                f"{_ljust(nombres, 50)}"
+                f"{_ljust(ap1, 40)}"
+                f"{_ljust(ap2, 40)}"
+                f"{_ljust(fnac, 8)}"
+                f"{sexo}"
+                f"{_rjust_zero(salario, 16)}"
+                f"{_ljust(fing, 8)}"
+                f"{_rjust_zero(oc_cod, 6)}"
+                f"{_ljust(cargo, 150)}"
+                f"{_ljust(vac_ini, 8)}"
+                f"{_ljust(vac_fin, 8)}"
+                f"{_rjust_zero(turno, 6)}"
+                f"{localidad}"
+                f"{' ' * 11}"
+                f"{_rjust_zero(educ, 5)}"
+                f"{_ljust(disc, 50)}"
+            )
+            output.write(linea + "\n")
+            num_registros += 1
+
+        # Registro S — Sumario
+        output.write(f"S{num_registros:06d}\n")
+
+        return output.getvalue()
+
+    @staticmethod
+    def to_sirla_txt_dgt2(lines: list[dict], company_info: dict = None,
+                          establishment_id: str = "000000", year: int = None) -> str:
+        """Genera archivo fixed-width SIRLA DGT-2 (Cartel de Horas y Vacaciones).
+
+        Especificación:
+          E: ET2<RNC_11><MMYYYY>                                                           → 20 chars
+          D: DNC<doc_type><doc_25><estab_6><hourly_rate_8><31d×11chars><cause_15>         → 400 chars
+          S: S<total_6>                                                                     → 7 chars
+
+        Cada día (1-31): 5 chars horas + 6 chars porcentaje = 11 chars × 31 = 341 chars.
+        """
+        ci = company_info or {}
+        rnc = (ci.get("companyRNC", "") or "").replace("-", "").replace(" ", "")[:11]
+        periodo = f"{year:04d}"[-4:] if year else datetime.now().strftime("%Y")
+
+        output = io.StringIO()
+
+        # Registro E — Encabezado
+        output.write(f"ET2{rnc.rjust(11, '0')}{periodo}".ljust(20) + "\n")
+
+        num_registros = 2  # E + S
+        for emp in lines:
+            doc_type = emp.get("docTypeSirla", "C")
+            doc_num = (emp.get("documento", "") or "")[:25]
+            hourly_rate = float(emp.get("hourlyRate", 0) or 0)
+            cause = (emp.get("overtimeCause", "") or "")[:15]
+
+            # 31 días de horas extras (5h + 6%) → todo en ceros (Fase 1)
+            dias_he = ""
+            for _ in range(31):
+                dias_he += _rjust_zero(0, 5) + _rjust_zero(0, 6)  # "00000" + "000000"
+
+            linea = (
+                f"D"
+                f"NC"
+                f"{doc_type}"
+                f"{_ljust(doc_num, 25)}"
+                f"{establishment_id}"
+                f"{_rjust_zero(int(round(hourly_rate * 100)), 8)}"
+                f"{dias_he}"
+                f"{_ljust(cause, 15)}"
+            )
+            output.write(linea + "\n")
+            num_registros += 1
+
+        # Registro S — Sumario
+        output.write(f"S{num_registros:06d}\n")
+
+        return output.getvalue()
+
+    @staticmethod
+    def to_sirla_txt_dgt4(lines: list[dict], company_info: dict = None,
+                          year: int = None, month: int = None) -> str:
+        """Genera archivo fixed-width SIRLA DGT-4 (Cambios en Personal Fijo).
+
+        Especificación:
+          E: ET4<RNC_11><MMYYYY>
+          D: D<NI|NS|NC><doc_type><doc_25><nombres_50><ap1_40><ap2_40><fnac_8><sexo_1>
+             <salario_16><fing_8><fsal_8><ocup_cod_6><ocup_desc_150><vac_ini_8><vac_fin_8>
+             <turno_6><localidad_6><nacion_3><fcambio_8><educ_5><disc_50>   → 451 chars
+          S: S<total_6>
+        """
+        ci = company_info or {}
+        rnc = (ci.get("companyRNC", "") or "").replace("-", "").replace(" ", "")[:11]
+        rnl = (ci.get("rnlNumber", "") or "").replace("-", "").replace(" ", "")
+        localidad = rnl[-4:].rjust(6, "0") if rnl else "000000"
+        periodo = f"{year:04d}{month:02d}" if year and month else datetime.now().strftime("%Y%m")
+
+        output = io.StringIO()
+
+        output.write(f"ET4{rnc.rjust(11, '0')}{periodo}".ljust(20) + "\n")
+
+        num_registros = 2
+        for emp in lines:
+            linea = (
+                f"D"
+                f"{emp.get('novedadSirla', 'NI')}"
+                f"{emp.get('docTypeSirla', 'C')}"
+                f"{_ljust((emp.get('documento', '') or '')[:25], 25)}"
+                f"{_ljust(emp.get('primerNombre', '')[:50], 50)}"
+                f"{_ljust(emp.get('primerApellido', '')[:40], 40)}"
+                f"{_ljust(emp.get('segundoApellido', '')[:40], 40)}"
+                f"{_ljust(emp.get('fechaNacimientoSirla', '')[:8], 8)}"
+                f"{(emp.get('sexo', '') or ' ')[:1]}"
+                f"{_rjust_zero(int(float(emp.get('salario', 0))), 16)}"
+                f"{_ljust(emp.get('fechaIngresoSirla', '')[:8], 8)}"
+                f"{_ljust(emp.get('fechaSalidaSirla', '')[:8], 8)}"
+                f"{_rjust_zero((emp.get('ocupacionCodigo', '') or '').replace(' ', '')[:6], 6)}"
+                f"{_ljust((emp.get('cargo', '') or '')[:150], 150)}"
+                f"{_ljust(emp.get('inicioVacaciones', '')[:8], 8)}"
+                f"{_ljust(emp.get('finVacaciones', '')[:8], 8)}"
+                f"{_rjust_zero(emp.get('turnoSirla', 1) or 1, 6)}"
+                f"{localidad}"
+                f"{_ljust(emp.get('nacionalidadSirla', '')[:3], 3)}"
+                f"{_ljust(emp.get('fechaCambioSirla', '')[:8], 8)}"
+                f"{_rjust_zero(emp.get('gradoInstruccion', 0) or 0, 5)}"
+                f"{_ljust((emp.get('discapacidad', '') or '')[:50], 50)}"
+            )
+            output.write(linea + "\n")
+            num_registros += 1
+
+        output.write(f"S{num_registros:06d}\n")
+        return output.getvalue()
+
+    @staticmethod
+    def to_sirla_txt_dgt9(sirla_data: dict) -> str:
+        """Genera archivo fixed-width SIRLA DGT-9 (Suspensión de Contratos).
+
+        Un archivo por cada suspensión activa.
+          E: ET9<RNC_11><MMYYYY><fechaInicio_DDMMYYYY><duracion_2><causa_15>  → 45 chars
+          D: D<doc_type><doc_25><estab_6><prov_mun_4><dir_300><tel_10>        → 347 chars
+          S: S<total_lineas>
+        """
+        ci = sirla_data.get("company", {})
+        rnc = (ci.get("companyRNC", "") or "").replace("-", "").replace(" ", "")[:11]
+        output = io.StringIO()
+
+        for susp in sirla_data.get("suspensions", []):
+            inicio = susp.get("fechaInicio", "")
+            periodo = inicio[4:8] + inicio[2:4] if len(inicio) >= 8 else "00000000"  # MMYYYY from DDMMYYYY
+            duracion = susp.get("duracion", 0) or 0
+            causa = susp.get("causaCodigo", "0".rjust(15, "0"))
+            est_id = (susp.get("establishmentId", "") or "")[:6]
+
+            # Registro E — Encabezado
+            output.write(
+                f"E"
+                f"T9"
+                f"{rnc.rjust(11, '0')}"
+                f"{periodo}"
+                f"{inicio}"
+                f"{_rjust_zero(duracion, 2)}"
+                f"{causa}".ljust(45) + "\n"
+            )
+
+            num_registros = 2  # E + S
+            for w in susp.get("trabajadores", []):
+                linea = (
+                    f"D"
+                    f"{w.get('docTypeSirla', 'C')}"
+                    f"{_ljust((w.get('documento', '') or '')[:25], 25)}"
+                    f"{est_id}"
+                    f"{_ljust((w.get('provinciaMunicipio', '') or '')[:4], 4)}"
+                    f"{_ljust((w.get('direccion', '') or '')[:300], 300)}"
+                    f"{_ljust((w.get('telefono', '') or '')[:10], 10)}"
+                )
+                output.write(linea + "\n")
+                num_registros += 1
+
+            output.write(f"S{num_registros:06d}\n\n")
 
         return output.getvalue()
 
@@ -135,7 +345,7 @@ class DGTExportService:
 
     @staticmethod
     def to_pdf(lines: list[dict], form_type: str, title: str,
-               owner_info: dict = None) -> io.BytesIO:
+               owner_info: dict = None, data: dict = None) -> io.BytesIO:
         """Genera PDF usando WeasyPrint (debe existir el template)."""
         from flask import render_template
         import weasyprint
@@ -146,6 +356,7 @@ class DGTExportService:
             lines=lines,
             title=title,
             owner_info=owner_info or {},
+            data=data or {},
             now=datetime.now(),
         )
         pdf = weasyprint.HTML(string=html).write_pdf(**pdf_write_options())

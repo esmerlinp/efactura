@@ -2,9 +2,22 @@
 {% block title %}DGT-9 — Suspensión de Contratos — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
-<div class="page-header hr-page-header">
-    <h1 class="page-title"><i class="fa-solid fa-pause-circle"></i> DGT-9: Suspensión de Contratos</h1>
-    <p style="color:var(--text-secondary); margin:0;">Ministerio de Trabajo — Notificar suspensión de efectos de contratos de trabajo</p>
+<div class="page-header hr-page-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;">
+    <div>
+        <h1 class="page-title"><i class="fa-solid fa-pause-circle"></i> DGT-9: Suspensión de Contratos</h1>
+        <p style="color:var(--text-secondary); margin:0;">Ministerio de Trabajo — Notificar suspensión de efectos de contratos de trabajo</p>
+    </div>
+    <div style="display:flex; gap:8px;">
+        <a href="{{ url_for('web_invoices.dgt9_export', format='txt') }}" class="btn btn-primary">
+            <i class="fa-solid fa-download"></i> .txt (SIRLA)
+        </a>
+        <a href="{{ url_for('web_invoices.dgt9_export', format='xlsx') }}" class="btn btn-success">
+            <i class="fa-solid fa-file-excel"></i> .xlsx
+        </a>
+        <a href="{{ url_for('web_invoices.dgt9_export', format='pdf') }}" class="btn btn-danger">
+            <i class="fa-solid fa-file-pdf"></i> .pdf
+        </a>
+    </div>
 </div>
 
 <div class="hr-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
@@ -42,17 +55,43 @@
                 </div>
             </div>
 
-            <h4 style="margin-top:16px;">Trabajadores suspendidos</h4>
+            <h4 style="margin-top:16px;">
+                Trabajadores suspendidos
+                <span style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;">
+                    — selecciona de la lista o ingresa manual
+                </span>
+            </h4>
+
+            <!-- Selector de empleado -->
+            <div style="display:flex; gap:8px; margin-bottom:12px; align-items:end;">
+                <div class="form-group" style="flex:2; margin:0;">
+                    <label>Seleccionar empleado activo</label>
+                    <select id="employeeSelect" class="form-select" onchange="onSelectEmployee(this)">
+                        <option value="">— Seleccionar —</option>
+                        {% for e in active_employees if e.get('status') == 'activo' %}
+                        <option value="{{ e.id }}" data-doc="{{ (e.cedula or e.idNumber or '')|replace('-', '') }}"
+                                data-name="{{ e.fullName or '' }}" data-cargo="{{ e.position or '' }}">
+                            {{ e.fullName or ((e.firstName or '') + ' ' + (e.firstLastName or '')) }} — {{ (e.cedula or e.idNumber or '') }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="button" class="btn btn-primary btn-sm" onclick="addSelectedEmployee()" style="margin:0;">
+                    <i class="fa-solid fa-plus"></i> Agregar
+                </button>
+            </div>
+
             <div id="workers-container">
-                <div class="worker-row" style="display:flex; gap:8px; margin-bottom:8px;">
+                <div class="worker-row" style="display:flex; gap:8px; margin-bottom:8px; align-items:center;">
+                    <input type="hidden" name="employeeId[]" value="">
                     <input type="text" name="documento[]" class="form-input" placeholder="Cédula" style="flex:1;">
                     <input type="text" name="nombre[]" class="form-input" placeholder="Nombre completo" style="flex:2;">
                     <input type="text" name="cargo[]" class="form-input" placeholder="Cargo" style="flex:1;">
-                    <button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">✕</button>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="this.closest('.worker-row').remove()" style="flex-shrink:0;">✕</button>
                 </div>
             </div>
-            <button type="button" class="btn btn-ghost btn-sm" onclick="addWorker()">
-                <i class="fa-solid fa-plus"></i> Agregar trabajador
+            <button type="button" class="btn btn-ghost btn-sm" onclick="addEmptyWorker()">
+                <i class="fa-solid fa-plus"></i> Ingreso manual
             </button>
 
             <div style="margin-top:16px;">
@@ -89,18 +128,39 @@
 </div>
 
 <script>
-function addWorker() {
+function addEmptyWorker() {
     const container = document.getElementById('workers-container');
     const row = document.createElement('div');
     row.className = 'worker-row';
-    row.style.cssText = 'display:flex; gap:8px; margin-bottom:8px;';
+    row.style.cssText = 'display:flex; gap:8px; margin-bottom:8px; align-items:center;';
     row.innerHTML = `
+        <input type="hidden" name="employeeId[]" value="">
         <input type="text" name="documento[]" class="form-input" placeholder="Cédula" style="flex:1;">
         <input type="text" name="nombre[]" class="form-input" placeholder="Nombre completo" style="flex:2;">
         <input type="text" name="cargo[]" class="form-input" placeholder="Cargo" style="flex:1;">
-        <button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">✕</button>
+        <button type="button" class="btn btn-danger btn-sm" onclick="this.closest('.worker-row').remove()" style="flex-shrink:0;">✕</button>
     `;
     container.appendChild(row);
+}
+
+function addSelectedEmployee() {
+    const sel = document.getElementById('employeeSelect');
+    const opt = sel.options[sel.selectedIndex];
+    if (!opt || !opt.value) return;
+
+    const container = document.getElementById('workers-container');
+    const row = document.createElement('div');
+    row.className = 'worker-row';
+    row.style.cssText = 'display:flex; gap:8px; margin-bottom:8px; align-items:center;';
+    row.innerHTML = `
+        <input type="hidden" name="employeeId[]" value="${opt.value}">
+        <input type="text" name="documento[]" class="form-input" value="${opt.dataset.doc || ''}" style="flex:1;">
+        <input type="text" name="nombre[]" class="form-input" value="${opt.dataset.name || ''}" style="flex:2;">
+        <input type="text" name="cargo[]" class="form-input" value="${opt.dataset.cargo || ''}" style="flex:1;">
+        <button type="button" class="btn btn-danger btn-sm" onclick="this.closest('.worker-row').remove()" style="flex-shrink:0;">✕</button>
+    `;
+    container.appendChild(row);
+    sel.selectedIndex = 0;
 }
 </script>
 {% endblock %}

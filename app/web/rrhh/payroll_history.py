@@ -100,18 +100,23 @@ def payroll_tss_autodeterminacion(period_id):
         return redirect(url_for("web_rrhh.payroll_list"))
 
     formato = request.args.get("format", "txt").lower()
+    tipo_archivo = request.args.get("tipo", "AM").upper()
+    if tipo_archivo not in ("AM", "AR"):
+        tipo_archivo = "AM"
     employees = hr.get_employees(company_id, sandbox=sandbox)
 
     if formato == "xls":
         company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
         employer_rnc = (company.get("companyRNC", "") or "").replace("-", "").strip() if company else ""
         resultado = PayrollService.generate_tss_autodeterminacion_xls(period, employees, employer_rnc=employer_rnc,
+                                                                       tipo_archivo=tipo_archivo,
                                                                        company_id=company_id, sandbox=sandbox)
         mimetype = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     else:
         company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
         employer_rnc = (company.get("companyRNC", "") or "").replace("-", "").strip() if company else ""
         resultado = PayrollService.generate_tss_autodeterminacion(period, employees, employer_rnc=employer_rnc,
+                                                                   tipo_archivo=tipo_archivo,
                                                                    company_id=company_id, sandbox=sandbox)
         mimetype = "text/plain"
 
@@ -121,6 +126,64 @@ def payroll_tss_autodeterminacion(period_id):
         content = content.encode("utf-8")
     buffer = io.BytesIO(content)
     return send_file(buffer, mimetype=mimetype, as_attachment=True,
+                     download_name=resultado["filename"])
+
+
+@web_rrhh_bp.route("/rrhh/payroll/<period_id>/tss-novedades")
+def payroll_tss_novedades(period_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+    from app.services.payroll_service import PayrollService
+    from app.services.db_service import DatabaseService
+    from app.services.tss_novedades_service import (
+        generate_tss_novedades, generate_tss_novedades_csv,
+        build_novedades_for_period,
+    )
+    from app.services.tss_license_mapping import get_tss_license_mapping
+
+    period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
+    if not period:
+        flash("Período no encontrado.", "error")
+        return redirect(url_for("web_rrhh.payroll_list"))
+
+    formato = request.args.get("format", "txt").lower()
+    employees = hr.get_employees(company_id, sandbox=sandbox)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+    employer_rnc = (company.get("companyRNC", "") or "").replace("-", "").strip() if company else ""
+
+    # Cargar datos para detección de novedades
+    vacation_requests = hr.get_vacation_requests(company_id, sandbox=sandbox)
+    leave_requests = hr.get_leave_requests(company_id, sandbox=sandbox)
+    license_mapping = get_tss_license_mapping(company)
+
+    novedades = build_novedades_for_period(
+        period, employees,
+        vacation_requests=vacation_requests,
+        leave_requests=leave_requests,
+        license_mapping=license_mapping,
+    )
+
+    if formato == "csv":
+        csv_content = generate_tss_novedades_csv(novedades)
+        import io
+        buffer = io.BytesIO(csv_content.encode("utf-8-sig"))
+        return send_file(buffer, mimetype="text/csv", as_attachment=True,
+                         download_name=f"NV_{employer_rnc}_{period.get('periodKey', '')}.csv")
+
+    resultado = generate_tss_novedades(
+        period, employees, novedades,
+        employer_rnc=employer_rnc,
+        company_id=company_id, sandbox=sandbox,
+    )
+
+    import io
+    content = resultado["content"]
+    if isinstance(content, str):
+        content = content.encode("utf-8")
+    buffer = io.BytesIO(content)
+    return send_file(buffer, mimetype="text/plain", as_attachment=True,
                      download_name=resultado["filename"])
 
 

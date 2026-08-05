@@ -2,36 +2,73 @@
 {% block title %}DGT-5 — Personal Ocasional — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
-<div class="page-header hr-page-header">
-    <h1 class="page-title"><i class="fa-solid fa-user-clock"></i> DGT-5: Personal Móvil u Ocasional</h1>
-    <p style="color:var(--text-secondary); margin:0;">Ministerio de Trabajo — Trabajadores temporeros, móviles u ocasionales</p>
+<div class="page-header hr-page-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;">
+    <div>
+        <h1 class="page-title"><i class="fa-solid fa-user-clock"></i> DGT-5: Relación de Personal Temporero</h1>
+        <p style="color:var(--text-secondary); margin:0;">Ministerio de Trabajo — Trabajadores temporeros, móviles u ocasionales</p>
+    </div>
+    <div style="display:flex; gap:8px;">
+        <a href="{{ url_for('web_invoices.dgt5_export', format='xlsx') }}" class="btn btn-success">
+            <i class="fa-solid fa-file-excel"></i> .xlsx
+        </a>
+        <a href="{{ url_for('web_invoices.dgt5_export', format='pdf') }}" class="btn btn-danger">
+            <i class="fa-solid fa-file-pdf"></i> .pdf
+        </a>
+    </div>
 </div>
 
-<div class="hr-section-card">
-    {% if data %}
+{% set lines = data.get("lines", []) %}
+
+<div class="hr-section-card" style="margin-bottom:16px;">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:12px; margin-bottom:20px;">
+        <div class="kpi-box" style="text-align:center; padding:12px; background:rgba(16,185,129,0.08); border-radius:8px;">
+            <div style="font-size:1.6rem; font-weight:700; color:var(--accent-emerald);">{{ data.get("totalEmployees", 0) }}</div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">Total Temporeros</div>
+        </div>
+        <div class="kpi-box" style="text-align:center; padding:12px; background:rgba(59,130,246,0.08); border-radius:8px;">
+            <div style="font-size:1.6rem; font-weight:700; color:var(--accent-blue);">RD$ {{ "{:,.2f}".format(data.get("totalBaseSalary", 0)) }}</div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">Total Sueldo Base</div>
+        </div>
+        <div class="kpi-box" style="text-align:center; padding:12px; background:rgba(245,158,11,0.08); border-radius:8px;">
+            <div style="font-size:1.6rem; font-weight:700; color:var(--accent-orange);">RD$ {{ "{:,.2f}".format(data.get("totalMonthlySalary", 0)) }}</div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">Total Sueldo Mensual</div>
+        </div>
+    </div>
+
+    {% if lines %}
     <div style="overflow-x:auto;">
-        <table class="table-premium" style="font-size:0.85rem;">
+        <table class="table-premium" style="font-size:0.78rem;">
             <thead>
                 <tr>
                     <th>#</th>
                     <th>Documento</th>
-                    <th>Nombre</th>
+                    <th>Nombres</th>
+                    <th>Apellidos</th>
+                    <th>Sexo</th>
                     <th>Ocupación</th>
-                    <th>F. Inicio</th>
+                    <th>F. Entrada</th>
                     <th>F. Fin</th>
-                    <th>Salario</th>
+                    <th>Salario Base</th>
+                    <th>Días Trab.</th>
+                    <th>Sueldo/Día</th>
+                    <th>Sueldo Mensual</th>
                 </tr>
             </thead>
             <tbody>
-                {% for w in data %}
+                {% for emp in lines %}
                 <tr>
                     <td>{{ loop.index }}</td>
-                    <td><span class="mono">{{ w.documento }}</span></td>
-                    <td>{{ w.nombres }}</td>
-                    <td>{{ w.ocupacion }}</td>
-                    <td>{{ w.fechaInicio }}</td>
-                    <td>{{ w.fechaFin }}</td>
-                    <td style="text-align:right;">{{ "{:,.2f}".format(w.salario) }}</td>
+                    <td><span class="mono">{{ emp.documento }}</span></td>
+                    <td>{{ emp.primerNombre }}</td>
+                    <td>{{ emp.primerApellido }} {{ emp.segundoApellido }}</td>
+                    <td style="text-align:center;">{{ emp.sexo }}</td>
+                    <td>{{ emp.get("cargo", emp.get("ocupacionTexto", ""))[:25] }}</td>
+                    <td>{{ emp.fechaEntrada }}</td>
+                    <td>{{ emp.fechaFin }}</td>
+                    <td style="text-align:right;">{{ "{:,.2f}".format(emp.salario) }}</td>
+                    <td style="text-align:center;">{{ emp.daysWorked }}</td>
+                    <td style="text-align:right;">{{ "{:,.2f}".format(emp.dailySalary) }}</td>
+                    <td style="text-align:right;">{{ "{:,.2f}".format(emp.monthlySalary) }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

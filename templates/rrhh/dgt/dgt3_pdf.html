@@ -3,70 +3,323 @@
 <head>
     <meta charset="utf-8">
     <style>
-        @page { size: letter; margin: 1.5cm; }
-        body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 9pt; color: #1a1a1a; }
-        h1 { font-size: 14pt; text-align: center; margin-bottom: 4px; }
-        h2 { font-size: 10pt; text-align: center; color: #555; font-weight: normal; margin-top: 0; }
-        .header { text-align: center; margin-bottom: 20px; }
-        .header .title { font-size: 16pt; font-weight: bold; }
-        .header .subtitle { font-size: 10pt; color: #666; }
-        .info { margin-bottom: 16px; }
-        .info table { width: 100%; border-collapse: collapse; }
-        .info td { padding: 2px 6px; }
-        .info .label { font-weight: bold; width: 120px; }
-        table.data { width: 100%; border-collapse: collapse; font-size: 7.5pt; }
-        table.data th { background: #2D3748; color: #fff; padding: 4px 3px; text-align: left; font-weight: 600; }
-        table.data td { padding: 3px; border-bottom: 1px solid #e2e8f0; }
-        table.data tr:nth-child(even) { background: #f7fafc; }
-        .footer { margin-top: 30px; text-align: center; font-size: 8pt; color: #999; }
-        .mono { font-family: 'Courier New', monospace; font-size: 7.5pt; }
+        @page {
+            size: letter landscape;
+            margin: 0.8cm 1cm;
+        }
+        body {
+            font-family: 'Times New Roman', serif;
+            font-size: 7pt;
+            color: #000;
+            margin: 0;
+            padding: 0;
+        }
+        /* ── Form table principal ── */
+        table.form {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table.form td, table.form th {
+            border: 1px solid #000;
+            padding: 2px 4px;
+            vertical-align: middle;
+            font-size: 6.5pt;
+        }
+        table.form td.lbl {
+            font-weight: bold;
+            font-size: 6pt;
+            white-space: nowrap;
+        }
+        table.form td.data {
+            font-size: 7pt;
+        }
+        table.form td.data-short {
+            font-size: 7pt;
+            text-align: center;
+        }
+        .title-cell {
+            text-align: center;
+            font-weight: bold;
+        }
+        .section-title {
+            text-align: center;
+            font-weight: bold;
+            font-size: 7pt;
+            background: #f0f0f0;
+        }
+
+        /* ── Employee table ── */
+        table.emp {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 6pt;
+        }
+        table.emp th, table.emp td {
+            border: 1px solid #000;
+            padding: 1px 2px;
+            vertical-align: middle;
+        }
+        table.emp th {
+            font-weight: bold;
+            font-size: 5.5pt;
+            text-align: center;
+            background: #f8f8f8;
+        }
+        table.emp td {
+            font-size: 5.5pt;
+        }
+        table.emp td.num {
+            text-align: center;
+        }
+        table.emp td.money {
+            text-align: right;
+        }
+        table.emp td.center {
+            text-align: center;
+        }
+
+        /* ── Signature section ── */
+        .sign-box {
+            height: 40px;
+            vertical-align: top;
+            text-align: center;
+            font-size: 6pt;
+        }
+
+        /* ── Checkboxes ── */
+        .chk {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border: 1px solid #000;
+            margin: 0 2px;
+            vertical-align: middle;
+        }
+        .chk.marked::after {
+            content: "X";
+            font-size: 7pt;
+            font-weight: bold;
+            position: relative;
+            top: -2px;
+            left: 1px;
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="title">DGT-3: Planilla de Personal Fijo</div>
-        <div class="subtitle">Ministerio de Trabajo — República Dominicana</div>
-    </div>
-    <div class="info">
-        <table>
-            <tr><td class="label">RNC:</td><td>{{ owner_info.get('companyRNC', '') }}</td><td class="label">Año:</td><td>{{ title.split()[-1] }}</td></tr>
-            <tr><td class="label">Empresa:</td><td>{{ owner_info.get('companyName', '') }}</td><td class="label">Empleados:</td><td>{{ lines|length }}</td></tr>
-        </table>
-    </div>
-    <table class="data">
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>Tipo Doc</th>
-                <th>Documento</th>
-                <th>Nombres</th>
-                <th>Apellidos</th>
-                <th>Sexo</th>
-                <th>F. Nac.</th>
-                <th>Salario</th>
-                <th>Ocupación</th>
-                <th>F. Ingreso</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for emp in lines %}
-            <tr>
-                <td>{{ loop.index }}</td>
-                <td>{{ emp.tipoDocumento }}</td>
-                <td class="mono">{{ emp.documento }}</td>
-                <td>{{ emp.nombres }}</td>
-                <td>{{ emp.apellidos }}</td>
-                <td>{{ emp.sexo }}</td>
-                <td>{{ emp.fechaNacimiento }}</td>
-                <td style="text-align:right;">{{ "{:,.2f}".format(emp.salario) }}</td>
-                <td>{{ emp.ocupacionTexto[:30] }}</td>
-                <td>{{ emp.fechaIngreso }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    <div class="footer">
-        Generado el {{ now.strftime('%d/%m/%Y %H:%M') }} — Documento para uso informativo, no oficial
-    </div>
+
+{% set c = data.get("company", {}) %}
+{% set rnl = c.get("rnlNumber", "") %}
+
+<table class="form">
+    <!-- ═══════════ HEADER ═══════════ -->
+    <tr>
+        <td style="width:20%; text-align:left; font-size:5.5pt; border-bottom:none;">
+            DGT-3 Anexo/2021
+        </td>
+        <td style="width:60%; text-align:center; font-weight:bold; font-size:8pt; border-bottom:none;" colspan="4">
+            MINISTERIO DE TRABAJO<br>
+            <span style="font-size:9pt;">PLANILLA DE PERSONAL FIJO -ANEXO-</span>
+        </td>
+        <td style="width:20%; text-align:right; border-bottom:none;">
+            <div style="font-size:5pt;">Registro Nacional Laboral -RNL-</div>
+            <div style="border:1px solid #000; padding:4px; margin-top:2px; font-size:7pt; font-weight:bold; text-align:center; min-width:80px;">
+                {{ rnl or "_________________" }}
+            </div>
+        </td>
+    </tr>
+
+    <!-- ═══════════ DATOS DEL REPORTE / USO SET ═══════════ -->
+    <tr>
+        <td colspan="3" style="border-right:none;">
+            <table style="width:100%; border:none;">
+                <tr>
+                    <td class="lbl" style="border:none; width:30%;">Año Reportado:</td>
+                    <td class="data" style="border:none;">{{ data.get("year", "") }}</td>
+                </tr>
+                <tr>
+                    <td class="lbl" style="border:none;">R.N.C. No.:</td>
+                    <td class="data" style="border:none;">{{ c.get("companyRNC", "") }}</td>
+                </tr>
+                <tr>
+                    <td class="lbl" style="border:none;">Póliza de Accidente No.:</td>
+                    <td class="data" style="border:none;">{{ c.get("insurancePolicy", "") }}</td>
+                </tr>
+            </table>
+        </td>
+        <td colspan="3" style="border-left:none;">
+            <div class="section-title">SOLO PARA USO DE LA SET</div>
+            <table style="width:100%; border:none; margin-top:4px;">
+                <tr>
+                    <td class="lbl" style="border:none; width:40%;">Registro de Planilla No.:</td>
+                    <td class="data" style="border:none;"></td>
+                </tr>
+                <tr>
+                    <td class="lbl" style="border:none;">Rama de Actividad No.:</td>
+                    <td class="data" style="border:none;"></td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+
+    <!-- ═══════════ INFORMACIÓN EMPRESA ═══════════ -->
+    <tr>
+        <td colspan="2" style="width:33%;">
+            <span class="lbl">Nombre de la Empresa o Razón Social:</span>
+            <div class="data">{{ c.get("companyName", "") }}</div>
+        </td>
+        <td colspan="2" style="width:33%;">
+            <span class="lbl">Nombre Empleador:</span>
+            <div class="data">{{ c.get("employerName", "") }}</div>
+        </td>
+        <td colspan="2" style="width:33%;">
+            <span class="lbl">Cédula:</span>
+            <div class="data">{{ c.get("employerCedula", "") }}</div>
+        </td>
+    </tr>
+    <tr>
+        <td colspan="2">
+            <span class="lbl">Nombre del Establecimiento:</span>
+            <div class="data">{{ c.get("tradeName", "") }}</div>
+        </td>
+        <td colspan="2">
+            <span class="lbl">Nombre Representante:</span>
+            <div class="data">{{ c.get("representativeName", "") }}</div>
+        </td>
+        <td colspan="2">
+            <span class="lbl">Cédula:</span>
+            <div class="data">{{ c.get("representativeCedula", "") }}</div>
+        </td>
+    </tr>
+
+    <!-- ═══════════ UBICACIÓN Y CONTACTO ═══════════ -->
+    <tr>
+        <td style="width:16%;"><span class="lbl">Dirección (Ave./C y #):</span><br><span class="data">{{ c.get("companyAddress", "") }}</span></td>
+        <td style="width:16%;"><span class="lbl">Sector:</span><br><span class="data">{{ c.get("sector", "") }}</span></td>
+        <td style="width:16%;"><span class="lbl">Plaza:</span><br><span class="data">{{ c.get("plaza", "") }}</span></td>
+        <td style="width:16%;"><span class="lbl">Municipio:</span><br><span class="data">{{ c.get("municipality", "") }}</span></td>
+        <td style="width:16%;"><span class="lbl">Provincia:</span><br><span class="data">{{ c.get("province", "") }}</span></td>
+        <td style="width:20%;">
+            <span class="lbl">Zona Franca:</span>
+            Sí <span class="chk {{ 'marked' if c.get('zonaFranca') else '' }}"></span>
+            No <span class="chk {{ 'marked' if not c.get('zonaFranca') else '' }}"></span>
+        </td>
+    </tr>
+    <tr>
+        <td style="width:16%;"><span class="lbl">Teléfono:</span><br><span class="data">{{ c.get("companyPhone", "") }}</span></td>
+        <td style="width:16%;"><span class="lbl">Fax:</span><br><span class="data">{{ c.get("fax", "") }}</span></td>
+        <td style="width:16%;"><span class="lbl">E-mail:</span><br><span class="data">{{ c.get("companyEmail", "") }}</span></td>
+        <td style="width:16%;"><span class="lbl">Parque:</span><br><span class="data">{{ c.get("parque", "") }}</span></td>
+        <td style="width:16%;"><span class="lbl">Sucursal:</span>
+            Sí <span class="chk marked"></span>
+            No <span class="chk"></span>
+        </td>
+        <td style="width:20%;">&nbsp;</td>
+    </tr>
+
+    <!-- ═══════════ ACTIVIDAD ECONÓMICA ═══════════ -->
+    <tr>
+        <td colspan="4">
+            <span class="lbl">A qué se dedica el establecimiento:</span>
+            <span class="data">{{ c.get("economicActivity", "") }}</span>
+        </td>
+        <td colspan="2">
+            <span class="lbl">Valor de las instalaciones y/o existencias (RD$):</span>
+            <span class="data">{{ "%.2f"|format(c.get("propertyValue", 0) or 0) if c.get("propertyValue") else "" }}</span>
+        </td>
+    </tr>
+
+    <!-- ═══════════ RESUMEN ═══════════ -->
+    <tr>
+        <td colspan="6" class="section-title" style="padding:3px;">
+            RESUMEN DEL PERSONAL FIJO &nbsp;|&nbsp;
+            Total: <strong>{{ data.get("totalEmployees", 0) }}</strong> &nbsp;|&nbsp;
+            Dominicanos: <strong>{{ data.get("dominicanos", 0) }}</strong> &nbsp;|&nbsp;
+            Extranjeros: <strong>{{ data.get("extranjeros", 0) }}</strong> &nbsp;|&nbsp;
+            Hombres: <strong>{{ data.get("hombres", 0) }}</strong> &nbsp;|&nbsp;
+            Mujeres: <strong>{{ data.get("mujeres", 0) }}</strong> &nbsp;|&nbsp;
+            Masa Salarial Mensual: <strong>RD$ {{ "{:,.2f}".format(data.get("totalSalary", 0)) }}</strong>
+        </td>
+    </tr>
+
+</table>
+
+<!-- ═══════════ TABLA DE EMPLEADOS ═══════════ -->
+<table class="emp" style="margin-top:0;">
+    <thead>
+        <tr>
+            <th style="width:2%;">#</th>
+            <th style="width:14%;">Nombres y Apellidos del Trabajador</th>
+            <th style="width:9%;">Cédula de ID y Electoral</th>
+            <th style="width:6%;">No. SDSS</th>
+            <th style="width:7%;">Fecha de Nacimiento</th>
+            <th style="width:1.5%;">H</th>
+            <th style="width:1.5%;">M</th>
+            <th style="width:5%;">Nacionalidad</th>
+            <th style="width:7%;">Fecha de Entrada</th>
+            <th style="width:12%;">Ocupación</th>
+            <th style="width:8%;">Salario Mensual (RD$)</th>
+            <th style="width:4%;">Turno Horario</th>
+            <th style="width:5%;">Inicio</th>
+            <th style="width:5%;">Fin</th>
+            <th style="width:4%;">Est. Civil</th>
+            <th style="width:4%;">Instruc.</th>
+            <th style="width:5%;">Discap.</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for emp in lines %}
+        <tr>
+            <td class="num">{{ loop.index }}</td>
+            <td>{{ emp.primerNombre }} {{ emp.primerApellido }} {{ emp.segundoApellido }}</td>
+            <td class="center">{{ emp.documento }}</td>
+            <td class="center">{{ emp.sdssNumber }}</td>
+            <td class="center">{{ emp.fechaNacimiento }}</td>
+            <td class="center">{{ 'X' if emp.sexo == 'M' else '' }}</td>
+            <td class="center">{{ 'X' if emp.sexo == 'F' else '' }}</td>
+            <td class="center">{{ 'DOMINICAN' if emp.nacionalidad == 1 else 'EXTRANJERO' }}</td>
+            <td class="center">{{ emp.fechaIngreso }}</td>
+            <td style="font-size:5pt;">{{ emp.cargo }}</td>
+            <td class="money">{{ "{:,.2f}".format(emp.salario) }}</td>
+            <td class="center">{{ emp.turnoTrabajo }}</td>
+            <td class="center">{{ emp.inicioVacaciones[:2] + '/' + emp.inicioVacaciones[2:4] if emp.inicioVacaciones|length >= 4 else emp.inicioVacaciones }}</td>
+            <td class="center">{{ emp.finVacaciones[:2] + '/' + emp.finVacaciones[2:4] if emp.finVacaciones|length >= 4 else emp.finVacaciones }}</td>
+            <td class="center">{{ emp.estadoCivil }}</td>
+            <td class="center">{{ emp.gradoInstruccion }}</td>
+            <td class="center">{{ emp.discapacidad[:20] if emp.discapacidad else '' }}</td>
+        </tr>
+        {% endfor %}
+
+        {% for _ in range(lines|length, 13) %}
+        <tr>
+            <td class="num">{{ loop.index + lines|length }}</td>
+            <td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
+            <td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
+            <td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
+            <td>&nbsp;</td><td>&nbsp;</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- ═══════════ FIRMAS ═══════════ -->
+<table class="form" style="margin-top:8px;">
+    <tr>
+        <td style="width:50%; height:50px; vertical-align:bottom; text-align:center; font-size:6pt;">
+            ________________________________________<br>
+            <strong>Firma del Empleador o Representante</strong><br>
+            {{ c.get("representativeName", "") or c.get("employerName", "") }}
+        </td>
+        <td style="width:50%; height:50px; vertical-align:bottom; text-align:center; font-size:6pt;">
+            ________________________________________<br>
+            <strong>Sello de la Empresa</strong>
+        </td>
+    </tr>
+    <tr>
+        <td colspan="2" style="text-align:center; font-size:5.5pt; padding:4px; color:#555;">
+            Generado el {{ now.strftime('%d/%m/%Y %H:%M') }} &mdash; DGT-3 Planilla de Personal Fijo &mdash; Ministerio de Trabajo, República Dominicana
+        </td>
+    </tr>
+</table>
+
 </body>
 </html>

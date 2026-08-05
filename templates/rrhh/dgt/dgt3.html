@@ -5,7 +5,7 @@
 <div class="page-header hr-page-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;">
     <div>
         <h1 class="page-title"><i class="fa-solid fa-file-lines"></i> DGT-3: Planilla de Personal Fijo</h1>
-        <p style="color:var(--text-secondary); margin:0;">Ministerio de Trabajo — Reporte anual</p>
+        <p style="color:var(--text-secondary); margin:0;">Ministerio de Trabajo — Anexo/2021</p>
     </div>
     <div style="display:flex; gap:8px;">
         <a href="{{ url_for('web_invoices.dgt3_export', year=year, format='txt') }}" class="btn btn-primary">
@@ -33,24 +33,61 @@
     </form>
 </div>
 
+{% set c = data.get("company", {}) %}
+{% if c.get("companyName") %}
+<div class="hr-section-card" style="margin-bottom:16px;">
+    <h4 style="margin:0 0 12px 0; font-size:0.9rem;"><i class="fa-solid fa-building"></i> Datos de la Empresa</h4>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(250px,1fr)); gap:8px; font-size:0.82rem;">
+        <div><strong>Razón Social:</strong> {{ c.get("companyName", "") }}</div>
+        <div><strong>RNC:</strong> {{ c.get("companyRNC", "") }}</div>
+        <div><strong>Nombre Comercial:</strong> {{ c.get("tradeName", "") }}</div>
+        <div><strong>RNL:</strong> {{ c.get("rnlNumber", "") }}</div>
+        <div><strong>Actividad Económica:</strong> {{ c.get("economicActivity", "") }}</div>
+        <div><strong>Dirección:</strong> {{ c.get("companyAddress", "") }}</div>
+        <div><strong>Municipio:</strong> {{ c.get("municipality", "") }}</div>
+        <div><strong>Provincia:</strong> {{ c.get("province", "") }}</div>
+        <div><strong>Teléfono:</strong> {{ c.get("companyPhone", "") }}</div>
+        <div><strong>Email:</strong> {{ c.get("companyEmail", "") }}</div>
+        <div><strong>Empleador:</strong> {{ c.get("employerName", "") }}</div>
+        <div><strong>Cédula Empleador:</strong> {{ c.get("employerCedula", "") }}</div>
+        <div><strong>Representante:</strong> {{ c.get("representativeName", "") }}</div>
+        <div><strong>Cédula Rep.:</strong> {{ c.get("representativeCedula", "") }}</div>
+        <div><strong>Póliza:</strong> {{ c.get("insurancePolicy", "") }}</div>
+        <div><strong>Zona Franca:</strong> {{ 'Sí' if c.get('zonaFranca') else 'No' }}</div>
+    </div>
+</div>
+{% endif %}
+
 <div class="hr-section-card">
-    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:16px; margin-bottom:20px;">
-        <div class="kpi-box" style="text-align:center; padding:16px; background:rgba(16,185,129,0.08); border-radius:8px;">
-            <div style="font-size:1.8rem; font-weight:700; color:var(--accent-emerald);">{{ data.totalEmployees }}</div>
-            <div style="font-size:0.8rem; color:var(--text-muted);">Total Empleados Fijos</div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(120px,1fr)); gap:12px; margin-bottom:20px;">
+        <div class="kpi-box" style="text-align:center; padding:12px; background:rgba(16,185,129,0.08); border-radius:8px;">
+            <div style="font-size:1.6rem; font-weight:700; color:var(--accent-emerald);">{{ data.totalEmployees }}</div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">Total Empleados</div>
         </div>
-        <div class="kpi-box" style="text-align:center; padding:16px; background:rgba(59,130,246,0.08); border-radius:8px;">
-            <div style="font-size:1.8rem; font-weight:700; color:var(--accent-blue);">RD$ {{ "{:,.2f}".format(data.totalSalary) }}</div>
-            <div style="font-size:0.8rem; color:var(--text-muted);">Masa Salarial Mensual</div>
+        <div class="kpi-box" style="text-align:center; padding:12px; background:rgba(59,130,246,0.08); border-radius:8px;">
+            <div style="font-size:1.6rem; font-weight:700; color:var(--accent-blue);">{{ data.dominicanos }}</div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">Dominicanos</div>
         </div>
-        <div class="kpi-box" style="text-align:center; padding:16px; background:rgba(245,158,11,0.08); border-radius:8px;">
-            <div style="font-size:1.8rem; font-weight:700; color:var(--accent-orange);">RD$ {{ "{:,.0f}".format(data.totalSalary / data.totalEmployees) if data.totalEmployees else '0' }}</div>
-            <div style="font-size:0.8rem; color:var(--text-muted);">Salario Promedio</div>
+        <div class="kpi-box" style="text-align:center; padding:12px; background:rgba(59,130,246,0.08); border-radius:8px;">
+            <div style="font-size:1.6rem; font-weight:700; color:var(--accent-blue);">{{ data.extranjeros }}</div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">Extranjeros</div>
+        </div>
+        <div class="kpi-box" style="text-align:center; padding:12px; background:rgba(139,92,246,0.08); border-radius:8px;">
+            <div style="font-size:1.6rem; font-weight:700; color:var(--accent-purple);">{{ data.hombres }}</div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">Hombres</div>
+        </div>
+        <div class="kpi-box" style="text-align:center; padding:12px; background:rgba(236,72,153,0.08); border-radius:8px;">
+            <div style="font-size:1.6rem; font-weight:700; color:var(--accent-pink);">{{ data.mujeres }}</div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">Mujeres</div>
+        </div>
+        <div class="kpi-box" style="text-align:center; padding:12px; background:rgba(245,158,11,0.08); border-radius:8px;">
+            <div style="font-size:1.6rem; font-weight:700; color:var(--accent-orange);">RD$ {{ "{:,.2f}".format(data.totalSalary) }}</div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">Masa Salarial</div>
         </div>
     </div>
 
     <div style="overflow-x:auto;">
-        <table class="table-premium" style="font-size:0.8rem;">
+        <table class="table-premium" style="font-size:0.78rem;">
             <thead>
                 <tr>
                     <th>#</th>
@@ -61,11 +98,10 @@
                     <th>Salario</th>
                     <th>Ocupación</th>
                     <th>F. Ingreso</th>
-                    <th>Contrato</th>
-                    <th>Horas</th>
-                    <th>Turno</th>
+                    <th>Vac. Inicio</th>
+                    <th>Vac. Fin</th>
+                    <th>SDSS</th>
                     <th>Instruc.</th>
-                    <th>Vac.</th>
                 </tr>
             </thead>
             <tbody>
@@ -75,18 +111,17 @@
                     <td><span class="mono">{{ emp.documento }}</span></td>
                     <td>{{ emp.nombres }}</td>
                     <td>{{ emp.apellidos }}</td>
-                    <td>{{ emp.sexo }}</td>
+                    <td style="text-align:center;">{{ emp.sexo }}</td>
                     <td style="text-align:right;">{{ "{:,.2f}".format(emp.salario) }}</td>
                     <td>{{ emp.ocupacionTexto[:30] }}</td>
                     <td>{{ emp.fechaIngreso }}</td>
-                    <td>{{ emp.tipoContrato }}</td>
-                    <td style="text-align:center;">{{ emp.horasSemanales }}</td>
-                    <td style="text-align:center;">{{ emp.turnoTrabajo }}</td>
+                    <td style="text-align:center;">{{ emp.inicioVacaciones[:2] + '/' + emp.inicioVacaciones[2:4] if emp.inicioVacaciones|length >= 4 else '—' }}</td>
+                    <td style="text-align:center;">{{ emp.finVacaciones[:2] + '/' + emp.finVacaciones[2:4] if emp.finVacaciones|length >= 4 else '—' }}</td>
+                    <td style="text-align:center;">{{ emp.sdssNumber or '—' }}</td>
                     <td style="text-align:center;">{{ emp.gradoInstruccion }}</td>
-                    <td style="text-align:center;">{{ emp.concesionVacaciones }}</td>
                 </tr>
                 {% else %}
-                <tr><td colspan="13" style="text-align:center; color:var(--text-muted); padding:32px;">No hay empleados fijos registrados para {{ year }}.</td></tr>
+                <tr><td colspan="12" style="text-align:center; color:var(--text-muted); padding:32px;">No hay empleados fijos registrados para {{ year }}.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

@@ -7887,6 +7887,20 @@ def company_settings():
             "posToleranceUSD": float(request.form.get('posToleranceUSD') or 0.0),
             "certificateSignerName": request.form.get('certificateSignerName', existing_profile.get('certificateSignerName', '')).strip(),
             "certificateSignerPosition": request.form.get('certificateSignerPosition', existing_profile.get('certificateSignerPosition', '')).strip(),
+            # DGT / SIRLA / Ministerio de Trabajo
+            "rnlNumber": request.form.get('rnlNumber', existing_profile.get('rnlNumber', '')).strip(),
+            "economicActivity": request.form.get('economicActivity', existing_profile.get('economicActivity', '')).strip(),
+            "propertyValue": float(request.form.get('propertyValue') or existing_profile.get('propertyValue', 0) or 0),
+            "insurancePolicy": request.form.get('insurancePolicy', existing_profile.get('insurancePolicy', '')).strip(),
+            "employerName": request.form.get('employerName', existing_profile.get('employerName', '')).strip(),
+            "employerCedula": request.form.get('employerCedula', existing_profile.get('employerCedula', '')).strip(),
+            "representativeName": request.form.get('representativeName', existing_profile.get('representativeName', '')).strip(),
+            "representativeCedula": request.form.get('representativeCedula', existing_profile.get('representativeCedula', '')).strip(),
+            "sector": request.form.get('sector', existing_profile.get('sector', '')).strip(),
+            "plaza": request.form.get('plaza', existing_profile.get('plaza', '')).strip(),
+            "fax": request.form.get('fax', existing_profile.get('fax', '')).strip(),
+            "zonaFranca": request.form.get('zonaFranca') == 'true',
+            "parque": request.form.get('parque', existing_profile.get('parque', '')).strip(),
             "configured": True
         })
         saved = DatabaseService.save_company_profile(owner_uid, profile_dict, company_id=company_id)
@@ -9161,9 +9175,6 @@ def get_report_categories():
                 {"title": "DGT-9: Suspensión", "url": "web_invoices.dgt9_view",
                  "enabled": module_enabled('nomina'),
                  "desc": "Registro de suspensión de contratos."},
-                {"title": "DGT-12: Cese de Suspensión", "url": "web_invoices.dgt12_view",
-                 "enabled": module_enabled('nomina'),
-                 "desc": "Cese de suspensión de contratos."},
             ]
         },
         {

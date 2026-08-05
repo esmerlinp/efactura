@@ -63,12 +63,21 @@ class Employee(BaseModel):
 
     # Datos DGT/SIRLA
     nationality: int = 1  # Código de país (1 = Dominicana)
+    nationalityCode: str = ""  # Código país 3 letras para SIRLA (ej: DOM, USA, VEN)
     maritalStatus: str = ""  # Estado civil: S/Soltero, C/Casado, U/Unión Libre, D/Divorciado, V/Viudo
+    numberOfChildren: int = 0  # Número de hijos para DGT-4
     occupationCode: str = ""  # Código CNO-2019 (4 dígitos, catálogo oficial MT)
     weeklyHours: int = 44  # Horas semanales contratadas (max 44)
     workShift: int = 1  # Turno: 1=Diurno, 2=Nocturno, 3=Mixto
     educationLevel: int = 0  # Grado instrucción: 1=Primaria, 2=Secundaria, 3=Técnico, 4=Grado, 5=Postgrado, 6=Ninguno
     vacationGranted: int = 1  # Concesión vacaciones: 1=Tomará en el año, 2=Ya las tomó
+    sdssNumber: str = ""  # Número de Seguridad Social (SDSS) para DGT-3
+    vacationStartDate: str = ""  # Fecha inicio de vacaciones (YYYY-MM-DD) para DGT-3/SIRLA
+    vacationEndDate: str = ""  # Fecha fin de vacaciones (YYYY-MM-DD) para DGT-3/SIRLA
+    disability: str = ""  # Códigos de discapacidad SIRLA separados por coma
+    daysWorked: int = 0  # Días trabajados para DGT-5 (temporeros)
+    dailySalary: float = 0.0  # Sueldo por día para DGT-5 (temporeros)
+    employeeType: str = "empleado"  # "obrero" | "empleado" para DGT-9
 
     # Bajas
     terminationDate: Optional[str] = None
@@ -151,7 +160,7 @@ class LeaveRequest(BaseModel):
     id: str = ""
     employeeId: str = ""
     employeeName: str = ""
-    leaveType: str = "otro"  # "maternidad" | "enfermedad" | "sindical" | "luto" | "otro"
+    leaveType: str = "otro"  # "maternidad" | "enfermedad" | "sindical" | "luto" | "voluntaria" | "discapacidad" | "otro"
     startDate: str = ""
     endDate: str = ""
     days: int = 0

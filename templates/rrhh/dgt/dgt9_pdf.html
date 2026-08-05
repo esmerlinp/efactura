@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        @page { size: letter; margin: 0.8cm 1cm; }
+        body {
+            font-family: 'Arial', 'Helvetica', sans-serif;
+            font-size: 11pt;
+            color: #000; margin: 0; padding: 0;
+        }
+        .header {
+            display: flex; justify-content: space-between;
+            margin-bottom: 16px; border-bottom: 1px solid #000; padding-bottom: 8px;
+        }
+        .header-left .empresa { font-size: 14pt; font-weight: bold; }
+        .header-left .form-name { font-size: 10pt; }
+        .header-right { text-align: right; font-size: 8pt; line-height: 1.4; }
+
+        .card {
+            border: 1px solid #000;
+            padding: 10px 12px;
+            margin-bottom: 12px;
+            page-break-inside: avoid;
+        }
+        .card-row {
+            display: flex; gap: 20px;
+        }
+        .card-col {
+            flex: 1;
+        }
+        .field {
+            margin-bottom: 8px;
+            font-size: 9pt;
+        }
+        .field .label {
+            font-weight: bold;
+            font-size: 8pt;
+            text-transform: uppercase;
+        }
+        .field .value {
+            border-bottom: 1px solid #000;
+            padding: 2px 0;
+            min-height: 14pt;
+            font-size: 10pt;
+        }
+        .field .value.empty {
+            border-bottom-style: solid;
+        }
+        .checkbox-group {
+            display: flex; gap: 20px; margin-top: 4px;
+        }
+        .checkbox-group label {
+            font-size: 9pt;
+        }
+        .check-box {
+            display: inline-block;
+            width: 12px; height: 12px;
+            border: 1px solid #000;
+            margin-right: 4px;
+            vertical-align: middle;
+        }
+        .check-box.marked::after {
+            content: "X";
+            font-size: 9pt;
+            font-weight: bold;
+            position: relative;
+            top: -2px;
+        }
+        .footer {
+            margin-top: 20px; font-size: 9pt; font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+{% set d = data or {} %}
+{% set c = d.get("company", {}) %}
+
+<div class="header">
+    <div class="header-left">
+        <div class="empresa">{{ c.get("companyName", "") }}</div>
+        <div class="form-name">DGT9 &ndash; Suspensi&oacute;n Contrato Laboral</div>
+    </div>
+    <div class="header-right">
+        <div>Fecha : {{ now.strftime('%d/%m/%Y') }}</div>
+        <div>Hora : {{ now.strftime('%I:%M:%S %p') }}</div>
+        <div>P&aacute;gina : 1 / 1</div>
+    </div>
+</div>
+
+{% for susp in d.get("suspensions", []) %}
+    {% for w in susp.get("trabajadores", []) %}
+    <div class="card">
+        <div class="card-row">
+            <div class="card-col">
+                <div class="field">
+                    <div class="label">APELLIDOS :</div>
+                    <div class="value {{ 'empty' if not w.get('apellidos') }}">{{ w.get("apellidos", "") }}</div>
+                </div>
+                <div class="field">
+                    <div class="label">NOMBRES :</div>
+                    <div class="value {{ 'empty' if not w.get('nombres') }}">{{ w.get("nombres", "") }}</div>
+                </div>
+                <div class="field">
+                    <div class="label">TIPO DE TRABAJO :</div>
+                    <div class="value {{ 'empty' if not w.get('cargo') }}">{{ w.get("cargo", "") }}</div>
+                </div>
+                <div class="field">
+                    <div class="label">DOMICILIO :</div>
+                    <div class="value empty">&nbsp;</div>
+                </div>
+                <div class="field">
+                    <div class="label">PROVINCIA :</div>
+                    <div class="value {{ 'empty' if not w.get('provinciaMunicipio') }}">{{ w.get("provinciaMunicipio", "") }}</div>
+                </div>
+            </div>
+            <div class="card-col">
+                <div class="field">
+                    <div class="label">FECHA DE INGRESO A LA EMPRESA :</div>
+                    <div class="value {{ 'empty' if not w.get('fechaIngreso') }}">{{ w.get("fechaIngreso", "") }}</div>
+                </div>
+                <div class="field">
+                    <div class="label">CALIDAD :</div>
+                    <div class="checkbox-group">
+                        <label>
+                            <span class="check-box {{ 'marked' if w.get('esObrero') else '' }}"></span>
+                            OBRERO
+                        </label>
+                        <label>
+                            <span class="check-box {{ 'marked' if not w.get('esObrero') else '' }}"></span>
+                            EMPLEADO
+                        </label>
+                    </div>
+                </div>
+                <div class="field">
+                    <div class="label">SALARIO :</div>
+                    <div class="value {{ 'empty' if not w.get('salario') }}">RD$ {{ "{:,.2f}".format(w.get("salario", 0)) if w.get("salario") else "" }}</div>
+                </div>
+                <div class="field">
+                    <div class="label">DIRECCI&Oacute;N :</div>
+                    <div class="value {{ 'empty' if not w.get('direccion') }}">{{ w.get("direccion", "")[:40] }}</div>
+                </div>
+                <div class="field">
+                    <div class="label">TEL&Eacute;FONO :</div>
+                    {% set tel = w.get("telefono", "") or "" %}
+                    <div class="value {{ 'empty' if not tel }}">
+                        {% if tel %}({{ tel[:3] }}) {{ tel[3:6] }}-{{ tel[6:10] }}{% else %}(&nbsp;&nbsp;&nbsp;) &nbsp;&nbsp;&nbsp;-&nbsp;&nbsp;&nbsp;&nbsp;{% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+<p style="text-align:center; padding:32px; color:#888;">No hay suspensiones activas.</p>
+{% endfor %}
+
+<div class="footer">
+    {% set total = d.get("totalTrabajadores", 0) %}
+    Total Empleado : {{ total }}
+</div>
+
+</body>
+</html>

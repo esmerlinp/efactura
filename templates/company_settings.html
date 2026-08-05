@@ -455,6 +455,114 @@
                     </div>
                 </div>
 
+                <!-- SECCIÓN DGT: DATOS PARA MINISTERIO DE TRABAJO Y SIRLA -->
+                <div class="accordion-item">
+                    <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                        <div class="accordion-title">
+                            <i class="fa-solid fa-file-lines"></i>
+                            <span>Ministerio de Trabajo & SIRLA</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                    </button>
+                    <div class="accordion-content">
+                        <div class="accordion-body">
+                            <p style="color: var(--text-secondary); font-size: 0.82rem; line-height: 1.4; margin-bottom: 18px;">
+                                Datos requeridos para los formularios DGT (DGT-3, DGT-4) y el sistema SIRLA del Ministerio de Trabajo.
+                            </p>
+                            <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 20px; display: grid;">
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="rnlNumber">Registro Nacional Laboral (RNL)</label>
+                                    <input type="text" id="rnlNumber" name="rnlNumber" class="form-input" style="font-size:0.85rem;"
+                                        placeholder="Ej: 01020304-00001"
+                                        value="{{ profile.rnlNumber or '' }}">
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="insurancePolicy">Póliza de Accidente No.</label>
+                                    <input type="text" id="insurancePolicy" name="insurancePolicy" class="form-input" style="font-size:0.85rem;"
+                                        placeholder="Ej: 001-526-452"
+                                        value="{{ profile.insurancePolicy or '' }}">
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="economicActivity">Actividad económica</label>
+                                    <input type="text" id="economicActivity" name="economicActivity" class="form-input" style="font-size:0.85rem;"
+                                        placeholder="Ej: Servicios tecnológicos"
+                                        value="{{ profile.economicActivity or '' }}">
+                                    <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px; display: block;">
+                                        A qué se dedica el establecimiento.
+                                    </small>
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="propertyValue">Valor de instalaciones (RD$)</label>
+                                    <input type="number" id="propertyValue" name="propertyValue" class="form-input" style="font-size:0.85rem;"
+                                        placeholder="Ej: 12000000" min="0" step="0.01"
+                                        value="{{ profile.propertyValue or 0 }}">
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="employerName">Nombre del Empleador</label>
+                                    <input type="text" id="employerName" name="employerName" class="form-input" style="font-size:0.85rem;"
+                                        placeholder="Nombre del empleador"
+                                        value="{{ profile.employerName or '' }}">
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="employerCedula">Cédula del Empleador</label>
+                                    <input type="text" id="employerCedula" name="employerCedula" class="form-input" style="font-size:0.85rem;"
+                                        placeholder="001-0012354-6"
+                                        value="{{ profile.employerCedula or '' }}">
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="representativeName">Nombre del Representante</label>
+                                    <input type="text" id="representativeName" name="representativeName" class="form-input" style="font-size:0.85rem;"
+                                        placeholder="Nombre del representante"
+                                        value="{{ profile.representativeName or '' }}">
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="representativeCedula">Cédula del Representante</label>
+                                    <input type="text" id="representativeCedula" name="representativeCedula" class="form-input" style="font-size:0.85rem;"
+                                        placeholder="001-0012354-6"
+                                        value="{{ profile.representativeCedula or '' }}">
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="sector">Sector</label>
+                                    <input type="text" id="sector" name="sector" class="form-input" style="font-size:0.85rem;"
+                                        placeholder="Ej: Evaristo Morales"
+                                        value="{{ profile.sector or '' }}">
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="plaza">Plaza</label>
+                                    <input type="text" id="plaza" name="plaza" class="form-input" style="font-size:0.85rem;"
+                                        placeholder="Nombre de la plaza comercial"
+                                        value="{{ profile.plaza or '' }}">
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="fax">Fax</label>
+                                    <input type="text" id="fax" name="fax" class="form-input" style="font-size:0.85rem;"
+                                        placeholder="809-000-0000"
+                                        value="{{ profile.fax or '' }}">
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="parque">Parque</label>
+                                    <input type="text" id="parque" name="parque" class="form-input" style="font-size:0.85rem;"
+                                        placeholder="Nombre del parque industrial"
+                                        value="{{ profile.parque or '' }}">
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label>Zona Franca</label>
+                                    <div style="display:flex; gap:16px; margin-top:4px;">
+                                        <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                                            <input type="radio" name="zonaFranca" value="true" {% if profile.zonaFranca %}checked{% endif %}>
+                                            Sí
+                                        </label>
+                                        <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                                            <input type="radio" name="zonaFranca" value="false" {% if not profile.zonaFranca %}checked{% endif %}>
+                                            No
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- SECCIÓN 6: CONSOLIDACIÓN DE COMPROBANTES -->
                 <div class="accordion-item">
                     <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
