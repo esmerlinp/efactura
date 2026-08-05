@@ -15,16 +15,38 @@
                 <i class="fa-solid fa-file-shield" style="width:16px; text-align:center;"></i> Autodeterminación
                 <i class="fa-solid fa-chevron-down" style="font-size:0.65rem; margin-left:auto;"></i>
             </button>
-            <div id="tssFormatDropdown" class="hidden" style="position:absolute; top:100%; left:0; z-index:100; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); min-width:180px; margin-top:4px;">
-                <a href="{{ url_for('web_rrhh.payroll_tss_autodeterminacion', period_id=period.id, format='xls') }}" class="dropdown-item" style="display:block; padding:8px 12px; text-decoration:none; color:var(--text-primary); font-size:0.8rem; border-bottom:1px solid var(--border-color);">
+            <div id="tssFormatDropdown" class="hidden" style="position:absolute; top:100%; left:0; z-index:100; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); min-width:220px; margin-top:4px;">
+                <div style="padding:4px 12px; font-size:0.65rem; text-transform:uppercase; color:var(--text-muted); font-weight:600;">AM — Mensual</div>
+                <a href="{{ url_for('web_rrhh.payroll_tss_autodeterminacion', period_id=period.id, format='xls', tipo='AM') }}" class="dropdown-item" style="display:block; padding:8px 12px 8px 24px; text-decoration:none; color:var(--text-primary); font-size:0.8rem; border-bottom:1px solid var(--border-color);">
                     <i class="fa-solid fa-file-excel" style="color:var(--accent-emerald); margin-right:6px; width:14px; text-align:center;"></i> Excel (.xlsx)
                 </a>
-                <a href="{{ url_for('web_rrhh.payroll_tss_autodeterminacion', period_id=period.id, format='txt') }}" class="dropdown-item" style="display:block; padding:8px 12px; text-decoration:none; color:var(--text-primary); font-size:0.8rem;">
+                <a href="{{ url_for('web_rrhh.payroll_tss_autodeterminacion', period_id=period.id, format='txt', tipo='AM') }}" class="dropdown-item" style="display:block; padding:8px 12px 8px 24px; text-decoration:none; color:var(--text-primary); font-size:0.8rem; border-bottom:1px solid var(--border-color);">
+                    <i class="fa-solid fa-file-lines" style="color:var(--accent-blue); margin-right:6px; width:14px; text-align:center;"></i> TXT (.txt)
+                </a>
+                <div style="padding:4px 12px; font-size:0.65rem; text-transform:uppercase; color:var(--text-muted); font-weight:600;">AR — Retroactiva</div>
+                <a href="{{ url_for('web_rrhh.payroll_tss_autodeterminacion', period_id=period.id, format='xls', tipo='AR') }}" class="dropdown-item" style="display:block; padding:8px 12px 8px 24px; text-decoration:none; color:var(--text-primary); font-size:0.8rem; border-bottom:1px solid var(--border-color);">
+                    <i class="fa-solid fa-file-excel" style="color:var(--accent-emerald); margin-right:6px; width:14px; text-align:center;"></i> Excel (.xlsx)
+                </a>
+                <a href="{{ url_for('web_rrhh.payroll_tss_autodeterminacion', period_id=period.id, format='txt', tipo='AR') }}" class="dropdown-item" style="display:block; padding:8px 12px 8px 24px; text-decoration:none; color:var(--text-primary); font-size:0.8rem;">
                     <i class="fa-solid fa-file-lines" style="color:var(--accent-blue); margin-right:6px; width:14px; text-align:center;"></i> TXT (.txt)
                 </a>
             </div>
         </div>
-        <a href="{{ url_for('web_rrhh.payroll_tss_export', period_id=period.id) }}" class="btn btn-secondary btn-sm" title="CSV simplificado con aportes" style="width:180px; justify-content:flex-start;">
+        <div style="position:relative; display:inline-flex;">
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('tssNovedadesDropdown').classList.toggle('hidden')" style="display:flex; align-items:center; gap:6px; width:180px; justify-content:flex-start;">
+                <i class="fa-solid fa-rotate" style="width:16px; text-align:center;"></i> Novedades (NV)
+                <i class="fa-solid fa-chevron-down" style="font-size:0.65rem; margin-left:auto;"></i>
+            </button>
+            <div id="tssNovedadesDropdown" class="hidden" style="position:absolute; top:100%; left:0; z-index:100; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); min-width:180px; margin-top:4px;">
+                <a href="{{ url_for('web_rrhh.payroll_tss_novedades', period_id=period.id, format='txt') }}" class="dropdown-item" style="display:block; padding:8px 12px; text-decoration:none; color:var(--text-primary); font-size:0.8rem; border-bottom:1px solid var(--border-color);">
+                    <i class="fa-solid fa-file-lines" style="color:var(--accent-blue); margin-right:6px; width:14px; text-align:center;"></i> TXT (.txt)
+                </a>
+                <a href="{{ url_for('web_rrhh.payroll_tss_novedades', period_id=period.id, format='csv') }}" class="dropdown-item" style="display:block; padding:8px 12px; text-decoration:none; color:var(--text-primary); font-size:0.8rem;">
+                    <i class="fa-solid fa-file-csv" style="color:var(--accent-purple); margin-right:6px; width:14px; text-align:center;"></i> CSV (.csv)
+                </a>
+            </div>
+        </div>
+        <a href="{{ url_for('web_rrhh.payroll_tss_export', period_id=period.id) }}" class="btn btn-ghost btn-sm" title="CSV simplificado con aportes" style="width:180px; justify-content:flex-start; background:var(--bg-card); border:1px solid var(--border-color);">
             <i class="fa-solid fa-file-csv" style="width:16px; text-align:center;"></i> TSS Resumen
         </a>
         <a href="{{ url_for('web_rrhh.payroll_export_csv', period_id=period.id) }}" class="btn btn-ghost btn-sm" style="width:180px; justify-content:flex-start; background:var(--bg-card); border:1px solid var(--border-color);">
@@ -60,8 +82,12 @@
 <script>
     document.addEventListener('click', function(e) {
         var dd = document.getElementById('tssFormatDropdown');
+        var nd = document.getElementById('tssNovedadesDropdown');
         if (dd && !dd.parentElement.contains(e.target)) {
             dd.classList.add('hidden');
+        }
+        if (nd && !nd.parentElement.contains(e.target)) {
+            nd.classList.add('hidden');
         }
     });
 </script>

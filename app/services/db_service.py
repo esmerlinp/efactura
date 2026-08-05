@@ -1594,6 +1594,20 @@ class DatabaseService:
             "defaultEcfType": company.get("default_ecf_type", ""),
             "defaultItbisRate": company.get("default_itbis_rate", 0.18),
             "openaiApiKey": company.get("openai_api_key", ""),
+            # DGT / SIRLA / Ministerio de Trabajo
+            "rnlNumber": company.get("rnl_number", ""),
+            "economicActivity": company.get("economic_activity", ""),
+            "propertyValue": float(company.get("property_value", 0) or 0),
+            "insurancePolicy": company.get("insurance_policy", ""),
+            "employerName": company.get("employer_name", ""),
+            "employerCedula": company.get("employer_cedula", ""),
+            "representativeName": company.get("representative_name", ""),
+            "representativeCedula": company.get("representative_cedula", ""),
+            "sector": company.get("sector", ""),
+            "plaza": company.get("plaza", ""),
+            "fax": company.get("fax", ""),
+            "zonaFranca": company.get("zona_franca", False),
+            "parque": company.get("parque", ""),
         }
 
     @classmethod
@@ -1674,6 +1688,20 @@ class DatabaseService:
             "default_ecf_type": profile_dict.get("defaultEcfType", ""),
             "default_itbis_rate": profile_dict.get("defaultItbisRate", 0.18),
             "openai_api_key": profile_dict.get("openaiApiKey", ""),
+            # DGT / SIRLA / Ministerio de Trabajo
+            "rnl_number": profile_dict.get("rnlNumber", ""),
+            "economic_activity": profile_dict.get("economicActivity", ""),
+            "property_value": float(profile_dict.get("propertyValue", 0) or 0),
+            "insurance_policy": profile_dict.get("insurancePolicy", ""),
+            "employer_name": profile_dict.get("employerName", ""),
+            "employer_cedula": profile_dict.get("employerCedula", ""),
+            "representative_name": profile_dict.get("representativeName", ""),
+            "representative_cedula": profile_dict.get("representativeCedula", ""),
+            "sector": profile_dict.get("sector", ""),
+            "plaza": profile_dict.get("plaza", ""),
+            "fax": profile_dict.get("fax", ""),
+            "zona_franca": profile_dict.get("zonaFranca", False),
+            "parque": profile_dict.get("parque", ""),
         }
         result = cls.update_company(company_id, update_data)
         if result and owner_uid:

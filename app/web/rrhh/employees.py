@@ -152,7 +152,16 @@ def employee_new():
             "workShift": int(request.form.get("workShift", 1) or 1),
             "educationLevel": int(request.form.get("educationLevel", 0) or 0),
             "vacationGranted": int(request.form.get("vacationGranted", 1) or 1),
+            "sdssNumber": request.form.get("sdssNumber", "").strip(),
+            "vacationStartDate": request.form.get("vacationStartDate", "").strip(),
+            "vacationEndDate": request.form.get("vacationEndDate", "").strip(),
+            "disability": request.form.get("disability", "").strip(),
             "nationality": 1,
+            "nationalityCode": request.form.get("nationalityCode", "").strip(),
+            "numberOfChildren": int(request.form.get("numberOfChildren", 0) or 0),
+            "daysWorked": int(request.form.get("daysWorked", 0) or 0),
+            "dailySalary": float(request.form.get("dailySalary", 0) or 0),
+            "employeeType": request.form.get("employeeType", "empleado").strip(),
         }
         hr.save_employee(company_id, emp_id, data, sandbox=sandbox)
 
@@ -270,7 +279,16 @@ def employee_edit(employee_id):
             "workShift": int(request.form.get("workShift", 1) or 1),
             "educationLevel": int(request.form.get("educationLevel", 0) or 0),
             "vacationGranted": int(request.form.get("vacationGranted", 1) or 1),
+            "sdssNumber": request.form.get("sdssNumber", "").strip(),
+            "vacationStartDate": request.form.get("vacationStartDate", "").strip(),
+            "vacationEndDate": request.form.get("vacationEndDate", "").strip(),
+            "disability": request.form.get("disability", "").strip(),
             "nationality": employee.get("nationality", 1),
+            "nationalityCode": request.form.get("nationalityCode", "").strip(),
+            "numberOfChildren": int(request.form.get("numberOfChildren", 0) or 0),
+            "daysWorked": int(request.form.get("daysWorked", 0) or 0),
+            "dailySalary": float(request.form.get("dailySalary", 0) or 0),
+            "employeeType": request.form.get("employeeType", "empleado").strip(),
         })
         hr.save_employee(company_id, employee_id, employee, sandbox=sandbox)
 

@@ -78,7 +78,7 @@ def dgt3_export():
     filename = f"DGT3_{year}"
 
     if fmt == "txt":
-        content = DGTExportService.to_txt(lines)
+        content = DGTExportService.to_txt(lines, company_info=data.get("company", {}), year=year)
         buffer = io.BytesIO(content.encode("utf-8"))
         return send_file(buffer, mimetype="text/plain", as_attachment=True,
                          download_name=f"{filename}.txt")
@@ -87,8 +87,7 @@ def dgt3_export():
         return send_file(buffer, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                          as_attachment=True, download_name=f"{filename}.xlsx")
     elif fmt == "pdf":
-        profile = DatabaseService.get_company_profile(company_id)
-        buffer = DGTExportService.to_pdf(lines, "dgt3", f"DGT-3 {year}", owner_info=profile)
+        buffer = DGTExportService.to_pdf(lines, "dgt3", f"DGT-3 {year}", data=data)
         return send_file(buffer, mimetype="application/pdf", as_attachment=True,
                          download_name=f"{filename}.pdf")
     return redirect(url_for("web_dgt.dgt3_view"))
@@ -128,7 +127,11 @@ def dgt4_export():
     filename = f"DGT4_{year:04d}{month:02d}"
 
     if fmt == "txt":
-        content = DGTExportService.to_txt(lines)
+        content = DGTExportService.to_sirla_txt_dgt4(
+            lines,
+            company_info=data.get("company", {}),
+            year=year, month=month,
+        )
         buffer = io.BytesIO(content.encode("utf-8"))
         return send_file(buffer, mimetype="text/plain", as_attachment=True,
                          download_name=f"{filename}.txt")
@@ -137,9 +140,7 @@ def dgt4_export():
         return send_file(buffer, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                          as_attachment=True, download_name=f"{filename}.xlsx")
     elif fmt == "pdf":
-        profile = DatabaseService.get_company_profile(company_id)
-        buffer = DGTExportService.to_pdf(lines, "dgt4", f"DGT-4 {year}-{month:02d}",
-                                          owner_info=profile)
+        buffer = DGTExportService.to_pdf(lines, "dgt4", f"DGT-4 {year}-{month:02d}", data=data)
         return send_file(buffer, mimetype="application/pdf", as_attachment=True,
                          download_name=f"{filename}.pdf")
     return redirect(url_for("web_dgt.dgt4_view"))
@@ -162,6 +163,41 @@ def dgt2_view():
                            active_page="rrhh_dgt")
 
 
+@web_dgt_bp.route("/rrhh/dgt/dgt2/export")
+def dgt2_export():
+    resp = _login_check()
+    if resp:
+        return resp
+    owner_uid, sandbox, company_id = _get_owner()
+    now = datetime.now(timezone.utc)
+    year = int(request.args.get("year", now.year))
+    fmt = request.args.get("format", "txt")
+
+    data = DGTService.get_dgt2_data(company_id, year, sandbox=sandbox)
+    sirla_lines = data.get("sirlaLines", [])
+    filename = f"DGT2_{year}"
+
+    if fmt == "txt":
+        content = DGTExportService.to_sirla_txt_dgt2(
+            sirla_lines,
+            company_info={"companyRNC": (DatabaseService.get_company(company_id) or {}).get("rnc", "")},
+            establishment_id=data.get("establishmentId", "000000"),
+            year=year,
+        )
+        buffer = io.BytesIO(content.encode("utf-8"))
+        return send_file(buffer, mimetype="text/plain", as_attachment=True,
+                         download_name=f"{filename}.txt")
+    elif fmt == "xlsx":
+        buffer = DGTExportService.to_excel(sirla_lines, title=f"DGT-2 {year}")
+        return send_file(buffer, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                         as_attachment=True, download_name=f"{filename}.xlsx")
+    elif fmt == "pdf":
+        buffer = DGTExportService.to_pdf(sirla_lines, "dgt2", f"DGT-2 {year}", data=data)
+        return send_file(buffer, mimetype="application/pdf", as_attachment=True,
+                         download_name=f"{filename}.pdf")
+    return redirect(url_for("web_dgt.dgt2_view"))
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # DGT-5: Personal Móvil u Ocasional
 # ═══════════════════════════════════════════════════════════════════════════
@@ -176,6 +212,29 @@ def dgt5_view():
     data = DGTService.get_dgt5_data(company_id, sandbox=sandbox)
     return render_template("rrhh/dgt/dgt5.html", data=data, now=now,
                            active_page="rrhh_dgt")
+
+
+@web_dgt_bp.route("/rrhh/dgt/dgt5/export")
+def dgt5_export():
+    resp = _login_check()
+    if resp:
+        return resp
+    owner_uid, sandbox, company_id = _get_owner()
+    now = datetime.now(timezone.utc)
+    fmt = request.args.get("format", "xlsx")
+
+    data = DGTService.get_dgt5_data(company_id, sandbox=sandbox)
+    filename = f"DGT5"
+
+    if fmt == "xlsx":
+        buffer = DGTExportService.to_excel(data.get("lines", []), title="DGT-5")
+        return send_file(buffer, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                         as_attachment=True, download_name=f"{filename}.xlsx")
+    elif fmt == "pdf":
+        buffer = DGTExportService.to_pdf(data.get("lines", []), "dgt5", "DGT-5", data=data)
+        return send_file(buffer, mimetype="application/pdf", as_attachment=True,
+                         download_name=f"{filename}.pdf")
+    return redirect(url_for("web_dgt.dgt5_view"))
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -202,58 +261,62 @@ def dgt9_view():
         documentos = request.form.getlist("documento[]")
         nombres = request.form.getlist("nombre[]")
         cargos = request.form.getlist("cargo[]")
-        for doc, nom, car in zip(documentos, nombres, cargos):
+        employee_ids = request.form.getlist("employeeId[]")
+        for i, (doc, nom, car) in enumerate(zip(documentos, nombres, cargos)):
             if doc.strip():
+                emp_id = employee_ids[i] if i < len(employee_ids) else ""
                 data["trabajadores"].append({
                     "documento": doc.strip(),
                     "nombre": nom.strip(),
                     "cargo": car.strip(),
+                    "employeeId": emp_id.strip(),
                 })
         DGTService.save_dgt9(company_id, data, sandbox=sandbox)
         flash("Suspensión DGT-9 registrada exitosamente.", "success")
         return redirect(url_for("web_dgt.dgt9_view"))
 
     employees = DGTService.get_dgt9_data(company_id, sandbox=sandbox)
+    from app.services.hr_data_service import get_employees
+    active_employees = get_employees(company_id, sandbox=sandbox)
     return render_template("rrhh/dgt/dgt9.html", data=employees, now=now,
-                           active_page="rrhh_dgt")
+                           active_employees=active_employees, active_page="rrhh_dgt")
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# DGT-12: Cese de Suspensión
-# ═══════════════════════════════════════════════════════════════════════════
-
-@web_dgt_bp.route("/rrhh/dgt/dgt12", methods=["GET", "POST"])
-def dgt12_view():
+@web_dgt_bp.route("/rrhh/dgt/dgt9/export")
+def dgt9_export():
     resp = _login_check()
     if resp:
         return resp
     owner_uid, sandbox, company_id = _get_owner()
     now = datetime.now(timezone.utc)
+    fmt = request.args.get("format", "txt")
 
-    if request.method == "POST":
-        data = {
-            "suspensionId": request.form.get("suspensionId", ""),
-            "fechaCese": request.form.get("fechaCese", ""),
-            "trabajadores": [],
-        }
-        documentos = request.form.getlist("documento[]")
-        nombres = request.form.getlist("nombre[]")
-        for doc, nom in zip(documentos, nombres):
-            if doc.strip():
-                data["trabajadores"].append({
-                    "documento": doc.strip(),
-                    "nombre": nom.strip(),
-                    "fechaReincorporacion": request.form.get("fechaCese", ""),
-                })
-        DGTService.save_dgt12(company_id, data, sandbox=sandbox)
-        flash("Cese de suspensión DGT-12 registrado exitosamente.", "success")
-        return redirect(url_for("web_dgt.dgt12_view"))
+    data = DGTService.get_dgt9_sirla_data(company_id, sandbox=sandbox)
+    filename = f"DGT9"
 
-    # Obtener suspensiones activas para el selector
-    suspensions = DGTService.get_dgt9_data(company_id, sandbox=sandbox)
-    active_suspensions = [s for s in suspensions if s.get("estado") == "activa"]
-    return render_template("rrhh/dgt/dgt12.html", suspensions=active_suspensions,
-                           now=now, active_page="rrhh_dgt")
+    if fmt == "txt":
+        content = DGTExportService.to_sirla_txt_dgt9(data)
+        buffer = io.BytesIO(content.encode("utf-8"))
+        return send_file(buffer, mimetype="text/plain", as_attachment=True,
+                         download_name=f"{filename}.txt")
+    elif fmt == "xlsx":
+        all_workers = []
+        for s in data.get("suspensions", []):
+            for w in s.get("trabajadores", []):
+                all_workers.append(w)
+        buffer = DGTExportService.to_excel(all_workers, title="DGT-9")
+        return send_file(buffer, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                         as_attachment=True, download_name=f"{filename}.xlsx")
+    elif fmt == "pdf":
+        buffer = DGTExportService.to_pdf([], "dgt9", "DGT-9", data=data)
+        return send_file(buffer, mimetype="application/pdf", as_attachment=True,
+                         download_name=f"{filename}.pdf")
+    return redirect(url_for("web_dgt.dgt9_view"))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# DGT-12: Cese de Suspensión — DESHABILITADO
+# ═══════════════════════════════════════════════════════════════════════════
 
 
 # ═══════════════════════════════════════════════════════════════════════════

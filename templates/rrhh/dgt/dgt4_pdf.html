@@ -3,70 +3,207 @@
 <head>
     <meta charset="utf-8">
     <style>
-        @page { size: letter; margin: 1.5cm; }
-        body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 9pt; color: #1a1a1a; }
-        h1 { font-size: 14pt; text-align: center; margin-bottom: 4px; }
-        h2 { font-size: 10pt; text-align: center; color: #555; font-weight: normal; margin-top: 0; }
-        .header { text-align: center; margin-bottom: 20px; }
-        .header .title { font-size: 16pt; font-weight: bold; }
-        .header .subtitle { font-size: 10pt; color: #666; }
-        .info { margin-bottom: 16px; }
-        .info table { width: 100%; border-collapse: collapse; }
-        .info td { padding: 2px 6px; }
-        .info .label { font-weight: bold; width: 120px; }
-        table.data { width: 100%; border-collapse: collapse; font-size: 8pt; }
-        table.data th { background: #2D3748; color: #fff; padding: 4px 4px; text-align: left; font-weight: 600; }
-        table.data td { padding: 3px 4px; border-bottom: 1px solid #e2e8f0; }
-        table.data tr:nth-child(even) { background: #f7fafc; }
-        .badge { padding: 1px 6px; border-radius: 3px; font-size: 7pt; font-weight: bold; }
-        .badge-alta { background: #c6f6d5; color: #22543d; }
-        .badge-baja { background: #fed7d7; color: #9b2c2c; }
-        .badge-mod { background: #fefcbf; color: #744210; }
-        .footer { margin-top: 30px; text-align: center; font-size: 8pt; color: #999; }
-        .mono { font-family: 'Courier New', monospace; }
+        @page { size: letter landscape; margin: 0.5cm 0.6cm; }
+        body {
+            font-family: 'Arial', 'Helvetica', sans-serif;
+            font-size: 6pt;
+            color: #000;
+            margin: 0;
+            padding: 0;
+        }
+        table.form { width: 100%; border-collapse: collapse; }
+        table.form td, table.form th {
+            border: 1px solid #000; padding: 2px 3px;
+            vertical-align: middle; font-size: 6pt;
+        }
+        table.form td.lbl { font-weight: bold; font-size: 5.5pt; white-space: nowrap; }
+        table.form td.data { font-size: 6.5pt; }
+        .header-title { text-align: center; font-weight: bold; font-size: 8pt; }
+        .section-title { text-align: center; font-weight: bold; font-size: 6.5pt; background: #f0f0f0; }
+
+        table.emp { width: 100%; border-collapse: collapse; font-size: 5pt; }
+        table.emp th, table.emp td {
+            border: 1px solid #000; padding: 1px 1px;
+            vertical-align: middle; text-align: center;
+        }
+        table.emp th { font-weight: bold; font-size: 4.5pt; background: #f8f8f8; }
+        table.emp td.name { text-align: left; }
+        table.emp td.money { text-align: right; }
+        table.emp td.sexo { width: 10px; font-size: 5pt; font-weight: bold; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="title">DGT-4: Cambios en Planilla de Personal Fijo</div>
-        <div class="subtitle">Ministerio de Trabajo — República Dominicana</div>
-    </div>
-    <div class="info">
-        <table>
-            <tr><td class="label">RNC:</td><td>{{ owner_info.get('companyRNC', '') }}</td><td class="label">Período:</td><td>{{ title }}</td></tr>
-            <tr><td class="label">Empresa:</td><td>{{ owner_info.get('companyName', '') }}</td><td class="label">Cambios:</td><td>{{ lines|length }}</td></tr>
-        </table>
-    </div>
-    <table class="data">
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>Tipo Doc</th>
-                <th>Documento</th>
-                <th>Nombres</th>
-                <th>Apellidos</th>
-                <th>Salario</th>
-                <th>Ocupación</th>
-                <th>F. Ingreso</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for emp in lines %}
-            <tr>
-                <td>{{ loop.index }}</td>
-                <td>{{ emp.tipoDocumento }}</td>
-                <td class="mono">{{ emp.documento }}</td>
-                <td>{{ emp.nombres }}</td>
-                <td>{{ emp.apellidos }}</td>
-                <td style="text-align:right;">{{ "{:,.2f}".format(emp.salario) }}</td>
-                <td>{{ emp.ocupacionTexto[:25] }}</td>
-                <td>{{ emp.fechaIngreso }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    <div class="footer">
-        Generado el {{ now.strftime('%d/%m/%Y %H:%M') }} — Documento para uso informativo, no oficial
-    </div>
+
+{% set d = data or {} %}
+{% set c = d.get("company", {}) %}
+{% set changes = d.get("lines", []) %}
+{% set total_entrada = changes | sum(attribute='montoEntrada') %}
+{% set total_salida = changes | sum(attribute='montoSalida') %}
+{% set total_sueldo = changes | sum(attribute='montoSueldo') %}
+
+<table class="form">
+    <!-- ═══════════ HEADER ═══════════ -->
+    <tr>
+        <td style="width:70%; text-align:center; border-bottom:1px solid #000; border-right:1px solid #000;">
+            <div class="header-title">MINISTERIO DE TRABAJO</div>
+            <div style="font-size:9pt; font-weight:bold;">CAMBIOS EN LA RELACIÓN DE PERSONAL FIJO</div>
+        </td>
+        <td style="width:30%; text-align:right; vertical-align:top; border-bottom:1px solid #000; padding:4px;">
+            <div style="font-size:5pt;">Página 1 de 1</div>
+            <div style="font-size:5pt; margin-top:4px;">Registro Nacional Laboral -RNL-</div>
+            <div style="border:1px solid #000; padding:3px; margin-top:2px; font-size:7pt; font-weight:bold; text-align:center;">
+                {{ c.get("rnlNumber", "") or "_________________" }}
+            </div>
+        </td>
+    </tr>
+
+    <!-- ═══════════ BLOQUE SUPERIOR DATOS ═══════════ -->
+    <tr>
+        <td style="border-right:1px solid #000;">
+            <table style="width:100%; border:none;">
+                <tr>
+                    <td class="lbl" style="border:none; width:30%;">R.N.C. No.:</td>
+                    <td class="data" style="border:none;">{{ c.get("companyRNC", "") }}</td>
+                </tr>
+                <tr>
+                    <td class="lbl" style="border:none;">Póliza de Accidente No.:</td>
+                    <td class="data" style="border:none;">{{ c.get("insurancePolicy", "") }}</td>
+                </tr>
+                <tr>
+                    <td class="lbl" style="border:none;">Cambios Efectuados en el mes de:</td>
+                    <td class="data" style="border:none;">{{ "%02d"|format(d.get("month", 1)) }}/{{ d.get("year", "") }}</td>
+                </tr>
+            </table>
+        </td>
+        <td>
+            <table style="width:100%; border:none;">
+                <tr>
+                    <td class="lbl" style="border:none; width:40%;">Registro de Planilla No.:</td>
+                    <td class="data" style="border:none;">&nbsp;</td>
+                </tr>
+                <tr>
+                    <td class="lbl" style="border:none;">Rama de Actividad No.:</td>
+                    <td class="data" style="border:none;">&nbsp;</td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+
+    <!-- ═══════════ BLOQUE MEDIO DATOS GENERALES ═══════════ -->
+    <tr>
+        <td style="width:33%;"><span class="lbl">Razón Social De La Empresa:</span> <span class="data">{{ c.get("companyName", "") }}</span></td>
+        <td style="width:33%;"><span class="lbl">Nombre del Empleador:</span> <span class="data">{{ c.get("employerName", "") }}</span></td>
+        <td style="width:33%;"><span class="lbl">Cédula:</span> <span class="data">{{ c.get("employerCedula", "") }}</span></td>
+    </tr>
+    <tr>
+        <td><span class="lbl">Nombre de la Empresa o Establecimiento:</span> <span class="data">{{ c.get("tradeName", "") }}</span></td>
+        <td><span class="lbl">Nombre del Representante:</span> <span class="data">{{ c.get("representativeName", "") }}</span></td>
+        <td><span class="lbl">Cédula:</span> <span class="data">{{ c.get("representativeCedula", "") }}</span></td>
+    </tr>
+    <tr>
+        <td><span class="lbl">Dirección (Ave./C y #):</span> <span class="data">{{ c.get("companyAddress", "") }}</span></td>
+        <td><span class="lbl">Zona/Barrio/Ens.:</span> <span class="data">{{ c.get("sector", "") }}</span></td>
+        <td><span class="lbl">Municipio:</span> <span class="data">{{ c.get("municipality", "") }}</span> &nbsp; <span class="lbl">Provincia:</span> <span class="data">{{ c.get("province", "") }}</span></td>
+    </tr>
+    <tr>
+        <td colspan="3">
+            <span class="lbl">Teléfono:</span> {{ c.get("companyPhone", "") }} &nbsp;
+            <span class="lbl">Fax:</span> {{ c.get("fax", "") }} &nbsp;
+            <span class="lbl">Zona Franca:</span> Si [ &nbsp; ] No [ <strong>X</strong> ] &nbsp;
+            <span class="lbl">Parque:</span> {{ c.get("parque", "") }} &nbsp;
+            <span class="lbl">Sucursal:</span> Si [ &nbsp; ] No [ <strong>X</strong> ]
+        </td>
+    </tr>
+    <tr>
+        <td style="width:70%;"><span class="lbl">A qué se dedica la Empresa:</span> <span class="data">{{ c.get("economicActivity", "") }}</span></td>
+        <td colspan="2" style="text-align:center; font-weight:bold; font-size:7pt; background:#f0f0f0;">CAMBIOS</td>
+    </tr>
+</table>
+
+<!-- ═══════════ TABLA DE CAMBIOS ═══════════ -->
+<table class="emp" style="margin-top:0;">
+    <thead>
+        <tr>
+            <th rowspan="2" style="width:2%;">No.</th>
+            <th rowspan="2" style="width:10%;">Nombres y Apellidos del Trabajador</th>
+            <th rowspan="2" style="width:7%;">Cédula</th>
+            <th rowspan="2" style="width:5%;">No. SDSS</th>
+            <th colspan="2" style="width:3%;">Sexo</th>
+            <th rowspan="2" style="width:5%;">Nacionalidad</th>
+            <th colspan="3" style="width:6%;">Nacimiento</th>
+            <th rowspan="2" style="width:3%;">Est. Civil</th>
+            <th rowspan="2" style="width:3%;">No. Hijos</th>
+            <th rowspan="2" style="width:4%;">Día del Cambio</th>
+            <th rowspan="2" style="width:7%;">Ocupación</th>
+            <th rowspan="2" style="width:3%;">Turno</th>
+            <th colspan="2" style="width:8%; background:#e8ffe8;">Entrada</th>
+            <th colspan="2" style="width:8%; background:#ffe8e8;">Salida</th>
+            <th colspan="2" style="width:8%; background:#ffffe8;">Sueldo</th>
+        </tr>
+        <tr>
+            <th style="width:1.5%;">M</th>
+            <th style="width:1.5%;">F</th>
+            <th style="width:2%;">Día</th>
+            <th style="width:2%;">Mes</th>
+            <th style="width:2%;">Año</th>
+            <th style="width:2%;">X</th>
+            <th style="width:6%;">Sueldo mens. (RD$)</th>
+            <th style="width:2%;">X</th>
+            <th style="width:6%;">Sueldo mens. (RD$)</th>
+            <th style="width:2%;">X</th>
+            <th style="width:6%;">Sueldo mens. (RD$)</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for ch in changes %}
+        {% set ln = ch.get("linea", {}) %}
+        <tr>
+            <td>{{ loop.index }}</td>
+            <td class="name">{{ ln.get("primerNombre", "") }} {{ ln.get("primerApellido", "") }} {{ ln.get("segundoApellido", "") }}</td>
+            <td>{{ ln.get("documento", "") }}</td>
+            <td>{{ ln.get("sdssNumber", "") }}</td>
+            <td class="sexo">{{ 'X' if ln.get("sexo") == 'M' else '' }}</td>
+            <td class="sexo">{{ 'X' if ln.get("sexo") == 'F' else '' }}</td>
+            <td>{{ ln.get("nationalityCode", ln.get("nacionalidadSirla", "")) }}</td>
+            <td>{{ ln.get("birthDay", "") }}</td>
+            <td>{{ ln.get("birthMonth", "") }}</td>
+            <td>{{ ln.get("birthYear", "") }}</td>
+            <td>{{ ln.get("estadoCivil", "") }}</td>
+            <td>{{ ln.get("numberOfChildren", 0) }}</td>
+            <td>{{ ch.get("fechaCambio", "")[:10] }}</td>
+            <td>{{ ln.get("cargo", ln.get("ocupacionTexto", ""))[:20] }}</td>
+            <td>{{ ln.get("turnoSirla", ln.get("turnoTrabajo", "")) }}</td>
+            <td>{{ 'X' if ch.get("esEntrada") else '' }}</td>
+            <td class="money">{{ "{:,.2f}".format(ch.get("montoEntrada", 0)) if ch.get("montoEntrada") else '0.00' }}</td>
+            <td>{{ 'X' if ch.get("esSalida") else '' }}</td>
+            <td class="money">{{ "{:,.2f}".format(ch.get("montoSalida", 0)) if ch.get("montoSalida") else '0.00' }}</td>
+            <td>{{ 'X' if ch.get("esSueldo") else '' }}</td>
+            <td class="money">{{ "{:,.2f}".format(ch.get("montoSueldo", 0)) if ch.get("montoSueldo") else '0.00' }}</td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="22" style="text-align:center; padding:24px; font-size:7pt;">Sin cambios registrados para este período.</td>
+        </tr>
+        {% endfor %}
+
+        <!-- ═══════════ FILA TOTAL ═══════════ -->
+        {% if changes %}
+        <tr style="font-weight:bold; background:#f8f8f8;">
+            <td colspan="14" style="text-align:right; padding-right:8px;">TOTAL:</td>
+            <td>&nbsp;</td>
+            <td class="money">{{ "{:,.2f}".format(total_entrada) }}</td>
+            <td>&nbsp;</td>
+            <td class="money">{{ "{:,.2f}".format(total_salida) }}</td>
+            <td>&nbsp;</td>
+            <td class="money">{{ "{:,.2f}".format(total_sueldo) }}</td>
+        </tr>
+        {% endif %}
+    </tbody>
+</table>
+
+<div style="margin-top:10px; text-align:center; font-size:5.5pt; color:#555;">
+    Generado el {{ now.strftime('%d/%m/%Y %H:%M') }} &mdash; DGT-4 Cambios en la Relación de Personal Fijo &mdash; Ministerio de Trabajo, República Dominicana
+</div>
+
 </body>
 </html>

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        @page { size: letter landscape; margin: 0.6cm 0.8cm; }
+        body {
+            font-family: 'Arial', 'Helvetica', sans-serif;
+            font-size: 6.5pt;
+            color: #000;
+            margin: 0;
+            padding: 0;
+        }
+        table.form {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table.form td, table.form th {
+            border: 1px solid #000;
+            padding: 2px 3px;
+            vertical-align: middle;
+            font-size: 6pt;
+        }
+        table.form td.lbl {
+            font-weight: bold;
+            font-size: 5.5pt;
+            white-space: nowrap;
+        }
+        table.form td.data {
+            font-size: 6.5pt;
+        }
+        .header-title {
+            text-align: center;
+            font-weight: bold;
+            font-size: 8pt;
+        }
+        .section-subtitle {
+            text-align: center;
+            font-weight: bold;
+            font-size: 6.5pt;
+            background: #f0f0f0;
+        }
+        .set-title {
+            text-align: center;
+            font-weight: bold;
+            font-size: 6pt;
+            background: #f0f0f0;
+            padding: 2px;
+        }
+
+        table.emp {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 4.8pt;
+        }
+        table.emp th, table.emp td {
+            border: 1px solid #000;
+            padding: 1px 1px;
+            vertical-align: middle;
+            text-align: center;
+        }
+        table.emp th {
+            font-weight: bold;
+            font-size: 4.5pt;
+            background: #f8f8f8;
+        }
+        table.emp td.name { text-align: left; font-size: 5pt; }
+        table.emp td.doc { font-size: 5pt; }
+        table.emp td.money { text-align: right; font-size: 5pt; }
+    </style>
+</head>
+<body>
+
+{% set d = data or {} %}
+{% set c = d.get("company", {}) %}
+
+<table class="form">
+    <!-- ═══════════ HEADER ═══════════ -->
+    <tr>
+        <td style="width:15%; text-align:left; font-size:5pt; border-bottom:1px solid #000; border-right:1px solid #000;">
+            Página 1 de 1<br>
+            <strong>DGT-2</strong>
+        </td>
+        <td style="width:70%; text-align:center; border-bottom:1px solid #000; border-right:1px solid #000; padding:4px;">
+            <div class="header-title">MINISTERIO DE TRABAJO</div>
+            <div style="font-size:9pt; font-weight:bold;">CARTEL DE HORAS EXTRAORDINARIAS DE TRABAJO</div>
+        </td>
+        <td style="width:15%; text-align:center; font-size:5pt; border-bottom:1px solid #000;">
+            &nbsp;
+        </td>
+    </tr>
+
+    <!-- ═══════════ DATOS GENERALES ═══════════ -->
+    <tr>
+        <td colspan="3"><span class="lbl">R.N.C. No.:</span> <span class="data">{{ c.get("companyRNC", "") }}</span></td>
+    </tr>
+    <tr>
+        <td colspan="3"><span class="lbl">Mes y Año correspondiente a las horas extra laboradas:</span> <span class="data">{{ d.get("year", "") }}</span></td>
+    </tr>
+    <tr>
+        <td style="width:50%;"><span class="lbl">Nombre de la Empresa o Razón Social:</span> <span class="data">{{ c.get("companyName", "") }}</span></td>
+        <td style="width:50%;" colspan="2"><span class="lbl">Nombre del Empleador:</span> <span class="data">{{ c.get("employerName", "") }}</span></td>
+    </tr>
+    <tr>
+        <td><span class="lbl">Nombre del Establecimiento:</span> <span class="data">{{ c.get("tradeName", "") }}</span></td>
+        <td colspan="2"><span class="lbl">Nombre del Representante:</span> <span class="data">{{ c.get("representativeName", "") }}</span></td>
+    </tr>
+    <tr>
+        <td><span class="lbl">Dirección (Ave./C y #):</span> <span class="data">{{ c.get("companyAddress", "") }}</span></td>
+        <td><span class="lbl">Zona/Barrio/Ens.:</span> <span class="data">{{ c.get("sector", "") }}</span></td>
+        <td><span class="lbl">Municipio:</span> <span class="data">{{ c.get("municipality", "") }}</span></td>
+    </tr>
+    <tr>
+        <td><span class="lbl">Teléfono:</span> <span class="data">{{ c.get("companyPhone", "") }}</span></td>
+        <td><span class="lbl">Fax:</span> <span class="data">{{ c.get("fax", "") }}</span></td>
+        <td><span class="lbl">E-mail:</span> <span class="data">{{ c.get("companyEmail", "") }}</span></td>
+    </tr>
+    <tr>
+        <td colspan="3">
+            <span class="lbl">Zona Franca:</span> Sí [ &nbsp; ] No [ <strong>X</strong> ] &nbsp;&nbsp;
+            <span class="lbl">Parque:</span> <span class="data">{{ c.get("parque", "") }}</span> &nbsp;&nbsp;
+            <span class="lbl">A qué se dedica la Empresa:</span> <span class="data">{{ c.get("economicActivity", "") }}</span>
+        </td>
+    </tr>
+</table>
+
+<!-- ═══════════ TABLA PRINCIPAL DE EMPLEADOS ═══════════ -->
+<table class="emp" style="margin-top:2px;">
+    <thead>
+        <tr>
+            <th rowspan="2" style="width:11%;">Nombres y Apellidos del Trabajador</th>
+            <th rowspan="2" style="width:8%;">Cédula</th>
+            <th rowspan="2" style="width:5%;">No. SDSS</th>
+            <th rowspan="2" style="width:4%;">Valor hora normal (RD$)</th>
+            <th colspan="31" style="background:#e8e8e8;">Detalle de Días y Horas Extras Laboradas</th>
+            <th rowspan="2" style="width:3.5%;">Horas 35%</th>
+            <th rowspan="2" style="width:3.5%;">Horas 100%</th>
+            <th rowspan="2" style="width:3.5%;">Horas Otro%</th>
+            <th rowspan="2" style="width:3%;">Total Horas</th>
+            <th rowspan="2" style="width:4%;">Total Pagado</th>
+            <th rowspan="2" style="width:2%;">Causa</th>
+        </tr>
+        <tr>
+            {% for dia in range(1, 32) %}
+            <th style="width:2%;">{{ dia }}</th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for emp in d.get("sirlaLines", []) %}
+        <tr>
+            <td class="name">{{ emp.get("nombres", "") }} {{ emp.get("primerApellido", "") }} {{ emp.get("segundoApellido", "") }}</td>
+            <td class="doc">{{ emp.get("documento", "") }}</td>
+            <td>{{ emp.get("sdssNumber", "") }}</td>
+            <td class="money">{{ "%.2f"|format(emp.get("hourlyRate", 0)) }}</td>
+            {% for _ in range(31) %}<td>0</td>{% endfor %}
+            <td>0.00</td>
+            <td>0.00</td>
+            <td>0.00</td>
+            <td>0.00</td>
+            <td class="money">0.00</td>
+            <td>{{ emp.get("overtimeCause", "") }}</td>
+        </tr>
+        {% endfor %}
+
+        {% for _ in range(d.get("sirlaLines", [])|length, 8) %}
+        <tr>
+            <td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
+            {% for _ in range(31) %}<td>&nbsp;</td>{% endfor %}
+            <td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- ═══════════ SECCIÓN SET (Inferior derecha) ═══════════ -->
+<table class="form" style="margin-top:8px;">
+    <tr>
+        <td style="width:65%; vertical-align:top; padding-top:8px;">
+            <table class="form" style="border:none;">
+                <tr>
+                    <td style="width:50%; height:40px; vertical-align:bottom; text-align:center; font-size:5.5pt; border:1px solid #000;">
+                        ________________________________________<br>
+                        <strong>Firma del Empleador o Representante</strong>
+                    </td>
+                    <td style="width:50%; height:40px; vertical-align:bottom; text-align:center; font-size:5.5pt; border:1px solid #000;">
+                        ________________________________________<br>
+                        <strong>Sello de la Empresa</strong>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="text-align:center; font-size:5pt; padding:4px; color:#555; border:none;">
+                        Generado el {{ now.strftime('%d/%m/%Y %H:%M') }}
+                    </td>
+                </tr>
+            </table>
+        </td>
+        <td style="width:35%; vertical-align:top;">
+            <table class="form" style="border:1.5px solid #000;">
+                <tr><td class="set-title" style="border:1px solid #000;">SOLO PARA USO DE LA SET</td></tr>
+                <tr><td class="lbl" style="border:1px solid #000; padding:2px;">Registro Nacional Laboral -RNL-</td></tr>
+                <tr><td style="border:1px solid #000; padding:2px; font-size:7pt; font-weight:bold; text-align:center;">{{ c.get("rnlNumber", "") }}</td></tr>
+                <tr><td class="lbl" style="border:1px solid #000; padding:2px;">Registro de Planilla No.:</td></tr>
+                <tr><td style="border:1px solid #000; padding:2px; font-size:7pt;">&nbsp;</td></tr>
+                <tr><td class="lbl" style="border:1px solid #000; padding:2px;">Rama de Actividad No.:</td></tr>
+                <tr><td style="border:1px solid #000; padding:2px; font-size:7pt;">&nbsp;</td></tr>
+                <tr><td class="lbl" style="border:1px solid #000; padding:2px;">Cédula:</td></tr>
+                <tr><td style="border:1px solid #000; padding:2px; font-size:7pt;">{{ c.get("employerCedula", "") }}</td></tr>
+                <tr><td class="lbl" style="border:1px solid #000; padding:2px;">Provincia:</td></tr>
+                <tr><td style="border:1px solid #000; padding:2px; font-size:7pt;">{{ c.get("province", "") }}</td></tr>
+                <tr><td class="lbl" style="border:1px solid #000; padding:2px;">
+                    Sucursal: Sí [ <strong>X</strong> ] No [ &nbsp; ]
+                </td></tr>
+                <tr><td class="lbl" style="border:1px solid #000; padding:2px;">Valor de las instalaciones y/o existencias (RD$):</td></tr>
+                <tr><td style="border:1px solid #000; padding:2px; font-size:7pt; text-align:right;">{{ "%.2f"|format(c.get("propertyValue", 0) or 0) if c.get("propertyValue") else "&nbsp;" }}</td></tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
+</body>
+</html>

@@ -502,7 +502,7 @@ def create_app():
                     'web_invoices.dgt2_view': 'nomina',
                     'web_invoices.dgt5_view': 'nomina',
                     'web_invoices.dgt9_view': 'nomina',
-                    'web_invoices.dgt12_view': 'nomina',
+                    'web_invoices.dgt9_view': 'nomina',
                 }
                 ep = request.endpoint
                 if ep in module_restricted:

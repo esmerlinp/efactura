@@ -52,3 +52,18 @@ class CompanyProfile(BaseModel):
     stampUrl: str = ""
     signatureUrl: str = ""
     nextCertificateNumber: int = 1
+
+    # === DGT / SIRLA / Ministerio de Trabajo ===
+    rnlNumber: str = ""  # Registro Nacional Laboral (RNL)
+    economicActivity: str = ""  # Actividad económica (a qué se dedica)
+    propertyValue: float = 0.0  # Valor de las instalaciones y/o existencias (RD$)
+    insurancePolicy: str = ""  # Póliza de Accidente No.
+    employerName: str = ""  # Nombre del empleador
+    employerCedula: str = ""  # Cédula del empleador
+    representativeName: str = ""  # Nombre del representante
+    representativeCedula: str = ""  # Cédula del representante
+    sector: str = ""  # Sector
+    plaza: str = ""  # Plaza
+    fax: str = ""  # Fax
+    zonaFranca: bool = False  # Zona Franca
+    parque: str = ""  # Parque

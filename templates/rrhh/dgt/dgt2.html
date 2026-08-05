@@ -2,9 +2,22 @@
 {% block title %}DGT-2 — Horas y Vacaciones {{ year }} — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
-<div class="page-header hr-page-header">
-    <h1 class="page-title"><i class="fa-solid fa-clock"></i> DGT-2: Cartel de Horas y Vacaciones</h1>
-    <p style="color:var(--text-secondary); margin:0;">Ministerio de Trabajo — Jornada laboral, horas extraordinarias y calendario de vacaciones</p>
+<div class="page-header hr-page-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;">
+    <div>
+        <h1 class="page-title"><i class="fa-solid fa-clock"></i> DGT-2: Cartel de Horas y Vacaciones</h1>
+        <p style="color:var(--text-secondary); margin:0;">Ministerio de Trabajo — Anexo/2021</p>
+    </div>
+    <div style="display:flex; gap:8px;">
+        <a href="{{ url_for('web_invoices.dgt2_export', year=year, format='txt') }}" class="btn btn-primary">
+            <i class="fa-solid fa-download"></i> .txt (SIRLA)
+        </a>
+        <a href="{{ url_for('web_invoices.dgt2_export', year=year, format='xlsx') }}" class="btn btn-success">
+            <i class="fa-solid fa-file-excel"></i> .xlsx
+        </a>
+        <a href="{{ url_for('web_invoices.dgt2_export', year=year, format='pdf') }}" class="btn btn-danger">
+            <i class="fa-solid fa-file-pdf"></i> .pdf
+        </a>
+    </div>
 </div>
 
 <div class="hr-section-card" style="margin-bottom:16px;">
@@ -40,6 +53,40 @@
             <div style="font-size:2.5rem; font-weight:700; color:var(--accent-orange);">{{ "%.2f"|format(data.totalOvertimeHours) }}</div>
             <div style="font-size:0.85rem; color:var(--text-muted);">HE acumuladas en {{ year }}</div>
         </div>
+    </div>
+</div>
+
+<div class="hr-section-card" style="margin-top:16px;">
+    <h3><i class="fa-solid fa-users"></i> Detalle por Empleado (SIRLA)</h3>
+    <div style="overflow-x:auto;">
+        <table class="table-premium" style="font-size:0.78rem;">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Documento</th>
+                    <th>Nombres</th>
+                    <th>Apellidos</th>
+                    <th>Valor Hora (RD$)</th>
+                    <th>Horas Extras</th>
+                    <th>Causa</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for emp in data.sirlaLines %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td><span class="mono">{{ emp.documento }}</span></td>
+                    <td>{{ emp.nombres }}</td>
+                    <td>{{ emp.primerApellido }} {{ emp.segundoApellido }}</td>
+                    <td style="text-align:right;">{{ "%.2f"|format(emp.hourlyRate) }}</td>
+                    <td style="text-align:center; color:var(--text-muted);">0.00 (sin registro diario)</td>
+                    <td style="text-align:center;">{{ emp.overtimeCause or '—' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:32px;">No hay empleados activos.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
 

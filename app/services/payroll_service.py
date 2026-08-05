@@ -1728,6 +1728,7 @@ class PayrollService:
     @classmethod
     def generate_tss_autodeterminacion(cls, payroll_period: dict, employees: list,
                                         employer_rnc: str = "",
+                                        tipo_archivo: str = "AM",
                                         company_id: str = "", sandbox: bool = True) -> dict:
         """
         Genera archivo de Autodeterminación TSS en formato OFICIAL SUIRPLUS v6.0.
@@ -1744,6 +1745,7 @@ class PayrollService:
             payroll_period: Dict del período de nómina.
             employees: Lista de empleados con datos completos.
             employer_rnc: RNC o Cédula del empleador (sin guiones).
+            tipo_archivo: "AM" (Modificación) o "AR" (Reemplazo/Retroactiva).
 
         Returns:
             Dict con {content, filename, periodo, periodo_tss, total_empleados, resumen}.
@@ -1755,6 +1757,10 @@ class PayrollService:
         month = payroll_period.get("month", datetime.now().month)
         periodo_mmaaaa = f"{month:02d}{year}"
         periodo_label = f"{cls._MESES[month]}_{year}"
+
+        tipo = tipo_archivo.upper() if tipo_archivo else "AM"
+        if tipo not in ("AM", "AR"):
+            tipo = "AM"
 
         lines = cls.get_period_lines(payroll_period, company_id=company_id, sandbox=sandbox)
         emp_map = {e.get("id", ""): e for e in employees}
@@ -1768,9 +1774,9 @@ class PayrollService:
 
         # ═══════════════════════════════════════════════════════════════
         # ENCABEZADO — 20 caracteres
-        # Pos: 1(1) E, 2-3(2) AM, 4-14(11) RNC, 15-20(6) MMAAAA
+        # Pos: 1(1) E, 2-3(2) AM/AR, 4-14(11) RNC, 15-20(6) MMAAAA
         # ═══════════════════════════════════════════════════════════════
-        header = f"EAM{rnc[-11:].rjust(11)}{periodo_mmaaaa}"
+        header = f"E{tipo}{rnc[-11:].rjust(11)}{periodo_mmaaaa}"
         assert len(header) == 20, f"Encabezado: {len(header)} chars, deben ser 20"
         output_lines.append(header)
 
@@ -1829,19 +1835,42 @@ class PayrollService:
             # Solo son exentos: regalía (01), preaviso/cesantía (02), pensión alimenticia (03).
             total_income = pl.get("totalIncome", 0) or 0
             afp_cap = emp.get("afpSalaryCap", 0) or _AFP_SALARY_CAP
-            salario_ss = min(total_income, afp_cap)
 
-            # Salario_SS (16, ceros izq con 2 decimales) — incluye TODO: base + extras + comisiones + bonos
+            # Empleado suspendido (status == "suspendido"): cotizable=0, ISR=0.01, INFOTEP=0
+            emp_status = (emp.get("status", "") or "").lower()
+            es_suspendido = emp_status == "suspendido"
+
+            # Ex-empleado con bonificación (AR): cotizable=0, ISR=0.01, INFOTEP=0.01
+            es_ex_empleado = emp_status not in ("activo", "") and emp_status != ""
+            christmas_bonus = pl.get("christmasBonus", 0) or 0
+
+            if es_suspendido:
+                salario_ss = 0.0
+                salario_isr = 0.01
+                salario_infotep = 0.0
+                otras_rem = 0.0
+            elif es_ex_empleado and tipo == "AR" and christmas_bonus > 0:
+                salario_ss = 0.0
+                salario_isr = 0.01
+                salario_infotep = 0.01
+                otras_rem = christmas_bonus
+            else:
+                salario_ss = min(total_income, afp_cap)
+                salario_isr = salario_ss
+                salario_infotep = salario_ss
+                otras_rem = (pl.get("commission", 0) or 0) + (pl.get("bonus", 0) or 0) + (pl.get("otherIncome", 0) or 0)
+
+            # Salario_SS (16, ceros izq con 2 decimales)
             salario_ss_str = f"{salario_ss:016.2f}"[:16]
 
             # Aporte voluntario (16, ceros)
             aporte_vol = "0000000000000.00"
 
-            # Salario_ISR (16): igual a Salario_SS (todo tributa salvo exentos)
-            salario_isr_str = salario_ss_str
+            # Salario_ISR (16)
+            salario_isr_str = f"{salario_isr:016.2f}"[:16]
 
-            # Otras remuneraciones (16): 0, todo va dentro de Salario_SS
-            otras_rem_str = "0000000000000.00"
+            # Otras remuneraciones (16): commission + bonus + otherIncome (o bonificación ex-empleado)
+            otras_rem_str = f"{otras_rem:016.2f}"[:16]
 
             # RNC agente retención (11, justificado derecha)
             agente_ret = "".rjust(11)
@@ -1855,11 +1884,31 @@ class PayrollService:
             # Saldo a favor (16, ceros)
             saldo_favor = "0000000000000.00"
 
-            # Salario INFOTEP (16): igual a Salario_SS
-            salario_infotep_str = salario_ss_str
+            # Salario INFOTEP (16)
+            salario_infotep_str = f"{salario_infotep:016.2f}"[:16]
 
-            # Tipo ingreso (4): default 0001 (Normal)
-            tipo_ingreso = "0001"
+            # Tipo ingreso dinámico basado en contractType y workday
+            contract_type = (emp.get("contractType", "") or "").lower()
+            workday = (emp.get("workday", "") or "").lower()
+
+            if emp_status == "suspendido" or es_suspendido:
+                tipo_ingreso = "0001"
+            elif contract_type in ("ocasional", "temporal"):
+                tipo_ingreso = "0002"
+            elif workday in ("media_jornada", "tiempo_parcial"):
+                tipo_ingreso = "0003"
+            elif contract_type == "prorrateado":
+                tipo_ingreso = "0005"
+            elif emp.get("pensionado", False):
+                tipo_ingreso = "0006"
+            elif emp.get("exentoSdss", False):
+                tipo_ingreso = "0007"
+            elif emp.get("salarioSectorizado", False):
+                tipo_ingreso = "0008"
+            elif cls._es_mes_incompleto(emp, year, month):
+                tipo_ingreso = "0004"
+            else:
+                tipo_ingreso = "0001"
 
             # ── Ingresos exentos desglosados (18 chars c/u: código 2 + monto 16) ──
             # 01 = Regalía Pascual
@@ -1899,7 +1948,7 @@ class PayrollService:
 
         # Clean RNC for filename (just numbers, no spaces)
         rnc_clean = "".join(c for c in (employer_rnc or "000000000") if c.isdigit())
-        filename = f"AM_{rnc_clean}_{periodo_mmaaaa}.txt"
+        filename = f"{tipo}_{rnc_clean}_{periodo_mmaaaa}.txt"
 
         return {
             "content": content,
@@ -2193,6 +2242,36 @@ class PayrollService:
             "primer_apellido": primer_apellido,
             "segundo_apellido": segundo_apellido,
         }
+
+    @staticmethod
+    def _es_mes_incompleto(emp: dict, year: int, month: int) -> bool:
+        """Determina si el empleado no laboró el mes completo (tipo ingreso 0004)."""
+        from datetime import datetime
+        hire = (emp.get("hireDate", "") or emp.get("startDate", "") or "").strip()
+        term = (emp.get("terminationDate", "") or "").strip()
+        try:
+            mes_inicio = datetime(year, month, 1).date()
+            if month == 12:
+                mes_fin = datetime(year + 1, 1, 1).date()
+            else:
+                mes_fin = datetime(year, month + 1, 1).date()
+        except (ValueError, TypeError):
+            return False
+        if hire:
+            try:
+                hd = datetime.strptime(hire[:10], "%Y-%m-%d").date()
+                if mes_inicio < hd < mes_fin:
+                    return True
+            except ValueError:
+                pass
+        if term:
+            try:
+                td = datetime.strptime(term[:10], "%Y-%m-%d").date()
+                if mes_inicio <= td < mes_fin and td != mes_inicio:
+                    return True
+            except ValueError:
+                pass
+        return False
 
     @classmethod
     def _calcular_estado_tss(cls, hire_date_str: str, termination_date_str: str,
