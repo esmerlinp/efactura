@@ -289,7 +289,7 @@ def payroll_bank_export(period_id):
     company_name = profile.get("companyName", "").strip()
     # Si está vacío o tiene nombres por defecto, buscar en company_doc
     if not company_name or company_name.upper() in ["MI EMPRESA SRL", "MI EMPRESA"]:
-        company_name = company_doc.get("trade_name") or company_doc.get("name") or company_doc.get("businessName") or company_doc.get("tradeName") or "MI EMPRESA SRL"
+        company_name = company_doc.get("trade_name") or company_doc.get("company_name") or company_doc.get("name") or company_doc.get("businessName") or company_doc.get("tradeName") or "MI EMPRESA SRL"
         
     # 2. Resolver el RNC
     company_rnc = profile.get("companyRNC", "").strip()

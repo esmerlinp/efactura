@@ -694,7 +694,7 @@ def _cached_associated_companies(uid):
                     companies.append({
                         "company_id": cid,
                         "ownerUID": comp.get("owner_uid", ""),
-                        "companyName": comp.get("name", "Empresa"),
+                        "companyName": comp.get("company_name") or comp.get("name", "Empresa"),
                         "role": mem_data.get("role", "employee"),
                         "logoUrl": comp.get("logo_url", ""),
                         "logoBase64": comp.get("logo_base64", "")
@@ -710,7 +710,7 @@ def _cached_associated_companies(uid):
                     companies.append({
                         "company_id": cid,
                         "ownerUID": comp.get("owner_uid", ""),
-                        "companyName": comp.get("name", "Empresa"),
+                        "companyName": comp.get("company_name") or comp.get("name", "Empresa"),
                         "role": "owner",
                         "logoUrl": comp.get("logo_url", ""),
                         "logoBase64": comp.get("logo_base64", "")
@@ -1079,7 +1079,7 @@ class DatabaseService:
             
             # Inicializar su propia empresa
             if can_manage_own_company:
-                own_comp = cls.get_company_profile(resolved_owner_uid)
+                own_comp = cls.get_company_profile(resolved_owner_uid) or {}
                 company_id = cls.create_company(resolved_owner_uid, own_comp)
                 if company_id:
                     profile_data["default_company_id"] = company_id
@@ -1533,7 +1533,7 @@ class DatabaseService:
 
         return {
             "ownerUID": company.get("owner_uid", company.get("ownerUID", owner_uid)),
-            "companyName": company.get("name", company.get("companyName", "")),
+            "companyName": company.get("company_name") or company.get("name") or company.get("companyName", ""),
             "tradeName": company.get("trade_name", company.get("tradeName", "")),
             "companyRNC": company.get("rnc", company.get("companyRNC", "")),
             "companyType": company.get("type", company.get("companyType", "associated")),
@@ -1619,7 +1619,7 @@ class DatabaseService:
 
         update_data = {
             "configured": is_configured,
-            "name": profile_dict.get("companyName", ""),
+            "company_name": profile_dict.get("companyName", ""),
             "trade_name": profile_dict.get("tradeName", ""),
             "rnc": profile_dict.get("companyRNC", ""),
             "type": profile_dict.get("companyType", "associated"),
@@ -6882,7 +6882,7 @@ class DatabaseService:
             profile = {
                 "id": company_id,
                 "owner_uid": owner_uid,
-                "name": company_data.get("name", company_data.get("companyName", "Nueva Empresa")),
+                "company_name": company_data.get("company_name") or company_data.get("name") or company_data.get("companyName", "Nueva Empresa"),
                 "trade_name": company_data.get("trade_name", company_data.get("tradeName", "")),
                 "rnc": company_data.get("rnc", company_data.get("companyRNC", "")),
                 "type": company_data.get("type", company_data.get("companyType", "associated")),
@@ -7054,7 +7054,7 @@ class DatabaseService:
                 if company:
                     companies.append({
                         "id": company.get("id", mem_data["company_id"]),
-                        "name": company.get("name", ""),
+                        "name": company.get("company_name") or company.get("name", ""),
                         "trade_name": company.get("trade_name", ""),
                         "rnc": company.get("rnc", ""),
                         "owner_uid": company.get("owner_uid", ""),
@@ -7205,7 +7205,7 @@ class DatabaseService:
         return {
             "company_id": company_id,
             "owner_uid": member_owner_uid,
-            "company_name": company.get("name", ""),
+            "company_name": company.get("company_name") or company.get("name", ""),
             "rnc": company.get("rnc", ""),
             "plan_id": plan_id,
             "plan_name": plan_name,
