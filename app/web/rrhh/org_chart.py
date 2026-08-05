@@ -29,7 +29,31 @@ def org_chart():
         if supervisor_id and supervisor_id in emp_map:
             emp_map[supervisor_id]["direct_reports"].append(e)
 
-    root_nodes = [e for e in employees if not e.get("reportsTo") or e.get("reportsTo") not in emp_map]
+    actual_roots = []
+    orphans = []
+    
+    for e in employees:
+        if not e.get("reportsTo") or e.get("reportsTo") not in emp_map:
+            # If they have direct reports, they are a true root (e.g., CEO, President)
+            if e["direct_reports"]:
+                actual_roots.append(e)
+            else:
+                # If they don't have a supervisor AND don't have reports, they are unassigned/standalone
+                orphans.append(e)
+                
+    if orphans:
+        fake_supervisor = {
+            "id": "unassigned_group",
+            "firstName": "Sin",
+            "lastName": "Asignar",
+            "fullName": "Sin Supervisor Asignado",
+            "position": "Empleados no agrupados",
+            "area": "N/A",
+            "direct_reports": orphans
+        }
+        actual_roots.append(fake_supervisor)
+
+    root_nodes = actual_roots
     flat_employees = []
 
     return render_template("rrhh/org_chart.html", active_page="rrhh_employees",

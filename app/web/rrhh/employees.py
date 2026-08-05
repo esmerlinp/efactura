@@ -140,7 +140,7 @@ def employee_new():
             "accountType": request.form.get("accountType", "").strip(),
             "emergencyContact": "",
             "emergencyPhone": "",
-            "afpProvider": "",
+            "afpProvider": request.form.get("afpProvider", "").strip(),
             "notes": request.form.get("notes", "").strip(),
             "gender": request.form.get("gender", "").strip(),
             "birthDate": request.form.get("birthDate", "").strip(),
@@ -479,3 +479,35 @@ def employee_rehire(employee_id):
     flash(f"Empleado {employee.get('fullName', '')} recontratado exitosamente.", "success")
     return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
 
+@web_rrhh_bp.route("/rrhh/employees/<employee_id>/photo", methods=["POST"])
+def employee_photo_upload(employee_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+    
+    employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
+    if not employee:
+        flash("Empleado no encontrado.", "error")
+        return redirect(url_for("web_rrhh.employee_list"))
+        
+    file = request.files.get("photo")
+    if not file or not file.filename:
+        flash("No se seleccionó ninguna imagen.", "error")
+        return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
+        
+    import base64
+    content = file.read()
+    max_size = 2 * 1024 * 1024  # 2MB
+    if len(content) > max_size:
+        flash("La imagen excede el tamaño máximo de 2MB.", "error")
+        return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
+        
+    content_b64 = base64.b64encode(content).decode("utf-8")
+    mime_type = file.content_type or "image/jpeg"
+    
+    employee["photoBase64"] = f"data:{mime_type};base64,{content_b64}"
+    hr.save_employee(company_id, employee_id, employee, sandbox=sandbox)
+    
+    flash("Foto de perfil actualizada exitosamente.", "success")
+    return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))

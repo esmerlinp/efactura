@@ -1,0 +1,9 @@
+--- app/web/rrhh/mass_actions.py
++++ app/web/rrhh/mass_actions.py
+@@ -194,7 +194,8 @@
+         if submit_for_approval:
+             action = submit_mass_action(company_id, existing_action_id, user_email, sandbox=sandbox,
+                                         created_by_uid=session.get("user", {}).get("uid", ""),
+-                                        created_by_name=session.get("user", {}).get("name", ""))
++                                        created_by_name=session.get("user", {}).get("name", ""),
++                                        owner_uid=owner_uid)

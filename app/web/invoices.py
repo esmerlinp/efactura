@@ -8322,7 +8322,7 @@ def save_certification_settings():
 @web_invoices_bp.route('/settings/team', methods=['GET'])
 def team_settings():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if session['user'].get('role') != 'owner':
+    if session['user'].get('role') != 'owner' and not session['user'].get('permissions', {}).get('canModifySettings', False):
         flash('No tienes permisos de propietario.', 'error')
         return redirect(url_for('web_dashboard.dashboard'))
     owner_uid = session['user']['ownerUID']
@@ -8334,7 +8334,7 @@ def team_settings():
 @web_invoices_bp.route('/settings/team/new', methods=['POST'])
 def add_team_member():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if session['user'].get('role') != 'owner':
+    if session['user'].get('role') != 'owner' and not session['user'].get('permissions', {}).get('canModifySettings', False):
         flash('No tienes permisos de propietario.', 'error')
         return redirect(url_for('web_invoices.team_settings'))
     
@@ -8548,7 +8548,7 @@ def delete_project_route(project_id):
 @web_invoices_bp.route('/settings/team/<employee_uid>/permissions', methods=['POST'])
 def update_team_member_permissions(employee_uid):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if session['user'].get('role') != 'owner':
+    if session['user'].get('role') != 'owner' and not session['user'].get('permissions', {}).get('canModifySettings', False):
         flash('No tienes permisos de propietario.', 'error')
         return redirect(url_for('web_invoices.team_settings'))
     
@@ -8605,7 +8605,7 @@ def update_team_member_permissions(employee_uid):
 @web_invoices_bp.route('/settings/team/<employee_uid>/delete', methods=['POST'])
 def delete_team_member_route(employee_uid):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if session['user'].get('role') != 'owner':
+    if session['user'].get('role') != 'owner' and not session['user'].get('permissions', {}).get('canModifySettings', False):
         flash('No tienes permisos de propietario.', 'error')
         return redirect(url_for('web_invoices.team_settings'))
     
@@ -8636,7 +8636,7 @@ def delete_team_member_route(employee_uid):
 @web_invoices_bp.route('/settings/team/<employee_uid>', methods=['GET'])
 def team_member_detail(employee_uid):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if session['user'].get('role') != 'owner':
+    if session['user'].get('role') != 'owner' and not session['user'].get('permissions', {}).get('canModifySettings', False):
         flash('No tienes permisos de propietario.', 'error')
         return redirect(url_for('web_dashboard.dashboard'))
     owner_uid = session['user']['ownerUID']
@@ -8653,7 +8653,7 @@ def team_member_detail(employee_uid):
 @web_invoices_bp.route('/settings/team/<employee_uid>/permissions', methods=['POST'])
 def update_team_member_permissions_v2(employee_uid):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if session['user'].get('role') != 'owner':
+    if session['user'].get('role') != 'owner' and not session['user'].get('permissions', {}).get('canModifySettings', False):
         flash('No tienes permisos de propietario.', 'error')
         return redirect(url_for('web_invoices.team_settings'))
 
@@ -8683,7 +8683,7 @@ def update_team_member_permissions_v2(employee_uid):
 @web_invoices_bp.route('/settings/team/<employee_uid>/reset-password', methods=['POST'])
 def reset_team_member_password(employee_uid):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if session['user'].get('role') != 'owner':
+    if session['user'].get('role') != 'owner' and not session['user'].get('permissions', {}).get('canModifySettings', False):
         return jsonify({"success": False, "error": "No autorizado"}), 403
 
     owner_uid = session['user']['ownerUID']
@@ -8728,7 +8728,7 @@ def reset_team_member_password(employee_uid):
 @web_invoices_bp.route('/settings/team/<employee_uid>/toggle-status', methods=['POST'])
 def toggle_team_member_status(employee_uid):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if session['user'].get('role') != 'owner':
+    if session['user'].get('role') != 'owner' and not session['user'].get('permissions', {}).get('canModifySettings', False):
         flash('No tienes permisos de propietario.', 'error')
         return redirect(url_for('web_invoices.team_settings'))
 
@@ -8760,7 +8760,7 @@ def toggle_team_member_status(employee_uid):
 def team_member_activity(employee_uid):
     """API endpoint para obtener actividad de un usuario (futura expansión)."""
     if 'user' not in session: return jsonify({"error": "No autorizado"}), 401
-    if session['user'].get('role') != 'owner':
+    if session['user'].get('role') != 'owner' and not session['user'].get('permissions', {}).get('canModifySettings', False):
         return jsonify({"error": "No autorizado"}), 403
     from app.services.audit_service import AuditService
     limit = request.args.get('limit', 10, type=int)

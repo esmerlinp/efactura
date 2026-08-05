@@ -1271,7 +1271,8 @@ class DatabaseService:
                     "two_factor_enabled": False,
                     "two_factor_secret": None,
                     "backup_codes": [],
-                    "posSupervisorPin": ""
+                    "posSupervisorPin": "",
+                    "profileImageUrl": ""
                 }
                 db_firestore.collection("users").document(firebase_uid).collection("config").document("user_profile").set(profile)
                 return profile
@@ -1308,14 +1309,11 @@ class DatabaseService:
 
     @classmethod
     def save_user_profile(cls, uid, profile_dict):
-        """Actualiza el perfil del usuario en Firestore."""
+        """Actualiza el perfil del usuario en Firestore. Lanza excepción si falla."""
         if not firebase_initialized:
-            return
-        try:
-            db_firestore.collection("users").document(uid).collection("config").document("user_profile").set(profile_dict, merge=True)
-            cache.delete_memoized(_cached_user_profile, uid)
-        except Exception as e:
-            print(f"⚠️ Fallo al guardar perfil en Firestore: {e}")
+            raise RuntimeError("Firebase no está inicializado. No se puede guardar el perfil.")
+        db_firestore.collection("users").document(uid).collection("config").document("user_profile").set(profile_dict, merge=True)
+        cache.delete_memoized(_cached_user_profile, uid)
 
     @classmethod
     def _company_team_coll(cls, owner_uid, company_id=None):
@@ -1363,6 +1361,32 @@ class DatabaseService:
                         "status": team_data_map[emp_uid].get("status", "active"),
                         "createdAt": created_at,
                         "permissions": resolve_permissions(role, overrides or None),
+                    })
+            if owner_uid not in team_data_map:
+                owner_doc = db_firestore.collection("users").document(owner_uid).collection("config").document("user_profile").get()
+                if owner_doc.exists:
+                    owner_data = owner_doc.to_dict()
+                    team.insert(0, {
+                        "uid": owner_uid,
+                        "name": owner_data.get("name", "Propietario"),
+                        "email": owner_data.get("email", ""),
+                        "profileImageUrl": owner_data.get("profileImageUrl", ""),
+                        "role": "owner",
+                        "status": "active",
+                        "createdAt": owner_data.get("createdAt", ""),
+                        "permissions": resolve_permissions("owner", None),
+                    })
+                else:
+                    # Fallback si el propietario no tiene user_profile (ej. creado por portal)
+                    team.insert(0, {
+                        "uid": owner_uid,
+                        "name": "Propietario (Cuenta de Portal)",
+                        "email": owner_uid if "@" in owner_uid else "owner@portal",
+                        "profileImageUrl": "",
+                        "role": "owner",
+                        "status": "active",
+                        "createdAt": "",
+                        "permissions": resolve_permissions("owner", None),
                     })
         except Exception as e:
             print(f"⚠️ Error al obtener miembros del equipo: {e}")
@@ -1583,7 +1607,18 @@ class DatabaseService:
         if not company_id:
             return False
 
+        # Prevenir sobrescribir 'configured' si no viene explícitamente y la empresa ya está configurada
+        is_configured = profile_dict.get("configured")
+        if is_configured is None:
+            # Mantener el valor actual si existe
+            existing_company = cls.get_company(company_id)
+            if existing_company:
+                is_configured = existing_company.get("configured", False)
+            else:
+                is_configured = False
+
         update_data = {
+            "configured": is_configured,
             "name": profile_dict.get("companyName", ""),
             "trade_name": profile_dict.get("tradeName", ""),
             "rnc": profile_dict.get("companyRNC", ""),
@@ -1603,7 +1638,7 @@ class DatabaseService:
             "signature_url": profile_dict.get("signatureUrl", ""),
             "regimen_fiscal": profile_dict.get("regimenFiscal", "ordinary"),
             "theme": profile_dict.get("theme", "moderno"),
-            "configured": profile_dict.get("configured", False),
+            # "configured": is_configured, # Asignado arriba
             "certificate_name": profile_dict.get("certificateName", ""),
             "certificate_extension": profile_dict.get("certificateExtension", ""),
             "certificate_content": profile_dict.get("certificateContent", ""),

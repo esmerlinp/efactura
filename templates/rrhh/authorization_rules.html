@@ -61,7 +61,7 @@
                     <td><span style="font-size:0.82rem; color:var(--text-muted); white-space:nowrap;">{{ (r.updatedAt or '')[:16].replace('T', ' ') }}</span></td>
                     <td>
                         <div style="display:flex; gap:4px;">
-                            <button type="button" class="btn btn-sm btn-ghost" title="Editar" onclick="safeEditRule('{{ r.id }}', '{{ r.docType }}', {{ r.minApprovals or 1 }}, {{ 'true' if r.isActive else 'false' }}, {{ (r._approver_ids or [])|tojson }}, '{{ r.defaultAssignee.id if r.defaultAssignee else '' }}')"><i class="fa-solid fa-pen"></i></button>
+                            <button type="button" class="btn btn-sm btn-ghost" title="Editar" onclick='openEditRule("{{ r.id }}", "{{ r.docType }}", {{ r.minApprovals or 1 }}, {{ "true" if r.isActive else "false" }}, {{ (r._approver_ids or [])|tojson }}, "{{ r.defaultAssignee.id if r.defaultAssignee else "" }}")'><i class="fa-solid fa-pen"></i></button>
                             <form method="POST" action="{{ url_for('web_rrhh.authorization_rule_delete', rule_id=r.id) }}" style="display:inline; margin:0;" onsubmit="return confirm('¿Eliminar esta regla? Las solicitudes futuras usarán la auto-aprobación.')">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-sm btn-ghost" style="color:var(--danger);" title="Eliminar"><i class="fa-solid fa-trash"></i></button>

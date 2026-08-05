@@ -2216,6 +2216,17 @@
                 const applyColorMarcaUI = document.getElementById('applyColorMarcaUIPanel');
                 const applyColorMarcaReports = document.getElementById('applyColorMarcaReportsPanel');
 
+                function contrastTextColor(hex) {
+                    hex = hex.replace('#', '');
+                    if (hex.length !== 6) return '#FFFFFF';
+                    var r = parseInt(hex.substring(0, 2), 16) / 255;
+                    var g = parseInt(hex.substring(2, 4), 16) / 255;
+                    var b = parseInt(hex.substring(4, 6), 16) / 255;
+                    function lin(c) { return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+                    var lum = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+                    return lum > 0.179 ? '#111827' : '#FFFFFF';
+                }
+
                 function saveBrandSetting(key, value) {
                     const formData = new FormData();
                     formData.append(key, value);
@@ -2237,6 +2248,11 @@
                         })
                         .catch(err => {
                             console.error('Error al guardar ajuste de marca:', err);
+                            var alertEl = document.createElement('div');
+                            alertEl.style.cssText = 'position:fixed;top:16px;right:16px;z-index:99999;background:#dc2626;color:#fff;padding:12px 20px;border-radius:8px;font-size:0.85rem;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,0.3);animation:fadeIn 0.3s ease;';
+                            alertEl.textContent = 'Error al guardar. Verifica tu conexión y permisos.';
+                            document.body.appendChild(alertEl);
+                            setTimeout(function() { alertEl.remove(); }, 5000);
                         });
                 }
 
@@ -2251,6 +2267,7 @@
                     const color = colorMarcaInput ? colorMarcaInput.value : '#10b981';
                     const gradientEnabled = gradientEnabledField.value === 'true';
                     const applyUI = applyColorMarcaUI ? applyColorMarcaUI.checked : true;
+                    const onAccent = contrastTextColor(color);
 
                     let styleTag = document.getElementById('dynamic-brand-styles');
 
@@ -2277,6 +2294,8 @@
 
                     styleTag.innerHTML = `
                 :root, body.sandbox-mode, [data-theme="dark"] {
+                    --color-accent: ${color};
+                    --color-on-accent: ${onAccent};
                     --accent-emerald: ${color};
                     --accent-emerald-hover: ${color};
                     --accent-purple: ${color};

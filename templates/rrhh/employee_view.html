@@ -73,8 +73,21 @@
 <div class="card-table-wrapper hr-document-sheet" style="padding:30px; margin-bottom:0;">
     <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:20px; flex-wrap:wrap; margin-bottom:20px; padding-bottom:20px; border-bottom:1px solid var(--border-color);">
         <div style="display:flex; align-items:center; gap:16px;">
-            <div class="hr-avatar" style="width:56px; height:56px; font-size:1rem;">
-                {{ (employee.firstName or '')[:1] }}{{ (employee.firstLastName or employee.lastName or '')[:1] }}
+            <div style="position:relative; width:56px; height:56px;">
+                {% if employee.photoBase64 %}
+                <img src="{{ employee.photoBase64 }}" alt="Foto" style="width:56px; height:56px; border-radius:50%; object-fit:cover; border:1px solid var(--border-color);">
+                {% else %}
+                <div class="hr-avatar" style="width:56px; height:56px; font-size:1rem; margin:0;">
+                    {{ (employee.firstName or '')[:1] }}{{ (employee.firstLastName or employee.lastName or '')[:1] }}
+                </div>
+                {% endif %}
+                <button type="button" class="btn btn-sm btn-primary" style="position:absolute; bottom:-4px; right:-4px; width:22px; height:22px; padding:0; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 4px rgba(0,0,0,0.15);" onclick="document.getElementById('photoUpload').click()" title="Actualizar foto">
+                    <i class="fa-solid fa-camera" style="font-size:0.6rem;"></i>
+                </button>
+                <form id="photoForm" method="POST" action="{{ url_for('web_rrhh.employee_photo_upload', employee_id=employee.id) }}" enctype="multipart/form-data" style="display:none;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="file" id="photoUpload" name="photo" accept="image/*" onchange="document.getElementById('photoForm').submit()">
+                </form>
             </div>
             <div>
                 <h2 style="margin:0 0 6px 0; font-size:1.35rem; font-family:var(--font-heading);">{{ employee.fullName }}</h2>
