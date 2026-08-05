@@ -88,8 +88,8 @@ def _cached_company_profile(owner_uid, company_id=None):
                     profile["certificateContent"] = decrypt_field(profile["certificateContent"])
                 if "regimenFiscal" not in profile:
                     profile["regimenFiscal"] = "General"
-            else:
-                DatabaseService.save_company_profile(owner_uid, profile)
+            # No persistir: la fuente canónica es companies/{id}, no config/profile.
+            # Los defaults en memoria son suficientes como fallback.
         except Exception as e:
             print(f"⚠️ Error al obtener perfil de empresa desde Firestore: {e}")
     return profile

@@ -271,7 +271,7 @@ def payroll_bank_export(period_id):
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.bank_export_service import generate_bank_file
-    from app.services.db_service import _cached_company_profile, DatabaseService
+    from app.services.db_service import DatabaseService
 
     period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
     if not period:
@@ -281,31 +281,20 @@ def payroll_bank_export(period_id):
     # Asegurar que las líneas estén cargadas, ya que pueden estar en una subcolección
     period["lines"] = hr.get_payroll_lines_unified(period, company_id, sandbox=sandbox)
 
-    # Obtener perfil de empresa para datos del header
-    profile = _cached_company_profile(owner_uid, company_id=company_id)
+    # Obtener datos de empresa desde la fuente canónica: companies/{id}
     company_doc = DatabaseService.get_company(company_id) or {}
-    
-    # 1. Resolver el nombre de la empresa
-    company_name = profile.get("companyName", "").strip()
-    # Si está vacío o tiene nombres por defecto, buscar en company_doc
-    if not company_name or company_name.upper() in ["MI EMPRESA SRL", "MI EMPRESA"]:
-        company_name = company_doc.get("trade_name") or company_doc.get("company_name") or company_doc.get("name") or company_doc.get("businessName") or company_doc.get("tradeName") or "MI EMPRESA SRL"
-        
-    # 2. Resolver el RNC
-    company_rnc = profile.get("companyRNC", "").strip()
-    if not company_rnc or company_rnc == "132109122":
-        company_rnc = company_doc.get("rnc") or company_doc.get("companyRNC") or ""
+
+    company_name = (
+        company_doc.get("trade_name") or company_doc.get("company_name") or ""
+    ).strip()
+
+    company_rnc = (company_doc.get("rnc") or "").strip()
     company_rnc = company_rnc.replace("-", "")[:9]
-    
-    # Resolver código de contrato (si no hay rnc, cae al predeterminado de profile)
-    company_code = company_rnc or _cached_company_profile.__wrapped__(owner_uid, company_id=company_id).get("company_code", "101003383")
-    
-    # 3. Resolver email
-    company_email = profile.get("companyEmail", "").strip()
-    if not company_email or company_email == "factura@miempresa.com.do":
-        company_email = company_doc.get("email", "")
-    # Si no hay RNC, usar código de contrato del banco (configurable)
-    bank_contract = request.args.get("contract_code", company_code.zfill(9)[:9])
+    company_code = company_rnc
+
+    company_email = (company_doc.get("email") or "").strip()
+
+    bank_contract = request.args.get("contract_code") or company_code.zfill(9)[:9] or "000000000"
 
     bank = request.args.get("bank", "popular")
     employees_list = hr.get_employees(company_id, sandbox=sandbox)
