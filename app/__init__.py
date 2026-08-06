@@ -230,6 +230,7 @@ def create_app():
                         'billingType': company.get('billing_type', 'Pago por uso'),
                         'cancel_at_period_end': company.get('cancel_at_period_end', False),
                         'cancel_scheduled_date': company.get('cancel_scheduled_date', ''),
+                        'offboardingMode': company.get('offboarding_mode', 'full'),
                     }
                 else:
                     company_profile = {}
@@ -262,6 +263,7 @@ def create_app():
                 old_plan_id = session.get('company_plan_id', '')
                 session['company_plan_id'] = new_plan_id
                 session['company_country'] = company_profile.get('country', 'DO')
+                session['company_offboarding_mode'] = company_profile.get('offboardingMode', 'full')
 
                 plan_version = company_profile.get('plan_version', 0) or 0
                 cached_plan_version = session.get('company_plan_version', -1)
@@ -921,6 +923,7 @@ def create_app():
     from app.web.notifications import web_notifications_bp
     from app.web.vykcore import web_vykcore_bp
     from app.web.banks import web_banks_bp
+    from app.web.bank_entities import web_bank_entities_bp
     from app.web.contacts import web_contacts_bp
     from app.web.crm import web_crm_bp
     from app.web.workflows import web_workflows_bp
@@ -959,6 +962,7 @@ def create_app():
     app.register_blueprint(web_vykcore_bp)
     app.register_blueprint(web_notifications_bp)
     app.register_blueprint(web_banks_bp)
+    app.register_blueprint(web_bank_entities_bp)
     app.register_blueprint(web_contacts_bp)
     app.register_blueprint(web_crm_bp)
     app.register_blueprint(web_workflows_bp)

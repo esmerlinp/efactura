@@ -38,7 +38,7 @@
             </div>
             <div class="hr-info-item">
                 <span class="hr-info-label">Estado actual</span>
-                <span class="hr-info-value">{% if employee.status == 'activo' %}<span style="color:var(--accent-emerald);">Activo</span>{% elif employee.status == 'inactivo' %}<span style="color:var(--danger);">Inactivo</span>{% else %}{{ employee.status }}{% endif %}</span>
+                <span class="hr-info-value">{% if employee.status == 'activo' %}<span style="color:var(--accent-emerald);">Activo</span>{% elif employee.status == 'suspendido' %}<span style="color:#f59e0b;">Suspendido</span>{% elif employee.status == 'inactivo' %}<span style="color:var(--danger);">Inactivo</span>{% else %}{{ employee.status }}{% endif %}</span>
             </div>
         </div>
 

@@ -116,11 +116,13 @@ def employee_liquidacion(employee_id):
             termination_type=termination_type,
             last_base_salary=base_salary,
             salary_frequency=salary_frequency,
+            is_variable_salary=employee.get("isVariableSalary", False),
             monthly_salaries_last_12=salaries_12,
             monthly_salaries_ytd=salaries_ytd,
             preaviso_trabajado=preaviso_trabajado,
             vacation_pending_complete_years=vacation_pending_complete,
             vacation_taken_current_period=vacation_taken_current,
+            dias_adeudados=0,
             notes=notes,
             created_by=session.get("user", {}).get("email", ""),
         )

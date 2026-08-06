@@ -16,10 +16,10 @@ import unicodedata
 from app.countries.do.payroll_rules import (
     AFP_EMPLOYEE_RATE, AFP_EMPLOYER_RATE,
     SFS_EMPLOYEE_RATE, SFS_EMPLOYER_RATE,
-    SRL_EMPLOYER_RATE, INFOTEP_RATE,
+    SRL_EMPLOYER_RATE, SRL_EMPLOYER_RATES, SRL_SALARY_CAP, INFOTEP_EMPLOYER_RATE, INFOTEP_EMPLOYEE_RATE,
     AFP_SALARY_CAP, SFS_SALARY_CAP,
     ISR_ANNUAL_TABLE,
-    ANNUAL_EDUCATION_DEDUCTION, MIN_SALARY,
+    ANNUAL_EDUCATION_DEDUCTION, MIN_SALARY, DEPENDENTS_ADDITIONAL_RATE,
     DEFAULT_OVERTIME_RATE,
     DEFAULT_WORKING_DAYS_PER_MONTH, DEFAULT_WORKING_HOURS_PER_DAY,
     DEFAULT_INFOTEP_THRESHOLD_MULTIPLIER,
@@ -41,12 +41,16 @@ _AFP_EMPLOYER_RATE = AFP_EMPLOYER_RATE
 _SFS_EMPLOYEE_RATE = SFS_EMPLOYEE_RATE
 _SFS_EMPLOYER_RATE = SFS_EMPLOYER_RATE
 _SRL_EMPLOYER_RATE = SRL_EMPLOYER_RATE
-_INFOTEP_RATE = INFOTEP_RATE
+_SRL_EMPLOYER_RATES = SRL_EMPLOYER_RATES
+_SRL_SALARY_CAP = SRL_SALARY_CAP
+_INFOTEP_EMPLOYER_RATE = INFOTEP_EMPLOYER_RATE
+_INFOTEP_EMPLOYEE_RATE = INFOTEP_EMPLOYEE_RATE
 _AFP_SALARY_CAP = AFP_SALARY_CAP
 _SFS_SALARY_CAP = SFS_SALARY_CAP
 _ISR_ANNUAL_TABLE = ISR_ANNUAL_TABLE
 _ANNUAL_EDUCATION_DEDUCTION = ANNUAL_EDUCATION_DEDUCTION
 _MIN_SALARY = MIN_SALARY
+_DEPENDENTS_ADDITIONAL_RATE = DEPENDENTS_ADDITIONAL_RATE
 _DEFAULT_OVERTIME_RATE = DEFAULT_OVERTIME_RATE
 _DEFAULT_WORKING_DAYS_PER_MONTH = DEFAULT_WORKING_DAYS_PER_MONTH
 _DEFAULT_WORKING_HOURS_PER_DAY = DEFAULT_WORKING_HOURS_PER_DAY
@@ -83,10 +87,16 @@ class PayrollService:
             "sfs_employee_rate": tax_rates.get("sfsEmployeeRate", _SFS_EMPLOYEE_RATE),
             "sfs_employer_rate": tax_rates.get("sfsEmployerRate", _SFS_EMPLOYER_RATE),
             "srl_employer_rate": tax_rates.get("srlEmployerRate", _SRL_EMPLOYER_RATE),
-            "infotep_rate": tax_rates.get("infotepRate", _INFOTEP_RATE),
+            "srl_employer_rates": tax_rates.get("srlEmployerRates", _SRL_EMPLOYER_RATES),
+            "srl_salary_cap": tax_rates.get("srlSalaryCap", _SRL_SALARY_CAP),
+            "srl_risk_category": tax_rates.get("srlRiskCategory", 3),
+            "infotep_employer_rate": tax_rates.get("infotepEmployerRate", tax_rates.get("infotepRate", _INFOTEP_EMPLOYER_RATE)),
+            "infotep_employee_rate": tax_rates.get("infotepEmployeeRate", _INFOTEP_EMPLOYEE_RATE),
+            "infotep_rate": tax_rates.get("infotepRate", _INFOTEP_EMPLOYER_RATE),
             "afp_salary_cap": tax_rates.get("afpSalaryCap", _AFP_SALARY_CAP),
             "sfs_salary_cap": tax_rates.get("sfsSalaryCap", _SFS_SALARY_CAP),
             "min_salary": tax_rates.get("minSalary", _MIN_SALARY),
+            "dependents_additional_rate": tax_rates.get("dependentsAdditionalRate", _DEPENDENTS_ADDITIONAL_RATE),
             "education_deduction": tax_rates.get("educationDeduction", _ANNUAL_EDUCATION_DEDUCTION),
             "isr_table": tax_rates.get("isrAnnualTable", _ISR_ANNUAL_TABLE),
             "overtime_rate": tax_rates.get("overtimeRate", _DEFAULT_OVERTIME_RATE),
@@ -153,10 +163,14 @@ class PayrollService:
                 "sfsEmployeeRate": default_policy.get("sfsEmployeeRate"),
                 "sfsEmployerRate": default_policy.get("sfsEmployerRate"),
                 "srlEmployerRate": default_policy.get("srlEmployerRate"),
+                "srlEmployerRates": default_policy.get("srlEmployerRates"),
+                "srlSalaryCap": default_policy.get("srlSalaryCap"),
+                "srlRiskCategory": default_policy.get("srlRiskCategory"),
                 "infotepRate": default_policy.get("infotepRate"),
                 "afpSalaryCap": default_policy.get("afpSalaryCap"),
                 "sfsSalaryCap": default_policy.get("sfsSalaryCap"),
                 "minSalary": default_policy.get("minSalary"),
+                "dependentsAdditionalRate": default_policy.get("dependentsAdditionalRate"),
                 "educationDeduction": default_policy.get("educationDeduction"),
                 "isrAnnualTable": default_policy.get("isrAnnualTable"),
                 "overtimeRate": default_policy.get("overtimeRate"),
@@ -193,10 +207,14 @@ class PayrollService:
                             "sfsEmployeeRate": policy.get("sfsEmployeeRate"),
                             "sfsEmployerRate": policy.get("sfsEmployerRate"),
                             "srlEmployerRate": policy.get("srlEmployerRate"),
+                            "srlEmployerRates": policy.get("srlEmployerRates"),
+                            "srlSalaryCap": policy.get("srlSalaryCap"),
+                            "srlRiskCategory": policy.get("srlRiskCategory"),
                             "infotepRate": policy.get("infotepRate"),
                             "afpSalaryCap": policy.get("afpSalaryCap"),
                             "sfsSalaryCap": policy.get("sfsSalaryCap"),
                             "minSalary": policy.get("minSalary"),
+                            "dependentsAdditionalRate": policy.get("dependentsAdditionalRate"),
                             "educationDeduction": policy.get("educationDeduction"),
                             "isrAnnualTable": policy.get("isrAnnualTable"),
                             "overtimeRate": policy.get("overtimeRate"),
@@ -512,7 +530,7 @@ class PayrollService:
         # INFOTEP empleado: aplica si total_income > umbral * salario mínimo
         infotep_threshold = r["min_salary"] * r["infotep_threshold_multiplier"]
         if total_income > infotep_threshold:
-            infotep_employee = round(total_income * r["infotep_rate"], 2)
+            infotep_employee = round(bonus * r["infotep_employee_rate"], 2)
         else:
             infotep_employee = 0.0
 
@@ -528,7 +546,9 @@ class PayrollService:
         # ── 4. Aportes empleador ────────────────────────────────────────
         afp_employer = round(afp_cotizable * r["afp_employer_rate"], 2)
         sfs_employer = round(sfs_cotizable * r["sfs_employer_rate"], 2)
-        srl_employer = round(sfs_cotizable * r["srl_employer_rate"], 2)
+        srl_cotizable = min(total_income, r["srl_salary_cap"])
+        srl_category_rate = r.get("srl_employer_rates", {}).get(r.get("srl_risk_category", 3), r.get("srl_employer_rate", _SRL_EMPLOYER_RATE))
+        srl_employer = round(srl_cotizable * srl_category_rate, 2)
         infotep_employer = round(total_income * r["infotep_rate"], 2)
         total_employer = round(afp_employer + sfs_employer + srl_employer + infotep_employer, 2)
 
@@ -907,6 +927,9 @@ class PayrollService:
             "afp_employer_rate": r.get("afp_employer_rate", 0.0710),
             "sfs_employer_rate": r.get("sfs_employer_rate", 0.0709),
             "srl_employer_rate": r.get("srl_employer_rate", 0.0120),
+            "srl_employer_rates": r.get("srl_employer_rates", {}),
+            "srl_salary_cap": r.get("srl_salary_cap", 92892.0),
+            "srl_risk_category": r.get("srl_risk_category", 3),
             "infotep_rate": r.get("infotep_rate", 0.01),
             "min_salary": r.get("min_salary", 23223.0),
             "education_deduction": r.get("education_deduction", 50000.0),
@@ -1949,6 +1972,181 @@ class PayrollService:
         # Clean RNC for filename (just numbers, no spaces)
         rnc_clean = "".join(c for c in (employer_rnc or "000000000") if c.isdigit())
         filename = f"{tipo}_{rnc_clean}_{periodo_mmaaaa}.txt"
+
+        return {
+            "content": content,
+            "filename": filename,
+            "periodo": periodo_label,
+            "periodo_tss": periodo_mmaaaa,
+            "total_empleados": empleados_contados,
+            "resumen": {
+                "total_empleados": empleados_contados,
+                "total_registros": total_registros,
+            },
+        }
+
+    @classmethod
+    def generate_tss_rectificativa(cls, payroll_period: dict, employees: list,
+                                    employer_rnc: str = "",
+                                    company_id: str = "", sandbox: bool = True) -> dict:
+        """
+        Genera archivo de Rectificativa IR-3 en formato OFICIAL SUIRPLUS v6.0.
+
+        Formato: archivo de texto de ancho fijo con 3 tipos de registro:
+          E = Encabezado (20 caracteres)
+          D = Detalle (312 caracteres por empleado)
+          S = Sumario (7 caracteres)
+
+        Especificacion: Instructivo Construccion Archivos Autodeterminacion y
+        Novedades v6.0 — TSS, Junio 2025.
+
+        La Rectificativa solo recalcula la liquidacion de ISR, no genera nueva
+        notificacion de pago de SDSS. Se envia luego del pago en TSS.
+
+        Args:
+            payroll_period: Dict del periodo de nomina.
+            employees: Lista de empleados con datos completos.
+            employer_rnc: RNC o Cedula del empleador (sin guiones).
+
+        Returns:
+            Dict con {content, filename, periodo, periodo_tss, total_empleados, resumen}.
+        """
+        from datetime import datetime
+
+        year = payroll_period.get("year", datetime.now().year)
+        month = payroll_period.get("month", datetime.now().month)
+        periodo_mmaaaa = f"{month:02d}{year}"
+        periodo_label = f"{cls._MESES[month]}_{year}"
+
+        lines = cls.get_period_lines(payroll_period, company_id=company_id, sandbox=sandbox)
+        emp_map = {e.get("id", ""): e for e in employees}
+
+        rnc = "".join(c for c in (employer_rnc or "") if c.isdigit())
+        if len(rnc) < 11:
+            rnc = rnc.rjust(11)
+
+        output_lines = []
+
+        # ENCABEZADO — 20 caracteres
+        # Pos: 1(1) E, 2-3(2) RT, 4-14(11) RNC, 15-20(6) MMAAAA
+        header = f"ERT{rnc[-11:].rjust(11)}{periodo_mmaaaa}"
+        assert len(header) == 20, f"Encabezado RT: {len(header)} chars, deben ser 20"
+        output_lines.append(header)
+
+        empleados_contados = 0
+
+        for pl in lines:
+            emp = emp_map.get(pl.get("employeeId", ""), {})
+            if not emp:
+                continue
+
+            empleados_contados += 1
+
+            # Tipo trabajador (1): N=Normal, P=Pensionado
+            tipo_trabajador = "P" if emp.get("pensionado", False) else "N"
+
+            # Tipo documento (1)
+            id_type = (emp.get("idType", "") or "cedula").lower()
+            tipo_doc = "C" if id_type == "cedula" else ("P" if id_type == "pasaporte" else "N")
+
+            # Documento (25, justificado izquierda, sin guiones)
+            doc = "".join(c for c in (emp.get("cedula", "") or emp.get("idNumber", "") or "") if c.isalnum())
+            documento = doc.ljust(25)[:25]
+
+            # Nombres (50)
+            nombres_raw = f"{emp.get('firstName', '')} {emp.get('middleName', '')}".strip()
+            nombres = cls._ascii_upper(nombres_raw).ljust(50)[:50]
+
+            # 1er Apellido (40)
+            apellido1 = (emp.get("firstLastName", "") or emp.get("lastName", "") or "").strip()
+            apellido1 = cls._ascii_upper(apellido1).ljust(40)[:40]
+
+            # 2do Apellido (40)
+            apellido2 = (emp.get("secondLastName", "") or "").strip()
+            apellido2 = cls._ascii_upper(apellido2).ljust(40)[:40]
+
+            # Sexo (1)
+            gender = (emp.get("gender", "") or "").lower()
+            sexo = "M" if gender in ("masculino", "male", "m") else "F"
+
+            # Fecha nacimiento (8, DDMMAAAA)
+            birth = (emp.get("birthDate", "") or "").strip()
+            fecha_nac = ""
+            if birth:
+                try:
+                    bd = datetime.strptime(birth[:10], "%Y-%m-%d")
+                    fecha_nac = bd.strftime("%d%m%Y")
+                except ValueError:
+                    fecha_nac = ""
+            fecha_nac = fecha_nac.ljust(8)[:8]
+
+            # ── Salarios ──
+            total_income = pl.get("totalIncome", 0) or 0
+            afp_cap = emp.get("afpSalaryCap", 0) or _AFP_SALARY_CAP
+
+            emp_status = (emp.get("status", "") or "").lower()
+            es_suspendido = emp_status == "suspendido"
+            es_ex_empleado = emp_status not in ("activo", "") and emp_status != ""
+
+            if es_suspendido:
+                salario_isr = 0.01
+                otras_rem = 0.0
+            elif es_ex_empleado:
+                salario_isr = total_income
+                otras_rem = 0.0
+            else:
+                salario_isr = min(total_income, afp_cap)
+                otras_rem = (pl.get("commission", 0) or 0) + (pl.get("bonus", 0) or 0) + (pl.get("otherIncome", 0) or 0)
+
+            # Salario_ISR (16)
+            salario_isr_str = f"{salario_isr:016.2f}"[:16]
+
+            # Otras remuneraciones (16)
+            otras_rem_str = f"{otras_rem:016.2f}"[:16]
+
+            # RNC agente retencion (11, justificado derecha)
+            agente_ret = "".rjust(11)
+
+            # Remun. otros empleadores (16, ceros)
+            rem_otros = "0000000000000.00"
+
+            # Ingresos exentos ISR (16): siempre en cero (se desglosan en 01/02/03)
+            ingresos_exentos = "0000000000000.00"
+
+            # Saldo a favor (16, ceros)
+            saldo_favor = "0000000000000.00"
+
+            # ── Ingresos exentos desglosados (18 chars c/u: codigo 2 + monto 16) ──
+            # 01 = Regalia Pascual
+            regalia = pl.get("christmasBonus", 0) or 0
+            regalia_str = f"01{regalia:016.2f}"[:18]
+
+            # 02 = Preaviso, Cesantia, Viaticos e Indemnizaciones
+            pc_str = "020000000000000.00"
+
+            # 03 = Retencion Pension Alimenticia
+            pension = pl.get("pensionAlimenticia", 0) or 0
+            pension_str = f"03{pension:016.2f}"[:18]
+
+            # DETALLE — 312 caracteres
+            detalle = (
+                "D" + tipo_trabajador + tipo_doc + documento + nombres +
+                apellido1 + apellido2 + sexo + fecha_nac + salario_isr_str +
+                otras_rem_str + agente_ret + rem_otros + ingresos_exentos +
+                saldo_favor + regalia_str + pc_str + pension_str
+            )
+            assert len(detalle) == 312, f"Detalle RT: {len(detalle)} chars, deben ser 312"
+            output_lines.append(detalle)
+
+        # SUMARIO — 7 caracteres
+        total_registros = 1 + empleados_contados + 1
+        trailer = f"S{total_registros:06d}"
+        output_lines.append(trailer)
+
+        content = "\n".join(output_lines) + "\n"
+
+        rnc_clean = "".join(c for c in (employer_rnc or "000000000") if c.isdigit())
+        filename = f"RT_{rnc_clean}_{periodo_mmaaaa}.txt"
 
         return {
             "content": content,

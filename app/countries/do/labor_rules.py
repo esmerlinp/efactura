@@ -5,3 +5,15 @@ DIAS_LABORABLES_SEMANAL = 5.5
 TABLA_VACACIONES_PROPORCIONAL = {
     5: 6, 6: 7, 7: 8, 8: 9, 9: 10, 10: 11, 11: 12,
 }
+
+TABLA_BONIFICACION = [
+    (0, 36, 45),
+    (36, 9999, 60),
+]
+
+SALARIOS_MINIMOS = {
+    2026: {"micro": 16993.20, "pequena": 18421.20, "mediana": 27489.60, "grande": 29988.00},
+    2025: {"micro": 15860.32, "pequena": 17193.12, "mediana": 25656.96, "grande": 27988.80},
+}
+
+TARIFA_DEPENDIENTES_ADICIONALES = 1919.78

@@ -67,3 +67,4 @@ class CompanyProfile(BaseModel):
     fax: str = ""  # Fax
     zonaFranca: bool = False  # Zona Franca
     parque: str = ""  # Parque
+    srlRiskCategory: int = 3  # Categoría de riesgo SRL (1-4), default III

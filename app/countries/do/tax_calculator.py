@@ -30,7 +30,8 @@ class DominicanTaxCalculator(TaxCalculator):
         sfs_employee = round(sfs_cotizable * r["sfs_employee_rate"], 2)
 
         infotep_threshold = r["min_salary"] * r["infotep_threshold_multiplier"]
-        infotep_employee = round(income * r["infotep_rate"], 2) if income > infotep_threshold else 0.0
+        bonus = context.get("bonus", 0) if context else 0
+        infotep_employee = round(bonus * r.get("infotep_employee_rate", 0.005), 2) if income > infotep_threshold else 0.0
 
         from app.services.payroll_service import PayrollService
         isr_monthly = PayrollService._calculate_isr_monthly(
@@ -63,9 +64,13 @@ class DominicanTaxCalculator(TaxCalculator):
         afp_cotizable = min(income, afp_cap)
         sfs_cotizable = min(income, sfs_cap)
 
+        srl_cap = r["srl_salary_cap"] / 2 if period_type == "quincenal" else r["srl_salary_cap"]
+        srl_cotizable = min(income, srl_cap)
+
         afp_employer = round(afp_cotizable * r["afp_employer_rate"], 2)
         sfs_employer = round(sfs_cotizable * r["sfs_employer_rate"], 2)
-        srl_employer = round(sfs_cotizable * r["srl_employer_rate"], 2)
+        srl_category_rate = r.get("srl_employer_rates", {}).get(r.get("srl_risk_category", 3), r.get("srl_employer_rate", 0.0120))
+        srl_employer = round(srl_cotizable * srl_category_rate, 2)
         infotep_employer = round(income * r["infotep_rate"], 2)
 
         return {

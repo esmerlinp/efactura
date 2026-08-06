@@ -1,7 +1,7 @@
 """RRHH module — auto-extracted."""
 
 from datetime import date
-from flask import render_template, request, redirect, url_for, session, flash, jsonify, send_file
+from flask import render_template, request, redirect, url_for, session, flash, jsonify, send_file, make_response
 from app.web.rrhh import (
     web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
     _is_hr_role, _sanitize_for_role, MONTHS_ES,
@@ -512,5 +512,66 @@ def report_ir18_validation():
 
     return render_template("rrhh/reports/ir18_validation.html", active_page="rrhh_reports",
                            result=result, year=year)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# IR-13 — DECLARACIÓN JURADA ANUAL DEL AGENTE DE RETENCIÓN DE ASALARIADOS
+# ═══════════════════════════════════════════════════════════════════════════
+
+@web_invoices_bp.route('/reports/rrhh/ir13')
+@web_rrhh_bp.route("/rrhh/reports/ir13")
+@require_module('nomina')
+def report_ir13():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    from app.services.ir13_service import calculate_ir13
+    from app.services.db_service import DatabaseService
+
+    try:
+        year = int(request.args.get("year", date.today().year))
+    except (ValueError, TypeError):
+        year = date.today().year
+
+    data = calculate_ir13(company_id, year=year, sandbox=sandbox)
+
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+    data["company"] = company
+    data["fecha_emision"] = date.today().strftime("%d/%m/%Y")
+
+    return render_template("rrhh/reports/ir13.html", active_page="rrhh_reports", **data)
+
+
+@web_invoices_bp.route('/reports/rrhh/ir13/pdf')
+@web_rrhh_bp.route("/rrhh/reports/ir13/pdf")
+@require_module('nomina')
+def report_ir13_pdf():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    from app.services.ir13_service import calculate_ir13
+    from app.services.db_service import DatabaseService
+    from app.utils.pdf import pdf_write_options
+    from weasyprint import HTML as WeasyprintHTML
+
+    try:
+        year = int(request.args.get("year", date.today().year))
+    except (ValueError, TypeError):
+        year = date.today().year
+
+    data = calculate_ir13(company_id, year=year, sandbox=sandbox)
+
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+    data["company"] = company
+    data["fecha_emision"] = date.today().strftime("%d/%m/%Y")
+    data["is_pdf"] = True
+
+    rendered = render_template("rrhh/reports/ir13.html", active_page="rrhh_reports", **data)
+    pdf_bytes = WeasyprintHTML(string=rendered, base_url=request.host_url).write_pdf(**pdf_write_options())
+
+    response = make_response(pdf_bytes)
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'attachment; filename="IR-13_{year}.pdf"'
+    return response
 
 

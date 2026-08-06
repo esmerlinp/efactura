@@ -154,7 +154,7 @@ JOURNAL_ENTRY_STATES = {
 OFFBOARDING_STATES = {
     "draft": {
         "label": "Borrador",
-        "transitions": ["pending_supervisor_approval", "cancelled"],
+        "transitions": ["pending_supervisor_approval", "pending_settlement", "cancelled"],
         "color": "secondary",
         "description": "Inicia el proceso de offboarding. Complete los datos preliminares antes de enviar a revisión.",
     },

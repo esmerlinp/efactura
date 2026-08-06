@@ -10,6 +10,9 @@
             <span style="color:var(--text-muted);">|</span>
             {% set st = states.get(req.status, {}) %}
             <span class="badge badge-{{ st.color or 'secondary' }}" style="font-size:0.8rem; padding:4px 14px;">{{ st.label or req.status }}</span>
+            {% if is_simple %}
+            <span class="badge badge-info" style="font-size:0.7rem; padding:3px 10px; background:var(--bg-secondary); border:1px solid var(--border-color);"><i class="fa-solid fa-bolt"></i> Modo simple</span>
+            {% endif %}
             <span style="font-size:0.82rem; color:var(--text-secondary);">{{ req.terminationType or '—' }}</span>
             <span style="font-size:0.78rem; color:var(--text-muted);"><code>{{ req.requestNumber or req.id[:8] }}</code></span>
         </div>
@@ -29,6 +32,14 @@
         <a href="{{ url_for('web_rrhh.offboarding_list') }}" class="btn btn-ghost btn-sm">
             <i class="fa-solid fa-arrow-left"></i> Volver
         </a>
+        <form method="POST" action="{{ url_for('web_rrhh.offboarding_toggle_mode') }}" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-sm {% if is_simple %}btn-outline{% else %}btn-info{% endif %}"
+                    style="font-size:0.72rem;" title="{% if is_simple %}Cambiar a modo completo (multi-parte){% else %}Cambiar a modo simple{% endif %}">
+                <i class="fa-solid {% if is_simple %}fa-users{% else %}fa-bolt{% endif %}"></i>
+                {% if is_simple %}Completo{% else %}Simple{% endif %}
+            </button>
+        </form>
     </div>
 </div>
 

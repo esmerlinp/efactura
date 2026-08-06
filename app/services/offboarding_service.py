@@ -27,9 +27,11 @@ from app.models.offboarding import (
 class OffboardingService:
     """Agregado root: TerminationRequest con sus 8 entidades satélite."""
 
-    def __init__(self, company_id: str, sandbox: bool = True):
+    def __init__(self, company_id: str, sandbox: bool = True, offboarding_mode: str = "full"):
         self.company_id = company_id
         self.sandbox = sandbox
+        self.offboarding_mode = offboarding_mode
+        self.is_simple = offboarding_mode == "simple"
         self.sm = StateMachineValidator(OFFBOARDING_STATES)
 
     def _now(self) -> str:
@@ -126,6 +128,9 @@ class OffboardingService:
         if current == "pending_hr_approval" and new_status == "pending_settlement":
             self._record_auto_approved(req_data, user_email, timestamp)
 
+        if self.is_simple and current == "draft" and new_status == "pending_settlement":
+            self._record_skipped_approvals(req_data, user_email, timestamp)
+
         req_data["status"] = new_status
 
         status_entry = StatusChange(
@@ -191,11 +196,49 @@ class OffboardingService:
                    {"fromStatus": "pending_hr_approval", "toStatus": "approved"},
                    sandbox=self.sandbox)
 
+    def _record_skipped_approvals(self, req_data: dict, user_email: str, timestamp: str):
+        if "statusHistory" not in req_data or not isinstance(req_data.get("statusHistory"), list):
+            req_data["statusHistory"] = []
+        req_data["statusHistory"].append(StatusChange(
+            fromStatus="draft",
+            toStatus="pending_supervisor_approval",
+            changedBy="system",
+            changedAt=timestamp,
+            comment="Aprobación de supervisor omitida (modo simple)",
+            source="system",
+        ).model_dump())
+        req_data["statusHistory"].append(StatusChange(
+            fromStatus="pending_supervisor_approval",
+            toStatus="pending_hr_approval",
+            changedBy="system",
+            changedAt=timestamp,
+            comment="Aprobación de RRHH omitida (modo simple)",
+            source="system",
+        ).model_dump())
+        req_data["statusHistory"].append(StatusChange(
+            fromStatus="pending_hr_approval",
+            toStatus="approved",
+            changedBy="system",
+            changedAt=timestamp,
+            comment="Aprobación automática (modo simple)",
+            source="system",
+        ).model_dump())
+        req_data["submittedAt"] = timestamp
+        req_data["supervisorApprovedAt"] = timestamp
+        req_data["hrApprovedAt"] = timestamp
+        log_action(self.company_id, "offboarding_fast_track", "offboarding",
+                   req_data.get("id", ""), user_email,
+                   {"fromStatus": "draft", "toStatus": "pending_settlement"},
+                   sandbox=self.sandbox)
+
     def can_transition(self, current_status: str, new_status: str) -> bool:
         return self.sm.can_transition(current_status, new_status)
 
     def allowed_transitions(self, current_status: str) -> list:
         allowed = self.sm.get_allowed_transitions(current_status)
+        if self.is_simple:
+            if current_status == "draft":
+                return [t for t in allowed if t == "pending_settlement" or t == "cancelled"]
         if current_status == "pending_hr_approval":
             allowed = [t for t in allowed if t != "approved"]
         return allowed
@@ -243,7 +286,7 @@ class OffboardingService:
 
     def _check_sod(self, current: str, new_status: str, req: dict,
                    user_email: str, user_role: str) -> Optional[str]:
-        if user_role == "owner":
+        if self.is_simple or user_role == "owner":
             return None
         if current == "draft" and new_status == "pending_supervisor_approval":
             if req.get("createdBy") == user_email:

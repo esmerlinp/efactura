@@ -91,6 +91,7 @@
                 <option value="">Todos los estados</option>
                 <option value="activo" {% if filter_status=='activo' %}selected{% endif %}>Activo</option>
                 <option value="inactivo" {% if filter_status=='inactivo' %}selected{% endif %}>Inactivo</option>
+                <option value="suspendido" {% if filter_status=='suspendido' %}selected{% endif %}>Suspendido</option>
             </select>
         </div>
         <div class="form-group" style="margin:0;">
@@ -182,6 +183,8 @@
                 <td>
                     {% if emp.status == 'activo' %}
                     <span class="badge badge-success">Activo</span>
+                    {% elif emp.status == 'suspendido' %}
+                    <span class="badge badge-warning">Suspendido</span>
                     {% else %}
                     <span class="badge badge-danger">Inactivo</span>
                     {% endif %}

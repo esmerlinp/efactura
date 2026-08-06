@@ -127,8 +127,11 @@ def employee_import():
 
     from app.services.payroll_static_data import (
         AREAS, CONTRACT_TYPES, PAYMENT_METHODS, WORKDAYS,
-        BANCOS_RD, ACCOUNT_TYPES, ID_TYPES, PAYROLL_FREQUENCIES
+        ACCOUNT_TYPES, ID_TYPES, PAYROLL_FREQUENCIES
     )
+
+    bank_entities_list = DatabaseService.get_bank_entities(owner_uid, sandbox=sandbox, company_id=company_id)
+    bank_names = [be["name"] for be in bank_entities_list if be.get("active")]
 
     system_defaults = {
         "position": [p["name"] for p in positions],
@@ -137,7 +140,7 @@ def employee_import():
         "contractType": [c["value"] for c in CONTRACT_TYPES],
         "paymentMethod": [p["value"] for p in PAYMENT_METHODS],
         "workday": [w["value"] for w in WORKDAYS],
-        "bank": BANCOS_RD,
+        "bank": bank_names,
         "accountType": [a["value"] for a in ACCOUNT_TYPES],
         "idType": [t["value"] for t in ID_TYPES],
         "paymentFrequency": [f["value"] for f in PAYROLL_FREQUENCIES],
@@ -299,6 +302,9 @@ def employee_import_process():
     from app.services import hr_data_service as hr
     from app.services.payroll_audit_service import log_action
 
+    bank_entities_list = DatabaseService.get_bank_entities(owner_uid, sandbox=sandbox, company_id=company_id)
+    bank_names_map = {be["name"].strip().lower(): be["name"] for be in bank_entities_list if be.get("active")}
+
     existing_candidates = hr.get_employees(company_id, sandbox=sandbox)
     active_cedulas = set()
     inactive_cedulas = set()
@@ -355,6 +361,10 @@ def employee_import_process():
                     payment_method = _get_val(row_data, "paymentMethod")
                     account_number = _get_val(row_data, "accountNumber")
                     bank = _get_val(row_data, "bank")
+                    if bank:
+                        normalized = bank_names_map.get(bank.strip().lower(), "")
+                        if normalized:
+                            bank = normalized
                     account_type = _get_val(row_data, "accountType")
                     status_csv = _get_val(row_data, "status", "").strip().lower()
                     end_date_csv = _get_val(row_data, "endDate", "").strip()

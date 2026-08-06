@@ -119,7 +119,7 @@
     <div class="report-category-card">
         <div class="card-header">
             <div class="icon nomina"><i class="fa-solid fa-coins"></i></div>
-            <span class="badge">9 reportes</span>
+            <span class="badge">10 reportes</span>
         </div>
         <div class="card-title">Nómina</div>
         <div class="card-desc">Desgloses, contribuciones y certificados de nómina.</div>
@@ -141,6 +141,9 @@
             </li>
             <li class="done">
                 <a href="{{ url_for('web_invoices.report_ir18_validation') }}"><i class="fa-solid fa-check-circle" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Validación IR-18</a>
+            </li>
+            <li class="done">
+                <a href="{{ url_for('web_invoices.report_ir13') }}"><i class="fa-solid fa-file-invoice-dollar" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> IR-13 — Declaración Jurada Anual ISR</a>
             </li>
             <li class="done">
                 <a href="{{ url_for('web_invoices.report_net_payroll') }}"><i class="fa-solid fa-file-invoice" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Nómina Neta sin Provisiones</a>

@@ -1,0 +1,346 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}IR-13 {{ year }} — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<style>
+    .ir13-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        font-family: 'Segoe UI', Arial, sans-serif;
+        font-size: 0.78rem;
+        color: #1a1a1a;
+        background: #fff;
+    }
+    .ir13-header {
+        text-align: center;
+        border-bottom: 2px solid #1a1a1a;
+        padding-bottom: 12px;
+        margin-bottom: 16px;
+        position: relative;
+    }
+    .ir13-header .gov-line {
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        color: #333;
+    }
+    .ir13-header .form-title {
+        font-size: 0.9rem;
+        font-weight: 700;
+        margin-top: 4px;
+        text-transform: uppercase;
+    }
+    .ir13-header .form-id {
+        font-size: 0.75rem;
+        font-weight: 700;
+        margin-top: 2px;
+    }
+    .ir13-header .meta-right {
+        position: absolute;
+        top: 0;
+        right: 0;
+        text-align: right;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    .ir13-header .meta-right div {
+        margin-bottom: 2px;
+    }
+    .ir13-company {
+        border: 1px solid #1a1a1a;
+        padding: 10px 14px;
+        margin-bottom: 16px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px 20px;
+        font-size: 0.75rem;
+    }
+    .ir13-company .field {
+        display: flex;
+        gap: 6px;
+    }
+    .ir13-company .field-label {
+        font-weight: 700;
+        white-space: nowrap;
+    }
+    .ir13-table-wrapper {
+        overflow-x: auto;
+    }
+    .ir13-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.62rem;
+        margin-bottom: 12px;
+    }
+    .ir13-table th {
+        background: #f0f0f0;
+        border: 1px solid #888;
+        padding: 4px 3px;
+        text-align: center;
+        font-weight: 700;
+        font-size: 0.58rem;
+        white-space: nowrap;
+    }
+    .ir13-table td {
+        border: 1px solid #ccc;
+        padding: 3px 4px;
+        text-align: right;
+        white-space: nowrap;
+    }
+    .ir13-table td.text-left {
+        text-align: left;
+    }
+    .ir13-table .col-letter {
+        font-size: 0.55rem;
+        color: #666;
+        display: block;
+    }
+    .ir13-table .totals-row td {
+        font-weight: 700;
+        background: #f8f8f8;
+        border-top: 2px solid #1a1a1a;
+    }
+    .ir13-table .totals-label {
+        text-align: left;
+        font-weight: 700;
+    }
+    .ir13-table .amount {
+        font-family: 'Courier New', monospace;
+        font-size: 0.6rem;
+    }
+    .ir13-summary {
+        display: flex;
+        gap: 30px;
+        margin-bottom: 20px;
+        margin-top: 16px;
+    }
+    .ir13-summary-box {
+        border: 1px solid #1a1a1a;
+        padding: 10px 16px;
+        min-width: 200px;
+    }
+    .ir13-summary-box .box-title {
+        font-weight: 700;
+        font-size: 0.7rem;
+        margin-bottom: 4px;
+    }
+    .ir13-summary-box .box-value {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #1a1a1a;
+    }
+    .ir13-declaration {
+        border: 1px solid #1a1a1a;
+        padding: 14px 18px;
+        font-size: 0.72rem;
+        line-height: 1.5;
+        text-align: justify;
+        margin-bottom: 20px;
+    }
+    .ir13-declaration .decl-text {
+        margin-bottom: 16px;
+    }
+    .ir13-declaration .decl-company {
+        font-weight: 700;
+    }
+    .ir13-signatures {
+        display: flex;
+        gap: 40px;
+        margin-top: 20px;
+    }
+    .ir13-signatures .sig-block {
+        flex: 1;
+        text-align: center;
+    }
+    .ir13-signatures .sig-line {
+        border-bottom: 1px solid #1a1a1a;
+        margin: 30px 0 4px;
+    }
+    .ir13-signatures .sig-label {
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    .ir13-footer {
+        margin-top: 24px;
+        text-align: right;
+        font-size: 0.65rem;
+        color: #888;
+        border-top: 1px solid #ddd;
+        padding-top: 8px;
+    }
+
+    /* Toolbar (solo en HTML, no en PDF) */
+    .ir13-toolbar {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+    }
+    .ir13-toolbar select, .ir13-toolbar button, .ir13-toolbar a {
+        padding: 6px 14px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        border: 1px solid var(--border-color, #ccc);
+        background: var(--bg-card, #fff);
+        cursor: pointer;
+        text-decoration: none;
+        color: var(--text-primary, #333);
+    }
+    .ir13-toolbar .btn-pdf {
+        background: var(--accent-blue, #2563eb);
+        color: #fff;
+        border-color: var(--accent-blue, #2563eb);
+    }
+    .ir13-toolbar .btn-year {
+        min-width: 90px;
+    }
+
+    @media print {
+        .ir13-toolbar { display: none; }
+        body { background: #fff; }
+        .ir13-container { box-shadow: none; padding: 0; }
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="ir13-container">
+
+    {% if not is_pdf %}
+    <div class="ir13-toolbar">
+        <a href="{{ url_for('web_invoices.reports_index') }}" class="btn-back">&larr; Reportes</a>
+        <select class="btn-year" onchange="window.location.href='?year='+this.value">
+            {% for y in range(year-3, year+2) %}
+            <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+        </select>
+        <a href="{{ url_for('web_rrhh.report_ir13_pdf', year=year) }}" class="btn-pdf">
+            <i class="fa-solid fa-file-pdf"></i> Descargar PDF
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- ═══ ENCABEZADO OFICIAL ═══ -->
+    <div class="ir13-header">
+        <div class="meta-right">
+            <div>Página No. 1</div>
+            <div>Año Fiscal: {{ year }}</div>
+        </div>
+        <div class="gov-line">Secretaría de Estado de Finanzas</div>
+        <div class="gov-line">Dirección General de Impuestos Internos</div>
+        <div class="form-title">Declaración Jurada Anual del Agente de Retención de Asalariados</div>
+        <div class="form-id">IR-13 &mdash; Aprobado por el Contralor General de la República</div>
+    </div>
+
+    <!-- ═══ DATOS DEL AGENTE DE RETENCIÓN ═══ -->
+    <div class="ir13-company">
+        <div class="field"><span class="field-label">Nombre o Razón Social:</span> {{ company.get('companyName', '') or company.get('company_name', '') }}</div>
+        <div class="field"><span class="field-label">RNC:</span> {{ company.get('companyRNC', '') or company.get('rnc', '') }}</div>
+        <div class="field"><span class="field-label">Dirección:</span> {{ company.get('companyAddress', '') or company.get('address', '') }}</div>
+        <div class="field"><span class="field-label">Provincia:</span> {{ company.get('province', '') }}</div>
+        <div class="field"><span class="field-label">Teléfono No.:</span> {{ company.get('companyPhone', '') or company.get('phone', '') }}</div>
+    </div>
+
+    <!-- ═══ TABLA DE ASALARIADOS ═══ -->
+    <div class="ir13-table-wrapper">
+        <table class="ir13-table">
+            <thead>
+                <tr>
+                    <th><span class="col-letter">A</span> Apellidos y Nombres</th>
+                    <th><span class="col-letter">B</span> Cédula / RNC</th>
+                    <th><span class="col-letter">C</span> Sueldos Pagados por el Ag. de Ret.</th>
+                    <th><span class="col-letter">D</span> Otras Remun. Pagadas por el Ag. de Ret.</th>
+                    <th><span class="col-letter">E</span> Remun. Pag. por Otros Empleadores</th>
+                    <th><span class="col-letter">F</span> Total Pagado en el Año</th>
+                    <th><span class="col-letter">G</span> Ingresos Exentos ISR</th>
+                    <th><span class="col-letter">H</span> Retención Seguridad Social</th>
+                    <th><span class="col-letter">I</span> Sueldos y Otros Pagos Sujetos a Retención</th>
+                    <th><span class="col-letter">J</span> Impuesto Liquidado</th>
+                    <th><span class="col-letter">L</span> Impuesto Retenido y Pagado</th>
+                    <th><span class="col-letter">M</span> Saldo a Favor del Empleado</th>
+                    <th><span class="col-letter">N</span> Saldo a Favor de DGII</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for emp in employees %}
+                <tr>
+                    <td class="text-left">{{ emp.apellidos_nombres }}</td>
+                    <td class="text-left">{{ emp.cedula }}</td>
+                    <td class="amount">{{ "{:,.2f}".format(emp.C) }}</td>
+                    <td class="amount">{{ "{:,.2f}".format(emp.D) }}</td>
+                    <td class="amount">{{ "{:,.2f}".format(emp.E) }}</td>
+                    <td class="amount">{{ "{:,.2f}".format(emp.F) }}</td>
+                    <td class="amount">{{ "{:,.2f}".format(emp.G) }}</td>
+                    <td class="amount">{{ "{:,.2f}".format(emp.H) }}</td>
+                    <td class="amount">{{ "{:,.2f}".format(emp.I) }}</td>
+                    <td class="amount">{{ "{:,.2f}".format(emp.J) }}</td>
+                    <td class="amount">{{ "{:,.2f}".format(emp.L) }}</td>
+                    <td class="amount">{{ "{:,.2f}".format(emp.M) }}</td>
+                    <td class="amount">{{ "{:,.2f}".format(emp.N) }}</td>
+                </tr>
+                {% endfor %}
+                {% if not employees %}
+                <tr>
+                    <td colspan="13" style="text-align:center; padding:20px; color:#999;">
+                        No hay datos de nómina para el año {{ year }}.
+                    </td>
+                </tr>
+                {% endif %}
+                {% if employees %}
+                <tr class="totals-row">
+                    <td class="totals-label" colspan="2">TOTALES RD$ ==></td>
+                    <td class="amount">{{ "{:,.2f}".format(totals.C) }}</td>
+                    <td class="amount">{{ "{:,.2f}".format(totals.D) }}</td>
+                    <td class="amount">{{ "{:,.2f}".format(totals.E) }}</td>
+                    <td class="amount">{{ "{:,.2f}".format(totals.F) }}</td>
+                    <td class="amount">{{ "{:,.2f}".format(totals.G) }}</td>
+                    <td class="amount">{{ "{:,.2f}".format(totals.H) }}</td>
+                    <td class="amount">{{ "{:,.2f}".format(totals.I) }}</td>
+                    <td class="amount">{{ "{:,.2f}".format(totals.J) }}</td>
+                    <td class="amount">{{ "{:,.2f}".format(totals.L) }}</td>
+                    <td class="amount">{{ "{:,.2f}".format(totals.M) }}</td>
+                    <td class="amount">{{ "{:,.2f}".format(totals.N) }}</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ═══ RESUMEN Y DECLARACIÓN ═══ -->
+    <div class="ir13-summary">
+        <div class="ir13-summary-box">
+            <div class="box-title">Número de asalariados</div>
+            <div class="box-value">{{ num_asalariados }}</div>
+        </div>
+        <div class="ir13-summary-box">
+            <div class="box-title">Asalariados sujetos a Retención</div>
+            <div class="box-value">{{ num_sujetos_retencion }}</div>
+        </div>
+    </div>
+
+    <div class="ir13-declaration">
+        <div class="decl-text">
+            Yo, <span class="decl-company">{{ company.get('companyName', '') or company.get('company_name', 'LA EMPRESA') }}</span>,
+            en calidad de Agente de Retención, por la presente declaro bajo juramento que los datos
+            consignados en la presente declaración son correctos y completos y que no he omitido dato
+            que la misma deba contener, siendo en consecuencia todo su contenido la fiel expresión de la verdad.
+        </div>
+        <div class="ir13-signatures">
+            <div class="sig-block">
+                <div class="sig-line"></div>
+                <div class="sig-label">Nombres y Apellidos del Representante</div>
+            </div>
+            <div class="sig-block">
+                <div class="sig-line"></div>
+                <div class="sig-label">Firma</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="ir13-footer">
+        Emitido el {{ fecha_emision }} &mdash; {{ product_name }}
+    </div>
+
+</div>
+{% endblock %}

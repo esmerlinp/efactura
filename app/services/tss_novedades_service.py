@@ -85,10 +85,10 @@ def generate_tss_novedades(
 ) -> dict:
     """Genera archivo de Novedades TSS en formato OFICIAL SUIRPLUS v6.0.
 
-    Layout NV (366 caracteres por empleado):
+    Layout NV (384 caracteres por empleado):
       D(1) + clave(3) + tipoNovedad(2) + fechaInicio(8) + fechaFin(8) +
-      tipoDoc(1) + documento(11) + nombres(50) + apellido1(40) +
-      apellido2(36) + sexo(1) + fechaNac(8) +
+      tipoDoc(1) + documento(25) + nombres(50) + apellido1(40) +
+      apellido2(40) + sexo(1) + fechaNac(8) +
       [salarios: igual que AM] +
       regalia(18) + preaviso(18) + pension(18)
 
@@ -153,9 +153,9 @@ def generate_tss_novedades(
         id_type = (emp.get("idType", "") or "cedula").lower()
         tipo_doc = "C" if id_type == "cedula" else ("P" if id_type == "pasaporte" else "N")
 
-        # Documento (11)
+        # Documento (25)
         doc = "".join(c for c in (emp.get("cedula", "") or emp.get("idNumber", "") or "") if c.isalnum())
-        documento = doc.ljust(11)[:11]
+        documento = doc.ljust(25)[:25]
 
         # Nombres (50)
         nombres_raw = f"{emp.get('firstName', '')} {emp.get('middleName', '')}".strip()
@@ -165,9 +165,9 @@ def generate_tss_novedades(
         apellido1 = (emp.get("firstLastName", "") or emp.get("lastName", "") or "").strip()
         apellido1 = _ascii_upper(apellido1).ljust(40)[:40]
 
-        # 2do Apellido (36)
+        # 2do Apellido (40)
         apellido2 = (emp.get("secondLastName", "") or "").strip()
-        apellido2 = _ascii_upper(apellido2).ljust(36)[:36]
+        apellido2 = _ascii_upper(apellido2).ljust(40)[:40]
 
         # Sexo (1)
         gender = (emp.get("gender", "") or "").lower()
@@ -254,7 +254,7 @@ def generate_tss_novedades(
             ingresos_exentos + saldo_favor + salario_infotep_str +
             tipo_ingreso + regalia_str + pc_str + pension_str
         )
-        assert len(detalle) == 366, f"Detalle NV: {len(detalle)} chars, deben ser 366"
+        assert len(detalle) == 384, f"Detalle NV: {len(detalle)} chars, deben ser 384"
         output_lines.append(detalle)
 
     # SUMARIO — 7 caracteres

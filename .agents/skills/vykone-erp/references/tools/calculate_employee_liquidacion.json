@@ -6,7 +6,7 @@
   "requires_confirmation": true,
   "required_permissions": ["canHR"],
   "sod_conflicts": [],
-  "description": "Calcula la liquidación laboral completa de un empleado según la Ley 16-92 del Código de Trabajo dominicano. Incluye preaviso (Art. 76), cesantía (Art. 80), salario diario promedio (Art. 85), vacaciones pendientes (Art. 177/182), regalía pascual (Art. 219), y tratamiento fiscal de cada concepto.",
+  "description": "Calcula la liquidación laboral completa de un empleado según la Ley 16-92 del Código de Trabajo dominicano. Incluye preaviso (Art. 76), cesantía (Art. 80), salario diario promedio (Art. 85), salario proporcional del mes de salida, vacaciones pendientes (Art. 177/182), regalía pascual (Art. 219), y tratamiento fiscal de cada concepto.",
   "parameters": {
     "type": "object",
     "required": ["employee_id", "termination_date", "termination_type"],
@@ -26,6 +26,11 @@
         "enum": ["desahucio_empleador", "dimision_justificada", "despido_justificado", "renuncia"],
         "description": "Tipo de terminación. 'desahucio_empleador' y 'dimision_justificada' aplican prestaciones. 'despido_justificado' y 'renuncia' no."
       },
+      "is_variable_salary": {
+        "type": "boolean",
+        "default": false,
+        "description": "True si el salario es variable (comisiones, bonos habituales). Si es True, el SDP se calcula como sum(últimos 12m) / 12 / 23.83. Si es False, se usa el sueldo base directamente."
+      },
       "preaviso_trabajado": {
         "type": "boolean",
         "default": false,
@@ -37,6 +42,12 @@
         "minItems": 1,
         "maxItems": 12,
         "description": "Salarios mensuales de los últimos 12 meses para cálculo de SDP. Si se omite, se obtienen del historial salarial del empleado."
+      },
+      "dias_adeudados": {
+        "type": "integer",
+        "minimum": 0,
+        "default": 0,
+        "description": "Días trabajados reales en el mes de salida para calcular el salario proporcional"
       },
       "vacation_pending_days": {
         "type": "integer",
@@ -59,7 +70,10 @@
   },
   "calculation_detail": {
     "antiguedad": "Años, meses y días exactos entre hireDate y terminationDate",
-    "sdp": "Salario Diario Promedio = promedio de salarios últimos 12 meses / días laborables según frecuencia (23.83 mensual, 11.91 quincenal, 5.5 semanal)",
+    "sdp": {
+      "fijo": "Salario Diario Promedio = sueldo_base / días laborables según frecuencia (23.83 mensual, 11.91 quincenal, 5.5 semanal)",
+      "variable": "Salario Diario Promedio = sum(últimos 12 meses) / 12 / días laborables según frecuencia"
+    },
     "preaviso": {
       "ranges": [
         {"months": "0-2", "days": 0, "reason": "No aplica"},
@@ -78,6 +92,7 @@
         {"years": "1-5", "days_per_year": 21, "reason": "Art. 80"},
         {"years": "5+", "days_per_year": 23, "reason": "Art. 80"}
       ],
+      "prorateo": "Fracción de año: Meses × DíasPorAño / 12 (proporcional, no fracciones fijas)",
       "exento_tss": true,
       "exento_isr": true
     },
@@ -91,10 +106,16 @@
       "note": "Las vacaciones SÍ pagan TSS e ISR"
     },
     "regalia": {
-      "formula": "baseSalary / 12 × months_worked_in_year",
+      "formula": "sum(salarios ordinarios año corriente) / 12",
       "exento_tss": true,
       "exento_isr": true,
       "reason": "Art. 219 + Ley 87-01"
+    },
+    "salario_proporcional": {
+      "formula": "Días_Adeudados × (Sueldo_Base / divisor_según_frecuencia)",
+      "exento_tss": false,
+      "exento_isr": false,
+      "reason": "Salario regular por días trabajados en el mes de salida"
     }
   },
   "termination_type_rules": {

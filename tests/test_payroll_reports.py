@@ -143,3 +143,80 @@ class TestGenerateTSSAutodeterminacion:
         assert len(lines) == 2  # header + trailer
         assert lines[0][0] == "E"
         assert lines[-1][0] == "S"
+
+
+class TestGenerateTSSRectificativa:
+
+    def _make_emp(self, **overrides):
+        emp = {
+            "id": "E1", "cedula": "00100000001",
+            "firstName": "Juan", "middleName": "Carlos",
+            "firstLastName": "Perez", "secondLastName": "Garcia",
+            "gender": "masculino", "birthDate": "1990-01-15",
+        }
+        emp.update(overrides)
+        return emp
+
+    def _make_line(self, emp_id="E1", income=50000.00):
+        return {
+            "employeeId": emp_id,
+            "totalIncome": income,
+        }
+
+    def test_rt_formato_header(self):
+        period = {"periodKey": "2025-07-M", "year": 2025, "month": 7}
+        with patch.object(PayrollService, 'get_period_lines', return_value=[]):
+            result = PayrollService.generate_tss_rectificativa(
+                period, [], employer_rnc="12345678901"
+            )
+        lines = result["content"].strip().split("\n")
+        header = lines[0]
+        assert len(header) == 20
+        assert header[0] == "E"
+        assert header[1:3] == "RT"
+
+    def test_rt_formato_detail(self):
+        period = {"periodKey": "2025-07-M", "year": 2025, "month": 7}
+        employees = [self._make_emp()]
+        lines = [self._make_line()]
+        with patch.object(PayrollService, 'get_period_lines', return_value=lines):
+            result = PayrollService.generate_tss_rectificativa(
+                period, employees, employer_rnc="12345678901"
+            )
+        detail = result["content"].strip().split("\n")[1]
+        assert len(detail) == 312
+        assert detail[0] == "D"
+        # Tipo trabajador at pos 1 (0-indexed): N=Normal
+        assert detail[1] in ("N", "P")
+
+    def test_rt_formato_trailer(self):
+        period = {"periodKey": "2025-07-M", "year": 2025, "month": 7}
+        employees = [self._make_emp()]
+        lines = [self._make_line()]
+        with patch.object(PayrollService, 'get_period_lines', return_value=lines):
+            result = PayrollService.generate_tss_rectificativa(
+                period, employees, employer_rnc="12345678901"
+            )
+        trailer = result["content"].strip().split("\n")[-1]
+        assert trailer[0] == "S"
+        assert len(trailer) == 7
+
+    def test_rt_sin_empleados(self):
+        period = {"periodKey": "2025-07-M", "year": 2025, "month": 7}
+        with patch.object(PayrollService, 'get_period_lines', return_value=[]):
+            result = PayrollService.generate_tss_rectificativa(
+                period, [], employer_rnc="12345678901"
+            )
+        lines = result["content"].strip().split("\n")
+        assert len(lines) == 2  # header + trailer
+        assert lines[0][0] == "E"
+        assert lines[-1][0] == "S"
+
+    def test_rt_filename(self):
+        period = {"periodKey": "2025-07-M", "year": 2025, "month": 7}
+        with patch.object(PayrollService, 'get_period_lines', return_value=[]):
+            result = PayrollService.generate_tss_rectificativa(
+                period, [], employer_rnc="12345678901"
+            )
+        assert result["filename"].startswith("RT_")
+        assert result["filename"].endswith(".txt")

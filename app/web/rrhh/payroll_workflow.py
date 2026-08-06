@@ -13,7 +13,7 @@ from app.utils.country_context import get_current_country
 from app.services.payroll_audit_service import log_action
 from app.services.payroll_async_service import create_job, update_job, get_job
 from app.services.mailer import Mailer
-import threading, io
+import threading, io, traceback
 from datetime import datetime, timezone, date
 
 
@@ -269,45 +269,120 @@ def payroll_bank_export(period_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
-    from app.services import hr_data_service as hr
-    from app.services.bank_export_service import generate_bank_file
-    from app.services.db_service import DatabaseService
+    try:
+        from app.services import hr_data_service as hr
+        from app.services.bank_export_service import (
+            generate_bank_file, generate_bpd_filename, BANK_KEY_TO_NAME,
+        )
+        from app.services.db_service import DatabaseService
 
-    period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
-    if not period:
-        flash("Período no encontrado.", "error")
-        return redirect(url_for("web_rrhh.payroll_list"))
+        period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
+        if not period:
+            flash("Periodo no encontrado.", "error")
+            return redirect(url_for("web_rrhh.payroll_list"))
 
-    # Asegurar que las líneas estén cargadas, ya que pueden estar en una subcolección
-    period["lines"] = hr.get_payroll_lines_unified(period, company_id, sandbox=sandbox)
+        period["lines"] = hr.get_payroll_lines_unified(period, company_id, sandbox=sandbox)
 
-    # Obtener datos de empresa desde la fuente canónica: companies/{id}
-    company_doc = DatabaseService.get_company(company_id) or {}
+        company_doc = DatabaseService.get_company(company_id) or {}
+        company_name = (
+            company_doc.get("trade_name") or company_doc.get("company_name") or ""
+        ).strip()
+        company_rnc = (company_doc.get("rnc") or "").strip().replace("-", "")[:9]
+        company_email = (company_doc.get("email") or "").strip()
 
-    company_name = (
-        company_doc.get("trade_name") or company_doc.get("company_name") or ""
-    ).strip()
+        bank = request.args.get("bank", "popular")
+        include_other_banks = request.args.get("include_other_banks", "0") == "1"
 
-    company_rnc = (company_doc.get("rnc") or "").strip()
-    company_rnc = company_rnc.replace("-", "")[:9]
-    company_code = company_rnc
+        bank_entities = DatabaseService.get_bank_entities(owner_uid, sandbox=sandbox, company_id=company_id)
 
-    company_email = (company_doc.get("email") or "").strip()
+        export_bank_name = BANK_KEY_TO_NAME.get(bank, "")
+        export_bank_entity = next(
+            (be for be in bank_entities if be.get("name", "").strip().lower() == export_bank_name.lower()),
+            None,
+        )
+        contract_code = (export_bank_entity or {}).get("contract_code", "") or company_rnc[:5]
+        bank_contract = (export_bank_entity or {}).get("bpd_code", "") or company_rnc[:9] or "000000000"
 
-    bank_contract = request.args.get("contract_code") or company_code.zfill(9)[:9] or "000000000"
+        employees_list = hr.get_employees(company_id, sandbox=sandbox)
+        emp_map = {e["id"]: e for e in employees_list}
 
-    bank = request.args.get("bank", "popular")
-    employees_list = hr.get_employees(company_id, sandbox=sandbox)
-    emp_map = {e["id"]: e for e in employees_list}
-    content = generate_bank_file(period, emp_map, bank=bank,
-                                 company_name=company_name,
-                                 company_code=bank_contract,
-                                 company_email=company_email)
+        content = generate_bank_file(
+            period, emp_map, bank=bank,
+            company_name=company_name,
+            company_code=bank_contract,
+            company_email=company_email,
+            include_other_banks=include_other_banks,
+            bank_entities=bank_entities,
+            export_bank_entity=export_bank_entity,
+        )
 
-    import io as _io
-    buffer = _io.BytesIO(content)
-    return send_file(buffer, mimetype="text/plain", as_attachment=True,
-                     download_name=f"Nomina_{period.get('periodKey','')}_{bank}.txt")
+        if bank == "popular":
+            seq = f"{period.get('revision', 1):07d}"
+            service_type = (export_bank_entity or {}).get("bpd_service_type", "01") or "01"
+            filename = generate_bpd_filename(contract_code, service_type, seq)
+        else:
+            filename = f"Nomina_{period.get('periodKey','')}_{bank}.txt"
+
+        import io as _io
+        buffer = _io.BytesIO(content)
+        return send_file(buffer, mimetype="text/plain", as_attachment=True,
+                         download_name=filename)
+    except Exception as e:
+        import flask
+        flask.current_app.logger.exception("payroll_bank_export failed")
+        flash(f"Error al generar archivo: {e}", "error")
+        return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
+
+
+@web_rrhh_bp.route("/rrhh/payroll/<period_id>/bank-export/info")
+def payroll_bank_export_info(period_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    try:
+        from app.services import hr_data_service as hr
+        from app.services.bank_export_service import BANK_KEY_TO_NAME
+        from app.services.db_service import DatabaseService
+
+        period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
+        if not period:
+            return jsonify({"error": "Periodo no encontrado"}), 404
+
+        period["lines"] = hr.get_payroll_lines_unified(period, company_id, sandbox=sandbox)
+        bank = request.args.get("bank", "popular")
+        export_bank_name = BANK_KEY_TO_NAME.get(bank, "")
+
+        employees_list = hr.get_employees(company_id, sandbox=sandbox)
+        emp_map = {e["id"]: e for e in employees_list}
+
+        counts = {}
+        total = 0
+        for pl in period.get("lines", []):
+            emp_id = pl.get("employeeId", "")
+            emp = emp_map.get(emp_id, {})
+            neto = pl.get("netSalary", 0)
+            if neto <= 0:
+                continue
+            emp_bank = (emp.get("bank") or "").strip()
+            key = emp_bank if emp_bank else "(Sin banco)"
+            counts[key] = counts.get(key, 0) + 1
+            total += 1
+
+        matching = counts.get(export_bank_name, 0) if export_bank_name else 0
+        has_mix = total > matching and total > 0
+
+        return jsonify({
+            "selected_bank": bank,
+            "export_bank_name": export_bank_name,
+            "counts": counts,
+            "total": total,
+            "matching_bank_count": matching,
+            "has_mix": has_mix,
+        })
+    except Exception as e:
+        import flask
+        flask.current_app.logger.exception("payroll_bank_export_info failed")
+        return jsonify({"error": str(e), "has_mix": False}), 500
 
 
 @web_rrhh_bp.route("/rrhh/payroll/<period_id>/validate", methods=["POST"])

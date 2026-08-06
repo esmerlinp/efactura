@@ -1,0 +1,98 @@
+{% extends "layout.html" %}
+
+{% block title %}Entidades Bancarias{% endblock %}
+
+{% block page_header %}Entidades Bancarias{% endblock %}
+
+{% block content %}
+<div style="max-width: 1200px; margin: 0 auto;">
+<style>
+    .badge-active { background: rgba(16, 185, 129, 0.1); color: #10b981; font-size: 0.75rem; padding: 3px 10px; border-radius: 20px; font-weight: 500; }
+    .badge-inactive { background: rgba(239, 68, 68, 0.1); color: #ef4444; font-size: 0.75rem; padding: 3px 10px; border-radius: 20px; font-weight: 500; }
+    .code-mono { font-family: 'SF Mono', 'Cascadia Code', monospace; font-size: 0.82rem; letter-spacing: 0.5px; }
+</style>
+
+<div class="page-title-container" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:24px;">
+    <div>
+        <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+            <i class="fa-solid fa-building-columns" style="color:var(--accent-blue); margin-right:10px;"></i> Entidades Bancarias
+        </h1>
+        <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
+            Catalogo de bancos con sus codigos BPD para generacion de archivos de pago.
+        </p>
+    </div>
+    <div style="display:flex; gap:8px;">
+        <a href="{{ url_for('web_bank_entities.new_bank_entity') }}" class="btn btn-primary">
+            <i class="fa-solid fa-plus"></i> Agregar banco
+        </a>
+    </div>
+</div>
+
+<div class="card-table-wrapper">
+    <div class="table-header-row" style="display:flex; justify-content:space-between; align-items:center; gap:20px; flex-wrap:wrap; margin-bottom:24px;">
+        <div>
+            <h3 style="font-size:1.25rem; font-family:var(--font-heading); margin-bottom:6px;">{{ entities|length }} entidades registradas</h3>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Codigo BPD</th>
+                    <th>Dig. Ver.</th>
+                    <th>Contrato</th>
+                    <th>Tipo Servicio</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for e in entities %}
+                <tr>
+                    <td style="font-weight: 600;">{{ e.name }}</td>
+                    <td><span class="code-mono">{{ e.bpd_code or '—' }}</span></td>
+                    <td><span class="code-mono">{{ e.digi_ver or '0' }}</span></td>
+                    <td><span class="code-mono">{{ e.contract_code or '—' }}</span></td>
+                    <td>{{ e.bpd_service_type or '01' }}</td>
+                    <td>
+                        {% if e.active %}
+                        <span class="badge-active">Activo</span>
+                        {% else %}
+                        <span class="badge-inactive">Inactivo</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="action-menu">
+                            <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                            </button>
+                            <div class="action-menu-dropdown">
+                                <a href="{{ url_for('web_bank_entities.edit_bank_entity', entity_id=e.id) }}">
+                                    <i class="fa-solid fa-pen-to-square"></i> Editar
+                                </a>
+                                <form method="POST" action="{{ url_for('web_bank_entities.delete_bank_entity', entity_id=e.id) }}" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="action-delete" onclick="return confirm('Eliminar {{ e.name }}?')">
+                                        <i class="fa-solid fa-trash-can"></i> Eliminar
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" style="text-align:center; padding:40px; color:var(--text-muted);">
+                        <i class="fa-solid fa-building-columns" style="font-size:2rem; display:block; margin-bottom:12px;"></i>
+                        No hay entidades bancarias registradas.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+</div>
+{% endblock %}
