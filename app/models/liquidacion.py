@@ -43,11 +43,13 @@ class LiquidacionInput(BaseModel):
     terminationType: str = "renuncia"
     lastBaseSalary: float = 0.0
     salaryFrequency: str = "mensual"
+    isVariableSalary: bool = False
     monthlySalariesLast12: List[float] = Field(default_factory=list)
     monthlySalariesYearToDate: List[float] = Field(default_factory=list)
     preavisoTrabajado: bool = False
     vacationPendingDays: int = 0
     vacationDaysTakenThisPeriod: int = 0
+    diasAdeudados: int = 0
 
 
 class ConceptoResult(BaseModel):

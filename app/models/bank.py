@@ -4,6 +4,19 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 
+class BankEntity(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    ownerUID: str = ""
+    name: str = ""
+    bpd_code: str = ""
+    digi_ver: str = "0"
+    contract_code: str = ""
+    bpd_service_type: str = "01"
+    active: bool = True
+    createdAt: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    updatedAt: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
 class BankAccount(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     ownerUID: str = ""

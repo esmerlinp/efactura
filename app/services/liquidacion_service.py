@@ -39,13 +39,19 @@ class LiquidacionService:
     # ─────────────────────────────────────────────────────────────────
 
     @classmethod
-    def calcular_sdp(cls, salaries: list, frequency: str = "mensual") -> float:
+    def calcular_sdp(cls, salaries: list, frequency: str = "mensual",
+                     is_variable: bool = False) -> float:
         """
         Calcula el Salario Diario Promedio según la frecuencia de pago.
 
+        - Salario fijo (is_variable=False): SDP = sueldo_base / divisor.
+        - Salario variable (is_variable=True): SDP = sum(últimos 12m) / 12 / divisor.
+
         Args:
-            salaries: Lista de salarios de los últimos 12 meses (o fracción).
+            salaries: Lista de salarios. Para fijo: [base_salary].
+                      Para variable: salarios de los últimos 12 meses calendario.
             frequency: "mensual", "quincenal", "semanal" o "diario".
+            is_variable: True si el salario es variable (comisiones, bonos habituales).
 
         Returns:
             Salario diario promedio.
@@ -53,7 +59,10 @@ class LiquidacionService:
         if not salaries:
             return 0.0
 
-        promedio = sum(salaries) / len(salaries)
+        if is_variable:
+            promedio = sum(salaries) / 12.0
+        else:
+            promedio = sum(salaries) / len(salaries)
 
         if frequency == "mensual":
             return round(promedio / cls.DIAS_LABORABLES_MENSUAL, 4)
@@ -220,12 +229,15 @@ class LiquidacionService:
                 detalle_parts.append(f"{years - 5} año(s) adicional(es): 23×{years - 5}={(years - 5) * 23} días")
 
             # Fracción de año posterior al primer año
-            if 3 <= remaining_months_raw < 6:
-                dias += 6
-                detalle_parts.append(f"Fracción {remaining_months_raw} meses: 6 días")
-            elif 6 <= remaining_months_raw < 12:
-                dias += 13
-                detalle_parts.append(f"Fracción {remaining_months_raw} meses: 13 días")
+            # Prorrateo proporcional: Meses × DíasPorAño / 12
+            dias_por_anio_fraccion = 23 if years >= 5 else 21
+            if remaining_months_raw >= 3:
+                fraccion = round(remaining_months_raw * dias_por_anio_fraccion / 12.0, 1)
+                dias += fraccion
+                detalle_parts.append(
+                    f"Fracción {remaining_months_raw} meses × "
+                    f"{dias_por_anio_fraccion}/12 = {fraccion} días"
+                )
 
             detalle = f"Total: {dias} días ({'; '.join(detalle_parts)}) (Art. 80)"
 
@@ -237,6 +249,66 @@ class LiquidacionService:
             "exentoTSS": True,
             "exentoISR": True,
             "baseLegal": "Art. 80 Código de Trabajo",
+        }
+
+    # ─────────────────────────────────────────────────────────────────
+    # ASISTENCIA ECONÓMICA (Art. 82 — acumulativo)
+    # ─────────────────────────────────────────────────────────────────
+
+    TABLA_ASISTENCIA_ECONOMICA = [
+        (3, 6, 5),
+        (6, 12, 10),
+        (12, 9999, 15),
+    ]
+
+    @classmethod
+    def calcular_asistencia_economica(cls, antiguedad: dict, sdp: float) -> dict:
+        """Calcula asistencia económica según Art. 82 del Código de Trabajo.
+
+        Escala acumulativa:
+          - 3 a 6 meses: 5 días de SDP
+          - 6 a 12 meses: 10 días de SDP
+          - Más de 1 año: 15 días de SDP por cada año + proporción de meses
+        """
+        total_months = antiguedad["total_months"]
+        years = antiguedad["years"]
+        remaining_months = antiguedad["months"]
+
+        if total_months < 3:
+            return {
+                "aplica": False,
+                "dias": 0,
+                "monto": 0.0,
+                "detalle": "Menos de 3 meses: no aplica asistencia económica (Art. 82)",
+                "exentoTSS": True,
+                "exentoISR": True,
+                "baseLegal": "Art. 82 Código de Trabajo",
+            }
+
+        if total_months < 6:
+            dias = 5
+            detalle = "De 3 a 6 meses: 5 días de SDP (Art. 82)"
+        elif total_months < 12:
+            dias = 10
+            detalle = "De 6 meses a 1 año: 10 días de SDP (Art. 82)"
+        else:
+            dias = years * 15
+            detalle_parts = [f"{years} año(s): 15×{years}={years * 15} días"]
+            if remaining_months >= 3:
+                prop = remaining_months
+                extra = round(15 * prop / 12, 1)
+                dias += extra
+                detalle_parts.append(f"Fracción {prop} meses: {extra} días")
+            detalle = f"Total: {dias} días ({'; '.join(detalle_parts)}) (Art. 82)"
+
+        return {
+            "aplica": True,
+            "dias": dias,
+            "monto": round(dias * sdp, 2),
+            "detalle": detalle,
+            "exentoTSS": True,
+            "exentoISR": True,
+            "baseLegal": "Art. 82 Código de Trabajo",
         }
 
     # ─────────────────────────────────────────────────────────────────
@@ -411,6 +483,52 @@ class LiquidacionService:
         }
 
     # ─────────────────────────────────────────────────────────────────
+    # SALARIO PROPORCIONAL (Mes de Salida)
+    # ─────────────────────────────────────────────────────────────────
+
+    @classmethod
+    def calcular_salario_proporcional(
+        cls,
+        dias_adeudados: int,
+        sueldo_base: float,
+        frequency: str = "mensual",
+    ) -> dict:
+        """
+        Calcula el salario proporcional por los días trabajados en el mes de salida.
+
+        Fórmula: Días Adeudados × (Sueldo Base / divisor).
+
+        Args:
+            dias_adeudados: Días trabajados reales en el mes hasta la fecha de salida.
+            sueldo_base: Salario mensual ordinario fijo del empleado.
+            frequency: "mensual", "quincenal", "semanal" o "diario".
+        """
+        if frequency == "mensual":
+            divisor = cls.DIAS_LABORABLES_MENSUAL
+        elif frequency == "quincenal":
+            divisor = cls.DIAS_LABORABLES_QUINCENAL
+        elif frequency == "semanal":
+            divisor = cls.DIAS_LABORABLES_SEMANAL
+        else:
+            divisor = cls.DIAS_LABORABLES_MENSUAL
+
+        diario = sueldo_base / divisor
+        monto = round(dias_adeudados * diario, 2)
+
+        return {
+            "aplica": dias_adeudados > 0,
+            "dias": dias_adeudados,
+            "monto": monto,
+            "detalle": (
+                f"Salario proporcional: {dias_adeudados} días × "
+                f"(RD$ {sueldo_base:,.2f} / {divisor}) = RD$ {monto:,.2f}"
+            ),
+            "exentoTSS": False,
+            "exentoISR": False,
+            "baseLegal": "Art. 85 Código de Trabajo",
+        }
+
+    # ─────────────────────────────────────────────────────────────────
     # CÁLCULO COMPLETO
     # ─────────────────────────────────────────────────────────────────
 
@@ -425,11 +543,13 @@ class LiquidacionService:
         termination_type: str = "renuncia",
         last_base_salary: float = 0.0,
         salary_frequency: str = "mensual",
+        is_variable_salary: bool = False,
         monthly_salaries_last_12: list = None,
         monthly_salaries_ytd: list = None,
         preaviso_trabajado: bool = False,
         vacation_pending_complete_years: int = 0,
         vacation_taken_current_period: int = 0,
+        dias_adeudados: int = 0,
         recurring_movements: list = None,
         notes: str = "",
         created_by: str = "",
@@ -443,6 +563,7 @@ class LiquidacionService:
           3. Cesantía (Art. 80) — solo si desahucio empleador o dimisión justificada
           4. Vacaciones no tomadas (Art. 177/182) — siempre
           5. Salario de Navidad (Art. 219) — siempre
+          6. Salario Proporcional (Mes de Salida) — siempre
 
         Returns:
             Dict con todos los campos de LiquidacionOutput listo para serializar.
@@ -464,7 +585,8 @@ class LiquidacionService:
         antiguedad = cls.calcular_antiguedad(hire_date, termination_date)
 
         # 2. Salario Diario Promedio
-        sdp = cls.calcular_sdp(monthly_salaries_last_12, salary_frequency)
+        sdp = cls.calcular_sdp(monthly_salaries_last_12, salary_frequency,
+                               is_variable=is_variable_salary)
 
         # 3. Determinar si aplican prestaciones (Preaviso + Cesantía)
         tipos_con_prestaciones = ["desahucio_empleador", "dimision_justificada"]
@@ -514,12 +636,19 @@ class LiquidacionService:
             monthly_salaries_ytd, termination_date
         )
 
+        # Salario Proporcional (siempre)
+        conceptos["salarioProporcional"] = cls.calcular_salario_proporcional(
+            dias_adeudados, last_base_salary, salary_frequency
+        )
+
         # 5. Totales
         monto_prestaciones = (
             conceptos["preaviso"]["monto"] + conceptos["cesantia"]["monto"]
         )
         monto_derechos = (
-            conceptos["vacaciones"]["monto"] + conceptos["salarioNavidad"]["monto"]
+            conceptos["vacaciones"]["monto"]
+            + conceptos["salarioNavidad"]["monto"]
+            + conceptos["salarioProporcional"]["monto"]
         )
         monto_total = monto_prestaciones + monto_derechos
 

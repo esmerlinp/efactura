@@ -94,7 +94,7 @@ def employee_new():
     from app.services import hr_data_service as hr
     from app.services.payroll_static_data import (
         ID_TYPES, MUNICIPIOS_RD, CONTRACT_TYPES, AREAS, WORKDAYS,
-        PAYMENT_METHODS, BANCOS_RD, ACCOUNT_TYPES, PAYROLL_FREQUENCIES,
+        PAYMENT_METHODS, ACCOUNT_TYPES, PAYROLL_FREQUENCIES,
     )
 
     if request.method == "POST":
@@ -201,18 +201,19 @@ def employee_new():
     payroll_groups.sort(key=lambda g: g.get("name", ""))
     from app.services.db_service import DatabaseService
     branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id)
+    bank_entities_list = DatabaseService.get_bank_entities(owner_uid, sandbox=sandbox, company_id=company_id)
+    bank_names = [be["name"] for be in bank_entities_list if be.get("active")]
 
     from app.data.occupations_catalog import OCCUPATIONS
     return render_template("rrhh/employee_form.html", active_page="rrhh_employees", employee=None,
                            id_types=ID_TYPES, municipios=MUNICIPIOS_RD,
                            contract_types=contract_types, areas=areas,
                            workdays=WORKDAYS, payment_methods=PAYMENT_METHODS,
-                           bancos=BANCOS_RD, account_types=ACCOUNT_TYPES,
+                           bancos=bank_names, account_types=ACCOUNT_TYPES,
                            supervisors=supervisors,
                            positions=positions, departments=departments,
                            payroll_groups=payroll_groups,
                            occupations=OCCUPATIONS, branches=branches)
-
 
 @web_rrhh_bp.route("/rrhh/employees/<employee_id>/edit", methods=["GET", "POST"])
 def employee_edit(employee_id):
@@ -222,7 +223,7 @@ def employee_edit(employee_id):
     from app.services import hr_data_service as hr
     from app.services.payroll_static_data import (
         ID_TYPES, MUNICIPIOS_RD, CONTRACT_TYPES, AREAS, WORKDAYS,
-        PAYMENT_METHODS, BANCOS_RD, ACCOUNT_TYPES, PAYROLL_FREQUENCIES,
+        PAYMENT_METHODS, ACCOUNT_TYPES, PAYROLL_FREQUENCIES,
     )
 
     employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
@@ -331,13 +332,15 @@ def employee_edit(employee_id):
     payroll_groups.sort(key=lambda g: g.get("name", ""))
     from app.services.db_service import DatabaseService
     branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id)
+    bank_entities_list = DatabaseService.get_bank_entities(owner_uid, sandbox=sandbox, company_id=company_id)
+    bank_names = [be["name"] for be in bank_entities_list if be.get("active")]
 
     from app.data.occupations_catalog import OCCUPATIONS
     return render_template("rrhh/employee_form.html", active_page="rrhh_employees", employee=employee,
                            id_types=ID_TYPES, municipios=MUNICIPIOS_RD,
                            contract_types=contract_types, areas=areas,
                            workdays=WORKDAYS, payment_methods=PAYMENT_METHODS,
-                           bancos=BANCOS_RD, account_types=ACCOUNT_TYPES,
+                           bancos=bank_names, account_types=ACCOUNT_TYPES,
                            supervisors=supervisors,
                            positions=positions, departments=departments,
                            payroll_groups=payroll_groups,

@@ -98,6 +98,9 @@ def payroll_tss_autodeterminacion(period_id):
     if not period:
         flash("Período no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_list"))
+    if period.get("status") not in ("pagada", "cerrada"):
+        flash("Los archivos de autodeterminación solo pueden generarse cuando la nómina está en estado Pagada o Cerrada.", "error")
+        return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
 
     formato = request.args.get("format", "txt").lower()
     tipo_archivo = request.args.get("tipo", "AM").upper()
@@ -175,6 +178,41 @@ def payroll_tss_novedades(period_id):
     resultado = generate_tss_novedades(
         period, employees, novedades,
         employer_rnc=employer_rnc,
+        company_id=company_id, sandbox=sandbox,
+    )
+
+    import io
+    content = resultado["content"]
+    if isinstance(content, str):
+        content = content.encode("utf-8")
+    buffer = io.BytesIO(content)
+    return send_file(buffer, mimetype="text/plain", as_attachment=True,
+                     download_name=resultado["filename"])
+
+
+@web_rrhh_bp.route("/rrhh/payroll/<period_id>/tss-rectificativa")
+def payroll_tss_rectificativa(period_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+    from app.services.payroll_service import PayrollService
+    from app.services.db_service import DatabaseService
+
+    period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
+    if not period:
+        flash("Periodo no encontrado.", "error")
+        return redirect(url_for("web_rrhh.payroll_list"))
+    if period.get("status") not in ("pagada", "cerrada"):
+        flash("Los archivos de autodeterminación solo pueden generarse cuando la nómina está en estado Pagada o Cerrada.", "error")
+        return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
+
+    employees = hr.get_employees(company_id, sandbox=sandbox)
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+    employer_rnc = (company.get("companyRNC", "") or "").replace("-", "").strip() if company else ""
+
+    resultado = PayrollService.generate_tss_rectificativa(
+        period, employees, employer_rnc=employer_rnc,
         company_id=company_id, sandbox=sandbox,
     )
 

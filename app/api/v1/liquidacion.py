@@ -114,6 +114,8 @@ def calculate_settlement():
         salary_frequency = data.get("salaryFrequency", "mensual")
         monthly_salaries_last_12 = data.get("monthlySalariesLast12", [])
         monthly_salaries_ytd = data.get("monthlySalariesYearToDate", [])
+        is_variable_salary = bool(data.get("isVariableSalary", False))
+        dias_adeudados = int(data.get("diasAdeudados", 0) or 0)
         preaviso_trabajado = bool(data.get("preavisoTrabajado", False))
         vacation_pending_days = int(data.get("vacationPendingDays", 0) or 0)
         vacation_days_taken_this_period = int(data.get("vacationDaysTakenThisPeriod", 0) or 0)
@@ -129,11 +131,13 @@ def calculate_settlement():
             termination_type=termination_type,
             last_base_salary=last_base_salary,
             salary_frequency=salary_frequency,
+            is_variable_salary=is_variable_salary,
             monthly_salaries_last_12=monthly_salaries_last_12,
             monthly_salaries_ytd=monthly_salaries_ytd,
             preaviso_trabajado=preaviso_trabajado,
-            vacation_pending_days=vacation_pending_days,
-            vacation_days_taken_this_period=vacation_days_taken_this_period,
+            vacation_pending_complete_years=vacation_pending_days,
+            vacation_taken_current_period=vacation_days_taken_this_period,
+            dias_adeudados=dias_adeudados,
             notes=notes,
             created_by=created_by,
         )

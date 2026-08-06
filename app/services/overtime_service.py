@@ -399,7 +399,6 @@ class OvertimeService:
 
     DEFAULT_OVERTIME_TYPES = [
         {"code": "HE01", "name": "Hora Extra Diurna",    "factor": 1.35, "conceptCode": "HE_DIURNA"},
-        {"code": "HE02", "name": "Hora Extra Nocturna",  "factor": 1.50, "conceptCode": "HE_NOCTURNA"},
         {"code": "HE03", "name": "Día Feriado / Descanso", "factor": 2.00, "conceptCode": "HE_FERIADO"},
     ]
 

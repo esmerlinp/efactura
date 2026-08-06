@@ -22,6 +22,10 @@ class PayrollPolicy(BaseModel):
     sfsEmployeeRate: float = 0.0304
     sfsEmployerRate: float = 0.0709
     srlEmployerRate: float = 0.0120
+    srlSalaryCap: float = 92892.00
+    srlRiskCategory: int = 3
+    infotepEmployerRate: float = 0.01
+    infotepEmployeeRate: float = 0.005
     infotepRate: float = 0.01
 
     # ── Topes cotizables ──
@@ -29,13 +33,14 @@ class PayrollPolicy(BaseModel):
     sfsSalaryCap: float = 232230.00
     infotepThresholdMultiplier: float = 5.0  # Múltiplo del salario mínimo
     minSalary: float = 23223.00
+    dependentsAdditionalRate: float = 1919.78
 
     # ── ISR ──
     isrAnnualTable: list = Field(default_factory=lambda: [
         [0.0, 416220.00, 0.0, 0.0],
         [416220.01, 624329.00, 0.15, 0.0],
         [624329.01, 867123.00, 0.20, 31216.00],
-        [867123.01, float("inf"), 0.25, 79775.00],
+        [867123.01, float("inf"), 0.25, 79776.00],
     ])
     educationDeduction: float = 50000.00
 

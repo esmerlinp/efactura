@@ -9,7 +9,7 @@
     <div style="display:flex; gap:var(--space-2); flex-wrap:wrap; justify-content:flex-end;">
         {% set s = period.get('status','borrador') %}
         
-        {% if s != 'borrador' %}
+        {% if s in ['pagada', 'cerrada'] %}
         <div style="position:relative; display:inline-flex;">
             <button class="btn btn-primary btn-sm" onclick="document.getElementById('tssFormatDropdown').classList.toggle('hidden')" style="display:flex; align-items:center; gap:6px; width:180px; justify-content:flex-start;">
                 <i class="fa-solid fa-file-shield" style="width:16px; text-align:center;"></i> Autodeterminación
@@ -46,6 +46,17 @@
                 </a>
             </div>
         </div>
+        <div style="position:relative; display:inline-flex;">
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('tssRtDropdown').classList.toggle('hidden')" style="display:flex; align-items:center; gap:6px; width:180px; justify-content:flex-start;">
+                <i class="fa-solid fa-file-pen" style="width:16px; text-align:center;"></i> Rectificativa (RT)
+                <i class="fa-solid fa-chevron-down" style="font-size:0.65rem; margin-left:auto;"></i>
+            </button>
+            <div id="tssRtDropdown" class="hidden" style="position:absolute; top:100%; left:0; z-index:100; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); min-width:180px; margin-top:4px;">
+                <a href="{{ url_for('web_rrhh.payroll_tss_rectificativa', period_id=period.id) }}" class="dropdown-item" style="display:block; padding:8px 12px; text-decoration:none; color:var(--text-primary); font-size:0.8rem;">
+                    <i class="fa-solid fa-file-lines" style="color:var(--accent-blue); margin-right:6px; width:14px; text-align:center;"></i> TXT (.txt)
+                </a>
+            </div>
+        </div>
         <a href="{{ url_for('web_rrhh.payroll_tss_export', period_id=period.id) }}" class="btn btn-ghost btn-sm" title="CSV simplificado con aportes" style="width:180px; justify-content:flex-start; background:var(--bg-card); border:1px solid var(--border-color);">
             <i class="fa-solid fa-file-csv" style="width:16px; text-align:center;"></i> TSS Resumen
         </a>
@@ -55,9 +66,23 @@
         {% endif %}
 
         {% if s in ['aprobada', 'contabilizada', 'pagada', 'cerrada'] %}
-        <a href="{{ url_for('web_rrhh.payroll_bank_export', period_id=period.id, bank='popular') }}" class="btn btn-ghost btn-sm" style="width:180px; justify-content:flex-start; background:var(--bg-card); border:1px solid var(--border-color);">
-            <i class="fa-solid fa-building-columns" style="width:16px; text-align:center;"></i> Archivo Banco
-        </a>
+        <div style="position:relative; display:inline-flex;">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('bankDropdown').classList.toggle('hidden')" style="display:flex; align-items:center; gap:6px; width:180px; justify-content:flex-start; background:var(--bg-card); border:1px solid var(--border-color);">
+                <i class="fa-solid fa-building-columns" style="width:16px; text-align:center;"></i> Archivo Banco
+                <i class="fa-solid fa-chevron-down" style="font-size:0.65rem; margin-left:auto;"></i>
+            </button>
+            <div id="bankDropdown" class="hidden" style="position:absolute; top:100%; left:0; z-index:100; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); min-width:240px; margin-top:4px;">
+                <a href="#" onclick="handleBankExport('popular', event)" class="dropdown-item" style="display:block; padding:8px 12px; text-decoration:none; color:var(--text-primary); font-size:0.8rem; border-bottom:1px solid var(--border-color);">
+                    <i class="fa-solid fa-building-columns" style="color:var(--accent-blue); margin-right:6px; width:14px; text-align:center;"></i> Banco Popular Dominicano
+                </a>
+                <a href="#" onclick="handleBankExport('banreservas', event)" class="dropdown-item" style="display:block; padding:8px 12px; text-decoration:none; color:var(--text-primary); font-size:0.8rem; border-bottom:1px solid var(--border-color);">
+                    <i class="fa-solid fa-building-columns" style="color:var(--accent-emerald); margin-right:6px; width:14px; text-align:center;"></i> Banco de Reservas
+                </a>
+                <a href="#" onclick="handleBankExport('bhd', event)" class="dropdown-item" style="display:block; padding:8px 12px; text-decoration:none; color:var(--text-primary); font-size:0.8rem;">
+                    <i class="fa-solid fa-building-columns" style="color:var(--accent-purple); margin-right:6px; width:14px; text-align:center;"></i> Banco BHD
+                </a>
+            </div>
+        </div>
         <a href="{{ url_for('web_rrhh.payroll_reconcile', period_id=period.id) }}" class="btn btn-ghost btn-sm" style="width:180px; justify-content:flex-start; background:var(--bg-card); border:1px solid var(--border-color);">
             <i class="fa-solid fa-arrow-right-arrow-left" style="width:16px; text-align:center;"></i> Conciliar
         </a>
@@ -83,11 +108,15 @@
     document.addEventListener('click', function(e) {
         var dd = document.getElementById('tssFormatDropdown');
         var nd = document.getElementById('tssNovedadesDropdown');
+        var bd = document.getElementById('bankDropdown');
         if (dd && !dd.parentElement.contains(e.target)) {
             dd.classList.add('hidden');
         }
         if (nd && !nd.parentElement.contains(e.target)) {
             nd.classList.add('hidden');
+        }
+        if (bd && !bd.parentElement.contains(e.target)) {
+            bd.classList.add('hidden');
         }
     });
 </script>
@@ -956,7 +985,7 @@ function submitDeleteForm() {
 </div>
 {% endblock %}
 
-{% block scripts %}
+{% block extra_scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     if (typeof $.fn.DataTable !== 'undefined') {
@@ -973,5 +1002,102 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+function closeBankModal() {
+    document.getElementById('bankExportModal').classList.add('hidden');
+}
+
+function handleBankExport(bank, event) {
+    event.preventDefault();
+    // Cerrar el dropdown
+    document.getElementById('bankDropdown').classList.add('hidden');
+
+    // Fetch info para ver si hay mezcla de bancos
+    const periodId = '{{ period.id }}';
+    const infoUrl = '/rrhh/payroll/' + periodId + '/bank-export/info?bank=' + bank;
+
+    fetch(infoUrl)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+            if (data.has_mix) {
+                // Mostrar modal
+                showBankModal(bank, data);
+            } else {
+                // Descargar directamente sin modal
+                window.location.href = '/rrhh/payroll/' + periodId + '/bank-export?bank=' + bank + '&include_other_banks=0';
+            }
+        })
+        .catch(function(err) {
+            console.error('Error al verificar bancos:', err);
+            window.location.href = '/rrhh/payroll/' + periodId + '/bank-export?bank=' + bank + '&include_other_banks=0';
+        });
+}
+
+function showBankModal(bank, data) {
+    var modal = document.getElementById('bankExportModal');
+    var body = document.getElementById('bankExportModalBody');
+
+    var matchingCount = data.matching_bank_count || 0;
+    var otherCount = data.total - matchingCount;
+    var exportName = data.export_bank_name || bank;
+
+    var countsHtml = '';
+    for (var bankName in data.counts) {
+        countsHtml += '<div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid var(--border-color);"><span>' + bankName + '</span><span style="font-weight:600;">' + data.counts[bankName] + ' empleado(s)</span></div>';
+    }
+
+    body.innerHTML = '' +
+        '<p style="color:var(--text-secondary); margin-bottom:12px;">' +
+            'La nomina tiene <strong>' + data.total + '</strong> empleado(s) con saldo a pagar. ' +
+            '<strong>' + matchingCount + '</strong> tienen cuenta en <strong>' + exportName + '</strong> ' +
+            'y <strong>' + otherCount + '</strong> en otros bancos.' +
+        '</p>' +
+        '<div style="background:var(--bg-input); border-radius:8px; padding:12px; margin-bottom:16px;">' +
+            countsHtml +
+        '</div>' +
+        (bank === 'popular'
+            ? '<p style="font-size:0.82rem; color:var(--accent-amber); margin-bottom:16px;"><i class="fa-solid fa-triangle-exclamation"></i> Los pagos a otros bancos se enviaran como <strong>ACH</strong> via el codigo de banco destino correspondiente.</p>'
+            : '<p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:16px;">Selecciona si deseas incluir los empleados con cuentas en otros bancos.</p>') +
+        '';
+
+    var yesBtn = document.getElementById('bankExportYesBtn');
+    var noBtn = document.getElementById('bankExportNoBtn');
+
+    var periodId = '{{ period.id }}';
+    yesBtn.onclick = function() {
+        window.location.href = '/rrhh/payroll/' + periodId + '/bank-export?bank=' + bank + '&include_other_banks=1';
+    };
+    noBtn.onclick = function() {
+        window.location.href = '/rrhh/payroll/' + periodId + '/bank-export?bank=' + bank + '&include_other_banks=0';
+    };
+
+    modal.classList.remove('hidden');
+}
 </script>
+
+<!-- Modal de confirmacion de exportacion bancaria -->
+<div id="bankExportModal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; display:flex; align-items:center; justify-content:center;">
+    <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:12px; max-width:480px; width:90%; padding:24px; box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h3 style="margin:0; font-size:1.15rem; font-family:var(--font-heading);">
+                <i class="fa-solid fa-building-columns" style="color:var(--accent-blue); margin-right:8px;"></i>
+                Archivo de Banco
+            </h3>
+            <button type="button" onclick="closeBankModal()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.2rem;">&times;</button>
+        </div>
+        <div id="bankExportModalBody" style="margin-bottom:20px;"></div>
+        <div id="bankExportModalActions" style="display:flex; gap:10px; justify-content:flex-end;">
+            <button type="button" id="bankExportNoBtn" class="btn btn-ghost btn-sm">
+                No, solo este banco
+            </button>
+            <button type="button" id="bankExportYesBtn" class="btn btn-primary btn-sm">
+                Si, incluir todos
+            </button>
+        </div>
+    </div>
+</div>
 {% endblock %}

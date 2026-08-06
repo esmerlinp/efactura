@@ -174,14 +174,18 @@ class TestCalcularCesantia:
     def test_3_anios_4_meses(self):
         ant = {"years": 3, "months": 4, "days": 0, "total_months": 40}
         r = LiquidacionService.calcular_cesantia(ant, self.SDP)
-        assert r["dias"] == 3 * 21 + 6  # 69
-        assert r["monto"] == round(69 * self.SDP, 2)
+        # 3×21 + 4×21/12 = 63 + 7.0 = 70.0
+        expected_dias = round(3 * 21 + 4 * 21 / 12.0, 1)
+        assert r["dias"] == expected_dias  # 70.0
+        assert r["monto"] == round(expected_dias * self.SDP, 2)
 
     def test_3_anios_7_meses(self):
         ant = {"years": 3, "months": 7, "days": 0, "total_months": 43}
         r = LiquidacionService.calcular_cesantia(ant, self.SDP)
-        assert r["dias"] == 3 * 21 + 13  # 76
-        assert r["monto"] == round(76 * self.SDP, 2)
+        # 3×21 + 7×21/12 = 63 + 12.3 = 75.3 (round 147/12=12.25→12.2 banker's rounding, 63+12.2=75.2)
+        expected_dias = round(3 * 21 + 7 * 21 / 12.0, 1)
+        assert r["dias"] == expected_dias
+        assert r["monto"] == round(expected_dias * self.SDP, 2)
 
     def test_7_anios(self):
         ant = {"years": 7, "months": 0, "days": 0, "total_months": 84}
@@ -193,8 +197,10 @@ class TestCalcularCesantia:
     def test_7_anios_5_meses(self):
         ant = {"years": 7, "months": 5, "days": 0, "total_months": 89}
         r = LiquidacionService.calcular_cesantia(ant, self.SDP)
-        expected = 5 * 21 + 2 * 23 + 6  # 105 + 46 + 6 = 157
-        assert r["dias"] == expected
+        # 5×21 + 2×23 + 5×23/12 = 105 + 46 + 9.6 = 160.6
+        expected_dias = round(5 * 21 + 2 * 23 + 5 * 23 / 12.0, 1)
+        assert r["dias"] == expected_dias
+        assert r["monto"] == round(expected_dias * self.SDP, 2)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

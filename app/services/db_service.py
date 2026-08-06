@@ -1608,6 +1608,7 @@ class DatabaseService:
             "fax": company.get("fax", ""),
             "zonaFranca": company.get("zona_franca", False),
             "parque": company.get("parque", ""),
+            "offboardingMode": company.get("offboarding_mode", "full"),
         }
 
     @classmethod
@@ -1702,6 +1703,7 @@ class DatabaseService:
             "fax": profile_dict.get("fax", ""),
             "zona_franca": profile_dict.get("zonaFranca", False),
             "parque": profile_dict.get("parque", ""),
+            "offboarding_mode": profile_dict.get("offboardingMode", "full"),
         }
         result = cls.update_company(company_id, update_data)
         if result and owner_uid:
@@ -6293,6 +6295,114 @@ class DatabaseService:
                 print(f"⚠️ Fallo al borrar cuenta bancaria de Firestore: {e}")
 
     # =========================================================================
+    # ENTIDADES BANCARIAS (CATÁLOGO DE BANCOS)
+    # =========================================================================
+
+    @classmethod
+    def get_bank_entities(cls, owner_uid, sandbox=True, company_id=None):
+        entities = []
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_bank_entities" if sandbox else "bank_entities"
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    entities.append({
+                        "id": doc.id,
+                        "name": data.get("name", ""),
+                        "bpd_code": data.get("bpd_code", ""),
+                        "digi_ver": data.get("digi_ver", "0"),
+                        "contract_code": data.get("contract_code", ""),
+                        "bpd_service_type": data.get("bpd_service_type", "01"),
+                        "active": data.get("active", True),
+                        "createdAt": serialize_field(data.get("createdAt")),
+                        "updatedAt": serialize_field(data.get("updatedAt")),
+                    })
+                entities.sort(key=lambda x: x["name"].lower())
+            except Exception as e:
+                print(f"⚠️ Error al obtener entidades bancarias desde Firestore: {e}")
+        return entities
+
+    @classmethod
+    def get_bank_entity(cls, owner_uid, entity_id, sandbox=True, company_id=None):
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_bank_entities" if sandbox else "bank_entities"
+                doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(entity_id).get()
+                if doc.exists:
+                    data = doc.to_dict()
+                    return {
+                        "id": doc.id,
+                        "name": data.get("name", ""),
+                        "bpd_code": data.get("bpd_code", ""),
+                        "digi_ver": data.get("digi_ver", "0"),
+                        "contract_code": data.get("contract_code", ""),
+                        "bpd_service_type": data.get("bpd_service_type", "01"),
+                        "active": data.get("active", True),
+                        "createdAt": serialize_field(data.get("createdAt")),
+                        "updatedAt": serialize_field(data.get("updatedAt")),
+                    }
+            except Exception as e:
+                print(f"⚠️ Error al obtener entidad bancaria desde Firestore: {e}")
+        return None
+
+    @classmethod
+    def get_bank_entity_by_name(cls, owner_uid, name, sandbox=True, company_id=None):
+        name_lower = name.lower().strip()
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_bank_entities" if sandbox else "bank_entities"
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).where("name", "==", name).get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    return {
+                        "id": doc.id,
+                        "name": data.get("name", ""),
+                        "bpd_code": data.get("bpd_code", ""),
+                        "digi_ver": data.get("digi_ver", "0"),
+                        "contract_code": data.get("contract_code", ""),
+                        "bpd_service_type": data.get("bpd_service_type", "01"),
+                        "active": data.get("active", True),
+                        "createdAt": serialize_field(data.get("createdAt")),
+                        "updatedAt": serialize_field(data.get("updatedAt")),
+                    }
+            except Exception as e:
+                print(f"⚠️ Error al buscar entidad bancaria por nombre: {e}")
+        return None
+
+    @classmethod
+    def save_bank_entity(cls, owner_uid, entity_id, entity_dict, sandbox=True, company_id=None):
+        entity_dict["id"] = entity_id
+        entity_dict["ownerUID"] = owner_uid
+        if "createdAt" not in entity_dict or not entity_dict.get("createdAt"):
+            entity_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
+        entity_dict["updatedAt"] = datetime.now(timezone.utc).isoformat()
+        entity_dict["name"] = entity_dict.get("name", "").strip()
+        entity_dict["bpd_code"] = entity_dict.get("bpd_code", "").strip()
+        entity_dict["digi_ver"] = entity_dict.get("digi_ver", "0").strip()
+        entity_dict["contract_code"] = entity_dict.get("contract_code", "").strip()
+        entity_dict["bpd_service_type"] = entity_dict.get("bpd_service_type", "01").strip()
+        entity_dict["active"] = bool(entity_dict.get("active", True))
+        entity_dict["createdAt"] = serialize_field(entity_dict["createdAt"])
+        entity_dict["updatedAt"] = serialize_field(entity_dict["updatedAt"])
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_bank_entities" if sandbox else "bank_entities"
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(entity_id).set(entity_dict)
+            except Exception as e:
+                print(f"⚠️ Fallo al guardar entidad bancaria en Firestore: {e}")
+        return entity_dict
+
+    @classmethod
+    def delete_bank_entity(cls, owner_uid, entity_id, sandbox=True, company_id=None):
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_bank_entities" if sandbox else "bank_entities"
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(entity_id).delete()
+            except Exception as e:
+                print(f"⚠️ Fallo al borrar entidad bancaria de Firestore: {e}")
+
+    # =========================================================================
     # TRANSFERENCIAS ENTRE CUENTAS (BANK TRANSFERS)
     # =========================================================================
 
@@ -6949,6 +7059,7 @@ class DatabaseService:
                 "created_at": now,
                 "updated_by": company_data.get("updated_by", ""),
                 "updated_at": now,
+                "offboarding_mode": "full",
             }
 
             db_firestore.collection("companies").document(company_id).set(profile)

@@ -24,7 +24,8 @@ from app.services.recurring_service import get_recurring_movements
 
 def _service():
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
-    return OffboardingService(company_id, sandbox), owner_uid, sandbox, company_id
+    offboarding_mode = session.get("company_offboarding_mode", "full")
+    return OffboardingService(company_id, sandbox, offboarding_mode=offboarding_mode), owner_uid, sandbox, company_id
 
 
 def _user():
@@ -105,6 +106,7 @@ def offboarding_dashboard():
                            total_cost=total_cost,
                            month_active=len(month_active),
                            this_month_completed=len(this_month_completed),
+                           is_simple=svc.is_simple,
                            total_requests=len(all_requests),
                            reason_labels=reason_labels,
                            reason_data=reason_data,
@@ -296,6 +298,7 @@ def offboarding_detail(request_id):
 
     tab = request.args.get("tab", "overview")
     extra = {}
+    extra["is_simple"] = svc.is_simple
 
     if tab == "settlement":
         if req.get("settlementId"):
@@ -350,7 +353,7 @@ def offboarding_transition(request_id):
         old_status = old_req.get("status", "") if old_req else ""
         svc.transition(request_id, new_status, _email(), _role(), comment)
 
-        if new_status == "pending_hr_approval":
+        if new_status == "pending_hr_approval" and not svc.is_simple:
             from app.services.hr_authorization_service import create_authorization_request
             req_data = svc.get_request(request_id)
             result = create_authorization_request(
@@ -492,11 +495,13 @@ def offboarding_settlement_calculate(request_id):
         termination_type=termination_type,
         last_base_salary=base_salary,
         salary_frequency=salary_frequency,
+        is_variable_salary=employee.get("isVariableSalary", False),
         monthly_salaries_last_12=salaries_12,
         monthly_salaries_ytd=salaries_ytd,
         preaviso_trabajado=preaviso_trabajado,
         vacation_pending_complete_years=vacation_pending_complete,
         vacation_taken_current_period=vacation_taken_current,
+        dias_adeudados=int(request.form.get("diasAdeudados", "0") or 0),
         recurring_movements=recurring_movements,
         notes=request.form.get("notes", ""),
         created_by=_email(),
@@ -899,7 +904,7 @@ def offboarding_tss_download(request_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
-    svc = OffboardingService(company_id, sandbox)
+    svc = OffboardingService(company_id, sandbox, offboarding_mode=session.get("company_offboarding_mode", "full"))
     req = svc.get_request(request_id)
     if not req:
         flash("Solicitud no encontrada.", "error")
@@ -976,7 +981,7 @@ def offboarding_fix_status():
         return redirect(url_for("web_rrhh.offboarding_dashboard"))
 
     dry_run = request.form.get("dry_run") == "1"
-    svc = OffboardingService(company_id, sandbox)
+    svc = OffboardingService(company_id, sandbox, offboarding_mode=session.get("company_offboarding_mode", "full"))
     all_requests = svc.list_requests(limit=1000)
     completed = [r for r in all_requests if r.get("status") == "completed"]
 
@@ -1090,3 +1095,28 @@ def offboarding_employee_data(request_id):
         "fullName": employee.get("fullName", ""),
         "cedula": employee.get("cedula", ""),
     })
+
+
+# ── Toggle offboarding mode (simple / full) ──────────────────────────────
+
+@web_rrhh_bp.route("/rrhh/offboarding/toggle-mode", methods=["POST"])
+def offboarding_toggle_mode():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    if not _is_hr_role():
+        flash("Solo RRHH puede cambiar el modo de offboarding.", "error")
+        return redirect(request.referrer or url_for("web_rrhh.offboarding_dashboard"))
+
+    current_mode = session.get("company_offboarding_mode", "full")
+    new_mode = "simple" if current_mode == "full" else "full"
+
+    try:
+        from app.services.db_service import DatabaseService
+        DatabaseService.update_company(company_id, {"offboarding_mode": new_mode})
+        session["company_offboarding_mode"] = new_mode
+        flash(f"Modo de offboarding cambiado a: {'Simple' if new_mode == 'simple' else 'Completo (multi-parte)'}.", "success")
+    except Exception as e:
+        flash(f"Error al cambiar modo: {e}", "error")
+
+    return redirect(request.referrer or url_for("web_rrhh.offboarding_dashboard"))

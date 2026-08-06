@@ -22,13 +22,15 @@ class TSSContext:
     """Contexto de entrada para el cálculo de TSS."""
     def __init__(self, base_salary: float = 0.0, gross_income: float = 0.0,
                  is_quincenal: bool = False, hourly_rate: bool = False,
-                 period_hours: float = 0.0, salary_history: list = None):
+                 period_hours: float = 0.0, salary_history: list = None,
+                 bonus: float = 0.0):
         self.base_salary = base_salary
         self.gross_income = gross_income
         self.is_quincenal = is_quincenal
         self.hourly_rate = hourly_rate
         self.period_hours = period_hours
         self.salary_history = salary_history or []
+        self.bonus = bonus
 
 
 class ISRContext:
@@ -112,9 +114,14 @@ class TSSResolver:
             note = f"SFS empldor {rate*100:.2f}% s/{capped:,.2f}"
 
         elif concept_code == "SRL_EMPLEADOR":
-            rate = params.get("srl_employer_rate", 0.0120)
-            amount = round(tss_base * rate, 2)
-            note = f"SRL: {rate*100:.2f}% s/{tss_base:,.2f}"
+            srl_cap_period = params.get("srl_salary_cap", 92892.0)
+            capped = min(tss_base, srl_cap_period)
+            srl_rates = params.get("srl_employer_rates", {})
+            category = params.get("srl_risk_category", 3)
+            rate = srl_rates.get(category, params.get("srl_employer_rate", 0.0120))
+            amount = round(capped * rate, 2)
+            tss_base_capped = capped
+            note = f"SRL cat {category}: {rate*100:.2f}% s/{capped:,.2f}"
 
         elif concept_code == "INFOTEP_EMPLEADOR":
             rate = params.get("infotep_rate", 0.01)
@@ -126,9 +133,9 @@ class TSSResolver:
             multiplier = params.get("infotep_threshold_multiplier", 5.0)
             threshold = min_salary * multiplier
             if tss_base > threshold:
-                rate = params.get("infotep_rate", 0.01)
-                capped = min(tss_base, afp_cap_period)
-                amount = round(capped * rate, 2)
+                bonus_amount = context.bonus
+                rate = params.get("infotep_employee_rate", 0.005)
+                amount = round(bonus_amount * rate, 2)
                 note = f"INFOTEP emp (excede {threshold:,.2f})"
             else:
                 amount = 0.0
@@ -271,6 +278,7 @@ class ConceptEngine:
                 base_salary=context.get("baseSalary", 0),
                 gross_income=context.get("grossIncome", 0),
                 is_quincenal=context.get("isQuincenal", False),
+                bonus=context.get("bonus", 0),
             )
             result = TSSResolver.resolve_concept(code, concept, tss_ctx, params)
             amount = result["amount"]

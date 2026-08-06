@@ -7901,6 +7901,7 @@ def company_settings():
             "fax": request.form.get('fax', existing_profile.get('fax', '')).strip(),
             "zonaFranca": request.form.get('zonaFranca') == 'true',
             "parque": request.form.get('parque', existing_profile.get('parque', '')).strip(),
+            "offboardingMode": request.form.get('offboardingMode', existing_profile.get('offboardingMode', 'full')).strip(),
             "configured": True
         })
         saved = DatabaseService.save_company_profile(owner_uid, profile_dict, company_id=company_id)

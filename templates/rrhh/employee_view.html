@@ -101,6 +101,8 @@
         <div style="text-align:right;">
             {% if employee.status == 'activo' %}
             <span class="badge badge-success" style="font-size:0.85rem;">Activo</span>
+            {% elif employee.status == 'suspendido' %}
+            <span class="badge badge-warning" style="font-size:0.85rem;">Suspendido</span>
             {% else %}
             <span class="badge badge-danger" style="font-size:0.85rem;">Inactivo</span>
             {% endif %}

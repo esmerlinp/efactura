@@ -1,0 +1,114 @@
+{% extends "layout.html" %}
+
+{% block title %}{% if entity %}Editar{% else %}Nueva{% endif %} Entidad Bancaria{% endblock %}
+
+{% block page_header %}{% if entity %}Editar{% else %}Nueva{% endif %} Entidad Bancaria{% endblock %}
+
+{% block content %}
+<div style="max-width: 700px; margin: 0 auto;">
+<style>
+    .form-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 28px;
+    }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .form-row.full { grid-template-columns: 1fr; }
+    .form-group { display: flex; flex-direction: column; }
+    .form-group label { font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+    .form-input, .form-select {
+        padding: 10px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        background: var(--bg-input);
+        color: var(--text-primary);
+        font-size: 0.9rem;
+        font-family: var(--font-body);
+    }
+    .form-input:focus, .form-select:focus { border-color: var(--accent-blue); outline: none; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+    .form-hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+    .form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border-color); }
+    .checkbox-group { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+    .checkbox-group input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent-blue); }
+</style>
+
+<div class="page-title-container" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:24px;">
+    <div>
+        <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+            <i class="fa-solid fa-building-columns" style="color:var(--accent-blue); margin-right:10px;"></i>
+            {% if entity %}Editar{% else %}Nueva{% endif %} Entidad Bancaria
+        </h1>
+    </div>
+    <a href="{{ url_for('web_bank_entities.list_bank_entities') }}" class="btn btn-ghost btn-sm">
+        <i class="fa-solid fa-arrow-left"></i> Volver
+    </a>
+</div>
+
+<div class="form-card">
+    <form method="POST"
+          action="{% if entity %}{{ url_for('web_bank_entities.edit_bank_entity', entity_id=entity.id) }}{% else %}{{ url_for('web_bank_entities.new_bank_entity') }}{% endif %}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="form-group" style="margin-bottom:16px;">
+            <label>Nombre del banco *</label>
+            <input type="text" name="name" class="form-input" required
+                   value="{{ entity.name if entity else '' }}"
+                   placeholder="Ej: Banco Popular Dominicano">
+            <span class="form-hint">Nombre oficial de la entidad bancaria. Debe coincidir con el que se usa en el perfil del empleado.</span>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label>Codigo BPD</label>
+                <input type="text" name="bpd_code" class="form-input"
+                       value="{{ entity.bpd_code if entity else '' }}"
+                       placeholder="Ej: 10101070">
+                <span class="form-hint">Codigo de 8 digitos del banco en el sistema BPD.</span>
+            </div>
+            <div class="form-group">
+                <label>Digito Verificador</label>
+                <input type="text" name="digi_ver" class="form-input"
+                       value="{{ entity.digi_ver if entity else '0' }}"
+                       placeholder="0"
+                       maxlength="1">
+                <span class="form-hint">Digito verificador del banco destino (generalmente 0).</span>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label>Codigo de Contrato BPD</label>
+                <input type="text" name="contract_code" class="form-input"
+                       value="{{ entity.contract_code if entity else '' }}"
+                       placeholder="Ej: 00001"
+                       maxlength="5">
+                <span class="form-hint">Codigo de 5 digitos asignado por BPD para el nombre del archivo.</span>
+            </div>
+            <div class="form-group">
+                <label>Tipo de Servicio BPD</label>
+                <select name="bpd_service_type" class="form-select">
+                    {% for st in service_types %}
+                    <option value="{{ st.value }}" {% if entity and entity.bpd_service_type == st.value %}selected{% elif not entity and st.value == '01' %}selected{% endif %}>{{ st.label }}</option>
+                    {% endfor %}
+                </select>
+                <span class="form-hint">Tipo de servicio en el archivo BPD (01 = Nomina).</span>
+            </div>
+        </div>
+
+        <div class="checkbox-group" style="margin-bottom:16px;">
+            <input type="checkbox" name="active" id="active" value="1"
+                   {% if entity and entity.active %}checked{% elif not entity %}checked{% endif %}>
+            <label for="active" style="margin:0; font-weight:500; cursor:pointer;">Entidad activa</label>
+        </div>
+
+        <div class="form-actions">
+            <a href="{{ url_for('web_bank_entities.list_bank_entities') }}" class="btn btn-ghost">Cancelar</a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-save"></i> {% if entity %}Actualizar{% else %}Guardar{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+</div>
+{% endblock %}
