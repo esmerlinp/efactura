@@ -6,9 +6,6 @@
 <div class="hr-page-header">
     <h1><i class="fa-solid fa-door-open"></i> Offboarding</h1>
     <div>
-        <a href="{{ url_for('web_rrhh.offboarding_new') }}" class="btn btn-success btn-sm">
-            <i class="fa-solid fa-plus"></i> Nueva solicitud
-        </a>
         <a href="{{ url_for('web_rrhh.offboarding_dashboard') }}" class="btn btn-ghost btn-sm">
             <i class="fa-solid fa-gauge"></i> Dashboard
         </a>
@@ -126,9 +123,7 @@
                         </a>
                         {% else %}
                         <div style="font-size:0.95rem;">No hay solicitudes de offboarding</div>
-                        <a href="{{ url_for('web_rrhh.offboarding_new') }}" class="btn btn-primary btn-sm" style="margin-top:8px;">
-                            <i class="fa-solid fa-plus"></i> Crear primera solicitud
-                        </a>
+                        <p style="font-size:0.78rem; color:var(--text-muted); margin-top:4px;">Las solicitudes se crean desde la ficha del empleado → Calcular liquidación → Guardar y desvincular.</p>
                         {% endif %}
                     </td>
                 </tr>

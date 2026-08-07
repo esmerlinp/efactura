@@ -75,6 +75,8 @@ class Totales(BaseModel):
     montoTotal: float = 0.0
     montoGravableTSS: float = 0.0
     montoGravableISR: float = 0.0
+    montoExentoTSS: float = 0.0
+    montoExentoISR: float = 0.0
     montoExento: float = 0.0
 
 

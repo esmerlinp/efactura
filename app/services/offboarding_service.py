@@ -27,7 +27,7 @@ from app.models.offboarding import (
 class OffboardingService:
     """Agregado root: TerminationRequest con sus 8 entidades satélite."""
 
-    def __init__(self, company_id: str, sandbox: bool = True, offboarding_mode: str = "full"):
+    def __init__(self, company_id: str, sandbox: bool = True, offboarding_mode: str = "simple"):
         self.company_id = company_id
         self.sandbox = sandbox
         self.offboarding_mode = offboarding_mode
@@ -362,7 +362,7 @@ class OffboardingService:
         settlement = self.get_settlement(settlement_id)
         if not settlement:
             raise ValueError(f"Liquidación {settlement_id} no encontrada")
-        settlement["status"] = SettlementStatus.APROBADA.value
+        settlement["status"] = SettlementStatus.PENDIENTE_PAGO.value
         settlement["approvedBy"] = approved_by
         settlement["approvedAt"] = self._now()
         settlement["approvalComment"] = comment
@@ -504,6 +504,41 @@ class OffboardingService:
         return ods.get_all("offboarding_payments", self.company_id, self.sandbox,
                            where_filters=[("requestId", "==", request_id)])
 
+    def get_pending_settlements(self) -> list[dict]:
+        settlements = ods.get_all("offboarding_settlements", self.company_id, self.sandbox,
+                                  order_by="createdAt", direction="DESCENDING", limit=200)
+        return [s for s in settlements if s.get("status") == SettlementStatus.PENDIENTE_PAGO.value]
+
+    def mark_settlement_paid(self, settlement_id: str, payment_data: dict,
+                              user_email: str) -> dict:
+        settlement = self.get_settlement(settlement_id)
+        if not settlement:
+            raise ValueError(f"Liquidación {settlement_id} no encontrada")
+        settlement["status"] = SettlementStatus.PAGADA.value
+        settlement["paidAt"] = self._now()
+        settlement["paidBy"] = user_email
+        ods.save("offboarding_settlements", settlement_id, settlement,
+                 self.company_id, self.sandbox)
+        payment = TerminationPayment(
+            requestId=settlement.get("requestId", ""),
+            settlementVersion=settlement.get("version", 1),
+            paymentMethod=PaymentMethod.PAYROLL,
+            paymentDate=payment_data.get("paymentDate", self._now()[:10]),
+            totalAmount=settlement.get("totales", {}).get("montoTotal", 0.0),
+            conceptBreakdown=settlement.get("conceptos", {}),
+            payrollPeriodId=payment_data.get("payrollPeriodId", ""),
+            payrollPeriodKey=payment_data.get("payrollPeriodKey", ""),
+        )
+        payment.paidBy = user_email
+        payment.paidAt = self._now()
+        ods.save("offboarding_payments", payment.id, payment.model_dump(),
+                 self.company_id, self.sandbox)
+        log_action(self.company_id, "settlement_paid", "offboarding_settlement",
+                   settlement_id, user_email,
+                   {"payrollPeriodId": payment_data.get("payrollPeriodId", "")},
+                   sandbox=self.sandbox)
+        return settlement
+
     # ── Interview ──────────────────────────────────────────────────────────
 
     def save_interview(self, data: dict, user_email: str) -> str:
@@ -574,3 +609,84 @@ class OffboardingService:
             req["version"] = version + 1
             self.save_request_raw(request_id, req, user_email)
         return v.id
+
+    # ── Wizard helpers ─────────────────────────────────────────────────────
+
+    def wizard_transition(self, request_id: str, target_status: str,
+                          user_email: str) -> dict:
+        req = self.get_request(request_id)
+        if not req:
+            raise ValueError(f"Solicitud {request_id} no encontrada")
+
+        current = self._get_status_value(req)
+
+        if current == target_status:
+            return req
+
+        if not self.is_simple and current in ("draft", "pending_supervisor_approval",
+                                               "pending_hr_approval"):
+            status_chain = {
+                "pending_settlement": "draft",
+                "pending_payment": "pending_supervisor_approval",
+                "pending_documents": "pending_hr_approval",
+                "pending_tss": "pending_supervisor_approval",
+                "completed": "pending_hr_approval",
+            }
+            if target_status in status_chain:
+                return req
+
+        if self.is_simple and current == "draft":
+            skips = {
+                "pending_settlement": True,
+                "pending_payment": "pending_settlement",
+            }
+            if target_status in skips:
+                intermediate = skips[target_status]
+                if intermediate is not True:
+                    self.transition(request_id, intermediate, user_email, "owner",
+                                    "Simple mode auto-advance")
+                    req = self.get_request(request_id)
+                    current = self._get_status_value(req)
+
+        if current == target_status:
+            return req
+
+        direct_jumps = {
+            "pending_settlement": ["pending_payment"],
+            "pending_payment": ["pending_documents"],
+            "pending_assets": ["pending_payment"],
+            "pending_documents": ["pending_tss"],
+            "pending_tss": ["completed"],
+        }
+        allowed = direct_jumps.get(current, [])
+        if target_status in allowed:
+            return self.transition(request_id, target_status, user_email, "owner",
+                                   "Wizard auto-advance")
+
+        if self.sm.can_transition(current, target_status):
+            return self.transition(request_id, target_status, user_email, "owner",
+                                   "Wizard transition")
+
+        raise ValueError(
+            f"Transición no permitida por wizard: {current} → {target_status}"
+        )
+
+    def wizard_get_step(self, request_id: str) -> int:
+        req = self.get_request(request_id)
+        if not req:
+            return 1
+
+        current = self._get_status_value(req)
+        step_map = {
+            "draft": 1,
+            "pending_supervisor_approval": 1,
+            "pending_hr_approval": 1,
+            "approved": 1,
+            "pending_settlement": 1,
+            "pending_assets": 2,
+            "pending_payment": 2,
+            "pending_documents": 3,
+            "pending_tss": 4,
+            "completed": 5,
+        }
+        return step_map.get(current, 1)

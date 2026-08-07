@@ -24,7 +24,7 @@ from app.services.recurring_service import get_recurring_movements
 
 def _service():
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
-    offboarding_mode = session.get("company_offboarding_mode", "full")
+    offboarding_mode = session.get("company_offboarding_mode", "simple")
     return OffboardingService(company_id, sandbox, offboarding_mode=offboarding_mode), owner_uid, sandbox, company_id
 
 
@@ -201,8 +201,15 @@ def offboarding_new():
         req = svc.create_request(data, _email())
         svc.init_checklist(req.id, employee_id)
 
+        user_email = _email()
+        if svc.is_simple:
+            try:
+                svc.wizard_transition(req.id, "pending_settlement", user_email)
+            except Exception:
+                pass
+
         flash("Solicitud de offboarding creada exitosamente.", "success")
-        return redirect(url_for("web_rrhh.offboarding_detail", request_id=req.id))
+        return redirect(url_for("web_rrhh.offboarding_wizard", request_id=req.id))
 
     employees = hr.get_employees(company_id, sandbox=sandbox)
     active_employees = [e for e in employees if e.get("status") == "activo"]
@@ -1119,4 +1126,367 @@ def offboarding_toggle_mode():
     except Exception as e:
         flash(f"Error al cambiar modo: {e}", "error")
 
+    import re
+    referrer = request.referrer or ""
+    match = re.search(r'/offboarding/([a-zA-Z0-9\-]+)', referrer)
+    if match:
+        request_id = match.group(1)
+        if new_mode == "simple":
+            return redirect(url_for("web_rrhh.offboarding_wizard", request_id=request_id))
+        else:
+            return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id))
+
     return redirect(request.referrer or url_for("web_rrhh.offboarding_dashboard"))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# WIZARD DE OFFBOARDING — 4 pasos lineales con auto-transición
+# ═══════════════════════════════════════════════════════════════════════════
+
+@web_rrhh_bp.route("/rrhh/offboarding/<request_id>/wizard")
+def offboarding_wizard(request_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    svc, owner_uid, sandbox, company_id = _service()
+    req = svc.get_request(request_id)
+    if not req:
+        flash("Solicitud no encontrada.", "error")
+        return redirect(url_for("web_rrhh.offboarding_list"))
+
+    current_step = svc.wizard_get_step(request_id)
+    employee = hr.get_employee(company_id, req.get("employeeId", ""), sandbox=sandbox)
+    settlement = None
+    if req.get("settlementId"):
+        settlement = svc.get_settlement(req["settlementId"])
+
+    checklist = None
+    if req.get("checklistId"):
+        checklist = svc.get_checklist(req["checklistId"])
+
+    documents = svc.get_documents(request_id)
+    payments = svc.get_payments(request_id)
+    payroll_groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
+    payroll_groups.sort(key=lambda g: g.get("name", ""))
+
+    # ── Auto-calcular vacaciones pendientes ──
+    vacation_pending = 0
+    vacation_taken = 0
+    vacation_total_taken = 0
+    vacation_total_accrued = 0
+    vacation_total_pendientes = 0
+    try:
+        if employee:
+            hire_date = employee.get("hireDate", "")
+            vac_requests = hr.get_vacation_requests(company_id, sandbox=sandbox)
+            emp_vacs = [v for v in vac_requests
+                        if v.get("employeeId") == employee.get("id", "")
+                        and v.get("status") == "aprobada"]
+            ant_approx = LiquidacionService.calcular_antiguedad(
+                hire_date, req.get("effectiveDate", date.today().isoformat())
+            )
+            ant_years = ant_approx["years"]
+            if ant_years > 0 and hire_date:
+                aniversario_actual = date.today()
+                try:
+                    y = aniversario_actual.year
+                    dt = datetime.strptime(hire_date[:10], "%Y-%m-%d").replace(year=y)
+                    aniversario_actual = dt.date()
+                except (ValueError, TypeError):
+                    pass
+                taken_before = 0
+                taken_current = 0
+                for v in emp_vacs:
+                    v_start = v.get("startDate", "")
+                    if v_start and v_start >= aniversario_actual.isoformat():
+                        taken_current += v.get("days", 0)
+                    else:
+                        taken_before += v.get("days", 0)
+                dias_por_anio = 18 if ant_years >= 5 else 14
+                max_expected = ant_years * dias_por_anio
+                if max_expected > taken_before:
+                    vacation_pending = (max_expected - taken_before) // dias_por_anio
+                vacation_taken = taken_current
+                vacation_total_taken = sum(v.get("days", 0) for v in emp_vacs)
+                vacation_total_accrued = max_expected
+                vacation_total_pendientes = max(0, max_expected - vacation_total_taken)
+    except Exception:
+        pass
+
+    return render_template("rrhh/offboarding_wizard.html",
+                           **_ctx(req=req, employee=employee,
+                                  settlement=settlement, checklist=checklist,
+                                  documents=documents, payments=payments,
+                                  current_step=current_step,
+                                  payroll_groups=payroll_groups, is_simple=svc.is_simple,
+                                  vacation_pending=vacation_pending,
+                                  vacation_taken=vacation_taken,
+                                  vacation_total_pendientes=vacation_total_pendientes,
+                                  vacation_total_accrued=vacation_total_accrued,
+                                  vacation_total_taken=vacation_total_taken))
+
+
+@web_rrhh_bp.route("/rrhh/offboarding/<request_id>/wizard/step1", methods=["POST"])
+def offboarding_wizard_step1(request_id):
+    if _login_required():
+        return jsonify({"success": False, "message": "No autenticado."}), 401
+    svc, owner_uid, sandbox, company_id = _service()
+    req = svc.get_request(request_id)
+    if not req:
+        return jsonify({"success": False, "message": "Solicitud no encontrada."}), 404
+
+    employee = hr.get_employee(company_id, req.get("employeeId", ""), sandbox=sandbox)
+    if not employee:
+        return jsonify({"success": False, "message": "Empleado no encontrado."}), 404
+
+    user_email = _email()
+    termination_type = request.form.get("terminationType", req.get("terminationType", "renuncia_voluntaria")).strip()
+    termination_date = request.form.get("terminationDate", req.get("effectiveDate", "")).strip()
+    preaviso_trabajado = request.form.get("preavisoTrabajado") == "on"
+    vacation_pending = int(request.form.get("vacationPendingCompleteYears", "0") or 0)
+    vacation_taken = int(request.form.get("vacationTakenCurrentPeriod", "0") or 0)
+    vacation_dias_pendientes_val = int(request.form.get("vacationDiasPendientes", "0") or 0)
+    dias_adeudados = int(request.form.get("diasAdeudados", "0") or 0)
+
+    base_salary = float(employee.get("baseSalary", 0) or 0)
+    salary_frequency = employee.get("paymentFrequency", "") or "mensual"
+
+    if not employee.get("isVariableSalary", False):
+        salaries_12 = [base_salary]
+    else:
+        salaries_12 = [base_salary]
+        try:
+            salary_history = hr.get_salary_history(company_id, employee["id"], sandbox=sandbox)
+            if salary_history:
+                recent = sorted(salary_history, key=lambda x: x.get("effectiveDate", ""), reverse=True)[:12]
+                salaries_12 = [s.get("amount", base_salary) for s in recent if s.get("amount")]
+                if not salaries_12:
+                    salaries_12 = [base_salary]
+        except Exception:
+            pass
+
+    result = LiquidacionService.calcular_liquidacion(
+        employee_id=employee["id"],
+        employee_name=employee.get("fullName", ""),
+        cedula=employee.get("cedula", ""),
+        hire_date=employee.get("hireDate", ""),
+        termination_date=termination_date,
+        termination_type=termination_type,
+        last_base_salary=base_salary,
+        salary_frequency=salary_frequency,
+        is_variable_salary=employee.get("isVariableSalary", False),
+        monthly_salaries_last_12=salaries_12,
+        monthly_salaries_ytd=[base_salary],
+        preaviso_trabajado=preaviso_trabajado,
+        vacation_pending_complete_years=vacation_pending,
+        vacation_taken_current_period=vacation_taken,
+        vacation_dias_pendientes=vacation_dias_pendientes_val,
+        dias_adeudados=dias_adeudados,
+        dias_extra_navidad=(
+            int(termination_date[8:10]) if termination_date and len(termination_date) >= 10 else 0
+        ),
+        created_by=user_email,
+    )
+    result["requestId"] = request_id
+    result["terminationType"] = termination_type
+    result["terminationDate"] = termination_date
+
+    if req.get("settlementId"):
+        existing = svc.get_settlement(req["settlementId"])
+        if existing:
+            result["id"] = existing["id"]
+            result["version"] = existing.get("version", 1) + 1
+
+    svc.save_settlement(result, user_email)
+
+    wizard_action = request.form.get("wizard_action", "").strip()
+    if wizard_action == "":
+        svc.approve_settlement(result["id"], user_email)
+        current_status = svc._get_status_value(req)
+        if current_status in ("draft", "pending_settlement", "pending_assets"):
+            svc.wizard_transition(request_id, "pending_payment", user_email)
+
+    return jsonify({"success": True, "settlement": result})
+
+
+@web_rrhh_bp.route("/rrhh/offboarding/<request_id>/wizard/step2", methods=["POST"])
+def offboarding_wizard_step2(request_id):
+    if _login_required():
+        return jsonify({"success": False, "message": "No autenticado."}), 401
+    svc, owner_uid, sandbox, company_id = _service()
+    req = svc.get_request(request_id)
+    if not req:
+        return jsonify({"success": False, "message": "Solicitud no encontrada."}), 404
+
+    user_email = _email()
+
+    checklist = None
+    if req.get("checklistId"):
+        checklist = svc.get_checklist(req["checklistId"])
+    if checklist:
+        all_completed = request.form.get("checklistAllCompleted") == "1"
+        item_updates = {}
+        for key in request.form:
+            if key.startswith("check_item_"):
+                item_id = key.replace("check_item_", "")
+                item_updates[item_id] = True
+        for item in checklist.get("items", []):
+            iid = item.get("id", "")
+            if all_completed or iid in item_updates:
+                item["completed"] = True
+                item["completedBy"] = user_email
+                item["completedAt"] = svc._now()
+        completed = sum(1 for i in checklist.get("items", []) if i.get("completed"))
+        checklist["completedItems"] = completed
+        checklist["allCompleted"] = all_completed or completed >= checklist.get("totalItems", 0)
+        from app.services.offboarding_data_service import save as ods_save
+        ods_save("offboarding_checklists", checklist["id"], checklist, company_id, sandbox)
+
+    payment_form = request.form.get("paymentMethod", "nomina").strip()
+    payment_method = "payroll" if payment_form == "nomina" else "transfer"
+    settlement = None
+    if req.get("settlementId"):
+        settlement = svc.get_settlement(req["settlementId"])
+
+    if payment_form == "nomina":
+        group_id = request.form.get("payrollGroupId", "").strip()
+        new_group_name = request.form.get("newGroupName", "").strip()
+        if not group_id and not new_group_name:
+            return jsonify({"success": False, "message": "Debe seleccionar o crear un grupo de nómina para liquidados."}), 400
+        if not group_id and new_group_name:
+            from uuid import uuid4
+            group_id = str(uuid4())
+            hr.save_payroll_group(company_id, group_id, {
+                "id": group_id, "name": new_group_name,
+                "frequency": "mensual", "isActive": True,
+                "createdAt": svc._now(), "createdBy": user_email,
+            }, sandbox=sandbox)
+        if group_id and settlement:
+            employee = hr.get_employee(company_id, req.get("employeeId", ""), sandbox=sandbox)
+            if employee:
+                current_groups = employee.get("payrollGroupIds", [])
+                if group_id not in current_groups:
+                    current_groups = list(current_groups) + [group_id]
+                    employee["payrollGroupIds"] = current_groups
+                    hr.save_employee(company_id, employee["id"], employee, sandbox=sandbox)
+            settlement["assignedGroupId"] = group_id
+            group = hr.get_payroll_group(company_id, group_id, sandbox=sandbox)
+            settlement["assignedGroupName"] = group.get("name", group_id) if group else group_id
+            settlement["assignedAt"] = svc._now()
+            from app.services.offboarding_data_service import save as ods_save
+            ods_save("offboarding_settlements", settlement["id"], settlement, company_id, sandbox)
+
+    settlement_amount = float(settlement.get("totales", {}).get("montoNetoAPagar", 0)) if settlement else 0
+
+    payment_data = {
+        "requestId": request_id,
+        "settlementVersion": settlement.get("version", 1) if settlement else 1,
+        "paymentMethod": payment_method,
+        "paymentDate": request.form.get("paymentDate", svc._now()[:10]),
+        "paymentReference": request.form.get("paymentReference", "").strip(),
+        "totalAmount": float(request.form.get("totalAmount", settlement_amount)),
+    }
+    svc.save_payment(payment_data, user_email)
+
+    if payment_form != "nomina" and req.get("settlementId"):
+        try:
+            svc.mark_settlement_paid(req["settlementId"], {
+                "paymentDate": payment_data["paymentDate"],
+                "payrollPeriodId": "",
+                "payrollPeriodKey": "",
+            }, user_email)
+        except Exception:
+            pass
+
+    svc.wizard_transition(request_id, "pending_documents", user_email)
+
+    return jsonify({"success": True})
+
+
+@web_rrhh_bp.route("/rrhh/offboarding/<request_id>/wizard/back", methods=["POST"])
+def offboarding_wizard_back(request_id):
+    if _login_required():
+        return jsonify({"success": False, "message": "No autenticado."}), 401
+    svc, owner_uid, sandbox, company_id = _service()
+    req = svc.get_request(request_id)
+    if not req:
+        return jsonify({"success": False, "message": "Solicitud no encontrada."}), 404
+
+    user_email = _email()
+    current = svc._get_status_value(req)
+    reverse = {
+        "pending_payment": "pending_settlement",
+        "pending_assets": "pending_settlement",
+        "pending_documents": "pending_payment",
+        "pending_tss": "pending_documents",
+    }
+    target = reverse.get(current)
+    if not target:
+        target = "pending_settlement"
+
+    from app.models.offboarding import StatusChange
+    timestamp = svc._now()
+    req["status"] = target
+    entry = StatusChange(
+        fromStatus=current,
+        toStatus=target,
+        changedBy=user_email,
+        changedAt=timestamp,
+        comment="Wizard: retroceder un paso",
+    ).model_dump()
+    if "statusHistory" not in req or not isinstance(req.get("statusHistory"), list):
+        req["statusHistory"] = []
+    req["statusHistory"].append(entry)
+    svc.save_request_raw(request_id, req, user_email)
+
+    return jsonify({"success": True})
+
+
+@web_rrhh_bp.route("/rrhh/offboarding/<request_id>/wizard/step3", methods=["POST"])
+def offboarding_wizard_step3(request_id):
+    if _login_required():
+        return jsonify({"success": False, "message": "No autenticado."}), 401
+    svc, owner_uid, sandbox, company_id = _service()
+    req = svc.get_request(request_id)
+    if not req:
+        return jsonify({"success": False, "message": "Solicitud no encontrada."}), 404
+
+    user_email = _email()
+    svc.wizard_transition(request_id, "pending_tss", user_email)
+
+    return jsonify({"success": True})
+
+
+@web_rrhh_bp.route("/rrhh/offboarding/<request_id>/wizard/step4", methods=["POST"])
+def offboarding_wizard_step4(request_id):
+    if _login_required():
+        return jsonify({"success": False, "message": "No autenticado."}), 401
+    svc, owner_uid, sandbox, company_id = _service()
+    req = svc.get_request(request_id)
+    if not req:
+        return jsonify({"success": False, "message": "Solicitud no encontrada."}), 404
+
+    user_email = _email()
+
+    action = request.form.get("action", "").strip()
+    if action == "tss":
+        req["tssNotifiedAt"] = svc._now()
+        svc.save_request_raw(request_id, req, user_email)
+        return jsonify({"success": True})
+    if action == "revoke_access":
+        svc.revoke_access(request_id, user_email, revoke=True)
+        return jsonify({"success": True})
+    if action == "complete":
+        if not req.get("tssNotifiedAt"):
+            return jsonify({"success": False, "message": "Debe notificar la baja en TSS."}), 400
+        if not req.get("accessRevokedAt"):
+            return jsonify({"success": False, "message": "Debe revocar los accesos."}), 400
+        settlement = None
+        if req.get("settlementId"):
+            settlement = svc.get_settlement(req["settlementId"])
+        if settlement and settlement.get("status") != "pagada":
+            return jsonify({"success": False, "message": "La liquidación aún no ha sido pagada. Si es por nómina, procese el pago del período de liquidados primero."}), 400
+        svc.wizard_transition(request_id, "completed", user_email)
+        return jsonify({"success": True})
+
+    return jsonify({"success": False, "message": "Acción no reconocida."}), 400
+

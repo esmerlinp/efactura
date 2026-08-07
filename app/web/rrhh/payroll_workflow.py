@@ -574,7 +574,43 @@ def payroll_pay(period_id):
     else:
         period["paidDate"] = date.today().isoformat()
         hr.save_payroll_period(company_id, period_id, period, sandbox=sandbox)
-        flash("Nómina marcada como pagada.", "success")
+
+        # ── Sincronizar liquidaciones vinculadas ──
+        if period.get("periodSubType") == "liquidation":
+            try:
+                from app.services.offboarding_service import OffboardingService
+                off_svc = OffboardingService(company_id, sandbox)
+                user_email = session.get("user", {}).get("email", "")
+                completed_count = 0
+                for line in period.get("lines", []):
+                    settlement_id = line.get("settlementId", "")
+                    if settlement_id and line.get("lineType") == "liquidation":
+                        try:
+                            settlement = off_svc.mark_settlement_paid(settlement_id, {
+                                "payrollPeriodId": period_id,
+                                "payrollPeriodKey": period.get("periodKey", ""),
+                                "paymentDate": period["paidDate"],
+                            }, user_email)
+                            request_id = settlement.get("requestId", "")
+                            if request_id:
+                                req = off_svc.get_request(request_id)
+                                if req and req.get("tssNotifiedAt") and req.get("accessRevokedAt"):
+                                    if req.get("status") == "pending_tss":
+                                        try:
+                                            off_svc.wizard_transition(request_id, "completed", user_email)
+                                            completed_count += 1
+                                        except Exception:
+                                            pass
+                        except Exception:
+                            pass
+                if completed_count:
+                    flash(f"Nómina marcada como pagada. {completed_count} desvinculación(es) completada(s) automáticamente.", "success")
+                else:
+                    flash("Nómina marcada como pagada. Liquidaciones vinculadas actualizadas.", "success")
+            except Exception:
+                flash("Nómina marcada como pagada.", "success")
+        else:
+            flash("Nómina marcada como pagada.", "success")
     return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
 
 

@@ -96,6 +96,26 @@ def payroll_new():
     else:
         employees = active_employees
 
+    # ── Liquidaciones pendientes (para nómina tipo "liquidation") ──
+    liquidation_employees = []
+    pending_liquidations = []
+    if selected_group_id:
+        try:
+            from app.services.offboarding_service import OffboardingService
+            off_svc = OffboardingService(company_id, sandbox)
+            all_pending = off_svc.get_pending_settlements()
+            for s in all_pending:
+                if s.get("assignedGroupId") == selected_group_id:
+                    req = off_svc.get_request(s.get("requestId", ""))
+                    if req:
+                        emp_id = req.get("employeeId", "")
+                        emp = next((e for e in all_employees if e["id"] == emp_id), None)
+                        if emp:
+                            liquidation_employees.append(emp)
+                            pending_liquidations.append(s)
+        except Exception:
+            pass
+
     # Pre-validación de incidencias
     incidencias = PayrollService.validate_employees_before_payroll(employees) if employees else {"errors": [], "warnings": []}
 
@@ -147,6 +167,26 @@ def payroll_new():
 
         period_employees, excluded = _filter_employees_by_period(employees, period_key)
         period_id = str(uuid.uuid4())
+
+        # ── Nómina de liquidación: incluir empleados terminados con liquidación pendiente ──
+        liquidation_settlements_map = {}
+        period_sub_type_val = request.form.get("periodSubType", "regular")
+        if period_sub_type_val == "liquidation" and selected_group_id:
+            try:
+                from app.services.offboarding_service import OffboardingService
+                off_svc = OffboardingService(company_id, sandbox)
+                all_pending = off_svc.get_pending_settlements()
+                for s in all_pending:
+                    if s.get("assignedGroupId") == selected_group_id:
+                        req = off_svc.get_request(s.get("requestId", ""))
+                        if req:
+                            emp_id = req.get("employeeId", "")
+                            emp = next((e for e in all_employees if e["id"] == emp_id), None)
+                            if emp and emp not in period_employees:
+                                period_employees.append(emp)
+                                liquidation_settlements_map[emp_id] = s
+            except Exception:
+                pass
 
         # Pre-validación: bloquear si hay errores antes de calcular
         period_incidencias = PayrollService.validate_employees_before_payroll(period_employees)
@@ -253,6 +293,57 @@ def payroll_new():
                         return
 
                     emp_id = emp["id"]
+
+                    # ── Nómina de liquidación: si el empleado tiene liquidación pendiente ──
+                    if period_sub_type_val == "liquidation" and emp_id in liquidation_settlements_map:
+                        settlement = liquidation_settlements_map[emp_id]
+                        totales = settlement.get("totales", {})
+                        conceptos = settlement.get("conceptos", {})
+
+                        liquid_total_income = round(float(totales.get("montoTotal", 0)), 2)
+                        liquid_net = round(float(totales.get("montoNetoAPagar", liquid_total_income)), 2)
+                        liquid_exento = round(float(totales.get("montoExento", liquid_total_income)), 2)
+
+                        liquid_tx = [{
+                            "conceptCode": "LIQ_PRESTACIONES",
+                            "type": "earning",
+                            "amount": liquid_exento,
+                            "source": "liquidation",
+                            "conceptName": "Prestaciones laborales (exentas)",
+                        }, {
+                            "conceptCode": "LIQ_VACACIONES",
+                            "type": "earning",
+                            "amount": round(liquid_total_income - liquid_exento, 2),
+                            "source": "liquidation",
+                            "conceptName": "Prestaciones (gravables)",
+                        }]
+
+                        line = {
+                            "employeeId": emp_id,
+                            "employeeName": emp.get("fullName", ""),
+                            "cedula": emp.get("cedula", ""),
+                            "position": emp.get("position", ""),
+                            "department": emp.get("department", ""),
+                            "baseSalary": float(totales.get("salarioDiarioPromedio", 0)) * 23.83,
+                            "grossSalary": liquid_total_income,
+                            "totalIncome": liquid_total_income,
+                            "netSalary": liquid_net,
+                            "totalDeductions": liquid_net,
+                            "overtimePay": 0, "overtimeHours": 0,
+                            "commission": 0, "bonus": 0, "otherIncome": 0,
+                            "afpEmployee": 0, "sfsEmployee": 0, "infotepEmployee": 0,
+                            "isrRetention": 0, "otherDeductions": 0,
+                            "afpEmployer": 0, "sfsEmployer": 0, "srlEmployer": 0,
+                            "infotepEmployer": 0, "totalEmployerContrib": 0,
+                            "periodType": "liquidacion",
+                            "transactionSummary": liquid_tx,
+                            "settlementId": settlement.get("id", ""),
+                            "lineType": "liquidation",
+                        }
+                        lines.append(line)
+                        all_transactions.append(liquid_tx)
+                        continue
+
                     vals = emp_form_values.get(emp_id, {})
                     base = float(emp.get("baseSalary", 0))
                     overtime = vals.get("overtime", 0)
@@ -762,7 +853,8 @@ def payroll_new():
                            show_christmas_bonus=(now.month >= 11),
                            payroll_groups=payroll_groups,
                            selected_group_id=selected_group_id,
-                           incidencias=incidencias)
+                           incidencias=incidencias,
+                           pending_liquidations=pending_liquidations)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

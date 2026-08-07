@@ -183,22 +183,22 @@ class TestCalcularCesantia:
         ant = {"years": 3, "months": 7, "days": 0, "total_months": 43}
         r = LiquidacionService.calcular_cesantia(ant, self.SDP)
         # 3×21 + 7×21/12 = 63 + 12.3 = 75.3 (round 147/12=12.25→12.2 banker's rounding, 63+12.2=75.2)
-        expected_dias = round(3 * 21 + 7 * 21 / 12.0, 1)
+        expected_dias = round(3 * 21 + 7 * 21 / 12.0)
         assert r["dias"] == expected_dias
         assert r["monto"] == round(expected_dias * self.SDP, 2)
 
     def test_7_anios(self):
         ant = {"years": 7, "months": 0, "days": 0, "total_months": 84}
         r = LiquidacionService.calcular_cesantia(ant, self.SDP)
-        expected = 5 * 21 + 2 * 23  # 105 + 46 = 151
+        expected = 7 * 23  # >5 años: todos los años a 23 días
         assert r["dias"] == expected
         assert r["monto"] == round(expected * self.SDP, 2)
 
     def test_7_anios_5_meses(self):
         ant = {"years": 7, "months": 5, "days": 0, "total_months": 89}
         r = LiquidacionService.calcular_cesantia(ant, self.SDP)
-        # 5×21 + 2×23 + 5×23/12 = 105 + 46 + 9.6 = 160.6
-        expected_dias = round(5 * 21 + 2 * 23 + 5 * 23 / 12.0, 1)
+        # 7×23 + 5×23/12 = 161 + 9.58 = round(170.58) = 171
+        expected_dias = round(7 * 23 + 5 * 23 / 12.0)
         assert r["dias"] == expected_dias
         assert r["monto"] == round(expected_dias * self.SDP, 2)
 
@@ -499,7 +499,7 @@ class TestCalcularLiquidacion:
             created_by="test@example.com",
         )
 
-        assert r["conceptos"]["vacaciones"]["dias"] == 14 - 7 + 14  # 21
+        assert r["conceptos"]["vacaciones"]["dias"] == 14 + (12 - 7)  # pending year + (11m accrued - 7 taken) = 19
         assert r["conceptos"]["vacaciones"]["monto"] > 0
 
     def test_output_contiene_info_completa(self):
@@ -533,7 +533,7 @@ class TestCalcularLiquidacion:
         assert r["conceptos"]["preaviso"]["baseLegal"] == "Art. 76 Código de Trabajo"
         assert r["conceptos"]["cesantia"]["baseLegal"] == "Art. 80 Código de Trabajo"
         assert r["conceptos"]["vacaciones"]["baseLegal"] == "Art. 177 y 182 Código de Trabajo"
-        assert r["conceptos"]["salarioNavidad"]["baseLegal"] == "Art. 219 Código de Trabajo"
+        assert r["conceptos"]["salarioNavidad"]["baseLegal"] == "Art. 219 Código de Trabajo / Norma 08-04 DGII"
         assert r["notas"] == "Liquidación por reestructuración"
         assert r["createdBy"] == "admin@example.com"
         assert r["status"] == "calculada"

@@ -12,93 +12,97 @@
 <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; align-items:start;">
 
     <!-- COLUMNA IZQUIERDA: Formulario -->
-    <div class="hr-section-card">
-        <h3><i class="fa-solid fa-file-invoice"></i> Datos para el cálculo</h3>
+    <div class="hr-section-card" style="padding:16px 18px;">
+        <div style="font-weight:700; font-size:0.9rem; color:var(--text-primary); margin-bottom:12px;">
+            <i class="fa-solid fa-file-invoice" style="color:var(--accent-emerald); margin-right:6px;"></i>Datos para el cálculo
+        </div>
 
-        <div class="hr-info-grid" style="margin-bottom:16px;">
-            <div class="hr-info-item">
-                <span class="hr-info-label">Empleado</span>
-                <span class="hr-info-value"><strong>{{ employee.fullName or (employee.firstName ~ ' ' ~ employee.lastName) }}</strong></span>
+        <div style="font-size:0.74rem; padding:10px 12px; margin-bottom:14px; border-radius:8px; background:var(--bg-secondary); display:flex; flex-direction:column; gap:4px;">
+            <div style="display:flex; gap:20px;">
+                <span><span style="color:var(--text-muted);">Empleado</span> <strong>{{ employee.fullName or (employee.firstName ~ ' ' ~ employee.lastName) }}</strong></span>
+                <span><span style="color:var(--text-muted);">Cédula</span> {{ employee.cedula or '—' }}</span>
             </div>
-            <div class="hr-info-item">
-                <span class="hr-info-label">Cédula</span>
-                <span class="hr-info-value">{{ employee.cedula or '—' }}</span>
+            <div style="display:flex; gap:20px;">
+                <span><span style="color:var(--text-muted);">Ingreso</span> {{ employee.hireDate[:10] if employee and employee.hireDate else '—' }}</span>
+                <span><span style="color:var(--text-muted);">Salario</span> <strong>RD$ {{ "{:,.2f}".format(employee.baseSalary|float) if employee and employee.baseSalary else '—' }}</strong></span>
             </div>
-            <div class="hr-info-item">
-                <span class="hr-info-label">Fecha ingreso</span>
-                <span class="hr-info-value">{{ employee.hireDate or '—' }}</span>
-            </div>
-            <div class="hr-info-item">
-                <span class="hr-info-label">Salario base</span>
-                <span class="hr-info-value">RD$ {{ "{:,.2f}".format(employee.baseSalary|float) if employee.baseSalary else '—' }}</span>
-            </div>
-            <div class="hr-info-item">
-                <span class="hr-info-label">Frecuencia</span>
-                <span class="hr-info-value">{{ employee.paymentFrequency or 'mensual' }}</span>
-            </div>
-            <div class="hr-info-item">
-                <span class="hr-info-label">Estado actual</span>
-                <span class="hr-info-value">{% if employee.status == 'activo' %}<span style="color:var(--accent-emerald);">Activo</span>{% elif employee.status == 'suspendido' %}<span style="color:#f59e0b;">Suspendido</span>{% elif employee.status == 'inactivo' %}<span style="color:var(--danger);">Inactivo</span>{% else %}{{ employee.status }}{% endif %}</span>
+            <div style="display:flex; gap:20px;">
+                <span><span style="color:var(--text-muted);">Estado</span>
+                    {% if employee and employee.status == 'activo' %}<span style="color:var(--accent-emerald);">● Activo</span>
+                    {% elif employee and employee.status == 'suspendido' %}<span style="color:#f59e0b;">● Suspendido</span>
+                    {% elif employee and employee.status == 'inactivo' %}<span style="color:var(--danger);">● Inactivo</span>
+                    {% else %}{{ employee.status if employee else '—' }}{% endif %}</span>
+                <span><span style="color:var(--text-muted);">Frecuencia</span> {{ employee.paymentFrequency if employee else 'mensual' }}</span>
             </div>
         </div>
 
         <form method="POST" id="liquidacionForm">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-            <div class="form-group" style="margin-bottom:16px;">
-                <label class="form-label">Tipo de salida <span style="color:var(--danger);">*</span></label>
-                <select name="terminationType" class="form-select" required id="terminationTypeSelect">
+            <div class="form-group" style="margin-bottom:12px;">
+                <label style="font-size:0.72rem; font-weight:600;">Tipo de salida <span style="color:var(--danger);">*</span></label>
+                <select name="terminationType" class="form-select" required id="terminationTypeSelect" style="font-size:0.82rem;">
                     <option value="" disabled {% if not resultado %}selected{% endif %}>Seleccionar...</option>
-                    <option value="desahucio_empleador" {% if resultado and resultado.terminationType == 'desahucio_empleador' %}selected{% endif %}>Desahucio por el empleador</option>
-                    <option value="dimision_justificada" {% if resultado and resultado.terminationType == 'dimision_justificada' %}selected{% endif %}>Dimisión justificada</option>
-                    <option value="despido_justificado" {% if resultado and resultado.terminationType == 'despido_justificado' %}selected{% endif %}>Despido justificado</option>
-                    <option value="renuncia" {% if resultado and resultado.terminationType == 'renuncia' %}selected{% endif %}>Renuncia / Desahucio por el trabajador</option>
+                    {% set types = [
+                        ('desahucio_empleador', 'Desahucio por el empleador'),
+                        ('renuncia_voluntaria', 'Renuncia voluntaria'),
+                        ('dimision_justificada', 'Dimisión justificada'),
+                        ('despido_justificado', 'Despido justificado'),
+                        ('despido_injustificado', 'Despido injustificado'),
+                        ('mutuo_acuerdo', 'Mutuo acuerdo'),
+                        ('jubilacion', 'Jubilación'),
+                        ('fallecimiento', 'Fallecimiento'),
+                        ('fin_contrato_temporal', 'Fin de contrato temporal'),
+                        ('abandono', 'Abandono'),
+                        ('otro', 'Otro'),
+                    ] %}
+                    {% for val, label in types %}
+                    {% set sel = request.form.get('terminationType') == val or (resultado and resultado.terminationType == val) %}
+                    <option value="{{ val }}" {% if sel %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
                 </select>
-                <small style="color:var(--text-secondary); display:block; margin-top:4px;">
-                    <span id="prestacionesInfo"></span>
-                </small>
+                <span style="font-size:0.7rem; display:block; margin-top:3px;" id="prestacionesInfo"></span>
             </div>
 
-            <div class="form-group" style="margin-bottom:16px;">
-                <label class="form-label">Fecha de salida</label>
-                <input type="date" name="terminationDate" class="form-input"
-                       value="{{ resultado.terminationDate if resultado else '' }}">
+            <div class="form-group" style="margin-bottom:12px;">
+                <label style="font-size:0.72rem; font-weight:600;">Fecha de salida</label>
+                <input type="date" name="terminationDate" class="form-input" style="font-size:0.82rem;"
+                       value="{{ request.form.get('terminationDate', '') or (resultado.terminationDate if resultado else '') }}">
             </div>
 
-            <div class="form-group" style="margin-bottom:16px;">
-                <label class="form-label" style="display:flex; align-items:center; gap:8px;">
-                    <input type="checkbox" name="preavisoTrabajado" style="width:16px; height:16px; accent-color:var(--accent-emerald);"
+            <div class="form-group" style="margin-bottom:12px;">
+                <label style="font-size:0.72rem; font-weight:600; display:flex; align-items:center; gap:6px; cursor:pointer;">
+                    <input type="checkbox" name="preavisoTrabajado" style="width:15px; height:15px; accent-color:var(--accent-emerald);"
                            {% if resultado and resultado.conceptos.preaviso.dias == 0 and resultado.aplicaPrestaciones %}checked{% endif %}>
-                    ¿Se ejerció el preaviso trabajando?
+                    ¿Se ejerció el preaviso trabajando? (Art. 76)
                 </label>
-                <small style="color:var(--text-secondary); display:block; margin-top:2px;">Si se marca, el valor monetario del preaviso será RD$ 0.00 (Art. 76)</small>
             </div>
 
-            <div class="form-row" style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
-                <div class="form-group">
-                    <label class="form-label">Años completos de vacaciones pendientes</label>
-                    <input type="number" name="vacationPendingCompleteYears" class="form-input" min="0"
-                           value="{{ vacation_auto_pending_complete if vacation_auto_pending_complete is not none else 0 }}">
-                    <small style="color:var(--text-secondary);">Calculado: {{ vacation_auto_pending_complete if vacation_auto_pending_complete is not none else 0 }} año(s)</small>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
+                <div class="form-group" style="margin:0;">
+                    <label style="font-size:0.72rem; font-weight:600;">Vacaciones pendientes (días)</label>
+                    <input type="number" name="vacationDiasPendientes" class="form-input" min="0" style="font-size:0.82rem;"
+                           value="{{ request.form.get('vacationDiasPendientes', '') or vacation_auto_dias_pendientes }}">
+                    <span style="font-size:0.65rem; color:var(--text-muted); display:block; margin-top:2px;">{{ vacation_auto_total_accrued or 0 }}d acum. · {{ vacation_auto_total_taken or 0 }}d tomados</span>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Días ya tomados (período actual)</label>
-                    <input type="number" name="vacationTakenCurrentPeriod" class="form-input" min="0"
-                           value="{{ vacation_auto_taken_current if vacation_auto_taken_current is not none else 0 }}">
-                    <small style="color:var(--text-secondary);">Acumulado: {{ vacation_auto_total_accrued or 0 }}d / Tomados: {{ vacation_auto_total_taken or 0 }}d</small>
+                <div class="form-group" style="margin:0;">
+                    <label style="font-size:0.72rem; font-weight:600;">Días adeudados (mes de salida)</label>
+                    <input type="number" name="diasAdeudados" class="form-input" min="0" style="font-size:0.82rem;"
+                           value="{{ request.form.get('diasAdeudados', '0') }}">
+                    <span style="font-size:0.65rem; color:var(--text-muted); display:block; margin-top:2px;">Días trabajados aún no pagados</span>
                 </div>
             </div>
 
-            <div class="form-group" style="margin-bottom:16px;">
-                <label class="form-label">Notas</label>
-                <textarea name="notes" class="form-input" rows="2" placeholder="Motivo, observaciones...">{{ resultado.notas if resultado else '' }}</textarea>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label style="font-size:0.72rem; font-weight:600;">Notas</label>
+                <textarea name="notes" class="form-input" rows="6" placeholder="Motivo, observaciones o notas adicionales..." style="font-size:0.82rem; resize:vertical; width:100%; min-height:100px;">{{ resultado.notas if resultado else '' }}</textarea>
             </div>
 
-            <div style="display:flex; gap:12px; justify-content:flex-end;">
-                <button type="submit" class="btn btn-secondary">
+            <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px;">
+                <button type="submit" class="btn btn-secondary" style="font-size:0.82rem;">
                     <i class="fa-solid fa-calculator"></i> Calcular
                 </button>
-                <button type="submit" name="save" value="1" class="btn btn-primary" style="background:var(--accent-emerald);">
+                <button type="submit" name="save" value="1" class="btn btn-primary" style="background:var(--accent-emerald); font-size:0.82rem;">
                     <i class="fa-solid fa-check-double"></i> Guardar y desvincular
                 </button>
             </div>
@@ -108,87 +112,86 @@
     <!-- COLUMNA DERECHA: Resultados -->
     <div>
         {% if resultado %}
-        {% set concept_labels = {'preaviso':'Preaviso','cesantia':'Cesantía','vacaciones':'Vacaciones','salarioNavidad':'Salario de Navidad'} %}
-        <div class="hr-section-card" style="padding:20px 24px;">
-            <!-- Header -->
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                <h3 style="margin:0;"><i class="fa-solid fa-receipt"></i> Resultado de Liquidación</h3>
-                {% if resultado.aplicaPrestaciones %}
-                <span style="background:rgba(245,158,11,0.12); color:var(--accent-orange); padding:3px 10px; border-radius:20px; font-size:0.75rem; font-weight:600;">Con prestaciones</span>
-                {% else %}
-                <span style="background:rgba(99,102,241,0.10); color:var(--accent-indigo); padding:3px 10px; border-radius:20px; font-size:0.75rem; font-weight:600;">Sin prestaciones</span>
-                {% endif %}
-            </div>
-            <!-- Meta row -->
-            <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:16px; display:flex; gap:16px; flex-wrap:wrap;">
-                <span><strong>Antigüedad:</strong> {{ resultado.antiguedad.years }}a {{ resultado.antiguedad.months }}m {{ resultado.antiguedad.days }}d</span>
-                <span><strong>SDP:</strong> RD$ {{ "{:,.2f}".format(resultado.salarioDiarioPromedio|float) }}</span>
+        {% set concept_labels = {
+            'preaviso':'Preaviso','cesantia':'Cesantía','vacaciones':'Vacaciones',
+            'salarioNavidad':'Salario de Navidad','salarioProporcional':'Salario proporcional',
+            'asistenciaEconomica':'Asistencia económica'
+        } %}
+        <div class="hr-section-card" style="padding:16px 20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <div style="font-weight:700; font-size:0.95rem; color:var(--text-primary);">
+                    <i class="fa-solid fa-receipt" style="color:var(--accent-emerald); margin-right:6px;"></i>Resultado de Liquidación
+                </div>
+                <span style="font-size:0.7rem; font-weight:600; padding:2px 10px; border-radius:12px;
+                    {% if resultado.aplicaPrestaciones %}background:rgba(245,158,11,0.12); color:var(--accent-orange);">Con prestaciones
+                    {% else %}background:rgba(99,102,241,0.10); color:var(--accent-indigo);">Sin prestaciones{% endif %}
+                </span>
             </div>
 
-            <!-- Concept items -->
-            {% for key, c in resultado.conceptos.items() %}
-            {% if c.aplica or loop.first %}
-            <div style="display:flex; align-items:flex-start; padding:10px 0; {% if not loop.first %}border-top:1px solid var(--border-light);{% endif %} {% if not c.aplica %}opacity:0.35;{% endif %}">
-                <div style="flex:1; min-width:0;">
-                    <div style="font-weight:600; font-size:0.9rem;">
-                        {{ concept_labels.get(key, key) }}
-                        {% if c.baseLegal %}
-                        <span style="font-weight:400; font-size:0.72rem; color:var(--text-muted);">({{ c.baseLegal }})</span>
-                        {% endif %}
-                        <span style="margin-left:6px; cursor:help;" title="{{ c.detalle }}">ⓘ</span>
-                    </div>
-                    <div style="font-size:0.7rem; color:var(--text-muted); margin-top:3px; display:flex; gap:10px;">
-                        <span>{% if c.exentoTSS %}🛡️ Exento TSS{% else %}📋 Gravable TSS{% endif %}</span>
-                        <span>{% if c.exentoISR %}🛡️ Exento ISR{% else %}📋 Gravable ISR{% endif %}</span>
-                    </div>
-                </div>
-                <div style="text-align:right; flex-shrink:0; margin-left:16px;">
-                    {% if c.dias is not none %}
-                    <div style="font-size:0.72rem; color:var(--text-muted);">{{ c.dias }} día{% if c.dias != 1 %}s{% endif %}</div>
+            <div style="font-size:0.7rem; color:var(--text-muted); margin-bottom:10px; display:flex; gap:14px;">
+                <span>Antigüedad: <strong style="color:var(--text-primary);">{{ resultado.antiguedad.years }}a {{ resultado.antiguedad.months }}m {{ resultado.antiguedad.days }}d</strong></span>
+                <span>SDP: <strong style="color:var(--text-primary);">RD$ {{ "{:,.2f}".format(resultado.salarioDiarioPromedio | float) }}</strong></span>
+            </div>
+
+            <table style="width:100%; border-collapse:collapse; font-size:0.76rem;">
+                <thead>
+                    <tr style="border-bottom:1px solid var(--border-color);">
+                        <th style="text-align:left; padding:4px 4px; font-weight:600; font-size:0.65rem; text-transform:uppercase; letter-spacing:0.03em; color:var(--text-muted);">Concepto</th>
+                        <th style="text-align:left; padding:4px 4px; font-weight:600; font-size:0.65rem; text-transform:uppercase; letter-spacing:0.03em; color:var(--text-muted);">Base</th>
+                        <th style="text-align:right; padding:4px 4px; font-weight:600; font-size:0.65rem; text-transform:uppercase; letter-spacing:0.03em; color:var(--text-muted);">Días</th>
+                        <th style="text-align:right; padding:4px 4px; font-weight:600; font-size:0.65rem; text-transform:uppercase; letter-spacing:0.03em; color:var(--text-muted); white-space:nowrap;">Monto</th>
+                        <th style="text-align:center; padding:4px 4px; font-weight:600; font-size:0.65rem; text-transform:uppercase; letter-spacing:0.03em; color:var(--text-muted); width:48px;">Fiscal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for key, c in resultado.conceptos.items() %}
+                    {% if c.aplica %}
+                    {% set label = concept_labels.get(key, key | replace('_',' ') | title) %}
+                    <tr style="border-bottom:1px solid rgba(0,0,0,0.04);">
+                        <td style="padding:5px 4px; font-weight:500;">{{ label }}</td>
+                        <td style="padding:5px 4px; font-size:0.66rem; color:var(--text-muted);">{{ c.baseLegal | replace('Art. ','Art.') if c.baseLegal else '—' }}</td>
+                        <td style="padding:5px 4px; text-align:right; font-size:0.7rem; color:var(--text-secondary);">{{ c.dias if c.dias is not none else '—' }}</td>
+                        <td style="padding:5px 4px; text-align:right; font-weight:600; font-size:0.74rem; white-space:nowrap;">RD$ {{ "{:,.2f}".format(c.monto | float) }}</td>
+                        <td style="padding:5px 4px; text-align:center;">
+                            {% if c.exentoTSS and c.exentoISR %}
+                            <span style="font-size:0.62rem; padding:1px 6px; border-radius:6px; background:rgba(16,185,129,0.1); color:var(--accent-emerald);">Exento</span>
+                            {% elif not c.exentoTSS and not c.exentoISR %}
+                            <span style="font-size:0.62rem; padding:1px 6px; border-radius:6px; background:rgba(249,115,22,0.1); color:var(--accent-orange);">Gravable</span>
+                            {% endif %}
+                        </td>
+                    </tr>
                     {% endif %}
-                    <div style="font-family:monospace; font-weight:700; font-size:0.95rem; color:var(--text-primary);">
-                        RD$ {{ "{:,.2f}".format(c.monto|float) }}
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-            {% endfor %}
+                    {% endfor %}
+                    <tr style="border-top:1.5px solid var(--border-color);">
+                        <td colspan="3" style="padding:6px 4px; font-weight:700; font-size:0.76rem; text-align:right;">Total</td>
+                        <td style="padding:6px 4px; text-align:right; font-weight:700; font-size:0.8rem; color:var(--accent-emerald); white-space:nowrap;">RD$ {{ "{:,.2f}".format(resultado.totales.montoTotal | float) }}</td>
+                        <td></td>
+                    </tr>
+                    <tr style="border: none;">
+                        <td colspan="3" style="padding:3px 4px; font-size:0.66rem; color:var(--text-muted); text-align:right;">Prestaciones</td>
+                        <td style="padding:3px 4px; text-align:right; font-size:0.68rem; color:var(--text-secondary); white-space:nowrap;">RD$ {{ "{:,.2f}".format(resultado.totales.montoPrestaciones | float) }}</td>
+                        <td></td>
+                    </tr>
+                    <tr style="border: none;">
+                        <td colspan="3" style="padding:3px 4px; font-size:0.66rem; color:var(--text-muted); text-align:right;">Derechos adquiridos</td>
+                        <td style="padding:3px 4px; text-align:right; font-size:0.68rem; color:var(--text-secondary); white-space:nowrap;">RD$ {{ "{:,.2f}".format(resultado.totales.montoDerechosAdquiridos | float) }}</td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
 
-            <!-- Separator -->
-            <hr style="border:none; border-top:1px solid var(--border); margin:8px 0;">
-
-            <!-- Subtotals -->
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0;">
-                <span style="font-size:0.82rem; color:var(--text-secondary);">Prestaciones (Preaviso + Cesantía)</span>
-                <span style="font-family:monospace; font-weight:600; font-size:0.9rem;">RD$ {{ "{:,.2f}".format(resultado.totales.montoPrestaciones|float) }}</span>
-            </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0;">
-                <span style="font-size:0.82rem; color:var(--text-secondary);">Derechos adquiridos (Vacaciones + Navidad)</span>
-                <span style="font-family:monospace; font-weight:600; font-size:0.9rem;">RD$ {{ "{:,.2f}".format(resultado.totales.montoDerechosAdquiridos|float) }}</span>
-            </div>
-
-            <!-- Total -->
-            <hr style="border:none; border-top:2px solid var(--border); margin:8px 0;">
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0;">
-                <span style="font-size:1rem; font-weight:700;">Total Liquidación</span>
-                <span style="font-family:monospace; font-weight:800; font-size:1.15rem; color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(resultado.totales.montoTotal|float) }}</span>
-            </div>
-
-            <!-- Fiscal summary (compact) -->
-            <hr style="border:none; border-top:1px solid var(--border-light); margin:10px 0 6px;">
-            <div style="display:flex; gap:16px; flex-wrap:wrap; font-size:0.72rem; color:var(--text-muted);">
-                <span>Exento: <strong>RD$ {{ "{:,.2f}".format(resultado.totales.montoExento|float) }}</strong></span>
-                <span>Gravable TSS: <strong>RD$ {{ "{:,.2f}".format(resultado.totales.montoGravableTSS|float) }}</strong></span>
-                <span>Gravable ISR: <strong>RD$ {{ "{:,.2f}".format(resultado.totales.montoGravableISR|float) }}</strong></span>
-                <span style="margin-left:auto;"><code style="font-size:0.65rem;">{{ resultado.id }}</code></span>
+            <div style="font-size:0.64rem; color:var(--text-muted); margin-top:8px; padding-top:6px; border-top:1px solid var(--border-color); display:flex; gap:12px; flex-wrap:wrap;">
+                <span>Exento: <strong style="color:var(--text-primary);">RD$ {{ "{:,.2f}".format(resultado.totales.montoExento | float) }}</strong></span>
+                <span>Gravable TSS: <strong style="color:var(--text-primary);">RD$ {{ "{:,.2f}".format(resultado.totales.montoGravableTSS | float) }}</strong></span>
+                <span>Gravable ISR: <strong style="color:var(--text-primary);">RD$ {{ "{:,.2f}".format(resultado.totales.montoGravableISR | float) }}</strong></span>
             </div>
         </div>
         {% else %}
         <div class="hr-section-card" style="text-align:center; padding:48px 24px;">
-            <div style="font-size:3rem; margin-bottom:12px;">🧮</div>
-            <h3 style="margin:0;">Calculadora de Liquidación</h3>
-            <p style="color:var(--text-secondary); margin:8px 0 0;">
-                Complete los datos del formulario y presione <strong>"Calcular"</strong> para obtener el desglose de prestaciones laborales y derechos adquiridos según el Código de Trabajo dominicano.
+            <div style="font-size:2.5rem; margin-bottom:12px; color:var(--text-muted);"><i class="fa-solid fa-calculator"></i></div>
+            <h3 style="margin:0; font-size:1rem;">Calculadora de Liquidación</h3>
+            <p style="color:var(--text-secondary); margin:8px 0 0; font-size:0.82rem;">
+                Complete los datos del formulario y presione <strong>"Calcular"</strong> para obtener el desglose.
             </p>
         </div>
         {% endif %}
@@ -202,13 +205,21 @@
 
     function updateInfo() {
         var val = select.value;
-        if (val === 'desahucio_empleador' || val === 'dimision_justificada') {
-            info.innerHTML = '<span style="color:var(--accent-orange);">⚠️ Incluye Preaviso (Art. 76) y Cesantía (Art. 80)</span>';
-        } else if (val === 'despido_justificado' || val === 'renuncia') {
-            info.innerHTML = '<span style="color:var(--accent-indigo);">ℹ️ No aplica Preaviso ni Cesantía. Solo derechos adquiridos.</span>';
-        } else {
-            info.innerHTML = '';
-        }
+        var msgs = {
+            'desahucio_empleador': '<span style="color:var(--accent-orange);">Incluye Preaviso (Art. 76), Cesantía (Art. 80) y derechos adquiridos</span>',
+            'despido_injustificado': '<span style="color:var(--accent-orange);">Incluye Preaviso (Art. 76), Cesantía (Art. 80) y derechos adquiridos</span>',
+            'dimision_justificada': '<span style="color:var(--accent-orange);">Incluye Preaviso (Art. 76), Cesantía (Art. 80) y derechos adquiridos</span>',
+            'fin_contrato_temporal': '<span style="color:var(--accent-orange);">Incluye Cesantía (Art. 80) y derechos adquiridos</span>',
+            'fallecimiento': '<span style="color:var(--accent-orange);">Incluye asistencia económica (Art. 82) y derechos adquiridos</span>',
+            'jubilacion': '<span style="color:var(--accent-orange);">Incluye asistencia económica (Art. 82) y derechos adquiridos</span>',
+            'renuncia_voluntaria': '<span style="color:var(--accent-indigo);">Solo derechos adquiridos (vacaciones, regalía, salario)</span>',
+            'renuncia': '<span style="color:var(--accent-indigo);">Solo derechos adquiridos (vacaciones, regalía, salario)</span>',
+            'despido_justificado': '<span style="color:var(--accent-indigo);">Solo derechos adquiridos (vacaciones, regalía, salario)</span>',
+            'mutuo_acuerdo': '<span style="color:var(--accent-indigo);">Solo derechos adquiridos (vacaciones, regalía, salario)</span>',
+            'abandono': '<span style="color:var(--accent-indigo);">Solo derechos adquiridos (vacaciones, regalía, salario)</span>',
+            'otro': '<span style="color:var(--accent-indigo);">Solo derechos adquiridos (vacaciones, regalía, salario)</span>',
+        };
+        info.innerHTML = msgs[val] || '';
     }
 
     select.addEventListener('change', updateInfo);
