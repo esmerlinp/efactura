@@ -98,19 +98,31 @@
     <div class="report-category-card">
         <div class="card-header">
             <div class="icon empleados"><i class="fa-solid fa-users"></i></div>
-            <span class="badge">3 reportes</span>
+            <span class="badge">7 reportes</span>
         </div>
         <div class="card-title">Empleados</div>
         <div class="card-desc">Información y exportación de datos del personal.</div>
         <ul class="report-list">
             <li class="done">
-                <a href="{{ url_for('web_invoices.employee_export') }}"><i class="fa-solid fa-download" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Exportar empleados (XLSX)</a>
+                <a href="{{ url_for('web_invoices.report_anniversary') }}"><i class="fa-solid fa-cake-candles" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Listado de Aniversarios</a>
             </li>
             <li class="done">
-                <a href="{{ url_for('web_invoices.org_chart') }}"><i class="fa-solid fa-sitemap" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Organigrama</a>
+                <a href="{{ url_for('web_invoices.report_birthday') }}"><i class="fa-solid fa-gift" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Listado de Cumpleaños</a>
             </li>
             <li class="done">
-                <a href="{{ url_for('web_invoices.attendance') }}"><i class="fa-solid fa-clock" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Reporte de asistencia</a>
+                <a href="{{ url_for('web_invoices.report_vacation_balance') }}"><i class="fa-solid fa-umbrella-beach" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Saldo de Vacaciones</a>
+            </li>
+            <li class="done">
+                <a href="{{ url_for('web_invoices.report_vacation_periods') }}"><i class="fa-solid fa-calendar-check" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Períodos de Vacaciones</a>
+            </li>
+            <li class="done">
+                <a href="{{ url_for('web_rrhh.employee_export') }}"><i class="fa-solid fa-download" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Exportar empleados (XLSX)</a>
+            </li>
+            <li class="done">
+                <a href="{{ url_for('web_rrhh.org_chart') }}"><i class="fa-solid fa-sitemap" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Organigrama</a>
+            </li>
+            <li class="done">
+                <a href="{{ url_for('web_rrhh.attendance') }}"><i class="fa-solid fa-clock" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Reporte de asistencia</a>
             </li>
         </ul>
     </div>

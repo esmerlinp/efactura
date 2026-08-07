@@ -575,3 +575,863 @@ def report_ir13_pdf():
     return response
 
 
+# ═══════════════════════════════════════════════════════════════
+#  Reporte: Listado de Aniversarios
+# ═══════════════════════════════════════════════════════════════
+
+MESES_ES_MAP = {
+    1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril",
+    5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto",
+    9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre",
+}
+
+
+def _build_anniversary_data(company_id, sandbox, owner_uid):
+    from app.services.db_service import DatabaseService
+
+    employees = hr.get_employees(company_id, sandbox=sandbox)
+    employees = [e for e in employees if e.get("status") == "activo" and e.get("hireDate")]
+
+    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id)
+    branch_map = {b["id"]: b.get("name", b.get("code", b["id"])) for b in branches}
+
+    today = date.today()
+    results = []
+    for emp in employees:
+        try:
+            hd = date.fromisoformat(emp["hireDate"][:10])
+        except (ValueError, TypeError):
+            continue
+
+        years = today.year - hd.year
+        if today.month < hd.month or (today.month == hd.month and today.day < hd.day):
+            years -= 1
+
+        results.append({
+            "id": emp.get("id", ""),
+            "cedula": emp.get("cedula", "") or emp.get("idNumber", ""),
+            "fullName": emp.get("fullName", ""),
+            "branchName": branch_map.get(emp.get("branchId", ""), ""),
+            "department": emp.get("department", "") or emp.get("area", ""),
+            "position": emp.get("position", ""),
+            "hireDate": hd,
+            "anniversaryDay": hd.day,
+            "anniversaryMonth": hd.month,
+            "anniversaryYear": hd.year,
+            "yearsInCompany": max(0, years),
+        })
+
+    results.sort(key=lambda r: (r["anniversaryMonth"], r["anniversaryDay"]))
+    return results, branch_map
+
+
+@web_invoices_bp.route('/reports/empleados/anniversary')
+@web_rrhh_bp.route("/rrhh/reports/empleados/anniversary")
+@require_module('nomina')
+def report_anniversary():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+
+    today = date.today()
+    try:
+        year = int(request.args.get("year", today.year))
+    except (ValueError, TypeError):
+        year = today.year
+    try:
+        month = int(request.args.get("month", today.month))
+    except (ValueError, TypeError):
+        month = today.month
+    try:
+        day = int(request.args.get("day", today.day))
+    except (ValueError, TypeError):
+        day = today.day
+
+    results, _ = _build_anniversary_data(company_id, sandbox, owner_uid)
+
+    if day > 0:
+        filtered = [r for r in results if r["anniversaryMonth"] == month and r["anniversaryDay"] == day]
+    else:
+        filtered = [r for r in results if r["anniversaryMonth"] == month]
+
+    is_today = (year == today.year and month == today.month and day == today.day)
+
+    return render_template(
+        "rrhh/reports/anniversary.html",
+        active_page="rrhh_reports",
+        results=filtered,
+        year=year,
+        month=month,
+        day=day,
+        is_today=is_today,
+        today=today,
+        meses=MESES_ES_MAP,
+        is_pdf=False,
+    )
+
+
+@web_invoices_bp.route('/reports/empleados/anniversary/export')
+@web_rrhh_bp.route("/rrhh/reports/empleados/anniversary/export")
+@require_module('nomina')
+def report_anniversary_export():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+
+    today = date.today()
+    try:
+        year = int(request.args.get("year", today.year))
+    except (ValueError, TypeError):
+        year = today.year
+    try:
+        month = int(request.args.get("month", today.month))
+    except (ValueError, TypeError):
+        month = today.month
+    try:
+        day = int(request.args.get("day", today.day))
+    except (ValueError, TypeError):
+        day = today.day
+
+    results, _ = _build_anniversary_data(company_id, sandbox, owner_uid)
+    if day > 0:
+        filtered = [r for r in results if r["anniversaryMonth"] == month and r["anniversaryDay"] == day]
+    else:
+        filtered = [r for r in results if r["anniversaryMonth"] == month]
+
+    try:
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Aniversarios"
+        ws.append(["Codigo", "Nombre", "Sucursal", "Departamento", "Puesto",
+                    "Dia de Aniversario", "Anos en la Empresa"])
+        for r in filtered:
+            ws.append([
+                r["cedula"],
+                r["fullName"],
+                r["branchName"],
+                r["department"],
+                r["position"],
+                f"{r['anniversaryDay']:02d}/{r['anniversaryMonth']:02d}",
+                r["yearsInCompany"],
+            ])
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        filename = f"aniversarios_{year}_{month:02d}_{day:02d}.xlsx"
+        return send_file(output,
+                         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                         as_attachment=True, download_name=filename)
+    except ImportError:
+        csv_out = io.StringIO()
+        csv_out.write("Codigo,Nombre,Sucursal,Departamento,Puesto,Dia de Aniversario,Anos en la Empresa\n")
+        for r in filtered:
+            csv_out.write(
+                f"{r['cedula']},{r['fullName']},{r['branchName']},{r['department']},"
+                f"{r['position']},{r['anniversaryDay']:02d}/{r['anniversaryMonth']:02d},{r['yearsInCompany']}\n"
+            )
+        buf = io.BytesIO()
+        buf.write(b"\xef\xbb\xbf")
+        buf.write(csv_out.getvalue().encode("utf-8"))
+        buf.seek(0)
+        filename = f"aniversarios_{year}_{month:02d}_{day:02d}.csv"
+        return send_file(buf, mimetype="text/csv", as_attachment=True, download_name=filename)
+
+
+@web_invoices_bp.route('/reports/empleados/anniversary/pdf')
+@web_rrhh_bp.route("/rrhh/reports/empleados/anniversary/pdf")
+@require_module('nomina')
+def report_anniversary_pdf():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    from app.services.db_service import DatabaseService
+    from app.utils.pdf import pdf_write_options
+    from weasyprint import HTML as WeasyprintHTML
+
+    today = date.today()
+    try:
+        year = int(request.args.get("year", today.year))
+    except (ValueError, TypeError):
+        year = today.year
+    try:
+        month = int(request.args.get("month", today.month))
+    except (ValueError, TypeError):
+        month = today.month
+    try:
+        day = int(request.args.get("day", today.day))
+    except (ValueError, TypeError):
+        day = today.day
+
+    results, _ = _build_anniversary_data(company_id, sandbox, owner_uid)
+    if day > 0:
+        filtered = [r for r in results if r["anniversaryMonth"] == month and r["anniversaryDay"] == day]
+    else:
+        filtered = [r for r in results if r["anniversaryMonth"] == month]
+
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+    is_today = (year == today.year and month == today.month and day == today.day)
+
+    rendered = render_template(
+        "rrhh/reports/anniversary_pdf.html",
+        results=filtered,
+        year=year,
+        month=month,
+        day=day,
+        is_today=is_today,
+        today=today,
+        meses=MESES_ES_MAP,
+        company=company,
+    )
+
+    pdf_bytes = WeasyprintHTML(string=rendered, base_url=request.host_url).write_pdf(**pdf_write_options())
+    response = make_response(pdf_bytes)
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'attachment; filename="aniversarios_{year}_{month:02d}_{day:02d}.pdf"'
+    return response
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Reporte: Listado de Cumpleaños
+# ═══════════════════════════════════════════════════════════════
+
+
+def _build_birthday_data(company_id, sandbox, owner_uid):
+    from app.services.db_service import DatabaseService
+
+    employees = hr.get_employees(company_id, sandbox=sandbox)
+    employees = [e for e in employees if e.get("status") == "activo" and e.get("birthDate")]
+
+    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id)
+    branch_map = {b["id"]: b.get("name", b.get("code", b["id"])) for b in branches}
+
+    today = date.today()
+    results = []
+    for emp in employees:
+        try:
+            bd = date.fromisoformat(emp["birthDate"][:10])
+        except (ValueError, TypeError):
+            continue
+
+        age = today.year - bd.year
+        if today.month < bd.month or (today.month == bd.month and today.day < bd.day):
+            age -= 1
+
+        results.append({
+            "id": emp.get("id", ""),
+            "cedula": emp.get("cedula", "") or emp.get("idNumber", ""),
+            "fullName": emp.get("fullName", ""),
+            "branchName": branch_map.get(emp.get("branchId", ""), ""),
+            "department": emp.get("department", "") or emp.get("area", ""),
+            "position": emp.get("position", ""),
+            "birthDate": bd,
+            "birthDay": bd.day,
+            "birthMonth": bd.month,
+            "birthYear": bd.year,
+            "age": max(0, age),
+        })
+
+    results.sort(key=lambda r: (r["birthMonth"], r["birthDay"]))
+    return results, branch_map
+
+
+@web_invoices_bp.route('/reports/empleados/birthday')
+@web_rrhh_bp.route("/rrhh/reports/empleados/birthday")
+@require_module('nomina')
+def report_birthday():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+
+    today = date.today()
+    try:
+        year = int(request.args.get("year", today.year))
+    except (ValueError, TypeError):
+        year = today.year
+    try:
+        month = int(request.args.get("month", today.month))
+    except (ValueError, TypeError):
+        month = today.month
+    try:
+        day = int(request.args.get("day", today.day))
+    except (ValueError, TypeError):
+        day = today.day
+
+    results, _ = _build_birthday_data(company_id, sandbox, owner_uid)
+
+    if day > 0:
+        filtered = [r for r in results if r["birthMonth"] == month and r["birthDay"] == day]
+    else:
+        filtered = [r for r in results if r["birthMonth"] == month]
+
+    is_today = (year == today.year and month == today.month and day == today.day)
+
+    return render_template(
+        "rrhh/reports/birthday.html",
+        active_page="rrhh_reports",
+        results=filtered,
+        year=year,
+        month=month,
+        day=day,
+        is_today=is_today,
+        today=today,
+        meses=MESES_ES_MAP,
+    )
+
+
+@web_invoices_bp.route('/reports/empleados/birthday/export')
+@web_rrhh_bp.route("/rrhh/reports/empleados/birthday/export")
+@require_module('nomina')
+def report_birthday_export():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+
+    today = date.today()
+    try:
+        year = int(request.args.get("year", today.year))
+    except (ValueError, TypeError):
+        year = today.year
+    try:
+        month = int(request.args.get("month", today.month))
+    except (ValueError, TypeError):
+        month = today.month
+    try:
+        day = int(request.args.get("day", today.day))
+    except (ValueError, TypeError):
+        day = today.day
+
+    results, _ = _build_birthday_data(company_id, sandbox, owner_uid)
+    if day > 0:
+        filtered = [r for r in results if r["birthMonth"] == month and r["birthDay"] == day]
+    else:
+        filtered = [r for r in results if r["birthMonth"] == month]
+
+    try:
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Cumpleanos"
+        ws.append(["Codigo", "Nombre", "Sucursal", "Departamento", "Puesto",
+                    "Dia de Nacimiento", "Edad"])
+        for r in filtered:
+            ws.append([
+                r["cedula"],
+                r["fullName"],
+                r["branchName"],
+                r["department"],
+                r["position"],
+                f"{r['birthDay']:02d}/{r['birthMonth']:02d}",
+                r["age"],
+            ])
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        filename = f"cumpleanos_{year}_{month:02d}_{day:02d}.xlsx"
+        return send_file(output,
+                         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                         as_attachment=True, download_name=filename)
+    except ImportError:
+        csv_out = io.StringIO()
+        csv_out.write("Codigo,Nombre,Sucursal,Departamento,Puesto,Dia de Nacimiento,Edad\n")
+        for r in filtered:
+            csv_out.write(
+                f"{r['cedula']},{r['fullName']},{r['branchName']},{r['department']},"
+                f"{r['position']},{r['birthDay']:02d}/{r['birthMonth']:02d},{r['age']}\n"
+            )
+        buf = io.BytesIO()
+        buf.write(b"\xef\xbb\xbf")
+        buf.write(csv_out.getvalue().encode("utf-8"))
+        buf.seek(0)
+        filename = f"cumpleanos_{year}_{month:02d}_{day:02d}.csv"
+        return send_file(buf, mimetype="text/csv", as_attachment=True, download_name=filename)
+
+
+@web_invoices_bp.route('/reports/empleados/birthday/pdf')
+@web_rrhh_bp.route("/rrhh/reports/empleados/birthday/pdf")
+@require_module('nomina')
+def report_birthday_pdf():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    from app.services.db_service import DatabaseService
+    from app.utils.pdf import pdf_write_options
+    from weasyprint import HTML as WeasyprintHTML
+
+    today = date.today()
+    try:
+        year = int(request.args.get("year", today.year))
+    except (ValueError, TypeError):
+        year = today.year
+    try:
+        month = int(request.args.get("month", today.month))
+    except (ValueError, TypeError):
+        month = today.month
+    try:
+        day = int(request.args.get("day", today.day))
+    except (ValueError, TypeError):
+        day = today.day
+
+    results, _ = _build_birthday_data(company_id, sandbox, owner_uid)
+    if day > 0:
+        filtered = [r for r in results if r["birthMonth"] == month and r["birthDay"] == day]
+    else:
+        filtered = [r for r in results if r["birthMonth"] == month]
+
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+    is_today = (year == today.year and month == today.month and day == today.day)
+
+    rendered = render_template(
+        "rrhh/reports/birthday_pdf.html",
+        results=filtered,
+        year=year,
+        month=month,
+        day=day,
+        is_today=is_today,
+        today=today,
+        meses=MESES_ES_MAP,
+        company=company,
+    )
+
+    pdf_bytes = WeasyprintHTML(string=rendered, base_url=request.host_url).write_pdf(**pdf_write_options())
+    response = make_response(pdf_bytes)
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'attachment; filename="cumpleanos_{year}_{month:02d}_{day:02d}.pdf"'
+    return response
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Reporte: Saldo de Vacaciones
+# ═══════════════════════════════════════════════════════════════
+
+
+def _build_vacation_balance_data(company_id, sandbox, owner_uid):
+    from app.services.db_service import DatabaseService
+
+    employees = hr.get_employees(company_id, sandbox=sandbox)
+    employees = [e for e in employees if e.get("status") == "activo" and e.get("hireDate")]
+
+    emp_map = {e.get("id", ""): e for e in employees}
+
+    vacation_requests = hr.get_vacation_requests(company_id, sandbox=sandbox)
+
+    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id)
+    branch_map = {b["id"]: b.get("name", b.get("code", b["id"])) for b in branches}
+
+    today = date.today()
+    results = []
+    for emp in employees:
+        emp_id = emp.get("id", "")
+        hire_date_str = emp.get("hireDate", "")
+
+        supervisor_name = ""
+        sup_id = emp.get("reportsTo", "")
+        if sup_id and sup_id in emp_map:
+            supervisor_name = emp_map[sup_id].get("fullName", "")
+
+        taken = sum(
+            r.get("days", 0) for r in vacation_requests
+            if r.get("employeeId") == emp_id and r.get("status") == "aprobada"
+        )
+        accrued = PayrollService.calculate_vacation_days(hire_date_str, today=today, taken_days=0)
+        remaining = PayrollService.calculate_vacation_days(hire_date_str, today=today, taken_days=taken)
+
+        try:
+            hd = date.fromisoformat(hire_date_str[:10])
+        except (ValueError, TypeError):
+            hd = None
+
+        years_in_company = 0
+        if hd:
+            years_in_company = today.year - hd.year
+            if today.month < hd.month or (today.month == hd.month and today.day < hd.day):
+                years_in_company -= 1
+            years_in_company = max(0, years_in_company)
+
+        results.append({
+            "id": emp_id,
+            "cedula": emp.get("cedula", "") or emp.get("idNumber", ""),
+            "fullName": emp.get("fullName", ""),
+            "branchName": branch_map.get(emp.get("branchId", ""), ""),
+            "department": emp.get("department", "") or emp.get("area", ""),
+            "position": emp.get("position", ""),
+            "supervisorName": supervisor_name,
+            "hireDate": hire_date_str,
+            "yearsInCompany": years_in_company,
+            "accruedDays": accrued,
+            "takenDays": taken,
+            "remainingDays": remaining,
+        })
+
+    results.sort(key=lambda r: r["fullName"].lower())
+    return results, branch_map
+
+
+@web_invoices_bp.route('/reports/empleados/vacation-balance')
+@web_rrhh_bp.route("/rrhh/reports/empleados/vacation-balance")
+@require_module('nomina')
+def report_vacation_balance():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+
+    all_results, branch_map = _build_vacation_balance_data(company_id, sandbox, owner_uid)
+
+    filter_branch = request.args.get("branch", "").strip()
+    filter_department = request.args.get("department", "").strip()
+    filter_position = request.args.get("position", "").strip()
+    filter_supervisor = request.args.get("supervisor", "").strip()
+    filter_employee = request.args.get("employee", "").strip()
+
+    results = all_results
+    if filter_branch:
+        results = [r for r in results if r["branchName"] == filter_branch]
+    if filter_department:
+        results = [r for r in results if r["department"] == filter_department]
+    if filter_position:
+        results = [r for r in results if r["position"] == filter_position]
+    if filter_supervisor:
+        results = [r for r in results if r["supervisorName"] == filter_supervisor]
+    if filter_employee:
+        results = [r for r in results if filter_employee.lower() in r["fullName"].lower()]
+
+    departments_set = sorted(set(r["department"] for r in all_results if r["department"]))
+    positions_set = sorted(set(r["position"] for r in all_results if r["position"]))
+    supervisors_set = sorted(set(r["supervisorName"] for r in all_results if r["supervisorName"]))
+    employees_list = sorted(set(r["fullName"] for r in all_results))
+    branches_list = sorted(set(branch_map.values()))
+
+    return render_template(
+        "rrhh/reports/vacation_balance.html",
+        active_page="rrhh_reports",
+        results=results,
+        branches=branches_list,
+        departments=departments_set,
+        positions=positions_set,
+        supervisors=supervisors_set,
+        employees=employees_list,
+        filter_branch=filter_branch,
+        filter_department=filter_department,
+        filter_position=filter_position,
+        filter_supervisor=filter_supervisor,
+        filter_employee=filter_employee,
+        today=date.today(),
+    )
+
+
+@web_invoices_bp.route('/reports/empleados/vacation-balance/export')
+@web_rrhh_bp.route("/rrhh/reports/empleados/vacation-balance/export")
+@require_module('nomina')
+def report_vacation_balance_export():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+
+    results, branch_map = _build_vacation_balance_data(company_id, sandbox, owner_uid)
+
+    filter_branch = request.args.get("branch", "").strip()
+    filter_department = request.args.get("department", "").strip()
+    filter_position = request.args.get("position", "").strip()
+    filter_supervisor = request.args.get("supervisor", "").strip()
+    filter_employee = request.args.get("employee", "").strip()
+
+    if filter_branch:
+        results = [r for r in results if r["branchName"] == filter_branch]
+    if filter_department:
+        results = [r for r in results if r["department"] == filter_department]
+    if filter_position:
+        results = [r for r in results if r["position"] == filter_position]
+    if filter_supervisor:
+        results = [r for r in results if r["supervisorName"] == filter_supervisor]
+    if filter_employee:
+        results = [r for r in results if filter_employee.lower() in r["fullName"].lower()]
+
+    try:
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Saldo Vacaciones"
+        ws.append(["Codigo", "Nombre", "Sucursal", "Departamento", "Puesto",
+                    "Fecha Ingreso", "Anos Antiguedad", "Dias Acumulados",
+                    "Dias Tomados", "Dias Pendientes"])
+        for r in results:
+            ws.append([
+                r["cedula"], r["fullName"], r["branchName"], r["department"],
+                r["position"], r["hireDate"], r["yearsInCompany"],
+                r["accruedDays"], r["takenDays"], r["remainingDays"],
+            ])
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        today = date.today()
+        filename = f"saldo_vacaciones_{today.strftime('%Y%m%d')}.xlsx"
+        return send_file(output,
+                         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                         as_attachment=True, download_name=filename)
+    except ImportError:
+        csv_out = io.StringIO()
+        csv_out.write("Codigo,Nombre,Sucursal,Departamento,Puesto,Fecha Ingreso,Anos Antiguedad,Dias Acumulados,Dias Tomados,Dias Pendientes\n")
+        for r in results:
+            csv_out.write(
+                f"{r['cedula']},{r['fullName']},{r['branchName']},{r['department']},"
+                f"{r['position']},{r['hireDate']},{r['yearsInCompany']},"
+                f"{r['accruedDays']},{r['takenDays']},{r['remainingDays']}\n"
+            )
+        buf = io.BytesIO()
+        buf.write(b"\xef\xbb\xbf")
+        buf.write(csv_out.getvalue().encode("utf-8"))
+        buf.seek(0)
+        today = date.today()
+        filename = f"saldo_vacaciones_{today.strftime('%Y%m%d')}.csv"
+        return send_file(buf, mimetype="text/csv", as_attachment=True, download_name=filename)
+
+
+@web_invoices_bp.route('/reports/empleados/vacation-balance/pdf')
+@web_rrhh_bp.route("/rrhh/reports/empleados/vacation-balance/pdf")
+@require_module('nomina')
+def report_vacation_balance_pdf():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    from app.services.db_service import DatabaseService
+    from app.utils.pdf import pdf_write_options
+    from weasyprint import HTML as WeasyprintHTML
+
+    today = date.today()
+    results, _ = _build_vacation_balance_data(company_id, sandbox, owner_uid)
+
+    filter_branch = request.args.get("branch", "").strip()
+    filter_department = request.args.get("department", "").strip()
+    filter_position = request.args.get("position", "").strip()
+    filter_supervisor = request.args.get("supervisor", "").strip()
+    filter_employee = request.args.get("employee", "").strip()
+
+    if filter_branch:
+        results = [r for r in results if r["branchName"] == filter_branch]
+    if filter_department:
+        results = [r for r in results if r["department"] == filter_department]
+    if filter_position:
+        results = [r for r in results if r["position"] == filter_position]
+    if filter_supervisor:
+        results = [r for r in results if r["supervisorName"] == filter_supervisor]
+    if filter_employee:
+        results = [r for r in results if filter_employee.lower() in r["fullName"].lower()]
+
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+
+    rendered = render_template(
+        "rrhh/reports/vacation_balance_pdf.html",
+        results=results,
+        today=today,
+        company=company,
+        filter_branch=filter_branch,
+    )
+
+    pdf_bytes = WeasyprintHTML(string=rendered, base_url=request.host_url).write_pdf(**pdf_write_options())
+    response = make_response(pdf_bytes)
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'attachment; filename="saldo_vacaciones_{today.strftime("%Y%m%d")}.pdf"'
+    return response
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Reporte: Períodos de Vacaciones
+# ═══════════════════════════════════════════════════════════════
+
+
+def _build_vacation_periods_data(company_id, sandbox, owner_uid):
+    from app.services.db_service import DatabaseService
+
+    employees = hr.get_employees(company_id, sandbox=sandbox)
+    emp_map = {e.get("id", ""): e for e in employees}
+
+    vacation_requests = hr.get_vacation_requests(company_id, sandbox=sandbox)
+
+    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id)
+    branch_map = {b["id"]: b.get("name", b.get("code", b["id"])) for b in branches}
+
+    results = []
+    for req in vacation_requests:
+        if req.get("status") != "aprobada":
+            continue
+        emp = emp_map.get(req.get("employeeId", ""), {})
+        if emp.get("status") != "activo":
+            continue
+
+        try:
+            sd = date.fromisoformat(req["startDate"][:10])
+        except (ValueError, TypeError):
+            sd = None
+        try:
+            ed = date.fromisoformat(req["endDate"][:10])
+        except (ValueError, TypeError):
+            ed = None
+
+        results.append({
+            "id": req.get("id", ""),
+            "cedula": emp.get("cedula", "") or emp.get("idNumber", ""),
+            "fullName": req.get("employeeName", emp.get("fullName", "")),
+            "branchName": branch_map.get(emp.get("branchId", ""), ""),
+            "department": emp.get("department", "") or emp.get("area", ""),
+            "position": emp.get("position", ""),
+            "startDate": sd,
+            "endDate": ed,
+            "days": req.get("days", 0),
+            "status": req.get("status", ""),
+            "startMonth": sd.month if sd else 0,
+            "startYear": sd.year if sd else 0,
+        })
+
+    results.sort(key=lambda r: (r.get("startDate") or date.min))
+    return results, branch_map
+
+
+@web_invoices_bp.route('/reports/empleados/vacation-periods')
+@web_rrhh_bp.route("/rrhh/reports/empleados/vacation-periods")
+@require_module('nomina')
+def report_vacation_periods():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+
+    today = date.today()
+    try:
+        year = int(request.args.get("year", today.year))
+    except (ValueError, TypeError):
+        year = today.year
+    try:
+        month = int(request.args.get("month", 0))
+    except (ValueError, TypeError):
+        month = 0
+
+    results, _ = _build_vacation_periods_data(company_id, sandbox, owner_uid)
+
+    if month > 0:
+        filtered = [r for r in results if r["startYear"] == year and r["startMonth"] == month]
+    else:
+        filtered = [r for r in results if r["startYear"] == year]
+
+    return render_template(
+        "rrhh/reports/vacation_periods.html",
+        active_page="rrhh_reports",
+        results=filtered,
+        year=year,
+        month=month,
+        today=today,
+        meses=MESES_ES_MAP,
+    )
+
+
+@web_invoices_bp.route('/reports/empleados/vacation-periods/export')
+@web_rrhh_bp.route("/rrhh/reports/empleados/vacation-periods/export")
+@require_module('nomina')
+def report_vacation_periods_export():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+
+    today = date.today()
+    try:
+        year = int(request.args.get("year", today.year))
+    except (ValueError, TypeError):
+        year = today.year
+    try:
+        month = int(request.args.get("month", 0))
+    except (ValueError, TypeError):
+        month = 0
+
+    results, _ = _build_vacation_periods_data(company_id, sandbox, owner_uid)
+
+    if month > 0:
+        filtered = [r for r in results if r["startYear"] == year and r["startMonth"] == month]
+    else:
+        filtered = [r for r in results if r["startYear"] == year]
+
+    try:
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Periodos Vacaciones"
+        ws.append(["Codigo", "Nombre", "Sucursal", "Departamento", "Puesto",
+                    "Desde", "Hasta", "Dias", "Estado"])
+        for r in filtered:
+            ws.append([
+                r["cedula"], r["fullName"], r["branchName"], r["department"],
+                r["position"],
+                r["startDate"].strftime("%d/%m/%Y") if r["startDate"] else "",
+                r["endDate"].strftime("%d/%m/%Y") if r["endDate"] else "",
+                r["days"], r["status"],
+            ])
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        filename = f"periodos_vacaciones_{year}_{month:02d}.xlsx" if month > 0 else f"periodos_vacaciones_{year}.xlsx"
+        return send_file(output,
+                         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                         as_attachment=True, download_name=filename)
+    except ImportError:
+        csv_out = io.StringIO()
+        csv_out.write("Codigo,Nombre,Sucursal,Departamento,Puesto,Desde,Hasta,Dias,Estado\n")
+        for r in filtered:
+            sd = r["startDate"].strftime("%d/%m/%Y") if r["startDate"] else ""
+            ed = r["endDate"].strftime("%d/%m/%Y") if r["endDate"] else ""
+            csv_out.write(
+                f"{r['cedula']},{r['fullName']},{r['branchName']},{r['department']},"
+                f"{r['position']},{sd},{ed},{r['days']},{r['status']}\n"
+            )
+        buf = io.BytesIO()
+        buf.write(b"\xef\xbb\xbf")
+        buf.write(csv_out.getvalue().encode("utf-8"))
+        buf.seek(0)
+        filename = f"periodos_vacaciones_{year}_{month:02d}.csv" if month > 0 else f"periodos_vacaciones_{year}.csv"
+        return send_file(buf, mimetype="text/csv", as_attachment=True, download_name=filename)
+
+
+@web_invoices_bp.route('/reports/empleados/vacation-periods/pdf')
+@web_rrhh_bp.route("/rrhh/reports/empleados/vacation-periods/pdf")
+@require_module('nomina')
+def report_vacation_periods_pdf():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    from app.services.db_service import DatabaseService
+    from app.utils.pdf import pdf_write_options
+    from weasyprint import HTML as WeasyprintHTML
+
+    today = date.today()
+    try:
+        year = int(request.args.get("year", today.year))
+    except (ValueError, TypeError):
+        year = today.year
+    try:
+        month = int(request.args.get("month", 0))
+    except (ValueError, TypeError):
+        month = 0
+
+    results, _ = _build_vacation_periods_data(company_id, sandbox, owner_uid)
+
+    if month > 0:
+        filtered = [r for r in results if r["startYear"] == year and r["startMonth"] == month]
+    else:
+        filtered = [r for r in results if r["startYear"] == year]
+
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+
+    rendered = render_template(
+        "rrhh/reports/vacation_periods_pdf.html",
+        results=filtered,
+        year=year,
+        month=month,
+        today=today,
+        meses=MESES_ES_MAP,
+        company=company,
+    )
+
+    pdf_bytes = WeasyprintHTML(string=rendered, base_url=request.host_url).write_pdf(**pdf_write_options())
+    response = make_response(pdf_bytes)
+    response.headers['Content-Type'] = 'application/pdf'
+    filename = f"periodos_vacaciones_{year}_{month:02d}.pdf" if month > 0 else f"periodos_vacaciones_{year}.pdf"
+    response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+

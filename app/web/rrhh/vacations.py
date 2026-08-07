@@ -1,5 +1,6 @@
 """RRHH module — auto-extracted."""
 
+import uuid
 from datetime import date
 from flask import render_template, request, redirect, url_for, session, flash, jsonify, send_file
 from app.web.rrhh import (

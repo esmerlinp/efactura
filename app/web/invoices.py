@@ -9130,6 +9130,28 @@ def get_report_categories():
             ]
         },
         {
+            "key": "empleados",
+            "icon": "fa-solid fa-users",
+            "title": "Empleados",
+            "count": 4,
+            "description": "Reportes del personal: aniversarios, cumpleaños, vacaciones, listados y más.",
+            "category_url": url_for('web_invoices.reports_category', category_key='empleados'),
+            "reports": [
+                {"title": "Listado de Aniversarios", "url": "web_invoices.report_anniversary",
+                 "enabled": module_enabled('nomina'),
+                 "desc": "Empleados que celebran aniversario laboral en una fecha específica."},
+                {"title": "Listado de Cumpleaños", "url": "web_invoices.report_birthday",
+                 "enabled": module_enabled('nomina'),
+                 "desc": "Empleados que celebran cumpleaños en una fecha específica."},
+                {"title": "Saldo de Vacaciones", "url": "web_invoices.report_vacation_balance",
+                 "enabled": module_enabled('nomina'),
+                 "desc": "Días acumulados, tomados y pendientes por empleado."},
+                {"title": "Períodos de Vacaciones", "url": "web_invoices.report_vacation_periods",
+                 "enabled": module_enabled('nomina'),
+                 "desc": "Períodos de vacaciones aprobados por año y mes."},
+            ]
+        },
+        {
             "key": "nomina",
             "icon": "fa-solid fa-coins",
             "title": "Nómina",

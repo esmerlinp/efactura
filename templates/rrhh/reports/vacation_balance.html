@@ -1,0 +1,207 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Saldo de Vacaciones — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<style>
+    .balance-container { max-width: 1300px; margin: 0 auto; font-family: 'Segoe UI', Arial, sans-serif; }
+    .balance-info-bar {
+        display: flex; justify-content: space-between; align-items: center;
+        background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+        padding: 10px 16px; margin-bottom: 14px; font-size: 0.82rem; gap: 12px; flex-wrap: wrap;
+    }
+    .balance-info-bar .info-text strong { color: var(--accent-emerald, #10b981); }
+    .balance-summary { display: flex; gap: 16px; flex-wrap: wrap; }
+    .balance-summary .mini-stat {
+        font-size: 0.78rem; color: var(--text-muted); white-space: nowrap;
+    }
+    .balance-summary .mini-stat span { font-weight: 700; color: var(--text-primary); }
+    .balance-table-wrap { overflow-x: auto; }
+    .balance-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+    .balance-table th {
+        background: #f1f5f9; border-bottom: 2px solid #e2e8f0; padding: 6px 6px;
+        text-align: left; font-weight: 700; font-size: 0.7rem; text-transform: uppercase;
+        letter-spacing: 0.2px; color: #475569; white-space: nowrap;
+    }
+    .balance-table td { border-bottom: 1px solid #f1f5f9; padding: 5px 6px; white-space: nowrap; }
+    .balance-table tbody tr:hover { background: #f8fafc; }
+    .balance-table td.text-right { text-align: right; }
+    .balance-table td.text-center { text-align: center; }
+    .balance-table .remaining-low { color: #ef4444; font-weight: 700; }
+    .balance-table .remaining-ok { color: #10b981; font-weight: 600; }
+    .balance-table .remaining-mid { color: #f59e0b; font-weight: 600; }
+    .balance-empty {
+        text-align: center; padding: 48px 20px; color: var(--text-muted);
+    }
+    .balance-empty i { font-size: 2.5rem; display: block; margin-bottom: 12px; opacity: 0.4; }
+    .balance-empty p { font-size: 0.88rem; margin: 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% include "rrhh/_styles.html" %}
+
+<div class="balance-container">
+
+    <div class="breadcrumb">
+        <a href="{{ url_for('web_invoices.reports_dashboard') }}">Reportes</a>
+        <span class="sep">›</span>
+        <span>Saldo de Vacaciones</span>
+    </div>
+
+    <div class="page-header hr-page-header">
+        <h1 class="page-title"><i class="fa-solid fa-umbrella-beach"></i> Saldo de Vacaciones</h1>
+        <div class="hr-page-actions">
+            {% if results %}
+            <a href="{{ url_for('web_invoices.report_vacation_balance_export', branch=filter_branch, department=filter_department, position=filter_position, supervisor=filter_supervisor, employee=filter_employee) }}"
+               class="btn btn-primary">
+                <i class="fa-solid fa-file-excel"></i> Excel
+            </a>
+            <a href="{{ url_for('web_invoices.report_vacation_balance_pdf', branch=filter_branch, department=filter_department, position=filter_position, supervisor=filter_supervisor, employee=filter_employee) }}"
+               class="btn btn-primary" style="background:var(--accent-blue,#2563eb);border-color:var(--accent-blue,#2563eb);">
+                <i class="fa-solid fa-file-pdf"></i> PDF
+            </a>
+            {% endif %}
+            <a href="{{ url_for('web_invoices.reports_dashboard') }}" class="btn btn-ghost">
+                <i class="fa-solid fa-arrow-left"></i> Reportes
+            </a>
+        </div>
+    </div>
+
+    <form method="GET" style="display:flex; gap:8px; align-items:flex-end; margin-bottom:16px;">
+        <div class="form-group" style="margin:0;">
+            <label>Sucursal</label>
+            <select name="branch" class="form-select" style="width:auto;min-width:110px;">
+                <option value="">Todas</option>
+                {% for b in branches %}
+                <option value="{{ b }}" {% if b == filter_branch %}selected{% endif %}>{{ b }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label>Departamento</label>
+            <select name="department" class="form-select" style="width:auto;min-width:120px;">
+                <option value="">Todos</option>
+                {% for d in departments %}
+                <option value="{{ d }}" {% if d == filter_department %}selected{% endif %}>{{ d }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label>Puesto</label>
+            <select name="position" class="form-select" style="width:auto;min-width:120px;">
+                <option value="">Todos</option>
+                {% for p in positions %}
+                <option value="{{ p }}" {% if p == filter_position %}selected{% endif %}>{{ p }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label>Supervisor</label>
+            <select name="supervisor" class="form-select" style="width:auto;min-width:120px;">
+                <option value="">Todos</option>
+                {% for s in supervisors %}
+                <option value="{{ s }}" {% if s == filter_supervisor %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label>Empleado</label>
+            <input type="text" name="employee" list="employees-datalist"
+                   value="{{ filter_employee or '' }}"
+                   placeholder="Buscar empleado..." autocomplete="off"
+                   class="form-select" style="width:auto;min-width:170px;">
+            <datalist id="employees-datalist">
+                {% for e in employees %}
+                <option value="{{ e }}">
+                {% endfor %}
+            </datalist>
+        </div>
+        <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-filter"></i> Filtrar
+        </button>
+        {% if filter_branch or filter_department or filter_position or filter_supervisor or filter_employee %}
+        <a href="{{ url_for('web_invoices.report_vacation_balance') }}" class="btn btn-ghost">
+            <i class="fa-solid fa-xmark"></i> Limpiar
+        </a>
+        {% endif %}
+    </form>
+
+    {% if results %}
+    <div class="balance-info-bar">
+        <div class="info-text">
+            <strong>{{ results|length }}</strong> empleado{% if results|length != 1 %}s{% endif %}
+            {% if filter_branch or filter_department or filter_position or filter_supervisor or filter_employee %}
+                {% set filters = [] %}
+                {% if filter_branch %}{% set _ = filters.append('en ' + filter_branch) %}{% endif %}
+                {% if filter_department %}{% set _ = filters.append('depto ' + filter_department) %}{% endif %}
+                {% if filter_position %}{% set _ = filters.append('puesto ' + filter_position) %}{% endif %}
+                {% if filter_supervisor %}{% set _ = filters.append('supervisor ' + filter_supervisor) %}{% endif %}
+                {% if filter_employee %}{% set _ = filters.append('empleado ' + filter_employee) %}{% endif %}
+                ({{ filters|join(', ') }})
+            {% endif %}
+            &mdash; al <strong>{{ today.strftime('%d/%m/%Y') }}</strong>
+        </div>
+        <div class="balance-summary">
+            <div class="mini-stat">Acumulados: <span>{{ results|sum(attribute='accruedDays') }}</span></div>
+            <div class="mini-stat">Tomados: <span>{{ results|sum(attribute='takenDays') }}</span></div>
+            <div class="mini-stat">Pendientes: <span>{{ results|sum(attribute='remainingDays') }}</span></div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if results %}
+    <div class="card-table-wrapper hr-table-card">
+        <div class="table-header-row">
+            <h3>Saldo actual de vacaciones por empleado</h3>
+        </div>
+        <div class="table-responsive">
+            <table class="table-premium balance-table">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th>Sucursal</th>
+                        <th>Departamento</th>
+                        <th>Puesto</th>
+                        <th class="text-right">Antigüedad</th>
+                        <th class="text-right">D. Acum.</th>
+                        <th class="text-right">D. Tom.</th>
+                        <th class="text-right">D. Pend.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in results %}
+                    <tr>
+                        <td>{{ r.cedula }}</td>
+                        <td>{{ r.fullName }}</td>
+                        <td>{{ r.branchName or '—' }}</td>
+                        <td>{{ r.department or '—' }}</td>
+                        <td>{{ r.position or '—' }}</td>
+                        <td class="text-right">{{ r.yearsInCompany }}</td>
+                        <td class="text-right">{{ r.accruedDays }}</td>
+                        <td class="text-right">{{ r.takenDays }}</td>
+                        <td class="text-right">
+                            {% if r.remainingDays <= 0 %}
+                            <span class="remaining-low">{{ r.remainingDays }}</span>
+                            {% elif r.remainingDays <= 5 %}
+                            <span class="remaining-mid">{{ r.remainingDays }}</span>
+                            {% else %}
+                            <span class="remaining-ok">{{ r.remainingDays }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="card-table-wrapper hr-table-card">
+        <div class="balance-empty">
+            <i class="fa-solid fa-umbrella-beach"></i>
+            <p>No se encontraron empleados activos con datos de vacaciones.</p>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
