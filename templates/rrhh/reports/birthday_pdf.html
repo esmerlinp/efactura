@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Listado de Cumpleaños — {{ year }}</title>
+<style>
+    @page { size: letter landscape; margin: 1.2cm 1cm 1.5cm 1cm; }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+        font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+        font-size: 9pt;
+        color: #1a1a1a;
+        line-height: 1.3;
+    }
+
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        border-bottom: 2px solid #1a1a1a;
+        padding-bottom: 10px;
+        margin-bottom: 14px;
+    }
+    .header-left { text-align: left; flex: 1; }
+    .header-left .logo img {
+        max-height: 48px;
+        max-width: 150px;
+        margin-bottom: 4px;
+    }
+    .header-left .company-name {
+        font-size: 11pt;
+        font-weight: 700;
+        color: #1a1a1a;
+    }
+    .header-left .company-rnc {
+        font-size: 8pt;
+        color: #555;
+    }
+    .header-right {
+        text-align: right;
+        font-size: 8pt;
+        color: #444;
+        line-height: 1.5;
+        flex-shrink: 0;
+    }
+    .header-right .report-title {
+        font-size: 11pt;
+        font-weight: 700;
+        color: #1a1a1a;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .header-right .report-subtitle {
+        font-size: 9pt;
+        color: #333;
+        margin-top: 2px;
+    }
+
+    .summary {
+        text-align: right;
+        font-size: 8pt;
+        color: #666;
+        margin-bottom: 8px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 8.5pt;
+    }
+    thead { display: table-header-group; }
+    th {
+        background: #f1f5f9;
+        border-bottom: 2px solid #cbd5e1;
+        padding: 7px 8px;
+        text-align: left;
+        font-weight: 700;
+        font-size: 7.5pt;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        color: #475569;
+        white-space: nowrap;
+    }
+    th.text-center { text-align: center; }
+    th.text-right { text-align: right; }
+    td {
+        border-bottom: 1px solid #e2e8f0;
+        padding: 6px 8px;
+        white-space: nowrap;
+    }
+    td.text-center { text-align: center; }
+    td.text-right { text-align: right; }
+    .highlight-row { background: #f0fdf4; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .today-tag {
+        display: inline-block;
+        background: #10b981;
+        color: #fff;
+        font-size: 6.5pt;
+        font-weight: 700;
+        padding: 1px 6px;
+        border-radius: 8px;
+        margin-left: 4px;
+    }
+
+    .no-results {
+        text-align: center;
+        padding: 40px 20px;
+        color: #888;
+        font-size: 10pt;
+    }
+
+    .footer {
+        margin-top: 18px;
+        text-align: right;
+        font-size: 7pt;
+        color: #999;
+        border-top: 1px solid #ddd;
+        padding-top: 6px;
+    }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <div class="header-left">
+        {% if company.get("logoBase64") %}
+        <div class="logo">
+            <img src="data:image/png;base64,{{ company.logoBase64 }}" alt="Logo">
+        </div>
+        {% elif company.get("logoUrl") %}
+        <div class="logo">
+            <img src="{{ company.logoUrl }}" alt="Logo">
+        </div>
+        {% endif %}
+        <div class="company-name">{{ company.get("companyName") or company.get("tradeName") or '' }}</div>
+        <div class="company-rnc">RNC: {{ company.get("companyRNC") or company.get("rnc") or '' }}</div>
+    </div>
+    <div class="header-right">
+        <div class="report-title">Listado de Cumpleaños</div>
+        <div class="report-subtitle">
+            {% if day > 0 %}
+                {{ day }} de {{ meses[month] }} — {{ year }}
+            {% else %}
+                {{ meses[month] }} {{ year }}
+            {% endif %}
+        </div>
+        <div>Emitido: {{ today.strftime('%d/%m/%Y') }}</div>
+    </div>
+</div>
+
+{% if results %}
+<div class="summary">
+    {{ results|length }} empleado{% if results|length != 1 %}s{% endif %}
+    {% if is_today %}de cumpleaños hoy{% endif %}
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th>Código</th>
+            <th>Nombre</th>
+            <th>Sucursal</th>
+            <th>Departamento</th>
+            <th>Puesto</th>
+            <th class="text-center">Día Nacimiento</th>
+            <th class="text-right">Edad</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in results %}
+        <tr class="{% if is_today %}highlight-row{% endif %}">
+            <td>{{ r.cedula }}</td>
+            <td>
+                {{ r.fullName }}
+                {% if is_today %}<span class="today-tag">Hoy</span>{% endif %}
+            </td>
+            <td>{{ r.branchName or '—' }}</td>
+            <td>{{ r.department or '—' }}</td>
+            <td>{{ r.position or '—' }}</td>
+            <td class="text-center">{{ '%02d/%02d' % (r.birthDay, r.birthMonth) }}</td>
+            <td class="text-right">{{ r.age }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="no-results">
+    No se encontraron empleados con cumpleaños en esta fecha.
+</div>
+{% endif %}
+
+<div class="footer">
+    {{ product_name }} &mdash; {{ today.strftime('%d/%m/%Y %H:%M') }}
+</div>
+
+</body>
+</html>
