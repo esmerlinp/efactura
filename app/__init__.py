@@ -230,7 +230,7 @@ def create_app():
                         'billingType': company.get('billing_type', 'Pago por uso'),
                         'cancel_at_period_end': company.get('cancel_at_period_end', False),
                         'cancel_scheduled_date': company.get('cancel_scheduled_date', ''),
-                        'offboardingMode': company.get('offboarding_mode', 'full'),
+                        'offboardingMode': company.get('offboarding_mode', 'simple'),
                     }
                 else:
                     company_profile = {}
@@ -263,7 +263,7 @@ def create_app():
                 old_plan_id = session.get('company_plan_id', '')
                 session['company_plan_id'] = new_plan_id
                 session['company_country'] = company_profile.get('country', 'DO')
-                session['company_offboarding_mode'] = company_profile.get('offboardingMode', 'full')
+                session['company_offboarding_mode'] = company_profile.get('offboardingMode', 'simple')
 
                 plan_version = company_profile.get('plan_version', 0) or 0
                 cached_plan_version = session.get('company_plan_version', -1)

@@ -84,10 +84,11 @@ class ChecklistCategory(str, Enum):
 
 
 class SettlementStatus(str, Enum):
-    BORRADOR  = "borrador"
-    CALCULADA = "calculada"
-    APROBADA  = "aprobada"
-    PAGADA    = "pagada"
+    BORRADOR       = "borrador"
+    CALCULADA      = "calculada"
+    APROBADA       = "aprobada"
+    PENDIENTE_PAGO = "pendiente_pago"
+    PAGADA         = "pagada"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -230,6 +231,7 @@ class ConceptoResult(BaseModel):
 class Totales(BaseModel):
     montoPrestaciones: float = 0.0
     montoDerechosAdquiridos: float = 0.0
+    montoTotal: float = 0.0
     montoSalarioPendiente: float = 0.0
     montoComisiones: float = 0.0
     montoBonificaciones: float = 0.0
@@ -237,8 +239,11 @@ class Totales(BaseModel):
     montoDescuentos: float = 0.0
     montoBruto: float = 0.0
     montoNeto: float = 0.0
+    montoNetoAPagar: float = 0.0
     montoGravableTSS: float = 0.0
     montoGravableISR: float = 0.0
+    montoExentoTSS: float = 0.0
+    montoExentoISR: float = 0.0
     montoExento: float = 0.0
 
 
@@ -275,6 +280,10 @@ class TerminationSettlement(BaseModel):
     horasExtrasPendientes: float = 0.0
     descuentos: float = 0.0
     montoNetoAPagar: float = 0.0
+
+    assignedGroupId: Optional[str] = None
+    assignedGroupName: Optional[str] = None
+    assignedAt: Optional[str] = None
 
     status: SettlementStatus = SettlementStatus.BORRADOR
     version: int = 1

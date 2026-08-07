@@ -1608,7 +1608,7 @@ class DatabaseService:
             "fax": company.get("fax", ""),
             "zonaFranca": company.get("zona_franca", False),
             "parque": company.get("parque", ""),
-            "offboardingMode": company.get("offboarding_mode", "full"),
+            "offboardingMode": company.get("offboarding_mode", "simple"),
         }
 
     @classmethod
@@ -1703,7 +1703,7 @@ class DatabaseService:
             "fax": profile_dict.get("fax", ""),
             "zona_franca": profile_dict.get("zonaFranca", False),
             "parque": profile_dict.get("parque", ""),
-            "offboarding_mode": profile_dict.get("offboardingMode", "full"),
+            "offboarding_mode": profile_dict.get("offboardingMode", "simple"),
         }
         result = cls.update_company(company_id, update_data)
         if result and owner_uid:
@@ -7059,7 +7059,7 @@ class DatabaseService:
                 "created_at": now,
                 "updated_by": company_data.get("updated_by", ""),
                 "updated_at": now,
-                "offboarding_mode": "full",
+                "offboarding_mode": "simple",
             }
 
             db_firestore.collection("companies").document(company_id).set(profile)

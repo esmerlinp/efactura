@@ -45,7 +45,7 @@
                    onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
                     <i class="fa-solid fa-clock-rotate-left" style="color:#2563eb; width:16px; text-align:center;"></i> Cálculo retroactivo
                 </a>
-                <a href="{{ url_for('web_rrhh.offboarding_new') }}?employee_id={{ employee.id }}"
+                <a href="{{ url_for('web_rrhh.employee_liquidacion', employee_id=employee.id) }}"
                    style="display:flex; align-items:center; gap:8px; padding:10px 14px; text-decoration:none; color:var(--danger); font-size:0.85rem; border-bottom:1px solid var(--border-color); transition:background 0.15s;"
                    onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
                     <i class="fa-solid fa-door-open" style="color:var(--danger); width:16px; text-align:center;"></i> Desvinculación
@@ -172,9 +172,9 @@
                     </div>
                     {% endif %}
                 </div>
-                <div style="margin-top:12px; display:flex; gap:8px;">
+                <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
                     <a href="{{ url_for('web_rrhh.employee_liquidacion', employee_id=employee.id) }}" class="btn btn-primary" style="font-size:0.85rem;">
-                        <i class="fa-solid fa-calculator"></i> Calcular liquidación formal
+                        <i class="fa-solid fa-calculator"></i> Calcular liquidación
                     </a>
                     <a href="{{ url_for('web_rrhh.employee_liquidaciones_list', employee_id=employee.id) }}" class="btn btn-secondary" style="font-size:0.85rem;">
                         <i class="fa-solid fa-list-check"></i> Ver historial

@@ -96,8 +96,9 @@ def calculate_settlement():
       400:
         description: Datos inválidos o faltantes
       500:
-        description: Error interno del servidor
+         description: Error interno del servidor
     """
+    data = request.get_json(silent=True)
     if not data:
         return jsonify({"success": False, "error": "Se requiere un JSON con los datos de liquidación."}), 400
 

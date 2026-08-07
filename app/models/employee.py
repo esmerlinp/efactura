@@ -178,6 +178,10 @@ class PayrollLine(BaseModel):
     department: str = ""
     baseSalary: float = 0.0
 
+    # Vinculación con liquidación (offboarding)
+    settlementId: str = ""
+    lineType: str = "regular"  # "regular" | "liquidation"
+
     # Ingresos
     grossSalary: float = 0.0
     overtimeHours: float = 0.0

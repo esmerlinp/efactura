@@ -1,0 +1,810 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Desvinculación — {{ req.employeeName }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<style>
+    .wizard-container { max-width:960px; margin:0 auto; }
+    .wizard-stepper { display:flex; gap:0; margin:20px 0 28px; }
+    .wizard-step { flex:1; text-align:center; position:relative; padding:12px 8px; }
+    .wizard-step .step-circle { width:36px; height:36px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; border:2px solid var(--border-color); color:var(--text-muted); background:var(--bg-card); margin-bottom:6px; transition:all .2s; }
+    .wizard-step.active .step-circle { border-color:var(--accent-emerald); background:var(--accent-emerald); color:#fff; }
+    .wizard-step.done .step-circle { border-color:var(--accent-emerald); background:var(--accent-emerald); color:#fff; }
+    .wizard-step .step-label { font-size:0.72rem; color:var(--text-muted); font-weight:500; }
+    .wizard-step.active .step-label { color:var(--accent-emerald); font-weight:700; }
+    .wizard-step.done .step-label { color:var(--accent-emerald); }
+    .wizard-step::after { content:''; position:absolute; top:30px; left:calc(50% + 22px); width:calc(100% - 44px); height:2px; background:var(--border-color); }
+    .wizard-step:last-child::after { display:none; }
+    .wizard-step.done::after { background:var(--accent-emerald); }
+    .wizard-step-card { background:var(--bg-card); border:1px solid var(--border-color); border-radius:12px; padding:24px; margin-bottom:16px; }
+    .wizard-step-card .step-title { font-size:1.1rem; font-weight:700; color:var(--text-primary); margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+    .wizard-step-card .step-title i { color:var(--accent-emerald); }
+    .wizard-step-card.disabled { opacity:0.45; pointer-events:none; }
+    .wizard-summary { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:12px; margin-bottom:16px; }
+    .wizard-kpi { background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.15); border-radius:8px; padding:12px 14px; }
+    .wizard-kpi .kpi-label { font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.03em; }
+    .wizard-kpi .kpi-value { font-size:1.05rem; font-weight:700; color:var(--text-primary); margin-top:2px; }
+    .wizard-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:20px; }
+    .concept-row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border-color); font-size:0.82rem; }
+    .concept-row:last-child { border-bottom:none; }
+    .concept-row .concept-label { color:var(--text-secondary); }
+    .concept-row .concept-amount { font-weight:600; }
+    .concept-row .concept-badge { font-size:0.65rem; padding:1px 7px; border-radius:8px; margin-left:6px; }
+    .badge-exento { background:rgba(16,185,129,0.12); color:var(--accent-emerald); }
+    .badge-gravable { background:rgba(249,115,22,0.12); color:var(--accent-orange); }
+    .checklist-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    @media (max-width:768px) { .checklist-grid { grid-template-columns:1fr; } }
+    .checklist-cat { margin-bottom:10px; }
+    .checklist-cat .cat-header { font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted); margin-bottom:4px; padding-bottom:2px; border-bottom:1px solid var(--border-color); }
+    .checklist-item { display:flex; align-items:flex-start; gap:8px; padding:5px 0; font-size:0.82rem; }
+    .checklist-item input[type="checkbox"] { width:15px; height:15px; accent-color:var(--accent-emerald); margin-top:2px; flex-shrink:0; }
+    .payment-options { }
+    .payment-option { border:2px solid var(--border-color); border-radius:8px; padding:12px 14px; cursor:pointer; margin-bottom:8px; transition:border-color .15s; display:flex; align-items:flex-start; gap:8px; }
+    .payment-option:hover { border-color:var(--accent-emerald); }
+    .payment-option.selected { border-color:var(--accent-emerald); background:rgba(16,185,129,0.04); }
+    .payment-option input[type="radio"] { accent-color:var(--accent-emerald); margin-top:2px; flex-shrink:0; }
+    .payment-option .opt-text { flex:1; }
+    .payment-option .opt-text strong { display:block; font-size:0.85rem; }
+    .payment-option .opt-text span { display:block; font-size:0.7rem; color:var(--text-muted); margin-top:2px; }
+    .loading-spinner { display:none; }
+    .loading-spinner.show { display:flex; align-items:center; gap:6px; color:var(--text-muted); font-size:0.85rem; }
+</style>
+
+<div class="wizard-container">
+    <div class="page-title-container">
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
+            <div>
+                <h1 class="page-title" style="font-size:1.5rem;">
+                    <i class="fa-solid fa-door-open" style="color:var(--danger);"></i> Desvinculación
+                    {% if is_simple %}
+                    <span class="badge" style="margin-left:10px; background:rgba(59,130,246,0.12); color:#3b82f6; font-size:0.65rem; padding:3px 10px; border-radius:12px; vertical-align:middle;">
+                        <i class="fa-solid fa-bolt"></i> Simple
+                    </span>
+                    {% endif %}
+                </h1>
+                <p style="color:var(--text-secondary); margin:4px 0 0; font-size:0.85rem;">
+                    {{ req.employeeName }}
+                    {% if settlement and settlement.get("totales") %}
+                    · Liquidación: <strong>RD$ {{ "{:,.2f}".format(settlement.get('totales', {}).get('montoTotal', 0) | float) }}</strong>
+                    {% endif %}
+                </p>
+            </div>
+            <div style="display:flex; gap:6px; align-items:flex-start;">
+                <form method="POST" action="{{ url_for('web_rrhh.offboarding_toggle_mode') }}" style="display:inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sm {% if is_simple %}btn-outline{% else %}btn-info{% endif %}"
+                            style="font-size:0.72rem;" title="{% if is_simple %}Cambiar a modo completo (multi-parte){% else %}Cambiar a modo simple (sin aprobaciones){% endif %}">
+                        <i class="fa-solid {% if is_simple %}fa-users{% else %}fa-bolt{% endif %}"></i>
+                        {% if is_simple %}Completo{% else %}Simple{% endif %}
+                    </button>
+                </form>
+                <a href="{{ url_for('web_rrhh.offboarding_detail', request_id=req.id) }}" class="btn btn-ghost btn-sm" title="Vista avanzada con todos los tabs">
+                    <i class="fa-solid fa-table-columns"></i> Vista avanzada
+                </a>
+                <a href="{{ url_for('web_rrhh.offboarding_list') }}" class="btn btn-ghost btn-sm">
+                    <i class="fa-solid fa-arrow-left"></i> Volver
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stepper -->
+    <div class="wizard-stepper">
+        {% set steps = [
+            (1, 'fa-solid fa-calculator', 'Liquidación'),
+            (2, 'fa-solid fa-clipboard-check', 'Checklist y Pago'),
+            (3, 'fa-solid fa-file-signature', 'Documentos'),
+            (4, 'fa-solid fa-flag-checkered', 'Cierre'),
+        ] %}
+        {% for sn, icon, label in steps %}
+        <div class="wizard-step {% if current_step > sn %}done{% elif current_step == sn %}active{% endif %}">
+            <div class="step-circle">{% if current_step > sn %}<i class="fa-solid fa-check"></i>{% else %}{{ sn }}{% endif %}</div>
+            <div class="step-label">{{ label }}</div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Step 1: Liquidación -->
+    <div class="wizard-step-card {% if current_step != 1 %}disabled{% endif %}" id="step1">
+        <div class="step-title" style="margin-bottom:18px;"><i class="fa-solid fa-calculator"></i> Paso 1: Datos y Liquidación</div>
+
+        <!-- Info bar: one-line employee summary -->
+        <div style="display:flex; flex-wrap:wrap; gap:6px 18px; padding:10px 14px; background:var(--bg-secondary); border-radius:8px; margin-bottom:18px; font-size:0.78rem; color:var(--text-secondary);">
+            <span><strong style="color:var(--text-primary);">{{ employee.fullName or employee.firstName + ' ' + employee.firstLastName if employee else req.employeeName }}</strong></span>
+            <span style="color:var(--text-muted);">|</span>
+            <span>Céd. {{ req.cedula or employee.cedula if employee else '—' }}</span>
+            <span style="color:var(--text-muted);">|</span>
+            <span>Ingreso {{ employee.hireDate[:10] if employee and employee.hireDate else '—' }}</span>
+            <span style="color:var(--text-muted);">|</span>
+            <span>Salario RD$ {{ "{:,.0f}".format(employee.baseSalary | float) if employee else '—' }}</span>
+            <span style="color:var(--text-muted);">|</span>
+            <span>{{ req.terminationType | replace('_', ' ') | title }}</span>
+            <span style="color:var(--text-muted);">|</span>
+            <span>Sale {{ req.effectiveDate[:10] if req.effectiveDate else '—' }}</span>
+        </div>
+
+        {% if settlement and settlement.get('totales') %}
+        {% set totales = settlement.get('totales', {}) %}
+        {% set ant = settlement.get('antiguedad', {}) %}
+        <!-- Settlement result: compact key-value grid -->
+        <div style="display:flex; flex-wrap:wrap; gap:8px 24px; padding:14px 16px; border:1px solid var(--border-color); border-radius:10px; margin-bottom:14px; align-items:center;">
+            <div style="flex:0 0 auto;">
+                <div style="font-size:0.66rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted); margin-bottom:2px;">Total liquidación</div>
+                <div style="font-size:1.15rem; font-weight:800; color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(totales.get('montoTotal', 0) | float) }}</div>
+            </div>
+            <div style="flex:0 0 auto; padding-left:20px;">
+                <div style="font-size:0.66rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted); margin-bottom:2px;">Neto a pagar</div>
+                <div style="font-size:0.95rem; font-weight:600; color:var(--text-primary);">RD$ {{ "{:,.2f}".format(totales.get('montoNetoAPagar', totales.get('montoTotal', 0)) | float) }}</div>
+            </div>
+            <div style="flex:0 0 auto; padding-left:20px;">
+                <div style="font-size:0.66rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted); margin-bottom:2px;">Exento</div>
+                <div style="font-size:0.88rem; font-weight:500; color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(totales.get('montoExento', 0) | float) }}</div>
+            </div>
+            <div style="flex:0 0 auto; padding-left:20px;">
+                <div style="font-size:0.66rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted); margin-bottom:2px;">Antigüedad</div>
+                <div style="font-size:0.88rem; font-weight:500; color:var(--text-primary);">{{ ant.get('years', 0) }}a {{ ant.get('months', 0) }}m {{ ant.get('days', 0) }}d</div>
+            </div>
+            <div style="flex:0 0 auto; padding-left:20px;">
+                <div style="font-size:0.66rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted); margin-bottom:2px;">Salario Diario Promedio</div>
+                <div style="font-size:0.88rem; font-weight:500;">RD$ {{ "{:,.2f}".format(settlement.get('salarioDiarioPromedio', 0) | float) }}</div>
+            </div>
+        </div>
+
+        <!-- Conceptos: compact table -->
+        <table style="width:100%; border-collapse:collapse; font-size:0.78rem; margin-bottom:8px;">
+            <thead>
+                <tr style="border-bottom:1px solid var(--border-color);">
+                    <th style="text-align:left; padding:6px 8px; font-weight:600; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.03em; color:var(--text-muted); max-width:32%;">Concepto</th>
+                    <th style="text-align:left; padding:6px 8px; font-weight:600; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.03em; color:var(--text-muted); width:12%;">Base legal</th>
+                    <th style="text-align:right; padding:6px 8px; font-weight:600; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.03em; color:var(--text-muted);">Días</th>
+                    <th style="text-align:right; padding:6px 8px; font-weight:600; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.03em; color:var(--text-muted); white-space:nowrap;">Monto</th>
+                    <th style="text-align:center; padding:6px 8px; font-weight:600; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.03em; color:var(--text-muted); width:50px;">Fiscal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for key, c in settlement.conceptos.items() %}
+                {% if c.aplica %}
+                <tr style="border-bottom:1px solid rgba(0,0,0,0.04);">
+                    <td style="padding:7px 8px; font-weight:500;">{{ c.detalle }}</td>
+                    <td style="padding:7px 8px; font-size:0.7rem; color:var(--text-muted);">{{ c.baseLegal }}</td>
+                    <td style="padding:7px 8px; text-align:right; font-size:0.75rem; color:var(--text-secondary);">{{ c.dias }}</td>
+                    <td style="padding:7px 8px; text-align:right; font-weight:600; font-size:0.74rem; white-space:nowrap;">RD$ {{ "{:,.2f}".format(c.monto | float) }}</td>
+                    <td style="padding:7px 8px; text-align:center;">
+                        {% if c.exentoTSS and c.exentoISR %}
+                        <span class="concept-badge badge-exento">Exento</span>
+                        {% elif not c.exentoTSS and not c.exentoISR %}
+                        <span class="concept-badge badge-gravable">Gravable</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+                <tr style="border-top:2px solid var(--border-color);">
+                    <td colspan="3" style="padding:9px 8px; font-weight:700; font-size:0.8rem; text-align:right;">Total</td>
+                    <td style="padding:9px 8px; text-align:right; font-weight:700; font-size:0.78rem; color:var(--accent-emerald); white-space:nowrap;">RD$ {{ "{:,.2f}".format(totales.get('montoTotal', 0) | float) }}</td>
+                    <td></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="wizard-actions">
+            <button type="button" class="btn btn-sm btn-ghost" id="btnRecalculate" onclick="toggleRecalculate()">
+                <i class="fa-solid fa-rotate-right"></i> Recalcular
+            </button>
+            <button type="button" class="btn btn-primary" id="btnApproveSettlement" onclick="approveAndContinue()">
+                <i class="fa-solid fa-check"></i> Aprobar liquidación y continuar
+            </button>
+        </div>
+
+        <div id="recalculateForm" style="display:none; margin-top:14px; padding:14px; background:var(--bg-secondary); border-radius:8px;">
+            <form id="step1Recalc" onsubmit="calculateSettlement(event)">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="wizard_action" value="recalculate">
+                <div style="display:flex; flex-wrap:wrap; gap:8px 14px; align-items:flex-end;">
+                    <div class="form-group" style="margin:0; flex:1; min-width:160px;">
+                        <label style="font-size:0.7rem; font-weight:600;">Tipo de terminación</label>
+                        <select name="terminationType" class="form-select" style="width:100%; font-size:0.78rem;">
+                            {% set types = [
+                                ('renuncia_voluntaria', 'Renuncia Voluntaria'),
+                                ('desahucio_empleador', 'Desahucio del Empleador'),
+                                ('dimision_justificada', 'Dimisión Justificada'),
+                                ('despido_justificado', 'Despido Justificado'),
+                            ] %}
+                            {% for val, label in types %}
+                            <option value="{{ val }}" {% if req.terminationType == val %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin:0; flex:1; min-width:130px;">
+                        <label style="font-size:0.7rem; font-weight:600;">Fecha de salida</label>
+                        <input type="date" name="terminationDate" class="form-input" style="width:100%; font-size:0.78rem;" value="{{ req.effectiveDate[:10] if req.effectiveDate else '' }}">
+                    </div>
+                    <div class="form-group" style="margin:0; min-width:100px;">
+                        <label style="font-size:0.7rem; font-weight:600; display:flex; align-items:center; gap:4px; white-space:nowrap;">
+                            <input type="checkbox" name="preavisoTrabajado" style="accent-color:var(--accent-emerald); width:14px; height:14px;"> Preaviso trabajado
+                        </label>
+                    </div>
+                    <div class="form-group" style="margin:0; flex:1; min-width:110px;">
+                        <label style="font-size:0.7rem; font-weight:600;">Vacaciones pendientes</label>
+                        <input type="number" name="vacationDiasPendientes" class="form-input" style="width:100%; font-size:0.78rem;" value="{{ vacation_total_pendientes }}" min="0">
+                        <span style="font-size:0.62rem; color:var(--text-muted); display:block; margin-top:1px;">{{ vacation_total_accrued }}d acum. · {{ vacation_total_taken }}d tomados</span>
+                    </div>
+                    <div class="form-group" style="margin:0; flex:1; min-width:90px;">
+                        <label style="font-size:0.7rem; font-weight:600;">Días adeudados</label>
+                        <input type="number" name="diasAdeudados" class="form-input" style="width:100%; font-size:0.78rem;" value="0" min="0">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm" style="margin-bottom:0;">
+                        <i class="fa-solid fa-calculator"></i> Recalcular
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        {% else %}
+        <!-- No settlement yet -->
+        <form id="step1Form" onsubmit="calculateSettlement(event)">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="wizard_action" value="calculate">
+            <div style="display:flex; flex-wrap:wrap; gap:8px 14px; align-items:flex-end;">
+                <div class="form-group" style="margin:0; flex:1; min-width:160px;">
+                    <label style="font-size:0.7rem; font-weight:600;">Tipo de terminación</label>
+                    <select name="terminationType" class="form-select" style="width:100%; font-size:0.78rem;">
+                        {% set types = [
+                            ('renuncia_voluntaria', 'Renuncia Voluntaria'),
+                            ('desahucio_empleador', 'Desahucio del Empleador'),
+                            ('dimision_justificada', 'Dimisión Justificada'),
+                            ('despido_justificado', 'Despido Justificado'),
+                        ] %}
+                        {% for val, label in types %}
+                        <option value="{{ val }}" {% if req.terminationType == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group" style="margin:0; flex:1; min-width:130px;">
+                    <label style="font-size:0.7rem; font-weight:600;">Fecha de salida <span style="color:var(--danger);">*</span></label>
+                    <input type="date" name="terminationDate" class="form-input" style="width:100%; font-size:0.78rem;" required value="{{ req.effectiveDate[:10] if req.effectiveDate else '' }}">
+                </div>
+                <div class="form-group" style="margin:0; min-width:100px;">
+                    <label style="font-size:0.7rem; font-weight:600; display:flex; align-items:center; gap:4px; white-space:nowrap;">
+                        <input type="checkbox" name="preavisoTrabajado" style="accent-color:var(--accent-emerald); width:14px; height:14px;"> Preaviso trabajado
+                    </label>
+                </div>
+                <div class="form-group" style="margin:0; flex:1; min-width:110px;">
+                    <label style="font-size:0.7rem; font-weight:600;">Vacaciones pendientes</label>
+                    <input type="number" name="vacationDiasPendientes" class="form-input" style="width:100%; font-size:0.78rem;" value="{{ vacation_total_pendientes }}" min="0">
+                    <span style="font-size:0.62rem; color:var(--text-muted); display:block; margin-top:1px;">{{ vacation_total_accrued }}d acum. · {{ vacation_total_taken }}d tomados</span>
+                </div>
+                <div class="form-group" style="margin:0; flex:1; min-width:90px;">
+                    <label style="font-size:0.7rem; font-weight:600;">Días adeudados</label>
+                    <input type="number" name="diasAdeudados" class="form-input" style="width:100%; font-size:0.78rem;" value="0" min="0">
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-bottom:0;">
+                    <i class="fa-solid fa-calculator"></i> Calcular liquidación
+                </button>
+            </div>
+        </form>
+        {% endif %}
+    </div>
+
+    <!-- Step 2: Checklist y Pago -->
+    <div class="wizard-step-card {% if current_step != 2 %}disabled{% endif %}" id="step2">
+        <div class="step-title"><i class="fa-solid fa-clipboard-check"></i> Paso 2: Checklist y Pago</div>
+        <form id="step2Form" onsubmit="submitStep2(event)">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="checklist-grid">
+                <!-- Columna izquierda: Checklist -->
+                <div>
+                    <div style="font-weight:600; font-size:0.9rem; margin-bottom:14px; display:flex; align-items:center; gap:8px;">
+                        <i class="fa-solid fa-clipboard-list" style="color:var(--accent-emerald);"></i> Checklist de salida
+                        {% if checklist %}
+                        <span style="font-size:0.7rem; color:var(--text-muted); font-weight:400;">
+                            {{ checklist.get('completedItems', 0) }}/{{ checklist.get('totalItems', 0) }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    {% if is_simple %}
+                    <div class="checklist-item" style="margin-bottom:10px; background:rgba(16,185,129,0.05); border-radius:6px; padding:8px 10px;">
+                        <input type="checkbox" id="checklistAll" name="checklistAllCompleted" value="1">
+                        <label for="checklistAll" style="font-weight:700; font-size:0.85rem; cursor:pointer; color:var(--accent-emerald);">
+                            <i class="fa-solid fa-check-double"></i> Marcar todo completado
+                        </label>
+                    </div>
+                    {% endif %}
+                    {% if checklist and checklist.get('items') %}
+                    {% for item in checklist.get('items', []) %}
+                    <div class="checklist-item">
+                        <input type="checkbox" name="check_item_{{ item.get('id', '') }}" value="1"
+                               {% if item.get('completed') %}checked{% endif %}>
+                        <span>{{ item.get('task', '') }}
+                            <span style="display:block; font-size:0.65rem; color:var(--text-muted);">{{ item.get('category', '') | title }}</span>
+                        </span>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <p style="font-size:0.82rem; color:var(--text-muted); padding:12px 0;">No hay checklist disponible.</p>
+                    {% endif %}
+                </div>
+
+                <!-- Columna derecha: Pago -->
+                <div>
+                    <div style="font-weight:600; font-size:0.9rem; margin-bottom:14px; display:flex; align-items:center; gap:8px;">
+                        <i class="fa-solid fa-money-bill" style="color:var(--accent-emerald);"></i> Método de pago
+                    </div>
+                    {% if settlement and settlement.get('totales') %}
+                    <div class="wizard-kpi" style="margin-bottom:14px;">
+                        <div class="kpi-label">Monto de liquidación</div>
+                        <div class="kpi-value" style="color:var(--accent-emerald); font-size:1.2rem;">RD$ {{ "{:,.2f}".format(settlement.get('totales', {}).get('montoTotal', settlement.get('totales', {}).get('montoNetoAPagar', 0)) | float) }}</div>
+                    </div>
+                    {% endif %}
+
+                    <label class="payment-option selected" onclick="selectPayment('nomina')">
+                        <input type="radio" name="paymentMethod" value="nomina" checked>
+                        <div class="opt-text">
+                            <strong>Nómina (liquidados)</strong>
+                            <span>Se pagará junto con la nómina especial de liquidados</span>
+                        </div>
+                    </label>
+                    <div id="nominaOptions" style="padding:0 0 12px 28px;">
+                        <div class="form-group" style="margin-bottom:6px;">
+                            <label style="font-size:0.75rem; font-weight:600;">Grupo existente</label>
+                            <select name="payrollGroupId" class="form-select" style="font-size:0.8rem; width:100%;">
+                                <option value="">Seleccionar...</option>
+                                {% for g in payroll_groups %}
+                                <option value="{{ g.id }}">{{ g.name }} ({{ g.frequency }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div style="text-align:center; font-size:0.72rem; color:var(--text-muted); margin:6px 0;">— o —</div>
+                        <div class="form-group" style="margin:0;">
+                            <input type="text" name="newGroupName" class="form-input" placeholder="Crear: Liquidados [mes]" style="font-size:0.8rem; width:100%;">
+                        </div>
+                    </div>
+
+                    <label class="payment-option" onclick="selectPayment('manual')">
+                        <input type="radio" name="paymentMethod" value="manual">
+                        <div class="opt-text">
+                            <strong>Pago manual</strong>
+                            <span>Transferencia, cheque o efectivo fuera de nómina</span>
+                        </div>
+                    </label>
+
+                    <div id="manualPaymentFields" style="display:none; background:var(--bg-secondary); border-radius:8px; padding:14px; margin-top:12px;">
+                        <div class="form-group" style="margin-bottom:8px;">
+                            <label style="font-size:0.75rem; font-weight:600;">Fecha de pago</label>
+                            <input type="date" name="paymentDate" class="form-input" style="font-size:0.8rem; width:100%;">
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label style="font-size:0.75rem; font-weight:600;">Referencia (opcional)</label>
+                            <input type="text" name="paymentReference" class="form-input" placeholder="Núm. cheque o transferencia" style="font-size:0.8rem; width:100%;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="wizard-actions">
+                <button type="button" class="btn btn-ghost" onclick="wizardBack()">
+                    <i class="fa-solid fa-arrow-left"></i> Regresar
+                </button>
+                <span class="loading-spinner" id="step2Spinner"><i class="fa-solid fa-spinner fa-spin"></i> Guardando...</span>
+                <button type="submit" class="btn btn-primary" id="btnStep2">
+                    <i class="fa-solid fa-arrow-right"></i> Registrar y continuar
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Step 3: Documentos -->
+    <div class="wizard-step-card {% if current_step != 3 %}disabled{% endif %}" id="step3">
+        <div class="step-title"><i class="fa-solid fa-file-signature"></i> Paso 3: Documentos</div>
+
+        <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:20px;">
+            <a href="{{ url_for('web_rrhh.offboarding_pdf_letter', request_id=req.id) }}" class="btn btn-primary" target="_blank">
+                <i class="fa-solid fa-file-pdf"></i> Carta de desvinculación
+            </a>
+            <a href="{{ url_for('web_rrhh.offboarding_pdf_settlement', request_id=req.id) }}" class="btn btn-primary" target="_blank">
+                <i class="fa-solid fa-file-invoice"></i> Acta de liquidación
+            </a>
+        </div>
+
+        {% if documents %}
+        <div style="font-weight:600; font-size:0.85rem; margin-bottom:8px;">Documentos generados</div>
+        {% for doc in documents %}
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:var(--bg-secondary); border-radius:6px; margin-bottom:6px; font-size:0.82rem;">
+            <div>
+                <strong>{{ doc.title or doc.documentType }}</strong>
+                <span style="color:var(--text-muted); margin-left:8px; font-size:0.72rem;">{{ doc.generatedAt[:10] if doc.generatedAt else '' }}</span>
+            </div>
+            <div style="display:flex; gap:4px; align-items:center;">
+                {% if doc.signedByEmployer %}<span class="badge" style="background:rgba(16,185,129,0.15); color:var(--accent-emerald); font-size:0.65rem;">Firmado empleador</span>{% endif %}
+                {% if doc.signedByEmployee %}<span class="badge" style="background:rgba(16,185,129,0.15); color:var(--accent-emerald); font-size:0.65rem;">Firmado empleado</span>{% endif %}
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p style="font-size:0.82rem; color:var(--text-muted);">Genere los PDFs de carta de desvinculación y acta de liquidación usando los botones superiores.</p>
+        {% endif %}
+
+        <div class="wizard-actions">
+            <form method="POST" action="{{ url_for('web_rrhh.offboarding_wizard_step3', request_id=req.id) }}" onsubmit="return submitStep3(event)" style="display:flex; gap:8px;">
+                <button type="button" class="btn btn-ghost" onclick="wizardBack()">
+                    <i class="fa-solid fa-arrow-left"></i> Regresar
+                </button>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-primary" id="btnStep3">
+                    <i class="fa-solid fa-arrow-right"></i> Documentos completos — continuar
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Step 4: Cierre -->
+    <div class="wizard-step-card {% if current_step != 4 %}disabled{% endif %}" id="step4">
+        <div class="step-title"><i class="fa-solid fa-flag-checkered"></i> Paso 4: Cierre</div>
+
+        <p style="font-size:0.78rem; color:var(--text-secondary); margin:0 0 16px 0;">
+            Complete los dos requisitos para finalizar la desvinculación: baja en TSS y revocación de accesos.
+        </p>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+            <div style="padding:16px; border:2px solid {{ 'var(--accent-emerald)' if req.tssNotifiedAt else 'var(--accent-orange)' }}; border-radius:8px; {{ 'background:rgba(16,185,129,0.03)' if req.tssNotifiedAt else 'background:rgba(249,115,22,0.03)' }};">
+                <div style="font-weight:600; font-size:0.85rem; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                    {% if req.tssNotifiedAt %}
+                    <i class="fa-solid fa-circle-check" style="color:var(--accent-emerald);"></i>
+                    {% else %}
+                    <i class="fa-solid fa-circle-exclamation" style="color:var(--accent-orange);"></i>
+                    {% endif %}
+                    Baja TSS
+                </div>
+                {% if not req.tssNotifiedAt %}
+                <button type="button" class="btn btn-primary btn-sm" id="btnTss" onclick="markTss()">
+                    <i class="fa-solid fa-download"></i> Notificar baja TSS
+                </button>
+                <p style="font-size:0.68rem; color:var(--text-muted); margin:6px 0 0 0;">Registra la notificación de baja en la Tesorería de Seguridad Social.</p>
+                {% else %}
+                <p style="font-size:0.8rem; color:var(--accent-emerald); margin:0;"><i class="fa-solid fa-circle-check"></i> Registrada el {{ req.tssNotifiedAt[:10] }}</p>
+                {% endif %}
+            </div>
+
+            <div style="padding:16px; border:2px solid {{ 'var(--accent-emerald)' if req.accessRevokedAt else 'var(--accent-orange)' }}; border-radius:8px; {{ 'background:rgba(16,185,129,0.03)' if req.accessRevokedAt else 'background:rgba(249,115,22,0.03)' }};">
+                <div style="font-weight:600; font-size:0.85rem; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                    {% if req.accessRevokedAt %}
+                    <i class="fa-solid fa-circle-check" style="color:var(--accent-emerald);"></i>
+                    {% else %}
+                    <i class="fa-solid fa-circle-exclamation" style="color:var(--accent-orange);"></i>
+                    {% endif %}
+                    Revocar accesos
+                </div>
+                {% if not req.accessRevokedAt %}
+                <button type="button" class="btn btn-primary btn-sm" id="btnAccess" onclick="revokeAccess()">
+                    <i class="fa-solid fa-shield-halved"></i> Revocar accesos
+                </button>
+                <p style="font-size:0.68rem; color:var(--text-muted); margin:6px 0 0 0;">Desactiva credenciales, correo y accesos del empleado en todos los sistemas.</p>
+                {% else %}
+                <p style="font-size:0.8rem; color:var(--accent-emerald); margin:0;"><i class="fa-solid fa-circle-check"></i> Revocados el {{ req.accessRevokedAt[:10] }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if settlement and settlement.get('totales') %}
+        <div class="wizard-summary" style="margin-top:16px;">
+            <div class="wizard-kpi">
+                <div class="kpi-label">Total liquidado</div>
+                <div class="kpi-value" style="color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(settlement.get('totales', {}).get('montoTotal', 0) | float) }}</div>
+            </div>
+            <div class="wizard-kpi">
+                <div class="kpi-label">Antigüedad</div>
+                <div class="kpi-value">{{ settlement.get('antiguedad', {}).get('years', 0) }}a {{ settlement.get('antiguedad', {}).get('months', 0) }}m</div>
+            </div>
+            <div class="wizard-kpi">
+                <div class="kpi-label">Pago</div>
+                <div class="kpi-value" style="font-size:0.82rem;">
+                    {% if settlement.get('status') == 'pagada' %}
+                    <span style="color:var(--accent-emerald);"><i class="fa-solid fa-circle-check"></i> Pagado</span>
+                    {% else %}
+                    <span style="color:var(--accent-orange);"><i class="fa-solid fa-clock"></i> Pendiente</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% set settlement_paid = settlement and settlement.get('status') == 'pagada' %}
+        {% set can_complete = req.tssNotifiedAt and req.accessRevokedAt and settlement_paid %}
+
+        {% if not settlement_paid and req.tssNotifiedAt and req.accessRevokedAt %}
+        <div style="padding:12px 14px; margin:16px 0 0; border:2px solid var(--accent-orange); border-radius:8px; background:rgba(249,115,22,0.04);">
+            <div style="display:flex; align-items:flex-start; gap:8px;">
+                <i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-orange); margin-top:2px;"></i>
+                <div>
+                    <strong style="font-size:0.82rem; color:var(--text-primary); display:block; margin-bottom:2px;">Pago pendiente</strong>
+                    <span style="font-size:0.75rem; color:var(--text-secondary);">
+                        {% set is_payroll = payments and payments|length > 0 and payments[0].get('paymentMethod') == 'payroll' %}
+                        {% if is_payroll %}
+                        El pago se realizará mediante nómina. Procese el período de liquidados en el módulo de Nómina para completar la desvinculación.
+                        {% else %}
+                        La liquidación aún no ha sido pagada. Registre el pago para completar.
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="wizard-actions">
+            <button type="button" class="btn btn-ghost" onclick="wizardBack()">
+                <i class="fa-solid fa-arrow-left"></i> Regresar
+            </button>
+            {% if not can_complete %}
+            <div style="flex:1; text-align:right; font-size:0.72rem; color:var(--text-muted); padding-right:8px;">
+                {% if not req.tssNotifiedAt and not req.accessRevokedAt %}
+                <i class="fa-solid fa-circle-exclamation" style="color:var(--accent-orange);"></i> Notifique TSS y revoque accesos para completar
+                {% elif not req.tssNotifiedAt %}
+                <i class="fa-solid fa-circle-exclamation" style="color:var(--accent-orange);"></i> Notifique la baja TSS para completar
+                {% elif not req.accessRevokedAt %}
+                <i class="fa-solid fa-circle-exclamation" style="color:var(--accent-orange);"></i> Revoque los accesos para completar
+                {% elif not settlement_paid %}
+                <i class="fa-solid fa-circle-exclamation" style="color:var(--accent-orange);"></i> El pago debe estar registrado para completar
+                {% endif %}
+            </div>
+            {% endif %}
+            <button type="button" class="btn btn-success" id="btnComplete" onclick="completeOffboarding()" {% if not can_complete %}disabled{% endif %}>
+                <i class="fa-solid fa-check-circle"></i> Completar desvinculación
+            </button>
+        </div>
+    </div>
+
+    {% if current_step == 5 %}
+    <!-- Completado -->
+    <div class="wizard-step-card" style="text-align:center; padding:48px 24px;">
+        <div style="font-size:3rem; color:var(--accent-emerald); margin-bottom:12px;">
+            <i class="fa-solid fa-circle-check"></i>
+        </div>
+        <h2 style="margin:0 0 8px; color:var(--text-primary);">Desvinculación completada</h2>
+        <p style="color:var(--text-secondary); margin-bottom:20px;">
+            {{ req.employeeName }} ha sido desvinculado exitosamente.
+            {% if settlement %}Liquidación total: RD$ {{ "{:,.2f}".format(settlement.get('totales', {}).get('montoTotal', 0) | float) }}{% endif %}
+        </p>
+        <div style="display:flex; justify-content:center; gap:8px;">
+            <a href="{{ url_for('web_rrhh.employee_list') }}" class="btn btn-primary">Volver a empleados</a>
+            <a href="{{ url_for('web_rrhh.offboarding_list') }}" class="btn btn-ghost">Ver solicitudes</a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function calculateSettlement(e) {
+    e.preventDefault();
+    var form = document.querySelector('#step1Form, #step1Recalc');
+    var btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Calculando...';
+
+    var fd = new FormData(form);
+    fetch("{{ url_for('web_rrhh.offboarding_wizard_step1', request_id=req.id) }}", {
+        method: 'POST',
+        body: fd
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.message || 'Error al calcular la liquidación.');
+        }
+    })
+    .catch(function(err) {
+        alert('Error: ' + err.message);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-calculator"></i> Calcular liquidación';
+    });
+}
+
+function approveAndContinue() {
+    var btn = document.getElementById('btnApproveSettlement');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Aprobando...';
+
+    var fd = new FormData();
+    fd.append('csrf_token', '{{ csrf_token() }}');
+    fd.append('terminationType', '{{ req.terminationType }}');
+    fd.append('terminationDate', '{{ req.effectiveDate or "" }}');
+
+    fetch("{{ url_for('web_rrhh.offboarding_wizard_step1', request_id=req.id) }}", {
+        method: 'POST',
+        body: fd
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.message || 'Error al aprobar.');
+        }
+    })
+    .catch(function(err) {
+        alert('Error: ' + err.message);
+        btn.disabled = false;
+    });
+}
+
+function toggleRecalculate() {
+    var el = document.getElementById('recalculateForm');
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function selectPayment(method) {
+    document.querySelectorAll('.payment-option').forEach(function(el) { el.classList.remove('selected'); });
+    var target = document.querySelector('.payment-option input[value="' + method + '"]');
+    if (target) {
+        target.closest('.payment-option').classList.add('selected');
+        target.checked = true;
+    }
+    document.getElementById('nominaOptions').style.display = method === 'nomina' ? 'block' : 'none';
+    document.getElementById('manualPaymentFields').style.display = method === 'manual' ? 'block' : 'none';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    var allCb = document.getElementById('checklistAll');
+    if (allCb) {
+        allCb.addEventListener('change', function() {
+            var checked = this.checked;
+            document.querySelectorAll('#step2 input[name^="check_item_"]').forEach(function(cb) {
+                cb.checked = checked;
+            });
+        });
+    }
+});
+
+function submitStep2(e) {
+    e.preventDefault();
+    var btn = document.getElementById('btnStep2');
+    var spinner = document.getElementById('step2Spinner');
+    btn.style.display = 'none';
+    spinner.classList.add('show');
+
+    var fd = new FormData(document.getElementById('step2Form'));
+    fetch("{{ url_for('web_rrhh.offboarding_wizard_step2', request_id=req.id) }}", {
+        method: 'POST',
+        body: fd
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.message || 'Error al guardar.');
+            btn.style.display = '';
+            spinner.classList.remove('show');
+        }
+    })
+    .catch(function(err) {
+        alert('Error: ' + err.message);
+        btn.style.display = '';
+        spinner.classList.remove('show');
+    });
+}
+
+function submitStep3(e) {
+    e.preventDefault();
+    var btn = document.getElementById('btnStep3');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Continuando...';
+
+    var fd = new FormData();
+    fd.append('csrf_token', '{{ csrf_token() }}');
+    fetch("{{ url_for('web_rrhh.offboarding_wizard_step3', request_id=req.id) }}", {
+        method: 'POST',
+        body: fd
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.message || 'Error.');
+        }
+    })
+    .catch(function(err) {
+        alert('Error: ' + err.message);
+        btn.disabled = false;
+    });
+    return false;
+}
+
+function wizardBack() {
+    var fd = new FormData();
+    fd.append('csrf_token', '{{ csrf_token() }}');
+    fetch("{{ url_for('web_rrhh.offboarding_wizard_back', request_id=req.id) }}", {
+        method: 'POST',
+        body: fd
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.message || 'Error al retroceder.');
+        }
+    });
+}
+
+function markTss() {
+    var btn = document.getElementById('btnTss');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Notificando...';
+
+    var fd = new FormData();
+    fd.append('csrf_token', '{{ csrf_token() }}');
+    fd.append('action', 'tss');
+    fetch("{{ url_for('web_rrhh.offboarding_wizard_step4', request_id=req.id) }}", {
+        method: 'POST',
+        body: fd
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.message || 'Error.');
+        }
+    })
+    .catch(function(err) {
+        alert('Error: ' + err.message);
+        btn.disabled = false;
+    });
+}
+
+function revokeAccess() {
+    var btn = document.getElementById('btnAccess');
+    if (!confirm('¿Revocar todos los accesos del empleado? Esta acción es irreversible.')) return;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Revocando...';
+
+    var fd = new FormData();
+    fd.append('csrf_token', '{{ csrf_token() }}');
+    fd.append('action', 'revoke_access');
+    fetch("{{ url_for('web_rrhh.offboarding_wizard_step4', request_id=req.id) }}", {
+        method: 'POST',
+        body: fd
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.message || 'Error.');
+        }
+    })
+    .catch(function(err) {
+        alert('Error: ' + err.message);
+        btn.disabled = false;
+    });
+}
+
+function completeOffboarding() {
+    if (!confirm('¿Completar la desvinculación? El empleado será marcado como inactivo.')) return;
+    var btn = document.getElementById('btnComplete');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Completando...';
+
+    var fd = new FormData();
+    fd.append('csrf_token', '{{ csrf_token() }}');
+    fd.append('action', 'complete');
+    fetch("{{ url_for('web_rrhh.offboarding_wizard_step4', request_id=req.id) }}", {
+        method: 'POST',
+        body: fd
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.message || 'Error al completar.');
+        }
+    })
+    .catch(function(err) {
+        alert('Error: ' + err.message);
+        btn.disabled = false;
+    });
+}
+</script>
+{% endblock %}

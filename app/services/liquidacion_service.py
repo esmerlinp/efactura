@@ -1,5 +1,5 @@
 """
-LiquidacionService — Cálculo de Prestaciones Laborales y Derechos Adquiridos (RD).
+LiquidacionService - Cálculo de Prestaciones Laborales y Derechos Adquiridos (RD).
 
 Basado en:
 - Ley 16-92 (Código de Trabajo de la República Dominicana)
@@ -144,7 +144,7 @@ class LiquidacionService:
                 "aplica": True,
                 "dias": 0,
                 "monto": 0.0,
-                "detalle": "Preaviso ejercido trabajando — sin compensación monetaria (Art. 76)",
+                "detalle": "Preaviso ejercido trabajando - sin compensación monetaria (Art. 76)",
                 "exentoTSS": True,
                 "exentoISR": True,
                 "baseLegal": "Art. 76 Código de Trabajo",
@@ -222,20 +222,19 @@ class LiquidacionService:
             if years <= 5:
                 dias += years * 21
                 if years > 0:
-                    detalle_parts.append(f"{years} año(s): 21×{years}={years * 21} días")
+                    detalle_parts.append(f"{years} año(s): 21x{years}={years * 21} días")
             else:
-                dias += 5 * 21 + (years - 5) * 23
-                detalle_parts.append("5 años: 21×5=105 días")
-                detalle_parts.append(f"{years - 5} año(s) adicional(es): 23×{years - 5}={(years - 5) * 23} días")
+                dias += years * 23
+                detalle_parts.append(f"{years} año(s): 23x{years}={years * 23} días (Art. 80, >5 años)")
 
             # Fracción de año posterior al primer año
-            # Prorrateo proporcional: Meses × DíasPorAño / 12
+            # Prorrateo proporcional: Meses x DíasPorAño / 12
             dias_por_anio_fraccion = 23 if years >= 5 else 21
             if remaining_months_raw >= 3:
-                fraccion = round(remaining_months_raw * dias_por_anio_fraccion / 12.0, 1)
+                fraccion = round(remaining_months_raw * dias_por_anio_fraccion / 12.0)
                 dias += fraccion
                 detalle_parts.append(
-                    f"Fracción {remaining_months_raw} meses × "
+                    f"Fracción {remaining_months_raw} meses x "
                     f"{dias_por_anio_fraccion}/12 = {fraccion} días"
                 )
 
@@ -252,7 +251,7 @@ class LiquidacionService:
         }
 
     # ─────────────────────────────────────────────────────────────────
-    # ASISTENCIA ECONÓMICA (Art. 82 — acumulativo)
+    # ASISTENCIA ECONÓMICA (Art. 82 - acumulativo)
     # ─────────────────────────────────────────────────────────────────
 
     TABLA_ASISTENCIA_ECONOMICA = [
@@ -263,12 +262,21 @@ class LiquidacionService:
 
     @classmethod
     def calcular_asistencia_economica(cls, antiguedad: dict, sdp: float) -> dict:
-        """Calcula asistencia económica según Art. 82 del Código de Trabajo.
+        """Asistencia económica según Art. 82 del Código de Trabajo RD.
 
-        Escala acumulativa:
+        Solo aplica por causas ajenas a la voluntad del trabajador:
+        - Muerte o incapacidad del empleador (cierre del negocio)
+        - Muerte, incapacidad o inhabilidad del trabajador
+        - Enfermedad prolongada (1 año)
+        - Agotamiento de materia prima (industria extractiva)
+        - Quiebra, cierre definitivo o reducción de personal (aprobado por M.T.)
+
+        No aplica en desahucio, despido, dimisión ni renuncia.
+
+        Escala:
           - 3 a 6 meses: 5 días de SDP
           - 6 a 12 meses: 10 días de SDP
-          - Más de 1 año: 15 días de SDP por cada año + proporción de meses
+          - Más de 1 año: 15 días de SDP por año + proporción de meses
         """
         total_months = antiguedad["total_months"]
         years = antiguedad["years"]
@@ -293,7 +301,7 @@ class LiquidacionService:
             detalle = "De 6 meses a 1 año: 10 días de SDP (Art. 82)"
         else:
             dias = years * 15
-            detalle_parts = [f"{years} año(s): 15×{years}={years * 15} días"]
+            detalle_parts = [f"{years} año(s): 15x{years}={years * 15} días"]
             if remaining_months >= 3:
                 prop = remaining_months
                 extra = round(15 * prop / 12, 1)
@@ -323,19 +331,22 @@ class LiquidacionService:
         termination_type: str = "renuncia",
         pending_complete_years: int = 0,
         taken_current_period: int = 0,
+        dias_pendientes_directos: int = None,
     ) -> dict:
         """
         Calcula vacaciones no tomadas según Código de Trabajo RD.
 
+        Si se provee dias_pendientes_directos > 0, se usa ese valor directamente
+        en vez de la fórmula basada en años completos y período actual.
         Dos escenarios (Art. 180 vs Art. 177+182):
 
-        ESCENARIO 1 — Menos de 1 año de antigüedad:
+        ESCENARIO 1 - Menos de 1 año de antigüedad:
           - Solo aplica para desahucio (empleador) o dimisión justificada.
           - Tabla proporcional fija (Art. 182): 5→6, 6→7, ..., 11→12 días.
           - Renuncia voluntaria o despido justificado: 0 días.
 
-        ESCENARIO 2 — Más de 1 año de antigüedad:
-          - Años completos NO tomados × días_por_año (14 si <5a, 18 si ≥5a)
+        ESCENARIO 2 - Más de 1 año de antigüedad:
+          - Años completos NO tomados x días_por_año (14 si <5a, 18 si ≥5a)
           - + Fracción del año en curso (tabla proporcional Art. 182)
           - - Días ya tomados del período actual
           - Aplica para cualquier tipo de salida (derecho adquirido)
@@ -346,11 +357,21 @@ class LiquidacionService:
             termination_type: Tipo de salida (impacta Escenario 1).
             pending_complete_years: N° de años completos NO tomados (Escenario 2).
             taken_current_period: Días de vacaciones ya usados en el año en curso.
+            dias_pendientes_directos: Si > 0, usa este valor directamente ignorando la fórmula.
         """
+        if dias_pendientes_directos is not None and dias_pendientes_directos > 0:
+            return {
+                "aplica": True,
+                "dias": dias_pendientes_directos,
+                "monto": round(dias_pendientes_directos * sdp, 2),
+                "detalle": f"{dias_pendientes_directos} días pendientes (valor ingresado manualmente)",
+                "exentoTSS": False,
+                "exentoISR": False,
+                "baseLegal": "Art. 177 y 182 Código de Trabajo",
+            }
+
         years = antiguedad["years"]
         months = antiguedad["months"]
-        if antiguedad["days"] > 0:
-            months += 1
         TIPOS_CON_DERECHO = ("desahucio_empleador", "dimision_justificada")
 
         # ── ESCENARIO 1: Menos de 1 año ──
@@ -360,7 +381,7 @@ class LiquidacionService:
                     "aplica": False, "dias": 0, "monto": 0.0,
                     "detalle": "Menos de 1 año sin derecho a vacaciones proporcionales "
                                f"para salida tipo '{termination_type}' (Art. 180).",
-                    "exentoTSS": True, "exentoISR": False,
+                    "exentoTSS": False, "exentoISR": False,
                     "baseLegal": "Art. 180 Código de Trabajo",
                 }
             if months < 5:
@@ -368,7 +389,7 @@ class LiquidacionService:
                     "aplica": False, "dias": 0, "monto": 0.0,
                     "detalle": f"Menos de 1 año y {months} meses: "
                                "no acumula vacaciones proporcionales (Art. 180).",
-                    "exentoTSS": True, "exentoISR": False,
+                    "exentoTSS": False, "exentoISR": False,
                     "baseLegal": "Art. 180 Código de Trabajo",
                 }
             dias = cls.TABLA_VACACIONES_PROPORCIONAL.get(months, 0)
@@ -391,7 +412,7 @@ class LiquidacionService:
             total_dias += dias_completos
             detalle_parts.append(
                 f"{pending_complete_years} año(s) completo(s) pendiente(s): "
-                f"{pending_complete_years}×{dias_por_anio}={dias_completos} días"
+                f"{pending_complete_years}x{dias_por_anio}={dias_completos} días"
             )
 
         # Fracción del año en curso
@@ -437,13 +458,14 @@ class LiquidacionService:
         cls,
         salaries_year_to_date: list,
         termination_date_str: str = "",
+        dias_extra: int = 0,
     ) -> dict:
         """
         Calcula el Salario de Navidad (Regalía Pascual) según Art. 219.
 
         Es la duodécima parte (1/12) de la suma de todos los salarios ordinarios
         devengados en el año calendario corriente (desde el 1 de enero hasta la
-        fecha de salida).
+        fecha de salida), incluyendo la fracción de días del mes de salida.
 
         No se incluyen horas extras ni bonificaciones para este cálculo.
 
@@ -451,6 +473,7 @@ class LiquidacionService:
             salaries_year_to_date: Lista de salarios mensuales desde enero hasta
                                    la fecha de salida (o fracción).
             termination_date_str: Fecha de salida (para validar meses).
+            dias_extra: Días del mes de salida a prorratear (1-30).
         """
         if not salaries_year_to_date:
             return {
@@ -464,13 +487,33 @@ class LiquidacionService:
             }
 
         total_salarios = sum(salaries_year_to_date)
-        monto = round(total_salarios / 12.0, 2)
         meses = len(salaries_year_to_date)
+        dias_extra_str = ""
+
+        if dias_extra > 0 and salaries_year_to_date:
+            ultimo_salario = salaries_year_to_date[-1]
+            dias_mes = 30
+            try:
+                import calendar
+                td = datetime.strptime(termination_date_str[:10], "%Y-%m-%d")
+                dias_mes = calendar.monthrange(td.year, td.month)[1]
+            except Exception:
+                pass
+            fraccion_dias = (dias_extra / dias_mes) * ultimo_salario
+            total_salarios += fraccion_dias
+            dias_extra_str = f" + {dias_extra}/{dias_mes} días (RD$ {fraccion_dias:,.2f})"
+
+        monto = round(total_salarios / 12.0, 2)
+
+        monto_exento_isr = min(monto, total_salarios / 12.0)
+        monto_gravable_isr = max(0.0, monto - monto_exento_isr)
 
         detalle = (
-            f"Suma salarios ordinarios año corriente ({meses} mes(es)): "
-            f"RD$ {total_salarios:,.2f} / 12 = RD$ {monto:,.2f} (Art. 219)"
+            f"Suma salarios ordinarios año corriente ({meses} mes(es){dias_extra_str}): "
+            f"RD$ {total_salarios:,.2f} / 12 = RD$ {monto:,.2f}"
         )
+        if monto_gravable_isr > 0:
+            detalle += f" (RD$ {monto_gravable_isr:,.2f} gravable ISR)"
 
         return {
             "aplica": monto > 0,
@@ -478,8 +521,9 @@ class LiquidacionService:
             "monto": monto,
             "detalle": detalle,
             "exentoTSS": True,
-            "exentoISR": True,
-            "baseLegal": "Art. 219 Código de Trabajo",
+            "exentoISR": monto_gravable_isr == 0,
+            "montoExentoISR": round(monto_exento_isr, 2),
+            "baseLegal": "Art. 219 Código de Trabajo / Norma 08-04 DGII",
         }
 
     # ─────────────────────────────────────────────────────────────────
@@ -496,7 +540,7 @@ class LiquidacionService:
         """
         Calcula el salario proporcional por los días trabajados en el mes de salida.
 
-        Fórmula: Días Adeudados × (Sueldo Base / divisor).
+        Fórmula: Días Adeudados x (Sueldo Base / divisor).
 
         Args:
             dias_adeudados: Días trabajados reales en el mes hasta la fecha de salida.
@@ -504,9 +548,9 @@ class LiquidacionService:
             frequency: "mensual", "quincenal", "semanal" o "diario".
         """
         if frequency == "mensual":
-            divisor = cls.DIAS_LABORABLES_MENSUAL
+            divisor = 30.0
         elif frequency == "quincenal":
-            divisor = cls.DIAS_LABORABLES_QUINCENAL
+            divisor = 15.0
         elif frequency == "semanal":
             divisor = cls.DIAS_LABORABLES_SEMANAL
         else:
@@ -520,7 +564,7 @@ class LiquidacionService:
             "dias": dias_adeudados,
             "monto": monto,
             "detalle": (
-                f"Salario proporcional: {dias_adeudados} días × "
+                f"Salario proporcional: {dias_adeudados} días x "
                 f"(RD$ {sueldo_base:,.2f} / {divisor}) = RD$ {monto:,.2f}"
             ),
             "exentoTSS": False,
@@ -531,6 +575,27 @@ class LiquidacionService:
     # ─────────────────────────────────────────────────────────────────
     # CÁLCULO COMPLETO
     # ─────────────────────────────────────────────────────────────────
+
+    @classmethod
+    def _normalizar_terminacion(cls, raw_type: str) -> str:
+        if not raw_type:
+            return "otro"
+        t = raw_type.strip().lower()
+        mapping = {
+            "renuncia_voluntaria": "renuncia",
+            "desahucio_empleador": "desahucio_empleador",
+            "dimision_justificada": "dimision_justificada",
+            "despido_justificado": "despido_justificado",
+            "despido_injustificado": "despido_injustificado",
+            "mutuo_acuerdo": "mutuo_acuerdo",
+            "jubilacion": "jubilacion",
+            "fallecimiento": "fallecimiento",
+            "fin_contrato_temporal": "fin_contrato_temporal",
+            "abandono": "abandono",
+            "otro": "otro",
+            "renuncia": "renuncia",
+        }
+        return mapping.get(t, "otro")
 
     @classmethod
     def calcular_liquidacion(
@@ -550,6 +615,8 @@ class LiquidacionService:
         vacation_pending_complete_years: int = 0,
         vacation_taken_current_period: int = 0,
         dias_adeudados: int = 0,
+        vacation_dias_pendientes: int = 0,
+        dias_extra_navidad: int = 0,
         recurring_movements: list = None,
         notes: str = "",
         created_by: str = "",
@@ -559,11 +626,11 @@ class LiquidacionService:
 
         Agrupa todos los conceptos:
           1. Salario Diario Promedio (Art. 85)
-          2. Preaviso (Art. 76) — solo si desahucio empleador o dimisión justificada
-          3. Cesantía (Art. 80) — solo si desahucio empleador o dimisión justificada
-          4. Vacaciones no tomadas (Art. 177/182) — siempre
-          5. Salario de Navidad (Art. 219) — siempre
-          6. Salario Proporcional (Mes de Salida) — siempre
+          2. Preaviso (Art. 76) - solo si desahucio empleador o dimisión justificada
+          3. Cesantía (Art. 80) - solo si desahucio empleador o dimisión justificada
+          4. Vacaciones no tomadas (Art. 177/182) - siempre
+          5. Salario de Navidad (Art. 219) - siempre
+          6. Salario Proporcional (Mes de Salida) - siempre
 
         Returns:
             Dict con todos los campos de LiquidacionOutput listo para serializar.
@@ -589,8 +656,24 @@ class LiquidacionService:
                                is_variable=is_variable_salary)
 
         # 3. Determinar si aplican prestaciones (Preaviso + Cesantía)
-        tipos_con_prestaciones = ["desahucio_empleador", "dimision_justificada"]
-        aplica_prestaciones = termination_type in tipos_con_prestaciones
+        tipos_con_prestaciones = [
+            "desahucio_empleador",
+            "dimision_justificada",
+            "despido_injustificado",
+            "fin_contrato_temporal",
+        ]
+        tipos_sin_prestaciones = [
+            "renuncia",
+            "renuncia_voluntaria",
+            "despido_justificado",
+            "mutuo_acuerdo",
+            "jubilacion",
+            "fallecimiento",
+            "abandono",
+            "otro",
+        ]
+        nt = cls._normalizar_terminacion(termination_type)
+        aplica_prestaciones = nt in tipos_con_prestaciones
 
         # 4. Calcular conceptos
         conceptos = {}
@@ -629,11 +712,13 @@ class LiquidacionService:
             termination_type=termination_type,
             pending_complete_years=vacation_pending_complete_years,
             taken_current_period=vacation_taken_current_period,
+            dias_pendientes_directos=vacation_dias_pendientes if vacation_dias_pendientes > 0 else None,
         )
 
         # Salario de Navidad (siempre)
         conceptos["salarioNavidad"] = cls.calcular_salario_navidad(
-            monthly_salaries_ytd, termination_date
+            monthly_salaries_ytd, termination_date,
+            dias_extra=dias_extra_navidad,
         )
 
         # Salario Proporcional (siempre)
@@ -641,9 +726,25 @@ class LiquidacionService:
             dias_adeudados, last_base_salary, salary_frequency
         )
 
+        # Asistencia Económica (Art. 82) - solo causas específicas
+        tipos_asistencia_economica = ["fallecimiento", "jubilacion"]
+        if termination_type in tipos_asistencia_economica:
+            conceptos["asistenciaEconomica"] = cls.calcular_asistencia_economica(
+                antiguedad, sdp
+            )
+        else:
+            conceptos["asistenciaEconomica"] = {
+                "aplica": False, "dias": 0, "monto": 0.0,
+                "detalle": "No aplica por tipo de salida (Art. 82: solo fallecimiento, jubilación, cierre de empresa o quiebra)",
+                "exentoTSS": True, "exentoISR": True,
+                "baseLegal": "Art. 82 Código de Trabajo",
+            }
+
         # 5. Totales
         monto_prestaciones = (
-            conceptos["preaviso"]["monto"] + conceptos["cesantia"]["monto"]
+            conceptos["preaviso"]["monto"]
+            + conceptos["cesantia"]["monto"]
+            + conceptos["asistenciaEconomica"]["monto"]
         )
         monto_derechos = (
             conceptos["vacaciones"]["monto"]
@@ -655,15 +756,18 @@ class LiquidacionService:
         # Montos gravables y exentos
         monto_gravable_tss = 0.0
         monto_gravable_isr = 0.0
-        monto_exento = 0.0
+        monto_exento_tss = 0.0
+        monto_exento_isr = 0.0
 
         for key, c in conceptos.items():
-            if not c["exentoTSS"]:
-                monto_gravable_tss += c["monto"]
+            if c["exentoTSS"]:
+                monto_exento_tss += c["monto"]
             else:
-                monto_exento += c["monto"]
+                monto_gravable_tss += c["monto"]
 
-            if not c["exentoISR"]:
+            if c["exentoISR"]:
+                monto_exento_isr += c["monto"]
+            else:
                 monto_gravable_isr += c["monto"]
 
         # 6. Deducciones recurrentes (Préstamos, Adelantos)
@@ -695,7 +799,9 @@ class LiquidacionService:
             "montoTotal": round(monto_total, 2),
             "montoGravableTSS": round(monto_gravable_tss, 2),
             "montoGravableISR": round(monto_gravable_isr, 2),
-            "montoExento": round(monto_exento, 2),
+            "montoExentoTSS": round(monto_exento_tss, 2),
+            "montoExentoISR": round(monto_exento_isr, 2),
+            "montoExento": round(monto_exento_tss, 2),
             "loanDeductions": round(loan_deductions, 2),
             "advanceDeductions": round(advance_deductions, 2),
             "otherDeductions": round(other_deductions, 2),
@@ -705,6 +811,11 @@ class LiquidacionService:
 
         from uuid import uuid4
         from datetime import datetime, timezone
+
+        if len(monthly_salaries_last_12) <= 1:
+            notes = (notes or "") + " [⚠ Sin historial salarial: SDP estimado con último salario base.]"
+        if len(monthly_salaries_ytd) <= 1 and len(monthly_salaries_last_12) > 1:
+            notes = (notes or "") + " [⚠ Sin detalle YTD: regalía estimada con último salario base.]"
 
         return {
             "id": str(uuid4()),

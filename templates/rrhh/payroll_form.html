@@ -85,6 +85,21 @@
         <div style="max-width:500px;">
             <input type="hidden" name="payrollGroupId" value="{{ selected_group_id or '' }}">
             <div class="form-group">
+                <label>Tipo de nómina</label>
+                <select name="periodSubType" class="form-select">
+                    <option value="regular" selected>Regular</option>
+                    <option value="liquidation" {% if pending_liquidations is defined and pending_liquidations %}selected{% endif %}>Liquidación (prestaciones)</option>
+                    <option value="christmas_bonus">Regalía Pascual</option>
+                    <option value="extraordinary">Extraordinaria</option>
+                    <option value="retroactive">Retroactiva</option>
+                    <option value="vacation">Vacaciones</option>
+                </select>
+                <p style="color:var(--text-muted); font-size:0.78rem; margin-top:4px;">
+                    <i class="fa-regular fa-circle-info"></i>
+                    «Liquidación» incluye empleados con prestaciones pendientes del grupo seleccionado, incluso si ya no están activos.
+                </p>
+            </div>
+            <div class="form-group">
                 <label>Período <span style="color:var(--danger);">*</span></label>
                 <select name="period_key" class="form-select" required {{ 'disabled' if no_groups }}>
                     <option value="">Seleccionar período</option>
