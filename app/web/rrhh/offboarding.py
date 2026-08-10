@@ -1122,6 +1122,7 @@ def offboarding_toggle_mode():
         from app.services.db_service import DatabaseService
         DatabaseService.update_company(company_id, {"offboarding_mode": new_mode})
         session["company_offboarding_mode"] = new_mode
+        session.modified = True
         flash(f"Modo de offboarding cambiado a: {'Simple' if new_mode == 'simple' else 'Completo (multi-parte)'}.", "success")
     except Exception as e:
         flash(f"Error al cambiar modo: {e}", "error")
@@ -1264,6 +1265,32 @@ def offboarding_wizard_step1(request_id):
         except Exception:
             pass
 
+    try:
+        if termination_date:
+            td = datetime.strptime(termination_date[:10], "%Y-%m-%d")
+            months_ytd = td.month
+        else:
+            months_ytd = date.today().month
+    except Exception:
+        months_ytd = date.today().month
+
+    salaries_ytd = [base_salary]
+    try:
+        sh = hr.get_salary_history(company_id, employee["id"], sandbox=sandbox)
+        if sh:
+            current_year = (datetime.strptime(termination_date[:10], "%Y-%m-%d") if termination_date else datetime.now()).year
+            ytd_entries = sorted(
+                [s for s in sh if s.get("effectiveDate", "").startswith(str(current_year))],
+                key=lambda x: x.get("effectiveDate", "")
+            )
+            if ytd_entries:
+                salaries_ytd = [s.get("amount", base_salary) for s in ytd_entries]
+    except Exception:
+        salaries_ytd = [base_salary] * max(1, months_ytd)
+
+    if len(salaries_ytd) >= months_ytd and salaries_ytd:
+        salaries_ytd = salaries_ytd[:-1]
+
     result = LiquidacionService.calcular_liquidacion(
         employee_id=employee["id"],
         employee_name=employee.get("fullName", ""),
@@ -1275,7 +1302,7 @@ def offboarding_wizard_step1(request_id):
         salary_frequency=salary_frequency,
         is_variable_salary=employee.get("isVariableSalary", False),
         monthly_salaries_last_12=salaries_12,
-        monthly_salaries_ytd=[base_salary],
+        monthly_salaries_ytd=salaries_ytd,
         preaviso_trabajado=preaviso_trabajado,
         vacation_pending_complete_years=vacation_pending,
         vacation_taken_current_period=vacation_taken,
@@ -1363,11 +1390,8 @@ def offboarding_wizard_step2(request_id):
         if group_id and settlement:
             employee = hr.get_employee(company_id, req.get("employeeId", ""), sandbox=sandbox)
             if employee:
-                current_groups = employee.get("payrollGroupIds", [])
-                if group_id not in current_groups:
-                    current_groups = list(current_groups) + [group_id]
-                    employee["payrollGroupIds"] = current_groups
-                    hr.save_employee(company_id, employee["id"], employee, sandbox=sandbox)
+                employee["payrollGroupIds"] = [group_id]
+                hr.save_employee(company_id, employee["id"], employee, sandbox=sandbox)
             settlement["assignedGroupId"] = group_id
             group = hr.get_payroll_group(company_id, group_id, sandbox=sandbox)
             settlement["assignedGroupName"] = group.get("name", group_id) if group else group_id

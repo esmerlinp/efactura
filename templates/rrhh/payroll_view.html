@@ -410,6 +410,9 @@
                     {% for col in period.get('recurringAdditionsColumns', []) %}
                     <th style="text-align:right;">{{ col }}</th>
                     {% endfor %}
+                    {% for col in period.get('liquidationColumns', []) %}
+                    <th style="text-align:right; font-size:0.8rem;">{{ col.name }}</th>
+                    {% endfor %}
                     <th style="text-align:right;">Total Ingresos</th>
                 </tr>
             </thead>
@@ -419,7 +422,7 @@
                 {% set obd = l.get('overtimeBreakdown', {}) %}
                 <tr data-search="{{ (l.employeeName or '')|lower }} {{ (l.cedula or '')|lower }}">
                     <td style="white-space:nowrap;"><a href="{{ url_for('web_rrhh.employee_view', employee_id=l.employeeId) }}" class="emp-link">{{ l.employeeName }}</a></td>
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.get('grossSalary', l.get('baseSalary', 0))|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{% if l.lineType == 'liquidation' %}—{% else %}{{ "RD$ {:,.2f}".format(l.get('grossSalary', l.get('baseSalary', 0))|float) }}{% endif %}</td>
                     <td style="text-align:right; white-space:nowrap;">
                         {% if l.overtimePay and l.overtimePay|float > 0 %}
                         {{ "RD$ {:,.2f}".format(l.overtimePay|float) }}
@@ -434,6 +437,9 @@
                     <td style="text-align:right; white-space:nowrap;">{% if l.otherIncome and l.otherIncome|float > 0 %}{{ "RD$ {:,.2f}".format(l.otherIncome|float) }}{% else %}—{% endif %}</td>
                     {% for col in period.get('recurringAdditionsColumns', []) %}
                     <td style="text-align:right; white-space:nowrap;">{% set amt = amap.get(col, 0) %}{% if amt > 0 %}RD$ {{ "{:,.2f}".format(amt) }}{% else %}—{% endif %}</td>
+                    {% endfor %}
+                    {% for col in period.get('liquidationColumns', []) %}
+                    <td style="text-align:right; white-space:nowrap; font-size:0.8rem;">{% set amt = l.get('liquidationMap', {}).get(col.code, 0) %}{% if amt > 0 %}RD$ {{ "{:,.2f}".format(amt) }}{% else %}—{% endif %}</td>
                     {% endfor %}
                     <td style="text-align:right; white-space:nowrap; font-weight:600;">{{ "RD$ {:,.2f}".format(l.totalIncome|float) }}</td>
                 </tr>
@@ -450,6 +456,12 @@
                     <td style="text-align:right;">—</td>
                     <td style="text-align:right;">—</td>
                     <td style="text-align:right;">—</td>
+                    {% for col in period.get('recurringAdditionsColumns', []) %}
+                    <td style="text-align:right;">—</td>
+                    {% endfor %}
+                    {% for col in period.get('liquidationColumns', []) %}
+                    <td style="text-align:right;">—</td>
+                    {% endfor %}
                     <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(period.totalGross|float) }}</td>
                 </tr>
             </tfoot>
@@ -541,6 +553,9 @@
                     {% for col in period.get('recurringAdditionsColumns', []) %}
                     <th style="text-align:right;">{{ col }}</th>
                     {% endfor %}
+                    {% for col in period.get('liquidationColumns', []) %}
+                    <th style="text-align:right; font-size:0.8rem;">{{ col.name }}</th>
+                    {% endfor %}
                     <th style="text-align:right;">Total Ingresos</th>
                     <th style="text-align:right;">AFP</th>
                     <th style="text-align:right;">SFS</th>
@@ -562,7 +577,7 @@
                     <td style="white-space:nowrap;"><a href="{{ url_for('web_rrhh.employee_view', employee_id=l.employeeId) }}" class="emp-link">{{ l.employeeName }}</a></td>
                     <td style="white-space:nowrap;">{{ l.cedula }}</td>
                     <td style="white-space:nowrap;">{{ l.position }}</td>
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.get('grossSalary', l.get('baseSalary', 0))|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{% if l.lineType == 'liquidation' %}—{% else %}{{ "RD$ {:,.2f}".format(l.get('grossSalary', l.get('baseSalary', 0))|float) }}{% endif %}</td>
                     <td style="text-align:right; white-space:nowrap;">
                         {% if l.overtimePay and l.overtimePay|float > 0 %}
                         {{ "RD$ {:,.2f}".format(l.overtimePay|float) }}
@@ -577,6 +592,9 @@
                     <td style="text-align:right; white-space:nowrap;">{% if l.otherIncome and l.otherIncome|float > 0 %}{{ "RD$ {:,.2f}".format(l.otherIncome|float) }}{% else %}—{% endif %}</td>
                     {% for col in period.get('recurringAdditionsColumns', []) %}
                     <td style="text-align:right; white-space:nowrap;">{% set amt = amap.get(col, 0) %}{% if amt > 0 %}RD$ {{ "{:,.2f}".format(amt) }}{% else %}—{% endif %}</td>
+                    {% endfor %}
+                    {% for col in period.get('liquidationColumns', []) %}
+                    <td style="text-align:right; white-space:nowrap; font-size:0.8rem;">{% set amt = l.get('liquidationMap', {}).get(col.code, 0) %}{% if amt > 0 %}RD$ {{ "{:,.2f}".format(amt) }}{% else %}—{% endif %}</td>
                     {% endfor %}
                     <td style="text-align:right; white-space:nowrap; font-weight:600;">{{ "RD$ {:,.2f}".format(l.totalIncome|float) }}</td>
                     <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.afpEmployee|float) }}</td>
@@ -605,6 +623,9 @@
                     <td style="text-align:right;">—</td>
                     <td style="text-align:right;">—</td>
                     {% for col in period.get('recurringAdditionsColumns', []) %}
+                    <td style="text-align:right;">—</td>
+                    {% endfor %}
+                    {% for col in period.get('liquidationColumns', []) %}
                     <td style="text-align:right;">—</td>
                     {% endfor %}
                     <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(period.totalGross|float) }}</td>

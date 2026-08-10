@@ -20,6 +20,9 @@ SYSTEM_CONCEPT_CODES = {
     "NOCTURNIDAD",
     "COMISION", "BONIFICACION",
     "OTROS_INGRESOS", "OTRAS_DEDUCCIONES",
+    "LIQ_PREAVISO", "LIQ_CESANTIA", "LIQ_VACACIONES",
+    "LIQ_SALARIO_NAVIDAD", "LIQ_SALARIO_PROPORCIONAL",
+    "LIQ_ASISTENCIA_ECONOMICA", "LIQ_DESCUENTOS",
 }
 
 # ── Conceptos que pueden vincularse a movimientos recurrentes ──
@@ -166,6 +169,58 @@ DEFAULT_CONCEPTS = [
      "taxable": False, "affects_afp": False, "affects_sfs": False, "affects_isr": False,
      "accountDebit": "2.1.2.1.02", "account_credit": "2.1.2.1.02",
      "priority": 200, "active": True, "isSystem": True,
+     "isRecurringCapable": False, "isLegalMandatory": False, "maxPercentage": 0.0},
+
+    # ═══════════════════════════════════════════════════════════════════
+    # LIQUIDACIÓN DE PRESTACIONES LABORALES (earning)
+    # ═══════════════════════════════════════════════════════════════════
+    {"code": "LIQ_PREAVISO",          "name": "Preaviso",
+     "type": "earning", "category": "liquidation",
+     "taxable": False, "affects_afp": False, "affects_sfs": False, "affects_isr": False,
+     "accountDebit": "6.2.1.01", "account_credit": "2.1.2.1.02",
+     "priority": 50, "active": True, "isSystem": True,
+     "isRecurringCapable": False, "isLegalMandatory": False, "maxPercentage": 0.0},
+
+    {"code": "LIQ_CESANTIA",          "name": "Cesantía",
+     "type": "earning", "category": "liquidation",
+     "taxable": False, "affects_afp": False, "affects_sfs": False, "affects_isr": False,
+     "accountDebit": "6.2.1.01", "account_credit": "2.1.2.1.02",
+     "priority": 51, "active": True, "isSystem": True,
+     "isRecurringCapable": False, "isLegalMandatory": False, "maxPercentage": 0.0},
+
+    {"code": "LIQ_VACACIONES",        "name": "Vacaciones proporcionales (Art. 177 C.T.)",
+     "type": "earning", "category": "liquidation",
+     "taxable": False, "affects_afp": False, "affects_sfs": False, "affects_isr": False,
+     "accountDebit": "6.2.1.01", "account_credit": "2.1.2.1.02",
+     "priority": 52, "active": True, "isSystem": True,
+     "isRecurringCapable": False, "isLegalMandatory": False, "maxPercentage": 0.0},
+
+    {"code": "LIQ_SALARIO_NAVIDAD",   "name": "Salario de Navidad proporcional",
+     "type": "earning", "category": "liquidation",
+     "taxable": False, "affects_afp": False, "affects_sfs": False, "affects_isr": False,
+     "accountDebit": "6.2.1.01", "account_credit": "2.1.2.1.02",
+     "priority": 53, "active": True, "isSystem": True,
+     "isRecurringCapable": False, "isLegalMandatory": False, "maxPercentage": 0.0},
+
+    {"code": "LIQ_SALARIO_PROPORCIONAL", "name": "Salario proporcional",
+     "type": "earning", "category": "liquidation",
+     "taxable": False, "affects_afp": False, "affects_sfs": False, "affects_isr": False,
+     "accountDebit": "6.2.1.01", "account_credit": "2.1.2.1.02",
+     "priority": 54, "active": True, "isSystem": True,
+     "isRecurringCapable": False, "isLegalMandatory": False, "maxPercentage": 0.0},
+
+    {"code": "LIQ_ASISTENCIA_ECONOMICA", "name": "Asistencia económica (Art. 82 C.T.)",
+     "type": "earning", "category": "liquidation",
+     "taxable": False, "affects_afp": False, "affects_sfs": False, "affects_isr": False,
+     "accountDebit": "6.2.1.01", "account_credit": "2.1.2.1.02",
+     "priority": 55, "active": True, "isSystem": True,
+     "isRecurringCapable": False, "isLegalMandatory": False, "maxPercentage": 0.0},
+
+    {"code": "LIQ_DESCUENTOS",        "name": "Descuentos de liquidación (préstamos/adelantos)",
+     "type": "deduction", "category": "liquidation",
+     "taxable": False, "affects_afp": False, "affects_sfs": False, "affects_isr": False,
+     "accountDebit": "2.1.2.1.02", "account_credit": "2.1.2.1.02",
+     "priority": 210, "active": True, "isSystem": True,
      "isRecurringCapable": False, "isLegalMandatory": False, "maxPercentage": 0.0},
 
     # ═══════════════════════════════════════════════════════════════════

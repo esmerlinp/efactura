@@ -76,6 +76,26 @@
         </form>
     </div>
     {% endif %}
+    {% if unassigned_liquidations is defined and unassigned_liquidations %}
+    <div class="card-table-wrapper" style="margin-bottom:16px; border:2px solid var(--accent-orange);">
+        <div style="padding:12px 20px;">
+            <div style="display:flex; align-items:flex-start; gap:10px;">
+                <div style="width:34px; height:34px; border-radius:50%; background:rgba(249,115,22,0.12); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                    <i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-orange);"></i>
+                </div>
+                <div style="flex:1;">
+                    <strong style="color:var(--text-primary);">{{ unassigned_liquidations|length }} liquidación(es) sin grupo asignado</strong>
+                    <div style="font-size:0.82rem; color:var(--text-secondary); margin-top:4px;">
+                        Estas liquidaciones no se procesarán en ninguna nómina hasta que se asigne un grupo.
+                        <a href="{{ url_for('web_rrhh.payroll_liquidaciones_pendientes') }}" style="color:var(--accent-emerald); font-weight:600;">
+                            <i class="fa-solid fa-arrow-right"></i> Asignar grupo
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 <form method="POST">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="card-table-wrapper" style="padding:20px 24px; margin-bottom:16px;">
