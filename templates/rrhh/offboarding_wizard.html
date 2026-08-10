@@ -150,7 +150,12 @@
         </div>
 
         <!-- Conceptos: compact table -->
-        <table style="width:100%; border-collapse:collapse; font-size:0.78rem; margin-bottom:8px;">
+        {% set concept_labels = {
+            'preaviso':'Preaviso','cesantia':'Cesantía','vacaciones':'Vacaciones',
+            'salarioNavidad':'Salario de Navidad','salarioProporcional':'Salario proporcional',
+            'asistenciaEconomica':'Asistencia económica'
+        } %}
+        <table style="width:100%; border-collapse:collapse; font-size:0.78rem; margin-bottom:6px;">
             <thead>
                 <tr style="border-bottom:1px solid var(--border-color);">
                     <th style="text-align:left; padding:6px 8px; font-weight:600; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.03em; color:var(--text-muted); max-width:32%;">Concepto</th>
@@ -164,7 +169,7 @@
                 {% for key, c in settlement.conceptos.items() %}
                 {% if c.aplica %}
                 <tr style="border-bottom:1px solid rgba(0,0,0,0.04);">
-                    <td style="padding:7px 8px; font-weight:500;">{{ c.detalle }}</td>
+                    <td style="padding:7px 8px; font-weight:500;">{{ concept_labels.get(key, key | replace('_',' ') | title) }}</td>
                     <td style="padding:7px 8px; font-size:0.7rem; color:var(--text-muted);">{{ c.baseLegal }}</td>
                     <td style="padding:7px 8px; text-align:right; font-size:0.75rem; color:var(--text-secondary);">{{ c.dias }}</td>
                     <td style="padding:7px 8px; text-align:right; font-weight:600; font-size:0.74rem; white-space:nowrap;">RD$ {{ "{:,.2f}".format(c.monto | float) }}</td>
@@ -183,8 +188,24 @@
                     <td style="padding:9px 8px; text-align:right; font-weight:700; font-size:0.78rem; color:var(--accent-emerald); white-space:nowrap;">RD$ {{ "{:,.2f}".format(totales.get('montoTotal', 0) | float) }}</td>
                     <td></td>
                 </tr>
+                <tr style="border: none;">
+                    <td colspan="3" style="padding:3px 4px; font-size:0.66rem; color:var(--text-muted); text-align:right;">Prestaciones</td>
+                    <td style="padding:3px 4px; text-align:right; font-size:0.68rem; color:var(--text-secondary); white-space:nowrap;">RD$ {{ "{:,.2f}".format(totales.get('montoPrestaciones', 0) | float) }}</td>
+                    <td></td>
+                </tr>
+                <tr style="border: none;">
+                    <td colspan="3" style="padding:3px 4px; font-size:0.66rem; color:var(--text-muted); text-align:right;">Derechos adquiridos</td>
+                    <td style="padding:3px 4px; text-align:right; font-size:0.68rem; color:var(--text-secondary); white-space:nowrap;">RD$ {{ "{:,.2f}".format(totales.get('montoDerechosAdquiridos', 0) | float) }}</td>
+                    <td></td>
+                </tr>
             </tbody>
         </table>
+
+        <div style="font-size:0.64rem; color:var(--text-muted); display:flex; gap:12px; flex-wrap:wrap; padding-top:5px; border-top:1px solid var(--border-color);">
+            <span>Exento: <strong style="color:var(--text-primary);">RD$ {{ "{:,.2f}".format(totales.get('montoExento', 0) | float) }}</strong></span>
+            <span>Gravable TSS: <strong style="color:var(--text-primary);">RD$ {{ "{:,.2f}".format(totales.get('montoGravableTSS', 0) | float) }}</strong></span>
+            <span>Gravable ISR: <strong style="color:var(--text-primary);">RD$ {{ "{:,.2f}".format(totales.get('montoGravableISR', 0) | float) }}</strong></span>
+        </div>
 
         <div class="wizard-actions">
             <button type="button" class="btn btn-sm btn-ghost" id="btnRecalculate" onclick="toggleRecalculate()">
@@ -199,8 +220,13 @@
             <form id="step1Recalc" onsubmit="calculateSettlement(event)">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="wizard_action" value="recalculate">
-                <div style="display:flex; flex-wrap:wrap; gap:8px 14px; align-items:flex-end;">
-                    <div class="form-group" style="margin:0; flex:1; min-width:160px;">
+                <div style="margin-bottom:10px;">
+                    <label style="font-size:0.7rem; font-weight:600; display:flex; align-items:center; gap:6px; cursor:pointer;">
+                        <input type="checkbox" name="preavisoTrabajado" style="accent-color:var(--accent-emerald); width:14px; height:14px;"> ¿Preaviso trabajado? (Art. 76)
+                    </label>
+                </div>
+                <div style="display:grid; grid-template-columns:2fr 1.5fr 1fr 1fr auto; gap:10px 14px; align-items:end;">
+                    <div class="form-group" style="margin:0;">
                         <label style="font-size:0.7rem; font-weight:600;">Tipo de terminación</label>
                         <select name="terminationType" class="form-select" style="width:100%; font-size:0.78rem;">
                             {% set types = [
@@ -208,31 +234,32 @@
                                 ('desahucio_empleador', 'Desahucio del Empleador'),
                                 ('dimision_justificada', 'Dimisión Justificada'),
                                 ('despido_justificado', 'Despido Justificado'),
+                                ('despido_injustificado', 'Despido Injustificado'),
+                                ('mutuo_acuerdo', 'Mutuo Acuerdo'),
+                                ('jubilacion', 'Jubilación'),
+                                ('fallecimiento', 'Fallecimiento'),
+                                ('fin_contrato_temporal', 'Fin de Contrato Temporal'),
+                                ('abandono', 'Abandono'),
+                                ('otro', 'Otro'),
                             ] %}
                             {% for val, label in types %}
                             <option value="{{ val }}" {% if req.terminationType == val %}selected{% endif %}>{{ label }}</option>
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="form-group" style="margin:0; flex:1; min-width:130px;">
+                    <div class="form-group" style="margin:0;">
                         <label style="font-size:0.7rem; font-weight:600;">Fecha de salida</label>
                         <input type="date" name="terminationDate" class="form-input" style="width:100%; font-size:0.78rem;" value="{{ req.effectiveDate[:10] if req.effectiveDate else '' }}">
                     </div>
-                    <div class="form-group" style="margin:0; min-width:100px;">
-                        <label style="font-size:0.7rem; font-weight:600; display:flex; align-items:center; gap:4px; white-space:nowrap;">
-                            <input type="checkbox" name="preavisoTrabajado" style="accent-color:var(--accent-emerald); width:14px; height:14px;"> Preaviso trabajado
-                        </label>
-                    </div>
-                    <div class="form-group" style="margin:0; flex:1; min-width:110px;">
-                        <label style="font-size:0.7rem; font-weight:600;">Vacaciones pendientes</label>
+                    <div class="form-group" style="margin:0;">
+                        <label style="font-size:0.7rem; font-weight:600;">Vacaciones pend. <span style="font-weight:400; font-size:0.62rem; color:var(--text-muted);">{{ vacation_total_accrued }}d ac. · {{ vacation_total_taken }}d tom.</span></label>
                         <input type="number" name="vacationDiasPendientes" class="form-input" style="width:100%; font-size:0.78rem;" value="{{ vacation_total_pendientes }}" min="0">
-                        <span style="font-size:0.62rem; color:var(--text-muted); display:block; margin-top:1px;">{{ vacation_total_accrued }}d acum. · {{ vacation_total_taken }}d tomados</span>
                     </div>
-                    <div class="form-group" style="margin:0; flex:1; min-width:90px;">
-                        <label style="font-size:0.7rem; font-weight:600;">Días adeudados</label>
+                    <div class="form-group" style="margin:0;">
+                        <label style="font-size:0.7rem; font-weight:600;">Días adeud.</label>
                         <input type="number" name="diasAdeudados" class="form-input" style="width:100%; font-size:0.78rem;" value="0" min="0">
                     </div>
-                    <button type="submit" class="btn btn-primary btn-sm" style="margin-bottom:0;">
+                    <button type="submit" class="btn btn-primary btn-sm" style="margin-bottom:0; height:fit-content;">
                         <i class="fa-solid fa-calculator"></i> Recalcular
                     </button>
                 </div>
@@ -244,8 +271,13 @@
         <form id="step1Form" onsubmit="calculateSettlement(event)">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="wizard_action" value="calculate">
-            <div style="display:flex; flex-wrap:wrap; gap:8px 14px; align-items:flex-end;">
-                <div class="form-group" style="margin:0; flex:1; min-width:160px;">
+            <div style="margin-bottom:10px;">
+                <label style="font-size:0.7rem; font-weight:600; display:flex; align-items:center; gap:6px; cursor:pointer;">
+                    <input type="checkbox" name="preavisoTrabajado" style="accent-color:var(--accent-emerald); width:14px; height:14px;"> ¿Preaviso trabajado? (Art. 76)
+                </label>
+            </div>
+            <div style="display:grid; grid-template-columns:2fr 1.5fr 1fr 1fr auto; gap:10px 14px; align-items:end;">
+                <div class="form-group" style="margin:0;">
                     <label style="font-size:0.7rem; font-weight:600;">Tipo de terminación</label>
                     <select name="terminationType" class="form-select" style="width:100%; font-size:0.78rem;">
                         {% set types = [
@@ -253,31 +285,32 @@
                             ('desahucio_empleador', 'Desahucio del Empleador'),
                             ('dimision_justificada', 'Dimisión Justificada'),
                             ('despido_justificado', 'Despido Justificado'),
+                            ('despido_injustificado', 'Despido Injustificado'),
+                            ('mutuo_acuerdo', 'Mutuo Acuerdo'),
+                            ('jubilacion', 'Jubilación'),
+                            ('fallecimiento', 'Fallecimiento'),
+                            ('fin_contrato_temporal', 'Fin de Contrato Temporal'),
+                            ('abandono', 'Abandono'),
+                            ('otro', 'Otro'),
                         ] %}
                         {% for val, label in types %}
                         <option value="{{ val }}" {% if req.terminationType == val %}selected{% endif %}>{{ label }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="form-group" style="margin:0; flex:1; min-width:130px;">
+                <div class="form-group" style="margin:0;">
                     <label style="font-size:0.7rem; font-weight:600;">Fecha de salida <span style="color:var(--danger);">*</span></label>
                     <input type="date" name="terminationDate" class="form-input" style="width:100%; font-size:0.78rem;" required value="{{ req.effectiveDate[:10] if req.effectiveDate else '' }}">
                 </div>
-                <div class="form-group" style="margin:0; min-width:100px;">
-                    <label style="font-size:0.7rem; font-weight:600; display:flex; align-items:center; gap:4px; white-space:nowrap;">
-                        <input type="checkbox" name="preavisoTrabajado" style="accent-color:var(--accent-emerald); width:14px; height:14px;"> Preaviso trabajado
-                    </label>
-                </div>
-                <div class="form-group" style="margin:0; flex:1; min-width:110px;">
-                    <label style="font-size:0.7rem; font-weight:600;">Vacaciones pendientes</label>
+                <div class="form-group" style="margin:0;">
+                    <label style="font-size:0.7rem; font-weight:600;">Vacaciones pend. <span style="font-weight:400; font-size:0.62rem; color:var(--text-muted);">{{ vacation_total_accrued }}d ac. · {{ vacation_total_taken }}d tom.</span></label>
                     <input type="number" name="vacationDiasPendientes" class="form-input" style="width:100%; font-size:0.78rem;" value="{{ vacation_total_pendientes }}" min="0">
-                    <span style="font-size:0.62rem; color:var(--text-muted); display:block; margin-top:1px;">{{ vacation_total_accrued }}d acum. · {{ vacation_total_taken }}d tomados</span>
                 </div>
-                <div class="form-group" style="margin:0; flex:1; min-width:90px;">
-                    <label style="font-size:0.7rem; font-weight:600;">Días adeudados</label>
+                <div class="form-group" style="margin:0;">
+                    <label style="font-size:0.7rem; font-weight:600;">Días adeud.</label>
                     <input type="number" name="diasAdeudados" class="form-input" style="width:100%; font-size:0.78rem;" value="0" min="0">
                 </div>
-                <button type="submit" class="btn btn-primary" style="margin-bottom:0;">
+                <button type="submit" class="btn btn-primary" style="margin-bottom:0; height:fit-content;">
                     <i class="fa-solid fa-calculator"></i> Calcular liquidación
                 </button>
             </div>

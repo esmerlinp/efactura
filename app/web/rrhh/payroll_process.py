@@ -51,6 +51,178 @@ def _build_employee_form_values(form, emp_ids):
     return values
 
 
+def _collect_liquidation_employees(company_id, sandbox, selected_group_id,
+                                   all_employees, period_employees):
+    """Construye el mapa de liquidaciones pendientes para nómina tipo "liquidation".
+
+    Un empleado con liquidación pendiente puede seguir con status "activo" (si el
+    offboarding no ha llegado a "completed"), por lo que ya existe en
+    ``period_employees``. Este helper garantiza que la liquidación tome prioridad
+    sobre el salario regular: SIEMPRE agrega el id al mapa y solo evita duplicar
+    el append a ``period_employees``.
+
+    Returns:
+        tuple[list, dict]: (period_employees actualizado, liquidation_settlements_map)
+    """
+    liquidation_settlements_map = {}
+    if not selected_group_id:
+        return period_employees, liquidation_settlements_map
+    try:
+        from app.services.offboarding_service import OffboardingService
+        off_svc = OffboardingService(company_id, sandbox)
+        all_pending = off_svc.get_pending_settlements()
+        for s in all_pending:
+            req = off_svc.get_request(s.get("requestId", ""))
+            if not req:
+                continue
+            if req.get("status") in ("cancelled", "rejected"):
+                continue
+            emp_id = req.get("employeeId", "")
+            emp = next((e for e in all_employees if e["id"] == emp_id), None)
+            if not emp:
+                continue
+            matches_group = s.get("assignedGroupId") == selected_group_id
+            matches_fallback = (
+                not s.get("assignedGroupId")
+                and selected_group_id in emp.get("payrollGroupIds", [])
+            )
+            if matches_group or matches_fallback:
+                liquidation_settlements_map[emp_id] = s
+                if emp_id not in [e["id"] for e in period_employees]:
+                    period_employees.append(emp)
+    except Exception:
+        pass
+    return period_employees, liquidation_settlements_map
+
+
+def _get_pending_liquidation_employee_ids(company_id, sandbox):
+    """Devuelve el set de employeeIds con liquidación pendiente (pendiente_pago).
+
+    Es global: cualquier empleado con un settlement pendiente_pago activo debe
+    ser excluido de TODAS las nóminas regulares, sin importar el grupo. Solo se
+    omite si el offboarding está cancelled o rejected.
+
+    Un empleado con liquidación pendiente puede seguir con status "activo" (si el
+    offboarding no ha llegado a "completed"), por lo que por defecto entraría en
+    las nóminas regulares. Este helper permite excluirlo de toda nómina que no
+    sea tipo "liquidation".
+    """
+    pending_ids = set()
+    try:
+        from app.services.offboarding_service import OffboardingService
+        off_svc = OffboardingService(company_id, sandbox)
+        for s in off_svc.get_pending_settlements():
+            req = off_svc.get_request(s.get("requestId", ""))
+            if not req or not req.get("employeeId"):
+                continue
+            if req.get("status") in ("cancelled", "rejected"):
+                continue
+            pending_ids.add(req.get("employeeId"))
+    except Exception:
+        pass
+    return pending_ids
+
+
+def _build_liquidation_columns(lines):
+    """Computa las columnas dinámicas de conceptos de liquidación (LIQ_*).
+
+    Inyecta ``liquidationMap`` (conceptCode → monto) en cada línea de liquidación
+    y devuelve la lista de columnas [{code, name}] presentes en el período.
+    """
+    liquidation_columns = []
+    for line in lines:
+        if line.get("lineType") != "liquidation":
+            continue
+        liquidation_map = {}
+        for tx in line.get("transactionSummary", []):
+            if tx.get("type") != "earning":
+                continue
+            liquidation_map[tx.get("conceptCode", "")] = round(float(tx.get("amount", 0)), 2)
+        line["liquidationMap"] = liquidation_map
+        for code in liquidation_map:
+            if code not in [c["code"] for c in liquidation_columns]:
+                liquidation_columns.append({
+                    "code": code,
+                    "name": next((t.get("conceptName", code) for t in line.get("transactionSummary", []) if t.get("conceptCode") == code), code),
+                })
+    return liquidation_columns
+
+
+def _build_liquidation_line(settlement, emp):
+    """Construye la línea de nómina a partir de un settlement de liquidación.
+
+    Usa los montos calculados en el settlement (NO el salario regular del empleado).
+    El desglose ``transactionSummary`` se construye desde ``settlement["conceptos"]``
+    (preaviso, cesantía, vacaciones, salario de Navidad, salario proporcional,
+    asistencia económica) mapeando cada uno a su concepto de nómina LIQ_* del
+    catálogo, más una deducción LIQ_DESCUENTOS por préstamos/adelantos.
+    """
+    emp_id = emp.get("id", "")
+    totales = settlement.get("totales", {})
+    liquid_total_income = round(float(totales.get("montoTotal", 0)), 2)
+    liquid_net = round(float(totales.get("montoNetoAPagar", liquid_total_income)), 2)
+    liquid_descuentos = round(float(totales.get("montoDescuentos", 0)), 2)
+
+    # Mapeo de conceptos del settlement → conceptos de nómina LIQ_*
+    concept_map = {
+        "preaviso": ("LIQ_PREAVISO", "Preaviso"),
+        "cesantia": ("LIQ_CESANTIA", "Cesantía"),
+        "vacaciones": ("LIQ_VACACIONES", "Vacaciones proporcionales (Art. 177 C.T.)"),
+        "salarioNavidad": ("LIQ_SALARIO_NAVIDAD", "Salario de Navidad proporcional"),
+        "salarioProporcional": ("LIQ_SALARIO_PROPORCIONAL", "Salario proporcional"),
+        "asistenciaEconomica": ("LIQ_ASISTENCIA_ECONOMICA", "Asistencia económica (Art. 82 C.T.)"),
+    }
+
+    liquid_tx = []
+    for key, (code, name) in concept_map.items():
+        c = settlement.get("conceptos", {}).get(key, {})
+        if not c.get("aplica", True):
+            continue
+        amount = round(float(c.get("monto", 0)), 2)
+        if amount <= 0:
+            continue
+        liquid_tx.append({
+            "conceptCode": code,
+            "type": "earning",
+            "amount": amount,
+            "source": "liquidation",
+            "conceptName": name,
+        })
+
+    if liquid_descuentos > 0:
+        liquid_tx.append({
+            "conceptCode": "LIQ_DESCUENTOS",
+            "type": "deduction",
+            "amount": liquid_descuentos,
+            "source": "liquidation",
+            "conceptName": "Descuentos de liquidación (préstamos/adelantos)",
+        })
+
+    line = {
+        "employeeId": emp_id,
+        "employeeName": emp.get("fullName", ""),
+        "cedula": emp.get("cedula", ""),
+        "position": emp.get("position", ""),
+        "department": emp.get("department", ""),
+        "baseSalary": round(float(settlement.get("salarioDiarioPromedio", 0)) * 23.83, 2),
+        "grossSalary": liquid_total_income,
+        "totalIncome": liquid_total_income,
+        "netSalary": liquid_net,
+        "totalDeductions": round(max(0.0, liquid_total_income - liquid_net), 2),
+        "overtimePay": 0, "overtimeHours": 0,
+        "commission": 0, "bonus": 0, "otherIncome": 0,
+        "afpEmployee": 0, "sfsEmployee": 0, "infotepEmployee": 0,
+        "isrRetention": 0, "otherDeductions": liquid_descuentos,
+        "afpEmployer": 0, "sfsEmployer": 0, "srlEmployer": 0,
+        "infotepEmployer": 0, "totalEmployerContrib": 0,
+        "periodType": "liquidacion",
+        "transactionSummary": liquid_tx,
+        "settlementId": settlement.get("id", ""),
+        "lineType": "liquidation",
+    }
+    return line, liquid_tx
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # NÓMINA — Procesar
 # ═══════════════════════════════════════════════════════════════════════════
@@ -96,23 +268,38 @@ def payroll_new():
     else:
         employees = active_employees
 
+    # ── Excluir empleados con liquidación pendiente de las nóminas regulares ──
+    # Solo se incluyen en la nómina tipo "liquidation" (vía _collect_liquidation_employees).
+    pending_liquidation_ids = _get_pending_liquidation_employee_ids(company_id, sandbox)
+    if pending_liquidation_ids:
+        employees = [e for e in employees if e.get("id") not in pending_liquidation_ids]
+
     # ── Liquidaciones pendientes (para nómina tipo "liquidation") ──
     liquidation_employees = []
     pending_liquidations = []
+    unassigned_liquidations = []
     if selected_group_id:
         try:
             from app.services.offboarding_service import OffboardingService
             off_svc = OffboardingService(company_id, sandbox)
             all_pending = off_svc.get_pending_settlements()
             for s in all_pending:
-                if s.get("assignedGroupId") == selected_group_id:
-                    req = off_svc.get_request(s.get("requestId", ""))
-                    if req:
-                        emp_id = req.get("employeeId", "")
-                        emp = next((e for e in all_employees if e["id"] == emp_id), None)
-                        if emp:
-                            liquidation_employees.append(emp)
-                            pending_liquidations.append(s)
+                req = off_svc.get_request(s.get("requestId", ""))
+                if not req or req.get("status") in ("cancelled", "rejected"):
+                    continue
+                emp_id = req.get("employeeId", "")
+                emp = next((e for e in all_employees if e["id"] == emp_id), None)
+                if not emp:
+                    continue
+                assigned = s.get("assignedGroupId")
+                if assigned == selected_group_id:
+                    liquidation_employees.append(emp)
+                    pending_liquidations.append(s)
+                elif not assigned and selected_group_id in emp.get("payrollGroupIds", []):
+                    liquidation_employees.append(emp)
+                    pending_liquidations.append(s)
+                elif not assigned:
+                    unassigned_liquidations.append(s)
         except Exception:
             pass
 
@@ -169,24 +356,12 @@ def payroll_new():
         period_id = str(uuid.uuid4())
 
         # ── Nómina de liquidación: incluir empleados terminados con liquidación pendiente ──
-        liquidation_settlements_map = {}
         period_sub_type_val = request.form.get("periodSubType", "regular")
+        liquidation_settlements_map = {}
         if period_sub_type_val == "liquidation" and selected_group_id:
-            try:
-                from app.services.offboarding_service import OffboardingService
-                off_svc = OffboardingService(company_id, sandbox)
-                all_pending = off_svc.get_pending_settlements()
-                for s in all_pending:
-                    if s.get("assignedGroupId") == selected_group_id:
-                        req = off_svc.get_request(s.get("requestId", ""))
-                        if req:
-                            emp_id = req.get("employeeId", "")
-                            emp = next((e for e in all_employees if e["id"] == emp_id), None)
-                            if emp and emp not in period_employees:
-                                period_employees.append(emp)
-                                liquidation_settlements_map[emp_id] = s
-            except Exception:
-                pass
+            period_employees, liquidation_settlements_map = _collect_liquidation_employees(
+                company_id, sandbox, selected_group_id, all_employees, period_employees,
+            )
 
         # Pre-validación: bloquear si hay errores antes de calcular
         period_incidencias = PayrollService.validate_employees_before_payroll(period_employees)
@@ -297,49 +472,7 @@ def payroll_new():
                     # ── Nómina de liquidación: si el empleado tiene liquidación pendiente ──
                     if period_sub_type_val == "liquidation" and emp_id in liquidation_settlements_map:
                         settlement = liquidation_settlements_map[emp_id]
-                        totales = settlement.get("totales", {})
-                        conceptos = settlement.get("conceptos", {})
-
-                        liquid_total_income = round(float(totales.get("montoTotal", 0)), 2)
-                        liquid_net = round(float(totales.get("montoNetoAPagar", liquid_total_income)), 2)
-                        liquid_exento = round(float(totales.get("montoExento", liquid_total_income)), 2)
-
-                        liquid_tx = [{
-                            "conceptCode": "LIQ_PRESTACIONES",
-                            "type": "earning",
-                            "amount": liquid_exento,
-                            "source": "liquidation",
-                            "conceptName": "Prestaciones laborales (exentas)",
-                        }, {
-                            "conceptCode": "LIQ_VACACIONES",
-                            "type": "earning",
-                            "amount": round(liquid_total_income - liquid_exento, 2),
-                            "source": "liquidation",
-                            "conceptName": "Prestaciones (gravables)",
-                        }]
-
-                        line = {
-                            "employeeId": emp_id,
-                            "employeeName": emp.get("fullName", ""),
-                            "cedula": emp.get("cedula", ""),
-                            "position": emp.get("position", ""),
-                            "department": emp.get("department", ""),
-                            "baseSalary": float(totales.get("salarioDiarioPromedio", 0)) * 23.83,
-                            "grossSalary": liquid_total_income,
-                            "totalIncome": liquid_total_income,
-                            "netSalary": liquid_net,
-                            "totalDeductions": liquid_net,
-                            "overtimePay": 0, "overtimeHours": 0,
-                            "commission": 0, "bonus": 0, "otherIncome": 0,
-                            "afpEmployee": 0, "sfsEmployee": 0, "infotepEmployee": 0,
-                            "isrRetention": 0, "otherDeductions": 0,
-                            "afpEmployer": 0, "sfsEmployer": 0, "srlEmployer": 0,
-                            "infotepEmployer": 0, "totalEmployerContrib": 0,
-                            "periodType": "liquidacion",
-                            "transactionSummary": liquid_tx,
-                            "settlementId": settlement.get("id", ""),
-                            "lineType": "liquidation",
-                        }
+                        line, liquid_tx = _build_liquidation_line(settlement, emp)
                         lines.append(line)
                         all_transactions.append(liquid_tx)
                         continue
@@ -854,7 +987,8 @@ def payroll_new():
                            payroll_groups=payroll_groups,
                            selected_group_id=selected_group_id,
                            incidencias=incidencias,
-                           pending_liquidations=pending_liquidations)
+                           pending_liquidations=pending_liquidations,
+                           unassigned_liquidations=unassigned_liquidations)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -889,10 +1023,43 @@ def payroll_simulate():
         group_frequency = config.get("payrollFrequency", "mensual")
         employees = all_active
 
+    # ── Excluir empleados con liquidación pendiente de las nóminas regulares ──
+    # Solo se incluyen en la nómina tipo "liquidation" (vía _collect_liquidation_employees).
+    pending_liquidation_ids = _get_pending_liquidation_employee_ids(company_id, sandbox)
+    if pending_liquidation_ids:
+        employees = [e for e in employees if e.get("id") not in pending_liquidation_ids]
+
     now = date.today()
     available_periods = _generate_periods(group_frequency, now.year)
 
+    # ── Liquidaciones pendientes del grupo (para preseleccionar subtipo "liquidation") ──
+    pending_liquidations = []
+    unassigned_liquidations = []
+    if selected_group_id:
+        try:
+            from app.services.offboarding_service import OffboardingService
+            off_svc = OffboardingService(company_id, sandbox)
+            all_employees_full = hr.get_employees(company_id, sandbox=sandbox)
+            for s in off_svc.get_pending_settlements():
+                req = off_svc.get_request(s.get("requestId", ""))
+                if not req or req.get("status") in ("cancelled", "rejected"):
+                    continue
+                emp_id = req.get("employeeId", "")
+                emp = next((e for e in all_employees_full if e["id"] == emp_id), None)
+                if not emp:
+                    continue
+                assigned = s.get("assignedGroupId")
+                if assigned == selected_group_id:
+                    pending_liquidations.append(s)
+                elif not assigned and selected_group_id in emp.get("payrollGroupIds", []):
+                    pending_liquidations.append(s)
+                elif not assigned:
+                    unassigned_liquidations.append(s)
+        except Exception:
+            pass
+
     simulation = None
+    period_sub_type_val = "regular"
 
     if request.method == "POST":
         period_key = request.form.get("period_key", "")
@@ -901,7 +1068,18 @@ def payroll_simulate():
         end_date = period_info["end"] if period_info else ""
         period_type = period_info.get("type", "mensual") if period_info else ("quincenal" if len(period_key.split("-")) == 3 and period_key.split("-")[2] != "M" else "mensual")
 
+        period_sub_type_val = request.form.get("periodSubType", "regular")
+
         period_employees, _sim_excluded = _filter_employees_by_period(employees)
+
+        # Empleados con liquidación pendiente: igual que en el procesamiento real,
+        # la liquidación toma prioridad sobre el salario regular.
+        liquidation_settlements_map = {}
+        if period_sub_type_val == "liquidation" and selected_group_id:
+            all_employees_full = hr.get_employees(company_id, sandbox=sandbox)
+            period_employees, liquidation_settlements_map = _collect_liquidation_employees(
+                company_id, sandbox, selected_group_id, all_employees_full, period_employees,
+            )
 
         from datetime import timezone
         from collections import defaultdict
@@ -967,6 +1145,21 @@ def payroll_simulate():
 
         for emp in period_employees:
             emp_id = emp["id"]
+
+            # ── Nómina de liquidación: mismo cálculo que el procesamiento real ──
+            if period_sub_type_val == "liquidation" and emp_id in liquidation_settlements_map:
+                settlement = liquidation_settlements_map[emp_id]
+                line, liquid_tx = _build_liquidation_line(settlement, emp)
+                lines.append(line)
+                total_gross += line["totalIncome"]
+                total_net += line["netSalary"]
+                total_employer += line["totalEmployerContrib"]
+                total_costo += line["totalIncome"] + line["totalEmployerContrib"]
+                line_taxes = line["afpEmployee"] + line["sfsEmployee"] + line["isrRetention"]
+                total_taxes += line_taxes
+                total_non_tax_deductions += (line["totalDeductions"] - line_taxes)
+                continue
+
             base = float(emp.get("baseSalary", 0))
             overtime = float(request.form.get(f"overtime_{emp_id}", 0) or 0)
             commission = float(request.form.get(f"commission_{emp_id}", 0) or 0)
@@ -1409,6 +1602,8 @@ def payroll_simulate():
                     overtime_type_names[code] = c.get("name", code) if c else code
         overtime_columns = [{"code": c, "name": overtime_type_names.get(c, c)} for c in all_overtime_cols]
 
+        liquidation_columns = _build_liquidation_columns(lines)
+
         simulation = {
             "period_range": period_info["label"] if period_info else period_key,
             "period_type": period_type,
@@ -1424,6 +1619,7 @@ def payroll_simulate():
             "recurringDeductionColumns": all_recurring_descs,
             "recurringAdditionsColumns": all_recurring_additions_descs,
             "overtimeColumns": overtime_columns,
+            "liquidationColumns": liquidation_columns,
             "lines": lines,
         }
 
@@ -1431,4 +1627,6 @@ def payroll_simulate():
                            employees=employees, available_periods=available_periods,
                            frequency=group_frequency, simulation=simulation,
                            payroll_groups=payroll_groups,
-                           selected_group_id=selected_group_id)
+                           selected_group_id=selected_group_id,
+                           pending_liquidations=pending_liquidations,
+                           unassigned_liquidations=unassigned_liquidations)

@@ -339,11 +339,8 @@ def payroll_liquidaciones_assign():
         if emp_id:
             emp = hr.get_employee(company_id, emp_id, sandbox=sandbox)
             if emp:
-                current_groups = emp.get("payrollGroupIds", [])
-                if group_id not in current_groups:
-                    current_groups = list(current_groups) + [group_id]
-                    emp["payrollGroupIds"] = current_groups
-                    hr.save_employee(company_id, emp_id, emp, sandbox=sandbox)
+                emp["payrollGroupIds"] = [group_id]
+                hr.save_employee(company_id, emp_id, emp, sandbox=sandbox)
 
         settlement["assignedGroupId"] = group_id
         settlement["assignedGroupName"] = group_name

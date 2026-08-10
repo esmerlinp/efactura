@@ -20,19 +20,35 @@
         <thead><tr><th style="text-align:left;">Concepto</th><th style="text-align:right;">Monto</th></tr></thead>
         <tbody>
             <tr><td style="font-weight:600;">+ Ingresos</td><td></td></tr>
+            {% if line.lineType == 'liquidation' %}
+            {% for tx in line.get('transactionSummary', []) %}
+                {% if tx.type == 'earning' %}
+                <tr><td style="padding-left:20px;">{{ tx.conceptName or tx.conceptCode }}</td><td style="text-align:right;">RD$ {{ "{:,.2f}".format(tx.amount|float) }}</td></tr>
+                {% endif %}
+            {% endfor %}
+            {% else %}
             <tr><td style="padding-left:20px;">Salario base</td><td style="text-align:right;">RD$ {{ "{:,.2f}".format(line.baseSalary|float if line.baseSalary else 0) }}</td></tr>
             <tr><td style="padding-left:20px;">Horas extra</td><td style="text-align:right;">RD$ {{ "{:,.2f}".format(line.overtimePay|float) }}</td></tr>
             <tr><td style="padding-left:20px;">Comisión</td><td style="text-align:right;">RD$ {{ "{:,.2f}".format(line.commission|float) }}</td></tr>
             <tr><td style="padding-left:20px;">Bonificación</td><td style="text-align:right;">RD$ {{ "{:,.2f}".format(line.bonus|float) }}</td></tr>
             <tr><td style="padding-left:20px;">Otros ingresos</td><td style="text-align:right;">RD$ {{ "{:,.2f}".format(line.otherIncome|float) }}</td></tr>
+            {% endif %}
             <tr style="border-top:1px solid var(--border-color);"><td style="font-weight:700;">Total ingresos</td><td style="text-align:right; font-weight:700;">RD$ {{ "{:,.2f}".format(line.totalIncome|float) }}</td></tr>
             <tr><td colspan="2" style="height:8px;"></td></tr>
             <tr><td style="font-weight:600;">- Deducciones</td><td></td></tr>
+            {% if line.lineType == 'liquidation' %}
+            {% for tx in line.get('transactionSummary', []) %}
+                {% if tx.type == 'deduction' %}
+                <tr><td style="padding-left:20px;">{{ tx.conceptName or tx.conceptCode }}</td><td style="text-align:right;">RD$ {{ "{:,.2f}".format(tx.amount|float) }}</td></tr>
+                {% endif %}
+            {% endfor %}
+            {% else %}
             <tr><td style="padding-left:20px;">AFP</td><td style="text-align:right;">RD$ {{ "{:,.2f}".format(line.afpEmployee|float) }}</td></tr>
             <tr><td style="padding-left:20px;">SFS</td><td style="text-align:right;">RD$ {{ "{:,.2f}".format(line.sfsEmployee|float) }}</td></tr>
             <tr><td style="padding-left:20px;">INFOTEP</td><td style="text-align:right;">RD$ {{ "{:,.2f}".format(line.get('infotepEmployee', 0)|float) }}</td></tr>
             <tr><td style="padding-left:20px;">ISR</td><td style="text-align:right;">RD$ {{ "{:,.2f}".format(line.isrRetention|float) }}</td></tr>
             <tr><td style="padding-left:20px;">Otras deducciones</td><td style="text-align:right;">RD$ {{ "{:,.2f}".format(line.otherDeductions|float) }}</td></tr>
+            {% endif %}
             <tr style="border-top:1px solid var(--border-color);"><td style="font-weight:700;">Total deducciones</td><td style="text-align:right; font-weight:700;">RD$ {{ "{:,.2f}".format(line.totalDeductions|float) }}</td></tr>
             <tr style="border-top:2px solid var(--text-primary); font-size:1rem;"><td style="font-weight:800; color:var(--accent-emerald);">Neto a recibir</td><td style="text-align:right; font-weight:800; color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(line.netSalary|float) }}</td></tr>
         </tbody>

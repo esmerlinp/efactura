@@ -59,6 +59,8 @@ def payroll_view(period_id):
         return redirect(url_for("web_rrhh.payroll_list"))
 
     period["lines"] = PayrollService.get_period_lines(period, company_id=company_id, sandbox=sandbox)
+    from app.web.rrhh.payroll_process import _build_liquidation_columns
+    period["liquidationColumns"] = _build_liquidation_columns(period.get("lines", []))
 
     return render_template("rrhh/payroll_view.html", active_page="rrhh_payroll", period=period)
 
