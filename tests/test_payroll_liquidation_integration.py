@@ -551,3 +551,104 @@ class TestSimuladorLiquidacion:
         assert len(simulation["lines"]) == 1
         assert simulation["lines"][0]["lineType"] == "liquidation"
         assert simulation["total_gross"] == 100000.0
+
+
+class TestPendingSettlementsServerSide:
+    """get_pending_settlements ahora usa filtro server-side con fallback."""
+
+    def test_llama_get_all_con_server_side_filter(self):
+        with patch("app.services.offboarding_data_service.get_all") as mock_get_all:
+            mock_get_all.return_value = []
+            from app.services.offboarding_service import OffboardingService
+            svc = OffboardingService("co-1", True)
+            result = svc.get_pending_settlements()
+            mock_get_all.assert_called_once()
+            call_kwargs = mock_get_all.call_args.kwargs
+            assert call_kwargs["apply_filters_server_side"] is True
+            assert call_kwargs["limit"] == 5000
+            assert call_kwargs["where_filters"] == [("status", "==", "pendiente_pago")]
+
+    def test_server_side_fallback_filtra_clientside(self):
+        with patch("app.services.offboarding_data_service.get_all") as mock_:
+            pending = [
+                {"id": "s1", "status": "pendiente_pago", "createdAt": "2025-01-01"},
+                {"id": "s2", "status": "calculada", "createdAt": "2025-01-02"},
+                {"id": "s3", "status": "pagada", "createdAt": "2025-01-03"},
+            ]
+            mock_.return_value = pending
+            from app.services.offboarding_service import OffboardingService
+            svc = OffboardingService("co-1", True)
+            result = svc.get_pending_settlements()
+            assert len(result) == 1
+            assert result[0]["id"] == "s1"
+
+    def test_apply_filters_server_side_intenta_query_con_where(self):
+        try:
+            import google.cloud.firestore
+        except ImportError:
+            pytest.skip("google-cloud-firestore not available")
+
+        with patch("app.services.offboarding_data_service._collection") as mock_coll_fn:
+            mock_query = MagicMock()
+            mock_query.where.return_value = mock_query
+            mock_query.order_by.return_value = mock_query
+            mock_query.limit.return_value = mock_query
+            mock_query.get.return_value = []
+            mock_coll_fn.return_value = mock_query
+
+            from app.services.offboarding_service import OffboardingService
+            svc = OffboardingService("co-1", True)
+            svc.get_pending_settlements()
+
+            mock_coll_fn.assert_called_once()
+            mock_query.where.assert_called_with("status", "==", "pendiente_pago")
+            mock_query.order_by.assert_called_with("createdAt", direction="DESCENDING")
+            mock_query.limit.assert_called_with(5000)
+
+
+class TestUXLiquidationEmployeesMerge:
+    """En payroll_new, los empleados con liquidación pendiente se fusionan en la lista visible."""
+
+    def test_pending_liquidation_employees_se_agregan_a_employees(self):
+        from app.services import hr_data_service as hr
+        emp_active = _emp("emp-a", 45000.0, "Activo", groups=["grp-liq"])
+        emp_liquid = _emp("emp-l", 50000.0, "LiquidationEmp", groups=["grp-liq"])
+        emp_liquid["status"] = "terminado"
+
+        settlement = _settlement("emp-l", assigned_group="grp-liq")
+
+        fake_off_svc = MagicMock()
+        fake_off_svc.get_pending_settlements.return_value = [settlement]
+        fake_off_svc.get_request.side_effect = lambda rid: (
+            _req("emp-l") if rid == "req-emp-l" else None
+        )
+
+        with patch("app.services.offboarding_service.OffboardingService",
+                   return_value=fake_off_svc):
+            with patch.object(hr, "get_employees",
+                              return_value=[emp_active, emp_liquid]):
+                with patch.object(hr, "get_payroll_config",
+                                  return_value={"onboardingCompleted": True, "payrollFrequency": "mensual"}):
+                    with patch.object(hr, "get_payroll_groups",
+                                      return_value=[{"id":"grp-liq","name":"Liquidados","frequency":"mensual"}]):
+                        from app.web.rrhh import payroll_process as pp
+                        fake_request = type("Req", (), {
+                            "args": {"group": "grp-liq"},
+                            "form": {},
+                            "method": "GET",
+                        })()
+                        captured = {}
+                        def _fake_render(*args, **kwargs):
+                            captured.update(kwargs)
+                            return ""
+                        with patch.object(pp, "request", fake_request), \
+                             patch.object(pp, "_login_required", return_value=False), \
+                             patch.object(pp, "_get_owner_uid_and_sandbox", return_value=("u1", True, "co-1")), \
+                             patch.object(pp, "render_template", side_effect=_fake_render), \
+                             patch.object(pp, "flash"), \
+                             patch.object(pp, "url_for", return_value="/"):
+                            pp.payroll_new()
+
+                        employees = captured.get("employees", [])
+                        liquid_ids = [e["id"] for e in employees if e.get("isLiquidation")]
+                        assert "emp-l" in liquid_ids, "El empleado con liquidación debe aparecer con isLiquidation=True"

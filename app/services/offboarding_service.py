@@ -505,9 +505,12 @@ class OffboardingService:
                            where_filters=[("requestId", "==", request_id)])
 
     def get_pending_settlements(self) -> list[dict]:
+        pendiente = SettlementStatus.PENDIENTE_PAGO.value
         settlements = ods.get_all("offboarding_settlements", self.company_id, self.sandbox,
-                                  order_by="createdAt", direction="DESCENDING", limit=200)
-        return [s for s in settlements if s.get("status") == SettlementStatus.PENDIENTE_PAGO.value]
+                                  order_by="createdAt", direction="DESCENDING", limit=5000,
+                                  where_filters=[("status", "==", pendiente)],
+                                  apply_filters_server_side=True)
+        return [s for s in settlements if s.get("status") == pendiente]
 
     def mark_settlement_paid(self, settlement_id: str, payment_data: dict,
                               user_email: str) -> dict:
@@ -633,7 +636,10 @@ class OffboardingService:
                 "completed": "pending_hr_approval",
             }
             if target_status in status_chain:
-                return req
+                raise ValueError(
+                    f"En modo completo, debe completar el flujo de aprobaciones "
+                    f"antes de avanzar. Estado actual: {current}, requiere: {status_chain[target_status]}"
+                )
 
         if self.is_simple and current == "draft":
             skips = {

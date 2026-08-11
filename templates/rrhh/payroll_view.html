@@ -292,9 +292,16 @@
     {% elif s == 'cerrada' %}
         <span style="color:var(--text-muted); font-size:0.85rem;"><i class="fa-solid fa-lock"></i> Período cerrado.</span>
     {% elif s == 'borrador' %}
-        <a href="{{ url_for('web_rrhh.payroll_new') }}" class="btn btn-primary btn-sm" title="Calcula la nómina con los empleados activos y las reglas configuradas.">
-            <i class="fa-solid fa-calculator"></i> Procesar Nómina
-        </a>
+        <form method="POST" action="{{ url_for('web_rrhh.payroll_new', group=period.payrollGroupId or '') }}" style="margin:0;" onsubmit="var btn=this.querySelector('button[type=submit]'); btn.disabled=true; btn.innerHTML='<i class=\'fa-solid fa-spinner fa-spin\'></i> Procesando...'; return true;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="period_key" value="{{ period.periodKey }}">
+            <input type="hidden" name="payrollGroupId" value="{{ period.payrollGroupId or '' }}">
+            <input type="hidden" name="period_kind" value="{{ period.periodType or 'mensual' }}">
+            <input type="hidden" name="periodSubType" value="{{ period.periodSubType or 'regular' }}">
+            <button type="submit" class="btn btn-primary btn-sm" title="Calcula la nómina con los empleados activos y las reglas configuradas.">
+                <i class="fa-solid fa-calculator"></i> Procesar Nómina
+            </button>
+        </form>
         <form method="POST" id="deletePayrollForm" action="{{ url_for('web_rrhh.payroll_delete', period_id=period.id) }}" style="margin:0;">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="confirm" id="deleteConfirmField" value="">

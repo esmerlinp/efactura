@@ -40,8 +40,23 @@ def _now() -> str:
 
 def get_all(sub: str, company_id: str, sandbox: bool = True,
             order_by: str = "createdAt", direction: str = "DESCENDING",
-            limit: int = 100, where_filters: list[tuple] = None) -> list[dict]:
+            limit: int = 100, where_filters: list[tuple] = None,
+            apply_filters_server_side: bool = False) -> list[dict]:
     coll = _collection(sub, company_id, sandbox)
+
+    server_side_failed = False
+    if apply_filters_server_side and where_filters:
+        try:
+            query = coll
+            for field, op, value in where_filters:
+                if op == "==":
+                    query = query.where(field, "==", value)
+            query = query.order_by(order_by, direction=direction)
+            docs = query.limit(limit).get()
+            return [d.to_dict() for d in docs]
+        except Exception:
+            server_side_failed = True
+
     query = coll.order_by(order_by, direction=direction)
     docs = query.limit(limit).get()
     results = [d.to_dict() for d in docs]

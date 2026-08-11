@@ -1317,20 +1317,54 @@ def offboarding_wizard_step1(request_id):
     result["terminationType"] = termination_type
     result["terminationDate"] = termination_date
 
-    if req.get("settlementId"):
-        existing = svc.get_settlement(req["settlementId"])
-        if existing:
-            result["id"] = existing["id"]
-            result["version"] = existing.get("version", 1) + 1
-
-    svc.save_settlement(result, user_email)
+    # ── Capture existing settlement data to preserve across recalculations ──
+    existing = svc.get_settlement(req.get("settlementId", "")) if req.get("settlementId") else None
+    prev_status = existing.get("status") if existing else None
+    if existing:
+        result["id"] = existing["id"]
+        result["version"] = existing.get("version", 1) + 1
+        for field in ("assignedGroupId", "assignedGroupName", "assignedAt"):
+            if existing.get(field):
+                result[field] = existing[field]
 
     wizard_action = request.form.get("wizard_action", "").strip()
-    if wizard_action == "":
-        svc.approve_settlement(result["id"], user_email)
-        current_status = svc._get_status_value(req)
-        if current_status in ("draft", "pending_settlement", "pending_assets"):
-            svc.wizard_transition(request_id, "pending_payment", user_email)
+
+    if wizard_action == "approve":
+        if not existing:
+            return jsonify({"success": False, "message": "No hay liquidación que aprobar."}), 400
+        svc.approve_settlement(existing["id"], user_email)
+    else:
+        svc.save_settlement(result, user_email)
+        should_approve = (
+            wizard_action == ""
+            or (wizard_action != "" and prev_status == "pendiente_pago")
+        )
+        if should_approve:
+            svc.approve_settlement(result["id"], user_email)
+
+    # Re-read request after save_settlement (may have been mutated in Firestore)
+    req = svc.get_request(request_id)
+    if not req:
+        return jsonify({"success": False, "message": "Solicitud no encontrada."}), 404
+
+    current_status = svc._get_status_value(req)
+
+    should_transition = wizard_action in ("approve", "")
+    if should_transition:
+        if current_status in ("draft", "pending_supervisor_approval",
+                               "pending_hr_approval", "approved",
+                               "pending_settlement", "pending_assets"):
+            try:
+                svc.wizard_transition(request_id, "pending_payment", user_email)
+            except ValueError as e:
+                return jsonify({"success": False, "message": str(e)}), 400
+        elif current_status == "pending_payment":
+            pass  # Already at the correct step
+        else:
+            return jsonify({
+                "success": False,
+                "message": f"No se puede avanzar desde el estado actual: {current_status}"
+            }), 400
 
     return jsonify({"success": True, "settlement": result})
 
@@ -1421,7 +1455,10 @@ def offboarding_wizard_step2(request_id):
         except Exception:
             pass
 
-    svc.wizard_transition(request_id, "pending_documents", user_email)
+    try:
+        svc.wizard_transition(request_id, "pending_documents", user_email)
+    except ValueError as e:
+        return jsonify({"success": False, "message": str(e)}), 400
 
     return jsonify({"success": True})
 
@@ -1475,7 +1512,10 @@ def offboarding_wizard_step3(request_id):
         return jsonify({"success": False, "message": "Solicitud no encontrada."}), 404
 
     user_email = _email()
-    svc.wizard_transition(request_id, "pending_tss", user_email)
+    try:
+        svc.wizard_transition(request_id, "pending_tss", user_email)
+    except ValueError as e:
+        return jsonify({"success": False, "message": str(e)}), 400
 
     return jsonify({"success": True})
 
@@ -1509,7 +1549,10 @@ def offboarding_wizard_step4(request_id):
             settlement = svc.get_settlement(req["settlementId"])
         if settlement and settlement.get("status") != "pagada":
             return jsonify({"success": False, "message": "La liquidación aún no ha sido pagada. Si es por nómina, procese el pago del período de liquidados primero."}), 400
-        svc.wizard_transition(request_id, "completed", user_email)
+        try:
+            svc.wizard_transition(request_id, "completed", user_email)
+        except ValueError as e:
+            return jsonify({"success": False, "message": str(e)}), 400
         return jsonify({"success": True})
 
     return jsonify({"success": False, "message": "Acción no reconocida."}), 400
