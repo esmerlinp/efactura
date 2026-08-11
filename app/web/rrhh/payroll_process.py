@@ -303,6 +303,15 @@ def payroll_new():
         except Exception:
             pass
 
+        # Merge pending-liquidation employees into the visible list for UX
+        existing_ids = {e.get("id") for e in employees}
+        for emp in liquidation_employees:
+            emp_with_flag = dict(emp)
+            emp_with_flag["isLiquidation"] = True
+            if emp.get("id") not in existing_ids:
+                employees.append(emp_with_flag)
+                existing_ids.add(emp.get("id"))
+
     # Pre-validación de incidencias
     incidencias = PayrollService.validate_employees_before_payroll(employees) if employees else {"errors": [], "warnings": []}
 
@@ -316,30 +325,34 @@ def payroll_new():
             return redirect(url_for("web_rrhh.payroll_new"))
 
         # ── Anti-duplicados ──
+        existing_period_ref = None
         if selected_group_id:
-            existing = hr.get_payroll_period_by_key_and_group(company_id, period_key, selected_group_id, sandbox=sandbox)
-            if existing:
-                flash(f"Ya existe una nómina para el período «{period_key}» en el grupo «{selected_group.get('name', '')}».", "warning")
-                return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll",
-               employees=employees, now=now,
-                        available_periods=available_periods, frequency=group_frequency,
-                        show_christmas_bonus=(now.month >= 11),
-                        payroll_groups=payroll_groups,
-                        selected_group_id=selected_group_id,
-                        existing_period=existing,
-                        incidencias=incidencias)
+            existing_period_ref = hr.get_payroll_period_by_key_and_group(company_id, period_key, selected_group_id, sandbox=sandbox)
         else:
-            existing = hr.get_payroll_period_by_key(company_id, period_key, sandbox=sandbox)
-            if existing:
-                flash(f"Ya existe una nómina para el período «{period_key}».", "warning")
-                return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll",
-                                        employees=employees, now=now,
-                                        available_periods=available_periods, frequency=group_frequency,
-                                        show_christmas_bonus=(now.month >= 11),
-                                        payroll_groups=payroll_groups,
-                                        selected_group_id=selected_group_id,
-                                        existing_period=existing,
-                                        incidencias=incidencias)
+            existing_period_ref = hr.get_payroll_period_by_key(company_id, period_key, sandbox=sandbox)
+
+        if existing_period_ref:
+            if existing_period_ref.get("status") != "borrador":
+                if selected_group_id:
+                    flash(f"Ya existe una nómina para el período «{period_key}» en el grupo «{selected_group.get('name', '')}».", "warning")
+                    return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll",
+                    employees=employees, now=now,
+                            available_periods=available_periods, frequency=group_frequency,
+                            show_christmas_bonus=(now.month >= 11),
+                            payroll_groups=payroll_groups,
+                            selected_group_id=selected_group_id,
+                            existing_period=existing_period_ref,
+                            incidencias=incidencias)
+                else:
+                    flash(f"Ya existe una nómina para el período «{period_key}».", "warning")
+                    return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll",
+                                            employees=employees, now=now,
+                                            available_periods=available_periods, frequency=group_frequency,
+                                            show_christmas_bonus=(now.month >= 11),
+                                            payroll_groups=payroll_groups,
+                                            selected_group_id=selected_group_id,
+                                            existing_period=existing_period_ref,
+                                            incidencias=incidencias)
 
         # Parse period key
         parts = period_key.split("-")
@@ -353,7 +366,13 @@ def payroll_new():
         period_type = period_info.get("type", "mensual") if period_info else ("quincenal" if len(parts) == 3 and parts[2] != "M" else "mensual")
 
         period_employees, excluded = _filter_employees_by_period(employees, period_key)
-        period_id = str(uuid.uuid4())
+        # Reuse existing borrador period_id when re-processing, otherwise create new
+        if existing_period_ref:
+            period_id = existing_period_ref["id"]
+            revision = existing_period_ref.get("revision", 0) + 1
+        else:
+            period_id = str(uuid.uuid4())
+            revision = 1
 
         # ── Nómina de liquidación: incluir empleados terminados con liquidación pendiente ──
         period_sub_type_val = request.form.get("periodSubType", "regular")
@@ -362,6 +381,11 @@ def payroll_new():
             period_employees, liquidation_settlements_map = _collect_liquidation_employees(
                 company_id, sandbox, selected_group_id, all_employees, period_employees,
             )
+        else:
+            # Remove liquidation employees from regular payroll — they get no regular salary
+            period_employees = [e for e in period_employees if not e.get("isLiquidation")]
+            if pending_liquidations:
+                flash("Aviso: este grupo tiene liquidaciones pendientes. Seleccione «Liquidación (prestaciones)» como tipo de nómina para incluirlas.", "warning")
 
         # Pre-validación: bloquear si hay errores antes de calcular
         period_incidencias = PayrollService.validate_employees_before_payroll(period_employees)
@@ -474,7 +498,7 @@ def payroll_new():
                         settlement = liquidation_settlements_map[emp_id]
                         line, liquid_tx = _build_liquidation_line(settlement, emp)
                         lines.append(line)
-                        all_transactions.append(liquid_tx)
+                        all_transactions.extend(liquid_tx)
                         continue
 
                     vals = emp_form_values.get(emp_id, {})
@@ -915,19 +939,23 @@ def payroll_new():
                     "periodSubType": period_sub_type_val, "periodRange": period_range,
                     "startDate": start_date, "endDate": end_date,
                     "scheduledPaymentDate": scheduled_payment_date_val or end_date,
-                    "month": month, "year": year, "revision": 1,
+                    "month": month, "year": year, "revision": revision,
                     "payrollGroupId": selected_group_id, "status": "calculada",
                     "totalGross": round(total_gross, 2), "totalNet": round(total_net, 2),
                     "totalEmployerContrib": round(total_employer, 2),
-                    "processedDate": now_dt.isoformat(), "notes": notes_val,
+                    "processedDate": now_dt.isoformat(),
+                    "notes": (existing_period_ref.get("notes", "") + "\n" + notes_val).strip() if existing_period_ref and notes_val else (notes_val or existing_period_ref.get("notes", "") if existing_period_ref else notes_val),
                     "calculatedBy": user_email, "calculatedAt": now_dt.isoformat(),
                     "taxRatesSnapshot": params, "appliedRatesDate": now_dt.isoformat(),
                     "parameterVersions": {}, "lineCount": len(lines),
                     "recurringDeductionColumns": all_recurring_descs,
                     "recurringAdditionsColumns": all_recurring_additions_descs,
                     "overtimeColumns": overtime_columns,
-                    "statusHistory": [{"from": "borrador", "to": "calculada", "by": user_email,
-                                      "at": now_dt.isoformat(), "comment": "Nómina calculada"}],
+                    "statusHistory": (existing_period_ref.get("statusHistory", []) if existing_period_ref else []) + [
+                        {"from": existing_period_ref.get("status", "borrador") if existing_period_ref else "borrador",
+                         "to": "calculada", "by": user_email,
+                         "at": now_dt.isoformat(), "comment": "Nómina calculada"}
+                    ],
                 }
 
                 from app.services.recurring_service import save_applications_batch
@@ -1058,6 +1086,18 @@ def payroll_simulate():
         except Exception:
             pass
 
+        # Merge pending-liquidation employees into the visible list for UX
+        existing_ids = {e.get("id") for e in employees}
+        for s in pending_liquidations:
+            emp_id = s.get("employeeId") or ""
+            if emp_id and emp_id not in existing_ids:
+                emp = next((e for e in all_employees_full if e["id"] == emp_id), None)
+                if emp:
+                    emp_with_flag = dict(emp)
+                    emp_with_flag["isLiquidation"] = True
+                    employees.append(emp_with_flag)
+                    existing_ids.add(emp_id)
+
     simulation = None
     period_sub_type_val = "regular"
 
@@ -1080,6 +1120,8 @@ def payroll_simulate():
             period_employees, liquidation_settlements_map = _collect_liquidation_employees(
                 company_id, sandbox, selected_group_id, all_employees_full, period_employees,
             )
+        else:
+            period_employees = [e for e in period_employees if not e.get("isLiquidation")]
 
         from datetime import timezone
         from collections import defaultdict

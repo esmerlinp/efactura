@@ -638,8 +638,7 @@ function approveAndContinue() {
 
     var fd = new FormData();
     fd.append('csrf_token', '{{ csrf_token() }}');
-    fd.append('terminationType', '{{ req.terminationType }}');
-    fd.append('terminationDate', '{{ req.effectiveDate or "" }}');
+    fd.append('wizard_action', 'approve');
 
     fetch("{{ url_for('web_rrhh.offboarding_wizard_step1', request_id=req.id) }}", {
         method: 'POST',
@@ -651,11 +650,14 @@ function approveAndContinue() {
             location.reload();
         } else {
             alert(data.message || 'Error al aprobar.');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> Aprobar liquidación y continuar';
         }
     })
     .catch(function(err) {
         alert('Error: ' + err.message);
         btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> Aprobar liquidación y continuar';
     });
 }
 
