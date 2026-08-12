@@ -196,7 +196,7 @@ class DgiiDirectService:
                 v = data.get(key)
                 if v:
                     status_candidates.append(v)
-        if text:
+        elif text:
             status_candidates.append(text)
         for candidate in status_candidates:
             normalized = cls._normalize_status(candidate)

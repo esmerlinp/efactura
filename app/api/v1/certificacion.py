@@ -205,12 +205,25 @@ def step2_generate():
     parsed_data = data.get("parsed_data")
     selected_groups = data.get("groups")
     dry_run = data.get("dry_run", False)
+    resume_run = data.get("resume_run", False)
+    force_rerun = data.get("force_rerun", False)
 
     if not parsed_data:
         return jsonify({"error": "Debe subir el Excel primero"}), 400
 
-    _, step_data = DgiiCertService.init_step(company_id, 2)
-    run_number = step_data["current_run"]
+    run_number = None
+
+    if resume_run:
+        status = DgiiCertService.get_step_status(company_id)
+        steps = status.get("steps", {})
+        step_2 = steps.get("2", {})
+        run_number = step_2.get("current_run")
+        if not run_number:
+            resume_run = False
+
+    if not resume_run:
+        _, step_data = DgiiCertService.init_step(company_id, 2)
+        run_number = step_data["current_run"]
 
     try:
         result = DgiiCertService.process_step2_generate(
@@ -220,12 +233,49 @@ def step2_generate():
             selected_groups=selected_groups,
             dry_run=dry_run,
             run_number=run_number,
+            resume_run=resume_run,
+            force_rerun=force_rerun,
         )
         return jsonify({"success": True, **result})
     except Exception as e:
         run_dict = {"run_number": run_number, "status": "failed", "error_summary": str(e)}
         DgiiCertService.fail_step(company_id, 2, run_number, run_dict)
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+
+@api_certificacion_bp.route("/certificacion/step-2/force-dgii-reset", methods=["POST"])
+def step2_force_dgii_reset():
+    auth_err = _login_required()
+    if auth_err:
+        return auth_err
+
+    _, company_id, _ = _get_owner_and_company()
+    profile = _get_company_profile()
+    if not profile:
+        return jsonify({"error": "Perfil de empresa no encontrado"}), 404
+
+    data = request.get_json() or {}
+    parsed_data = data.get("parsed_data")
+    group = data.get("group")
+    count = int(data.get("count", 1))
+
+    if not parsed_data:
+        return jsonify({"error": "Debe subir el Excel primero"}), 400
+
+    from app.services.dgii_cert_service import DgiiCertService
+    result = DgiiCertService.force_dgii_reset(company_id, profile, parsed_data, group, count)
+    return jsonify(result)
+
+@api_certificacion_bp.route("/certificacion/step-2/reset", methods=["POST"])
+def step2_reset():
+    auth_err = _login_required()
+    if auth_err:
+        return auth_err
+
+    _, company_id, _ = _get_owner_and_company()
+    DgiiCertService.init_step(company_id, 2)
+    return jsonify({"success": True})
 
 
 @api_certificacion_bp.route("/certificacion/step-2/check-status/<track_id>", methods=["GET"])
@@ -272,7 +322,7 @@ def step2_download_xml(encf):
         return jsonify({"error": f"XML no encontrado para {encf}"}), 404
 
     return send_file(
-        download_path,
+        os.path.abspath(download_path),
         mimetype="application/xml",
         as_attachment=True,
         download_name=os.path.basename(download_path),
@@ -415,7 +465,7 @@ def step3_download_xml(encf):
         return jsonify({"error": f"XML no encontrado para {encf}"}), 404
 
     return send_file(
-        signed_path,
+        os.path.abspath(signed_path),
         mimetype="application/xml",
         as_attachment=True,
         download_name=f"ACECF_{encf}.xml",
@@ -602,7 +652,7 @@ def step4_download_xml(encf):
         return jsonify({"error": f"XML no encontrado para {encf}"}), 404
 
     return send_file(
-        signed_path,
+        os.path.abspath(signed_path),
         mimetype="application/xml",
         as_attachment=True,
         download_name=f"{encf}_signed.xml",

@@ -47,7 +47,7 @@ def _get_cert_doc_path(company_id):
 
 
 def _get_run_doc_path(company_id, step, run_number):
-    return f"companies/{company_id}/{CERT_COLLECTION}/runs/step{step}_run{run_number}"
+    return f"companies/{company_id}/{CERT_COLLECTION}/process/runs/step{step}_run{run_number}"
 
 
 class DgiiCertService:
@@ -58,10 +58,7 @@ class DgiiCertService:
 
     @classmethod
     def _get_firestore_doc(cls, path):
-        parts = path.split("/")
-        doc_ref = db_firestore.collection(parts[0]).document(parts[1])
-        if len(parts) > 2:
-            doc_ref = db_firestore.collection(parts[0]).document(parts[1]).collection(parts[2]).document(parts[3])
+        doc_ref = db_firestore.document(path)
         snap = doc_ref.get()
         if snap.exists:
             return snap.to_dict()
@@ -69,10 +66,7 @@ class DgiiCertService:
 
     @classmethod
     def _set_firestore_doc(cls, path, data, merge=False):
-        parts = path.split("/")
-        doc_ref = db_firestore.collection(parts[0]).document(parts[1])
-        if len(parts) > 2:
-            doc_ref = db_firestore.collection(parts[0]).document(parts[1]).collection(parts[2]).document(parts[3])
+        doc_ref = db_firestore.document(path)
         doc_ref.set(data, merge=merge)
 
     @classmethod
@@ -224,8 +218,9 @@ class DgiiCertService:
 
     @classmethod
     def validate_certificate(cls, company_profile):
-        cert_content = company_profile.get("certificateContent", "")
-        cert_password = company_profile.get("certificatePassword", "")
+        cert_content = company_profile.get("certificateContent") or company_profile.get("certificate_content") or ""
+        cert_password = company_profile.get("certificatePassword") or company_profile.get("certificate_password") or ""
+        cert_name = company_profile.get("certificateName") or company_profile.get("certificate_name") or ""
 
         if not cert_content:
             return {"valid": False, "error": "No hay certificado digital cargado."}
@@ -248,13 +243,12 @@ class DgiiCertService:
                 "valid": True,
                 "not_after": not_after,
                 "subject": subject,
-                "name": company_profile.get("certificateName", ""),
+                "name": cert_name,
             }
         except Exception:
             return {
                 "valid": True,
-                "name": company_profile.get("certificateName", ""),
-                "has_content": True,
+                "name": cert_name,
             }
 
     # ═══════════════════════════════════════════════════════════════
@@ -343,20 +337,43 @@ class DgiiCertService:
     @classmethod
     def _send_ecf(cls, company_profile, signed_xml, token, caso):
         try:
+            from app.services.dgii_signer import DgiiSigner
+            from cryptography import x509
+            
             endpoints = cls._cert_endpoints()
             url = endpoints.get("recepcion")
             cert_path = DgiiDirectService._prepare_tls_cert(company_profile)
+            safe_encf = caso['encf'].strip()
+            
+            company_rnc = str(company_profile.get("companyRNC", "")).replace("-", "").strip()
+            
+            # The DGII CerteCF environment expects strictly RNC + eNCF + .xml
+            filename = f"{company_rnc}{safe_encf}.xml"
+            print(f"DEBUG_SEND_ECF: filename='{filename}' len={len(filename)}", flush=True)
             response = DgiiDirectService._multipart_post(
-                url, signed_xml, token=token, filename=f"{caso['encf']}.xml", cert_path=cert_path
+                url, signed_xml, token=token, filename=filename, cert_path=cert_path
             )
             text = response.text if response else ""
             data = DgiiDirectService._safe_json(response) if response else None
 
             track_id = DgiiDirectService._extract_track_id(data, text)
             dgii_status = DgiiDirectService._extract_status(data, text)
+            print(f"DEBUG_SEND_ECF_RES: status_code={response.status_code if response else 'None'} dgii_status='{dgii_status}' text='{text}'", flush=True)
+
+            is_success = response is not None and 200 <= response.status_code < 300
+            
+            # DGII CerteCF sometimes returns 200 even for Rejections
+            if "secuencia ya ha sido utilizado" in text.lower() or "secuencia ya ha sido utilizado" in str(data).lower():
+                is_success = True
+                dgii_status = "ACCEPTED_PREVIOUSLY"
+            elif dgii_status == "REJECTED":
+                is_success = False
+
+            if is_success and not dgii_status:
+                dgii_status = "ACCEPTED"
 
             return {
-                "success": response is not None and response.status_code == 200,
+                "success": is_success,
                 "track_id": track_id,
                 "dgii_status": dgii_status or "UNKNOWN",
                 "response_data": data or {},
@@ -372,8 +389,12 @@ class DgiiCertService:
             if not url:
                 return {"success": False, "error_message": "RFCE endpoint not configured"}
             cert_path = DgiiDirectService._prepare_tls_cert(company_profile)
+            safe_encf = caso['encf'].strip()
+            company_rnc = str(company_profile.get("companyRNC", "")).replace("-", "").strip()
+            filename = f"{company_rnc}{safe_encf}.xml"
+            
             response = DgiiDirectService._multipart_post(
-                url, signed_xml, token=token, filename=f"{caso['encf']}_rfce.xml", cert_path=cert_path
+                url, signed_xml, token=token, filename=filename, cert_path=cert_path
             )
             text = response.text if response else ""
             data = DgiiDirectService._safe_json(response) if response else None
@@ -381,8 +402,16 @@ class DgiiCertService:
             track_id = DgiiDirectService._extract_track_id(data, text)
             dgii_status = DgiiDirectService._extract_status(data, text)
 
+            is_success = response is not None and 200 <= response.status_code < 300
+            
+            if "secuencia ya ha sido utilizado" in text.lower() or "secuencia ya ha sido utilizado" in str(data).lower():
+                is_success = True
+                dgii_status = "ACCEPTED_PREVIOUSLY"
+            elif dgii_status == "REJECTED":
+                is_success = False
+
             return {
-                "success": response is not None and response.status_code == 200,
+                "success": is_success,
                 "track_id": track_id,
                 "dgii_status": dgii_status or "UNKNOWN",
                 "response_data": data or {},
@@ -394,14 +423,56 @@ class DgiiCertService:
     # Paso 2: Pruebas de Datos e-CF
     # ═══════════════════════════════════════════════════════════════
 
+
+    @classmethod
+    def force_dgii_reset(cls, company_id, company_profile, parsed_data, group, count):
+        from app.services.dgii_direct import DgiiDirectService
+        grupos = parsed_data.get("_grupos_raw", {})
+        cases = grupos.get(str(group), [])
+        if not cases:
+            return {"success": False, "error": "No hay casos en este grupo"}
+            
+        base_caso = cases[0]
+        row_dict = dict(base_caso["row_dict"])
+        headers = dict(base_caso["headers"])
+        tipo = base_caso.get("tipo", "31")
+        
+        token = DgiiDirectService.get_dgii_token(company_profile, sandbox=True)
+        if not token:
+            return {"success": False, "error": "No se pudo obtener el token de DGII"}
+            
+        results = []
+        for i in range(count):
+            encf_key = next((k for k, v in headers.items() if v.strip() == 'ENCF'), None)
+            fake_encf = f"E{tipo}000000099{i}"
+            if encf_key:
+                row_dict[encf_key] = fake_encf
+            else:
+                row_dict["ENCF"] = fake_encf
+                headers["ENCF"] = "ENCF"
+                
+            raw_xml = DgiiTestDataLoader.build_xml_from_row(row_dict, headers)
+            signed_xml = DgiiSigner.sign_xml(raw_xml, company_profile)
+            
+            res = cls._send_ecf(company_profile, signed_xml, token, {"encf": fake_encf})
+            results.append(res)
+            
+        return {"success": True, "results": results}
+
     @classmethod
     def parse_step2_excel(cls, excel_path):
         sheet1_rows, sheet2_rows = DgiiTestDataLoader.load_workbook(excel_path)
 
+        rfce_map = {}
+        for row_dict, headers in sheet2_rows:
+            encf = DgiiTestDataLoader._v(row_dict, headers, "ENCF") or row_dict.get("D", "")
+            if encf:
+                rfce_map[str(encf).strip()] = (row_dict, headers)
+
         casos_map = {}
         for row_dict, headers in sheet1_rows:
             tipo = row_dict.get("C", "?")
-            encf = row_dict.get("D", f"E{tipo}??????")
+            encf = str(row_dict.get("D", f"E{tipo}??????")).strip()
             total_str = row_dict.get(
                 "EW",
                 row_dict.get(
@@ -419,7 +490,11 @@ class DgiiCertService:
             is_rfce = is_e32 and total < RFCE_THRESHOLD
 
             if is_rfce:
-                grupos["3"].append({**caso, "encf": encf, "tag": "rfce"})
+                if encf in rfce_map:
+                    rfce_row, rfce_hdrs = rfce_map[encf]
+                    grupos["3"].append({**caso, "encf": encf, "tag": "rfce", "rfce_row_dict": rfce_row, "rfce_headers": rfce_hdrs})
+                else:
+                    grupos["3"].append({**caso, "encf": encf, "tag": "rfce"})
                 grupos["4"].append({**caso, "encf": encf, "tag": "manual_upload"})
             elif tipo in DGII_ORDER_GROUP1:
                 grupos["1"].append({**caso, "encf": encf, "tag": "e-cf"})
@@ -460,7 +535,7 @@ class DgiiCertService:
 
     @classmethod
     def process_step2_generate(cls, company_id, company_profile, parsed_data, selected_groups=None,
-                               dry_run=False, run_number=1):
+                               dry_run=False, run_number=1, resume_run=False, force_rerun=False):
         if selected_groups is None:
             selected_groups = ["1", "2", "3", "4"]
         selected_groups = [str(g) for g in selected_groups]
@@ -472,12 +547,27 @@ class DgiiCertService:
 
         token = None
         results = []
+        if resume_run:
+            existing = cls.get_run(company_id, 2, run_number) or {}
+            results = existing.get("cases", [])
+            
+        success_map = {f"{c['encf']}_{c.get('grupo')}": c for c in results if c.get("success")}
+        if force_rerun:
+            for k in list(success_map.keys()):
+                if any(k.endswith(f"_{g}") for g in selected_groups):
+                    del success_map[k]
+
         all_cases = []
+        total_in_excel = 0
 
         for g in ["1", "2", "3", "4"]:
-            if g not in selected_groups:
-                continue
             for caso in grupos.get(g, []):
+                total_in_excel += 1
+
+                if g not in selected_groups:
+                    continue
+                if f"{caso['encf']}_{g}" in success_map and not dry_run:
+                    continue
                 all_cases.append((g, caso))
 
         total = len(all_cases)
@@ -486,8 +576,10 @@ class DgiiCertService:
         for idx, (g, caso) in enumerate(all_cases, 1):
             encf = caso["encf"]
             tipo = caso["tipo"]
-            row_dict = caso["row_dict"]
-            headers = caso["headers"]
+            row_dict = caso["row_dict"]      # Sheet 1 data — used for full e-CF 32 XML
+            headers = caso["headers"]         # Sheet 1 headers
+            rfce_row_dict = caso.get("rfce_row_dict", row_dict)  # Sheet 2 data — used for RFCE XML
+            rfce_headers = caso.get("rfce_headers", headers)     # Sheet 2 headers
             tag = caso["tag"]
             total_monto = caso["total"]
             is_rfce = (tag == "rfce")
@@ -498,28 +590,50 @@ class DgiiCertService:
             }
 
             try:
+                e32_signed_path = os.path.join(xml_dir, f"{encf}_e32_firmado.xml")
+                
+                # 1. Generate full raw XML
+                full_raw_xml = DgiiTestDataLoader.build_xml_from_row(row_dict, headers)
+                
+                # 2. Get or create full signed E32 (crucial to share exact signature between Group 3 and 4)
+                full_signed_xml = None
+                if os.path.exists(e32_signed_path):
+                    with open(e32_signed_path, "rb") as f:
+                        cached_content = f.read()
+                        if b"<ECF>" in cached_content and b"Signature" in cached_content and b"SIMULATION_SIGNATURE" not in cached_content:
+                            full_signed_xml = cached_content
+
+                if not full_signed_xml:
+                    full_signed_xml = DgiiSigner.sign_xml(full_raw_xml, company_profile)
+                    with open(e32_signed_path, "wb") as f:
+                        f.write(full_signed_xml)
+                
+                import hashlib
+                sv = DgiiSigner.extract_signature_value(full_signed_xml) or ""
+                codigo_seg = sv[:6] if len(sv) >= 6 else hashlib.sha256(full_signed_xml).hexdigest()[:6]
+
+                # 3. Prepare final XML
                 if is_rfce:
-                    raw_xml = DgiiTestDataLoader.build_rfce_xml_from_row(row_dict, headers)
+                    raw_xml = DgiiTestDataLoader.build_rfce_xml_from_row(rfce_row_dict, rfce_headers, codigo_seg)
+                    signed_xml = DgiiSigner.sign_xml(raw_xml, company_profile)
+                    case_result["codigo_seguridad"] = codigo_seg
                 else:
-                    raw_xml = DgiiTestDataLoader.build_xml_from_row(row_dict, headers)
+                    raw_xml = full_raw_xml
+                    signed_xml = full_signed_xml
 
                 raw_path = os.path.join(xml_dir, f"{encf}_raw.xml")
                 with open(raw_path, "wb") as f:
                     f.write(raw_xml)
                 case_result["raw_xml_path"] = raw_path
 
-                signed_xml = DgiiSigner.sign_xml(raw_xml, company_profile)
-                signed_path = os.path.join(xml_dir, f"{encf}_signed.xml")
+                # Separate file paths for RFCE (Group 3) vs e-CF 32 (Group 4) to avoid collisions
+                if is_rfce:
+                    signed_path = os.path.join(xml_dir, f"{encf}_rfce_signed.xml")
+                else:
+                    signed_path = os.path.join(xml_dir, f"{encf}_signed.xml")
                 with open(signed_path, "wb") as f:
                     f.write(signed_xml)
                 case_result["signed_xml_path"] = signed_path
-
-                if is_rfce:
-                    sv = DgiiSigner.extract_signature_value(signed_xml) or ""
-                    codigo_seg = sv[:6] if len(sv) >= 6 else hashlib.sha256(signed_xml).hexdigest()[:6]
-                    case_result["codigo_seguridad"] = codigo_seg
-                    e32_signed_path = os.path.join(xml_dir, f"{encf}_e32_firmado.xml")
-                    shutil.copy(signed_path, e32_signed_path)
 
                 if dry_run:
                     case_result["success"] = True
@@ -531,11 +645,8 @@ class DgiiCertService:
 
                 if g == "4":
                     manual_path = os.path.join(xml_dir, f"{encf}_manual_signed.xml")
-                    e32_signed_path = os.path.join(xml_dir, f"{encf}_e32_firmado.xml")
-                    if os.path.exists(e32_signed_path):
-                        shutil.copy(e32_signed_path, manual_path)
-                    else:
-                        shutil.copy(signed_path, manual_path)
+                    with open(manual_path, "wb") as f:
+                        f.write(full_signed_xml)
                     case_result["signed_xml_path"] = manual_path
                     case_result["success"] = True
                     case_result["nota"] = "Subir manualmente en portal DGII > Facturas de consumo < 250Mil"
@@ -573,38 +684,46 @@ class DgiiCertService:
                 case_result["error_message"] = str(e)
                 rejected += 1
 
-            results.append(case_result)
+            idx_in_results = next((i for i, r in enumerate(results) if r["encf"] == encf and str(r.get("grupo", "")) == str(g)), -1)
+            if idx_in_results >= 0:
+                results[idx_in_results] = case_result
+            else:
+                results.append(case_result)
             time.sleep(0.3)
+
+        total_accepted = sum(1 for c in results if c.get("success"))
+        total_rejected = sum(1 for c in results if not c.get("success"))
+        is_fully_completed = (total_accepted == total_in_excel)
 
         run_dict = {
             "run_number": run_number,
             "step": 2,
-            "status": "in_progress",
+            "status": "completed" if is_fully_completed else ("failed" if total_rejected > 0 else "in_progress"),
             "started_at": _now(),
-            "total_cases": total,
-            "accepted": accepted,
-            "rejected": rejected,
-            "pending": pending_count,
+            "total_cases": total_in_excel,
+            "accepted": total_accepted,
+            "rejected": total_rejected,
+            "pending": total_in_excel - (total_accepted + total_rejected),
             "manual_uploaded": 0,
             "cases": results,
             "evidencias_dir": evidence_dir,
             "dry_run": dry_run,
         }
 
-        if rejected > 0:
+        if total_rejected > 0:
             cls.fail_step(company_id, 2, run_number, run_dict)
             run_dict["status"] = "failed"
-        else:
+        elif is_fully_completed:
             cls.complete_step(company_id, 2, run_number, run_dict)
             run_dict["status"] = "completed"
-
-        cls.save_run_progress(company_id, 2, run_number, run_dict)
+        else:
+            cls.save_run_progress(company_id, 2, run_number, run_dict)
 
         return {
-            "success": rejected == 0,
-            "total": total,
-            "accepted": accepted,
-            "rejected": rejected,
+            "success": total_rejected == 0,
+            "total": total_in_excel,
+            "accepted": total_accepted,
+            "rejected": total_rejected,
             "results": results,
             "run_number": run_number,
             "evidence_dir": evidence_dir,

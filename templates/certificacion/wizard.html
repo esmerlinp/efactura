@@ -276,9 +276,6 @@
 
     <div class="cert-toast-container" id="cert-toast-container"></div>
 
-    {% block step_content %}{% endblock %}
-</div>
-
 <script>
     const CERT_CSRF_TOKEN = "{{ csrf_token() }}";
     const CERT_API_BASE = "/api/v1";
@@ -331,4 +328,7 @@
         return new Intl.NumberFormat("es-DO", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
     }
 </script>
+
+    {% block step_content %}{% endblock %}
+</div>
 {% endblock %}

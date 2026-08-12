@@ -156,10 +156,14 @@ class DgiiTestDataLoader:
             if v:
                 comp_children.append((tag, v))
 
-        if comp_children:
-            comp_elem = ET.SubElement(enc, "Comprador")
-            for tag, val in comp_children:
-                ET.SubElement(comp_elem, tag).text = val
+        total_monto_str = cls._v(row_dict, headers, "MontoTotal")
+        total_monto = float(total_monto_str) if total_monto_str else 0.0
+        if tipo == "32" and total_monto < 250000:
+            comp_children = []  # Normativa DGII: no puede haber datos del comprador en E32 < 250k
+
+        comp_elem = ET.SubElement(enc, "Comprador")
+        for tag, val in comp_children:
+            ET.SubElement(comp_elem, tag).text = val
 
         # ── InformacionesAdicionales ──
         info_children = []
@@ -196,18 +200,14 @@ class DgiiTestDataLoader:
             for tag, val in trans_children:
                 ET.SubElement(trans_elem, tag).text = val
 
-        # ── Totales ──
+        # First part of Totales
         totales_elem = ET.SubElement(enc, "Totales")
         for tag in [
             "MontoGravadoTotal", "MontoGravadoI1", "MontoGravadoI2",
             "MontoGravadoI3", "MontoExento",
             "ITBIS1", "ITBIS2", "ITBIS3",
             "TotalITBIS", "TotalITBIS1", "TotalITBIS2", "TotalITBIS3",
-            "MontoImpuestoAdicional", "MontoTotal",
-            "MontoNoFacturable", "MontoPeriodo",
-            "SaldoAnterior", "MontoAvancePago", "ValorPagar",
-            "TotalITBISRetenido", "TotalISRRetencion",
-            "TotalITBISPercepcion", "TotalISRPercepcion",
+            "MontoImpuestoAdicional",
         ]:
             cls._add(totales_elem, tag, cls._v(row_dict, headers, tag))
 
@@ -237,6 +237,17 @@ class DgiiTestDataLoader:
                     ET.SubElement(ia, "MontoImpuestoSelectivoConsumoAdvalorem").text = imp["MontoImpuestoSelectivoConsumoAdvalorem"]
                 if imp["OtrosImpuestosAdicionales"]:
                     ET.SubElement(ia, "OtrosImpuestosAdicionales").text = imp["OtrosImpuestosAdicionales"]
+
+        # Second part of Totales
+        for tag in [
+            "MontoTotal", "MontoNoFacturable", "MontoPeriodo",
+            "SaldoAnterior", "MontoAvancePago", "ValorPagar",
+            "TotalITBISRetenido", "TotalISRRetencion",
+            "TotalITBISPercepcion", "TotalISRPercepcion",
+        ]:
+            cls._add(totales_elem, tag, cls._v(row_dict, headers, tag))
+
+
 
         # ── OtraMoneda ──
         mon = cls._v(row_dict, headers, "TipoMoneda")
@@ -617,18 +628,17 @@ class DgiiTestDataLoader:
             v = cls._v(row_dict, headers, tag)
             if v:
                 comp_children.append((tag, v))
-        if comp_children:
-            comp_elem = ET.SubElement(enc, "Comprador")
-            for tag, val in comp_children:
-                ET.SubElement(comp_elem, tag).text = val
+                
+        comp_elem = ET.SubElement(enc, "Comprador")
+        for tag, val in comp_children:
+            ET.SubElement(comp_elem, tag).text = val
 
         # ── Totales ──
         totales_elem = ET.SubElement(enc, "Totales")
         for tag in [
             "MontoGravadoTotal", "MontoGravadoI1", "MontoGravadoI2", "MontoGravadoI3",
             "MontoExento", "TotalITBIS", "TotalITBIS1", "TotalITBIS2", "TotalITBIS3",
-            "MontoImpuestoAdicional", "MontoTotal",
-            "MontoNoFacturable", "MontoPeriodo",
+            "MontoImpuestoAdicional",
         ]:
             cls._add(totales_elem, tag, cls._v(row_dict, headers, tag))
 
@@ -655,6 +665,13 @@ class DgiiTestDataLoader:
                     ET.SubElement(ia, "MontoImpuestoSelectivoConsumoAdvalorem").text = imp["MontoImpuestoSelectivoConsumoAdvalorem"]
                 if imp["OtrosImpuestosAdicionales"]:
                     ET.SubElement(ia, "OtrosImpuestosAdicionales").text = imp["OtrosImpuestosAdicionales"]
+
+        for tag in [
+            "MontoTotal", "MontoNoFacturable", "MontoPeriodo",
+        ]:
+            cls._add(totales_elem, tag, cls._v(row_dict, headers, tag))
+
+
 
         # ── CodigoSeguridadeCF (requerido, del E32 original firmado) ──
         if codigo_seguridad:
