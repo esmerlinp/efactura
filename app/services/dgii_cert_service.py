@@ -534,6 +534,38 @@ class DgiiCertService:
         }
 
     @classmethod
+    def _cached_e32_matches(cls, cached_signed_bytes, fresh_raw_bytes):
+        """
+        True si el E32 firmado cacheado tiene el mismo contenido unsigned que el
+        raw recién generado, ignorando FechaHoraFirma (cambia en cada build) y el
+        bloque ds:Signature (firma). Compara c14n para no depender del orden de
+        atributos/espacios del serializador.
+        """
+        try:
+            from lxml import etree
+        except Exception:
+            return False
+
+        DS = "{http://www.w3.org/2000/09/xmldsig#}"
+
+        def _normalize(data_bytes, is_signed):
+            root = etree.fromstring(data_bytes)
+            if is_signed:
+                for sig in root.findall(f".//{DS}Signature"):
+                    parent = sig.getparent()
+                    if parent is not None:
+                        parent.remove(sig)
+            fhf = root.find("FechaHoraFirma")
+            if fhf is not None:
+                fhf.text = ""
+            return etree.tostring(root, method="c14n")
+
+        try:
+            return _normalize(cached_signed_bytes, True) == _normalize(fresh_raw_bytes, False)
+        except Exception:
+            return False
+
+    @classmethod
     def process_step2_generate(cls, company_id, company_profile, parsed_data, selected_groups=None,
                                dry_run=False, run_number=1, resume_run=False, force_rerun=False):
         if selected_groups is None:
@@ -596,17 +628,24 @@ class DgiiCertService:
                 full_raw_xml = DgiiTestDataLoader.build_xml_from_row(row_dict, headers)
                 
                 # 2. Get or create full signed E32 (crucial to share exact signature between Group 3 and 4)
+                #    La DGII exige que CodigoSeguridadeCF (RFCE) == SignatureValue[:6]
+                #    del E32 completo que se sube al portal. Reutilizar el cache cuando
+                #    el contenido coincide (ignorando FechaHoraFirma y firma) mantiene
+                #    la firma estable entre clics y entre corridas.
                 full_signed_xml = None
                 if os.path.exists(e32_signed_path):
                     with open(e32_signed_path, "rb") as f:
                         cached_content = f.read()
-                        if b"<ECF>" in cached_content and b"Signature" in cached_content and b"SIMULATION_SIGNATURE" not in cached_content:
+                        if (b"<ECF>" in cached_content and b"Signature" in cached_content
+                                and b"SIMULATION_SIGNATURE" not in cached_content
+                                and cls._cached_e32_matches(cached_content, full_raw_xml)):
                             full_signed_xml = cached_content
 
                 if not full_signed_xml:
                     full_signed_xml = DgiiSigner.sign_xml(full_raw_xml, company_profile)
                     with open(e32_signed_path, "wb") as f:
                         f.write(full_signed_xml)
+                    case_result["firma_actualizada"] = True
                 
                 import hashlib
                 sv = DgiiSigner.extract_signature_value(full_signed_xml) or ""
@@ -649,7 +688,12 @@ class DgiiCertService:
                         f.write(full_signed_xml)
                     case_result["signed_xml_path"] = manual_path
                     case_result["success"] = True
-                    case_result["nota"] = "Subir manualmente en portal DGII > Facturas de consumo < 250Mil"
+                    case_result["codigo_seguridad"] = codigo_seg
+                    nota = "Subir manualmente en portal DGII > Facturas de consumo < 250Mil"
+                    if case_result.get("firma_actualizada"):
+                        nota += (" | ATENCION: la firma cambio - reenvia el grupo 3 (RFCE) con el "
+                                 "CodigoSeguridadeCF actualizado ANTES de subir este XML al portal")
+                    case_result["nota"] = nota
                     accepted += 1
                     results.append(case_result)
                     continue

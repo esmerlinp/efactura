@@ -142,6 +142,9 @@ class DgiiTestDataLoader:
             cls._add(emisor_elem, tag, cls._v(row_dict, headers, tag))
 
         # ── Comprador ──
+        # Copia verbatim del Excel: el conjunto de datos de la DGII espera
+        # exactamente los valores de la fila (incluye RNCComprador=131880681
+        # en E32<250K y RFCE; los casos E43/E47 lo traen vacío).
         comp_children = []
         for tag in [
             "RNCComprador", "IdentificadorExtranjero", "RazonSocialComprador",
@@ -156,14 +159,10 @@ class DgiiTestDataLoader:
             if v:
                 comp_children.append((tag, v))
 
-        total_monto_str = cls._v(row_dict, headers, "MontoTotal")
-        total_monto = float(total_monto_str) if total_monto_str else 0.0
-        if tipo == "32" and total_monto < 250000:
-            comp_children = []  # Normativa DGII: no puede haber datos del comprador en E32 < 250k
-
-        comp_elem = ET.SubElement(enc, "Comprador")
-        for tag, val in comp_children:
-            ET.SubElement(comp_elem, tag).text = val
+        if comp_children:
+            comp_elem = ET.SubElement(enc, "Comprador")
+            for tag, val in comp_children:
+                ET.SubElement(comp_elem, tag).text = val
 
         # ── InformacionesAdicionales ──
         info_children = []
@@ -623,15 +622,17 @@ class DgiiTestDataLoader:
         cls._add(emisor_elem, "FechaEmision", cls._v(row_dict, headers, "FechaEmision"))
 
         # ── Comprador ──
+        # Copia verbatim de la Hoja 2 (RFCE): el conjunto de datos de la DGII
+        # espera RNCComprador=131880681 y RazonSocialComprador tal cual el Excel.
         comp_children = []
         for tag in ["RNCComprador", "IdentificadorExtranjero", "RazonSocialComprador"]:
             v = cls._v(row_dict, headers, tag)
             if v:
                 comp_children.append((tag, v))
-                
-        comp_elem = ET.SubElement(enc, "Comprador")
-        for tag, val in comp_children:
-            ET.SubElement(comp_elem, tag).text = val
+        if comp_children:
+            comp_elem = ET.SubElement(enc, "Comprador")
+            for tag, val in comp_children:
+                ET.SubElement(comp_elem, tag).text = val
 
         # ── Totales ──
         totales_elem = ET.SubElement(enc, "Totales")
