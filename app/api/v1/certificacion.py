@@ -222,6 +222,19 @@ def step2_generate():
             resume_run = False
 
     if not resume_run:
+        # Si ya existe un run in_progress para el paso 2, reusarlo aunque la UI
+        # no mande resume_run (p. ej. tras recargar la página). Asi los grupos
+        # 3 y 4 comparten el mismo directorio de evidencias y el mismo E32
+        # firmado -> el CodigoSeguridadeCF del RFCE sigue coincidiendo con la
+        # firma del E32 completo que se sube al portal.
+        status = DgiiCertService.get_step_status(company_id)
+        step_2 = status.get("steps", {}).get("2", {})
+        existing_run = step_2.get("current_run")
+        if existing_run and step_2.get("status") == "in_progress":
+            resume_run = True
+            run_number = existing_run
+
+    if not resume_run:
         _, step_data = DgiiCertService.init_step(company_id, 2)
         run_number = step_data["current_run"]
 
