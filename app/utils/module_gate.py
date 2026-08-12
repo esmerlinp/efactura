@@ -23,6 +23,7 @@ MODULE_DEFS = [
     {"key": "banks", "label": "Bancos & Conciliación", "category": "finanzas"},
     {"key": "contabilidad", "label": "Contabilidad & Catálogo de Cuentas", "category": "finanzas"},
     {"key": "nomina", "label": "Nómina y Recursos Humanos", "category": "rrhh"},
+    {"key": "certificacion", "label": "Certificación DGII", "category": "cumplimiento"},
 ]
 
 def get_enabled_modules():
@@ -45,6 +46,10 @@ def module_enabled(module_key):
     if module_key == 'nomina' and module_key not in modules:
         user = session.get('user', {})
         if user.get('role') == 'owner' or user.get('permissions', {}).get('canHR', False):
+            return True
+    if module_key == 'certificacion' and module_key not in modules:
+        user = session.get('user', {})
+        if user.get('role') == 'owner' or user.get('permissions', {}).get('canCertifyDGII', True):
             return True
     if modules:
         return False

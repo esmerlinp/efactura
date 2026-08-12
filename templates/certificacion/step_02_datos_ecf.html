@@ -60,12 +60,9 @@
             </thead>
             <tbody id="step2-preview-body"></tbody>
         </table>
-        <div class="cert-actions-row" style="margin-top:14px;">
-            <button type="button" class="cert-btn cert-btn-primary" onclick="generateStep2()">
-                <i class="fa-solid fa-play"></i> Generar y Enviar a DGII
-            </button>
-            <button type="button" class="cert-btn cert-btn-secondary" onclick="generateStep2DryRun()">
-                <i class="fa-solid fa-flask"></i> Dry Run (solo generar, no enviar)
+        <div id="step2-actions-row" class="cert-actions-row" style="margin-top:14px;">
+            <button type="button" class="cert-btn cert-btn-primary" onclick="document.getElementById('step2-actions-row').style.display='none'; renderGroups();">
+                <i class="fa-solid fa-list"></i> Mostrar Grupos de Envío
             </button>
         </div>
     </div>
@@ -158,113 +155,226 @@
         preview.style.display = "block";
     }
 
-    async function generateStep2(dryRun = false) {
-        if (!parsedStep2Data) { showToast("Sube el Excel primero", "warning"); return; }
+    
+    // --- NUEVO CODIGO CON BOTONES POR GRUPO ---
+    let globalDataState = null;
 
-        const progress = document.getElementById("step2-progress");
-        const progressText = document.getElementById("step2-progress-text");
-        const progressBar = document.getElementById("step2-progress-bar");
-        progress.style.display = "block";
-        progressBar.style.width = "10%";
-        progressText.textContent = dryRun ? "Generando XMLs (dry run)..." : "Generando y enviando a DGII...";
-
-        try {
-            const resp = await certFetch("/certificacion/step-2/generate", {
-                method: "POST",
-                body: { parsed_data: parsedStep2Data, dry_run: dryRun },
-            });
-            progressBar.style.width = "100%";
-            const data = await resp.json();
-
-            if (data.success) {
-                showToast("Generación completada exitosamente", "success");
-            } else {
-                showToast(`${data.rejected} caso(s) con error. El paso debe reiniciarse.`, "error");
-            }
-
-            currentStep2Run = data.run_number;
-            showStep2Results(data);
-        } catch (e) {
-            showToast("Error en la generación", "error");
-            progressBar.style.width = "100%";
-            progressText.textContent = "Error en la generación";
-        }
-    }
-
-    function generateStep2DryRun() { generateStep2(true); }
-
-    function showStep2Results(data) {
+    function renderGroups() {
         const section = document.getElementById("step2-results-section");
-        const summary = document.getElementById("step2-result-summary");
         const tables = document.getElementById("step2-result-tables");
-        const runLabel = document.getElementById("step2-run-label");
-        const advanceForm = document.getElementById("step2-advance-form");
-        const progress = document.getElementById("step2-progress");
-
+        
         section.style.display = "block";
-        progress.style.display = "none";
-        runLabel.textContent = `Intento #${data.run_number}`;
-
-        const allOk = data.rejected === 0;
-        summary.innerHTML = `
-            <div class="cert-result-${allOk ? 'success' : 'failed'}">
-                ${allOk ? '✅ PASO 2 COMPLETADO' : '❌ ESTE INTENTO HA FALLADO'} &mdash;
-                ${data.accepted}/${data.total} aceptados · ${data.rejected} rechazados
-                ${!allOk ? '<br><strong>REGLA DGII:</strong> Debes reiniciar todo el paso.' : ''}
-            </div>
-        `;
-
-        if (allOk) advanceForm.style.display = "block";
-
-        const results = data.results || [];
-        const byGroup = {};
-        results.forEach(r => {
-            const g = r.grupo;
-            if (!byGroup[g]) byGroup[g] = [];
-            byGroup[g].push(r);
-        });
 
         let html = "";
-        [1, 2, 3, 4].forEach(g => {
-            const cases = byGroup[g] || [];
-            if (cases.length === 0) return;
-            const isManual = g === 4;
-            html += `<div class="cert-group-header"><h4>Grupo ${g} — ${isManual ? 'Subida Manual al Portal DGII' : 'Envío Automático'} (${cases.length} casos)</h4></div>`;
-            html += `<table class="cert-table"><thead><tr>
-                <th>Tipo</th><th>eNCF</th><th>Total</th><th>Estado</th>${g !== 4 ? '<th>Track ID</th>' : ''}<th>Acciones</th></tr></thead><tbody>`;
-            cases.forEach(c => {
-                const statusLabel = c.success
-                    ? (c.dry_run ? 'Dry Run' : (c.dgii_status || 'Enviado'))
-                    : 'Error';
-                const statusClass = c.success ? 'cert-badge-success' : 'cert-badge-danger';
-                html += `<tr>
-                    <td><span class="cert-badge cert-badge-info">${c.tipo}</span></td>
-                    <td style="font-family:monospace; font-size:0.8rem;">${c.encf}</td>
-                    <td>RD$ ${formatCurrency(c.total)}</td>
-                    <td><span class="cert-badge ${statusClass}">${statusLabel}</span>${c.error_message ? '<br><small style="color:var(--accent-red);">'+c.error_message+'</small>' : ''}</td>
-                    ${g !== 4 ? '<td style="font-family:monospace; font-size:0.75rem;">'+(c.track_id || '—')+'</td>' : ''}
-                    <td>
-                        <a href="/api/v1/certificacion/step-2/download/${c.encf}?run=${data.run_number}" class="cert-btn cert-btn-secondary cert-btn-sm">
-                            <i class="fa-solid fa-download"></i> XML
-                        </a>
-                        ${g === 4 && c.success ? '<button class="cert-btn cert-btn-secondary cert-btn-sm" onclick="markManual(\''+c.encf+'\', '+data.run_number+')" style="margin-left:4px;"><i class="fa-solid fa-check"></i> Subido</button>' : ''}
-                    </td></tr>`;
+        
+        const sourceData = globalDataState ? globalDataState.results : [];
+        const baseGroups = parsedStep2Data ? (parsedStep2Data._grupos_raw || {}) : {};
+
+        [1, 2, 3, 4].forEach(gNum => {
+            const g = gNum.toString();
+            const gCases = baseGroups[g] || [];
+            if (gCases.length === 0) return;
+            
+            const isManual = gNum === 4;
+            
+            // Check if all success for this group
+            const allAccepted = gCases.every(c => {
+                const r = sourceData.find(res => res.encf === c.encf && res.grupo === gNum);
+                return r && r.success;
             });
-            html += `</tbody></table>`;
+            
+            const btnLabel = isManual ? "Generar XML Manuales" : "Enviar a DGII";
+
+            html += `<div class="cert-group-header"><h4>Grupo ${g} — ${isManual ? 'Subida Manual al Portal DGII' : 'Envío Automático'} (${gCases.length} casos)</h4></div>`;
+            
+            // Boton de envio del grupo
+            html += `<div style="display: flex; gap: 10px; align-items: center; margin-bottom: 24px;">
+                        <button type="button" class="cert-btn cert-btn-primary" onclick="generateStep2Group([${g}])" id="btn-group-${g}">
+                            <i class="fa-solid ${allAccepted ? 'fa-rotate-right' : 'fa-play'}"></i> ${allAccepted ? 'Volver a Generar' : btnLabel}
+                        </button>
+                     </div>`;
+                     
             if (isManual) {
-                html += `<div class="cert-manual-instr">
+                html += `<div class="cert-manual-instr" style="margin-top:-10px; margin-bottom: 20px;">
                     <i class="fa-solid fa-circle-info"></i> <strong>Instrucciones Grupo 4:</strong> 
                     Descarga cada XML y súbelo manualmente al portal DGII > Certificación > Facturas de Consumo. Marca cada uno como "Subido" cuando lo hayas hecho.
                 </div>`;
             }
+
+            html += `<table class="cert-table"><thead><tr>
+                <th>Tipo</th><th>eNCF</th><th>Total</th><th>Estado</th>${gNum !== 4 ? '<th>Track ID</th>' : ''}<th>Acciones</th></tr></thead><tbody>`;
+            
+            gCases.forEach(c => {
+                // Find result for this case
+                const result = sourceData.find(res => res.encf === c.encf && res.grupo === gNum);
+                
+                let statusLabel = 'Pendiente';
+                let statusClass = 'cert-badge-secondary';
+                let errorMsg = '';
+                let trackId = '—';
+                
+                if (result) {
+                    if (result.success) {
+                        statusLabel = result.dry_run ? 'Dry Run' : (result.dgii_status || 'Completado');
+                        statusClass = 'cert-badge-success';
+                    } else {
+                        statusLabel = 'Error';
+                        statusClass = 'cert-badge-danger';
+                        errorMsg = result.error_message || '';
+                    }
+                    trackId = result.track_id || '—';
+                }
+
+                html += `<tr>
+                    <td><span class="cert-badge cert-badge-info">${c.tipo}</span></td>
+                    <td style="font-family:monospace; font-size:0.8rem;">${c.encf}</td>
+                    <td>RD$ ${formatCurrency(c.total)}</td>
+                    <td><span class="cert-badge ${statusClass}">${statusLabel}</span>${errorMsg ? '<br><small style="color:var(--accent-red);">'+errorMsg+'</small>' : ''}</td>
+                    ${gNum !== 4 ? '<td style="font-family:monospace; font-size:0.75rem;">'+trackId+'</td>' : ''}
+                    <td>
+                        ${result && result.success ? `
+                        <a href="/api/v1/certificacion/step-2/download/${c.encf}?run=${globalDataState ? globalDataState.run_number : currentStep2Run}" class="cert-btn cert-btn-secondary cert-btn-sm">
+                            <i class="fa-solid fa-download"></i> XML
+                        </a>` : ''}
+                        ${gNum === 4 && result && result.success ? '<button class="cert-btn cert-btn-secondary cert-btn-sm" onclick="markManual(\''+c.encf+'\', '+(globalDataState ? globalDataState.run_number : currentStep2Run)+')" style="margin-left:4px;"><i class="fa-solid fa-check"></i> Subido</button>' : ''}
+                    </td></tr>`;
+            });
+            html += `</tbody></table>`;
         });
 
         tables.innerHTML = html;
-
-        if (data.rejected > 0 && data.run_number > 1) {
+        
+        // Show advance form if all groups are completed
+        const allGroups = Object.keys(baseGroups);
+        const allGroupsCompleted = allGroups.every(g => {
+            return baseGroups[g].every(c => {
+                const r = sourceData.find(res => res.encf === c.encf && res.grupo === parseInt(g));
+                return r && r.success;
+            });
+        });
+        
+        const advanceForm = document.getElementById("step2-advance-form");
+        if (advanceForm) {
+            advanceForm.style.display = allGroupsCompleted ? "block" : "none";
+        }
+        
+        if (globalDataState && globalDataState.rejected > 0) {
             loadStep2History();
         }
+
+        // Add advanced options if not already present
+        if (!document.getElementById("advanced-options-container")) {
+            const advHtml = `
+            <div id="advanced-options-container" style="margin-top: 30px; border-top: 1px solid var(--border-color); padding-top: 20px;">
+                <h4 style="color:var(--text-primary); margin-bottom:10px;"><i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-red)"></i> Opciones Avanzadas</h4>
+                <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 15px;">Si la DGII te indica <strong>"Las pruebas han sido reiniciadas"</strong> pero los comprobantes originales del Excel siguen dando el error <strong>"Secuencia ya ha sido utilizado"</strong>, puedes forzar a la DGII a limpiar su memoria enviando facturas intencionalmente erróneas.</p>
+                <button class="cert-btn cert-btn-sm" style="background:var(--accent-red); color:white; border:none;" onclick="forceDgiiReset()">
+                    <i class="fa-solid fa-skull"></i> Forzar Reinicio en DGII
+                </button>
+            </div>`;
+            tables.insertAdjacentHTML('afterend', advHtml);
+        }
     }
+
+    async function forceDgiiReset() {
+        if (!confirm("Esto enviará 25 facturas basura (E31) a la DGII para forzar que excedan el límite y provoquen un reinicio de pruebas real en su sistema. ¿Estás seguro de continuar?")) {
+            return;
+        }
+
+        showToast("Forzando reinicio en DGII... esto tomará unos segundos", "info");
+        try {
+            const resp = await certFetch("/certificacion/step-2/force-dgii-reset", {
+                method: "POST",
+                body: { group: 1, count: 25, parsed_data: parsedStep2Data }
+            });
+            const data = await resp.json();
+            if (data.success) {
+                showToast("¡Reinicio forzado enviado a DGII! Ahora intenta generar tus grupos de nuevo.", "success");
+            } else {
+                showToast("Error al forzar reinicio: " + data.error, "error");
+            }
+        } catch (e) {
+            console.error(e);
+            showToast("Error de conexión al forzar reinicio", "error");
+        }
+    }
+
+    async function generateStep2Group(groups, dryRun = false) {
+        if (!parsedStep2Data) { showToast("Sube el Excel primero", "warning"); return; }
+        
+        const g = groups[0];
+        const btn = document.getElementById(`btn-group-${g}`);
+        const spinner = document.getElementById(`spinner-group-${g}`);
+        
+        if (btn) {
+            btn.disabled = true;
+            btn.dataset.originalHtml = btn.innerHTML;
+            btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Procesando...`;
+            btn.style.opacity = "0.8";
+        }
+        
+        const resumeRun = !!currentStep2Run;
+        
+        try {
+            const resp = await certFetch("/certificacion/step-2/generate", {
+                method: "POST",
+                body: { 
+                    parsed_data: parsedStep2Data,
+                    dry_run: dryRun, 
+                    groups: groups, 
+                    resume_run: resumeRun,
+                    force_rerun: true
+                },
+            });
+            const data = await resp.json();
+            
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = btn.dataset.originalHtml;
+                btn.style.opacity = "1";
+            }
+
+            if (data.success) {
+                showToast(`Grupo ${g} procesado exitosamente`, "success");
+            } else {
+                showToast(`${data.rejected} caso(s) con error. Revisa el detalle.`, "error");
+            }
+
+            currentStep2Run = data.run_number;
+            
+            if (!globalDataState) {
+                globalDataState = {
+                    results: [],
+                    run_number: data.run_number,
+                    rejected: 0
+                };
+            }
+            globalDataState.run_number = data.run_number;
+            globalDataState.rejected += data.rejected;
+            
+            // Merge new results
+            const newResults = data.results || [];
+            newResults.forEach(newR => {
+                const idx = globalDataState.results.findIndex(r => r.encf === newR.encf && r.grupo === newR.grupo);
+                if (idx >= 0) {
+                    globalDataState.results[idx] = newR;
+                } else {
+                    globalDataState.results.push(newR);
+                }
+            });
+
+            renderGroups();
+        } catch (e) {
+            console.error(e);
+            showToast("Error en la generación", "error");
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = btn.dataset.originalHtml;
+                btn.style.opacity = "1";
+            }
+        }
+    }
+
 
     async function markManual(encf, run) {
         try {
@@ -314,13 +424,14 @@
             currentStep2Run = sd.current_run;
             const lastRun = runs[runs.length - 1];
             if (lastRun && lastRun.cases) {
-                showStep2Results({
+                globalDataState = {
                     total: lastRun.total_cases,
                     accepted: lastRun.accepted,
                     rejected: lastRun.rejected,
                     results: lastRun.cases,
                     run_number: lastRun.run_number,
-                });
+                };
+                renderGroups();
                 loadStep2History();
             }
         }

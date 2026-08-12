@@ -25,7 +25,7 @@ def _apply_env_default(key: str, value: str):
 
 _apply_env_default('DGII_ENVIRONMENT', 'ecf' if _is_prod else 'testecf')
 _apply_env_default('DGII_SANDBOX_MODE', 'remote' if _is_prod else 'local')
-_apply_env_default('DGII_SIGNING_MODE', 'real' if _is_prod else 'mock')
+_apply_env_default('DGII_SIGNING_MODE', 'real')
 _apply_env_default('DGII_ALLOW_SIMULATION', 'false' if _is_prod else 'true')
 _apply_env_default('SESSION_COOKIE_SECURE', 'true' if _is_prod else 'false')
 _apply_env_default('RATELIMIT_DEFAULT',

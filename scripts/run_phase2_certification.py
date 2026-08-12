@@ -158,7 +158,7 @@ def send_to_dgii(signed_xml, token, company_profile, invoice_row, endpoints, enc
     import uuid
 
     company_rnc = str(company_profile.get("companyRNC", "")).replace("-", "").strip()
-    filename = f"{company_rnc}{encf}.xml"
+    filename = f"{encf}.xml"
     recepcion_url = endpoints["rfce_recepcion"] if rfce else endpoints["recepcion"]
 
     cert_path = DgiiDirectService._prepare_tls_cert(company_profile)
@@ -638,20 +638,24 @@ def main():
                     e32_signed_path = os.path.join(xml_dir, f"{encf}_e32_firmado.xml")
                     manual_path = os.path.join(xml_dir, f"{encf}_manual_signed.xml")
 
+                    use_existing = False
                     if os.path.exists(e32_signed_path):
-                        import shutil
-                        shutil.copy(e32_signed_path, manual_path)
-                        # Verify signature value
-                        with open(manual_path, "rb") as f:
-                            sv = DgiiSigner.extract_signature_value(f.read())
-                        print(f"    XML reusado de RFCE: {manual_path} ({os.path.getsize(manual_path)} bytes) | SignatureValue[:6]={sv[:6] if sv else 'N/A'}")
-                    else:
+                        with open(e32_signed_path, "rb") as f:
+                            content = f.read()
+                            if b"<ECF>" in content:
+                                use_existing = True
+                                import shutil
+                                shutil.copy(e32_signed_path, manual_path)
+                                sv = DgiiSigner.extract_signature_value(content)
+                                print(f"    XML reusado de RFCE: {manual_path} ({len(content)} bytes) | SignatureValue[:6]={sv[:6] if sv else 'N/A'}")
+
+                    if not use_existing:
                         raw_xml = DgiiTestDataLoader.build_xml_from_row(row_dict, headers)
                         signed_xml = DgiiSigner.sign_xml(raw_xml, profile)
                         with open(manual_path, "wb") as f:
                             f.write(signed_xml)
                         sv = DgiiSigner.extract_signature_value(signed_xml)
-                        print(f"    XML generado (fallback - NO coincide con RFCE!): {manual_path} ({len(signed_xml)} bytes) | SignatureValue[:6]={sv[:6] if sv else 'N/A'}")
+                        print(f"    XML generado (eCF 32 <250K): {manual_path} ({len(signed_xml)} bytes) | SignatureValue[:6]={sv[:6] if sv else 'N/A'}")
 
                     results.append({"encf": encf, "tipo": tipo, "total": total, "grupo": 4,
                                    "tag": "manual_upload", "success": True, "signed_xml": manual_path,

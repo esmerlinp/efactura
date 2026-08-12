@@ -23,13 +23,13 @@ class DgiiSigner:
 
     @classmethod
     def load_pkcs12(cls, company_profile):
-        cert_content_b64 = company_profile.get("certificateContent")
+        cert_content_b64 = company_profile.get("certificateContent") or company_profile.get("certificate_content")
         if not cert_content_b64:
             return None, None, None
         if pkcs12 is None:
             raise RuntimeError("cryptography no está disponible para cargar certificados PKCS#12.")
 
-        cert_password = company_profile.get("certificatePassword") or ""
+        cert_password = company_profile.get("certificatePassword") or company_profile.get("certificate_password") or ""
         cert_data = base64.b64decode(cert_content_b64)
         return pkcs12.load_key_and_certificates(
             cert_data,
@@ -67,7 +67,7 @@ class DgiiSigner:
             raise ValueError("El certificado digital no tiene campo SN en el Subject.")
         cert_sn = sn_attrs[0].value.strip()
         cert_sn_clean = cert_sn[6:] if cert_sn.upper().startswith('IDCDO-') else cert_sn
-        company_rnc = company_profile.get("companyRNC", "").replace("-", "").strip()
+        company_rnc = (company_profile.get("companyRNC") or company_profile.get("rnc") or company_profile.get("company_rnc") or "").replace("-", "").strip()
         if cert_sn_clean != company_rnc:
             import logging
             logging.warning(
@@ -80,12 +80,12 @@ class DgiiSigner:
         Firma digitalmente un archivo XML usando el formato W3C XMLDSig.
         Utiliza el certificado cargado (.p12/.pfx) en el perfil de la compañía.
         """
-        cert_content_b64 = company_profile.get("certificateContent")
+        cert_content_b64 = company_profile.get("certificateContent") or company_profile.get("certificate_content")
         sign_mode = cls._sign_mode()
 
-        if sign_mode != "real":
-            if not cert_content_b64:
-                print("⚠️ [Firma Digital] Advertencia: No hay certificado digital cargado. Generando XML sin firma real (Simulado).", flush=True)
+        # Solo usar firma simulada si NO hay certificado cargado y no se exige modo real
+        if not cert_content_b64 and sign_mode != "real":
+            print("⚠️ [Firma Digital] Advertencia: No hay certificado digital cargado. Generando XML sin firma real (Simulado).", flush=True)
             fake_sig = base64.b64encode(hashlib.sha256(xml_data).digest()).decode("utf-8")
             signed_xml = xml_data.decode("utf-8") + f"\n<!-- SIMULATION_SIGNATURE: {fake_sig} -->"
             return signed_xml.encode("utf-8")
