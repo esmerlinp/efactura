@@ -2,66 +2,6 @@
 
 {% block step_content %}
 <style>
-    .cert-invoice-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-        gap: 12px;
-        margin: 16px 0;
-    }
-    .cert-invoice-card {
-        background: var(--bg-body);
-        border: 2px solid var(--border-color);
-        border-radius: var(--radius-md);
-        padding: 14px 16px;
-        cursor: pointer;
-        transition: all 0.2s;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-    .cert-invoice-card:hover {
-        border-color: var(--accent-emerald);
-    }
-    .cert-invoice-card.selected {
-        border-color: var(--accent-emerald);
-        background: rgba(16, 185, 129, 0.04);
-    }
-    .cert-invoice-card input[type=checkbox] {
-        accent-color: var(--accent-emerald);
-        width: 18px;
-        height: 18px;
-        cursor: pointer;
-    }
-    .cert-invoice-info {
-        flex: 1;
-        min-width: 0;
-    }
-    .cert-invoice-info .inv-number {
-        font-weight: 700;
-        font-size: 0.9rem;
-        color: var(--text-primary);
-    }
-    .cert-invoice-info .inv-meta {
-        font-size: 0.75rem;
-        color: var(--text-secondary);
-        margin-top: 2px;
-    }
-    .cert-invoice-info .inv-total {
-        font-weight: 600;
-        font-size: 0.85rem;
-        color: var(--accent-emerald);
-        margin-top: 4px;
-    }
-    .cert-invoice-tag {
-        display: inline-block;
-        padding: 2px 8px;
-        border-radius: 100px;
-        font-size: 0.68rem;
-        font-weight: 700;
-        background: rgba(59, 130, 246, 0.1);
-        color: #2563EB;
-    }
-
     .cert-type-summary {
         display: flex;
         gap: 8px;
@@ -76,13 +16,149 @@
         background: var(--bg-card);
         border: 1px solid var(--border-color);
     }
+
+    .step4-set-summary {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+    }
+    .step4-block {
+        background: var(--bg-body);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 12px 16px;
+        margin-bottom: 10px;
+    }
+    .step4-block.sent {
+        border-left: 4px solid var(--accent-emerald);
+    }
+    .step4-block.failed {
+        border-left: 4px solid var(--accent-red);
+    }
+    .step4-block.pending {
+        border-left: 4px solid var(--text-muted);
+    }
+    .step4-block.sending {
+        border-left: 4px solid var(--accent-blue, #2563EB);
+        animation: step4Pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes step4Pulse {
+        0%, 100% { box-shadow: none; }
+        50% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
+    }
+    .step4-block-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    .step4-block-title {
+        font-weight: 700;
+        font-size: 0.88rem;
+        color: var(--text-primary);
+    }
+    .step4-block-count {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+    }
+    .step4-case-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        font-size: 0.78rem;
+        padding: 6px 0;
+        border-top: 1px dashed var(--border-color);
+    }
+    .step4-case-row:first-of-type {
+        border-top: none;
+    }
+    .step4-case-links {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+        margin-left: auto;
+    }
+    .step4-case-links a {
+        font-size: 0.7rem;
+        padding: 2px 8px;
+        border-radius: 100px;
+        border: 1px solid var(--border-color);
+        color: var(--text-secondary);
+        text-decoration: none;
+        white-space: nowrap;
+    }
+    .step4-case-links a:hover {
+        border-color: var(--accent-emerald);
+        color: var(--accent-emerald);
+    }
+
+    /* ── Progreso indeterminado ── */
+    .step4-progress-wrap {
+        margin-bottom: 12px;
+    }
+    .step4-progress-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 8px;
+    }
+    .step4-progress-text {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+    }
+    .step4-progress-track {
+        background: var(--bg-body);
+        border-radius: 100px;
+        height: 6px;
+        overflow: hidden;
+        position: relative;
+    }
+    .step4-progress-indeterminate {
+        position: absolute;
+        height: 100%;
+        width: 35%;
+        border-radius: 100px;
+        background: linear-gradient(90deg, var(--accent-emerald), #34d399);
+        animation: step4Slide 1.2s ease-in-out infinite;
+    }
+    @keyframes step4Slide {
+        0% { left: -35%; }
+        100% { left: 100%; }
+    }
+
+    .cert-btn[disabled] {
+        opacity: 0.55;
+        cursor: not-allowed;
+    }
+    .cert-btn .spinner-inline {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border: 2px solid rgba(255, 255, 255, 0.4);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+        vertical-align: -1px;
+        margin-right: 6px;
+    }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
 </style>
 
 <div class="cert-step-card">
-    <h3><i class="fa-solid fa-list-check"></i> Seleccionar Facturas para Simulación</h3>
+    <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Generar Set de Pruebas Automático</h3>
     <p style="font-size:0.88rem; color:var(--text-secondary); margin-bottom:12px;">
-        Selecciona facturas <strong>reales del sistema</strong> para enviarlas a la DGII como prueba de simulación.
-        La DGII exige cubrir todos los tipos de e-CF relevantes (E31, E32, E33, E34, E41, E43, E44, E45, E46, E47).
+        Crea automáticamente los <strong>25 comprobantes</strong> requeridos por la DGII (facturas, notas, compras,
+        gastos menores y pagos al exterior, cada uno en su módulo correspondiente). Si las secuencias fiscales no
+        existen, se crean automáticamente. Cada comprobante se valida con los servicios de generación y firma
+        actuales, y se envían <strong>por bloques en el orden exigido</strong>:
+        4× E31 → 2× E32 ≥250K → 1× E33 → 2× E34 → 2× E41 → 2× E43 → 2× E44 → 2× E45 → 2× E46 → 2× E47 → 4× E32 RFCE.
+        <br><strong>Nota:</strong> los bloques E33/E34 se emiten <strong>manualmente</strong> desde el detalle de una
+        factura E31 (Generar Nota de Débito/Crédito) y luego se marcan como enviados aquí.
     </p>
 
     {% if step_status.get('status') == 'failed' %}
@@ -92,242 +168,345 @@
     {% endif %}
 
     <div class="cert-actions-row" style="margin-bottom:12px;">
-        <button type="button" class="cert-btn cert-btn-primary" onclick="loadInvoices()">
-            <i class="fa-solid fa-sync"></i> Cargar facturas del sistema
+        <button type="button" class="cert-btn cert-btn-primary" onclick="generateStep4Set()" id="step4-set-generate-btn">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Generar set de pruebas
         </button>
-        <button type="button" class="cert-btn cert-btn-secondary" onclick="selectAll()">
-            <i class="fa-solid fa-check-double"></i> Seleccionar todas
+        <button type="button" class="cert-btn cert-btn-secondary" onclick="generateStep4Set(true)" id="step4-set-regenerate-btn" style="display:none;">
+            <i class="fa-solid fa-rotate"></i> Regenerar (forzar)
         </button>
-        <span id="step4-load-msg" style="font-size:0.82rem; color:var(--text-secondary);"></span>
+        <span id="step4-set-msg" style="font-size:0.82rem; color:var(--text-secondary);"></span>
     </div>
 
-    <div id="step4-invoice-list"></div>
-    <div id="step4-type-summary" class="cert-type-summary" style="display:none;"></div>
-
-    <div class="cert-actions-row" style="margin-top:16px;" id="step4-actions" style="display:none;">
-        <button type="button" class="cert-btn cert-btn-primary" onclick="generateStep4()" id="step4-generate-btn" disabled>
-            <i class="fa-solid fa-paper-plane"></i> Enviar <span id="step4-selected-count">0</span> facturas a DGII (CerteCF)
-        </button>
-    </div>
-
-    <div id="step4-progress" style="display:none; margin-top:20px;">
-        <div style="display:flex; align-items:center; gap:12px;">
+    <div id="step4-set-progress" class="step4-progress-wrap" style="display:none;">
+        <div class="step4-progress-row">
             <span class="cert-progress-spinner"></span>
-            <span style="font-size:0.9rem; color:var(--text-secondary);" id="step4-progress-text">Enviando facturas a DGII...</span>
+            <span class="step4-progress-text" id="step4-set-progress-text">Generando set de pruebas…</span>
         </div>
-        <div style="margin-top:8px; background:var(--bg-body); border-radius:100px; height:6px; overflow:hidden;">
-            <div id="step4-progress-bar" style="height:100%; background:var(--accent-emerald); width:0%; transition:width 0.3s;"></div>
+        <div class="step4-progress-track">
+            <div class="step4-progress-indeterminate"></div>
         </div>
     </div>
-</div>
 
-<div id="step4-results-section" style="display:none;">
-    <div class="cert-step-card">
-        <h3><i class="fa-solid fa-list-check"></i> Resultados — <span id="step4-run-label"></span></h3>
-        <div id="step4-result-summary"></div>
-        <div id="step4-result-tables"></div>
-        <div class="cert-actions-row">
-            <button type="button" class="cert-btn cert-btn-secondary" onclick="downloadAllStep4()">
-                <i class="fa-solid fa-download"></i> Descargar evidencias (.zip)
-            </button>
-            <form method="POST" action="{{ url_for('web_certificacion.step_advance', step=step) }}" id="step4-advance-form" style="display:none;">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="cert-btn cert-btn-primary">
-                    <i class="fa-solid fa-arrow-right"></i> Paso Completado — Avanzar al Paso 5
-                </button>
-            </form>
+    <div id="step4-send-progress" class="step4-progress-wrap" style="display:none;">
+        <div class="step4-progress-row">
+            <span class="cert-progress-spinner"></span>
+            <span class="step4-progress-text" id="step4-send-progress-text">Enviando a DGII (CerteCF)…</span>
         </div>
+        <div class="step4-progress-track">
+            <div class="step4-progress-indeterminate"></div>
+        </div>
+    </div>
+
+    <div id="step4-set-container"></div>
+
+    <div class="cert-actions-row" style="margin-top:16px;">
+        <form method="POST" action="{{ url_for('web_certificacion.step_advance', step=step) }}" id="step4-advance-form" style="display:none;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="cert-btn cert-btn-primary">
+                <i class="fa-solid fa-arrow-right"></i> Paso Completado — Avanzar al Paso 5
+            </button>
+        </form>
     </div>
 </div>
 
 <script>
-    let allInvoices = [];
-    let currentStep4Run = {{ step_status.get('current_run', 0) }};
+    // ═══════════════════════════════════════════════════════════
+    // Set de pruebas automático (25 comprobantes por bloques)
+    // ═══════════════════════════════════════════════════════════
 
-    async function loadInvoices() {
-        const msg = document.getElementById("step4-load-msg");
-        msg.textContent = "Cargando...";
-        try {
-            const resp = await certFetch("/certificacion/step-4/invoices");
-            const data = await resp.json();
-            allInvoices = data.invoices || [];
-            msg.textContent = `✓ ${allInvoices.length} facturas cargadas`;
-            renderInvoiceList();
-        } catch (e) {
-            showToast("Error al cargar facturas", "error");
-            msg.textContent = "✗ Error";
+    let step4Set = null;
+    let step4SetRun = {{ step_status.get('current_run', 0) }};
+    let step4Sending = false;
+    let step4SendingBlock = 0;
+
+    function step4CaseListUrl(c) {
+        const kind = c.kind || "invoice";
+        if (kind === "expense") return `/expenses/${c.doc_id}`;
+        if (kind === "supplier_invoice") return `/purchase-orders/invoices/${c.doc_id}`;
+        return `/invoices/${c.doc_id}`;
+    }
+
+    function step4CaseBadge(c) {
+        switch (c.status) {
+            case "accepted": return `<span class="cert-badge cert-badge-success">Aceptado</span>`;
+            case "manual_sent": return `<span class="cert-badge cert-badge-info">Manual</span>`;
+            case "rejected": return `<span class="cert-badge cert-badge-danger">Rechazado</span>`;
+            case "error": return `<span class="cert-badge cert-badge-danger">Error</span>`;
+            default: return `<span class="cert-badge cert-badge-warning">Pendiente</span>`;
         }
     }
 
-    function renderInvoiceList() {
-        const container = document.getElementById("step4-invoice-list");
-        const actions = document.getElementById("step4-actions");
-        const summary = document.getElementById("step4-type-summary");
+    function step4BlockCounts(block) {
+        const done = block.cases.filter(c => c.status === "accepted" || c.status === "manual_sent").length;
+        const bad = block.cases.filter(c => c.status === "rejected" || c.status === "error").length;
+        return `${done}/${block.cases.length}${bad > 0 ? ` · ${bad} err` : ""}`;
+    }
 
-        if (allInvoices.length === 0) {
-            container.innerHTML = '<p style="color:var(--text-muted);">No se encontraron facturas en el sistema.</p>';
-            return;
+    function renderStep4Set() {
+        const container = document.getElementById("step4-set-container");
+        const regenBtn = document.getElementById("step4-set-regenerate-btn");
+        if (!step4Set) return;
+
+        regenBtn.style.display = "inline-flex";
+
+        const blocks = step4Set.blocks || [];
+        const allSent = blocks.length > 0 && blocks.every(b => b.status === "sent");
+        const sentCount = blocks.filter(b => b.status === "sent").length;
+
+        let summary = `<div class="step4-set-summary">
+            <span class="cert-type-chip">Corrida #${step4SetRun}</span>
+            <span class="cert-type-chip">Bloques enviados: ${sentCount}/${blocks.length}</span>
+            <button type="button" class="cert-btn cert-btn-secondary cert-btn-sm" onclick="window.open('/api/v1/certificacion/step-4/download-pdfs?run=${step4SetRun}', '_blank')">
+                <i class="fa-solid fa-file-pdf"></i> Descargar todos los PDF
+            </button>
+            <button type="button" class="cert-btn cert-btn-secondary cert-btn-sm" onclick="window.open('/api/v1/certificacion/step-4/download-all?run=${step4SetRun}', '_blank')">
+                <i class="fa-solid fa-file-zipper"></i> Descargar evidencias (.zip)
+            </button>
+        </div>`;
+
+        if ((step4Set.set_errors || []).length > 0) {
+            summary += `<div class="cert-result-failed" style="margin-bottom:12px;">
+                <strong>⚠️ Errores de generación/validación detectados:</strong><br>
+                <small>${(step4Set.set_errors || []).join("<br>")}</small>
+            </div>`;
         }
 
-        container.innerHTML = '<div class="cert-invoice-grid">' +
-            allInvoices.map(inv => `
-                <label class="cert-invoice-card" data-inv-id="${inv.id}">
-                    <input type="checkbox" value="${inv.id}" onchange="updateSelection()">
-                    <div class="cert-invoice-info">
-                        <div class="inv-number">#${inv.invoiceNumber || inv.id} <span class="cert-invoice-tag">${inv.ecfType || '—'}</span></div>
-                        <div class="inv-meta">${inv.clientName || 'Sin cliente'} · ${inv.date || ''}</div>
-                        <div class="inv-total">RD$ ${formatCurrency(inv.total)}</div>
-                    </div>
-                </label>
-            `).join("") + '</div>';
-
-        actions.style.display = "flex";
-
-        updateSelection();
-    }
-
-    function updateSelection() {
-        const checked = document.querySelectorAll("#step4-invoice-list input:checked");
-        const count = checked.length;
-        const btn = document.getElementById("step4-generate-btn");
-        const countSpan = document.getElementById("step4-selected-count");
-        countSpan.textContent = count;
-        btn.disabled = count === 0;
-
-        // Highlight selected cards
-        document.querySelectorAll(".cert-invoice-card").forEach(card => {
-            const cb = card.querySelector("input");
-            if (cb && cb.checked) {
-                card.classList.add("selected");
-            } else {
-                card.classList.remove("selected");
-            }
-        });
-
-        // Show type summary
-        const types = {};
-        checked.forEach(cb => {
-            const card = cb.closest(".cert-invoice-card");
-            if (!card) return;
-            const tag = card.querySelector(".cert-invoice-tag");
-            if (tag) {
-                const t = tag.textContent;
-                types[t] = (types[t] || 0) + 1;
-            }
-        });
-        const summary = document.getElementById("step4-type-summary");
-        if (Object.keys(types).length > 0) {
-            summary.style.display = "flex";
-            summary.innerHTML = Object.entries(types).map(([t, c]) =>
-                `<span class="cert-type-chip">${t} (${c})</span>`
-            ).join("");
-        } else {
-            summary.style.display = "none";
+        if ((step4Set.warnings || []).length > 0) {
+            summary += `<div class="cert-result-failed" style="margin-bottom:12px; background:rgba(245,158,11,0.08); border-color:rgba(245,158,11,0.4);">
+                <strong>⚠️ Advertencias:</strong><br>
+                <small>${(step4Set.warnings || []).join("<br>")}</small>
+            </div>`;
         }
-    }
 
-    function selectAll() {
-        document.querySelectorAll("#step4-invoice-list input").forEach(cb => {
-            cb.checked = true;
-        });
-        updateSelection();
-    }
+        let blocksHtml = blocks.map((block, bi) => {
+            const sent = block.status === "sent";
+            const failed = block.status === "failed";
+            const sending = step4Sending && step4SendingBlock === block.index;
+            const prevSent = bi === 0 || blocks[bi - 1].status === "sent";
+            const canSend = prevSent && !sent && !step4Sending;
+            const manualBlock = !!block.manual_required;
+            const cls = sending ? "sending" : (sent ? "sent" : (failed ? "failed" : "pending"));
 
-    async function generateStep4() {
-        const checked = document.querySelectorAll("#step4-invoice-list input:checked");
-        const ids = Array.from(checked).map(cb => cb.value);
-        if (ids.length === 0) { showToast("Selecciona al menos una factura", "warning"); return; }
+            const casesHtml = manualBlock
+                ? (block.cases || []).map((c, ci) => {
+                    const action = block.tipo === "E33" ? "Generar Nota de Débito" : "Generar Nota de Crédito";
+                    return `<div class="step4-case-row">
+                        <span class="cert-badge cert-badge-info">Manual</span>
+                        <span style="color:var(--text-secondary);">
+                            Caso ${ci + 1}: ve a <a href="/invoices" target="_blank" style="color:var(--accent-emerald);">/invoices</a> →
+                            detalle de una factura <strong>E31</strong> → <strong>${action}</strong> (envío a DGII incluido)
+                        </span>
+                        ${step4CaseBadge(c)}
+                    </div>`;
+                }).join("")
+                : (block.cases || []).map(c => {
+                    const xml = c.encf ? `<a href="/api/v1/certificacion/step-4/download/${c.encf}?run=${step4SetRun}" title="XML firmado"><i class="fa-solid fa-file-code"></i> XML</a>` : "";
+                    const rfce = c.rfce && c.encf ? `<a href="/api/v1/certificacion/step-4/download/${c.encf}?run=${step4SetRun}&type=rfce" title="XML RFCE firmado"><i class="fa-solid fa-file-shield"></i> RFCE</a>` : "";
+                    const pdf = c.encf ? `<a href="/api/v1/certificacion/step-4/download-pdf/${c.encf}?run=${step4SetRun}" title="PDF"><i class="fa-solid fa-file-pdf"></i> PDF</a>` : "";
+                    const ver = c.doc_id ? `<a href="${step4CaseListUrl(c)}" target="_blank" title="Ver en su lista/módulo"><i class="fa-solid fa-arrow-up-right-from-square"></i> Ver</a>` : "";
+                    const pendingSpinner = sending && c.status !== "accepted" && c.status !== "rejected" && c.status !== "error"
+                        ? `<span class="cert-progress-spinner" style="width:12px;height:12px;"></span>` : "";
+                    return `<div class="step4-case-row">
+                        ${pendingSpinner}
+                        <span style="font-family:monospace;">${c.encf || "—"}</span>
+                        <span style="color:var(--text-secondary);">${c.invoiceNumber || ""} · RD$ ${formatCurrency(c.total)}</span>
+                        ${c.validation && c.validation !== "ok" ? `<span class="cert-badge cert-badge-danger">${c.validation}</span>` : ""}
+                        ${c.error_message ? `<small style="color:var(--accent-red);">${c.error_message}</small>` : ""}
+                        ${c.dgii_message && c.dgii_message !== c.error_message ? `<small style="color:var(--text-muted);">${c.dgii_message}</small>` : ""}
+                        ${c.status === "accepted" && c.dgii_status ? `<span class="cert-badge cert-badge-info" style="font-family:monospace;">${c.dgii_status}</span>` : ""}
+                        ${c.track_id ? `<span class="cert-badge cert-badge-info" style="font-family:monospace;">${c.track_id}</span>` : ""}
+                        ${step4CaseBadge(c)}
+                        <span class="step4-case-links">${xml}${rfce}${pdf}${ver}</span>
+                    </div>`;
+                }).join("");
 
-        const progress = document.getElementById("step4-progress");
-        const progressText = document.getElementById("step4-progress-text");
-        const progressBar = document.getElementById("step4-progress-bar");
-        progress.style.display = "block";
-        progressBar.style.width = "10%";
-        progressText.textContent = `Enviando ${ids.length} facturas a DGII (CerteCF)...`;
+            const sendBtn = sending
+                ? `<button type="button" class="cert-btn cert-btn-primary cert-btn-sm" disabled>
+                       <span class="spinner-inline"></span> Enviando bloque ${block.index}…
+                   </button>`
+                : (manualBlock
+                    ? (sent
+                        ? `<span class="cert-badge cert-badge-success">Enviado (manual)</span>`
+                        : (prevSent
+                            ? `<button type="button" class="cert-btn cert-btn-primary cert-btn-sm" onclick="markBlockSent(${block.index})"
+                                       title="Márcalo cuando hayas generado las notas desde el detalle de la factura E31">
+                                   <i class="fa-solid fa-check"></i> Marcar enviado (manual)
+                               </button>`
+                            : `<span class="cert-badge cert-badge-warning" style="opacity:0.5;">Bloqueado (espera bloque anterior)</span>`))
+                    : (canSend
+                        ? `<span style="display:inline-flex; gap:6px; align-items:center;">
+                               <button type="button" class="cert-btn cert-btn-primary cert-btn-sm" onclick="sendStep4Block(${block.index})">
+                                   <i class="fa-solid fa-paper-plane"></i> Enviar bloque ${block.index}
+                               </button>
+                               <button type="button" class="cert-btn cert-btn-secondary cert-btn-sm" onclick="markBlockSent(${block.index})"
+                                       title="Úsalo si ya enviaste estos comprobantes a la DGII manualmente desde sus módulos">
+                                   <i class="fa-solid fa-check"></i> Marcar enviado (manual)
+                               </button>
+                           </span>`
+                        : (sent
+                            ? `<span style="display:inline-flex; gap:6px; align-items:center;">
+                                   <span class="cert-badge cert-badge-success">Enviado</span>
+                                   <button type="button" class="cert-btn cert-btn-secondary cert-btn-sm" onclick="sendStep4Block(${block.index}, true)"
+                                           title="Reenvía los MISMOS eNCF a la DGII para reiniciar esta prueba específica">
+                                       <i class="fa-solid fa-rotate-left"></i> Reenviar
+                                   </button>
+                               </span>`
+                            : `<span class="cert-badge cert-badge-warning" style="opacity:${prevSent ? 1 : 0.5};">
+                                   ${failed ? 'Fallido' : 'Bloqueado (espera bloque anterior)'}
+                               </span>`)));
 
-        try {
-            const resp = await certFetch("/certificacion/step-4/generate", {
-                method: "POST",
-                body: { invoice_ids: ids },
-            });
-            progressBar.style.width = "100%";
-            const data = await resp.json();
+            return `<div class="step4-block ${cls}">
+                <div class="step4-block-header">
+                    <span class="step4-block-title">Bloque ${block.index} — ${block.label}</span>
+                    <span class="step4-block-count">${step4BlockCounts(block)}</span>
+                    ${sendBtn}
+                </div>
+                ${casesHtml}
+            </div>`;
+        }).join("");
 
-            if (data.success) {
-                showToast("Simulación completada exitosamente", "success");
-            } else {
-                showToast(`${data.rejected} caso(s) con error. El paso debe reiniciarse.`, "error");
-            }
+        container.innerHTML = summary + blocksHtml;
 
-            currentStep4Run = data.run_number;
-            showStep4Results(data);
-        } catch (e) {
-            showToast("Error en la generación", "error");
-            progressBar.style.width = "100%";
-            progressText.textContent = "Error";
-        }
-    }
-
-    function showStep4Results(data) {
-        const section = document.getElementById("step4-results-section");
-        const summary = document.getElementById("step4-result-summary");
-        const tables = document.getElementById("step4-result-tables");
-        const runLabel = document.getElementById("step4-run-label");
         const advanceForm = document.getElementById("step4-advance-form");
-        const progress = document.getElementById("step4-progress");
-
-        section.style.display = "block";
-        progress.style.display = "none";
-        runLabel.textContent = `Intento #${data.run_number}`;
-
-        const allOk = data.rejected === 0;
-        summary.innerHTML = `
-            <div class="cert-result-${allOk ? 'success' : 'failed'}">
-                ${allOk ? '✅ PASO 4 COMPLETADO' : '❌ ESTE INTENTO HA FALLADO'} &mdash;
-                ${data.accepted}/${data.total} aceptados · ${data.rejected} rechazados
-                ${!allOk ? '<br><strong>REGLA DGII:</strong> Debes reiniciar todo el paso.' : ''}
-            </div>
-        `;
-
-        if (allOk) advanceForm.style.display = "block";
-
-        const results = data.results || [];
-        let html = `<table class="cert-table"><thead><tr><th>Tipo</th><th>eNCF</th><th>Total</th><th>Estado</th><th>Track ID</th><th>Acciones</th></tr></thead><tbody>`;
-        results.forEach(c => {
-            const statusLabel = c.success ? (c.dgii_status || 'Enviado') : 'Error';
-            const statusClass = c.success ? 'cert-badge-success' : 'cert-badge-danger';
-            html += `<tr>
-                <td><span class="cert-badge cert-badge-info">${c.tipo || '—'}</span></td>
-                <td style="font-family:monospace; font-size:0.8rem;">${c.encf}</td>
-                <td>RD$ ${formatCurrency(c.total)}</td>
-                <td><span class="cert-badge ${statusClass}">${statusLabel}</span>${c.error_message ? '<br><small style="color:var(--accent-red);">'+c.error_message+'</small>' : ''}</td>
-                <td style="font-family:monospace; font-size:0.75rem;">${c.track_id || '—'}</td>
-                <td><a href="/api/v1/certificacion/step-4/download/${c.encf}?run=${data.run_number}" class="cert-btn cert-btn-secondary cert-btn-sm"><i class="fa-solid fa-download"></i> XML</a></td>
-            </tr>`;
-        });
-        html += `</tbody></table>`;
-        tables.innerHTML = html;
+        if (advanceForm) advanceForm.style.display = allSent ? "block" : "none";
     }
 
-    function downloadAllStep4() {
-        window.open(`/api/v1/certificacion/step-4/download-all?run=${currentStep4Run}`, "_blank");
+    function setStep4ControlsDisabled(disabled) {
+        document.querySelectorAll("#step4-set-container button, #step4-set-generate-btn, #step4-set-regenerate-btn")
+            .forEach(b => { if (b.type === "button") b.disabled = disabled; });
     }
 
-    (function init() {
-        const sd = {{ step_status | tojson }};
-        const runs = (sd.runs || []);
-        if (runs.length > 0) {
-            currentStep4Run = sd.current_run;
-            const lastRun = runs[runs.length - 1];
-            if (lastRun && lastRun.cases) {
-                showStep4Results({
-                    total: lastRun.total_cases,
-                    accepted: lastRun.accepted,
-                    rejected: lastRun.rejected,
-                    results: lastRun.cases,
-                    run_number: lastRun.run_number,
-                });
+    async function generateStep4Set(force = false) {
+        if (step4Sending) return;
+        const msg = document.getElementById("step4-set-msg");
+        const progress = document.getElementById("step4-set-progress");
+        const progressText = document.getElementById("step4-set-progress-text");
+        const btn = document.getElementById("step4-set-generate-btn");
+        msg.textContent = "";
+        progress.style.display = "block";
+        progressText.textContent = force
+            ? "Regenerando set de pruebas (puede tardar 1–2 minutos)…"
+            : "Generando set de pruebas: secuencias, facturas, XML firmados y PDFs (puede tardar 1–2 minutos)…";
+        btn.disabled = true;
+        try {
+            const resp = await certFetch("/certificacion/step-4/generate-set", {
+                method: "POST",
+                body: { force_rerun: force },
+            });
+            const data = await resp.json();
+            progress.style.display = "none";
+            btn.disabled = false;
+            if (data.success && data.set) {
+                step4Set = data.set;
+                step4SetRun = data.run_number;
+                msg.textContent = `✓ Set generado: ${data.set.total} comprobantes (corrida #${data.run_number})${data.reused ? " — se reutilizó el set existente" : ""}`;
+                renderStep4Set();
+                if ((data.errors || []).length > 0) {
+                    showToast("Set generado con errores de validación. Revisa la lista.", "warning");
+                } else {
+                    showToast("Set de pruebas generado correctamente", "success");
+                }
+            } else {
+                msg.textContent = "✗ Error";
+                showToast(data.error || "Error al generar el set", "error");
             }
+        } catch (e) {
+            progress.style.display = "none";
+            btn.disabled = false;
+            msg.textContent = "✗ Error";
+            showToast("Error al generar el set", "error");
+        }
+    }
+
+    async function sendStep4Block(blockIndex, resend = false) {
+        if (step4Sending) return;
+        if (resend && !confirm(`¿Reenviar el bloque ${blockIndex}?\n\nSe enviarán los MISMOS eNCF ya enviados a la DGII. La DGII los rechazará por duplicado y reiniciará esta prueba específica (luego podrás reenviar el bloque normalmente).`)) return;
+        step4Sending = true;
+        step4SendingBlock = blockIndex;
+
+        const msg = document.getElementById("step4-set-msg");
+        const progress = document.getElementById("step4-send-progress");
+        const progressText = document.getElementById("step4-send-progress-text");
+        msg.textContent = "";
+        progress.style.display = "block";
+        progressText.textContent = resend
+            ? `Reenviando bloque ${blockIndex} (reinicio de prueba DGII con eNCF repetidos)…`
+            : `Enviando bloque ${blockIndex} a DGII (CerteCF)…`;
+        renderStep4Set();
+        setStep4ControlsDisabled(true);
+
+        try {
+            const resp = await certFetch("/certificacion/step-4/send-block", {
+                method: "POST",
+                body: { block_index: blockIndex, run_number: step4SetRun, resend: resend },
+            });
+            const data = await resp.json();
+            if (data.success) {
+                showToast(`Bloque ${blockIndex} enviado correctamente (${data.sent} comprobantes)`, "success");
+                msg.textContent = `✓ Bloque ${blockIndex} enviado.`;
+                if (data.block) step4Set.blocks[blockIndex - 1] = data.block;
+                if (data.all_blocks_sent) {
+                    showToast("Todos los bloques enviados. Paso 4 completado.", "success");
+                }
+            } else {
+                showToast(data.error || `Bloque ${blockIndex} falló — revisa los casos`, "error");
+                msg.textContent = `✗ ${data.error || "Error en el bloque"}`;
+                if (data.block) step4Set.blocks[blockIndex - 1] = data.block;
+            }
+        } catch (e) {
+            msg.textContent = "✗ Error";
+            showToast("Error al enviar el bloque", "error");
+        } finally {
+            step4Sending = false;
+            step4SendingBlock = 0;
+            progress.style.display = "none";
+            setStep4ControlsDisabled(false);
+            renderStep4Set();
+        }
+    }
+
+    async function markBlockSent(blockIndex) {
+        if (step4Sending) return;
+        if (!confirm(`¿Marcar el bloque ${blockIndex} como enviado?\n\nÚsalo SOLO si ya enviaste estos comprobantes a la DGII manualmente desde sus módulos (facturas, notas, etc.).`)) return;
+        const msg = document.getElementById("step4-set-msg");
+        msg.textContent = `Marcando bloque ${blockIndex} como enviado (manual)…`;
+        try {
+            const resp = await certFetch("/certificacion/step-4/mark-block-sent", {
+                method: "POST",
+                body: { block_index: blockIndex, run_number: step4SetRun },
+            });
+            const data = await resp.json();
+            if (data.success) {
+                if (data.block) step4Set.blocks[blockIndex - 1] = data.block;
+                showToast(`Bloque ${blockIndex} marcado como enviado`, "success");
+                msg.textContent = `✓ Bloque ${blockIndex} marcado como enviado (manual).`;
+                if (data.all_blocks_sent) {
+                    showToast("Todos los bloques enviados. Paso 4 completado.", "success");
+                }
+            } else {
+                showToast(data.error || "Error al marcar el bloque", "error");
+                msg.textContent = `✗ ${data.error || "Error al marcar el bloque"}`;
+            }
+            renderStep4Set();
+        } catch (e) {
+            msg.textContent = "✗ Error";
+            showToast("Error al marcar el bloque", "error");
+        }
+    }
+
+    (async function init() {
+        const sd = {{ step_status | tojson }};
+        step4SetRun = sd.current_run || 0;
+        try {
+            const resp = await certFetch("/certificacion/step-4/set");
+            const data = await resp.json();
+            if (data.success && data.set) {
+                step4Set = data.set;
+                step4SetRun = data.run_number || step4SetRun;
+                renderStep4Set();
+            }
+        } catch (e) {
+            /* sin set previo */
         }
     })();
 </script>

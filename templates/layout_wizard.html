@@ -150,7 +150,13 @@
                 <button type="button" class="theme-toggle-btn" id="theme-toggle-wizard" title="Cambiar Tema">
                     <i class="fa-solid fa-moon"></i>
                 </button>
-                
+
+                <!-- Ir al inicio sin cerrar sesión -->
+                <a href="{{ url_for('web_dashboard.dashboard') }}" class="btn btn-secondary" style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; padding: 8px 16px;">
+                    <i class="fa-solid fa-house"></i>
+                    <span>Inicio</span>
+                </a>
+
                 <!-- Cerrar Sesión -->
                 <a href="{{ url_for('web_auth.logout') }}" class="btn btn-secondary" style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; padding: 8px 16px;">
                     <i class="fa-solid fa-right-from-bracket"></i>

@@ -7,6 +7,7 @@ from app.services.db_service import DatabaseService, _resolve_company_id
 from app.services.contingency_sync_service import ContingencySyncService
 from app.services.ecf_emission import EcfEmissionService
 from app.services.dgii import DGIIService
+from app.services.dgii_direct import DgiiDirectService
 from app.utils.country_context import get_current_country
 from app.utils.decorators import require_permission, check_permission
 from app.brand import get_product_name
@@ -1042,33 +1043,10 @@ def print_receipt(invoice_id):
             fecha_firma_str = fecha_emision_str + " 12:00:00"
             
         codigo_seg = invoice.get("xmlSignature", "")[:6]
-        rnc_emisor = company.get("companyRNC", "").replace("-", "").strip()
-        rnc_comprador = invoice.get("clientRNC", "").replace("-", "").strip()
-        if not rnc_comprador: rnc_comprador = "000000000"
-        monto_total = f"{invoice.get('total', 0.0):.2f}"
-        
-        is_consumo = 'Consumo' in invoice.get("ecfType", "")
-        if is_consumo and invoice.get("total", 0.0) < 250000:
-            query_params = {
-                "RncEmisor": rnc_emisor,
-                "ENCF": invoice.get("encf"),
-                "MontoTotal": monto_total,
-                "CodigoSeguridad": codigo_seg
-            }
-            qs = urllib.parse.urlencode(query_params, quote_via=urllib.parse.quote)
-            qr_url = "https://fc.dgii.gov.do/eCF/ConsultaTimbreFC?" + qs
-        else:
-            query_params = {
-                "RncEmisor": rnc_emisor,
-                "RncComprador": rnc_comprador,
-                "ENCF": invoice.get("encf"),
-                "FechaEmision": fecha_emision_str,
-                "MontoTotal": monto_total,
-                "FechaFirma": fecha_firma_str,
-                "CodigoSeguridad": codigo_seg
-            }
-            qs = urllib.parse.urlencode(query_params, quote_via=urllib.parse.quote)
-            qr_url = "https://ecf.dgii.gov.do/ecf/ConsultaTimbre?" + qs
+        try:
+            qr_url = DgiiDirectService.build_qr_url(company, invoice, codigo_seg) or qr_url
+        except Exception:
+            pass
             
     if qr_url:
         try:

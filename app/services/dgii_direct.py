@@ -207,25 +207,95 @@ class DgiiDirectService:
     @staticmethod
     def _build_qr_url_e_cf(company_rnc, client_rnc, encf, total, fecha_emision, fecha_firma, codigo_seguridad):
         query_params = urlencode({
-            "rncemisor": company_rnc,
-            "rnccomprador": client_rnc,
-            "encf": encf,
-            "montototal": f"{float(total):.2f}",
-            "fechaemision": fecha_emision,
-            "fechafirma": fecha_firma,
-            "codigoseguridad": codigo_seguridad,
+            "RncEmisor": company_rnc,
+            "RncComprador": client_rnc,
+            "ENCF": encf,
+            "FechaEmision": fecha_emision,
+            "MontoTotal": f"{float(total):.2f}",
+            "FechaFirma": fecha_firma,
+            "CodigoSeguridad": codigo_seguridad,
         })
-        return f"https://ecf.dgii.gov.do/{Config.DGII_ENVIRONMENT}/consultatimbre?{query_params}"
+        return f"https://ecf.dgii.gov.do/{Config.DGII_ENVIRONMENT}/ConsultaTimbre?{query_params}"
 
     @staticmethod
     def _build_qr_url_rfce(company_rnc, encf, total, codigo_seguridad):
         query_params = urlencode({
-            "rncemisor": company_rnc,
-            "encf": encf,
-            "montototal": f"{float(total):.2f}",
-            "codigoseguridad": codigo_seguridad,
+            "RncEmisor": company_rnc,
+            "ENCF": encf,
+            "MontoTotal": f"{float(total):.2f}",
+            "CodigoSeguridad": codigo_seguridad,
         })
-        return f"https://fc.dgii.gov.do/{Config.DGII_ENVIRONMENT}/consultatimbrefc?{query_params}"
+        return f"https://fc.dgii.gov.do/{Config.DGII_ENVIRONMENT}/ConsultaTimbreFC?{query_params}"
+
+    @classmethod
+    def build_qr_url(cls, company_profile, invoice_data, codigo_seguridad):
+        """QR oficial DGII (formato CamelCase) con el ambiente del env configurado.
+
+        Reglas por tipo:
+          - E32 < RD$250,000 → fc.dgii.gov.do/{env}/ConsultaTimbreFC (4 params, sin comprador).
+          - E41 → RncComprador = RNC de la empresa (el Comprador del XML es el emisor).
+          - E43/E46/E47 → sin RncComprador (el XML no lleva RNCComprador).
+          - Demás tipos → RncComprador = RNC del comprador (fallback 000000000).
+        """
+        from app.utils.ecf_utils import get_ecf_type_number_code
+        from datetime import datetime as _dt
+
+        env = Config.DGII_ENVIRONMENT
+        encf = str(invoice_data.get("encf", "") or "")
+        company_rnc = str(company_profile.get("companyRNC", "") or "").replace("-", "").strip()
+        client_rnc = str(invoice_data.get("clientRNC", "") or "").replace("-", "").strip()
+        ecf_type = str(invoice_data.get("ecfType", "") or "")
+        total = float(invoice_data.get("total", 0.0) or 0.0)
+        tipo = get_ecf_type_number_code(ecf_type)
+
+        date_str = str(invoice_data.get("date", "") or "")[:10]
+        try:
+            fecha_emision = _dt.strptime(date_str, "%Y-%m-%d").strftime("%d-%m-%Y")
+        except Exception:
+            fecha_emision = date_str or ""
+        fecha_firma = fecha_emision + " 12:00:00"
+        if invoice_data.get("paymentDate"):
+            try:
+                dt = _dt.fromisoformat(str(invoice_data["paymentDate"]).replace("Z", "+00:00"))
+                fecha_firma = dt.strftime("%d-%m-%Y %H:%M:%S")
+            except Exception:
+                pass
+
+        if tipo == "32" and total < 250000.00:
+            query_params = urlencode({
+                "RncEmisor": company_rnc,
+                "ENCF": encf,
+                "MontoTotal": f"{total:.2f}",
+                "CodigoSeguridad": codigo_seguridad or "",
+            })
+            return f"https://fc.dgii.gov.do/{env}/ConsultaTimbreFC?{query_params}"
+
+        params = {
+            "RncEmisor": company_rnc,
+            "ENCF": encf,
+            "FechaEmision": fecha_emision,
+            "MontoTotal": f"{total:.2f}",
+            "FechaFirma": fecha_firma,
+            "CodigoSeguridad": codigo_seguridad or "",
+        }
+        if tipo == "41":
+            params["RncComprador"] = company_rnc
+        elif tipo in ("43", "46", "47"):
+            pass  # sin RNCComprador en el XML → se omite del QR
+        else:
+            params["RncComprador"] = client_rnc or "000000000"
+
+        ordered = {
+            "RncEmisor": params["RncEmisor"],
+            "ENCF": params["ENCF"],
+            "FechaEmision": params["FechaEmision"],
+            "MontoTotal": params["MontoTotal"],
+            "FechaFirma": params["FechaFirma"],
+            "CodigoSeguridad": params["CodigoSeguridad"],
+        }
+        if "RncComprador" in params:
+            ordered["RncComprador"] = params["RncComprador"]
+        return f"https://ecf.dgii.gov.do/{env}/ConsultaTimbre?{urlencode(ordered)}"
 
     @classmethod
     def _extract_seed_xml(cls, data, text):
@@ -320,12 +390,8 @@ class DgiiDirectService:
     def _simulate_emit(cls, company_profile, invoice_data):
         encf = invoice_data.get("encf", "E310000000001")
         track_id = f"dgii_tr_{uuid.uuid4().hex[:12]}"
-        company_rnc = str(company_profile.get("companyRNC", "")).replace("-", "").strip()
-        client_rnc = str(invoice_data.get("clientRNC", "000000000")).replace("-", "").strip() or "000000000"
         cod_seg = f"SIM{uuid.uuid4().hex[:3]}"
-        qr_url = cls._build_qr_url_e_cf(company_rnc, client_rnc, encf, invoice_data.get("total", 0.0),
-                                         invoice_data.get("date", "01-01-2026"),
-                                         invoice_data.get("date", "01-01-2026"), cod_seg)
+        qr_url = cls.build_qr_url(company_profile, invoice_data, cod_seg)
 
         return {
             "success": True,
@@ -398,10 +464,7 @@ class DgiiDirectService:
                 if isinstance(response_data, dict):
                     error_msg = response_data.get("error") or response_data.get("mensaje") or ""
 
-                qr_url = cls._build_qr_url_e_cf(company_rnc, client_rnc, encf, invoice_data.get("total", 0.0),
-                                                 invoice_data.get("date", "01-01-2026"),
-                                                 invoice_data.get("date", "01-01-2026"),
-                                                 codigo_seguridad)
+                qr_url = cls.build_qr_url(company_profile, invoice_data, codigo_seguridad)
 
                 if status_code >= 200 and status_code < 300:
                     # DGII devuelve HTTP 200 incluso cuando rechaza el contenido.
@@ -548,7 +611,6 @@ class DgiiDirectService:
 
                 dgii_status = cls._extract_status(response_data, response_text)
                 qr_url = cls._build_qr_url_rfce(company_rnc, encf, invoice_data.get("total", 0.0), codigo_seguridad)
-
                 if status_code >= 200 and status_code < 300:
                     # RFCE: codigo != 1 o estado == "Rechazado" indica rechazo
                     if isinstance(response_data, dict) and (

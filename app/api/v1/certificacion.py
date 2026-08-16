@@ -2,6 +2,7 @@ import base64
 import json
 import os
 import uuid
+import zipfile
 from datetime import datetime, timezone
 from io import BytesIO
 
@@ -559,63 +560,8 @@ def step13_generate():
 
 
 # ═══════════════════════════════════════════════════════════════
-# Paso 4: Pruebas de Simulación e-CF (emisión real)
+# Paso 4: Pruebas de Simulación e-CF (set automático por bloques)
 # ═══════════════════════════════════════════════════════════════
-
-@api_certificacion_bp.route("/certificacion/step-4/invoices", methods=["GET"])
-def step4_list_invoices():
-    auth_err = _login_required()
-    if auth_err:
-        return auth_err
-
-    uid, company_id, sandbox = _get_owner_and_company()
-    if not company_id:
-        return jsonify({"error": "Seleccione una empresa"}), 400
-
-    invoices = DgiiCertService.get_available_invoices(
-        uid, company_id, sandbox=sandbox, limit=100
-    )
-    return jsonify({"invoices": invoices})
-
-
-@api_certificacion_bp.route("/certificacion/step-4/generate", methods=["POST"])
-def step4_generate():
-    auth_err = _login_required()
-    if auth_err:
-        return auth_err
-
-    uid, company_id, sandbox = _get_owner_and_company()
-
-    if DgiiCertService.is_certification_locked(company_id):
-        return jsonify({"error": "La certificación ya ha sido completada."}), 403
-
-    profile = _get_company_profile()
-    if not profile:
-        return jsonify({"error": "Perfil de empresa no encontrado"}), 404
-
-    data = request.get_json() or {}
-    invoice_ids = data.get("invoice_ids", [])
-    if not invoice_ids:
-        return jsonify({"error": "Seleccione al menos una factura"}), 400
-
-    _, step_data = DgiiCertService.init_step(company_id, 4)
-    run_number = step_data["current_run"]
-
-    try:
-        result = DgiiCertService.process_step4(
-            company_id=company_id,
-            company_profile=profile,
-            invoice_ids=invoice_ids,
-            owner_uid=uid,
-            sandbox_origin=sandbox,
-            run_number=run_number,
-        )
-        return jsonify({"success": True, **result})
-    except Exception as e:
-        run_dict = {"run_number": run_number, "status": "failed", "error_summary": str(e)}
-        DgiiCertService.fail_step(company_id, 4, run_number, run_dict)
-        return jsonify({"success": False, "error": str(e)}), 500
-
 
 @api_certificacion_bp.route("/certificacion/step-4/download-all", methods=["GET"])
 def step4_download_all():
@@ -653,20 +599,257 @@ def step4_download_xml(encf):
     process = DgiiCertService.get_process(company_id)
     step_data = process.get("steps", {}).get("4", {})
     run_number = request.args.get("run", step_data.get("current_run", 0))
+    file_type = request.args.get("type", "signed")
+
+    if not run_number:
+        return jsonify({"error": "No hay ejecuciones previas"}), 404
+
+    profile = _get_company_profile() or {}
+    rnc = str(profile.get("companyRNC", "")).replace("-", "").strip()
+    prefix = f"{rnc}{encf}" if rnc else encf
+
+    evidence_dir = f"uploads/certificacion/{company_id}/step4/run{run_number}"
+    xml_dir = os.path.join(evidence_dir, "xml")
+    if file_type == "rfce":
+        xml_path = os.path.join(xml_dir, f"{prefix}_rfce.xml")
+        download_name = f"{prefix}_rfce.xml"
+        if not os.path.exists(xml_path):
+            xml_path = os.path.join(xml_dir, f"{encf}_rfce_signed.xml")
+            download_name = f"{encf}_rfce_signed.xml"
+    else:
+        xml_path = os.path.join(xml_dir, f"{prefix}.xml")
+        download_name = f"{prefix}.xml"
+        if not os.path.exists(xml_path):
+            xml_path = os.path.join(xml_dir, f"{encf}_signed.xml")
+            download_name = f"{encf}_signed.xml"
+
+    if not os.path.exists(xml_path):
+        return jsonify({"error": f"XML no encontrado para {encf}"}), 404
+
+    return send_file(
+        os.path.abspath(xml_path),
+        mimetype="application/xml",
+        as_attachment=True,
+        download_name=download_name,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════
+# Paso 4: Set de pruebas automático (generación por bloques DGII)
+# ═══════════════════════════════════════════════════════════════
+
+@api_certificacion_bp.route("/certificacion/step-4/generate-set", methods=["POST"])
+def step4_generate_set():
+    auth_err = _login_required()
+    if auth_err:
+        return auth_err
+
+    uid, company_id, sandbox = _get_owner_and_company()
+    if not company_id:
+        return jsonify({"error": "Seleccione una empresa"}), 400
+
+    if DgiiCertService.is_certification_locked(company_id):
+        return jsonify({"error": "La certificación ya ha sido completada."}), 403
+
+    profile = _get_company_profile()
+    if not profile:
+        return jsonify({"error": "Perfil de empresa no encontrado"}), 404
+
+    user_email = session.get("user", {}).get("email", "")
+    data = request.get_json(silent=True) or {}
+    force_rerun = bool(data.get("force_rerun", False))
+
+    process = DgiiCertService.get_process(company_id)
+    step_data = process.get("steps", {}).get("4", {})
+    run_number = step_data.get("current_run", 0)
+
+    if not run_number or step_data.get("status") not in ("in_progress",) \
+            or not DgiiCertService.get_step4_set(company_id, run_number):
+        _, step_data = DgiiCertService.init_step(company_id, 4)
+        run_number = step_data["current_run"]
+
+    try:
+        result = DgiiCertService.generate_step4_test_set(
+            company_id=company_id,
+            company_profile=profile,
+            owner_uid=uid,
+            user_email=user_email,
+            sandbox=sandbox,
+            run_number=run_number,
+            force_rerun=force_rerun,
+        )
+        return jsonify({"success": True, **result})
+    except Exception as e:
+        run_dict = {"run_number": run_number, "status": "failed", "error_summary": str(e)}
+        DgiiCertService.fail_step(company_id, 4, run_number, run_dict)
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@api_certificacion_bp.route("/certificacion/step-4/set", methods=["GET"])
+def step4_get_set():
+    auth_err = _login_required()
+    if auth_err:
+        return auth_err
+
+    _, company_id, _ = _get_owner_and_company()
+    if not company_id:
+        return jsonify({"error": "Seleccione una empresa"}), 400
+
+    process = DgiiCertService.get_process(company_id)
+    step_data = process.get("steps", {}).get("4", {})
+    run_number = request.args.get("run", step_data.get("current_run", 0))
+    test_set = DgiiCertService.get_step4_set(company_id, run_number)
+    return jsonify({"success": test_set is not None, "run_number": run_number, "set": test_set})
+
+
+@api_certificacion_bp.route("/certificacion/step-4/send-block", methods=["POST"])
+def step4_send_block():
+    auth_err = _login_required()
+    if auth_err:
+        return auth_err
+
+    uid, company_id, sandbox = _get_owner_and_company()
+    if not company_id:
+        return jsonify({"error": "Seleccione una empresa"}), 400
+
+    if DgiiCertService.is_certification_locked(company_id):
+        return jsonify({"error": "La certificación ya ha sido completada."}), 403
+
+    profile = _get_company_profile()
+    if not profile:
+        return jsonify({"error": "Perfil de empresa no encontrado"}), 404
+
+    user_email = session.get("user", {}).get("email", "")
+    data = request.get_json(silent=True) or {}
+    block_index = int(data.get("block_index", 0))
+    if block_index < 1:
+        return jsonify({"error": "Bloque inválido"}), 400
+    resend = bool(data.get("resend", False))
+
+    process = DgiiCertService.get_process(company_id)
+    step_data = process.get("steps", {}).get("4", {})
+    run_number = data.get("run_number", step_data.get("current_run", 0))
+    if not run_number:
+        return jsonify({"error": "No hay una corrida del paso 4. Genera el set primero."}), 400
+
+    try:
+        result = DgiiCertService.send_step4_block(
+            company_id=company_id,
+            company_profile=profile,
+            owner_uid=uid,
+            user_email=user_email,
+            sandbox=sandbox,
+            run_number=run_number,
+            block_index=block_index,
+            resend=resend,
+        )
+        status_code = 200 if result.get("success") else 400
+        return jsonify(result), status_code
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@api_certificacion_bp.route("/certificacion/step-4/mark-block-sent", methods=["POST"])
+def step4_mark_block_sent():
+    auth_err = _login_required()
+    if auth_err:
+        return auth_err
+
+    _, company_id, _ = _get_owner_and_company()
+    if not company_id:
+        return jsonify({"error": "Seleccione una empresa"}), 400
+
+    if DgiiCertService.is_certification_locked(company_id):
+        return jsonify({"error": "La certificación ya ha sido completada."}), 403
+
+    data = request.get_json(silent=True) or {}
+    block_index = int(data.get("block_index", 0))
+    if block_index < 1:
+        return jsonify({"error": "Bloque inválido"}), 400
+
+    process = DgiiCertService.get_process(company_id)
+    step_data = process.get("steps", {}).get("4", {})
+    run_number = data.get("run_number", step_data.get("current_run", 0))
+    if not run_number:
+        return jsonify({"error": "No hay una corrida del paso 4. Genera el set primero."}), 400
+
+    user_email = session.get("user", {}).get("email", "")
+    try:
+        result = DgiiCertService.mark_step4_block_sent(
+            company_id, run_number, block_index, marked_by=user_email
+        )
+        status_code = 200 if result.get("success") else 400
+        return jsonify(result), status_code
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@api_certificacion_bp.route("/certificacion/step-4/download-pdf/<doc_ref>", methods=["GET"])
+def step4_download_pdf(doc_ref):
+    auth_err = _login_required()
+    if auth_err:
+        return auth_err
+
+    _, company_id, _ = _get_owner_and_company()
+    process = DgiiCertService.get_process(company_id)
+    step_data = process.get("steps", {}).get("4", {})
+    run_number = request.args.get("run", step_data.get("current_run", 0))
+
+    if not run_number:
+        return jsonify({"error": "No hay ejecuciones previas"}), 404
+
+    profile = _get_company_profile() or {}
+    rnc = str(profile.get("companyRNC", "")).replace("-", "").strip()
+    prefix = f"{rnc}{doc_ref}" if rnc else doc_ref
+
+    evidence_dir = f"uploads/certificacion/{company_id}/step4/run{run_number}"
+    pdf_dir = os.path.join(evidence_dir, "pdf")
+    pdf_path = os.path.join(pdf_dir, f"{prefix}.pdf")
+    download_name = f"{prefix}.pdf"
+    if not os.path.exists(pdf_path):
+        pdf_path = os.path.join(pdf_dir, f"{doc_ref}.pdf")
+        download_name = f"{doc_ref}.pdf"
+
+    if not os.path.exists(pdf_path):
+        return jsonify({"error": f"PDF no encontrado para {doc_ref}"}), 404
+
+    return send_file(
+        os.path.abspath(pdf_path),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=download_name,
+    )
+
+
+@api_certificacion_bp.route("/certificacion/step-4/download-pdfs", methods=["GET"])
+def step4_download_all_pdfs():
+    auth_err = _login_required()
+    if auth_err:
+        return auth_err
+
+    _, company_id, _ = _get_owner_and_company()
+    process = DgiiCertService.get_process(company_id)
+    step_data = process.get("steps", {}).get("4", {})
+    run_number = request.args.get("run", step_data.get("current_run", 0))
 
     if not run_number:
         return jsonify({"error": "No hay ejecuciones previas"}), 404
 
     evidence_dir = f"uploads/certificacion/{company_id}/step4/run{run_number}"
-    xml_dir = os.path.join(evidence_dir, "xml")
-    signed_path = os.path.join(xml_dir, f"{encf}_signed.xml")
+    pdf_dir = os.path.join(evidence_dir, "pdf")
+    if not os.path.isdir(pdf_dir) or not os.listdir(pdf_dir):
+        return jsonify({"error": "No se encontraron PDFs generados"}), 404
 
-    if not os.path.exists(signed_path):
-        return jsonify({"error": f"XML no encontrado para {encf}"}), 404
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for fname in sorted(os.listdir(pdf_dir)):
+            if fname.lower().endswith(".pdf"):
+                zf.write(os.path.join(pdf_dir, fname), fname)
+    buffer.seek(0)
 
     return send_file(
-        os.path.abspath(signed_path),
-        mimetype="application/xml",
+        buffer,
+        mimetype="application/zip",
         as_attachment=True,
-        download_name=f"{encf}_signed.xml",
+        download_name=f"pdfs_paso4_run{run_number}.zip",
     )

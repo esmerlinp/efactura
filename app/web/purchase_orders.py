@@ -1902,23 +1902,22 @@ def supplier_invoice_pdf(invoice_id):
     if invoice.get("encf") and invoice.get("xmlSignature"):
         try:
             fecha_emision_dt = datetime.strptime(invoice.get("date", "")[:10], "%Y-%m-%d")
-            fecha_emision_str = fecha_emision_dt.strftime("%d-%m-%Y")
-        except:
-            fecha_emision_str = ""
-        fecha_firma_str = fecha_emision_str + " 12:00:00"
+            fecha_firma_str = fecha_emision_dt.strftime("%d-%m-%Y") + " 12:00:00"
+        except Exception:
+            pass
         if not qr_url:
             codigo_seg = invoice.get("xmlSignature", "")[:6]
-            rnc_emisor = (invoice.get("supplierRnc") or company.get("companyRNC", "")).replace("-", "").strip()
-            monto_total = f"{invoice.get('total', 0.0):.2f}"
-            query_params = {
-                "RncEmisor": rnc_emisor,
-                "ENCF": invoice.get("encf"),
-                "MontoTotal": monto_total,
-                "FechaEmision": fecha_emision_str,
-                "CodigoSeguridad": codigo_seg
-            }
-            qs = urllib.parse.urlencode(query_params, quote_via=urllib.parse.quote)
-            qr_url = "https://ecf.dgii.gov.do/ecf/ConsultaTimbre?" + qs
+            try:
+                qr_payload = {
+                    "encf": invoice.get("encf"),
+                    "ecfType": invoice.get("ecfType", "") or "Pagos al Exterior (E47)",
+                    "total": float(invoice.get("total", 0.0) or 0.0),
+                    "clientRNC": invoice.get("supplierRnc", ""),
+                    "date": invoice.get("date", ""),
+                }
+                qr_url = DgiiDirectService.build_qr_url(company, qr_payload, codigo_seg)
+            except Exception:
+                pass
 
     if not qr_url:
         qr_url = "https://dgii.gov.do/validaecf"
