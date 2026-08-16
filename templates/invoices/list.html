@@ -6,6 +6,13 @@
 endblock %}
 
 {% block content %}
+{% set sort = sort|default('date') %}
+{% set order = order|default('desc') %}
+{% macro sort_link(col, label, default_order) -%}
+<a href="?sort={{ col }}&order={% if sort == col %}{{ 'asc' if order == 'desc' else 'desc' }}{% else %}{{ default_order }}{% endif %}&q={{ q or '' }}&status={{ status or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&per_page={{ per_page or '10' }}" class="invoice-link" style="white-space: nowrap;">
+    {{ label }}{% if sort == col %} <i class="fa-solid {{ 'fa-sort-down' if order == 'desc' else 'fa-sort-up' }}" style="font-size:0.7rem;"></i>{% endif %}
+</a>
+{%- endmacro %}
 <div style="max-width: 1200px; margin: 0 auto;">
 <style>
     .invoice-link,
@@ -147,6 +154,9 @@ endblock %}
             id="filters-form"
             style="display: flex; gap: 12px; align-items: center; width: 100%; flex-wrap: wrap; margin: 0;">
 
+            <input type="hidden" name="sort" value="{{ sort|default('date') }}">
+            <input type="hidden" name="order" value="{{ order|default('desc') }}">
+
             <!-- Búsqueda -->
             <div style="position: relative; flex-grow: 1; min-width: 220px; max-width: 350px;">
                 <i class="fa-solid fa-magnifying-glass"
@@ -237,12 +247,12 @@ endblock %}
             <thead>
                 <tr>
                     <th style="width: 40px; text-align: center;"><input type="checkbox" id="select-all-invoices" style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent-purple);"></th>
-                    <th>NCF/Número</th>
-                    <th>Cliente</th>
-                    <th>Creación</th>
-                    <th>Total</th>
-                    <th>Por cobrar</th>
-                    <th>Estado</th>
+                    <th>{{ sort_link('invoiceNumber', 'NCF/Número', 'asc') }}</th>
+                    <th>{{ sort_link('clientName', 'Cliente', 'asc') }}</th>
+                    <th>{{ sort_link('date', 'Creación', 'desc') }}</th>
+                    <th>{{ sort_link('total', 'Total', 'desc') }}</th>
+                    <th>{{ sort_link('remainingBalance', 'Por cobrar', 'desc') }}</th>
+                    <th>{{ sort_link('status', 'Estado', 'asc') }}</th>
                     <th style="text-align: right; width: 50px;"></th>
                 </tr>
             </thead>
@@ -414,7 +424,7 @@ endblock %}
         <div class="pagination-buttons" style="display: flex; gap: 6px;">
             <!-- Anterior -->
             {% if has_prev %}
-            <a href="?page={{ page - 1 }}&q={{ q or '' }}&status={{ status or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&per_page={{ per_page or '10' }}"
+            <a href="?page={{ page - 1 }}&q={{ q or '' }}&status={{ status or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&per_page={{ per_page or '10' }}&sort={{ sort|default('date') }}&order={{ order|default('desc') }}"
                 class="btn btn-secondary"
                 style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-sm);">
                 <i class="fa-solid fa-chevron-left" style="font-size: 0.75rem;"></i>
@@ -435,7 +445,7 @@ endblock %}
                 style="padding: 6px 12px; font-size: 0.82rem; min-width: 34px; text-align: center; border-radius: var(--radius-sm);">{{
                 p }}</button>
                 {% elif p <= 3 or p >= total_pages - 2 or (p >= page - 1 and p <= page + 1) %}
-            <a href="?page={{ p }}&q={{ q or '' }}&status={{ status or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&per_page={{ per_page or '10' }}"
+            <a href="?page={{ p }}&q={{ q or '' }}&status={{ status or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&per_page={{ per_page or '10' }}&sort={{ sort|default('date') }}&order={{ order|default('desc') }}"
                 class="btn btn-secondary"
                 style="padding: 6px 12px; font-size: 0.82rem; min-width: 34px; text-align: center; border-radius: var(--radius-sm);">{{
                 p }}</a>
@@ -446,7 +456,7 @@ endblock %}
 
             <!-- Siguiente -->
             {% if has_next %}
-            <a href="?page={{ page + 1 }}&q={{ q or '' }}&status={{ status or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&per_page={{ per_page or '10' }}"
+            <a href="?page={{ page + 1 }}&q={{ q or '' }}&status={{ status or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&per_page={{ per_page or '10' }}&sort={{ sort|default('date') }}&order={{ order|default('desc') }}"
                 class="btn btn-secondary"
                 style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-sm);">
                 <span>Siguiente</span>

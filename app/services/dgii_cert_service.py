@@ -4,15 +4,18 @@ import json
 import os
 import shutil
 import time
+import uuid
 import zipfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
 
 from app.services.db_service import db_firestore, DatabaseService
+from app.services.dgii import DGIIService
 from app.services.dgii_signer import DgiiSigner
 from app.services.dgii_test_data_loader import DgiiTestDataLoader
 from app.services.dgii_direct import DgiiDirectService
 from app.services.dgii_xml_builder import DgiiXmlBuilder
+from app.services.supplier_invoice_service import SupplierInvoiceService
 from app.models.certificacion import CertificacionProcess, CertStep, CertRun, CaseResult
 from config import Config
 
@@ -75,6 +78,7 @@ class DgiiCertService:
         doc = cls._get_firestore_doc(path)
         if doc:
             doc["id"] = company_id
+            cls._migrate_light_runs(company_id, doc)
             return doc
         return {
             "id": company_id,
@@ -83,6 +87,52 @@ class DgiiCertService:
             "created_at": _now(),
             "updated_at": _now(),
         }
+
+    @classmethod
+    def _light_run_summary(cls, run_dict):
+        """Copia ligera del run_dict para el doc de proceso (evita superar 1MB)."""
+        light = dict(run_dict or {})
+        test_set = light.pop("test_set", None)
+        if test_set:
+            light["test_set_summary"] = {
+                "total": test_set.get("total", 0),
+                "set_errors": (test_set.get("set_errors") or [])[:20],
+                "blocks": [
+                    {
+                        "index": b.get("index"),
+                        "tipo": b.get("tipo"),
+                        "label": b.get("label"),
+                        "count": b.get("count"),
+                        "status": b.get("status"),
+                        "sent": b.get("sent_count", 0),
+                        "failed": b.get("failed_count", 0),
+                    }
+                    for b in (test_set.get("blocks") or [])
+                ],
+            }
+        if isinstance(light.get("cases"), list):
+            light["cases"] = light["cases"][:100]
+        return light
+
+    @classmethod
+    def _migrate_light_runs(cls, company_id, process):
+        """Limpia runs viejos que llevan test_set completo dentro del doc de proceso."""
+        changed = False
+        for step_key, step in (process.get("steps") or {}).items():
+            if not isinstance(step, dict):
+                continue
+            runs = step.get("runs") or []
+            for i, run in enumerate(runs):
+                if isinstance(run, dict) and run.get("test_set"):
+                    runs[i] = cls._light_run_summary(run)
+                    changed = True
+            if changed:
+                step["runs"] = runs
+        if changed:
+            try:
+                cls.save_process(company_id, process)
+            except Exception as e:
+                print(f"⚠️ No se pudo migrar el doc de proceso a runs ligeros: {e}")
 
     @classmethod
     def save_process(cls, company_id, process_dict):
@@ -146,7 +196,7 @@ class DgiiCertService:
         run_dict["completed_at"] = _now()
 
         runs = step_data.get("runs", [])
-        runs.append(run_dict)
+        runs.append(cls._light_run_summary(run_dict))
         step_data["runs"] = runs
         step_data["status"] = "completed"
         step_data["completed_at"] = _now()
@@ -169,7 +219,7 @@ class DgiiCertService:
         run_dict["completed_at"] = _now()
 
         runs = step_data.get("runs", [])
-        runs.append(run_dict)
+        runs.append(cls._light_run_summary(run_dict))
         step_data["runs"] = runs
         step_data["status"] = "failed"
         step_data["completed_at"] = _now()
@@ -1007,6 +1057,10 @@ class DgiiCertService:
             signed_xml = DgiiSigner.sign_xml(raw_xml, company_profile)
             xml_signature = DgiiSigner.extract_signature_value(signed_xml) or hashlib.sha256(signed_xml).hexdigest()
             codigo_seguridad = xml_signature[:6]
+            try:
+                qr_url = DgiiDirectService.build_qr_url(company_profile, invoice_dict, codigo_seguridad)
+            except Exception:
+                qr_url = ""
 
             encf = invoice_dict.get("encf", "")
             company_rnc = str(company_profile.get("companyRNC", "")).replace("-", "").strip()
@@ -1015,12 +1069,12 @@ class DgiiCertService:
             is_rfce = "E32" in ecf_type and total < RFCE_THRESHOLD
 
             if is_rfce and rfce_url:
-                from app.services.dgii_xml_builder import DgiiXmlBuilder
-                rfce_xml = DgiiXmlBuilder.build_rfce_xml(company_profile, invoice_dict, codigo_seguridad)
+                rfce_xml = DgiiXmlBuilder.build_rfce_summary_xml(company_profile, invoice_dict, codigo_seguridad)
                 rfce_signed = DgiiSigner.sign_xml(rfce_xml, company_profile)
                 cert_path = DgiiDirectService._prepare_tls_cert(company_profile)
+                # DGII valida el nombre del archivo: {RNC}{eNCF}.xml (longitud 26).
                 response = DgiiDirectService._multipart_post(
-                    rfce_url, rfce_signed, token=token, filename=f"{company_rnc}_rfce.xml", cert_path=cert_path
+                    rfce_url, rfce_signed, token=token, filename=f"{company_rnc}{encf}.xml", cert_path=cert_path
                 )
             else:
                 cert_path = DgiiDirectService._prepare_tls_cert(company_profile)
@@ -1036,134 +1090,1042 @@ class DgiiCertService:
             track_id = DgiiDirectService._extract_track_id(data, text)
 
             success = status_code >= 200 and status_code < 300
+            rejection_error = None
+
+            # La DGII devuelve HTTP 200 incluso cuando rechaza el contenido.
+            # Verificar error/mensaje/mensajes del JSON de respuesta.
+            if isinstance(data, dict):
+                rejection_error = data.get("error") or data.get("mensaje") or ""
+                if not rejection_error:
+                    mensajes = data.get("mensajes")
+                    if isinstance(mensajes, list):
+                        msgs = [str(m.get("valor", "")).strip()
+                                for m in mensajes if isinstance(m, dict) and m.get("valor")]
+                        rejection_error = "; ".join(msgs) or None
+                    elif isinstance(mensajes, str) and mensajes.strip():
+                        rejection_error = mensajes.strip()
+                if isinstance(rejection_error, str):
+                    rejection_error = rejection_error.strip() or None
+
+            if not rejection_error and dgii_status == "REJECTED":
+                accepted = cls._check_dgii_acceptance(
+                    company_profile, encf, track_id=track_id, attempts=1, delay=2
+                )
+                if accepted is True:
+                    dgii_status = "ACCEPTED"
+                elif accepted is False:
+                    rejection_error = "La DGII rechazó el comprobante (consulta de estado: RECHAZADO)"
+                else:
+                    dgii_status = dgii_status or "PENDING"
+
+            if rejection_error:
+                success = False
+                dgii_status = "REJECTED"
 
             return {
                 "success": success,
                 "track_id": track_id,
                 "dgii_status": dgii_status or "UNKNOWN",
                 "codigo_seguridad": codigo_seguridad,
+                "xml_signature": xml_signature,
+                "qrCodeURL": qr_url,
                 "status_code": status_code,
                 "response_data": data or {},
+                "error": rejection_error,
             }
         except Exception as e:
             return {"success": False, "error": str(e)}
 
+
+    # ═══════════════════════════════════════════════════════════════
+    # Paso 4: Set de pruebas automático (25 comprobantes por bloques DGII)
+    # ═══════════════════════════════════════════════════════════════
+
+    STEP4_TIPOS = ["E31", "E32", "E33", "E34", "E41", "E43", "E44", "E45", "E46", "E47"]
+
+    # Números a omitir por tipo al regenerar el set (evita "ya enviado" en DGII).
+    STEP4_SEQUENCE_SKIP = 10
+
+    STEP4_SET_TEMPLATE = [
+        {"index": 1, "tipo": "E31", "kind": "invoice", "count": 4, "label": "Comprobantes tipo 31"},
+        {"index": 2, "tipo": "E32", "kind": "invoice", "count": 2, "label": "Comprobantes tipo 32 >= 250Mil"},
+        {"index": 3, "tipo": "E33", "kind": "nota", "count": 1, "label": "Comprobantes tipo 33"},
+        {"index": 4, "tipo": "E34", "kind": "nota", "count": 2, "label": "Comprobantes tipo 34"},
+        {"index": 5, "tipo": "E41", "kind": "expense", "count": 2, "label": "Comprobantes tipo 41"},
+        {"index": 6, "tipo": "E43", "kind": "expense", "count": 2, "label": "Comprobantes tipo 43"},
+        {"index": 7, "tipo": "E44", "kind": "invoice", "count": 2, "label": "Comprobantes tipo 44"},
+        {"index": 8, "tipo": "E45", "kind": "invoice", "count": 2, "label": "Comprobantes tipo 45"},
+        {"index": 9, "tipo": "E46", "kind": "invoice", "count": 2, "label": "Comprobantes tipo 46"},
+        {"index": 10, "tipo": "E47", "kind": "supplier_invoice", "count": 2, "label": "Comprobantes tipo 47"},
+        {"index": 11, "tipo": "E32", "kind": "invoice", "count": 4, "label": "Comprobantes tipo 32 RFCE", "rfce": True},
+    ]
+
+    STEP4_BASE_PRICES = {
+        "E31": [45000.0, 62000.0, 78500.0, 95000.0],
+        "E32_GE": [220000.0, 235000.0],
+        "E32_RFCE": [12500.0, 18750.0, 24300.0, 31400.0],
+        "E33": [5000.0],
+        "E34": [2000.0, 3500.0],
+        "E41": [15000.0, 22500.0],
+        "E43": [8000.0, 12000.0],
+        "E44": [20000.0, 25000.0],
+        "E45": [30000.0, 40000.0],
+        "E46": [50000.0, 65000.0],
+        "E47": [10000.0, 15000.0],
+    }
+
+    STEP4_ECF_LABELS = {
+        "E31": "Factura de Crédito Fiscal (E31)",
+        "E32": "Factura de Consumo (E32)",
+        "E33": "Nota de Débito (E33)",
+        "E34": "Nota de Crédito (E34)",
+        "E41": "Comprobante de Compras (E41)",
+        "E43": "Comprobante para Gastos Menores (E43)",
+        "E44": "Comprobante de Regímenes Especiales (E44)",
+        "E45": "Comprobante Gubernamental (E45)",
+        "E46": "Comprobante de Exportación (E46)",
+        "E47": "Pagos al Exterior (E47)",
+    }
+
     @classmethod
-    def process_step4(cls, company_id, company_profile, invoice_ids, owner_uid, sandbox_origin=True,
-                      run_number=1):
+    def ensure_cert_sequences(cls, owner_uid, company_id, sandbox=True):
+        """Garantiza que exista una secuencia ACTIVA para cada tipo e-CF del set.
+        Si falta, la crea automáticamente (solo para certificación)."""
+        created, existing = [], []
+        sequences = DatabaseService.get_sequences(owner_uid, sandbox=sandbox, company_id=company_id) or []
+        today = datetime.now(timezone.utc)
+        for tipo in cls.STEP4_TIPOS:
+            active = [s for s in sequences
+                      if s.get("tipoComprobante") == tipo
+                      and s.get("estado", "").upper() == "ACTIVA"
+                      and not s.get("bloqueadaManualmente", False)]
+            if active:
+                existing.append(tipo)
+                continue
+            seq_id = str(uuid.uuid4())
+            seq_dict = {
+                "tipoComprobante": tipo,
+                "prefijo": tipo,
+                "secuenciaInicial": 1,
+                "secuenciaFinal": 1000000,
+                "ultimoConsecutivoUsado": 0,
+                "alertaMinimoDisponible": 100,
+                "fechaAutorizacion": today.strftime("%Y-%m-%d"),
+                "fechaExpiracion": (today + timedelta(days=730)).strftime("%Y-%m-%d"),
+                "numeroAutorizacionDgii": "CERTIFICACION-AUTO",
+                "estado": "ACTIVA",
+                "ambiente": "SANDBOX" if sandbox else "PRODUCCION",
+                "bloqueadaManualmente": False,
+            }
+            DatabaseService.save_sequence(owner_uid, seq_id, seq_dict, sandbox=sandbox, company_id=company_id)
+            created.append(tipo)
+        return {"created": created, "existing": existing}
+
+    @classmethod
+    def skip_step4_sequences(cls, owner_uid, company_id, sandbox=True, skip=None):
+        """Avanza las secuencias ACTIVAS del set para que el próximo eNCF quede
+        `skip` números por encima del máximo consecutivo YA GENERADO (los logs
+        de secuencia incluyen emisiones manuales y sets anteriores).
+        Evita que la DGII marque 'ya enviado' comprobantes de sets nuevos o
+        regenerados. Sin historial (logs vacíos) no avanza: la primera
+        generación usa los números desde la posición actual."""
+        skip = int(skip or cls.STEP4_SEQUENCE_SKIP)
+        sequences = DatabaseService.get_sequences(owner_uid, sandbox=sandbox, company_id=company_id) or []
+        logs = DatabaseService.get_sequence_logs(owner_uid, sandbox=sandbox, company_id=company_id) or []
+
+        max_used = {}
+        for log in logs:
+            tipo = log.get("tipoComprobante", "")
+            try:
+                consecutivo = int(log.get("consecutivo", 0))
+            except (TypeError, ValueError):
+                consecutivo = 0
+            if consecutivo > max_used.get(tipo, 0):
+                max_used[tipo] = consecutivo
+
+        skipped = {}
+        for tipo in cls.STEP4_TIPOS:
+            prev_max = max_used.get(tipo, 0)
+            if prev_max <= 0:
+                continue
+            active = [s for s in sequences
+                      if s.get("tipoComprobante") == tipo
+                      and s.get("estado", "").upper() == "ACTIVA"
+                      and not s.get("bloqueadaManualmente", False)]
+            if not active:
+                continue
+            for seq in active:
+                seq = dict(seq)
+                inicial = int(seq.get("secuenciaInicial", 1))
+                final = int(seq.get("secuenciaFinal", 1))
+                usado = int(seq.get("ultimoConsecutivoUsado", inicial - 1))
+                base = max(usado, prev_max)
+                nuevo = min(final, base + skip)
+                if nuevo > usado:
+                    seq["ultimoConsecutivoUsado"] = nuevo
+                    DatabaseService.save_sequence(owner_uid, seq.get("id"), seq,
+                                                  sandbox=sandbox, company_id=company_id)
+                    skipped.setdefault(tipo, {"desde": base, "hasta": nuevo, "max_usado": prev_max})
+        return skipped
+
+    @classmethod
+    def _step4_price(cls, block, case_idx):
+        if block.get("rfce"):
+            key = "E32_RFCE"
+        elif block["tipo"] == "E32":
+            key = "E32_GE"
+        else:
+            key = block["tipo"]
+        prices = cls.STEP4_BASE_PRICES.get(key, [])
+        return float(prices[case_idx] if case_idx < len(prices) else prices[0])
+
+    @classmethod
+    def _step4_itbis_rate(cls, block):
+        if block.get("rfce") or block["tipo"] in ("E31", "E32", "E33", "E34", "E41", "E45"):
+            return 0.18
+        return 0.0
+
+    @classmethod
+    def _step4_items(cls, block, case_idx, name):
+        return [{
+            "id": str(uuid.uuid4()),
+            "code": "",
+            "type": "Servicio",
+            "name": name,
+            "price": cls._step4_price(block, case_idx),
+            "quantity": 1,
+            "itbisRate": cls._step4_itbis_rate(block),
+            "discountRate": 0.0,
+        }]
+
+    @classmethod
+    def _step4_build_payload(cls, doc_dict, kind):
+        """Adapta un documento (invoice/nota/expense/supplier_invoice) al formato
+        invoice_dict que consumen DgiiXmlBuilder/EcfEmissionService.
+        Réplica local de _build_expense_ecf_payload y _build_supplier_invoice_ecf_payload
+        para evitar dependencias service→web."""
+        if kind in ("invoice", "nota"):
+            return doc_dict
+        if kind == "expense":
+            is_e43 = doc_dict.get("ecfType") == "E43"
+            amount = float(doc_dict.get("amount", 0.0))
+            itbis = 0.0 if is_e43 else float(doc_dict.get("itbisAmount", 0.0))
+            subtotal = round(amount - itbis, 2)
+            if subtotal < 0:
+                subtotal = amount
+            date_str = doc_dict.get("date", "") or datetime.now(timezone.utc).isoformat()
+            due_str = doc_dict.get("dueDate") or date_str
+            return {
+                "id": doc_dict.get("id", ""),
+                "ecfType": cls.STEP4_ECF_LABELS.get(doc_dict.get("ecfType"), "Comprobante de Compras (E41)"),
+                "encf": doc_dict.get("encf", ""),
+                "date": date_str,
+                "dueDate": due_str,
+                "clientName": doc_dict.get("providerName") or "Proveedor Genérico",
+                "clientRNC": doc_dict.get("rncEmisor", ""),
+                "paymentType": doc_dict.get("paymentType", "Contado"),
+                "paymentMethod": "Efectivo",
+                "subtotal": subtotal,
+                "totalITBIS": itbis,
+                "total": amount,
+                "netPayable": amount,
+                "retainedITBIS": float(doc_dict.get("retainedITBIS", 0.0)),
+                "retainedISR": float(doc_dict.get("retainedISR", 0.0)),
+                "notes": doc_dict.get("notes", ""),
+                "invoiceNumber": doc_dict.get("ecfNumber") or doc_dict.get("ncf", ""),
+                "items": [{
+                    "id": doc_dict.get("id", "item-gasto-1"),
+                    "code": "GASTO-01",
+                    "name": doc_dict.get("concept", "Gasto Operativo"),
+                    "type": "Servicio",
+                    "quantity": 1,
+                    "price": subtotal,
+                    "subtotal": subtotal,
+                    "itbisRate": 0.0 if is_e43 else (round(itbis / subtotal, 4) if subtotal > 0 else 0.0),
+                    "total": amount,
+                }],
+            }
+        if kind == "supplier_invoice":
+            amount = float(doc_dict.get("total", 0.0))
+            itbis = float(doc_dict.get("itbis", 0.0))
+            subtotal = float(doc_dict.get("subtotal", 0.0))
+            date_str = doc_dict.get("date", "")
+            due_str = doc_dict.get("dueDate") or date_str
+            items = []
+            for item in doc_dict.get("items", []):
+                unit_price = float(item.get("unitPrice", 0.0))
+                qty = float(item.get("quantity", 0.0))
+                item_subtotal = float(item.get("subtotal", 0.0))
+                item_data = {
+                    "name": item.get("name", "Item"),
+                    "quantity": qty,
+                    "price": unit_price,
+                    "subtotal": item_subtotal,
+                    "itbisRate": 0.0,
+                    "unit": item.get("unit", "Unidad"),
+                    "type": "Servicio",
+                }
+                item_isr_rate = float(doc_dict.get("retainedISR", 0.27))
+                item_data["retainedISR"] = round(item_subtotal * item_isr_rate, 2)
+                items.append(item_data)
+            if not items:
+                items = [{
+                    "name": doc_dict.get("supplierName", "Compra"),
+                    "quantity": 1,
+                    "price": subtotal,
+                    "subtotal": subtotal,
+                    "itbisRate": 0.0,
+                    "unit": "Unidad",
+                    "type": "Servicio",
+                    "retainedISR": round(subtotal * float(doc_dict.get("retainedISR", 0.27)), 2),
+                }]
+            payment_map = {"Contado": "Efectivo", "Crédito": "Crédito", "credito_30d": "Crédito"}
+            ret_isr_rate = float(doc_dict.get("retainedISR", 0.0))
+            ret_itbis_rate = float(doc_dict.get("retainedITBIS", 0.0))
+            payload = {
+                "id": doc_dict.get("id", ""),
+                "ecfType": cls.STEP4_ECF_LABELS.get(doc_dict.get("ecfType"), "Pagos al Exterior (E47)"),
+                "encf": doc_dict.get("encf", ""),
+                "date": date_str,
+                "dueDate": due_str,
+                "clientRNC": doc_dict.get("supplierRnc", ""),
+                "razonSocial": doc_dict.get("supplierName", "Proveedor"),
+                "clientName": doc_dict.get("supplierName", "Proveedor"),
+                "paymentMethod": payment_map.get(doc_dict.get("paymentType", "Contado"), "Efectivo"),
+                "paymentType": doc_dict.get("paymentType", "Contado"),
+                "subtotal": subtotal,
+                "totalITBIS": itbis,
+                "total": amount,
+                "montoExento": amount,
+                "retainedITBIS": round(itbis * ret_itbis_rate, 2),
+                "retainedISR": round(amount * ret_isr_rate, 2),
+                "items": items,
+                "invoiceNumber": doc_dict.get("supplierInvoiceNumber", ""),
+                "internalInvoiceNumber": doc_dict.get("invoiceNumber", ""),
+                "paisDestino": doc_dict.get("paisDestino", "US"),
+                "isrAsumido": doc_dict.get("isrAsumido", False),
+            }
+            return payload
+        return doc_dict
+
+    @classmethod
+    def _load_step4_payload(cls, owner_uid, case, sandbox=True, company_id=None):
+        kind = case.get("kind", "invoice")
+        doc_id = case.get("doc_id", "")
+        if kind in ("invoice", "nota"):
+            doc = DatabaseService.get_invoice(owner_uid, doc_id, sandbox=sandbox, company_id=company_id)
+        elif kind == "expense":
+            doc = DatabaseService.get_expense(owner_uid, doc_id, sandbox=sandbox, company_id=company_id)
+        elif kind == "supplier_invoice":
+            doc = SupplierInvoiceService.get(owner_uid=owner_uid, invoice_id=doc_id, sandbox=sandbox, company_id=company_id)
+        else:
+            doc = None
+        if not doc:
+            return None
+        return cls._step4_build_payload(doc, kind)
+
+    @classmethod
+    def _step4_case_pdf(cls, payload, company_profile, pdf_dir, encf):
+        """Genera el PDF de evidencia usando la plantilla y el pipeline actuales."""
+        try:
+            from flask import render_template, request, current_app
+            from app.utils.pdf import pdf_write_options
+            from weasyprint import HTML as WeasyprintHTML
+        except Exception:
+            return None
+        try:
+            invoice = dict(payload or {})
+            invoice["isQuotation"] = False
+            invoice.setdefault("invoiceNumber", invoice.get("encf", "CERT"))
+            invoice.setdefault("clientName", invoice.get("clientName", "Consumidor Final"))
+            invoice.setdefault("clientRNC", "")
+            invoice.setdefault("currency", "DOP")
+            invoice.setdefault("exchangeRate", 1.0)
+            invoice.setdefault("paymentMethod", "Efectivo")
+            invoice.setdefault("paymentType", "Contado")
+            invoice.setdefault("subtotal", invoice.get("total", 0.0))
+            invoice.setdefault("totalITBIS", 0.0)
+            invoice["status"] = "Emitida"
+            invoice.setdefault("notes", "")
+            invoice.setdefault("comentario", "")
+            invoice.setdefault("footer", "")
+            invoice.setdefault("dueDate", "")
+            invoice.setdefault("emisionMode", "")
+            invoice.setdefault("xmlSignature", "")
+            invoice.setdefault("qrCodeURL", "")
+            invoice.setdefault("discountAmount", 0.0)
+            invoice.setdefault("foreignTaxId", "")
+            invoice.setdefault("retainedISR", 0.0)
+            invoice.setdefault("retainedITBIS", 0.0)
+            invoice.setdefault("netPayable", float(invoice.get("total", 0.0)))
+            invoice.setdefault("ecfType", "Factura de Consumo (E32)")
+            invoice.setdefault("encf", "")
+            items = []
+            for it in invoice.get("items", []):
+                item = dict(it)
+                item.setdefault("code", "")
+                item.setdefault("type", it.get("type", "Servicio"))
+                item.setdefault("quantity", float(it.get("quantity", 1.0)))
+                item.setdefault("price", float(it.get("price", 0.0)))
+                item.setdefault("subtotal", float(it.get("subtotal", 0.0)))
+                item.setdefault("itbisRate", float(it.get("itbisRate", 0.0)))
+                item.setdefault("discountRate", float(it.get("discountRate", 0.0)))
+                item.setdefault("total", float(it.get("total", item["subtotal"])))
+                item.setdefault("itbis_amount", float(it.get("itbis_amount", 0.0)))
+                item.setdefault("unit", it.get("unit", "Unidad"))
+                item["isc_especifico_amount"] = float(item.get("isc_especifico_amount", 0.0) or 0.0)
+                item["isc_advalorem_amount"] = float(item.get("isc_advalorem_amount", 0.0) or 0.0)
+                item["otros_impuestos_amount"] = float(item.get("otros_impuestos_amount", 0.0) or 0.0)
+                items.append(item)
+            invoice["items"] = items
+            invoice["totalISCEspecifico"] = 0.0
+            invoice["totalISCAdValorem"] = 0.0
+            invoice["totalOtrosSelectivos"] = 0.0
+            invoice["totalCDT"] = 0.0
+            invoice["totalPropina"] = 0.0
+
+            import qrcode as _qrcode
+            qr = _qrcode.QRCode(version=1, box_size=10, border=0)
+            qr.add_data(invoice.get("qrCodeURL") or "https://dgii.gov.do/validaecf")
+            qr.make(fit=True)
+            img = qr.make_image(fill_color="black", back_color="white")
+            stream = BytesIO()
+            img.save(stream, format="PNG")
+            qr_base64 = base64.b64encode(stream.getvalue()).decode("utf-8")
+
+            base_url = request.host_url if request else None
+            rendered_html = render_template(
+                "invoices/pdf.html",
+                invoice=invoice,
+                company=company_profile or {},
+                branch={},
+                auto_print=False,
+                qr_base64=qr_base64,
+                fecha_firma_str="",
+                sandbox=True,
+            )
+            pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=base_url).write_pdf(**pdf_write_options())
+            rnc = str(company_profile.get("companyRNC", "")).replace("-", "").strip()
+            pdf_name = f"{rnc}{encf}.pdf" if rnc else f"{encf}.pdf"
+            pdf_path = os.path.join(pdf_dir, pdf_name)
+            with open(pdf_path, "wb") as f:
+                f.write(pdf_bytes)
+            return pdf_path
+        except Exception as e:
+            print(f"⚠️ Error generando PDF para {encf}: {e}")
+            return None
+
+    @classmethod
+    def _step4_case_artifacts(cls, company_profile, payload, case, xml_dir, pdf_dir):
+        """Genera XML raw/firmado (+RFCE si aplica) y PDF para un caso.
+        Usa los servicios de generación y firma actuales: cualquier error aquí
+        es señal de que el flujo manual de facturación fallaría igual.
+        Nomenclatura DGII: {rnc}{encf}.xml / {rnc}{encf}_rfce.xml / {rnc}{encf}.pdf"""
+        encf = case.get("encf", "SIN-ENCF")
+        rnc = str(company_profile.get("companyRNC", "")).replace("-", "").strip()
+        prefix = f"{rnc}{encf}" if rnc else encf
+        raw_xml = DgiiXmlBuilder.build_invoice_xml(company_profile, payload)
+        signed_xml = DgiiSigner.sign_xml(raw_xml, company_profile)
+        with open(os.path.join(xml_dir, f"{prefix}_raw.xml"), "wb") as f:
+            f.write(raw_xml)
+        with open(os.path.join(xml_dir, f"{prefix}.xml"), "wb") as f:
+            f.write(signed_xml)
+        case["xml_path"] = os.path.join(xml_dir, f"{prefix}.xml")
+        sig = DgiiSigner.extract_signature_value(signed_xml) or hashlib.sha256(signed_xml).hexdigest()
+        if not payload.get("qrCodeURL"):
+            try:
+                payload["qrCodeURL"] = DgiiDirectService.build_qr_url(company_profile, payload, sig[:6])
+            except Exception:
+                payload["qrCodeURL"] = ""
+        if case.get("rfce"):
+            rfce_raw = DgiiXmlBuilder.build_rfce_summary_xml(company_profile, payload, sig[:6])
+            rfce_signed = DgiiSigner.sign_xml(rfce_raw, company_profile)
+            with open(os.path.join(xml_dir, f"{prefix}_rfce.xml"), "wb") as f:
+                f.write(rfce_signed)
+            case["rfce_xml_path"] = os.path.join(xml_dir, f"{prefix}_rfce.xml")
+        pdf_path = cls._step4_case_pdf(payload, company_profile, pdf_dir, encf)
+        if pdf_path:
+            case["pdf_path"] = pdf_path
+
+    @classmethod
+    def generate_step4_test_set(cls, company_id, company_profile, owner_uid, user_email,
+                                sandbox=True, run_number=1, force_rerun=False):
+        run_path = _get_run_doc_path(company_id, 4, run_number)
+        run_data = cls._get_firestore_doc(run_path) or {}
+        if run_data.get("test_set") and not force_rerun:
+            return {"success": True, "reused": True, "run_number": run_number,
+                    "set": run_data["test_set"], "errors": run_data["test_set"].get("set_errors", [])}
+
+        deleted_docs = 0
+        seq_skip_info = {}
+        if force_rerun and run_data.get("test_set"):
+            for block in run_data["test_set"].get("blocks", []):
+                for case in block.get("cases", []):
+                    doc_id = case.get("doc_id", "")
+                    kind = case.get("kind", "invoice")
+                    if not doc_id:
+                        continue
+                    try:
+                        if kind in ("invoice", "nota"):
+                            DatabaseService.delete_invoice(owner_uid, doc_id, sandbox=sandbox, company_id=company_id)
+                        elif kind == "expense":
+                            DatabaseService.delete_expense(owner_uid, doc_id, sandbox=sandbox, company_id=company_id)
+                        elif kind == "supplier_invoice":
+                            SupplierInvoiceService.delete(owner_uid=owner_uid, invoice_id=doc_id, sandbox=sandbox, company_id=company_id)
+                        deleted_docs += 1
+                    except Exception as del_err:
+                        print(f"⚠️ No se pudo eliminar doc previo del set {doc_id}: {del_err}")
+
+        seq_info = cls.ensure_cert_sequences(owner_uid, company_id, sandbox=sandbox)
+
+        # Omitir números ya generados/enviados en TODA generación (nueva corrida
+        # o regeneración): valida contra los logs de secuencia (incluye emisiones
+        # manuales) y deja un hueco de STEP4_SEQUENCE_SKIP números.
+        try:
+            seq_skip_info = cls.skip_step4_sequences(owner_uid, company_id, sandbox=sandbox)
+        except Exception as skip_err:
+            print(f"⚠️ No se pudo omitir secuencias al generar el set: {skip_err}")
+
         evidence_dir = _get_evidence_dir(company_id, 4, run_number)
         xml_dir = os.path.join(evidence_dir, "xml")
+        pdf_dir = os.path.join(evidence_dir, "pdf")
         _ensure_dir(xml_dir)
+        _ensure_dir(pdf_dir)
 
-        results = []
-        total = len(invoice_ids)
-        accepted = rejected = 0
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        due = (datetime.now(timezone.utc) + timedelta(days=30)).strftime("%Y-%m-%d")
 
-        for idx, inv_id in enumerate(invoice_ids, 1):
-            try:
-                invoice_data = DatabaseService.get_invoice(
-                    owner_uid, inv_id, sandbox=sandbox_origin, company_id=company_id
-                )
-                if not invoice_data:
-                    results.append({
-                        "encf": inv_id, "tipo": "?", "total": 0,
-                        "success": False, "error_message": f"Factura {inv_id} no encontrada",
-                    })
-                    rejected += 1
+        set_errors = []
+        total = 0
+        blocks = []
+        for block in cls.STEP4_SET_TEMPLATE:
+            # E33/E34 se emiten manualmente desde el detalle de la factura
+            # (la DGII rechazaba su emisión desde el wizard). Solo marcadores.
+            if block["tipo"] in ("E33", "E34"):
+                cases = [{
+                    "tipo": block["tipo"],
+                    "kind": "nota_manual",
+                    "manual": True,
+                    "status": "pending",
+                    "invoiceNumber": f"{block['tipo']} manual #{i + 1}",
+                } for i in range(block["count"])]
+                blocks.append({**block, "manual_required": True, "status": "pending", "cases": cases})
+                total += len(cases)
+                continue
+
+            cases = []
+            for i in range(block["count"]):
+                case = {"tipo": block["tipo"], "kind": block["kind"],
+                        "rfce": bool(block.get("rfce")), "status": "pending"}
+                try:
+                    encf, _log_id = DatabaseService.consume_next_sequence(
+                        owner_uid, block["tipo"], user_email, sandbox=sandbox, company_id=company_id
+                    )
+                    case["encf"] = encf
+                    case["date"] = today
+                    label = cls.STEP4_ECF_LABELS[block["tipo"]]
+
+                    if block["kind"] == "invoice":
+                        items = cls._step4_items(block, i, f"Servicio de certificación DGII {block['tipo']} #{i + 1}")
+                        calcs = DGIIService.calculate_invoice_totals(items)
+                        inv_id = str(uuid.uuid4())
+                        inv = {
+                            "id": inv_id,
+                            "invoiceNumber": f"CERT-{block['tipo']}-{i + 1:02d}",
+                            "date": today,
+                            "clientId": "",
+                            "clientName": "CERTIFICACION DGII SRL",
+                            "clientRNC": "131880681",
+                            "status": "Borrador",
+                            "ecfType": label,
+                            "encf": encf,
+                            "xmlSignature": "",
+                            "qrCodeURL": "",
+                            "isSyncedWithDGII": False,
+                            "subtotal": calcs["subtotal"],
+                            "totalITBIS": calcs["total_itbis"],
+                            "montoExento": calcs["monto_exento"],
+                            "total": calcs["total"],
+                            "retainedISR": calcs["retained_isr"],
+                            "retainedITBIS": calcs["retained_itbis"],
+                            "netPayable": calcs["net_payable"],
+                            "isQuotation": False,
+                            "notes": "Set certificación DGII paso 4",
+                            "currency": "DOP",
+                            "exchangeRate": 1.0,
+                            "paymentType": "Contado",
+                            "paymentMethod": "Efectivo",
+                            "incomeType": "01 - Ingresos por operaciones",
+                            "items": calcs["items"],
+                            "totalPaid": 0.0,
+                            "remainingBalance": calcs["net_payable"],
+                            "paymentAgreement": {"enabled": False},
+                            "branchId": "default-sucursal-principal",
+                            "createdAt": datetime.now(timezone.utc).isoformat(),
+                        }
+                        if block["tipo"] == "E46":
+                            inv["identificadorExtranjero"] = "US123456789"
+                            inv["foreignTaxId"] = "US123456789"
+                            inv["clientCountry"] = "US"
+                            inv["clientRNC"] = ""
+                        inv["dueDate"] = due
+                        DatabaseService.save_invoice(owner_uid, inv_id, inv, sandbox=sandbox, company_id=company_id)
+                        case["doc_id"] = inv_id
+                        case["total"] = round(calcs["total"], 2)
+                        case["invoiceNumber"] = inv["invoiceNumber"]
+
+                    elif block["kind"] == "expense":
+                        base = cls._step4_price(block, i)
+                        is_e43 = block["tipo"] == "E43"
+                        itbis = 0.0 if is_e43 else round(base * 0.18, 2)
+                        amount = round(base + itbis, 2)
+                        exp_id = str(uuid.uuid4())
+                        exp_dict = {
+                            "id": exp_id,
+                            "concept": f"Compra certificación DGII {block['tipo']} #{i + 1}",
+                            "category": "Operativos",
+                            "amount": amount,
+                            "itbisAmount": itbis,
+                            "date": today,
+                            "dueDate": due,
+                            "providerName": "PROVEEDOR FORMAL CERT SRL" if not is_e43 else "PROVEEDOR INFORMAL CERT",
+                            "rncEmisor": "" if is_e43 else "131880681",
+                            "paymentType": "Contado",
+                            "paymentMethod": "Efectivo",
+                            "status": "Pendiente",
+                            "ecfType": block["tipo"],
+                            "isMinorExpense": is_e43,
+                            "encf": encf,
+                            "ecfNumber": encf,
+                            "ncf": encf,
+                            "isSyncedWithDGII": False,
+                            "retainedISR": 0.0,
+                            "retainedITBIS": 0.0,
+                            "notes": "Set certificación DGII paso 4",
+                            "branchId": "default-sucursal-principal",
+                            "createdAt": datetime.now(timezone.utc).isoformat(),
+                        }
+                        DatabaseService.save_expense(owner_uid, exp_id, exp_dict, sandbox=sandbox, company_id=company_id)
+                        case["doc_id"] = exp_id
+                        case["total"] = amount
+                        case["invoiceNumber"] = f"EXP-{block['tipo']}-{i + 1:02d}"
+
+                    elif block["kind"] == "supplier_invoice":
+                        base = cls._step4_price(block, i)
+                        sinv = {
+                            "invoiceNumber": f"FI-CERT-E47-{i + 1:02d}",
+                            "supplierName": "FOREIGN SERVICES INC",
+                            "supplierRnc": "350555123",
+                            "supplierType": "formal",
+                            "ecfType": "E47",
+                            "encf": encf,
+                            "date": today,
+                            "dueDate": due,
+                            "subtotal": base,
+                            "itbis": 0.0,
+                            "total": base,
+                            "currency": "DOP",
+                            "exchangeRate": 1.0,
+                            "paymentTerms": "contado",
+                            "paymentType": "Contado",
+                            "status": "registrada",
+                            "cxpStatus": "Pendiente",
+                            "retainedISR": 0.27,
+                            "retainedITBIS": 0.0,
+                            "items": [{
+                                "name": f"Servicio exterior certificación E47 #{i + 1}",
+                                "unitPrice": base,
+                                "quantity": 1,
+                                "subtotal": base,
+                                "itbisRate": 0.0,
+                            }],
+                            "notes": "Set certificación DGII paso 4 — E47",
+                            "branchId": "default-sucursal-principal",
+                        }
+                        SupplierInvoiceService.create(owner_uid=owner_uid, data=sinv, sandbox=sandbox, company_id=company_id)
+                        case["doc_id"] = sinv["id"]
+                        case["total"] = base
+                        case["invoiceNumber"] = sinv["invoiceNumber"]
+                except Exception as e:
+                    case["status"] = "error"
+                    case["error_message"] = str(e)
+                    set_errors.append(f"{block['tipo']} #{i + 1}: {e}")
+                cases.append(case)
+                total += 1
+            blocks.append({**block, "status": "pending", "cases": cases})
+
+        for block in blocks:
+            for case in block.get("cases", []):
+                if case.get("status") == "error" or not case.get("doc_id"):
                     continue
+                try:
+                    payload = cls._load_step4_payload(owner_uid, case, sandbox=sandbox, company_id=company_id)
+                    if not payload:
+                        raise ValueError("Documento no encontrado en Firestore")
+                    cls._step4_case_artifacts(company_profile, payload, case, xml_dir, pdf_dir)
+                    case["validation"] = "ok"
+                except Exception as e:
+                    case["validation"] = f"ERROR: {e}"
+                    set_errors.append(f"{case.get('encf', '?')}: {e}")
 
-                result = cls.emit_for_certification(company_profile, invoice_data)
+        set_warnings = []
+        if seq_info.get("created"):
+            set_warnings.append(
+                f"Secuencias auto-creadas para {', '.join(seq_info['created'])} (rango 1–1,000,000). "
+                "Verifica que la DGII haya autorizado estos rangos para la certificación: "
+                "eNCF fuera de rango autorizado son rechazados."
+            )
+        if seq_skip_info:
+            det = "; ".join(f"{t}: {v['desde']}→{v['hasta']} (usado máx {v['max_usado']})"
+                            for t, v in sorted(seq_skip_info.items()))
+            set_warnings.append(
+                f"Se omitieron {cls.STEP4_SEQUENCE_SKIP} números por tipo para evitar colisiones "
+                f"con e-CF ya generados/enviados ({det})."
+            )
 
-                raw_xml = DgiiXmlBuilder.build_invoice_xml(company_profile, invoice_data)
-                raw_path = os.path.join(xml_dir, f"{inv_id}_raw.xml")
-                with open(raw_path, "wb") as f:
-                    f.write(raw_xml)
-
-                signed_xml = DgiiSigner.sign_xml(raw_xml, company_profile)
-                signed_path = os.path.join(xml_dir, f"{inv_id}_signed.xml")
-                with open(signed_path, "wb") as f:
-                    f.write(signed_xml)
-
-                case_result = {
-                    "encf": invoice_data.get("encf", inv_id),
-                    "tipo": invoice_data.get("ecfType", "?"),
-                    "total": float(invoice_data.get("total", 0)),
-                    "grupo": 1,
-                    "tag": "simulacion",
-                    "success": result.get("success", False),
-                    "track_id": result.get("track_id"),
-                    "dgii_status": result.get("dgii_status"),
-                    "response_data": result.get("response_data", {}),
-                    "error_message": result.get("error"),
-                    "signed_xml_path": signed_path,
-                    "raw_xml_path": raw_path,
-                }
-
-                if result.get("success"):
-                    accepted += 1
-                else:
-                    rejected += 1
-
-                results.append(case_result)
-            except Exception as e:
-                results.append({
-                    "encf": inv_id, "tipo": "?", "total": 0,
-                    "success": False, "error_message": str(e),
-                })
-                rejected += 1
-
-            time.sleep(0.5)
-
-        run_dict = {
-            "run_number": run_number,
-            "step": 4,
-            "status": "in_progress",
-            "started_at": _now(),
-            "total_cases": total,
-            "accepted": accepted,
-            "rejected": rejected,
-            "pending": 0,
-            "cases": results,
-            "evidencias_dir": evidence_dir,
+        test_set = {
+            "created_at": _now(),
+            "total": total,
+            "blocks": blocks,
+            "sequence_info": seq_info,
+            "sequence_skip": seq_skip_info,
+            "set_errors": set_errors,
+            "warnings": set_warnings,
         }
-
-        if rejected > 0:
-            cls.fail_step(company_id, 4, run_number, run_dict)
-            run_dict["status"] = "failed"
-        else:
-            cls.complete_step(company_id, 4, run_number, run_dict)
-            run_dict["status"] = "completed"
-
-        cls.save_run_progress(company_id, 4, run_number, run_dict)
+        run_data["test_set"] = test_set
+        run_data["total_cases"] = total
+        run_data["run_number"] = run_number
+        run_data["status"] = "in_progress"
+        cls.save_run_progress(company_id, 4, run_number, run_data)
 
         return {
-            "success": rejected == 0,
-            "total": total,
-            "accepted": accepted,
-            "rejected": rejected,
-            "results": results,
+            "success": True,
+            "reused": False,
             "run_number": run_number,
-            "evidence_dir": evidence_dir,
+            "set": test_set,
+            "errors": set_errors,
+            "deleted_docs": deleted_docs,
         }
 
     @classmethod
-    def get_available_invoices(cls, owner_uid, company_id, sandbox=True, limit=50):
-        invoices = DatabaseService.get_invoices(
-            owner_uid, sandbox=sandbox, company_id=company_id
-        ) or []
-        result = []
-        for inv in invoices[:limit]:
-            result.append({
-                "id": inv.get("id", ""),
-                "invoiceNumber": inv.get("invoiceNumber", ""),
-                "encf": inv.get("encf", ""),
-                "ecfType": inv.get("ecfType", ""),
-                "date": inv.get("date", ""),
-                "clientName": inv.get("clientName", ""),
-                "clientRNC": inv.get("clientRNC", ""),
-                "total": float(inv.get("total", 0) or 0),
+    def get_step4_set(cls, company_id, run_number=None):
+        if not run_number:
+            process = cls.get_process(company_id)
+            run_number = process.get("steps", {}).get("4", {}).get("current_run", 0)
+        if not run_number:
+            return None
+        run_data = cls._get_firestore_doc(_get_run_doc_path(company_id, 4, run_number)) or {}
+        return run_data.get("test_set")
+
+    @classmethod
+    def mark_step4_block_sent(cls, company_id, run_number, block_index, marked_by=""):
+        """Marca un bloque como enviado manualmente (el usuario ya envió esos
+        comprobantes a la DGII desde sus módulos). Permite proseguir al siguiente
+        bloque/paso sin re-enviar desde el wizard."""
+        run_path = _get_run_doc_path(company_id, 4, run_number)
+        run_data = cls._get_firestore_doc(run_path) or {}
+        test_set = run_data.get("test_set")
+        if not test_set:
+            return {"success": False, "error": "No existe un set de pruebas para esta corrida. Genéralo primero."}
+
+        blocks = test_set.get("blocks", [])
+        if block_index < 1 or block_index > len(blocks):
+            return {"success": False, "error": "Bloque inválido."}
+
+        block = blocks[block_index - 1]
+        if block.get("status") == "sent":
+            return {"success": True, "reused": True, "block": block, "all_blocks_sent": all(b.get("status") == "sent" for b in blocks)}
+
+        for prev in blocks[:block_index - 1]:
+            if prev.get("status") != "sent":
+                return {"success": False,
+                        "error": f"El bloque {prev['index']} ({prev['label']}) debe enviarse primero."}
+
+        for case in block.get("cases", []):
+            if case.get("status") not in ("accepted", "rejected", "error"):
+                case["status"] = "manual_sent"
+        block["status"] = "sent"
+        block["manual_sent"] = True
+        block["marked_by"] = marked_by
+        block["sent_count"] = len([c for c in block.get("cases", []) if c.get("status") in ("accepted", "manual_sent")])
+        block["failed_count"] = len([c for c in block.get("cases", []) if c.get("status") in ("rejected", "error")])
+
+        test_set["blocks"] = blocks
+        run_data["test_set"] = test_set
+        run_data["status"] = "in_progress"
+        cls.save_run_progress(company_id, 4, run_number, run_data)
+
+        all_sent = all(b.get("status") == "sent" for b in blocks)
+        if all_sent:
+            cls.complete_step(company_id, 4, run_number, run_data)
+
+        return {
+            "success": True,
+            "block": block,
+            "run_number": run_number,
+            "all_blocks_sent": all_sent,
+        }
+
+    @classmethod
+    def _mark_step4_case_emitted(cls, owner_uid, case, payload, result, sandbox=True, company_id=None):
+        xml_signature = result.get("xml_signature", "")
+        track_id = result.get("track_id", "")
+        updates = {
+            "encf": payload.get("encf", case.get("encf", "")),
+            "xmlSignature": xml_signature,
+            "qrCodeURL": payload.get("qrCodeURL", ""),
+            "trackId": track_id,
+            "isSyncedWithDGII": True,
+            "dgiiStatus": result.get("dgii_status") or "ACCEPTED",
+            "emisionMode": "API",
+        }
+        kind = case.get("kind", "invoice")
+        doc_id = case.get("doc_id", "")
+        if kind in ("invoice", "nota"):
+            inv = DatabaseService.get_invoice(owner_uid, doc_id, sandbox=sandbox, company_id=company_id)
+            if inv:
+                inv.update(updates)
+                inv["status"] = "Emitida"
+                try:
+                    inv["xmlContent"] = open(case.get("xml_path", ""), "rb").read().decode("utf-8") if case.get("xml_path") and os.path.exists(case.get("xml_path", "")) else ""
+                except Exception:
+                    inv["xmlContent"] = ""
+                DatabaseService.save_invoice(owner_uid, doc_id, inv, sandbox=sandbox, company_id=company_id)
+        elif kind == "expense":
+            exp = DatabaseService.get_expense(owner_uid, doc_id, sandbox=sandbox, company_id=company_id)
+            if exp:
+                exp.update(updates)
+                exp["ecfNumber"] = payload.get("encf", exp.get("encf", ""))
+                exp["ncf"] = payload.get("encf", exp.get("encf", ""))
+                DatabaseService.save_expense(owner_uid, doc_id, exp, sandbox=sandbox, company_id=company_id)
+        elif kind == "supplier_invoice":
+            sinv_updates = dict(updates)
+            sinv_updates.update({
+                "ecfNumber": payload.get("encf", case.get("encf", "")),
+                "ncf": payload.get("encf", case.get("encf", "")),
+                "status": "emitida",
             })
-        return result
+            SupplierInvoiceService.update(owner_uid, doc_id, sinv_updates, sandbox=sandbox, company_id=company_id)
+
+    @classmethod
+    def _classify_consulta_status(cls, data, text):
+        """Clasifica la respuesta de consulta de estado de CerteCF.
+        Distingue ACCEPTED / REJECTED / NOT_FOUND (no confundir 'no aparece' con rechazo)."""
+        raw = (text or "") + " " + json.dumps(data or {}, default=str)
+        r = raw.upper()
+        if any(t in r for t in ["RECHAZADO", "REJECTED", "ANULADO", "CANCELADO"]):
+            return "REJECTED"
+        if any(t in r for t in ["ACEPTADO", "APROBADO", "ACCEPTED"]):
+            return "ACCEPTED"
+        if any(t in r for t in ["NO EXISTE", "NO ENCONTRADO", "NO ENCONTRADA",
+                                "NO SE ENCONTRO", "NO SE ENCONTRÓ", "INEXISTENTE",
+                                "SIN RESULTADOS", "NO HAY RESULTADOS"]):
+            return "NOT_FOUND"
+        return None
+
+    @classmethod
+    def _check_dgii_acceptance(cls, company_profile, encf, track_id=None, attempts=4, delay=12):
+        """Consulta el estado del e-CF en CerteCF. Retorna True (ACCEPTED),
+        False (REJECTED) o None (pendiente/desconocido/no aparece).
+        Prefiere consultaresultado por trackid (más confiable); fallback a
+        consultaestado por eNCF con parámetro 'encf' (no 'ncfelectronico')."""
+        endpoints = cls._cert_endpoints()
+        company_rnc = str(company_profile.get("companyRNC", "")).replace("-", "").strip()
+        urls = []
+        if track_id:
+            url = endpoints.get("consulta_resultado")
+            if url:
+                urls.append((url, {"rncemisor": company_rnc, "trackid": track_id}))
+        url_estado = endpoints.get("consulta_estado")
+        if url_estado:
+            urls.append((url_estado, {"rncemisor": company_rnc, "encf": encf}))
+        if not urls:
+            return None
+        token, err = cls._get_cert_token(company_profile)
+        if err:
+            return None
+        cert_path = DgiiDirectService._prepare_tls_cert(company_profile)
+        try:
+            for attempt in range(attempts):
+                for url, params in urls:
+                    try:
+                        response = DgiiDirectService._get_with_params(
+                            url, params, token=token, cert_path=cert_path
+                        )
+                        text = response.text if response is not None else ""
+                        data = DgiiDirectService._safe_json(response) if response is not None else None
+                        estado = cls._classify_consulta_status(data, text)
+                        if estado is None:
+                            # Solo aceptamos ACCEPTED del extractor genérico; un "ERROR"
+                            # genérico no debe tratarse como rechazo (evita falsos REJECTED).
+                            estado = DgiiDirectService._extract_status(data, text)
+                            if estado != "ACCEPTED":
+                                estado = None
+                        if estado == "ACCEPTED":
+                            return True
+                        if estado == "REJECTED":
+                            return False
+                    except Exception:
+                        pass
+                if attempt < attempts - 1:
+                    time.sleep(delay)
+            return None
+        finally:
+            DgiiDirectService._cleanup_tls_cert(cert_path)
+
+    @classmethod
+    def _gate_nota_references(cls, company_profile, blocks, block_index):
+        """Regla DGII: una nota (E33/E34) no puede enviarse si el comprobante
+        modificado fue RECHAZADO. Solo bloquea ante rechazo explícito confirmado;
+        pendiente/desconocido no bloquea (la DGII rechazará explícitamente y el
+        mensaje quedará visible en el caso)."""
+        block = blocks[block_index - 1]
+        ref_encfs = {c.get("ncfModified") for c in block.get("cases", []) if c.get("ncfModified")}
+        if not ref_encfs:
+            return None
+        for prev in blocks[:block_index - 1]:
+            for pc in prev.get("cases", []):
+                if pc.get("encf") in ref_encfs:
+                    if pc.get("status") != "accepted":
+                        continue
+                    if pc.get("track_id"):
+                        accepted = cls._check_dgii_acceptance(
+                            company_profile, pc.get("encf"), track_id=pc.get("track_id")
+                        )
+                        if accepted is False:
+                            return (f"El comprobante referenciado {pc.get('encf')} fue RECHAZADO por la DGII. "
+                                    "Corrige y reenvía antes de enviar la nota.")
+        return None
+
+    @classmethod
+    def send_step4_block(cls, company_id, company_profile, owner_uid, user_email,
+                         sandbox=True, run_number=1, block_index=1, resend=False):
+        run_path = _get_run_doc_path(company_id, 4, run_number)
+        run_data = cls._get_firestore_doc(run_path) or {}
+        test_set = run_data.get("test_set")
+        if not test_set:
+            return {"success": False, "error": "No existe un set de pruebas para esta corrida. Genéralo primero."}
+
+        blocks = test_set.get("blocks", [])
+        if block_index < 1 or block_index > len(blocks):
+            return {"success": False, "error": "Bloque inválido."}
+
+        block = blocks[block_index - 1]
+        if block.get("manual_required"):
+            return {"success": False,
+                    "error": (f"Los comprobantes {block.get('tipo')} se emiten manualmente desde el detalle de "
+                              "la factura (generar nota de débito/crédito). Luego usa 'Marcar enviado (manual)' "
+                              "en este bloque para continuar.")}
+        if block.get("status") == "sent" and not resend:
+            return {"success": True, "reused": True, "block": block, "sent": block.get("sent_count", 0), "failed": 0}
+
+        for prev in blocks[:block_index - 1]:
+            if prev.get("status") != "sent":
+                return {"success": False,
+                        "error": f"El bloque {prev['index']} ({prev['label']}) debe enviarse primero."}
+
+        if resend:
+            # Reenvío intencional con los MISMOS eNCF (la DGII los rechazará por
+            # duplicado y reiniciará esa prueba específica).
+            for case in block.get("cases", []):
+                if case.get("doc_id") and case.get("status") != "error":
+                    case["status"] = "pending"
+                    case.pop("track_id", None)
+                    case.pop("dgii_status", None)
+                    case.pop("dgii_message", None)
+                    case.pop("error_message", None)
+            block["status"] = "pending"
+            block["resend_count"] = block.get("resend_count", 0) + 1
+
+        if not resend and block.get("tipo") in ("E33", "E34"):
+            gate_err = cls._gate_nota_references(company_profile, blocks, block_index)
+            if gate_err:
+                return {"success": False, "error": gate_err, "block": block}
+
+        xml_dir = os.path.join(_get_evidence_dir(company_id, 4, run_number), "xml")
+        _ensure_dir(xml_dir)
+        pdf_dir = os.path.join(_get_evidence_dir(company_id, 4, run_number), "pdf")
+        _ensure_dir(pdf_dir)
+
+        sent = failed = 0
+        stop = False
+        for case in block.get("cases", []):
+            if case.get("status") == "accepted":
+                sent += 1
+                continue
+            if case.get("status") == "error" or not case.get("doc_id"):
+                case["status"] = "rejected"
+                failed += 1
+                continue
+            payload = cls._load_step4_payload(owner_uid, case, sandbox=sandbox, company_id=company_id)
+            if not payload:
+                case["status"] = "rejected"
+                case["error_message"] = "Documento no encontrado en Firestore"
+                failed += 1
+                continue
+            result = cls.emit_for_certification(company_profile, payload)
+            case["track_id"] = result.get("track_id")
+            case["dgii_status"] = result.get("dgii_status")
+            rd = result.get("response_data") or {}
+            if isinstance(rd, dict):
+                dgii_msg = str(rd.get("message") or rd.get("mensajes") or rd.get("estado") or "").strip()
+                if dgii_msg:
+                    case["dgii_message"] = dgii_msg[:300]
+                case["response_data"] = {k: (str(v)[:300] if isinstance(v, str) else v)
+                                         for k, v in list(rd.items())[:8]}
+            elif isinstance(rd, str) and rd:
+                case["dgii_message"] = rd[:300]
+                case["response_data"] = rd[:300]
+            else:
+                case["response_data"] = {}
+            if result.get("success"):
+                case["status"] = "accepted"
+                sent += 1
+                try:
+                    if result.get("qrCodeURL"):
+                        payload["qrCodeURL"] = result["qrCodeURL"]
+                    cls._step4_case_artifacts(company_profile, payload, case, xml_dir, pdf_dir)
+                    cls._mark_step4_case_emitted(owner_uid, case, payload, result,
+                                                 sandbox=sandbox, company_id=company_id)
+                except Exception as art_err:
+                    case["artifact_error"] = str(art_err)
+            else:
+                case["status"] = "rejected"
+                case["error_message"] = case.get("dgii_message") or result.get("error") or "Rechazado por DGII"
+                failed += 1
+                stop = True
+                break
+
+        if stop:
+            block["status"] = "failed"
+        elif failed > 0:
+            block["status"] = "failed"
+        else:
+            block["status"] = "sent"
+        block["sent_count"] = sent
+        block["failed_count"] = failed
+
+        test_set["blocks"] = blocks
+        run_data["test_set"] = test_set
+        run_data["accepted"] = run_data.get("accepted", 0) + sent
+        run_data["rejected"] = run_data.get("rejected", 0) + failed
+        run_data["status"] = "in_progress"
+        cls.save_run_progress(company_id, 4, run_number, run_data)
+
+        all_sent = all(b.get("status") == "sent" for b in blocks)
+        if all_sent and failed == 0:
+            cls.complete_step(company_id, 4, run_number, run_data)
+        elif failed > 0:
+            cls.fail_step(company_id, 4, run_number, run_data)
+
+        return {
+            "success": failed == 0 and not stop,
+            "block": block,
+            "sent": sent,
+            "failed": failed,
+            "run_number": run_number,
+            "all_blocks_sent": all_sent and failed == 0,
+        }
 
     # ═══════════════════════════════════════════════════════════════
     # Paso 1: Firma de XML de postulacion

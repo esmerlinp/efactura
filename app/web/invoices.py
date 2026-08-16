@@ -1066,6 +1066,10 @@ def list_invoices():
     start_date = request.args.get('start_date', '').strip()
     end_date = request.args.get('end_date', '').strip()
     per_page = request.args.get('per_page', '5').strip()
+    sort = request.args.get('sort', 'date').strip()
+    order = request.args.get('order', 'desc').strip()
+    if order not in ('asc', 'desc'):
+        order = 'desc'
     try:
         page = int(request.args.get('page', 1))
     except ValueError:
@@ -1139,6 +1143,24 @@ def list_invoices():
             continue
         filtered.append(inv)
 
+    # Ordenar por columna (click en encabezados del grid)
+    SORT_KEYS = {
+        "invoiceNumber": lambda d: str(d.get("invoiceNumber") or "").lower(),
+        "clientName": lambda d: str(d.get("clientName") or "").lower(),
+        "date": lambda d: str(d.get("date") or ""),
+        "dueDate": lambda d: str(d.get("dueDate") or ""),
+        "total": lambda d: float(d.get("total") or 0),
+        "remainingBalance": lambda d: float(d.get("remainingBalance", d.get("netPayable", 0)) or 0),
+        "status": lambda d: str(d.get("status") or "").lower(),
+        "encf": lambda d: str(d.get("encf") or "").lower(),
+        "ecfType": lambda d: str(d.get("ecfType") or "").lower(),
+    }
+    key_fn = SORT_KEYS.get(sort) or SORT_KEYS["date"]
+    try:
+        filtered.sort(key=key_fn, reverse=(order == "desc"))
+    except Exception:
+        filtered.sort(key=lambda d: str(d.get("date") or ""), reverse=True)
+
     # Exportar a CSV si se solicita
     if request.args.get('export') == 'csv':
         import io
@@ -1210,7 +1232,9 @@ def list_invoices():
         q=q,
         status=status,
         start_date=start_date,
-        end_date=end_date
+        end_date=end_date,
+        sort=sort,
+        order=order
     )
 
 @web_invoices_bp.route('/quotations')
@@ -2769,47 +2793,14 @@ def send_invoice_email(owner_uid, invoice, recipient_email, sandbox=True, base_u
         if invoice.get("encf") and invoice.get("xmlSignature"):
             try:
                 fecha_emision_dt = datetime.strptime(invoice.get("date", "")[:10], "%Y-%m-%d")
-                fecha_emision_str = fecha_emision_dt.strftime("%d-%m-%Y")
-            except:
-                fecha_emision_str = ""
-                
-            if invoice.get("paymentDate"):
-                try:
-                    dt = datetime.fromisoformat(invoice["paymentDate"].replace('Z', '+00:00'))
-                    fecha_firma_str = dt.strftime("%d-%m-%Y %H:%M:%S")
-                except:
-                    fecha_firma_str = fecha_emision_str + " 12:00:00"
-            else:
-                fecha_firma_str = fecha_emision_str + " 12:00:00"
-
+                fecha_firma_str = fecha_emision_dt.strftime("%d-%m-%Y") + " 12:00:00"
+            except Exception:
+                pass
             codigo_seg = invoice.get("xmlSignature", "")[:6]
-            rnc_emisor = company.get("companyRNC", "").replace("-", "").strip()
-            rnc_comprador = invoice.get("clientRNC", "").replace("-", "").strip()
-            if not rnc_comprador: rnc_comprador = "000000000"
-            monto_total = f"{invoice.get('total', 0.0):.2f}"
-            
-            is_consumo = _is_consumo(invoice.get("ecfType", ""))
-            if is_consumo and invoice.get("total", 0.0) < 250000:
-                query_params = {
-                    "RncEmisor": rnc_emisor,
-                    "ENCF": invoice.get("encf"),
-                    "MontoTotal": monto_total,
-                    "CodigoSeguridad": codigo_seg
-                }
-                qs = urllib.parse.urlencode(query_params, quote_via=urllib.parse.quote)
-                qr_url = "https://fc.dgii.gov.do/eCF/ConsultaTimbreFC?" + qs
-            else:
-                query_params = {
-                    "RncEmisor": rnc_emisor,
-                    "RncComprador": rnc_comprador,
-                    "ENCF": invoice.get("encf"),
-                    "FechaEmision": fecha_emision_str,
-                    "MontoTotal": monto_total,
-                    "FechaFirma": fecha_firma_str,
-                    "CodigoSeguridad": codigo_seg
-                }
-                qs = urllib.parse.urlencode(query_params, quote_via=urllib.parse.quote)
-                qr_url = "https://ecf.dgii.gov.do/ecf/ConsultaTimbre?" + qs
+            try:
+                qr_url = DgiiDirectService.build_qr_url(company, invoice, codigo_seg) or qr_url
+            except Exception:
+                pass
 
         if not qr_url:
             qr_url = "https://dgii.gov.do/validaecf"
@@ -4410,6 +4401,9 @@ def invoice_pdf_download(invoice_id):
     invoice = _enrich_invoice_totals(invoice)
     company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     inv_num = invoice.get('invoiceNumber', invoice_id).replace('/', '-').replace(' ', '_')
+    rnc_emisor = (company.get("companyRNC") or "").replace("-", "").replace(" ", "").strip()
+    encf = invoice.get("encf") or ""
+    pdf_filename = f"{rnc_emisor}{encf}.pdf" if (rnc_emisor and encf) else f"{inv_num}.pdf"
 
     action = request.args.get('action', 'download')
 
@@ -4439,36 +4433,10 @@ def invoice_pdf_download(invoice_id):
             fecha_firma_str = fecha_emision_str + " 12:00:00"
 
         codigo_seg = invoice.get("xmlSignature", "")[:6]
-        rnc_emisor = company.get("companyRNC", "").replace("-", "").strip()
-        rnc_comprador = invoice.get("clientRNC", "").replace("-", "").strip()
-        if not rnc_comprador: rnc_comprador = "000000000"
-        monto_total = f"{invoice.get('total', 0.0):.2f}"
-        
-        # DGII exception: Facturas de Consumo (E32) menores a RD$250,000
-        # Usa dominio fc.dgii.gov.do segun especificacion DGII
-        env = Config.DGII_ENVIRONMENT
-        is_consumo = _is_consumo(invoice.get("ecfType", ""))
-        if is_consumo and invoice.get("total", 0.0) < 250000:
-            query_params = {
-                "rncemisor": rnc_emisor,
-                "encf": invoice.get("encf"),
-                "montototal": monto_total,
-                "codigoseguridad": codigo_seg
-            }
-            qs = urllib.parse.urlencode(query_params, quote_via=urllib.parse.quote)
-            qr_url = f"https://fc.dgii.gov.do/{env}/consultatimbrefc?" + qs
-        else:
-            query_params = {
-                "rncemisor": rnc_emisor,
-                "rnccomprador": rnc_comprador,
-                "encf": invoice.get("encf"),
-                "fechaemision": fecha_emision_str,
-                "montototal": monto_total,
-                "fechafirma": fecha_firma_str,
-                "codigoseguridad": codigo_seg
-            }
-            qs = urllib.parse.urlencode(query_params, quote_via=urllib.parse.quote)
-            qr_url = f"https://ecf.dgii.gov.do/{env}/consultatimbre?" + qs
+        try:
+            qr_url = DgiiDirectService.build_qr_url(company, invoice, codigo_seg)
+        except Exception:
+            qr_url = qr_url or "https://dgii.gov.do/validaecf"
 
     if not qr_url:
         qr_url = "https://dgii.gov.do/validaecf"
@@ -4492,7 +4460,7 @@ def invoice_pdf_download(invoice_id):
         pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf(**pdf_write_options())
         response = make_response(pdf_bytes)
         response.headers['Content-Type'] = 'application/pdf'
-        response.headers['Content-Disposition'] = f'attachment; filename="{inv_num}.pdf"'
+        response.headers['Content-Disposition'] = f'attachment; filename="{pdf_filename}"'
         return response
     else:
         # Fallback sin dependencias externas o si action es 'print':
@@ -5195,22 +5163,21 @@ def expense_pdf_download(expense_id):
     if expense.get("encf") and expense.get("xmlSignature"):
         try:
             fecha_emision_dt = datetime.strptime(expense.get("date", "")[:10], "%Y-%m-%d")
-            fecha_emision_str = fecha_emision_dt.strftime("%d-%m-%Y")
-        except:
-            fecha_emision_str = ""
-        fecha_firma_str = fecha_emision_str + " 12:00:00"
+            fecha_firma_str = fecha_emision_dt.strftime("%d-%m-%Y") + " 12:00:00"
+        except Exception:
+            pass
         codigo_seg = expense.get("xmlSignature", "")[:6]
-        rnc_emisor = company.get("companyRNC", "").replace("-", "").strip()
-        monto_total = f"{expense.get('amount', 0.0):.2f}"
-        query_params = {
-            "RncEmisor": rnc_emisor,
-            "ENCF": expense.get("encf"),
-            "MontoTotal": monto_total,
-            "FechaEmision": fecha_emision_str,
-            "CodigoSeguridad": codigo_seg
-        }
-        qs = urllib.parse.urlencode(query_params, quote_via=urllib.parse.quote)
-        qr_url = "https://ecf.dgii.gov.do/ecf/ConsultaTimbre?" + qs
+        try:
+            qr_payload = {
+                "encf": expense.get("encf"),
+                "ecfType": expense.get("ecfType", ""),
+                "total": float(expense.get("amount", 0.0) or 0.0),
+                "clientRNC": expense.get("rncEmisor", ""),
+                "date": expense.get("date", ""),
+            }
+            qr_url = DgiiDirectService.build_qr_url(company, qr_payload, codigo_seg) or qr_url
+        except Exception:
+            pass
 
     if not qr_url:
         qr_url = "https://dgii.gov.do/validaecf"
