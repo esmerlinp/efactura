@@ -1077,6 +1077,7 @@ class DgiiCertService:
                     rfce_url, rfce_signed, token=token, filename=f"{company_rnc}{encf}.xml", cert_path=cert_path
                 )
             else:
+                rfce_signed = None
                 cert_path = DgiiDirectService._prepare_tls_cert(company_profile)
                 filename = f"{company_rnc}{encf}.xml"
                 response = DgiiDirectService._multipart_post(
@@ -1132,6 +1133,11 @@ class DgiiCertService:
                 "status_code": status_code,
                 "response_data": data or {},
                 "error": rejection_error,
+                # Bytes EXACTOS enviados a la DGII (no re-firmar al persistir):
+                # el vínculo CodigoSeguridadeCF == SignatureValue[:6] del E32
+                # completo debe preservarse entre RFCE (API) y XML (portal).
+                "signed_xml": signed_xml,
+                "rfce_signed_xml": rfce_signed if is_rfce else None,
             }
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -1543,6 +1549,35 @@ class DgiiCertService:
             with open(os.path.join(xml_dir, f"{prefix}_rfce.xml"), "wb") as f:
                 f.write(rfce_signed)
             case["rfce_xml_path"] = os.path.join(xml_dir, f"{prefix}_rfce.xml")
+        pdf_path = cls._step4_case_pdf(payload, company_profile, pdf_dir, encf)
+        if pdf_path:
+            case["pdf_path"] = pdf_path
+
+    @classmethod
+    def _step4_case_artifacts_from_emission(cls, company_profile, payload, case, result, xml_dir, pdf_dir):
+        """Persiste en disco EXACTAMENTE los XML firmados que se enviaron a la DGII
+        (sin re-firmar). Regla DGII: CodigoSeguridadeCF del RFCE (API) debe ser igual
+        a los 6 primeros dígitos del SignatureValue del E32 completo (portal);
+        re-firmar en cada paso rompería ese vínculo (FechaHoraFirma cambia)."""
+        encf = case.get("encf", "SIN-ENCF")
+        rnc = str(company_profile.get("companyRNC", "")).replace("-", "").strip()
+        prefix = f"{rnc}{encf}" if rnc else encf
+        signed_bytes = result.get("signed_xml")
+        if isinstance(signed_bytes, bytes) and signed_bytes:
+            with open(os.path.join(xml_dir, f"{prefix}.xml"), "wb") as f:
+                f.write(signed_bytes)
+            case["xml_path"] = os.path.join(xml_dir, f"{prefix}.xml")
+        rfce_bytes = result.get("rfce_signed_xml")
+        if isinstance(rfce_bytes, bytes) and rfce_bytes:
+            with open(os.path.join(xml_dir, f"{prefix}_rfce.xml"), "wb") as f:
+                f.write(rfce_bytes)
+            case["rfce_xml_path"] = os.path.join(xml_dir, f"{prefix}_rfce.xml")
+        try:
+            raw_xml = DgiiXmlBuilder.build_invoice_xml(company_profile, payload)
+            with open(os.path.join(xml_dir, f"{prefix}_raw.xml"), "wb") as f:
+                f.write(raw_xml)
+        except Exception as raw_err:
+            print(f"⚠️ No se regeneró raw.xml para {encf}: {raw_err}")
         pdf_path = cls._step4_case_pdf(payload, company_profile, pdf_dir, encf)
         if pdf_path:
             case["pdf_path"] = pdf_path
@@ -2084,7 +2119,7 @@ class DgiiCertService:
                 try:
                     if result.get("qrCodeURL"):
                         payload["qrCodeURL"] = result["qrCodeURL"]
-                    cls._step4_case_artifacts(company_profile, payload, case, xml_dir, pdf_dir)
+                    cls._step4_case_artifacts_from_emission(company_profile, payload, case, result, xml_dir, pdf_dir)
                     cls._mark_step4_case_emitted(owner_uid, case, payload, result,
                                                  sandbox=sandbox, company_id=company_id)
                 except Exception as art_err:

@@ -74,6 +74,8 @@ def test_step4_template_renders_with_set(app):
             assert "step4-advance-form" in html
             assert "/certificacion/step-4/set" in html
             assert "/certificacion/step-4/mark-block-sent" in html
+            assert "XML e-CF" in html
+            assert "Portal DGII: sube el" in html
             # El flujo manual fue eliminado del paso 4
             assert "Seleccionar Facturas" not in html
             assert "Cargar facturas del sistema" not in html

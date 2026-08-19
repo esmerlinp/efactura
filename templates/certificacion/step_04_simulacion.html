@@ -300,12 +300,14 @@
                     </div>`;
                 }).join("")
                 : (block.cases || []).map(c => {
-                    const xml = c.encf ? `<a href="/api/v1/certificacion/step-4/download/${c.encf}?run=${step4SetRun}" title="XML firmado"><i class="fa-solid fa-file-code"></i> XML</a>` : "";
-                    const rfce = c.rfce && c.encf ? `<a href="/api/v1/certificacion/step-4/download/${c.encf}?run=${step4SetRun}&type=rfce" title="XML RFCE firmado"><i class="fa-solid fa-file-shield"></i> RFCE</a>` : "";
+                    const xml = c.encf ? `<a href="/api/v1/certificacion/step-4/download/${c.encf}?run=${step4SetRun}" title="XML completo firmado (e-CF 32) — úsalo para el portal DGII"><i class="fa-solid fa-file-code"></i> XML e-CF</a>` : "";
+                    const rfce = c.rfce && c.encf ? `<a href="/api/v1/certificacion/step-4/download/${c.encf}?run=${step4SetRun}&type=rfce" title="Resumen RFCE — solo para envío por API CerteCF (recepción RFCE)"><i class="fa-solid fa-file-shield"></i> RFCE (API)</a>` : "";
                     const pdf = c.encf ? `<a href="/api/v1/certificacion/step-4/download-pdf/${c.encf}?run=${step4SetRun}" title="PDF"><i class="fa-solid fa-file-pdf"></i> PDF</a>` : "";
                     const ver = c.doc_id ? `<a href="${step4CaseListUrl(c)}" target="_blank" title="Ver en su lista/módulo"><i class="fa-solid fa-arrow-up-right-from-square"></i> Ver</a>` : "";
                     const pendingSpinner = sending && c.status !== "accepted" && c.status !== "rejected" && c.status !== "error"
                         ? `<span class="cert-progress-spinner" style="width:12px;height:12px;"></span>` : "";
+                    const portalHint = c.rfce
+                        ? `<small style="color:var(--accent-amber, #D97706); width:100%;">Portal DGII: sube el <strong>XML e-CF</strong> (completo, XSD e-CF 32). El <strong>RFCE</strong> solo se envía por API al presionar "Enviar bloque 11" — la descarga es evidencia de lo enviado.</small>` : "";
                     return `<div class="step4-case-row">
                         ${pendingSpinner}
                         <span style="font-family:monospace;">${c.encf || "—"}</span>
@@ -317,6 +319,7 @@
                         ${c.track_id ? `<span class="cert-badge cert-badge-info" style="font-family:monospace;">${c.track_id}</span>` : ""}
                         ${step4CaseBadge(c)}
                         <span class="step4-case-links">${xml}${rfce}${pdf}${ver}</span>
+                        ${portalHint}
                     </div>`;
                 }).join("");
 
