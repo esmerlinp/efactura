@@ -1,0 +1,155 @@
+{% extends "accounting/layout_accounting.html" %}
+{% block title %}Cuentas por Transacción{% endblock %}
+{% block page_header %}Cuentas por Transacción{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
+<style>
+    .rules-card { border:1px solid var(--border-color); border-radius:10px; margin-bottom:20px; overflow:hidden; background:var(--bg-card, #fff); }
+    .rules-card-header { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:var(--bg-nav-hover); border-bottom:1px solid var(--border-color); }
+    .rules-card-header h3 { margin:0; font-size:0.95rem; font-weight:800; color:var(--text-primary); }
+    .side-badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:0.68rem; font-weight:700; text-transform:uppercase; }
+    .side-badge.debit { background:rgba(16,185,129,0.12); color:#059669; }
+    .side-badge.credit { background:rgba(244,63,94,0.12); color:#e11d48; }
+    .cond-tag { display:inline-block; padding:1px 7px; border-radius:6px; font-size:0.7rem; background:var(--bg-nav-hover); color:var(--text-secondary); }
+    .custom-badge { display:inline-block; padding:1px 7px; border-radius:6px; font-size:0.68rem; font-weight:700; background:rgba(139,92,246,0.14); color:var(--accent-purple); }
+    .rules-table { width:100%; border-collapse:collapse; font-size:0.82rem; }
+    .rules-table th { padding:9px 12px; text-align:left; color:var(--text-secondary); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.03em; border-bottom:1px solid var(--border-color); }
+    .rules-table td { padding:8px 12px; border-bottom:1px solid var(--border-color); vertical-align:middle; }
+    .rules-table tr:last-child td { border-bottom:none; }
+    .rules-table select { width:100%; max-width:340px; }
+    .preview-row { padding:7px 0; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; gap:14px; font-size:0.84rem; }
+    .preview-row:last-child { border-bottom:none; }
+    .modal-box { max-width:560px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-title-container" style="margin-bottom:16px; padding-left:4px; display:flex; align-items:center; justify-content:space-between;">
+    <div>
+        <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+            <i class="fa-solid fa-arrows-to-dot" style="color:var(--accent-purple); margin-right:10px;"></i>
+            Cuentas por Transacción
+        </h1>
+        <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
+            Indica qué cuentas contables afectan las transacciones del sistema (ventas, gastos, nómina, cobros, etc.).
+            Los cambios solo aplican a asientos futuros.
+        </p>
+    </div>
+    <button type="submit" form="rules-form" class="btn btn-primary">
+        <i class="fa-solid fa-save"></i> Guardar cambios
+    </button>
+</div>
+
+<form method="POST" id="rules-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% for tx in catalog %}
+    <div class="rules-card">
+        <div class="rules-card-header">
+            <h3><i class="fa-solid fa-diagram-project" style="margin-right:8px; color:var(--accent-purple);"></i>{{ tx.label }}</h3>
+            <button type="button" class="btn btn-secondary" style="font-size:0.78rem;" onclick="previewTransaction('{{ tx.key }}')">
+                <i class="fa-solid fa-flask"></i> Probar contabilización
+            </button>
+        </div>
+        <table class="rules-table">
+            <thead>
+                <tr>
+                    <th style="width:34%;">Concepto</th>
+                    <th style="width:9%;">Lado</th>
+                    <th style="width:20%;">Condición</th>
+                    <th>Cuenta contable</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for concept in tx.concepts %}
+                {% set cond_rows = [{'key': '', 'label': 'Siempre', 'type': 'flag', 'defaultAccountId': concept.defaultAccountId, 'defaultAccountName': concept.defaultAccountName, 'ruleAccountId': concept.ruleAccountId, 'isCustom': concept.isCustom}] %}
+                {% for cond in concept.conditions %}
+                {% set _ = cond_rows.append({'key': cond.key, 'label': cond.label, 'type': cond.type, 'defaultAccountId': cond.defaultAccountId, 'defaultAccountName': cond.defaultAccountName, 'ruleAccountId': cond.ruleAccountId, 'isCustom': cond.isCustom}) %}
+                {% endfor %}
+                {% for row in cond_rows %}
+                <tr>
+                    <td>
+                        <strong>{{ concept.label }}</strong>
+                        {% if row.isCustom %}<span class="custom-badge" style="margin-left:6px;">Personalizada</span>{% endif %}
+                        {% if row.key == '' and not concept.defaultAccountName and concept.fallbackNote %}
+                        <div style="font-size:0.72rem; color:var(--text-muted);">{{ concept.fallbackNote }}</div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="side-badge {{ concept.side }}">{{ 'Debe' if concept.side == 'debit' else 'Haber' }}</span>
+                    </td>
+                    <td>
+                        <span class="cond-tag">{{ row.label }}</span>
+                    </td>
+                    <td>
+                        <select name="rule[{{ tx.key }}|{{ concept.key }}|{{ row.key }}|]" class="form-select">
+                            {% if row.defaultAccountName %}
+                            <option value="__default__" {% if not row.ruleAccountId %}selected{% endif %}>Por defecto: {{ row.defaultAccountName }}</option>
+                            {% else %}
+                            <option value="__default__" {% if not row.ruleAccountId %}selected{% endif %}>Por defecto ({{ concept.fallbackNote or 'sin cuenta' }})</option>
+                            {% endif %}
+                            {% for acc in accounts|sort(attribute='code') %}
+                            <option value="{{ acc.id }}" {% if row.ruleAccountId == acc.id %}selected{% endif %}>{{ acc.code }} — {{ acc.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endfor %}
+</form>
+
+<div id="preview-modal" class="modal-overlay" style="display:none;">
+    <div class="modal-box">
+        <h3><i class="fa-solid fa-flask" style="color:var(--accent-purple); margin-right:8px;"></i> Simulación: <span id="preview-title"></span></h3>
+        <p style="font-size:0.8rem; color:var(--text-secondary); margin:4px 0 14px;">
+            Cuentas que se usarían al contabilizar una operación de este tipo con la configuración actual.
+        </p>
+        <div id="preview-body" style="max-height:420px; overflow-y:auto;"></div>
+        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:16px;">
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('preview-modal').style.display='none';">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+async function previewTransaction(txKey) {
+    const body = new URLSearchParams();
+    body.append('transaction', txKey);
+    body.append('csrf_token', document.querySelector('input[name="csrf_token"]').value);
+    try {
+        const resp = await fetch("{{ url_for('web_accounting.accounting_rules_preview') }}", {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: body.toString(),
+        });
+        const data = await resp.json();
+        if (!data.success) {
+            alert(data.error || 'No se pudo generar la simulación.');
+            return;
+        }
+        document.getElementById('preview-title').textContent = data.label;
+        const container = document.getElementById('preview-body');
+        container.innerHTML = '';
+        data.rows.forEach(row => {
+            const div = document.createElement('div');
+            div.className = 'preview-row';
+            const badge = row.side === 'debit' ? 'Debe' : 'Haber';
+            div.innerHTML = `
+                <div>
+                    <strong>${row.label}</strong>
+                    <div style="font-size:0.72rem; color:var(--text-muted);">${badge}</div>
+                </div>
+                <div style="text-align:right;">
+                    ${row.accountName ? `<strong>${row.accountName}</strong>` : '<span style="color:var(--accent-red);">Sin cuenta configurada</span>'}
+                </div>`;
+            container.appendChild(div);
+        });
+        document.getElementById('preview-modal').style.display = 'flex';
+    } catch (e) {
+        alert('Error al simular: ' + e.message);
+    }
+}
+</script>
+{% endblock %}

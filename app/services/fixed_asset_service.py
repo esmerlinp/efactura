@@ -93,6 +93,17 @@ class FixedAssetService:
         expense_account_id = asset.get("depreciationExpenseAccountId")
         accum_account_id = asset.get("depreciationAccountId")
         if not expense_account_id or not accum_account_id:
+            from app.services.accounting_rules_service import AccountingRulesService
+            rules = AccountingRulesService.get_rules(company_id) if company_id else []
+            if not expense_account_id:
+                expense_acc = AccountingRulesService.resolve(company_id, "activos", "activo_depreciacion_gasto", {}, accounts, rules=rules)
+                if expense_acc:
+                    expense_account_id = expense_acc["id"]
+            if not accum_account_id:
+                accum_acc = AccountingRulesService.resolve(company_id, "activos", "activo_depreciacion_acumulada", {}, accounts, rules=rules)
+                if accum_acc:
+                    accum_account_id = accum_acc["id"]
+        if not expense_account_id or not accum_account_id:
             raise ValueError("El activo no tiene cuentas contables de depreciación configuradas")
         period = asset.get("depreciationPeriod", "mensual")
         per_period_amount = cls._calc_period_depreciation(asset)
@@ -194,9 +205,13 @@ class FixedAssetService:
                 "debit": 0.00, "credit": round(purchase_amount, 2), "description": f"Baja de {asset.get('name')}"
             })
         diff = disposal_amount - book_value
+        rules = None
         if abs(diff) > 0.01:
+            from app.services.accounting_rules_service import AccountingRulesService
+            rules = AccountingRulesService.get_rules(company_id) if company_id else []
             if diff > 0:
-                gain_account = next((a for a in accounts if a.get("code") == "4.2.2"), None) or \
+                gain_account = AccountingRulesService.resolve(company_id, "activos", "activo_utilidad_disposicion", {}, accounts, rules=rules) or \
+                               next((a for a in accounts if a.get("code") == "4.2.2"), None) or \
                                next((a for a in accounts if "ingreso" in (a.get("name") or "").lower()), None)
                 if gain_account:
                     lines.append({
@@ -206,7 +221,8 @@ class FixedAssetService:
                         "description": f"Utilidad en disposición de {asset.get('name')}"
                     })
             else:
-                loss_account = next((a for a in accounts if a.get("code") == "6.4.04"), None) or \
+                loss_account = AccountingRulesService.resolve(company_id, "activos", "activo_perdida_disposicion", {}, accounts, rules=rules) or \
+                               next((a for a in accounts if a.get("code") == "6.4.04"), None) or \
                                next((a for a in accounts if "pérdida" in (a.get("name") or "").lower()), None)
                 if loss_account:
                     lines.append({
@@ -216,7 +232,10 @@ class FixedAssetService:
                         "description": f"Pérdida en disposición de {asset.get('name')}"
                     })
         if disposal_amount > 0:
-            bank_account = _find_account_by_usage(accounts, "banco") or _find_account_by_usage(accounts, "efectivo")
+            from app.services.accounting_rules_service import AccountingRulesService
+            if rules is None:
+                rules = AccountingRulesService.get_rules(company_id) if company_id else []
+            bank_account = AccountingRulesService.resolve(company_id, "activos", "activo_disposicion_deudor", {}, accounts, rules=rules)
             if bank_account:
                 lines.append({
                     "accountId": bank_account.get("id"), "accountCode": bank_account.get("code", ""), "accountName": bank_account.get("name", "Banco"),

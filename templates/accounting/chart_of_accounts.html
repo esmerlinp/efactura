@@ -196,6 +196,15 @@
                 <textarea name="description" class="form-input" rows="2"></textarea>
             </div>
             <div class="form-group">
+                <label>Uso de la cuenta</label>
+                <select name="usage" class="form-select" id="subaccount-usage">
+                    <option value="">— Sin uso asignado —</option>
+                    {% for key, label in usage_labels.items() %}
+                    <option value="{{ key }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
                 <label><input type="checkbox" name="showByThirdParty"> Ver saldo por terceros</label>
             </div>
             <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:16px;">
@@ -230,6 +239,15 @@
             <div class="form-group">
                 <label>Descripción</label>
                 <textarea name="description" id="edit-description" class="form-input" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Uso de la cuenta</label>
+                <select name="usage" class="form-select" id="edit-usage">
+                    <option value="">— Sin uso asignado —</option>
+                    {% for key, label in usage_labels.items() %}
+                    <option value="{{ key }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
             </div>
             <div class="form-group">
                 <label><input type="checkbox" name="showByThirdParty" id="edit-showByThirdParty"> Ver saldo por terceros</label>
@@ -353,6 +371,7 @@ function openEdit(accountId) {
     document.getElementById('edit-code').value = acc.code || '';
     document.getElementById('edit-type').value = acc.type || 'movimiento';
     document.getElementById('edit-description').value = acc.description || '';
+    document.getElementById('edit-usage').value = acc.usage || '';
     document.getElementById('edit-showByThirdParty').checked = acc.showByThirdParty || false;
     document.getElementById('edit-form').action = '/accounting/account/' + accountId + '/edit';
     document.getElementById('edit-modal').style.display = 'flex';

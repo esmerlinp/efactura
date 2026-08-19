@@ -160,11 +160,13 @@ def _ensure_payroll_accounting_entry(period, period_id, owner_uid, company_id, s
             accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
             full_lines = []
             for al in acct_lines:
-                acc = next((a for a in accounts if a.get("code") == al["accountCode"]), None)
+                acc = next((a for a in accounts if a.get("id") == al.get("accountId")), None) if al.get("accountId") else None
+                if acc is None:
+                    acc = next((a for a in accounts if a.get("code") == al["accountCode"]), None)
                 if acc:
                     full_lines.append({
                         "accountId": acc["id"],
-                        "accountCode": al["accountCode"],
+                        "accountCode": acc.get("code", al["accountCode"]),
                         "accountName": al["accountName"],
                         "debit": al["debit"],
                         "credit": al["credit"],
