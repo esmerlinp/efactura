@@ -641,7 +641,7 @@ def test_send_step4_block_resend():
     with patch.object(DgiiCertService, "_get_firestore_doc", return_value=run_data), \
          patch.object(DgiiCertService, "_load_step4_payload", side_effect=lambda o, c, **kw: {"encf": c["encf"], "total": 1.0}), \
          patch.object(DgiiCertService, "emit_for_certification", side_effect=fake_emit), \
-         patch.object(DgiiCertService, "_step4_case_artifacts", return_value=None), \
+         patch.object(DgiiCertService, "_step4_case_artifacts_from_emission", return_value=None), \
          patch.object(DgiiCertService, "_mark_step4_case_emitted", return_value=None), \
          patch.object(DgiiCertService, "save_run_progress", return_value=None), \
          patch.object(DgiiCertService, "complete_step", return_value=None), \
@@ -860,3 +860,57 @@ def test_emit_for_certification_rfce_filename():
     assert captured["filename"] == "131880681E320000000034.xml"
     assert len(captured["filename"]) == 26
     assert res["success"] is True
+
+
+def test_send_step4_block_persists_exact_sent_bytes(tmp_path):
+    """Regresión vínculo de firma DGII: los XML guardados en disco son EXACTAMENTE
+    los enviados (sin re-firmar). CodigoSeguridadeCF del RFCE (API) debe coincidir
+    con SignatureValue[:6] del E32 completo que se sube al portal."""
+    import os as _os
+    from unittest.mock import patch
+
+    run_data = {
+        "run_number": 7,
+        "test_set": {
+            "total": 1,
+            "blocks": [
+                {"index": 1, "tipo": "E32", "label": "RFCE", "count": 1, "status": "pending", "rfce": True,
+                 "cases": [{"encf": "E320000000129", "status": "pending", "doc_id": "d1", "rfce": True,
+                            "total": 14750.0, "kind": "invoice", "invoiceNumber": "CERT-E32-01"}]},
+            ],
+        },
+    }
+    fake_result = {
+        "success": True,
+        "track_id": "T-1",
+        "dgii_status": "UNKNOWN",
+        "codigo_seguridad": "iyQ1gf",
+        "xml_signature": "iyQ1gfXXXX",
+        "qrCodeURL": "https://fc.dgii.gov.do/CerteCF/ConsultaTimbreFC?x=1",
+        "response_data": {},
+        "signed_xml": b"<ECF>FIRMADO-ENVIADO</ECF>",
+        "rfce_signed_xml": b"<RFCE>FIRMADO-ENVIADO</RFCE>",
+    }
+
+    with patch.object(DgiiCertService, "_get_firestore_doc", return_value=run_data), \
+         patch.object(DgiiCertService, "_load_step4_payload",
+                      side_effect=lambda o, c, **kw: {"encf": c["encf"], "ecfType": "Factura de Consumo (E32)",
+                                                      "total": 14750.0, "items": []}), \
+         patch.object(DgiiCertService, "emit_for_certification", return_value=fake_result), \
+         patch.object(DgiiCertService, "_step4_case_pdf", return_value=None), \
+         patch.object(DgiiCertService, "_mark_step4_case_emitted", return_value=None), \
+         patch.object(DgiiCertService, "save_run_progress", return_value=None), \
+         patch.object(DgiiCertService, "complete_step", return_value=None), \
+         patch.object(DgiiCertService, "fail_step", return_value=None), \
+         patch("app.services.dgii_cert_service._get_evidence_dir",
+               return_value=str(tmp_path / "run7")):
+        res = DgiiCertService.send_step4_block("c1", PROFILE, "u1", "t@t.do", run_number=7, block_index=1)
+
+    assert res["success"] is True
+    xml_dir = tmp_path / "run7" / "xml"
+    rnc = PROFILE["companyRNC"]
+    with open(xml_dir / f"{rnc}E320000000129.xml", "rb") as f:
+        assert f.read() == b"<ECF>FIRMADO-ENVIADO</ECF>"
+    with open(xml_dir / f"{rnc}E320000000129_rfce.xml", "rb") as f:
+        assert f.read() == b"<RFCE>FIRMADO-ENVIADO</RFCE>"
+    assert res["block"]["cases"][0]["xml_path"].endswith(f"{rnc}E320000000129.xml")
