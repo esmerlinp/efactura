@@ -6849,6 +6849,46 @@ class DatabaseService:
         return False
 
     # =========================================================================
+    # CONTABILIDAD — ACCOUNTING RULES (REGLAS DE CONTABILIZACIÓN)
+    # =========================================================================
+    @classmethod
+    def get_accounting_rules(cls, owner_uid, company_id=None):
+        rules = []
+        if firebase_initialized:
+            try:
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config").document("accounting_rules").collection("rules").get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    data["id"] = doc.id
+                    rules.append(data)
+            except Exception as e:
+                print(f"⚠️ Error al obtener reglas de contabilización: {e}")
+        return rules
+
+    @classmethod
+    def save_accounting_rule(cls, owner_uid, rule_id, rule_dict, company_id=None):
+        if firebase_initialized:
+            try:
+                if "createdAt" not in rule_dict or not rule_dict["createdAt"]:
+                    rule_dict["createdAt"] = serialize_field(datetime.now(timezone.utc).isoformat())
+                rule_dict["updatedAt"] = serialize_field(datetime.now(timezone.utc).isoformat())
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config").document("accounting_rules").collection("rules").document(rule_id).set(rule_dict)
+                return rule_id
+            except Exception as e:
+                print(f"⚠️ Fallo al guardar regla de contabilización: {e}")
+        return None
+
+    @classmethod
+    def delete_accounting_rule(cls, owner_uid, rule_id, company_id=None):
+        if firebase_initialized:
+            try:
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name="config").document("accounting_rules").collection("rules").document(rule_id).delete()
+                return True
+            except Exception as e:
+                print(f"⚠️ Fallo al eliminar regla de contabilización: {e}")
+        return False
+
+    # =========================================================================
     # CENTROS DE COSTO (COST CENTERS)
     # =========================================================================
     @classmethod

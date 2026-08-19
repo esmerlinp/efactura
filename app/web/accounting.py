@@ -160,6 +160,7 @@ def chart_of_accounts():
                            accounts=all_accounts,
                            flat_list=flat_list,
                            account_groups=account_groups,
+                           usage_labels=USAGE_LABELS,
                            groups_json=json.dumps({k: v["label"] for k, v in ACCOUNT_GROUPS.items()}))
 
 
@@ -254,6 +255,7 @@ def edit_account(account_id):
     account['code'] = request.form.get('code', '').strip()
     account['name'] = request.form.get('name', '').strip()
     account['type'] = request.form.get('type', account.get('type', 'movimiento'))
+    account['usage'] = request.form.get('usage') or None
     account['description'] = request.form.get('description', '').strip()
     account['showByThirdParty'] = request.form.get('showByThirdParty') == 'on'
     account['updatedAt'] = datetime.now(timezone.utc).isoformat()
@@ -277,6 +279,10 @@ def delete_account(account_id):
         return jsonify(success=False, error="Cuenta no encontrada"), 404
     if account.get('isSystem'):
         return jsonify(success=False, error="No puedes eliminar una cuenta regla del sistema"), 400
+    from app.services.accounting_rules_service import AccountingRulesService
+    used_by_rules = AccountingRulesService.rules_referencing_account(company_id, account_id)
+    if used_by_rules:
+        return jsonify(success=False, error=f"No se puede eliminar: la cuenta está asignada a {len(used_by_rules)} regla(s) de contabilización. Reasígnela primero en Configuración → Cuentas por transacción."), 409
     reclassify_to = request.form.get('reclassifyTo')
     if reclassify_to:
         entries = DatabaseService.get_accounting_entries(owner_uid, company_id=company_id)
@@ -1696,6 +1702,92 @@ def delete_entry_type(type_id):
     company_id = session.get('selected_company_id')
     DatabaseService.delete_entry_type(owner_uid, type_id, company_id=company_id)
     return jsonify(success=True, message="Tipo de entrada eliminado.")
+
+
+# =========================================================================
+# REGLAS DE CONTABILIZACIÓN (CUENTAS POR TRANSACCIÓN)
+# =========================================================================
+@web_accounting_bp.route('/accounting/settings/accounting-rules', methods=['GET', 'POST'])
+@require_module('contabilidad')
+def accounting_rules_settings():
+    user = _auth()
+    if not user:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canAccounting'):
+        return render_template('auth/restricted.html', required_permission="canAccounting")
+    owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
+    from app.services.accounting_rules_service import AccountingRulesService
+    AccountingService.seed_default_accounts(company_id, country=get_current_country())
+    accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
+    if request.method == 'POST':
+        AccountingRulesService.ensure_initialized(company_id)
+        updated = 0
+        for key, value in request.form.items():
+            if not key.startswith("rule["):
+                continue
+            parts = key[5:-1].split("|")
+            if len(parts) != 4:
+                continue
+            tx, concept, cond_key, cond_val = parts
+            if value in ("", "__default__"):
+                AccountingRulesService.reset_rule(company_id, tx, concept, cond_key, cond_val)
+                updated += 1
+                continue
+            acc = next((a for a in accounts if a.get("id") == value), None)
+            if not acc:
+                continue
+            AccountingRulesService.save_rule(company_id, {
+                "transaction": tx,
+                "concept": concept,
+                "conditionKey": cond_key,
+                "conditionValue": cond_val,
+                "accountId": acc.get("id", ""),
+                "isCustom": True,
+                "isActive": True,
+                "createdBy": user.get("email", "system"),
+            })
+            updated += 1
+        flash(f'✅ Reglas de contabilización actualizadas ({updated} cambio(s)).', 'success')
+        return redirect(url_for('web_accounting.accounting_rules_settings'))
+    AccountingRulesService.ensure_initialized(company_id)
+    rules = AccountingRulesService.get_rules(company_id)
+    catalog = AccountingRulesService.build_catalog_view(company_id, accounts, rules=rules)
+    movement_accounts = [a for a in accounts if a.get("type") == "movimiento"]
+    return render_template('accounting/accounting_rules.html',
+                           active_page='acc_rules',
+                           catalog=catalog,
+                           accounts=movement_accounts)
+
+
+@web_accounting_bp.route('/accounting/settings/accounting-rules/preview', methods=['POST'])
+@require_module('contabilidad')
+def accounting_rules_preview():
+    user = _auth()
+    if not user:
+        return jsonify(success=False, error="No autorizado"), 401
+    if not check_permission('canAccounting'):
+        return jsonify(success=False, error="Permiso denegado"), 403
+    owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
+    payload = request.get_json(silent=True) or {}
+    tx = payload.get("transaction", "") or request.form.get("transaction", "")
+    from app.services.accounting_rules_service import AccountingRulesService, TRANSACTIONS
+    if tx not in TRANSACTIONS:
+        return jsonify(success=False, error="Transacción desconocida"), 400
+    accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
+    rules = AccountingRulesService.get_rules(company_id)
+    rows = []
+    for concept, cdef in TRANSACTIONS[tx].get("concepts", {}).items():
+        acc = AccountingRulesService.resolve(company_id, tx, concept, {}, accounts, rules=rules)
+        rows.append({
+            "concept": concept,
+            "label": cdef.get("label", concept),
+            "side": cdef.get("side", "debit"),
+            "accountId": acc.get("id") if acc else None,
+            "accountName": (acc.get("code", "") + " — " + acc.get("name", "")) if acc else None,
+        })
+    return jsonify(success=True, transaction=tx, label=TRANSACTIONS[tx].get("label", tx), rows=rows)
 
 
 # =========================================================================

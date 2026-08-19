@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from collections import defaultdict
 from app.services.db_service import DatabaseService
+from app.services.accounting_rules_service import AccountingRulesService
 
 ACCOUNT_GROUPS = {
     "activos": {"label": "Activos", "order": 1, "nature": "deudora"},
@@ -525,23 +526,28 @@ class AccountingService:
             if linked:
                 return linked, f"{linked.get('name', 'Banco')} - {invoice.get('invoiceNumber', '')}"
         payment_type = invoice.get("paymentType", "Contado")
-        if payment_type == "Contado":
-            payment_method = invoice.get("paymentMethod", "Efectivo")
-            if payment_method in ("Tarjeta de Crédito", "Tarjeta de Débito", "Transferencia"):
-                acc = _find_account_by_usages(accounts, ["banco", "transferencias_bancarias"])
-                if acc:
+        payment_method = invoice.get("paymentMethod", "Efectivo")
+        rules = AccountingRulesService.get_rules(company_id) if company_id else []
+        acc = AccountingRulesService.resolve(
+            company_id, "venta", "venta_deudor",
+            {"payment_type": payment_type, "payment_method": payment_method},
+            accounts, rules=rules,
+        )
+        if acc:
+            if payment_type == "Contado":
+                if payment_method in ("Tarjeta de Crédito", "Tarjeta de Débito", "Transferencia"):
                     return acc, f"Banco - {invoice.get('invoiceNumber', '')}"
-            acc = _find_account_by_usages(accounts, ["efectivo", "banco"])
-            if acc:
                 return acc, f"Efectivo/Banco - Factura {invoice.get('invoiceNumber', '')}"
-        return _find_account_by_usages(accounts, ["cxc", "banco", "efectivo"]), f"Factura {invoice.get('invoiceNumber', '')}"
+            return acc, f"Factura {invoice.get('invoiceNumber', '')}"
+        return None, f"Factura {invoice.get('invoiceNumber', '')}"
 
     @classmethod
-    def _build_cogs_lines(cls, invoice, accounts):
+    def _build_cogs_lines(cls, invoice, accounts, company_id=None):
         items = invoice.get("items", [])
         lines = []
-        inv_acc = _find_account_by_usage(accounts, "inventario")
-        cogs_acc = _find_account_by_usage(accounts, "costo_ventas")
+        rules = AccountingRulesService.get_rules(company_id) if company_id else []
+        inv_acc = AccountingRulesService.resolve(company_id, "venta", "venta_inventario", {}, accounts, rules=rules)
+        cogs_acc = AccountingRulesService.resolve(company_id, "venta", "venta_costo_ventas", {}, accounts, rules=rules)
         if not inv_acc or not cogs_acc:
             return lines
         for it in items:
@@ -569,7 +575,7 @@ class AccountingService:
         return lines
 
     @classmethod
-    def _build_extra_tax_lines(cls, invoice, accounts):
+    def _build_extra_tax_lines(cls, invoice, accounts, company_id=None):
         lines = []
         total_isc_esp = float(invoice.get("totalISCEspecifico", 0))
         total_isc_adv = float(invoice.get("totalISCAdValorem", 0))
@@ -577,7 +583,8 @@ class AccountingService:
         total_tax_lines = round(total_isc_esp + total_isc_adv + total_otros, 2)
         if total_tax_lines <= 0:
             return lines
-        impuesto_acc = _find_account_by_usages(accounts, ["impuesto_por_pagar", "otro_impuesto_por_pagar"])
+        rules = AccountingRulesService.get_rules(company_id) if company_id else []
+        impuesto_acc = AccountingRulesService.resolve(company_id, "venta", "venta_otros_impuestos", {}, accounts, rules=rules)
         if not impuesto_acc:
             return lines
         labels = []
@@ -610,20 +617,30 @@ class AccountingService:
         provider = CountryProviderFactory.create(country)
         mapping = provider.get_account_mapping() if provider else {}
         labels = provider.get_tax_labels() if provider else {}
+        rules = AccountingRulesService.get_rules(company_id)
         debit_acc, debit_desc = cls._resolve_debit_account(invoice, accounts, company_id=company_id, sandbox=sandbox)
-        sales_acc = _find_account_by_usage(accounts, "ventas")
-        itbis_acc = _find_account_by_usage(accounts, mapping.get("vat_payable"))
+        sales_acc = AccountingRulesService.resolve(company_id, "venta", "venta_ingresos", {}, accounts, rules=rules)
+        itbis_acc = AccountingRulesService.resolve(
+            company_id, "venta", "venta_itbis_por_pagar", {}, accounts, rules=rules,
+            fallback_usages=[mapping.get("vat_payable")] if mapping.get("vat_payable") else None,
+        )
         # Cuentas de retención del lado del cliente (cuando te retienen a ti → ACTIVO)
-        itbis_ret_acc = _find_account_by_usages(accounts, [
-            mapping.get("vat_withholding_client", "retenciones_a_favor"),
-            "retenciones_a_favor",
-            "impuesto_a_favor",
-        ])
-        isr_ret_acc = _find_account_by_usages(accounts, [
-            mapping.get("income_tax_withholding_client", "retenciones_a_favor"),
-            "retenciones_a_favor",
-            "impuesto_a_favor",
-        ])
+        itbis_ret_acc = AccountingRulesService.resolve(
+            company_id, "venta", "venta_retencion_itbis_cliente", {}, accounts, rules=rules,
+            fallback_usages=[
+                mapping.get("vat_withholding_client", "retenciones_a_favor"),
+                "retenciones_a_favor",
+                "impuesto_a_favor",
+            ],
+        )
+        isr_ret_acc = AccountingRulesService.resolve(
+            company_id, "venta", "venta_retencion_isr_cliente", {}, accounts, rules=rules,
+            fallback_usages=[
+                mapping.get("income_tax_withholding_client", "retenciones_a_favor"),
+                "retenciones_a_favor",
+                "impuesto_a_favor",
+            ],
+        )
         if not debit_acc or not sales_acc:
             return None
         total = float(invoice.get("netPayable", invoice.get("total", 0)))
@@ -722,9 +739,9 @@ class AccountingService:
                 "costCenterId": cost_center_id,
                 "currency": currency
             })
-        extra_tax_lines = cls._build_extra_tax_lines(invoice, accounts)
+        extra_tax_lines = cls._build_extra_tax_lines(invoice, accounts, company_id=company_id)
         lines.extend(extra_tax_lines)
-        cogs_lines = cls._build_cogs_lines(invoice, accounts)
+        cogs_lines = cls._build_cogs_lines(invoice, accounts, company_id=company_id)
         lines.extend(cogs_lines)
 
         try:
@@ -754,7 +771,8 @@ class AccountingService:
         if not accounts:
             cls.seed_default_accounts(company_id, country=country)
             accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
-        anticipo_acc = _find_account_by_usage(accounts, "anticipos_recibidos")
+        rules = AccountingRulesService.get_rules(company_id)
+        anticipo_acc = AccountingRulesService.resolve(company_id, "anticipo_cliente", "anticipo_recibido", {}, accounts, rules=rules)
         if not anticipo_acc:
             return None
         # Intentar usar la cuenta contable vinculada a la cuenta bancaria
@@ -762,10 +780,10 @@ class AccountingService:
         debit_acc = _resolve_bank_account_account(company_id, bank_id, accounts, sandbox=sandbox)
         if not debit_acc:
             payment_method = advance.get("paymentMethod", "Efectivo")
-            if payment_method in ("Transferencia", "Tarjeta de Crédito", "Tarjeta de Débito"):
-                debit_acc = _find_account_by_usages(accounts, ["banco", "transferencias_bancarias"])
-            else:
-                debit_acc = _find_account_by_usages(accounts, ["efectivo", "banco"])
+            debit_acc = AccountingRulesService.resolve(
+                company_id, "anticipo_cliente", "anticipo_deudor",
+                {"payment_method": payment_method}, accounts, rules=rules,
+            )
         if not debit_acc:
             return None
         amount = float(advance.get("amount", 0))
@@ -838,12 +856,13 @@ class AccountingService:
                             debit_acc = a
                             break
         if not debit_acc:
-            debit_acc = _find_account_by_usages(accounts, ["banco", "transferencias_bancarias", "efectivo"])
+            rules = AccountingRulesService.get_rules(company_id)
+            debit_acc = AccountingRulesService.resolve(company_id, "cobro", "cobro_deudor", {}, accounts, rules=rules)
         if not debit_acc:
             return None
 
         # Resolver cuenta de crédito (CxC)
-        credit_acc = _find_account_by_usage(accounts, "cxc")
+        credit_acc = AccountingRulesService.resolve(company_id, "cobro", "cobro_cxc", {}, accounts, rules=rules)
         if not credit_acc:
             return None
 
@@ -904,7 +923,8 @@ class AccountingService:
         if not accounts:
             cls.seed_default_accounts(company_id, country=country)
             accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id)
-        anticipo_acc = _find_account_by_usage(accounts, "anticipos_recibidos")
+        rules = AccountingRulesService.get_rules(company_id)
+        anticipo_acc = AccountingRulesService.resolve(company_id, "anticipo_aplicacion", "anticipo_aplicado", {}, accounts, rules=rules)
         if not anticipo_acc:
             return None
         payment_type = invoice.get("paymentType", "Contado")
@@ -913,9 +933,15 @@ class AccountingService:
             bank_id = invoice.get("bankAccountId", "")
             debit_acc = _resolve_bank_account_account(company_id, bank_id, accounts, sandbox=sandbox)
             if not debit_acc:
-                debit_acc = _find_account_by_usages(accounts, ["efectivo", "banco"])
+                debit_acc = AccountingRulesService.resolve(
+                    company_id, "anticipo_aplicacion", "anticipo_aplicacion_deudor",
+                    {"payment_type": payment_type}, accounts, rules=rules,
+                )
         else:
-            debit_acc = _find_account_by_usages(accounts, ["cxc", "banco", "efectivo"])
+            debit_acc = AccountingRulesService.resolve(
+                company_id, "anticipo_aplicacion", "anticipo_aplicacion_deudor",
+                {"payment_type": payment_type}, accounts, rules=rules,
+            )
         if not debit_acc:
             return None
         total_applied = sum(float(a.get("amount", 0)) for a in advances)
@@ -963,21 +989,20 @@ class AccountingService:
             return None
 
     @classmethod
-    def _build_inventory_adjustment_lines(cls, operation_type, items, accounts, reference_id=""):
+    def _build_inventory_adjustment_lines(cls, operation_type, items, accounts, reference_id="", company_id=None):
         """
         Genera líneas contables para operaciones de inventario:
         - ajuste (+/-): ajusta inventario contra cuenta de ajustes
         - transferencia: mueve entre almacenes (sin efecto en resultados)
         - merma: descarga inventario contra cuenta de mermas/pérdidas
         """
-        inv_acc = _find_account_by_usage(accounts, "inventario")
+        rules = AccountingRulesService.get_rules(company_id) if company_id else []
+        inv_acc = AccountingRulesService.resolve(company_id, "inventario", "inventario_cuenta", {}, accounts, rules=rules)
         if not inv_acc:
             return []
         lines = []
         if operation_type == "ajuste":
-            ajuste_acc = _find_account_by_usage(accounts, "ajuste_inventario")
-            if not ajuste_acc:
-                ajuste_acc = _find_account_by_usage(accounts, "costo_ventas")
+            ajuste_acc = AccountingRulesService.resolve(company_id, "inventario", "inventario_ajuste", {}, accounts, rules=rules)
             if not ajuste_acc:
                 return []
             for it in items:
@@ -1012,9 +1037,7 @@ class AccountingService:
                         "description": f"Ajuste inventario (-): {name}"
                     })
         elif operation_type == "merma":
-            merma_acc = _find_account_by_usage(accounts, "merma_perdida")
-            if not merma_acc:
-                merma_acc = _find_account_by_usage(accounts, "costo_ventas")
+            merma_acc = AccountingRulesService.resolve(company_id, "inventario", "inventario_merma", {}, accounts, rules=rules)
             if not merma_acc:
                 return []
             for it in items:
@@ -1068,7 +1091,7 @@ class AccountingService:
         if not accounts:
             cls.seed_default_accounts(company_id, country=country)
             accounts = DatabaseService.get_chart_of_accounts(company_id, company_id=company_id)
-        lines = cls._build_inventory_adjustment_lines(operation_type, items, accounts, reference_id)
+        lines = cls._build_inventory_adjustment_lines(operation_type, items, accounts, reference_id, company_id=company_id)
         if not lines:
             return None
         concept = f"{'Ajuste' if operation_type == 'ajuste' else 'Merma' if operation_type == 'merma' else 'Transferencia'} de inventario"
@@ -1154,10 +1177,14 @@ class AccountingService:
         provider = CountryProviderFactory.create(country)
         mapping = provider.get_account_mapping() if provider else {}
         labels = provider.get_tax_labels() if provider else {}
-        cxc_acc = _find_account_by_usage(accounts, "cxc")
-        sales_acc = _find_account_by_usage(accounts, "ventas")
-        devolucion_acc = _find_account_by_usages(accounts, ["devoluciones_ventas", "devoluciones_clientes"])
-        itbis_acc = _find_account_by_usage(accounts, mapping.get("vat_payable"))
+        rules = AccountingRulesService.get_rules(company_id)
+        cxc_acc = AccountingRulesService.resolve(company_id, "nota_credito", "nc_deudor", {}, accounts, rules=rules)
+        sales_acc = AccountingRulesService.resolve(company_id, "nota_credito", "nc_ingresos", {}, accounts, rules=rules)
+        devolucion_acc = AccountingRulesService.resolve(company_id, "nota_credito", "nc_devolucion_ingresos", {}, accounts, rules=rules)
+        itbis_acc = AccountingRulesService.resolve(
+            company_id, "nota_credito", "nc_itbis", {}, accounts, rules=rules,
+            fallback_usages=[mapping.get("vat_payable")] if mapping.get("vat_payable") else None,
+        )
         if not cxc_acc or not sales_acc:
             return None
         total = float(invoice.get("netPayable", invoice.get("total", 0)))
@@ -1214,7 +1241,7 @@ class AccountingService:
             "costCenterId": cost_center_id,
             "currency": currency
         })
-        cogs_lines = cls._build_cogs_lines(invoice, accounts)
+        cogs_lines = cls._build_cogs_lines(invoice, accounts, company_id=company_id)
         if cogs_lines:
             for cl in cogs_lines:
                 cl["debit"], cl["credit"] = cl["credit"], cl["debit"]
@@ -1251,13 +1278,28 @@ class AccountingService:
         provider = CountryProviderFactory.create(country)
         mapping = provider.get_account_mapping() if provider else {}
         labels = provider.get_tax_labels() if provider else {}
-        cxp_acc = _find_account_by_usage(accounts, "cxp")
-        compras_acc = _find_account_by_usage(accounts, "compras")
-        gastos_acc = _find_account_by_usage(accounts, "gastos")
-        banco_acc = _find_account_by_usages(accounts, ["banco", "efectivo"])
-        itbis_credito_acc = _find_account_by_usage(accounts, mapping.get("vat_credit"))
-        itbis_retenido_acc = _find_account_by_usage(accounts, mapping.get("vat_withholding"))
-        isr_retenido_acc = _find_account_by_usage(accounts, mapping.get("income_tax_withholding"))
+        rules = AccountingRulesService.get_rules(company_id)
+        compras_acc = AccountingRulesService.resolve(company_id, "gasto", "gasto_compras", {}, accounts, rules=rules)
+        gastos_acc = AccountingRulesService.resolve(
+            company_id, "gasto", "gasto_cuenta_general", {}, accounts, rules=rules,
+            fallback_usages=["gastos"],
+        )
+        gastos_general_acc = AccountingRulesService.resolve(company_id, "gasto", "gasto_cuenta_general", {}, accounts, rules=rules)
+        deudor_contado_acc = AccountingRulesService.resolve(
+            company_id, "gasto", "gasto_deudor", {"payment_type": "Contado"}, accounts, rules=rules,
+        )
+        itbis_credito_acc = AccountingRulesService.resolve(
+            company_id, "gasto", "gasto_itbis_credito", {}, accounts, rules=rules,
+            fallback_usages=[mapping.get("vat_credit")] if mapping.get("vat_credit") else None,
+        )
+        itbis_retenido_acc = AccountingRulesService.resolve(
+            company_id, "gasto", "gasto_itbis_retenido", {}, accounts, rules=rules,
+            fallback_usages=[mapping.get("vat_withholding")] if mapping.get("vat_withholding") else None,
+        )
+        isr_retenido_acc = AccountingRulesService.resolve(
+            company_id, "gasto", "gasto_isr_retenido", {}, accounts, rules=rules,
+            fallback_usages=[mapping.get("income_tax_withholding")] if mapping.get("income_tax_withholding") else None,
+        )
         total = float(expense.get("amount", expense.get("total", 0)))
         account_items = expense.get("accountItems", [])
         payment_type = expense.get("paymentType", expense.get("payment_type", "Contado"))
@@ -1289,7 +1331,7 @@ class AccountingService:
                     })
                     total_debit_computed += item_value
                 else:
-                    fallback = gastos_acc or compras_acc
+                    fallback = gastos_general_acc
                     lines.append({
                         "accountId": fallback["id"] if fallback else "",
                         "accountCode": fallback.get("code", "-") if fallback else "-",
@@ -1348,11 +1390,11 @@ class AccountingService:
                 bank_id = expense.get("bankAccountId", "")
                 credit_acc = _resolve_bank_account_account(company_id, bank_id, accounts, sandbox=sandbox)
                 if not credit_acc:
-                    credit_acc = banco_acc
-            elif cxp_acc:
-                credit_acc = cxp_acc
+                    credit_acc = deudor_contado_acc
             else:
-                credit_acc = None
+                credit_acc = AccountingRulesService.resolve(
+                    company_id, "gasto", "gasto_deudor", {"payment_type": payment_type}, accounts, rules=rules,
+                )
             if credit_acc and credit_amount > 0:
                 lines.append({
                     "accountId": credit_acc["id"],
@@ -1392,9 +1434,11 @@ class AccountingService:
                 bank_id = expense.get("bankAccountId", "")
                 credit_acc = _resolve_bank_account_account(company_id, bank_id, accounts, sandbox=sandbox)
                 if not credit_acc:
-                    credit_acc = banco_acc
-            elif cxp_acc:
-                credit_acc = cxp_acc
+                    credit_acc = deudor_contado_acc
+            else:
+                credit_acc = AccountingRulesService.resolve(
+                    company_id, "gasto", "gasto_deudor", {"payment_type": payment_type}, accounts, rules=rules,
+                )
             if credit_acc and credit_amount > 0:
                 lines.append({"accountId": credit_acc["id"], "accountCode": credit_acc.get("code", ""), "accountName": credit_acc.get("name", ""), "debit": 0.00, "credit": round(credit_amount, 2), "description": expense.get("concept", "")})
 
@@ -1451,6 +1495,18 @@ class AccountingService:
         accum_account_id = dep_data.get("accum_account_id", dep_data.get("accumAccountId", ""))
         period = dep_data.get("period", "mensual")
         code = dep_data.get("code", "")
+
+        if not expense_account_id or not accum_account_id:
+            accounts = DatabaseService.get_chart_of_accounts(company_id, company_id=company_id)
+            rules = AccountingRulesService.get_rules(company_id)
+            if not expense_account_id:
+                expense_acc = AccountingRulesService.resolve(company_id, "activos", "activo_depreciacion_gasto", {}, accounts, rules=rules)
+                if expense_acc:
+                    expense_account_id = expense_acc["id"]
+            if not accum_account_id:
+                accum_acc = AccountingRulesService.resolve(company_id, "activos", "activo_depreciacion_acumulada", {}, accounts, rules=rules)
+                if accum_acc:
+                    accum_account_id = accum_acc["id"]
 
         if not expense_account_id or not accum_account_id:
             return None

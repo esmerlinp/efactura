@@ -43,12 +43,24 @@ class FiscalClosingService:
         retained_earnings_account = None
         retained_earnings_nature = "acreedora"
 
+        try:
+            from app.services.accounting_rules_service import AccountingRulesService
+            rules = AccountingRulesService.get_rules(company_id) if company_id else []
+            resolved_retained = AccountingRulesService.resolve(company_id, "cierre", "cierre_resultados", {}, accounts, rules=rules)
+        except Exception:
+            resolved_retained = None
+        if resolved_retained:
+            retained_earnings_account = resolved_retained
+            retained_earnings_nature = resolved_retained.get("nature", "acreedora")
+
         for acc in accounts:
             code = acc.get("code", "")
             group = acc.get("group", "")
             usage = acc.get("usage", "")
 
-            if usage == "resultados_acumulados" or "resultado" in acc.get("name", "").lower():
+            if retained_earnings_account is None and (
+                usage == "resultados_acumulados" or "resultado" in acc.get("name", "").lower()
+            ):
                 retained_earnings_account = acc
                 retained_earnings_nature = acc.get("nature", "acreedora")
 

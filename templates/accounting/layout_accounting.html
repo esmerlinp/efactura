@@ -221,6 +221,12 @@
                                 <span>Centros de Costo</span>
                             </a>
                         </li>
+                        <li class="nav-item {% if active_page == 'acc_rules' %}active{% endif %}"
+                            data-tooltip="Cuentas por Transacción">
+                            <a href="{{ url_for('web_accounting.accounting_rules_settings') }}">
+                                <span>Cuentas por Transacción</span>
+                            </a>
+                        </li>
                         {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', True) %}
                         <li class="nav-item {% if active_page == 'company_settings' %}active{% endif %}"
                             data-tooltip="Identidad fiscal, certificado digital y preferencias">

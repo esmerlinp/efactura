@@ -1143,6 +1143,26 @@ class PayrollService:
 
         cc_accounts = r.get("cost_center_accounts", cls.DEFAULT_COST_CENTER_ACCOUNTS)
 
+        accounts = []
+        rules = []
+        if company_id:
+            try:
+                from app.services.db_service import DatabaseService
+                accounts = DatabaseService.get_chart_of_accounts(company_id, company_id=company_id) or []
+                from app.services.accounting_rules_service import AccountingRulesService
+                rules = AccountingRulesService.get_rules(company_id) or []
+            except Exception:
+                accounts = []
+                rules = []
+
+        def _acc(concept, ctx=None, fallback_code="", fallback_name=""):
+            if company_id:
+                from app.services.accounting_rules_service import AccountingRulesService
+                acc = AccountingRulesService.resolve(company_id, "nomina", concept, ctx or {}, accounts, rules=rules)
+                if acc:
+                    return {"accountId": acc.get("id", ""), "accountCode": acc.get("code", ""), "accountName": acc.get("name", fallback_name)}
+            return {"accountId": "", "accountCode": fallback_code, "accountName": fallback_name}
+
         by_cc = {}
         for pl in plines:
             total_net += pl.get("netSalary", 0)
@@ -1171,9 +1191,12 @@ class PayrollService:
         for cc, totals in by_cc.items():
             cc_gasto = round(totals["gross"] + totals["employer"], 2)
             acct_code = cc_accounts.get(cc, "6.2.1.01")
+            resolved = _acc("nomina_gasto", {"centro_costo": cc}, fallback_code=acct_code,
+                            fallback_name=f"Sueldos y salarios - {cc}")
             lines.append({
-                "accountCode": acct_code,
-                "accountName": f"Sueldos y salarios - {cc}",
+                "accountId": resolved["accountId"],
+                "accountCode": resolved["accountCode"],
+                "accountName": resolved["accountName"],
                 "debit": cc_gasto,
                 "credit": 0.00,
                 "description": f"Nómina período {period_label} - {cc}",
@@ -1181,72 +1204,92 @@ class PayrollService:
 
         # HABER: Salarios por pagar (neto)
         if total_net > 0:
+            resolved = _acc("nomina_salarios_por_pagar", fallback_code=r["account_salaries_payable"], fallback_name="Salarios por pagar")
             lines.append({
-                "accountCode": r["account_salaries_payable"],
-                "accountName": "Salarios por pagar",
+                "accountId": resolved["accountId"],
+                "accountCode": resolved["accountCode"],
+                "accountName": resolved["accountName"],
                 "debit": 0.00, "credit": round(total_net, 2),
                 "description": f"Salario neto período {period_label}",
             })
         if total_afp_emp > 0:
+            resolved = _acc("nomina_afp_empleado", fallback_code=r["account_afp_employee"], fallback_name="Retenciones empleado AFP")
             lines.append({
-                "accountCode": r["account_afp_employee"],
-                "accountName": "Retenciones empleado AFP",
+                "accountId": resolved["accountId"],
+                "accountCode": resolved["accountCode"],
+                "accountName": resolved["accountName"],
                 "debit": 0.00, "credit": round(total_afp_emp, 2),
                 "description": f"AFP empleado {period_label}",
             })
         if total_sfs_emp > 0:
+            resolved = _acc("nomina_sfs_empleado", fallback_code=r["account_sfs_employee"], fallback_name="Retenciones a empleado SFS")
             lines.append({
-                "accountCode": r["account_sfs_employee"],
-                "accountName": "Retenciones a empleado SFS",
+                "accountId": resolved["accountId"],
+                "accountCode": resolved["accountCode"],
+                "accountName": resolved["accountName"],
                 "debit": 0.00, "credit": round(total_sfs_emp, 2),
                 "description": f"SFS empleado {period_label}",
             })
         if total_isr > 0:
+            resolved = _acc("nomina_isr_empleado", fallback_code=r["account_isr_employee"], fallback_name="Retención ISR empleados")
             lines.append({
-                "accountCode": r["account_isr_employee"],
-                "accountName": "Retención ISR empleados",
+                "accountId": resolved["accountId"],
+                "accountCode": resolved["accountCode"],
+                "accountName": resolved["accountName"],
                 "debit": 0.00, "credit": round(total_isr, 2),
                 "description": f"ISR empleados {period_label}",
             })
         if total_afp_empl > 0:
+            resolved = _acc("nomina_afp_empleador", fallback_code=r["account_afp_employer"], fallback_name="Acumulaciones AFP")
             lines.append({
-                "accountCode": r["account_afp_employer"],
-                "accountName": "Acumulaciones AFP",
+                "accountId": resolved["accountId"],
+                "accountCode": resolved["accountCode"],
+                "accountName": resolved["accountName"],
                 "debit": 0.00, "credit": round(total_afp_empl, 2),
                 "description": f"AFP empleador {period_label}",
             })
         if total_sfs_empl > 0:
+            resolved = _acc("nomina_sfs_empleador", fallback_code=r["account_sfs_employer"], fallback_name="Acumulaciones SFS")
             lines.append({
-                "accountCode": r["account_sfs_employer"],
-                "accountName": "Acumulaciones SFS",
+                "accountId": resolved["accountId"],
+                "accountCode": resolved["accountCode"],
+                "accountName": resolved["accountName"],
                 "debit": 0.00, "credit": round(total_sfs_empl, 2),
                 "description": f"SFS empleador {period_label}",
             })
         if total_srl_empl > 0:
+            resolved = _acc("nomina_srl_empleador", fallback_code=r["account_srl_employer"], fallback_name="Acumulaciones SRL")
             lines.append({
-                "accountCode": r["account_srl_employer"],
-                "accountName": "Acumulaciones SRL",
+                "accountId": resolved["accountId"],
+                "accountCode": resolved["accountCode"],
+                "accountName": resolved["accountName"],
                 "debit": 0.00, "credit": round(total_srl_empl, 2),
                 "description": f"SRL empleador {period_label}",
             })
         if total_infotep > 0:
+            resolved = _acc("nomina_infotep", fallback_code=r["account_infotep_employer"], fallback_name="Acumulaciones INFOTEP")
             lines.append({
-                "accountCode": r["account_infotep_employer"],
-                "accountName": "Acumulaciones INFOTEP",
+                "accountId": resolved["accountId"],
+                "accountCode": resolved["accountCode"],
+                "accountName": resolved["accountName"],
                 "debit": 0.00, "credit": round(total_infotep, 2),
                 "description": f"INFOTEP {period_label}",
             })
         if total_infotep_emp > 0:
+            resolved = _acc("nomina_infotep", fallback_code=r["account_infotep_employee"], fallback_name="Retención INFOTEP empleados")
             lines.append({
-                "accountCode": r["account_infotep_employee"],
-                "accountName": "Retención INFOTEP empleados",
+                "accountId": resolved["accountId"],
+                "accountCode": resolved["accountCode"],
+                "accountName": resolved["accountName"],
                 "debit": 0.00, "credit": round(total_infotep_emp, 2),
                 "description": f"INFOTEP empleado {period_label}",
             })
         if total_other_ded > 0:
+            resolved = _acc("nomina_otras_deducciones", fallback_code=r["account_other_deductions"], fallback_name="Deducciones varias por pagar")
             lines.append({
-                "accountCode": r["account_other_deductions"],
-                "accountName": "Deducciones varias por pagar",
+                "accountId": resolved["accountId"],
+                "accountCode": resolved["accountCode"],
+                "accountName": resolved["accountName"],
                 "debit": 0.00, "credit": round(total_other_ded, 2),
                 "description": f"Otras deducciones {period_label}",
             })
