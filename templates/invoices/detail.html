@@ -1253,6 +1253,12 @@
                     <i class="fa-solid fa-file-pdf" style="color: var(--accent-red);"></i>
                     <span>Descargar PDF</span>
                 </a>
+                <a href="{{ url_for('web_invoices.invoice_pdf_download', invoice_id=invoice.id) }}?action=print" target="_blank"
+                    class="btn btn-secondary"
+                    style="width: 100%; font-size: 0.82rem; padding: 8px 16px;">
+                    <i class="fa-solid fa-print" style="color: var(--accent-emerald);"></i>
+                    <span>Imprimir Documento / PDF</span>
+                </a>
                 <a href="/invoices/{{ invoice.id }}/xml" class="btn btn-secondary"
                     style="width: 100%; font-size: 0.82rem; padding: 8px 16px;">
                     <i class="fa-solid fa-file-code" style="color: var(--accent-emerald);"></i>
@@ -1336,22 +1342,6 @@
                 <span>Editar {% if invoice.isQuotation %}Cotización{% else %}Borrador{% endif %}</span>
             </a>
             {% endif %}
-
-            <!-- Unified Premium Print Button -->
-            <a href="{{ url_for('web_invoices.invoice_pdf_download', invoice_id=invoice.id) }}" target="_blank"
-                class="btn btn-secondary"
-                style="width: 100%; font-size: 0.82rem; padding: 8px 16px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
-                <i class="fa-solid fa-file-pdf" style="color: var(--accent-red);"></i>
-                <span>Descargar PDF</span>
-            </a>
-
-            <!-- Unified Premium Print Button -->
-            <a href="{{ url_for('web_invoices.invoice_pdf_download', invoice_id=invoice.id) }}?action=print" target="_blank"
-                class="btn btn-secondary"
-                style="width: 100%; border-color: var(--accent-emerald); color: var(--accent-emerald); display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
-                <i class="fa-solid fa-print"></i>
-                <span>Imprimir Documento / PDF</span>
-            </a>
 
             {% if invoice.retainedISR > 0 or invoice.retainedITBIS > 0 %}
             <a href="{{ url_for('web_invoices.invoice_retention_letter', invoice_id=invoice.id) }}?action=print" target="_blank"
