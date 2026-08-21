@@ -4,9 +4,14 @@
 {% include "rrhh/_styles.html" %}
 <div class="page-header hr-page-header">
     <h1 class="page-title"><i class="fa-solid fa-umbrella-beach"></i> Solicitudes de Vacaciones</h1>
-    <a href="{{ url_for('web_rrhh.vacation_new') }}" class="btn btn-primary">
-        <i class="fa-solid fa-plus"></i> Nueva Solicitud
-    </a>
+    <div style="display:flex; gap:8px;">
+        <a href="{{ url_for('web_rrhh.vacation_import') }}" class="btn btn-secondary">
+            <i class="fa-solid fa-file-csv"></i> Carga Masiva
+        </a>
+        <a href="{{ url_for('web_rrhh.vacation_new') }}" class="btn btn-primary">
+            <i class="fa-solid fa-plus"></i> Nueva Solicitud
+        </a>
+    </div>
 </div>
 
 <div class="card-table-wrapper hr-table-card">
@@ -44,6 +49,9 @@
                     <span class="badge badge-success">Aprobada</span>
                     {% else %}
                     <span class="badge badge-danger">Rechazada</span>
+                    {% endif %}
+                    {% if r.get('source') == 'masivo' %}
+                    <span class="badge badge-info">Histórico</span>
                     {% endif %}
                 </td>
                 <td><div class="hr-table-actions">

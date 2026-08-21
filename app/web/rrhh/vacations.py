@@ -47,7 +47,9 @@ def vacation_new():
 
         start_date = request.form.get("startDate", "")
         end_date = request.form.get("endDate", "")
-        business_days = PayrollService.calculate_business_days(start_date, end_date)
+        from app.services.holiday_service import HolidayService
+        holidays = HolidayService.get_holiday_dates(company_id, start_date, end_date, sandbox=sandbox)
+        business_days = PayrollService.calculate_business_days(start_date, end_date, holidays=holidays)
         taken_days = sum(
             r.get("days", 0) for r in hr.get_vacation_requests(company_id, sandbox=sandbox)
             if r.get("employeeId") == emp_id and r.get("status") == "aprobada"

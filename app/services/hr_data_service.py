@@ -233,6 +233,20 @@ def delete_leave_request(company_id: str, request_id: str, sandbox: bool = True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# HOLIDAYS (feriados personalizados por empresa — doc id = año)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_holidays_config(company_id: str, year: str, sandbox: bool = True) -> dict | None:
+    return _get_one(company_id, "holidays", year, sandbox)
+
+def save_holidays_config(company_id: str, year: str, data: dict, sandbox: bool = True):
+    _save(company_id, "holidays", year, data, sandbox)
+
+def delete_holidays_config(company_id: str, year: str, sandbox: bool = True):
+    _delete(company_id, "holidays", year, sandbox)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # PAYROLL GROUPS
 # ═══════════════════════════════════════════════════════════════════════════
 

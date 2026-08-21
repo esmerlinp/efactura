@@ -100,7 +100,9 @@ def employee_portal_vacation_new():
     if request.method == "POST":
         start_date = request.form.get("startDate", "")
         end_date = request.form.get("endDate", "")
-        business_days = PayrollService.calculate_business_days(start_date, end_date)
+        from app.services.holiday_service import HolidayService
+        holidays = HolidayService.get_holiday_dates(company_id, start_date, end_date, sandbox=sandbox)
+        business_days = PayrollService.calculate_business_days(start_date, end_date, holidays=holidays)
         remaining = PayrollService.calculate_vacation_days(employee.get("hireDate", ""))
         req_id = str(uuid.uuid4())
         hr.save_vacation_request(company_id, req_id, {

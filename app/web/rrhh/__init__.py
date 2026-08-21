@@ -128,6 +128,7 @@ from app.web.rrhh import checklist           # noqa: E402, F401
 from app.web.rrhh import org_chart           # noqa: E402, F401
 from app.web.rrhh import attendance          # noqa: E402, F401
 from app.web.rrhh import vacations           # noqa: E402, F401
+from app.web.rrhh import vacation_import     # noqa: E402, F401
 from app.web.rrhh import leaves              # noqa: E402, F401
 from app.web.rrhh import payroll_process     # noqa: E402, F401
 from app.web.rrhh import payroll_groups      # noqa: E402, F401

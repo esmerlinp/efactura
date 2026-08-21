@@ -1,30 +1,14 @@
-"""Payroll Calendar — Vista de calendario anual con todos los períodos de nómina."""
+"""Payroll Calendar — Vista de calendario anual con todos los períodos de nómina y feriados."""
 
 import calendar
 from datetime import date
-from flask import render_template, request, redirect, url_for, session
+from flask import render_template, request, redirect, url_for, session, jsonify
 
 from app.web.rrhh import (
     web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
     MONTHS_ES,
 )
-
-
-def _get_dominican_holidays(year: int) -> list:
-    """Retorna lista de feriados dominicanos para un año."""
-    holidays = [
-        (f"{year}-01-01", "Año Nuevo"),
-        (f"{year}-01-06", "Día de Reyes"),
-        (f"{year}-01-21", "Día de la Altagracia"),
-        (f"{year}-01-26", "Día de Duarte"),
-        (f"{year}-02-27", "Independencia Nacional"),
-        (f"{year}-05-01", "Día del Trabajo"),
-        (f"{year}-08-16", "Restauración"),
-        (f"{year}-09-24", "Día de las Mercedes"),
-        (f"{year}-11-06", "Constitución"),
-        (f"{year}-12-25", "Navidad"),
-    ]
-    return holidays
+from app.services.holiday_service import HolidayService
 
 
 def _format_period_label(period: dict) -> str:
@@ -70,8 +54,9 @@ def payroll_calendar_view():
     groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
     group_map = {g["id"]: g for g in groups}
 
-    holidays = _get_dominican_holidays(year)
-    holiday_dates = {h[0]: h[1] for h in holidays}
+    holidays = HolidayService.get_holidays(company_id, year, sandbox=sandbox)
+    holiday_dates = {h["date"]: h["name"] for h in holidays}
+    holiday_config = HolidayService.get_company_config(company_id, year, sandbox=sandbox)
 
     months_data = []
     for m in range(1, 13):
@@ -132,4 +117,33 @@ def payroll_calendar_view():
                            months_data=months_data, year=year,
                            years_available=years_available,
                            status_labels=STATUS_LABELS, status_colors=STATUS_COLORS,
+                           holidays=holidays, holiday_config=holiday_config,
                            group_map={g["id"]: g["name"] for g in groups})
+
+
+@web_rrhh_bp.route("/rrhh/payroll/calendar/holidays", methods=["POST"])
+def payroll_calendar_holidays_save():
+    if _login_required():
+        return jsonify({"success": False, "error": "No autorizado"}), 401
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+
+    data = request.get_json(silent=True) or {}
+    try:
+        year = int(data.get("year", date.today().year))
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "error": "Año inválido."}), 400
+
+    excluded = [str(d)[:10] for d in (data.get("excluded") or []) if d]
+    custom = []
+    for c in (data.get("custom") or []):
+        if isinstance(c, dict) and c.get("date"):
+            try:
+                iso = date.fromisoformat(str(c["date"])[:10]).isoformat()
+            except ValueError:
+                continue
+            custom.append({"date": iso, "name": str(c.get("name", "Feriado")).strip() or "Feriado"})
+
+    HolidayService.save_company_config(company_id, year, excluded, custom, sandbox=sandbox)
+    holidays = HolidayService.get_holidays(company_id, year, sandbox=sandbox)
+    return jsonify({"success": True, "holidays": holidays,
+                    "config": {"year": year, "excluded": excluded, "custom": custom}})
