@@ -1900,11 +1900,21 @@ def supplier_invoice_pdf(invoice_id):
     qr_url = invoice.get("qrCodeURL")
     fecha_firma_str = ""
     if invoice.get("encf") and invoice.get("xmlSignature"):
-        try:
-            fecha_emision_dt = datetime.strptime(invoice.get("date", "")[:10], "%Y-%m-%d")
-            fecha_firma_str = fecha_emision_dt.strftime("%d-%m-%Y") + " 12:00:00"
-        except Exception:
-            pass
+        xml_content = invoice.get("xmlContent") or ""
+        if xml_content:
+            try:
+                from app.services.dgii_signer import DgiiSigner
+                fhf_real = DgiiSigner.extract_fecha_hora_firma(xml_content)
+                if fhf_real:
+                    fecha_firma_str = fhf_real
+            except Exception:
+                pass
+        if not fecha_firma_str:
+            try:
+                fecha_emision_dt = datetime.strptime(invoice.get("date", "")[:10], "%Y-%m-%d")
+                fecha_firma_str = fecha_emision_dt.strftime("%d-%m-%Y") + " 12:00:00"
+            except Exception:
+                pass
         if not qr_url:
             codigo_seg = invoice.get("xmlSignature", "")[:6]
             try:

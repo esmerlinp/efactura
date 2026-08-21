@@ -3,7 +3,7 @@ import os
 import re
 import tempfile
 import uuid
-from urllib.parse import urlencode
+from urllib.parse import urlencode, quote
 from xml.sax.saxutils import escape
 
 import requests
@@ -214,7 +214,7 @@ class DgiiDirectService:
             "MontoTotal": f"{float(total):.2f}",
             "FechaFirma": fecha_firma,
             "CodigoSeguridad": codigo_seguridad,
-        })
+        }, quote_via=quote)
         return f"https://ecf.dgii.gov.do/{Config.DGII_ENVIRONMENT}/ConsultaTimbre?{query_params}"
 
     @staticmethod
@@ -224,7 +224,7 @@ class DgiiDirectService:
             "ENCF": encf,
             "MontoTotal": f"{float(total):.2f}",
             "CodigoSeguridad": codigo_seguridad,
-        })
+        }, quote_via=quote)
         return f"https://fc.dgii.gov.do/{Config.DGII_ENVIRONMENT}/ConsultaTimbreFC?{query_params}"
 
     @classmethod
@@ -253,13 +253,26 @@ class DgiiDirectService:
             fecha_emision = _dt.strptime(date_str, "%Y-%m-%d").strftime("%d-%m-%Y")
         except Exception:
             fecha_emision = date_str or ""
-        fecha_firma = fecha_emision + " 12:00:00"
-        if invoice_data.get("paymentDate"):
-            try:
-                dt = _dt.fromisoformat(str(invoice_data["paymentDate"]).replace("Z", "+00:00"))
-                fecha_firma = dt.strftime("%d-%m-%Y %H:%M:%S")
-            except Exception:
-                pass
+        fecha_firma = str(invoice_data.get("fechaHoraFirma", "") or "").strip()
+        if not fecha_firma:
+            # Fallback: extraer la FechaHoraFirma real del XML firmado almacenado
+            xml_content = invoice_data.get("xmlContent") or invoice_data.get("xml_content") or ""
+            if xml_content:
+                try:
+                    from app.services.dgii_signer import DgiiSigner
+                    fhf_xml = DgiiSigner.extract_fecha_hora_firma(xml_content)
+                    if fhf_xml:
+                        fecha_firma = fhf_xml
+                except Exception:
+                    pass
+        if not fecha_firma:
+            fecha_firma = fecha_emision + " 12:00:00"
+            if invoice_data.get("paymentDate"):
+                try:
+                    dt = _dt.fromisoformat(str(invoice_data["paymentDate"]).replace("Z", "+00:00"))
+                    fecha_firma = dt.strftime("%d-%m-%Y %H:%M:%S")
+                except Exception:
+                    pass
 
         if tipo == "32" and total < 250000.00:
             query_params = urlencode({
@@ -267,10 +280,12 @@ class DgiiDirectService:
                 "ENCF": encf,
                 "MontoTotal": f"{total:.2f}",
                 "CodigoSeguridad": codigo_seguridad or "",
-            })
+            }, quote_via=quote)
             return f"https://fc.dgii.gov.do/{env}/ConsultaTimbreFC?{query_params}"
 
-        params = {
+        # Orden de parámetros según Informe Técnico e-CF §18.2.3:
+        # RncEmisor, RncComprador, ENCF, FechaEmision, MontoTotal, FechaFirma, CodigoSeguridad
+        ordered = {
             "RncEmisor": company_rnc,
             "ENCF": encf,
             "FechaEmision": fecha_emision,
@@ -279,23 +294,19 @@ class DgiiDirectService:
             "CodigoSeguridad": codigo_seguridad or "",
         }
         if tipo == "41":
-            params["RncComprador"] = company_rnc
+            rnc_comprador = company_rnc
         elif tipo in ("43", "46", "47"):
-            pass  # sin RNCComprador en el XML → se omite del QR
+            rnc_comprador = None  # sin RNCComprador en el XML → se omite del QR
         else:
-            params["RncComprador"] = client_rnc or "000000000"
-
-        ordered = {
-            "RncEmisor": params["RncEmisor"],
-            "ENCF": params["ENCF"],
-            "FechaEmision": params["FechaEmision"],
-            "MontoTotal": params["MontoTotal"],
-            "FechaFirma": params["FechaFirma"],
-            "CodigoSeguridad": params["CodigoSeguridad"],
-        }
-        if "RncComprador" in params:
-            ordered["RncComprador"] = params["RncComprador"]
-        return f"https://ecf.dgii.gov.do/{env}/ConsultaTimbre?{urlencode(ordered)}"
+            rnc_comprador = client_rnc or "000000000"
+        if rnc_comprador:
+            ordered["RncComprador"] = rnc_comprador
+        # Reordenar: RncComprador después de RncEmisor
+        final = {"RncEmisor": ordered.pop("RncEmisor")}
+        if "RncComprador" in ordered:
+            final["RncComprador"] = ordered.pop("RncComprador")
+        final.update(ordered)
+        return f"https://ecf.dgii.gov.do/{env}/ConsultaTimbre?{urlencode(final, quote_via=quote)}"
 
     @classmethod
     def _extract_seed_xml(cls, data, text):

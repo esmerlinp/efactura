@@ -18,6 +18,25 @@ except Exception:
 class DgiiSigner:
 
     @classmethod
+    def _extract_xml_tag_bytes(cls, xml_bytes, tag):
+        try:
+            text = xml_bytes.decode("utf-8", errors="ignore") if isinstance(xml_bytes, bytes) else str(xml_bytes)
+        except Exception:
+            return ""
+        m = re.search(rf"<{tag}[^>]*>([^<]+)</{tag}>", text, re.IGNORECASE)
+        return m.group(1).strip() if m else ""
+
+    @classmethod
+    def extract_fecha_hora_firma(cls, xml_bytes):
+        """Fecha y hora real de la firma digital (dd-MM-aaaa HH:mm:ss) del XML firmado."""
+        return cls._extract_xml_tag_bytes(xml_bytes, "FechaHoraFirma")
+
+    @classmethod
+    def extract_fecha_vencimiento_secuencia(cls, xml_bytes):
+        """Fecha de vencimiento de la secuencia e-NCF (dd-MM-aaaa) del XML firmado."""
+        return cls._extract_xml_tag_bytes(xml_bytes, "FechaVencimientoSecuencia")
+
+    @classmethod
     def _sign_mode(cls):
         return (getattr(Config, "DGII_SIGNING_MODE", "mock") or "mock").lower()
 

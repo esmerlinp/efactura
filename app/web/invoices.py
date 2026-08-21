@@ -2791,11 +2791,21 @@ def send_invoice_email(owner_uid, invoice, recipient_email, sandbox=True, base_u
         fecha_firma_str = ""
 
         if invoice.get("encf") and invoice.get("xmlSignature"):
-            try:
-                fecha_emision_dt = datetime.strptime(invoice.get("date", "")[:10], "%Y-%m-%d")
-                fecha_firma_str = fecha_emision_dt.strftime("%d-%m-%Y") + " 12:00:00"
-            except Exception:
-                pass
+            xml_content = invoice.get("xmlContent") or ""
+            if xml_content:
+                try:
+                    from app.services.dgii_signer import DgiiSigner
+                    fhf_real = DgiiSigner.extract_fecha_hora_firma(xml_content)
+                    if fhf_real:
+                        fecha_firma_str = fhf_real
+                except Exception:
+                    pass
+            if not fecha_firma_str:
+                try:
+                    fecha_emision_dt = datetime.strptime(invoice.get("date", "")[:10], "%Y-%m-%d")
+                    fecha_firma_str = fecha_emision_dt.strftime("%d-%m-%Y") + " 12:00:00"
+                except Exception:
+                    pass
             codigo_seg = invoice.get("xmlSignature", "")[:6]
             try:
                 qr_url = DgiiDirectService.build_qr_url(company, invoice, codigo_seg) or qr_url
@@ -4417,20 +4427,30 @@ def invoice_pdf_download(invoice_id):
     fecha_firma_str = ""
 
     if invoice.get("encf") and invoice.get("xmlSignature"):
-        try:
-            fecha_emision_dt = datetime.strptime(invoice.get("date", "")[:10], "%Y-%m-%d")
-            fecha_emision_str = fecha_emision_dt.strftime("%d-%m-%Y")
-        except:
-            fecha_emision_str = ""
-            
-        if invoice.get("paymentDate"):
+        xml_content = invoice.get("xmlContent") or ""
+        if xml_content:
             try:
-                dt = datetime.fromisoformat(invoice["paymentDate"].replace('Z', '+00:00'))
-                fecha_firma_str = dt.strftime("%d-%m-%Y %H:%M:%S")
+                from app.services.dgii_signer import DgiiSigner
+                fhf_real = DgiiSigner.extract_fecha_hora_firma(xml_content)
+                if fhf_real:
+                    fecha_firma_str = fhf_real
+            except Exception:
+                pass
+        if not fecha_firma_str:
+            try:
+                fecha_emision_dt = datetime.strptime(invoice.get("date", "")[:10], "%Y-%m-%d")
+                fecha_emision_str = fecha_emision_dt.strftime("%d-%m-%Y")
             except:
+                fecha_emision_str = ""
+
+            if invoice.get("paymentDate"):
+                try:
+                    dt = datetime.fromisoformat(invoice["paymentDate"].replace('Z', '+00:00'))
+                    fecha_firma_str = dt.strftime("%d-%m-%Y %H:%M:%S")
+                except:
+                    fecha_firma_str = fecha_emision_str + " 12:00:00"
+            else:
                 fecha_firma_str = fecha_emision_str + " 12:00:00"
-        else:
-            fecha_firma_str = fecha_emision_str + " 12:00:00"
 
         codigo_seg = invoice.get("xmlSignature", "")[:6]
         try:
@@ -5161,11 +5181,21 @@ def expense_pdf_download(expense_id):
     qr_url = expense.get("qrCodeURL")
     fecha_firma_str = ""
     if expense.get("encf") and expense.get("xmlSignature"):
-        try:
-            fecha_emision_dt = datetime.strptime(expense.get("date", "")[:10], "%Y-%m-%d")
-            fecha_firma_str = fecha_emision_dt.strftime("%d-%m-%Y") + " 12:00:00"
-        except Exception:
-            pass
+        xml_content = expense.get("xmlContent") or ""
+        if xml_content:
+            try:
+                from app.services.dgii_signer import DgiiSigner
+                fhf_real = DgiiSigner.extract_fecha_hora_firma(xml_content)
+                if fhf_real:
+                    fecha_firma_str = fhf_real
+            except Exception:
+                pass
+        if not fecha_firma_str:
+            try:
+                fecha_emision_dt = datetime.strptime(expense.get("date", "")[:10], "%Y-%m-%d")
+                fecha_firma_str = fecha_emision_dt.strftime("%d-%m-%Y") + " 12:00:00"
+            except Exception:
+                pass
         codigo_seg = expense.get("xmlSignature", "")[:6]
         try:
             qr_payload = {
