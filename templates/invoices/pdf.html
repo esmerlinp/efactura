@@ -201,6 +201,11 @@
             margin: 0 20px 24px;
         }
 
+        .items-section table.items-table {
+            table-layout: fixed;
+            width: 100%;
+        }
+
         .section-title {
             font-size: 10px;
             text-transform: uppercase;
@@ -220,8 +225,8 @@
         }
 
         thead th {
-            padding: 8px 12px;
-            font-size: 10px;
+            padding: 6px 8px;
+            font-size: 9px;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.05em;
@@ -256,8 +261,8 @@
         }
 
         tbody td {
-            padding: 10px 12px;
-            font-size: 11px;
+            padding: 7px 8px;
+            font-size: 10px;
             color: #374151;
         }
 
@@ -600,7 +605,7 @@
 
                 {% if invoice.ecfType and 'Nota de' not in (invoice.ecfType | ecf_label) and 'Consumo' not in (invoice.ecfType | ecf_label) %}
                 <div style="font-size: 11px; color: #111827; margin-top: 4px;">
-                    <strong>Fecha Vencimiento:</strong> {{ invoice.dueDate | format_date }}
+                    <strong>Fecha Vencimiento:</strong> {{ (invoice.fechaVencimientoSecuencia or invoice.dueDate) | format_date }}
                 </div>
                 {% endif %}
                 {% if invoice.status != 'Emitida' %}
@@ -643,64 +648,60 @@
 
     <!-- Tabla de Ítems (Porción de la página) -->
     <div class="items-section">
-        <table>
-            <thead>
-                <tr>
-                    <th>Cód.</th>
-                    <th>Descripción</th>
-                    <th class="right">Precio Unit.</th>
-                    <th class="center">Cant.</th>
-                    <th class="right">ITBIS</th>
-                    {% if has_additional_taxes.value %}
-                    <th class="right">Imp. Adic.</th>
-                    {% endif %}
-                    <th class="right">Desc. %</th>
-                    <th class="right">Valor</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% set start_idx = page_num * items_per_page %}
-                {% set end_idx = start_idx + items_per_page %}
-                {% set page_items = invoice['items'][start_idx:end_idx] %}
+        {% set start_idx = page_num * items_per_page %}
+        {% set end_idx = start_idx + items_per_page %}
+        {% set page_items = invoice['items'][start_idx:end_idx] %}
 
-                {% set ns = namespace(subtotal=0, itbis=0, total=0) %}
-                {% for item in page_items %}
-                {% set item_subtotal = item.get('subtotal', item.price * item.quantity * (1 - item.discountRate)) %}
-                {% set item_itbis = item.get('itbis_amount', item_subtotal * item.itbisRate) %}
-                {% set item_isc = (item.isc_especifico_amount or 0) + (item.isc_advalorem_amount or 0) +
-                (item.otros_impuestos_amount or 0) %}
-                {% set ns.subtotal = ns.subtotal + item_subtotal %}
-                {% set ns.itbis = ns.itbis + item_itbis %}
-                {% set ns.total = ns.total + item.total %}
-                <tr>
-                    <td class="mono">{{ item.code or 'S/C' }}</td>
-                    <td class="bold">
-                        {{ item.name }}
-                        {% if item_isc > 0.01 %}
-                        <div style="font-size: 8px; color: #7c3aed; font-weight: normal; margin-top: 2px;">
-                            {% if item.codigoImpuesto == '001' %}Propina Legal 10%
-                            {% elif item.codigoImpuesto == '002' %}CDT 2%
-                            {% elif item.codigoImpuesto == '003' %}ISC Seguros 16%
-                            {% elif item.codigoImpuesto == '004' %}CDT 10%
-                            {% elif item.codigoImpuesto == '005' %}Primera Placa 17%
-                            {% else %}Impuesto Selectivo (ISC)
-                            {% endif %}
-                        </div>
-                        {% endif %}
-                    </td>
-                    <td class="right">RD$ {{ "{:,.2f}".format(item.price) }}</td>
-                    <td class="center">{{ item.quantity }}</td>
-                    <td class="right">{{ "{:.0%}".format(item.itbisRate) }}</td>
-                    {% if has_additional_taxes.value %}
-                    <td class="right">{% if item_isc > 0.01 %}RD$ {{ "{:,.2f}".format(item_isc) }}{% else %}-{% endif %}
-                    </td>
+        <!-- Cabecera -->
+        <div style="display: flex; align-items: center; padding: 6px 8px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #1e293b; background: #f8fafc; border-top: 1px solid #e2e8f0; border-bottom: 2px solid {{ current_light_color }};">
+            <div style="width: 42px;">Cód.</div>
+            <div style="flex: 1; min-width: 0;">Descripción</div>
+            <div style="width: 36px; text-align: center;">Cant.</div>
+            <div style="width: 92px; text-align: right;">Precio</div>
+            <div style="width: 80px; text-align: right;">ITBIS</div>
+            {% if has_additional_taxes.value %}
+            <div style="width: 72px; text-align: right;">Imp. Adic.</div>
+            {% endif %}
+            <div style="width: 80px; text-align: right;">Desc.</div>
+            <div style="width: 92px; text-align: right;">Valor</div>
+        </div>
+
+        {% set ns = namespace(subtotal=0, itbis=0, total=0) %}
+        {% for item in page_items %}
+        {% set item_subtotal = item.get('subtotal', item.price * item.quantity * (1 - item.discountRate)) %}
+        {% set item_itbis = item.get('itbis_amount', item_subtotal * item.itbisRate) %}
+        {% set item_discount = item.get('discount_amount', (item.get('subtotal_raw', item_subtotal)) * (item.get('discountRate', 0.0))) %}
+        {% set item_isc = (item.isc_especifico_amount or 0) + (item.isc_advalorem_amount or 0) +
+        (item.otros_impuestos_amount or 0) %}
+        {% set ns.subtotal = ns.subtotal + item_subtotal %}
+        {% set ns.itbis = ns.itbis + item_itbis %}
+        {% set ns.total = ns.total + item.total %}
+        <div style="display: flex; align-items: center; padding: 7px 8px; font-size: 10px; color: #374151; border-bottom: 1px solid #e2e8f0; {% if loop.index is even %}background: #f8fafc;{% endif %}">
+            <div style="width: 42px; font-family: monospace; font-size: 9px;">{{ item.code or 'S/C' }}</div>
+            <div style="flex: 1; min-width: 0; font-weight: 700;">
+                {{ item.name }}
+                {% if item_isc > 0.01 %}
+                <div style="font-size: 8px; color: #7c3aed; font-weight: normal; margin-top: 2px;">
+                    {% if item.codigoImpuesto == '001' %}Propina Legal 10%
+                    {% elif item.codigoImpuesto == '002' %}CDT 2%
+                    {% elif item.codigoImpuesto == '003' %}ISC Seguros 16%
+                    {% elif item.codigoImpuesto == '004' %}CDT 10%
+                    {% elif item.codigoImpuesto == '005' %}Primera Placa 17%
+                    {% else %}Impuesto Selectivo (ISC)
                     {% endif %}
-                    <td class="right">{{ "{:.0%}".format(item.discountRate) }}</td>
-                    <td class="right bold">RD$ {{ "{:,.2f}".format(item.total) }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                </div>
+                {% endif %}
+            </div>
+            <div style="width: 36px; text-align: center;">{{ item.quantity }}</div>
+            <div style="width: 92px; text-align: right; white-space: nowrap;">RD$ {{ "{:,.2f}".format(item.price) }}</div>
+            <div style="width: 80px; text-align: right; white-space: nowrap;">RD$ {{ "{:,.2f}".format(item_itbis) }}</div>
+            {% if has_additional_taxes.value %}
+            <div style="width: 72px; text-align: right; white-space: nowrap;">{% if item_isc > 0.01 %}RD$ {{ "{:,.2f}".format(item_isc) }}{% else %}-{% endif %}</div>
+            {% endif %}
+            <div style="width: 80px; text-align: right; white-space: nowrap;">RD$ {{ "{:,.2f}".format(item_discount) }}</div>
+            <div style="width: 92px; text-align: right; white-space: nowrap; font-weight: 800;">RD$ {{ "{:,.2f}".format(item.total) }}</div>
+        </div>
+        {% endfor %}
     </div>
 
     <!-- Totales y QR (Misma Fila) -->
