@@ -203,7 +203,7 @@
                             endif
                             %}</strong></div>
                     <div style="font-size: 0.85rem; color: var(--text-secondary);">Vence: <strong>{{
-                            invoice.dueDate | format_date }}</strong></div>
+                            (invoice.fechaVencimientoSecuencia or invoice.dueDate) | format_date }}</strong></div>
                 </div>
             </div>
 

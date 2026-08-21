@@ -2190,6 +2190,19 @@ def _enrich_invoice_totals(invoice):
     """Calcula y agrega totales de impuestos adicionales de forma dinámica para compatibilidad y visualización."""
     if not invoice:
         return invoice
+
+    # Fecha de vencimiento de la secuencia e-NCF (RI DGII §18.2.1): extraerla del
+    # XML firmado almacenado para mostrarla en el PDF (excepto E32/E34, ocultos en template).
+    if not invoice.get("fechaVencimientoSecuencia"):
+        xml_content = invoice.get("xmlContent") or ""
+        if xml_content:
+            try:
+                from app.services.dgii_signer import DgiiSigner
+                fvs = DgiiSigner.extract_fecha_vencimiento_secuencia(xml_content)
+                if fvs and len(fvs) >= 10:
+                    invoice["fechaVencimientoSecuencia"] = f"{fvs[-4:]}-{fvs[3:5]}-{fvs[:2]}"
+            except Exception:
+                pass
         
     total_propina = 0.0
     total_cdt = 0.0
@@ -2424,6 +2437,8 @@ def invoice_detail(invoice_id):
         
     bank_accounts = DatabaseService.get_bank_accounts(owner_uid, company_id=company_id, sandbox=sandbox)
     projects = DatabaseService.get_projects(owner_uid, company_id=company_id, branch_id=invoice.get('branchId'), sandbox=sandbox) if invoice.get('branchId') else DatabaseService.get_projects(owner_uid, company_id=company_id, sandbox=sandbox)
+
+    invoice = _enrich_invoice_totals(invoice)
 
     return render_template('invoices/detail.html', active_page='quotations' if invoice.get('isQuotation') else 'invoices', invoice=invoice, company=company, branch=branch, payments=payments, client_email=_get_client_email(owner_uid, invoice, sandbox), comments=comments, taggable_users=taggable_users, format_mentions=format_mentions, history_logs=history_logs, bank_accounts=bank_accounts, projects=projects)
 
