@@ -914,3 +914,65 @@ def test_send_step4_block_persists_exact_sent_bytes(tmp_path):
     with open(xml_dir / f"{rnc}E320000000129_rfce.xml", "rb") as f:
         assert f.read() == b"<RFCE>FIRMADO-ENVIADO</RFCE>"
     assert res["block"]["cases"][0]["xml_path"].endswith(f"{rnc}E320000000129.xml")
+
+
+def test_build_qr_url_fecha_firma_real_y_orden():
+    """Regresión RI: FechaFirma usa la fecha/hora REAL de la firma (no '12:00:00')
+    y los parámetros siguen el orden del Informe Técnico §18.2.3."""
+    from app.services.dgii_direct import DgiiDirectService
+
+    profile = {"companyRNC": "133753652"}
+    base = {
+        "encf": "E310000000125",
+        "date": "2026-08-16",
+        "total": 53100.0,
+        "clientRNC": "131880681",
+        "ecfType": "Factura de Crédito Fiscal (E31)",
+        "fechaHoraFirma": "16-08-2026 12:57:17",
+    }
+    url = DgiiDirectService.build_qr_url(profile, base, "ABC123")
+    assert "FechaFirma=16-08-2026%2012%3A57%3A17" in url  # %20 (no '+') como exige el Informe
+    assert "+" not in url.split("FechaFirma=")[1].split("&")[0]
+    pos_rnc = url.index("RncEmisor=")
+    pos_cmp = url.index("RncComprador=")
+    pos_encf = url.index("ENCF=")
+    pos_ff = url.index("FechaFirma=")
+    assert pos_rnc < pos_cmp < pos_encf < pos_ff
+
+    sin_firma = dict(base)
+    sin_firma.pop("fechaHoraFirma", None)
+    url_sf = DgiiDirectService.build_qr_url(profile, sin_firma, "ABC123")
+    assert "12%3A00%3A00" in url_sf  # fallback cuando no hay fecha real
+    assert "+" not in url_sf.split("FechaFirma=")[1].split("&")[0]
+
+
+def test_extract_fecha_hora_firma():
+    from app.services.dgii_signer import DgiiSigner
+    xml = b"<ECF><FechaHoraFirma>16-08-2026 12:57:17</FechaHoraFirma><FechaVencimientoSecuencia>31-12-2028</FechaVencimientoSecuencia></ECF>"
+    assert DgiiSigner.extract_fecha_hora_firma(xml) == "16-08-2026 12:57:17"
+    assert DgiiSigner.extract_fecha_vencimiento_secuencia(xml) == "31-12-2028"
+    assert DgiiSigner.extract_fecha_hora_firma(b"<ECF/>") == ""
+
+
+def test_build_qr_url_fecha_firma_desde_xmlcontent():
+    """Regresión: rutas que pasan el invoice almacenado (PDF normal, detalle, etc.)
+    extraen la FechaHoraFirma REAL del xmlContent (no '12:00:00' fabricada)."""
+    from app.services.dgii_direct import DgiiDirectService
+
+    profile = {"companyRNC": "133753652"}
+    invoice = {
+        "encf": "E310000000142",
+        "date": "2026-08-19",
+        "total": 112100.0,
+        "clientRNC": "131880681",
+        "ecfType": "Factura de Crédito Fiscal (E31)",
+        "xmlContent": "<ECF><FechaHoraFirma>19-08-2026 16:35:53</FechaHoraFirma></ECF>",
+    }
+    url = DgiiDirectService.build_qr_url(profile, invoice, "CQTMV/")
+    assert "FechaFirma=19-08-2026%2016%3A35%3A53" in url
+    assert "12%3A00%3A00" not in url
+
+    sin_xml = dict(invoice)
+    sin_xml.pop("xmlContent", None)
+    url2 = DgiiDirectService.build_qr_url(profile, sin_xml, "CQTMV/")
+    assert "12%3A00%3A00" in url2  # fallback sin información real

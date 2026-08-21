@@ -190,6 +190,9 @@ def test_step4_case_pdf_status_not_borrador(app, tmp_path):
         "paymentType": "Contado",
         "status": "Borrador",
         "invoiceNumber": "CERT-E32-01",
+        "xmlSignature": "iyQ1gfXXXXFIRMA",
+        "fechaHoraFirma": "16-08-2026 12:57:17",
+        "fechaVencimientoSecuencia": "31-12-2028",
         "items": [{
             "name": "Servicio de certificación DGII E32 #1",
             "price": 12500.0,
@@ -217,6 +220,7 @@ def test_step4_case_pdf_status_not_borrador(app, tmp_path):
     def fake_render(template_name, **kwargs):
         captured["invoice"] = kwargs.get("invoice", {})
         captured["template"] = template_name
+        captured["fecha_firma_str"] = kwargs.get("fecha_firma_str", "")
         return "<html><body></body></html>"
 
     with app.test_request_context("/api/v1/certificacion/step-4/generate-set", method="POST"):
@@ -226,5 +230,10 @@ def test_step4_case_pdf_status_not_borrador(app, tmp_path):
 
     assert captured.get("template") == "invoices/pdf.html"
     assert captured["invoice"]["status"] == "Emitida"
+    # RI DGII: código de seguridad + fecha de firma REAL debajo del QR
+    assert captured["invoice"]["xmlSignature"] == "iyQ1gfXXXXFIRMA"
+    assert captured["fecha_firma_str"] == "16-08-2026 12:57:17"
+    # RI DGII: Fecha Vencimiento = vencimiento de la secuencia (31/12/2028)
+    assert captured["invoice"]["dueDate"] == "2028-12-31"
     assert pdf_path
     assert os.path.exists(pdf_path)

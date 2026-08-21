@@ -1057,6 +1057,11 @@ class DgiiCertService:
             signed_xml = DgiiSigner.sign_xml(raw_xml, company_profile)
             xml_signature = DgiiSigner.extract_signature_value(signed_xml) or hashlib.sha256(signed_xml).hexdigest()
             codigo_seguridad = xml_signature[:6]
+            # Fecha/hora de firma REAL (Informe Técnico §18.2.3: FechaFirma del QR
+            # debe ser dd-MM-aaaa HH:mm:ss de la firma digital, no una fecha fabricada).
+            fhf = DgiiSigner.extract_fecha_hora_firma(signed_xml)
+            if fhf:
+                invoice_dict["fechaHoraFirma"] = fhf
             try:
                 qr_url = DgiiDirectService.build_qr_url(company_profile, invoice_dict, codigo_seguridad)
             except Exception:
@@ -1466,6 +1471,14 @@ class DgiiCertService:
             invoice.setdefault("netPayable", float(invoice.get("total", 0.0)))
             invoice.setdefault("ecfType", "Factura de Consumo (E32)")
             invoice.setdefault("encf", "")
+            # RI DGII (§18.2.1/18.2.3): Fecha Vencimiento = vencimiento de la
+            # secuencia e-NCF (31/12/2028), excepto E32/E34 (la plantilla los oculta).
+            fvs = payload.get("fechaVencimientoSecuencia") or ""
+            if fvs and len(fvs) >= 10:
+                invoice["dueDate"] = f"{fvs[-4:]}-{fvs[3:5]}-{fvs[:2]}"  # dd-MM-aaaa → ISO
+            else:
+                invoice["dueDate"] = "2028-12-31"
+            fecha_firma_real = payload.get("fechaHoraFirma") or ""
             items = []
             for it in invoice.get("items", []):
                 item = dict(it)
@@ -1507,7 +1520,7 @@ class DgiiCertService:
                 branch={},
                 auto_print=False,
                 qr_base64=qr_base64,
-                fecha_firma_str="",
+                fecha_firma_str=fecha_firma_real,
                 sandbox=True,
             )
             pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=base_url).write_pdf(**pdf_write_options())
@@ -1538,6 +1551,13 @@ class DgiiCertService:
             f.write(signed_xml)
         case["xml_path"] = os.path.join(xml_dir, f"{prefix}.xml")
         sig = DgiiSigner.extract_signature_value(signed_xml) or hashlib.sha256(signed_xml).hexdigest()
+        payload["xmlSignature"] = sig
+        fhf = DgiiSigner.extract_fecha_hora_firma(signed_xml)
+        if fhf:
+            payload["fechaHoraFirma"] = fhf
+        fvs = DgiiSigner.extract_fecha_vencimiento_secuencia(signed_xml)
+        if fvs:
+            payload["fechaVencimientoSecuencia"] = fvs
         if not payload.get("qrCodeURL"):
             try:
                 payload["qrCodeURL"] = DgiiDirectService.build_qr_url(company_profile, payload, sig[:6])
@@ -1567,6 +1587,13 @@ class DgiiCertService:
             with open(os.path.join(xml_dir, f"{prefix}.xml"), "wb") as f:
                 f.write(signed_bytes)
             case["xml_path"] = os.path.join(xml_dir, f"{prefix}.xml")
+            payload["xmlSignature"] = result.get("xml_signature") or payload.get("xmlSignature", "")
+            fhf = DgiiSigner.extract_fecha_hora_firma(signed_bytes)
+            if fhf:
+                payload["fechaHoraFirma"] = fhf
+            fvs = DgiiSigner.extract_fecha_vencimiento_secuencia(signed_bytes)
+            if fvs:
+                payload["fechaVencimientoSecuencia"] = fvs
         rfce_bytes = result.get("rfce_signed_xml")
         if isinstance(rfce_bytes, bytes) and rfce_bytes:
             with open(os.path.join(xml_dir, f"{prefix}_rfce.xml"), "wb") as f:
