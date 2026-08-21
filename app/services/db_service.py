@@ -682,8 +682,8 @@ def _cached_associated_companies(uid):
         return companies
     try:
         mem_docs = db_firestore.collection("company_memberships") \
-            .where("uid", "==", uid) \
-            .where("status", "==", "active") \
+            .where(filter=firestore.FieldFilter("uid", "==", uid)) \
+            .where(filter=firestore.FieldFilter("status", "==", "active")) \
             .get()
         for mem in mem_docs:
             mem_data = mem.to_dict()
@@ -867,7 +867,7 @@ def _resolve_company_id(owner_uid):
     if not owner_uid:
         return None
     try:
-        docs = db_firestore.collection("companies").where("owner_uid", "==", owner_uid).get()
+        docs = db_firestore.collection("companies").where(filter=firestore.FieldFilter("owner_uid", "==", owner_uid)).get()
         companies = [(d.id, d.to_dict().get("created_at", "")) for d in docs]
         companies.sort(key=lambda x: x[1], reverse=True)
         if companies:
@@ -2001,7 +2001,7 @@ class DatabaseService:
             try:
                 coll_name = "sandbox_clients" if sandbox else "clients"
                 clean_rnc = str(rnc).replace("-", "").strip()
-                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).where("rnc", "==", clean_rnc).get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).where(filter=firestore.FieldFilter("rnc", "==", clean_rnc)).get()
                 for doc in docs:
                     data = doc.to_dict()
                     client_dict = {
@@ -2026,7 +2026,7 @@ class DatabaseService:
                             client_dict[k] = v
                     return client_dict
                 # Intentar también con guiones por si acaso
-                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).where("rnc", "==", rnc).get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).where(filter=firestore.FieldFilter("rnc", "==", rnc)).get()
                 for doc in docs:
                     data = doc.to_dict()
                     client_dict = {
@@ -2428,7 +2428,7 @@ class DatabaseService:
                 coll_name = "sandbox_price_lists" if sandbox else "price_lists"
                 # Eliminar precios de items asociados
                 items_coll = coll_name + "_items"
-                item_docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=items_coll).where("priceListId", "==", list_id).get()
+                item_docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=items_coll).where(filter=firestore.FieldFilter("priceListId", "==", list_id)).get()
                 for idoc in item_docs:
                     idoc.reference.delete()
                 # Eliminar la lista
@@ -2444,7 +2444,7 @@ class DatabaseService:
             try:
                 coll_name = "sandbox_price_lists" if sandbox else "price_lists"
                 items_coll = coll_name + "_items"
-                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=items_coll).where("priceListId", "==", price_list_id).get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=items_coll).where(filter=firestore.FieldFilter("priceListId", "==", price_list_id)).get()
                 for doc in docs:
                     data = doc.to_dict()
                     prices[data.get("itemId")] = {
@@ -4262,7 +4262,7 @@ class DatabaseService:
                 owners = db_firestore.collection("users").get()
                 for owner_doc in owners:
                     try:
-                        docs = owner_doc.reference.collection(coll_name).where("expireAt", "<", today_str).get()
+                        docs = owner_doc.reference.collection(coll_name).where(filter=firestore.FieldFilter("expireAt", "<", today_str)).get()
                         batch = db_firestore.batch()
                         count = 0
                         for doc in docs:
@@ -6002,7 +6002,7 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 # Obtener notificaciones unread
-                docs = db_firestore.collection("users").document(user_uid).collection("notifications").where("read", "==", False).get()
+                docs = db_firestore.collection("users").document(user_uid).collection("notifications").where(filter=firestore.FieldFilter("read", "==", False)).get()
                 batch = db_firestore.batch()
                 for doc in docs:
                     batch.update(doc.reference, {"read": True})
@@ -6352,7 +6352,7 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_bank_entities" if sandbox else "bank_entities"
-                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).where("name", "==", name).get()
+                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).where(filter=firestore.FieldFilter("name", "==", name)).get()
                 for doc in docs:
                     data = doc.to_dict()
                     return {
@@ -7158,7 +7158,7 @@ class DatabaseService:
             return []
         try:
             docs = db_firestore.collection("companies") \
-                .where("owner_uid", "==", owner_uid) \
+                .where(filter=firestore.FieldFilter("owner_uid", "==", owner_uid)) \
                 .get()
             return [doc.to_dict() for doc in docs]
         except Exception as e:
@@ -7205,8 +7205,8 @@ class DatabaseService:
             return None
         try:
             docs = db_firestore.collection("company_memberships") \
-                .where("uid", "==", uid) \
-                .where("company_id", "==", company_id) \
+                .where(filter=firestore.FieldFilter("uid", "==", uid)) \
+                .where(filter=firestore.FieldFilter("company_id", "==", company_id)) \
                 .limit(1) \
                 .get()
             for doc in docs:
@@ -7222,8 +7222,8 @@ class DatabaseService:
             return []
         try:
             memberships = db_firestore.collection("company_memberships") \
-                .where("uid", "==", uid) \
-                .where("status", "==", "active") \
+                .where(filter=firestore.FieldFilter("uid", "==", uid)) \
+                .where(filter=firestore.FieldFilter("status", "==", "active")) \
                 .get()
 
             companies = []
@@ -7268,8 +7268,8 @@ class DatabaseService:
             return []
         try:
             docs = db_firestore.collection("company_memberships") \
-                .where("company_id", "==", company_id) \
-                .where("status", "==", "active") \
+                .where(filter=firestore.FieldFilter("company_id", "==", company_id)) \
+                .where(filter=firestore.FieldFilter("status", "==", "active")) \
                 .get()
             return [doc.to_dict() for doc in docs]
         except Exception as e:
@@ -7284,8 +7284,8 @@ class DatabaseService:
         try:
             now = datetime.now(timezone.utc).isoformat()
             docs = db_firestore.collection("company_memberships") \
-                .where("uid", "==", uid) \
-                .where("company_id", "==", company_id) \
+                .where(filter=firestore.FieldFilter("uid", "==", uid)) \
+                .where(filter=firestore.FieldFilter("company_id", "==", company_id)) \
                 .limit(1) \
                 .get()
             for doc in docs:
@@ -7304,8 +7304,8 @@ class DatabaseService:
         try:
             now = datetime.now(timezone.utc).isoformat()
             docs = db_firestore.collection("company_memberships") \
-                .where("uid", "==", uid) \
-                .where("company_id", "==", company_id) \
+                .where(filter=firestore.FieldFilter("uid", "==", uid)) \
+                .where(filter=firestore.FieldFilter("company_id", "==", company_id)) \
                 .limit(1) \
                 .get()
             for doc in docs:

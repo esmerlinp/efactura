@@ -843,8 +843,9 @@ class PayrollService:
         return round(daily_rate * emp_days, 2)
 
     @classmethod
-    def calculate_business_days(cls, start_date_str: str, end_date_str: str) -> int:
-        """Cuenta días hábiles (lunes-viernes) entre dos fechas."""
+    def calculate_business_days(cls, start_date_str: str, end_date_str: str,
+                                holidays: Optional[set] = None) -> int:
+        """Cuenta días hábiles (lunes-viernes) entre dos fechas, excluyendo feriados si se pasan."""
         try:
             start = datetime.strptime(start_date_str[:10], "%Y-%m-%d").date()
             end = datetime.strptime(end_date_str[:10], "%Y-%m-%d").date()
@@ -857,7 +858,7 @@ class PayrollService:
         days = 0
         current = start
         while current <= end:
-            if current.weekday() < 5:  # L-V
+            if current.weekday() < 5 and (not holidays or current.isoformat() not in holidays):
                 days += 1
             current += timedelta(days=1)
         return days
