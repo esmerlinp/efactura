@@ -4361,11 +4361,21 @@ def invoice_qr_image(invoice_id):
     sandbox = session.get('is_sandbox_mode', True)
     
     invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
-    if not invoice or not invoice.get("qrCodeURL"):
-        # Retornar QR vacío
+    if not invoice:
+        return "Factura no encontrada", 404
+
+    qr_url = invoice.get("qrCodeURL")
+
+    if invoice.get("encf") and invoice.get("xmlSignature"):
+        company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+        codigo_seg = invoice.get("xmlSignature", "")[:6]
+        try:
+            qr_url = DgiiDirectService.build_qr_url(company, invoice, codigo_seg) or qr_url
+        except Exception:
+            qr_url = qr_url or "https://dgii.gov.do/validaecf"
+
+    if not qr_url:
         qr_url = "https://dgii.gov.do/validaecf"
-    else:
-        qr_url = invoice["qrCodeURL"]
         
     # Generar código QR PNG en memoria
     qr = qrcode.QRCode(version=1, box_size=10, border=2)
