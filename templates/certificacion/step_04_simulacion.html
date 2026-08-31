@@ -262,6 +262,9 @@
             <button type="button" class="cert-btn cert-btn-secondary cert-btn-sm" onclick="window.open('/api/v1/certificacion/step-4/download-all?run=${step4SetRun}', '_blank')">
                 <i class="fa-solid fa-file-zipper"></i> Descargar evidencias (.zip)
             </button>
+            <button type="button" class="cert-btn cert-btn-secondary cert-btn-sm" onclick="refreshStep4Artifacts()" title="Corrige QRs con fecha de firma placeholder y regenera los PDFs sin re-emitir a la DGII">
+                <i class="fa-solid fa-qrcode"></i> Reparar QR / regenerar PDFs
+            </button>
         </div>`;
 
         if ((step4Set.set_errors || []).length > 0) {
@@ -418,6 +421,40 @@
             btn.disabled = false;
             msg.textContent = "✗ Error";
             showToast("Error al generar el set", "error");
+        }
+    }
+
+    async function refreshStep4Artifacts() {
+        if (step4Sending || !step4SetRun) return;
+        const msg = document.getElementById("step4-set-msg");
+        msg.textContent = "";
+        showToast("Reparando QRs y regenerando PDFs…", "info");
+        try {
+            const resp = await certFetch("/certificacion/step-4/refresh-artifacts", {
+                method: "POST",
+                body: { run_number: step4SetRun },
+            });
+            const data = await resp.json();
+            if (data.success) {
+                msg.textContent = `✓ QRs corregidos: ${data.qr_repaired || 0} · PDFs regenerados: ${data.pdfs_regenerated || 0}`;
+                if ((data.errors || []).length > 0) {
+                    showToast("Algunos casos no se pudieron reparar. Revisa el mensaje.", "warning");
+                } else {
+                    showToast("QRs y PDFs actualizados (sin re-emitir a la DGII)", "success");
+                }
+                const setResp = await certFetch(`/certificacion/step-4/set?run=${step4SetRun}`);
+                const setData = await setResp.json();
+                if (setData.success && setData.set) {
+                    step4Set = setData.set;
+                    renderStep4Set();
+                }
+            } else {
+                msg.textContent = "✗ Error al reparar QRs";
+                showToast(data.error || "Error al reparar QRs", "error");
+            }
+        } catch (e) {
+            msg.textContent = "✗ Error al reparar QRs";
+            showToast("Error al reparar QRs", "error");
         }
     }
 

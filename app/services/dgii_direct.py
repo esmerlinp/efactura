@@ -295,8 +295,18 @@ class DgiiDirectService:
         }
         if tipo == "41":
             rnc_comprador = company_rnc
-        elif tipo in ("43", "46", "47"):
+        elif tipo in ("43", "47"):
             rnc_comprador = None  # sin RNCComprador en el XML → se omite del QR
+        elif tipo == "46":
+            # E46 (Exportación): el XML lleva RNCComprador salvo que no exista
+            # ningún RNC (ahí usa IdentificadorExtranjero). Regla espejo del
+            # builder: clientRNC válido → ese; si no → RNC de la empresa.
+            if client_rnc and client_rnc not in ("000000000", "0"):
+                rnc_comprador = client_rnc
+            elif company_rnc:
+                rnc_comprador = company_rnc
+            else:
+                rnc_comprador = None
         else:
             rnc_comprador = client_rnc or "000000000"
         if rnc_comprador:
@@ -307,6 +317,50 @@ class DgiiDirectService:
             final["RncComprador"] = ordered.pop("RncComprador")
         final.update(ordered)
         return f"https://ecf.dgii.gov.do/{env}/ConsultaTimbre?{urlencode(final, quote_via=quote)}"
+
+    @classmethod
+    def qr_url_valido(cls, company_profile, invoice_data):
+        """Auto-reparación de QR para documentos emitidos antes del fix de
+        FechaFirma real: si el qrCodeURL guardado trae el placeholder
+        'FechaFirma=...%2012%3A00%3A00' (la DGII lo valida contra la
+        FechaHoraFirma del XML y devuelve 'No fue encontrada la factura'),
+        se recalcula con build_qr_url usando el xmlContent almacenado.
+        Los QR válidos (y los de RFCE, que no llevan FechaFirma) se devuelven
+        intactos.
+        """
+        stored = str(invoice_data.get("qrCodeURL", "") or "").strip()
+        has_placeholder = ("12%3A00%3A00" in stored) or ("12:00:00" in stored)
+        if stored and not has_placeholder:
+            return stored
+
+        xml_content = invoice_data.get("xmlContent") or invoice_data.get("xml_content") or ""
+        if not xml_content:
+            return stored
+
+        try:
+            sig = DgiiSigner.extract_signature_value(xml_content)
+        except Exception:
+            sig = None
+        codigo_seguridad = (invoice_data.get("xmlSignature", "") or (sig or ""))[:6]
+        if not codigo_seguridad:
+            return stored
+
+        try:
+            data = dict(invoice_data)
+            # Normalizar campos según el origen del documento:
+            # - gastos guardan rncEmisor y amount (no clientRNC/total),
+            # - facturas de proveedor guardan supplierRnc/supplierCedula.
+            # Sin esto el QR recalculado saldría con RncComprador=000000000
+            # o MontoTotal=0.00.
+            if not str(data.get("clientRNC", "") or "").strip():
+                data["clientRNC"] = (invoice_data.get("supplierRnc")
+                                     or invoice_data.get("supplierCedula")
+                                     or invoice_data.get("rncEmisor") or "")
+            if not float(data.get("total", 0.0) or 0.0):
+                data["total"] = invoice_data.get("amount", 0.0)
+            return cls.build_qr_url(company_profile, data, codigo_seguridad) or stored
+        except Exception:
+            return stored
 
     @classmethod
     def _extract_seed_xml(cls, data, text):

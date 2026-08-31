@@ -603,7 +603,7 @@
                     invoice.invoiceNumber }}</div>
                 {% endif %}
 
-                {% if invoice.ecfType and 'Nota de' not in (invoice.ecfType | ecf_label) and 'Consumo' not in (invoice.ecfType | ecf_label) %}
+                {% if invoice.ecfType and (invoice.ecfType | ecf_has_vencimiento) %}
                 <div style="font-size: 11px; color: #111827; margin-top: 4px;">
                     <strong>Fecha Vencimiento:</strong> {{ (invoice.fechaVencimientoSecuencia or invoice.dueDate) | format_date }}
                 </div>

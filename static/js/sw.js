@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vykone-static-v1';
+const CACHE_NAME = 'vykone-static-v2';
 
 const PRECACHE_URLS = [
   '/static/css/style_moderno.css',

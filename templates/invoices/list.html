@@ -843,19 +843,20 @@ endblock %}
                         uploadIcon.style.color = 'var(--text-muted)';
                         uploadIcon.style.transform = 'none';
                     }
-                }
-            });
-    // Select all invoices checkbox logic
-    const selectAllCheckbox = document.getElementById('select-all-invoices');
-    if (selectAllCheckbox) {
-        selectAllCheckbox.addEventListener('change', function() {
-            const checkboxes = document.querySelectorAll('.invoice-checkbox');
-            checkboxes.forEach(cb => {
-                cb.checked = selectAllCheckbox.checked;
-            });
+                    }
+                });
+            }
+            // Select all invoices checkbox logic
+            const selectAllCheckbox = document.getElementById('select-all-invoices');
+            if (selectAllCheckbox) {
+                selectAllCheckbox.addEventListener('change', function() {
+                    const checkboxes = document.querySelectorAll('.invoice-checkbox');
+                    checkboxes.forEach(cb => {
+                        cb.checked = selectAllCheckbox.checked;
+                    });
+                });
+            }
         });
-    }
-});
 </script>
 </div>
 {% endblock %}

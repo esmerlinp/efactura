@@ -1504,6 +1504,15 @@ class DgiiCertService:
             invoice["totalCDT"] = 0.0
             invoice["totalPropina"] = 0.0
 
+            # Self-heal: QR con FechaFirma placeholder → recalcular con la real
+            # antes de imprimir el PDF (la DGII valida FechaFirma en consulta).
+            try:
+                invoice["qrCodeURL"] = DgiiDirectService.qr_url_valido(
+                    company_profile, payload
+                ) or invoice.get("qrCodeURL", "")
+            except Exception:
+                pass
+
             import qrcode as _qrcode
             qr = _qrcode.QRCode(version=1, box_size=10, border=0)
             qr.add_data(invoice.get("qrCodeURL") or "https://dgii.gov.do/validaecf")
@@ -1551,6 +1560,7 @@ class DgiiCertService:
         with open(os.path.join(xml_dir, f"{prefix}.xml"), "wb") as f:
             f.write(signed_xml)
         case["xml_path"] = os.path.join(xml_dir, f"{prefix}.xml")
+        payload["xmlContent"] = signed_xml.decode("utf-8", errors="replace")
         sig = DgiiSigner.extract_signature_value(signed_xml) or hashlib.sha256(signed_xml).hexdigest()
         payload["xmlSignature"] = sig
         fhf = DgiiSigner.extract_fecha_hora_firma(signed_xml)
@@ -1559,11 +1569,13 @@ class DgiiCertService:
         fvs = DgiiSigner.extract_fecha_vencimiento_secuencia(signed_xml)
         if fvs:
             payload["fechaVencimientoSecuencia"] = fvs
-        if not payload.get("qrCodeURL"):
-            try:
-                payload["qrCodeURL"] = DgiiDirectService.build_qr_url(company_profile, payload, sig[:6])
-            except Exception:
-                payload["qrCodeURL"] = ""
+        # Auto-reparación: si el QR guardado trae FechaFirma placeholder ('12:00:00'
+        # fabricada), la DGII lo rechaza en consulta — se recalcula con la
+        # FechaHoraFirma real del XML firmado.
+        try:
+            payload["qrCodeURL"] = DgiiDirectService.qr_url_valido(company_profile, payload) or payload.get("qrCodeURL", "")
+        except Exception:
+            pass
         if case.get("rfce"):
             rfce_raw = DgiiXmlBuilder.build_rfce_summary_xml(company_profile, payload, sig[:6])
             rfce_signed = DgiiSigner.sign_xml(rfce_raw, company_profile)
@@ -1588,6 +1600,7 @@ class DgiiCertService:
             with open(os.path.join(xml_dir, f"{prefix}.xml"), "wb") as f:
                 f.write(signed_bytes)
             case["xml_path"] = os.path.join(xml_dir, f"{prefix}.xml")
+            payload["xmlContent"] = signed_bytes.decode("utf-8", errors="replace")
             payload["xmlSignature"] = result.get("xml_signature") or payload.get("xmlSignature", "")
             fhf = DgiiSigner.extract_fecha_hora_firma(signed_bytes)
             if fhf:
@@ -1595,6 +1608,12 @@ class DgiiCertService:
             fvs = DgiiSigner.extract_fecha_vencimiento_secuencia(signed_bytes)
             if fvs:
                 payload["fechaVencimientoSecuencia"] = fvs
+        # Auto-reparación de QR con FechaFirma placeholder (emisiones previas al
+        # fix): recalcular usando el xmlContent real recién guardado.
+        try:
+            payload["qrCodeURL"] = DgiiDirectService.qr_url_valido(company_profile, payload) or payload.get("qrCodeURL", "")
+        except Exception:
+            pass
         rfce_bytes = result.get("rfce_signed_xml")
         if isinstance(rfce_bytes, bytes) and rfce_bytes:
             with open(os.path.join(xml_dir, f"{prefix}_rfce.xml"), "wb") as f:
@@ -1609,6 +1628,181 @@ class DgiiCertService:
         pdf_path = cls._step4_case_pdf(payload, company_profile, pdf_dir, encf)
         if pdf_path:
             case["pdf_path"] = pdf_path
+
+    @classmethod
+    def refresh_step4_qr_and_pdfs(cls, company_id, company_profile, owner_uid, run_number,
+                                  sandbox=True):
+        """Repara los QR con FechaFirma placeholder y regenera los PDFs de una
+        corrida existente SIN re-emitir a la DGII (solo lee el XML firmado en
+        disco, recalcula el qrCodeURL y lo persiste en Firestore)."""
+        run_path = _get_run_doc_path(company_id, 4, run_number)
+        run_data = cls._get_firestore_doc(run_path) or {}
+        test_set = run_data.get("test_set") or {}
+
+        evidence_dir = _get_evidence_dir(company_id, 4, run_number)
+        xml_dir = os.path.join(evidence_dir, "xml")
+        pdf_dir = os.path.join(evidence_dir, "pdf")
+        _ensure_dir(pdf_dir)
+
+        rnc = str(company_profile.get("companyRNC", "")).replace("-", "").strip()
+        updated = 0
+        pdfs = 0
+        errors = []
+        for block in test_set.get("blocks", []):
+            for case in block.get("cases", []):
+                try:
+                    changed, pdf_ok = cls._repair_case_qr_and_pdf(
+                        company_profile, owner_uid, case, xml_dir, pdf_dir, rnc,
+                        sandbox=sandbox, company_id=company_id)
+                    if changed:
+                        updated += 1
+                    if pdf_ok:
+                        pdfs += 1
+                except Exception as e:
+                    encf = case.get("encf", "?")
+                    errors.append(f"{encf}: {e}")
+
+        run_data["test_set"] = test_set
+        cls.save_run_progress(company_id, 4, run_number, run_data)
+        return {"success": True, "qr_repaired": updated, "pdfs_regenerated": pdfs,
+                "errors": errors}
+
+    @classmethod
+    def _repair_case_qr_and_pdf(cls, company_profile, owner_uid, case, xml_dir, pdf_dir, rnc,
+                                sandbox=True, company_id=None):
+        """Repara el QR (FechaFirma placeholder) y regenera el PDF de UN caso.
+        Retorna (qr_cambiado, pdf_ok). No re-emite a la DGII."""
+        encf = case.get("encf", "")
+        doc_id = case.get("doc_id", "")
+        if not encf or not doc_id or case.get("status") == "error":
+            return False, False
+        prefix = f"{rnc}{encf}" if rnc else encf
+        xml_path = case.get("xml_path") or os.path.join(xml_dir, f"{prefix}.xml")
+        if not os.path.exists(xml_path):
+            return False, False
+        payload = cls._load_step4_payload(owner_uid, case, sandbox=sandbox,
+                                          company_id=company_id)
+        if not payload:
+            return False, False
+        signed_bytes = open(xml_path, "rb").read()
+        payload["xmlContent"] = signed_bytes.decode("utf-8", errors="replace")
+        if not payload.get("xmlSignature"):
+            sig = DgiiSigner.extract_signature_value(signed_bytes) or ""
+            if sig:
+                payload["xmlSignature"] = sig
+        fhf = DgiiSigner.extract_fecha_hora_firma(signed_bytes)
+        if fhf:
+            payload["fechaHoraFirma"] = fhf
+        before = payload.get("qrCodeURL", "")
+        payload["qrCodeURL"] = DgiiDirectService.qr_url_valido(company_profile, payload) or before
+        changed = payload.get("qrCodeURL") != before
+        pdf_path = cls._step4_case_pdf(payload, company_profile, pdf_dir, encf)
+        if pdf_path:
+            case["pdf_path"] = pdf_path
+        if changed:
+            cls._save_step4_case_qr(owner_uid, case, payload,
+                                    sandbox=sandbox, company_id=company_id)
+        return changed, bool(pdf_path)
+
+    @classmethod
+    def refresh_step4_case(cls, company_id, company_profile, owner_uid, run_number, encf,
+                           sandbox=True):
+        """Repara QR y regenera el PDF de UN caso de una corrida (sin re-emitir).
+        Usado por la descarga de PDF del paso 4 para auto-reparar el QR impreso."""
+        run_data = cls._get_firestore_doc(_get_run_doc_path(company_id, 4, run_number)) or {}
+        test_set = run_data.get("test_set") or {}
+        evidence_dir = _get_evidence_dir(company_id, 4, run_number)
+        xml_dir = os.path.join(evidence_dir, "xml")
+        pdf_dir = os.path.join(evidence_dir, "pdf")
+        _ensure_dir(pdf_dir)
+        rnc = str(company_profile.get("companyRNC", "")).replace("-", "").strip()
+        for block in test_set.get("blocks", []):
+            for case in block.get("cases", []):
+                if case.get("encf") != encf:
+                    continue
+                changed, pdf_ok = cls._repair_case_qr_and_pdf(
+                    company_profile, owner_uid, case, xml_dir, pdf_dir, rnc,
+                    sandbox=sandbox, company_id=company_id)
+                run_data["test_set"] = test_set
+                cls.save_run_progress(company_id, 4, run_number, run_data)
+                return {"success": True, "qr_repaired": 1 if changed else 0,
+                        "pdfs_regenerated": 1 if pdf_ok else 0, "errors": []}
+        return {"success": False, "error": f"Caso {encf} no encontrado en la corrida {run_number}"}
+
+    @classmethod
+    def find_case_xml_on_disk(cls, company_id, rnc, encf):
+        """Busca el XML firmado de un caso del paso 4 en los directorios de
+        evidencias (última corrida primero). Usado como fuente de FechaHoraFirma
+        para descargas de PDF de gastos/facturas de proveedor emitidos durante
+        la certificación cuyo doc Firestore no guarda xmlContent."""
+        base = f"uploads/certificacion/{company_id}/step4"
+        if not os.path.isdir(base):
+            return ""
+        runs = sorted(os.listdir(base), reverse=True)
+        for run in runs:
+            xml_path = os.path.join(base, run, "xml", f"{rnc}{encf}.xml")
+            if os.path.exists(xml_path):
+                try:
+                    return open(xml_path, encoding="utf-8", errors="ignore").read()
+                except Exception:
+                    return ""
+        return ""
+
+    @classmethod
+    def qr_reparado_con_disco(cls, company_profile, doc, company_id):
+        """Devuelve el QR válido de un documento: auto-repara el placeholder de
+        FechaFirma con la FechaHoraFirma real, usando el xmlContent del doc o,
+        si falta (docs de certificación), el XML firmado en disco del paso 4.
+        Retorna el qrCodeURL guardado si no hay forma de repararlo."""
+        xml_content = doc.get("xmlContent") or ""
+        if not xml_content and doc.get("encf"):
+            rnc = str(company_profile.get("companyRNC", "")).replace("-", "").strip()
+            xml_content = cls.find_case_xml_on_disk(company_id, rnc, doc.get("encf", ""))
+        if not xml_content:
+            try:
+                return DgiiDirectService.qr_url_valido(company_profile, doc) or doc.get("qrCodeURL", "")
+            except Exception:
+                return doc.get("qrCodeURL", "")
+        fixed = dict(doc)
+        fixed["xmlContent"] = xml_content
+        try:
+            return DgiiDirectService.qr_url_valido(company_profile, fixed) or doc.get("qrCodeURL", "")
+        except Exception:
+            return doc.get("qrCodeURL", "")
+
+    @classmethod
+    def _save_step4_case_qr(cls, owner_uid, case, payload, sandbox=True, company_id=None):
+        """Persiste el qrCodeURL corregido (y el xmlContent si estaba ausente)
+        en el doc Firestore del caso."""
+        doc_id = case.get("doc_id", "")
+        kind = case.get("kind", "invoice")
+        qr = payload.get("qrCodeURL", "")
+        if not doc_id or not qr:
+            return
+        xml_content = payload.get("xmlContent", "")
+        try:
+            if kind in ("invoice", "nota"):
+                inv = DatabaseService.get_invoice(owner_uid, doc_id, sandbox=sandbox, company_id=company_id)
+                if inv:
+                    inv["qrCodeURL"] = qr
+                    if xml_content and not inv.get("xmlContent"):
+                        inv["xmlContent"] = xml_content
+                    DatabaseService.save_invoice(owner_uid, doc_id, inv, sandbox=sandbox, company_id=company_id)
+            elif kind == "expense":
+                exp = DatabaseService.get_expense(owner_uid, doc_id, sandbox=sandbox, company_id=company_id)
+                if exp:
+                    exp["qrCodeURL"] = qr
+                    if xml_content and not exp.get("xmlContent"):
+                        exp["xmlContent"] = xml_content
+                    DatabaseService.save_expense(owner_uid, doc_id, exp, sandbox=sandbox, company_id=company_id)
+            elif kind == "supplier_invoice":
+                update_fields = {"qrCodeURL": qr}
+                if xml_content:
+                    update_fields["xmlContent"] = xml_content
+                SupplierInvoiceService.update(owner_uid, doc_id, update_fields,
+                                              sandbox=sandbox, company_id=company_id)
+        except Exception as e:
+            print(f"⚠️ No se persistió qrCodeURL de {doc_id}: {e}")
 
     @classmethod
     def generate_step4_test_set(cls, company_id, company_profile, owner_uid, user_email,
