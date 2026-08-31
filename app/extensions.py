@@ -55,6 +55,18 @@ def init_extensions(app):
     from app.models.fiscal_document_type import label_for
     app.template_filter('ecf_label')(label_for)
 
+    # Filtro: ¿el tipo de comprobante tiene fecha de vencimiento? (según modelo fiscal)
+    def ecf_has_vencimiento(ecf_type_value):
+        if not ecf_type_value:
+            return False
+        try:
+            from app.models.fiscal_document_type import by_code
+            return by_code(ecf_type_value).has_vencimiento
+        except (KeyError, ValueError, AttributeError, TypeError):
+            lbl = str(ecf_type_value)
+            return 'Nota de Crédito' not in lbl and 'Consumo' not in lbl
+    app.template_filter('ecf_has_vencimiento')(ecf_has_vencimiento)
+
     # Filtro para el motivo DGII de modificación de notas de crédito/débito
     from app.utils.ecf_utils import get_modification_reason_dgii
     app.template_filter('ecf_mod_reason')(get_modification_reason_dgii)

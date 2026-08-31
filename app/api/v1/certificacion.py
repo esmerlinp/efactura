@@ -784,13 +784,49 @@ def step4_mark_block_sent():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@api_certificacion_bp.route("/certificacion/step-4/refresh-artifacts", methods=["POST"])
+def step4_refresh_artifacts():
+    """Repara QR con FechaFirma placeholder y regenera PDFs de la corrida
+    actual SIN re-emitir a la DGII (no consume secuencias ni reenvía eNCF)."""
+    auth_err = _login_required()
+    if auth_err:
+        return auth_err
+
+    uid, company_id, sandbox = _get_owner_and_company()
+    if not company_id:
+        return jsonify({"error": "Seleccione una empresa"}), 400
+
+    profile = _get_company_profile()
+    if not profile:
+        return jsonify({"error": "Perfil de empresa no encontrado"}), 404
+
+    process = DgiiCertService.get_process(company_id)
+    step_data = process.get("steps", {}).get("4", {})
+    data = request.get_json(silent=True) or {}
+    run_number = int(data.get("run_number") or step_data.get("current_run", 0))
+    if not run_number:
+        return jsonify({"error": "No hay una corrida del paso 4"}), 400
+
+    try:
+        result = DgiiCertService.refresh_step4_qr_and_pdfs(
+            company_id=company_id,
+            company_profile=profile,
+            owner_uid=uid,
+            run_number=run_number,
+            sandbox=sandbox,
+        )
+        return jsonify({"success": True, **result})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @api_certificacion_bp.route("/certificacion/step-4/download-pdf/<doc_ref>", methods=["GET"])
 def step4_download_pdf(doc_ref):
     auth_err = _login_required()
     if auth_err:
         return auth_err
 
-    _, company_id, _ = _get_owner_and_company()
+    uid, company_id, sandbox = _get_owner_and_company()
     process = DgiiCertService.get_process(company_id)
     step_data = process.get("steps", {}).get("4", {})
     run_number = request.args.get("run", step_data.get("current_run", 0))
@@ -810,6 +846,21 @@ def step4_download_pdf(doc_ref):
         pdf_path = os.path.join(pdf_dir, f"{doc_ref}.pdf")
         download_name = f"{doc_ref}.pdf"
 
+    # Auto-reparación on-the-fly: si el PDF guardado trae QR con FechaFirma
+    # placeholder, se repara y regenera antes de servir (sin re-emitir a DGII).
+    try:
+        int(run_number)
+        DgiiCertService.refresh_step4_case(
+            company_id=company_id,
+            company_profile=profile,
+            owner_uid=uid,
+            run_number=int(run_number),
+            encf=doc_ref,
+            sandbox=sandbox,
+        )
+    except Exception as e:
+        print(f"⚠️ No se pudo auto-reparar el PDF de {doc_ref}: {e}")
+
     if not os.path.exists(pdf_path):
         return jsonify({"error": f"PDF no encontrado para {doc_ref}"}), 404
 
@@ -827,13 +878,27 @@ def step4_download_all_pdfs():
     if auth_err:
         return auth_err
 
-    _, company_id, _ = _get_owner_and_company()
+    uid, company_id, sandbox = _get_owner_and_company()
     process = DgiiCertService.get_process(company_id)
     step_data = process.get("steps", {}).get("4", {})
     run_number = request.args.get("run", step_data.get("current_run", 0))
 
     if not run_number:
         return jsonify({"error": "No hay ejecuciones previas"}), 404
+
+    profile = _get_company_profile() or {}
+    # Auto-reparación previa: repara QRs con FechaFirma placeholder y regenera
+    # los PDFs de la corrida antes de empaquetar (sin re-emitir a la DGII).
+    try:
+        DgiiCertService.refresh_step4_qr_and_pdfs(
+            company_id=company_id,
+            company_profile=profile,
+            owner_uid=uid,
+            run_number=int(run_number),
+            sandbox=sandbox,
+        )
+    except Exception as e:
+        print(f"⚠️ No se pudieron auto-reparar los PDFs de la corrida {run_number}: {e}")
 
     evidence_dir = f"uploads/certificacion/{company_id}/step4/run{run_number}"
     pdf_dir = os.path.join(evidence_dir, "pdf")

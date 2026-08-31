@@ -5205,8 +5205,25 @@ def expense_pdf_download(expense_id):
 
     qr_url = expense.get("qrCodeURL")
     fecha_firma_str = ""
-    if expense.get("encf") and expense.get("xmlSignature"):
+    if expense.get("encf"):
+        try:
+            from app.services.dgii_cert_service import DgiiCertService
+            qr_url = DgiiCertService.qr_reparado_con_disco(company, expense, company_id) \
+                or expense.get("qrCodeURL")
+        except Exception:
+            pass
         xml_content = expense.get("xmlContent") or ""
+        if not xml_content:
+            # Certificación paso 4: los gastos emitidos en las corridas no
+            # guardan xmlContent en Firestore; recuperarlo del XML firmado en
+            # disco para extraer la FechaHoraFirma real.
+            try:
+                from app.services.dgii_cert_service import DgiiCertService
+                rnc = str(company.get("companyRNC", "")).replace("-", "").strip()
+                xml_content = DgiiCertService.find_case_xml_on_disk(
+                    company_id, rnc, expense.get("encf", ""))
+            except Exception:
+                pass
         if xml_content:
             try:
                 from app.services.dgii_signer import DgiiSigner
@@ -5221,18 +5238,31 @@ def expense_pdf_download(expense_id):
                 fecha_firma_str = fecha_emision_dt.strftime("%d-%m-%Y") + " 12:00:00"
             except Exception:
                 pass
-        codigo_seg = expense.get("xmlSignature", "")[:6]
-        try:
-            qr_payload = {
-                "encf": expense.get("encf"),
-                "ecfType": expense.get("ecfType", ""),
-                "total": float(expense.get("amount", 0.0) or 0.0),
-                "clientRNC": expense.get("rncEmisor", ""),
-                "date": expense.get("date", ""),
-            }
-            qr_url = DgiiDirectService.build_qr_url(company, qr_payload, codigo_seg) or qr_url
-        except Exception:
-            pass
+        if not qr_url:
+            codigo_seg = expense.get("xmlSignature", "")[:6]
+            try:
+                qr_payload = {
+                    "encf": expense.get("encf"),
+                    "ecfType": expense.get("ecfType", ""),
+                    "total": float(expense.get("amount", 0.0) or 0.0),
+                    "clientRNC": expense.get("rncEmisor", ""),
+                    "date": expense.get("date", ""),
+                    "fechaHoraFirma": fecha_firma_str,
+                    "xmlContent": xml_content,
+                }
+                qr_url = DgiiDirectService.build_qr_url(company, qr_payload, codigo_seg) or qr_url
+            except Exception:
+                pass
+        # Persistir la auto-reparación para que futuras descargas/PDFs la usen.
+        if qr_url and (qr_url != expense.get("qrCodeURL") or (xml_content and not expense.get("xmlContent"))):
+            try:
+                expense["qrCodeURL"] = qr_url
+                if xml_content:
+                    expense["xmlContent"] = xml_content
+                DatabaseService.save_expense(owner_uid, expense_id, expense,
+                                             company_id=company_id, sandbox=sandbox)
+            except Exception:
+                pass
 
     if not qr_url:
         qr_url = "https://dgii.gov.do/validaecf"
@@ -11667,16 +11697,28 @@ def expense_detail(expense_id):
         print(f"Error al obtener logs de auditoría del gasto: {e}")
 
     qr_base64 = None
-    if expense.get('encf') and expense.get('qrCodeURL'):
+    qr_code_url = ""
+    if expense.get('encf'):
         try:
             import qrcode, io, base64
-            qr = qrcode.QRCode(version=1, box_size=10, border=0)
-            qr.add_data(expense['qrCodeURL'])
-            qr.make(fit=True)
-            img = qr.make_image(fill_color="black", back_color="white")
-            stream = io.BytesIO()
-            img.save(stream, format='PNG')
-            qr_base64 = base64.b64encode(stream.getvalue()).decode('utf-8')
+            from app.services.dgii_cert_service import DgiiCertService
+            qr_code_url = DgiiCertService.qr_reparado_con_disco(company, expense, company_id) \
+                or expense.get('qrCodeURL', '')
+            if qr_code_url:
+                qr = qrcode.QRCode(version=1, box_size=10, border=0)
+                qr.add_data(qr_code_url)
+                qr.make(fit=True)
+                img = qr.make_image(fill_color="black", back_color="white")
+                stream = io.BytesIO()
+                img.save(stream, format='PNG')
+                qr_base64 = base64.b64encode(stream.getvalue()).decode('utf-8')
+                if qr_code_url != expense.get('qrCodeURL'):
+                    try:
+                        expense["qrCodeURL"] = qr_code_url
+                        DatabaseService.save_expense(owner_uid, expense_id, expense,
+                                                     company_id=company_id, sandbox=sandbox)
+                    except Exception:
+                        pass
         except Exception as qr_err:
             print(f"Error al generar QR del gasto {expense_id}: {qr_err}")
 
@@ -11694,6 +11736,7 @@ def expense_detail(expense_id):
         bank_accounts=bank_accounts,
         history_logs=history_logs,
         qr_base64=qr_base64,
+        qr_code_url=qr_code_url,
     )
 
 

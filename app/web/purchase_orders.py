@@ -1847,16 +1847,28 @@ def supplier_invoice_detail(invoice_id):
         history_logs = []
 
     qr_base64 = None
-    if invoice.get('encf') and invoice.get('qrCodeURL'):
+    qr_code_url = ""
+    if invoice.get('encf'):
         try:
             import qrcode, io, base64
-            qr = qrcode.QRCode(version=1, box_size=10, border=0)
-            qr.add_data(invoice['qrCodeURL'])
-            qr.make(fit=True)
-            img = qr.make_image(fill_color="black", back_color="white")
-            stream = io.BytesIO()
-            img.save(stream, format='PNG')
-            qr_base64 = base64.b64encode(stream.getvalue()).decode('utf-8')
+            from app.services.dgii_cert_service import DgiiCertService
+            qr_code_url = DgiiCertService.qr_reparado_con_disco(company, invoice, company_id) \
+                or invoice.get('qrCodeURL', '')
+            if qr_code_url:
+                qr = qrcode.QRCode(version=1, box_size=10, border=0)
+                qr.add_data(qr_code_url)
+                qr.make(fit=True)
+                img = qr.make_image(fill_color="black", back_color="white")
+                stream = io.BytesIO()
+                img.save(stream, format='PNG')
+                qr_base64 = base64.b64encode(stream.getvalue()).decode('utf-8')
+                if qr_code_url != invoice.get('qrCodeURL'):
+                    try:
+                        update_fields = {"qrCodeURL": qr_code_url}
+                        SupplierInvoiceService.update(owner_uid, invoice_id, update_fields,
+                                                      sandbox=sandbox, company_id=company_id)
+                    except Exception:
+                        pass
         except Exception as qr_err:
             print(f"⚠️ Error al generar QR de factura proveedor {invoice_id}: {qr_err}")
 
@@ -1870,6 +1882,7 @@ def supplier_invoice_detail(invoice_id):
                            company=company,
                            history_logs=history_logs,
                            qr_base64=qr_base64,
+                           qr_code_url=qr_code_url,
                            active_page='purchase_cxp')
 
 
@@ -1899,8 +1912,24 @@ def supplier_invoice_pdf(invoice_id):
 
     qr_url = invoice.get("qrCodeURL")
     fecha_firma_str = ""
-    if invoice.get("encf") and invoice.get("xmlSignature"):
-        xml_content = invoice.get("xmlContent") or ""
+    xml_content = invoice.get("xmlContent") or ""
+    if invoice.get("encf"):
+        try:
+            from app.services.dgii_cert_service import DgiiCertService
+            qr_url = DgiiCertService.qr_reparado_con_disco(company, invoice, company_id) \
+                or invoice.get("qrCodeURL")
+        except Exception:
+            pass
+        if not xml_content:
+            # Certificación paso 4: las facturas de proveedor de las corridas
+            # no guardan xmlContent; recuperarlo del XML firmado en disco.
+            try:
+                from app.services.dgii_cert_service import DgiiCertService
+                rnc = str(company.get("companyRNC", "")).replace("-", "").strip()
+                xml_content = DgiiCertService.find_case_xml_on_disk(
+                    company_id, rnc, invoice.get("encf", ""))
+            except Exception:
+                pass
         if xml_content:
             try:
                 from app.services.dgii_signer import DgiiSigner
@@ -1924,8 +1953,20 @@ def supplier_invoice_pdf(invoice_id):
                     "total": float(invoice.get("total", 0.0) or 0.0),
                     "clientRNC": invoice.get("supplierRnc", ""),
                     "date": invoice.get("date", ""),
+                    "fechaHoraFirma": fecha_firma_str,
+                    "xmlContent": xml_content,
                 }
                 qr_url = DgiiDirectService.build_qr_url(company, qr_payload, codigo_seg)
+            except Exception:
+                pass
+        # Persistir la auto-reparación para futuras descargas.
+        if qr_url and (qr_url != invoice.get("qrCodeURL") or (xml_content and not invoice.get("xmlContent"))):
+            try:
+                update_fields = {"qrCodeURL": qr_url}
+                if xml_content:
+                    update_fields["xmlContent"] = xml_content
+                SupplierInvoiceService.update(owner_uid, invoice_id, update_fields,
+                                              sandbox=sandbox, company_id=company_id)
             except Exception:
                 pass
 

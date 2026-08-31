@@ -9,6 +9,20 @@
 (function () {
     'use strict';
 
+    function captureJsError(info) {
+        try {
+            sessionStorage.setItem('__vyk_js_err__', JSON.stringify({
+                message: info.message || '',
+                filename: info.filename || '',
+                lineno: info.lineno || null,
+                colno: info.colno || null,
+                stack: (info.stack || '').split('\n').slice(0, 5).join('\n'),
+                href: window.location.href,
+                at: new Date().toISOString()
+            }));
+        } catch (e) { /* ignore */ }
+    }
+
     function showErrorToast(message) {
         var existing = document.querySelector('.js-global-error-toast');
         if (existing) existing.remove();
@@ -68,13 +82,48 @@
     }
 
     window.addEventListener('error', function (e) {
+        var detail = {
+            message: (e.error && e.error.message) || e.message || 'Error desconocido',
+            filename: e.filename || '',
+            lineno: e.lineno || null,
+            colno: e.colno || null,
+            stack: (e.error && e.error.stack) || ''
+        };
+        captureJsError(detail);
         console.error('Error no controlado:', e.error || e.message, '(archivo: ' + e.filename + ', línea: ' + e.lineno + ')');
-        showErrorToast('Ocurrió un problema inesperado. Recarga la página e intenta nuevamente.');
+        var src = '';
+        if (e.filename) {
+            try { src = e.filename.split('/').slice(-2).join('/'); } catch (err) { src = e.filename; }
+        }
+        var loc = src ? src + ':' + e.lineno : '';
+        showErrorToast(
+            'Ocurrió un problema inesperado. Recarga la página e intenta nuevamente.' +
+            (loc ? ' [' + loc + ']' : '') +
+            ' — ' + detail.message
+        );
     });
 
     window.addEventListener('unhandledrejection', function (e) {
+        var reason = e.reason || {};
+        var detail = {
+            message: (reason && reason.message) || String(reason),
+            filename: (reason && reason.filename) || '',
+            lineno: (reason && reason.lineno) || null,
+            colno: (reason && reason.colno) || null,
+            stack: (reason && reason.stack) || ''
+        };
+        captureJsError(detail);
         console.error('Promesa rechazada sin manejar:', e.reason);
-        showErrorToast('Falló una operación en segundo plano. Recarga la página si el problema persiste.');
+        var src = '';
+        if (detail.filename) {
+            try { src = detail.filename.split('/').slice(-2).join('/'); } catch (err) { src = detail.filename; }
+        }
+        var loc = src ? src + ':' + detail.lineno : '';
+        showErrorToast(
+            'Falló una operación en segundo plano. Recarga la página si el problema persiste.' +
+            (loc ? ' [' + loc + ']' : '') +
+            ' — ' + detail.message
+        );
     });
 })();
 

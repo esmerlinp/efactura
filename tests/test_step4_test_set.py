@@ -585,11 +585,23 @@ def test_build_qr_url_by_type():
     assert "RncComprador=133753652" in url41
     assert "ConsultaTimbre?" in url41
 
-    # E43 / E46 / E47 → sin RncComprador
-    for tipo in ["E43", "Comprobante para Gastos Menores (E43)",
-                 "Pagos al Exterior (E47)", "Comprobante de Exportación (E46)"]:
+    # E43 / E47 → sin RncComprador (sus XML no llevan RNCComprador)
+    for tipo in ["E43", "Comprobante para Gastos Menores (E43)", "Pagos al Exterior (E47)"]:
         u = DgiiDirectService.build_qr_url(profile, dict(base, ecfType=tipo, clientRNC=""), "S")
         assert "RncComprador" not in u, f"{tipo} no debe llevar RncComprador"
+
+    # E46 (Exportación) → espejo del XML: RNC válido del cliente o el de la
+    # empresa como fallback (el XML escribe RNCComprador=companyRNC cuando
+    # clientRNC es 000000000/vacío).
+    u46 = DgiiDirectService.build_qr_url(
+        profile, dict(base, ecfType="Comprobante de Exportación (E46)", clientRNC=""), "S")
+    assert "RncComprador=133753652" in u46
+    u46b = DgiiDirectService.build_qr_url(
+        profile, dict(base, ecfType="Comprobante de Exportación (E46)", clientRNC="000000000"), "S")
+    assert "RncComprador=133753652" in u46b
+    u46c = DgiiDirectService.build_qr_url(
+        profile, dict(base, ecfType="Comprobante de Exportación (E46)", clientRNC="131880681"), "S")
+    assert "RncComprador=131880681" in u46c
 
     # E44 / E45 → igual que E31 (RNC del comprador)
     for tipo in ["Comprobante de Regímenes Especiales (E44)", "Comprobante Gubernamental (E45)"]:
@@ -976,3 +988,169 @@ def test_build_qr_url_fecha_firma_desde_xmlcontent():
     sin_xml.pop("xmlContent", None)
     url2 = DgiiDirectService.build_qr_url(profile, sin_xml, "CQTMV/")
     assert "12%3A00%3A00" in url2  # fallback sin información real
+
+
+def test_qr_url_valido_repara_placeholder_fechafirma():
+    """Regresión: el QR guardado con FechaFirma placeholder (12:00:00 fabricada)
+    se auto-repara con la FechaHoraFirma real del xmlContent; los QR válidos y
+    los RFCE (sin FechaFirma) se devuelven intactos."""
+    from app.services.dgii_direct import DgiiDirectService
+
+    profile = {"companyRNC": "133753652"}
+    invoice = {
+        "encf": "E410000000113",
+        "date": "2026-08-19",
+        "total": 17700.0,
+        "clientRNC": "133753652",
+        "ecfType": "Comprobante de Compras (E41)",
+        "xmlSignature": "SFfbEKabcdefgh",
+        "xmlContent": "<ECF><FechaHoraFirma>19-08-2026 17:24:33</FechaHoraFirma></ECF>",
+        "qrCodeURL": ("https://ecf.dgii.gov.do/certecf/ConsultaTimbre?RncEmisor=133753652"
+                      "&RncComprador=133753652&ENCF=E410000000113&FechaEmision=19-08-2026"
+                      "&MontoTotal=17700.00&FechaFirma=19-08-2026%2012%3A00%3A00"
+                      "&CodigoSeguridad=SFfbEK"),
+    }
+    fixed = DgiiDirectService.qr_url_valido(profile, invoice)
+    assert "FechaFirma=19-08-2026%2017%3A24%3A33" in fixed
+    assert "12%3A00%3A00" not in fixed
+    assert "CodigoSeguridad=SFfbEK" in fixed
+
+    # QR ya válido → se devuelve intacto
+    valid = dict(invoice, qrCodeURL=fixed)
+    assert DgiiDirectService.qr_url_valido(profile, valid) == fixed
+
+    # Sin xmlContent → no se puede reparar, se devuelve el guardado
+    no_xml = dict(invoice)
+    no_xml.pop("xmlContent", None)
+    assert DgiiDirectService.qr_url_valido(profile, no_xml) == invoice["qrCodeURL"]
+
+    # RFCE (ConsultaTimbreFC, sin FechaFirma) → intacto
+    rfce = dict(invoice, qrCodeURL=(
+        "https://fc.dgii.gov.do/certecf/ConsultaTimbreFC?RncEmisor=133753652"
+        "&ENCF=E320000000034&MontoTotal=14750.00&CodigoSeguridad=S%2Fbv%2Ft"))
+    assert DgiiDirectService.qr_url_valido(profile, rfce) == rfce["qrCodeURL"]
+
+
+def test_qr_url_valido_repara_e47_supplier_y_e31_proveedor():
+    """Regresión: la descarga desde el detalle de facturas de proveedor (E47 y
+    E31/E32) repara el QR placeholder usando supplierRnc/supplierCedula como
+    RNC del comprador y la FechaHoraFirma real del xmlContent."""
+    from app.services.dgii_direct import DgiiDirectService
+
+    profile = {"companyRNC": "133753652"}
+    base = {
+        "date": "2026-08-16",
+        "xmlSignature": "AB12CDabcdefgh",
+        "xmlContent": "<ECF><FechaHoraFirma>16-08-2026 09:41:07</FechaHoraFirma></ECF>",
+        "qrCodeURL": ("https://ecf.dgii.gov.do/certecf/ConsultaTimbre?RncEmisor=133753652"
+                      "&ENCF=E470000000114&FechaEmision=16-08-2026&MontoTotal=10000.00"
+                      "&FechaFirma=16-08-2026%2012%3A00%3A00&CodigoSeguridad=AB12CD"),
+    }
+
+    # E47: sin clientRNC (usa supplierRnc), sin RncComprador en el QR
+    e47 = dict(base, encf="E470000000114", total=10000.0,
+               ecfType="Pagos al Exterior (E47)", supplierRnc="350555123")
+    fixed = DgiiDirectService.qr_url_valido(profile, e47)
+    assert "RncComprador" not in fixed
+    assert "FechaFirma=16-08-2026%2009%3A41%3A07" in fixed
+    assert "12%3A00%3A00" not in fixed
+
+    # E31 de proveedor: clientRNC se normaliza desde supplierRnc
+    e31 = dict(base, encf="E310000000115", total=1180.0,
+               ecfType="Factura de Crédito Fiscal (E31)", supplierRnc="131880681")
+    fixed31 = DgiiDirectService.qr_url_valido(profile, e31)
+    assert "RncComprador=131880681" in fixed31
+    assert "FechaFirma=16-08-2026%2009%3A41%3A07" in fixed31
+
+    # supplierCedula como fallback alterno
+    e31c = dict(base, encf="E310000000116", total=1180.0,
+                ecfType="Factura de Crédito Fiscal (E31)", supplierCedula="00112345678")
+    fixed_c = DgiiDirectService.qr_url_valido(profile, e31c)
+    assert "RncComprador=00112345678" in fixed_c
+
+
+def test_find_case_xml_on_disk_y_reparacion_expense_sin_xmlcontent():
+    """Regresión: el PDF de un gasto de certificación sin xmlContent en
+    Firestore se repara usando el XML firmado en disco (FechaHoraFirma real)."""
+    from app.services.dgii_direct import DgiiDirectService
+
+    xml = DgiiCertService.find_case_xml_on_disk(
+        "fa3abfc7-5e4c-410b-bde5-b101e1a8ea10", "133753652", "E410000000113")
+    assert xml and "<FechaHoraFirma>" in xml
+    assert DgiiCertService.find_case_xml_on_disk(
+        "fa3abfc7-5e4c-410b-bde5-b101e1a8ea10", "133753652", "E990000000000") == ""
+
+    profile = {"companyRNC": "133753652"}
+    expense = {
+        "encf": "E410000000113",
+        "date": "2026-08-19",
+        "amount": 17700.0,
+        "ecfType": "Comprobante de Compras (E41)",
+        "rncEmisor": "131880681",
+        "xmlSignature": "SFfbEKabcdefgh",
+        "qrCodeURL": ("https://ecf.dgii.gov.do/certecf/ConsultaTimbre?RncEmisor=133753652"
+                      "&RncComprador=133753652&ENCF=E410000000113&FechaEmision=19-08-2026"
+                      "&MontoTotal=17700.00&FechaFirma=19-08-2026%2012%3A00%3A00"
+                      "&CodigoSeguridad=SFfbEK"),
+    }
+    qr_invoice = dict(expense)
+    qr_invoice["xmlContent"] = xml
+    fixed = DgiiDirectService.qr_url_valido(profile, qr_invoice) or expense["qrCodeURL"]
+    assert "12%3A00%3A00" not in fixed
+    assert "FechaFirma=19-08-2026%2017%3A24%3A33" in fixed
+    assert "MontoTotal=17700.00" in fixed  # gastos guardan 'amount', no 'total'
+
+    # Helper unificado usado por las vistas de detalle y PDFs: doc sin
+    # xmlContent → repara desde el XML en disco.
+    fixed2 = DgiiCertService.qr_reparado_con_disco(
+        profile, expense, "fa3abfc7-5e4c-410b-bde5-b101e1a8ea10")
+    assert "12%3A00%3A00" not in fixed2
+    assert "FechaFirma=19-08-2026%2017%3A24%3A33" in fixed2
+    assert "MontoTotal=17700.00" in fixed2
+
+
+def test_step4_artifacts_reparan_qr_placeholder(tmp_path, monkeypatch):
+    """Regresión: _step4_case_artifacts regenera el qrCodeURL con FechaFirma
+    placeholder usando la FechaHoraFirma real del XML firmado generado."""
+    from app.services.dgii_signer import DgiiSigner
+
+    def fake_sign(cls, xml_data, company_profile):
+        return xml_data + b"<!-- SIMULATED -->"
+    monkeypatch.setattr(DgiiSigner, "sign_xml", classmethod(fake_sign))
+
+    xml_dir = tmp_path / "xml"
+    pdf_dir = tmp_path / "pdf"
+    xml_dir.mkdir()
+    pdf_dir.mkdir()
+
+    payload = {
+        "id": "exp-1",
+        "ecfType": "Comprobante de Compras (E41)",
+        "encf": "E410000000113",
+        "date": "2026-08-19",
+        "total": 17700.0,
+        "subtotal": 15000.0,
+        "totalITBIS": 2700.0,
+        "clientName": "VYKCORE AUTOMATION SRL",
+        "clientRNC": "133753652",
+        "qrCodeURL": ("https://ecf.dgii.gov.do/certecf/ConsultaTimbre?RncEmisor=131880681"
+                      "&RncComprador=131880681&ENCF=E410000000113&FechaEmision=19-08-2026"
+                      "&MontoTotal=17700.00&FechaFirma=19-08-2026%2012%3A00%3A00"
+                      "&CodigoSeguridad=ABC123"),
+        "items": [{"name": "Servicio", "price": 15000.0, "quantity": 1,
+                   "itbisRate": 0.18, "subtotal": 15000.0,
+                   "type": "Servicio", "unit": "Servicio"}],
+        "paymentType": "Contado",
+        "paymentMethod": "Efectivo",
+        "currency": "DOP",
+    }
+    case = {"encf": "E410000000113", "kind": "expense"}
+    DgiiCertService._step4_case_artifacts(PROFILE, payload, case, str(xml_dir), str(pdf_dir))
+
+    assert payload.get("xmlContent"), "debe persistir el XML firmado en el payload"
+    assert "12%3A00%3A00" not in payload["qrCodeURL"]
+    assert "12:00:00" not in payload["qrCodeURL"]
+    fhf = DgiiSigner.extract_fecha_hora_firma(payload["xmlContent"])
+    assert fhf, "el XML generado debe tener FechaHoraFirma"
+    fhf_enc = fhf.replace(" ", "%20").replace(":", "%3A")
+    assert fhf_enc in payload["qrCodeURL"]
