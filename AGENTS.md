@@ -145,6 +145,29 @@ Nota: los XSD de DGII usan patrones regex no soportados por libxml2
 (`[$0-9]`, `(?:...)`); el script/test los sanitiza en memoria antes de validar
 con lxml (no modificar los XSD).
 
+## Código de Empleado (incremental, por empresa/entorno)
+
+Además del GUID (`id`), cada empleado tiene `code` (int incremental: 1, 2, 3...).
+El GUID sigue siendo la clave interna (payroll lines, TSS, IR-13, etc.); `code`
+es solo para búsqueda, listados y exportaciones legibles.
+
+- **Asignación**: `hr_data_service.get_next_employee_code()` usa transacción
+  Firestore sobre `companies/{id}/{sandbox_}hr_config/employee_counter`
+  (`{next: n}`). `save_employee()` asigna automáticamente si el dict no trae
+  `code`: preserva el existente en updates, asigna el siguiente en creación.
+  Contadores **separados** sandbox/prod y por empresa. Nunca se reusan códigos.
+- **Importación CSV**: columna opcional `code` (sugerencias: "codigo", "código",
+  "code", "numero_empleado"). Si viene: valida entero positivo y unicidad;
+  al guardar se llama `bump_employee_counter()` para que el contador quede ≥
+  el código importado. Si no viene, auto-asigna.
+- **Backfill**: `python scripts/backfill_employee_codes.py --company <id>`
+  (o `--all`, `--dry-run`) asigna códigos a empleados legacy ordenados por
+  `hireDate` asc → nombre. Idempotente.
+- **UI/Reportes**: columna "Código" en listado y export (xlsx/csv), badge en
+  ficha, campo solo-lectura en el formulario, incluido en el search del listado.
+  Los archivos TSS/IR-13 no incluyen código (formatos fijos DGII/TSS).
+- **Tests**: `python -m pytest tests/test_employee_code.py`.
+
 ## Estados de Empleado — Vacaciones y Licencia (EmployeeStatusService)
 
 El campo `status` del empleado ahora admite 5 valores:

@@ -3,7 +3,7 @@
 {% block content %}
 {% include "rrhh/_styles.html" %}
 <div class="page-header hr-page-header">
-    <h1 class="page-title"><i class="fa-solid fa-id-card"></i> {{ employee.fullName }}</h1>
+    <h1 class="page-title"><i class="fa-solid fa-id-card"></i> {{ employee.fullName }} {% if employee.code %}<span class="badge badge-secondary" style="font-size:0.75rem; vertical-align:middle;">Código {{ employee.code }}</span>{% endif %}</h1>
     <div class="hr-page-actions">
         <a href="{{ url_for('web_rrhh.employee_edit', employee_id=employee.id) }}" class="btn btn-primary">
             <i class="fa-solid fa-pen-to-square"></i> Editar
@@ -156,6 +156,7 @@
             <div class="hr-section-card" style="border:none; box-shadow:none; padding:0;">
                 <h3>Datos personales</h3>
                 <div class="hr-info-grid">
+                    <div class="hr-info-item"><span class="hr-info-label">Código empleado</span><span class="hr-info-value"><span class="badge badge-secondary">{{ employee.code or '—' }}</span></span></div>
                     <div class="hr-info-item"><span class="hr-info-label">Tipo ID</span><span class="hr-info-value">{{ employee.idType or 'Cédula' }}</span></div>
                     <div class="hr-info-item"><span class="hr-info-label">No. Identificación</span><span class="hr-info-value">{{ employee.idNumber or employee.cedula or '—' }}</span></div>
                     <div class="hr-info-item"><span class="hr-info-label">Email</span><span class="hr-info-value">{{ employee.email or '—' }}</span></div>

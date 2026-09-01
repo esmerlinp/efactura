@@ -50,9 +50,10 @@ def employee_list():
     if search:
         employees = [e for e in employees if
                      search in (e.get("fullName", "") + " " +
-                               e.get("cedula", "") + " " +
-                               e.get("idNumber", "") + " " +
-                               e.get("position", "")).lower()]
+                                e.get("cedula", "") + " " +
+                                e.get("idNumber", "") + " " +
+                                e.get("position", "") + " " +
+                                str(e.get("code", ""))).lower()]
     if filter_status:
         employees = [e for e in employees if e.get("status", "") == filter_status]
     if filter_department:

@@ -23,6 +23,7 @@ TEMP_IMPORT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(_
 JOB_DIR = os.path.join(TEMP_IMPORT_DIR, 'jobs')
 
 EMPLOYEE_CSV_FIELDS = [
+    ("code", "Código", False, ["codigo", "código", "code", "codigo_empleado", "código_empleado", "numero_empleado"]),
     ("*firstName", "Primer nombre", True, ["nombre", "name", "primer_nombre", "firstname", "primer nombre"]),
     ("middleName", "Segundo nombre", False, ["segundo_nombre", "middlename", "segundo nombre"]),
     ("*firstLastName", "Primer apellido", True, ["apellido", "lastname", "primer_apellido", "firstlastname", "primer apellido"]),
@@ -309,7 +310,13 @@ def employee_import_process():
     existing_candidates = hr.get_employees(company_id, sandbox=sandbox)
     active_cedulas = set()
     inactive_cedulas = set()
+    existing_codes = set()
     for e in existing_candidates:
+        try:
+            if e.get("code"):
+                existing_codes.add(int(e.get("code")))
+        except (ValueError, TypeError):
+            pass
         c = (e.get("cedula") or e.get("idNumber") or "").strip()
         if not c:
             continue
@@ -335,6 +342,7 @@ def employee_import_process():
         skipped = 0
         errors = []
         processed = 0
+        used_codes = set()
         try:
             update_every = max(1, total // 20)
 
@@ -369,6 +377,23 @@ def employee_import_process():
                     account_type = _get_val(row_data, "accountType")
                     status_csv = _get_val(row_data, "status", "").strip().lower()
                     end_date_csv = _get_val(row_data, "endDate", "").strip()
+                    code_csv = _get_val(row_data, "code", "").strip()
+                    emp_code = 0
+                    if code_csv:
+                        try:
+                            emp_code = int(float(code_csv))
+                        except (ValueError, TypeError):
+                            errors.append({"row": row_num, "reason": f"Código inválido: '{code_csv}'. Debe ser un número entero positivo."})
+                            skipped += 1
+                            continue
+                        if emp_code <= 0:
+                            errors.append({"row": row_num, "reason": f"Código inválido: '{code_csv}'. Debe ser un número entero positivo."})
+                            skipped += 1
+                            continue
+                        if emp_code in existing_codes or emp_code in used_codes:
+                            errors.append({"row": row_num, "reason": f"El código {emp_code} ya está asignado a otro empleado."})
+                            skipped += 1
+                            continue
 
                     if not first_name:
                         errors.append({"row": row_num, "reason": "Falta primer nombre (firstName)"})
@@ -488,6 +513,7 @@ def employee_import_process():
                         "idType": _get_val(row_data, "idType", "cedula"),
                         "idNumber": id_number,
                         "cedula": id_number,
+                        "code": emp_code,
                         "firstName": first_name,
                         "middleName": middle_name,
                         "lastName": first_last_name,
@@ -537,6 +563,9 @@ def employee_import_process():
                     }
 
                     hr.save_employee(company_id, emp_id, data, sandbox=sandbox)
+                    if emp_code:
+                        used_codes.add(emp_code)
+                        hr.bump_employee_counter(company_id, emp_code, sandbox=sandbox)
 
                     if salary > 0:
                         history_id = str(uuid.uuid4())

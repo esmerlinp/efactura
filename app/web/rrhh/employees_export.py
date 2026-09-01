@@ -33,7 +33,7 @@ def employee_export():
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Empleados"
-        ws.append(["Nombre", "Cédula", "Cargo", "Área", "Departamento", "Salario Base",
+        ws.append(["Código", "Nombre", "Cédula", "Cargo", "Área", "Departamento", "Salario Base",
                     "Tipo Contrato", "Fecha Ingreso", "Estado", "Email", "Teléfono",
                     "Municipio", "Género", "Fecha Nac.", "Supervisor", "Vacaciones"])
         for emp in employees:
@@ -44,6 +44,7 @@ def employee_export():
                 if sup:
                     supervisor_name = sup.get("fullName", "")
             ws.append([
+                emp.get("code", "") or "",
                 emp.get("fullName", ""),
                 emp.get("cedula", "") or emp.get("idNumber", ""),
                 emp.get("position", ""),
@@ -68,9 +69,9 @@ def employee_export():
                          as_attachment=True, download_name="empleados.xlsx")
     except ImportError:
         csv_out = _io.StringIO()
-        csv_out.write("Nombre,Cédula,Cargo,Área,Salario,Estado,Email,Teléfono,Fecha Ingreso\n")
+        csv_out.write("Código,Nombre,Cédula,Cargo,Área,Salario,Estado,Email,Teléfono,Fecha Ingreso\n")
         for emp in employees:
-            csv_out.write(f"{emp.get('fullName','')},{emp.get('cedula','') or emp.get('idNumber','')},"
+            csv_out.write(f"{emp.get('code','') or ''},{emp.get('fullName','')},{emp.get('cedula','') or emp.get('idNumber','')},"
                          f"{emp.get('position','')},{emp.get('area','') or emp.get('department','')},"
                          f"{emp.get('baseSalary',0)},{emp.get('status','')},{emp.get('email','')},"
                          f"{emp.get('phone','')},{emp.get('hireDate','')}\n")

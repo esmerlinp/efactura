@@ -17,6 +17,7 @@ class Employee(BaseModel):
     firstLastName: str = ""  # Primer apellido
     secondLastName: str = ""  # Segundo apellido
     fullName: str = ""  # autocompletado
+    code: int = 0  # Código incremental visible por empresa/entorno (el GUID sigue siendo el id interno)
     position: str = ""  # Cargo
     department: str = ""  # Departamento (legacy)
     area: str = ""  # Área (Administrativa, Operativa, Ventas, etc.)
