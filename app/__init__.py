@@ -905,7 +905,12 @@ def create_app():
     app.register_blueprint(api_accounting_bp, url_prefix='/api/v1')
     app.register_blueprint(api_liquidacion_bp, url_prefix='/api/v1')
     app.register_blueprint(api_supplier_invoices_bp, url_prefix='/api/v1')
-    app.register_blueprint(api_receptor_bp, url_prefix='/api/v1')
+    # Rutas exactas registradas ante la DGII para recepción de e-CF (sin prefijo):
+    #   GET  /fe/autenticacion/api/semilla
+    #   POST /fe/autenticacion/api/ValidacionCertificado
+    #   POST /fe/recepcion/api/ecf
+    #   POST /fe/aprobacioncomercial/api/ecf
+    app.register_blueprint(api_receptor_bp)
     app.register_blueprint(api_certificacion_bp, url_prefix='/api/v1')
 
     # 2. Web UI Blueprints
@@ -988,6 +993,14 @@ def create_app():
     # Eximir rutas /api/ de validación CSRF (los blueprints de API se registraron arriba)
     for rule in app.url_map.iter_rules():
         if rule.rule.startswith('/api/'):
+            view_func = app.view_functions.get(rule.endpoint)
+            if view_func:
+                csrf.exempt(view_func)
+
+    # Eximir las rutas de recepción e-CF (/fe/...) de CSRF — las consume la DGII sin sesión
+    # (comparación insensible a mayúsculas: la DGII varía el casing de la ruta)
+    for rule in app.url_map.iter_rules():
+        if rule.rule.lower().startswith('/fe/'):
             view_func = app.view_functions.get(rule.endpoint)
             if view_func:
                 csrf.exempt(view_func)

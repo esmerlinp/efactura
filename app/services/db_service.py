@@ -7123,6 +7123,24 @@ class DatabaseService:
             print(f"⚠️ Error al obtener compañía {company_id}: {e}")
         return None
 
+    @staticmethod
+    def get_company_by_rnc(rnc):
+        """Obtiene una compañía por su RNC (para resolución del receptor e-CF)."""
+        if not firebase_initialized or not rnc:
+            return None
+        rnc_clean = str(rnc).replace("-", "").replace(" ", "").strip()
+        if not rnc_clean:
+            return None
+        try:
+            docs = db_firestore.collection("companies").where("rnc", "==", rnc_clean).limit(1).stream()
+            for doc in docs:
+                data = doc.to_dict() or {}
+                data["company_id"] = doc.id
+                return data
+        except Exception as e:
+            print(f"⚠️ Error al buscar compañía por RNC {rnc}: {e}")
+        return None
+
     @classmethod
     def update_company(cls, company_id, update_data):
         """Actualiza el perfil de una compañía usando merge (crea campos si no existen)."""
