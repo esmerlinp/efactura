@@ -10,6 +10,133 @@ from app.services import hr_data_service as hr
 import csv, io
 
 
+# ── Exportación completa: todas las columnas del modelo Employee, en orden ──
+# (columna, clave(s) del documento). Se resuelven referencias (sucursal, supervisor).
+EXPORT_COLUMNS = [
+    ("Código", "code"),
+    ("Nombre Completo", "fullName"),
+    ("Primer Nombre", "firstName"),
+    ("Segundo Nombre", "middleName"),
+    ("Primer Apellido", "firstLastName"),
+    ("Segundo Apellido", "secondLastName"),
+    ("Tipo Documento", "idType"),
+    ("Cédula", "cedula"),
+    ("ID Número", "idNumber"),
+    ("Cargo", "position"),
+    ("Departamento", "department"),
+    ("Área", "area"),
+    ("Centro de Costo", "costCenter"),
+    ("Sucursal", "branchName"),
+    ("Fecha Ingreso", "hireDate"),
+    ("Salario Base", "baseSalary"),
+    ("Tipo Salario", "salaryType"),
+    ("Tarifa por Hora", "hourlyRate"),
+    ("Estado", "status"),
+    ("Tipo Empleado", "employeeType"),
+    ("Tipo Contrato", "contractType"),
+    ("Jornada", "workday"),
+    ("Vigilante", "isVigilante"),
+    ("Clave TSS", "tssKey"),
+    ("Email", "email"),
+    ("Teléfono", "phone"),
+    ("Dirección", "address"),
+    ("Municipio", "municipality"),
+    ("Contacto Emergencia", "emergencyContact"),
+    ("Teléfono Emergencia", "emergencyPhone"),
+    ("Género", "gender"),
+    ("Fecha Nacimiento", "birthDate"),
+    ("Fin Período de Prueba", "probationEndDate"),
+    ("Método de Pago", "paymentMethod"),
+    ("Número de Cuenta", "accountNumber"),
+    ("Banco", "bank"),
+    ("Tipo de Cuenta", "accountType"),
+    ("AFP", "afpProvider"),
+    ("Tope AFP", "afpSalaryCap"),
+    ("Tope SFS", "sfsSalaryCap"),
+    ("No. Registro TSS", "tssRegistrationNumber"),
+    ("Supervisor", "supervisorName"),
+    ("Nacionalidad", "nationality"),
+    ("Código País (SIRLA)", "nationalityCode"),
+    ("Estado Civil", "maritalStatus"),
+    ("No. Hijos", "numberOfChildren"),
+    ("Código Ocupación (CNO)", "occupationCode"),
+    ("Horas Semanales", "weeklyHours"),
+    ("Turno", "workShift"),
+    ("Nivel Educación", "educationLevel"),
+    ("Concesión Vacaciones", "vacationGranted"),
+    ("No. SDSS", "sdssNumber"),
+    ("Inicio Vacaciones (DGT)", "vacationStartDate"),
+    ("Fin Vacaciones (DGT)", "vacationEndDate"),
+    ("Discapacidad", "disability"),
+    ("Días Trabajados", "daysWorked"),
+    ("Sueldo Diario", "dailySalary"),
+    ("Fecha Salida", "terminationDate"),
+    ("Motivo Salida", "terminationReason"),
+    ("Tipo Salida", "terminationType"),
+    ("Grupos de Nómina", "payrollGroupIds"),
+    ("Vacaciones Disponibles", "vacationDays"),
+    ("Notas", "notes"),
+]
+
+# Metadatos internos que no son campos del empleado
+_EXPORT_EXCLUDE = {
+    "id", "ownerUid", "owner_uid", "companyId", "sandbox",
+}
+
+
+def _stringify(value):
+    if value is None:
+        return ""
+    if isinstance(value, list):
+        return "; ".join(str(v) for v in value)
+    if isinstance(value, bool):
+        return "Sí" if value else "No"
+    return value
+
+
+def _build_export_rows(employees, branches):
+    """Devuelve (headers, rows) con TODOS los campos del empleado.
+
+    Columnas fijas del modelo Employee en orden + columnas dinámicas para
+    cualquier campo extra presente en los datos (orden alfabético),
+    excluyendo metadatos internos (GUID, owner, company, sandbox).
+    """
+    branch_names = {b.get("id"): b.get("name", "") for b in branches}
+    emp_by_id = {e.get("id"): e for e in employees}
+
+    known_keys = set()
+    for _, key in EXPORT_COLUMNS:
+        if key in ("branchName", "supervisorName"):
+            continue
+        known_keys.add(key)
+
+    extra_keys = set()
+    for emp in employees:
+        for key in emp.keys():
+            if key not in known_keys and key not in _EXPORT_EXCLUDE:
+                extra_keys.add(key)
+
+    headers = [label for label, _ in EXPORT_COLUMNS]
+    headers += sorted(extra_keys)
+
+    def resolve(emp, key):
+        if key == "branchName":
+            return branch_names.get(emp.get("branchId", ""), emp.get("branchId", "") or "")
+        if key == "supervisorName":
+            sup = emp_by_id.get(emp.get("reportsTo", ""))
+            return sup.get("fullName", "") if sup else ""
+        if key == "vacationDays":
+            return emp.get("vacationDays", 0)
+        return emp.get(key, "")
+
+    rows = []
+    for emp in employees:
+        row = [_stringify(resolve(emp, key)) for _, key in EXPORT_COLUMNS]
+        row += [_stringify(emp.get(key, "")) for key in sorted(extra_keys)]
+        rows.append(row)
+    return headers, rows
+
+
 @web_rrhh_bp.route("/rrhh/employees/export")
 def employee_export():
     if _login_required():
@@ -17,6 +144,7 @@ def employee_export():
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_service import PayrollService
+    from app.services.db_service import DatabaseService
 
     employees = hr.get_employees(company_id, sandbox=sandbox)
     ids = request.args.get("ids", "")
@@ -27,41 +155,19 @@ def employee_export():
     for emp in employees:
         emp["vacationDays"] = PayrollService.calculate_vacation_days(emp.get("hireDate", ""))
 
+    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id)
+
+    headers, rows = _build_export_rows(employees, branches)
+
     import io as _io
     try:
         import openpyxl
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Empleados"
-        ws.append(["Código", "Nombre", "Cédula", "Cargo", "Área", "Departamento", "Salario Base",
-                    "Tipo Contrato", "Fecha Ingreso", "Estado", "Email", "Teléfono",
-                    "Municipio", "Género", "Fecha Nac.", "Supervisor", "Vacaciones"])
-        for emp in employees:
-            supervisor_name = ""
-            sup_id = emp.get("reportsTo", "")
-            if sup_id:
-                sup = next((e for e in employees if e.get("id") == sup_id), None)
-                if sup:
-                    supervisor_name = sup.get("fullName", "")
-            ws.append([
-                emp.get("code", "") or "",
-                emp.get("fullName", ""),
-                emp.get("cedula", "") or emp.get("idNumber", ""),
-                emp.get("position", ""),
-                emp.get("area", "") or emp.get("department", ""),
-                emp.get("department", ""),
-                emp.get("baseSalary", 0),
-                emp.get("contractType", ""),
-                emp.get("hireDate", ""),
-                emp.get("status", ""),
-                emp.get("email", ""),
-                emp.get("phone", ""),
-                emp.get("municipality", ""),
-                emp.get("gender", ""),
-                emp.get("birthDate", ""),
-                supervisor_name,
-                emp.get("vacationDays", 0),
-            ])
+        ws.append(headers)
+        for row in rows:
+            ws.append(row)
         output = _io.BytesIO()
         wb.save(output)
         output.seek(0)
@@ -69,13 +175,8 @@ def employee_export():
                          as_attachment=True, download_name="empleados.xlsx")
     except ImportError:
         csv_out = _io.StringIO()
-        csv_out.write("Código,Nombre,Cédula,Cargo,Área,Salario,Estado,Email,Teléfono,Fecha Ingreso\n")
-        for emp in employees:
-            csv_out.write(f"{emp.get('code','') or ''},{emp.get('fullName','')},{emp.get('cedula','') or emp.get('idNumber','')},"
-                         f"{emp.get('position','')},{emp.get('area','') or emp.get('department','')},"
-                         f"{emp.get('baseSalary',0)},{emp.get('status','')},{emp.get('email','')},"
-                         f"{emp.get('phone','')},{emp.get('hireDate','')}\n")
+        writer = csv.writer(csv_out)
+        writer.writerow(headers)
+        writer.writerows(rows)
         buf = _io.BytesIO(csv_out.getvalue().encode("utf-8-sig"))
         return send_file(buf, mimetype="text/csv", as_attachment=True, download_name="empleados.csv")
-
-

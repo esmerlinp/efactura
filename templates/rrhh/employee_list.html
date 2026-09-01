@@ -7,6 +7,21 @@
 .employee-list-page { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .employee-list-page .card-table-wrapper.hr-table-card { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .employee-list-page .card-table-wrapper.hr-table-card .table-responsive { flex: 1; overflow: auto; min-height: 0; }
+.employee-list-page .table-premium th { padding: 7px 10px; font-size: 0.7rem; }
+.employee-list-page .table-premium td { padding: 6px 10px; font-size: 0.75rem; white-space: nowrap; }
+.employee-list-page .table-premium th:first-child,
+.employee-list-page .table-premium td:first-child { padding-left: 16px; }
+.employee-list-page .table-premium .cell-ellipsis { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.employee-list-page .emp-name a { font-weight: 500; color: var(--text-primary); text-decoration: none; }
+.employee-list-page .emp-name a:hover { color: var(--accent-emerald); }
+.employee-list-page .emp-code { color: var(--text-muted); font-variant-numeric: tabular-nums; text-decoration: none; }
+.employee-list-page .emp-code:hover { color: var(--accent-emerald); }
+.employee-list-page .emp-vac { font-variant-numeric: tabular-nums; }
+.employee-list-page .status-activo { color: var(--accent-emerald); }
+.employee-list-page .status-vacaciones { color: var(--accent-blue); }
+.employee-list-page .status-licencia { color: var(--accent-purple); }
+.employee-list-page .status-suspendido { color: var(--accent-orange); }
+.employee-list-page .status-inactivo { color: var(--accent-red); }
 </style>
 <div class="employee-list-page">
 <div class="page-header hr-page-header">
@@ -44,7 +59,7 @@
         </div>
         <div class="stat-box">
             <span class="stat-label">Ex-empleados</span>
-            <span class="stat-value" style="color:var(--danger);">{{ inactive_count }}</span>
+            <span class="stat-value" style="color:var(--accent-red);">{{ inactive_count }}</span>
         </div>
         {% if filter_status == 'inactivo' %}
         <div class="stat-box">
@@ -53,7 +68,7 @@
         </div>
         <div class="stat-box">
             <span class="stat-label">Despidos</span>
-            <span class="stat-value" style="color:var(--danger);">{{ employees|selectattr('terminationType', 'equalto', 'despido')|list|length }}</span>
+            <span class="stat-value" style="color:var(--accent-red);">{{ employees|selectattr('terminationType', 'equalto', 'despido')|list|length }}</span>
         </div>
         {% endif %}
     </div>
@@ -61,9 +76,6 @@
 
 <!-- Quick-access toolbar -->
 <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:20px;">
-    <a href="{{ url_for('web_rrhh.employee_new') }}" class="btn btn-primary btn-sm">
-        <i class="fa-solid fa-user-plus"></i> Nuevo Empleado
-    </a>
     <a href="{{ url_for('web_rrhh.employee_export') }}" class="btn btn-secondary btn-sm">
         <i class="fa-solid fa-download"></i> Exportar XLSX
     </a>
@@ -74,10 +86,6 @@
     <a href="{{ url_for('web_rrhh.team_calendar') }}" class="btn btn-ghost btn-sm">
         <i class="fa-solid fa-calendar-days"></i> Calendario
     </a>
-    <span style="border-left:1px solid var(--border-color); height:24px; margin:0 4px;"></span>
-    <span style="font-size:0.78rem; color:var(--text-muted); display:flex; align-items:center; gap:4px;">
-        <i class="fa-solid fa-calculator"></i> Liquidaciones desde la ficha del empleado
-    </span>
 </div>
 
 <div class="card-table-wrapper hr-table-card">
@@ -91,7 +99,7 @@
     <!-- Search + Filters -->
     <form method="GET" style="display:flex; gap:10px; flex-wrap:wrap; padding:0 20px 16px; align-items:flex-end;">
         <div class="form-group" style="margin:0; flex:2; min-width:200px;">
-            <input type="text" name="search" class="form-input" placeholder="Buscar por nombre, código, cédula o cargo..."
+            <input type="text" name="search" class="form-input" placeholder="Buscar por nombre, código o cargo..."
                    value="{{ search }}" style="border-radius:20px;">
         </div>
         <div class="form-group" style="margin:0;">
@@ -129,15 +137,15 @@
     </form>
 
     <!-- Bulk toolbar -->
-    <div id="bulkToolbar" style="display:none; padding:0 20px 12px; gap:8px; align-items:center; flex-wrap:wrap;">
+    <div id="bulkToolbar" style="display:flex; padding:0 20px 12px; gap:8px; align-items:center; flex-wrap:wrap;">
         <span id="bulkCount" style="font-size:0.82rem; color:var(--text-muted);">0 seleccionados</span>
-        <button type="button" class="btn btn-sm btn-ghost" onclick="bulkExport()">
+        <button type="button" id="bulkExportBtn" class="btn btn-sm btn-ghost" disabled onclick="bulkExport()">
             <i class="fa-solid fa-download"></i> Exportar selección
         </button>
-        <button type="button" class="btn btn-sm btn-primary" onclick="bulkMassAction()">
+        <button type="button" id="bulkMassActionBtn" class="btn btn-sm btn-primary" disabled onclick="bulkMassAction()">
             <i class="fa-solid fa-people-arrows"></i> Acción Masiva
         </button>
-        <button type="button" class="btn btn-sm btn-success" onclick="bulkBulkEdit()">
+        <button type="button" id="bulkBulkEditBtn" class="btn btn-sm btn-success" disabled onclick="bulkBulkEdit()">
             <i class="fa-solid fa-pen-to-square"></i> Edición Masiva
         </button>
     </div>
@@ -147,87 +155,57 @@
         <thead>
             <tr>
                 <th style="width:30px;"><input type="checkbox" id="selectAllCB" onchange="toggleAll(this)"></th>
-                <th style="width:60px;">Código</th>
+                <th style="width:46px;">Cód.</th>
                 <th>Empleado</th>
-                <th>Cédula</th>
                 <th>Cargo</th>
-                <th>Departamento</th>
-                <th>Sucursal</th>
-                <th>Salario Base</th>
+                <th>Depto.</th>
                 {% if filter_status == 'inactivo' %}
                 <th>Fecha Salida</th>
                 <th>Motivo</th>
                 <th>Tipo</th>
                 {% endif %}
-                <th>Vacaciones</th>
+                <th>Vac.</th>
                 <th>Estado</th>
-                <th style="width:40px;">Acciones</th>
             </tr>
         </thead>
         <tbody>
             {% for emp in employees %}
             <tr>
                 <td><input type="checkbox" class="emp-cb" value="{{ emp.id }}" onchange="updateBulk()"></td>
-                <td><span class="badge badge-secondary">{{ emp.code or '—' }}</span></td>
-                <td style="max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                    <strong><a href="{{ url_for('web_rrhh.employee_view', employee_id=emp.id) }}" style="color:var(--text-primary); text-decoration:none;">{{ emp.fullName }}</a></strong>
+                <td><a class="emp-code" href="{{ url_for('web_rrhh.employee_view', employee_id=emp.id) }}">{{ emp.code or '—' }}</a></td>
+                <td class="cell-ellipsis emp-name">
+                    <a href="{{ url_for('web_rrhh.employee_view', employee_id=emp.id) }}">{{ emp.fullName }}</a>
                 </td>
-                <td>{{ emp.cedula or emp.idNumber }}</td>
-                <td>{{ emp.position }}</td>
-                <td>{{ emp.department or emp.area or '—' }}</td>
-                <td>
-                    {% set branch = branches|selectattr("id", "equalto", emp.branchId)|first %}
-                    {{ branch.name if branch else '—' }}
-                </td>
-                <td>{{ "RD$ {:,.2f}".format(emp.baseSalary|float) if emp.baseSalary else '—' }}</td>
+                <td class="cell-ellipsis" title="{{ emp.position or '' }}">{{ emp.position or '—' }}</td>
+                <td class="cell-ellipsis" title="{{ emp.department or emp.area or '' }}">{{ emp.department or emp.area or '—' }}</td>
                 {% if filter_status == 'inactivo' %}
                 <td>{{ emp.terminationDate or '—' }}</td>
-                <td>{{ emp.terminationReason or '—' }}</td>
+                <td class="cell-ellipsis" title="{{ emp.terminationReason or '' }}">{{ emp.terminationReason or '—' }}</td>
                 <td>
-                    {% if emp.terminationType == 'renuncia' %}<span class="badge badge-warning">Renuncia</span>
-                    {% elif emp.terminationType == 'despido' %}<span class="badge badge-danger">Despido</span>
-                    {% elif emp.terminationType == 'mutuo_acuerdo' %}<span class="badge badge-info">Mutuo acuerdo</span>
-                    {% elif emp.terminationType == 'fin_contrato' %}<span class="badge badge-secondary">Fin contrato</span>
+                    {% if emp.terminationType == 'renuncia' %}Renuncia
+                    {% elif emp.terminationType == 'despido' %}Despido
+                    {% elif emp.terminationType == 'mutuo_acuerdo' %}Mutuo acuerdo
+                    {% elif emp.terminationType == 'fin_contrato' %}Fin contrato
                     {% else %}{{ emp.terminationType or '—' }}{% endif %}
                 </td>
                 {% endif %}
-                <td>{{ emp.vacationDays }} días</td>
+                <td class="emp-vac">{{ emp.vacationDays }} d</td>
                 <td>
                     {% if emp.status == 'activo' %}
-                    <span class="badge badge-success">Activo</span>
+                    <span class="status-activo">Activo</span>
                     {% elif emp.status == 'vacaciones' %}
-                    <span class="badge badge-info">Vacaciones</span>
+                    <span class="status-vacaciones">Vacaciones</span>
                     {% elif emp.status == 'licencia' %}
-                    <span class="badge badge-primary">Licencia</span>
+                    <span class="status-licencia">Licencia</span>
                     {% elif emp.status == 'suspendido' %}
-                    <span class="badge badge-warning">Suspendido</span>
+                    <span class="status-suspendido">Suspendido</span>
                     {% else %}
-                    <span class="badge badge-danger">Inactivo</span>
+                    <span class="status-inactivo">Inactivo</span>
                     {% endif %}
-                </td>
-                <td>
-                    <div class="dropdown" style="position:relative; display:inline-block;">
-                        <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); var m=this.nextElementSibling; m.style.display=m.style.display==='block'?'none':'block'" style="font-size:1.1rem; line-height:1; padding:2px 6px;">
-                            <i class="fa-solid fa-ellipsis-vertical"></i>
-                        </button>
-                        <div style="display:none; position:absolute; right:0; top:100%; z-index:50; background:#fff; border:1px solid #d1d5db; border-radius:8px; min-width:160px; box-shadow:0 4px 16px rgba(0,0,0,0.15); overflow:hidden;">
-                            <a href="{{ url_for('web_rrhh.employee_view', employee_id=emp.id) }}"
-                               style="display:flex; align-items:center; gap:8px; padding:8px 12px; text-decoration:none; color:var(--text-primary); font-size:0.82rem; border-bottom:1px solid var(--border-color); transition:background 0.15s;"
-                               onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
-                                <i class="fa-solid fa-eye" style="color:#6b7280; width:16px;"></i> Ver
-                            </a>
-                            <a href="{{ url_for('web_rrhh.employee_edit', employee_id=emp.id) }}"
-                               style="display:flex; align-items:center; gap:8px; padding:8px 12px; text-decoration:none; color:var(--text-primary); font-size:0.82rem; border-bottom:1px solid var(--border-color); transition:background 0.15s;"
-                               onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
-                                <i class="fa-solid fa-pen-to-square" style="color:#6b7280; width:16px;"></i> Editar
-                            </a>
-
-                        </div>
-                    </div>
                 </td>
             </tr>
             {% else %}
-            <tr><td colspan="{{ 13 if filter_status == 'inactivo' else 10 }}" class="text-center text-muted">No hay empleados que coincidan con los filtros.</td></tr>
+            <tr><td colspan="{{ 10 if filter_status == 'inactivo' else 7 }}" class="text-center text-muted">No hay empleados que coincidan con los filtros.</td></tr>
             {% endfor %}
         </tbody>
         </table>
@@ -264,8 +242,11 @@
 <script>
 function updateBulk() {
     var cbs = document.querySelectorAll('.emp-cb:checked');
-    document.getElementById('bulkToolbar').style.display = cbs.length > 0 ? 'flex' : 'none';
-    document.getElementById('bulkCount').textContent = cbs.length + ' seleccionados';
+    var n = cbs.length;
+    document.getElementById('bulkCount').textContent = n + ' seleccionados';
+    document.getElementById('bulkExportBtn').disabled = n === 0;
+    document.getElementById('bulkMassActionBtn').disabled = n === 0;
+    document.getElementById('bulkBulkEditBtn').disabled = n === 0;
 }
 function toggleAll(el) {
     document.querySelectorAll('.emp-cb').forEach(function(cb) { cb.checked = el.checked; });
@@ -284,7 +265,7 @@ function changePerPage(value) {
 function bulkExport() {
     var ids = Array.from(document.querySelectorAll('.emp-cb:checked')).map(function(cb) { return cb.value; }).join(',');
     if (!ids) return;
-    window.location.href = "{{ url_for('web_rrhh.employee_list') }}?export=1&ids=" + ids;
+    window.location.href = "{{ url_for('web_rrhh.employee_export') }}?ids=" + ids;
 }
 function bulkMassAction() {
     var ids = Array.from(document.querySelectorAll('.emp-cb:checked')).map(function(cb) { return cb.value; });
@@ -296,13 +277,6 @@ function bulkBulkEdit() {
     if (!ids.length) return;
     window.location.href = "{{ url_for('web_rrhh.bulk_edit_wizard') }}?ids=" + ids.join(',');
 }
-document.addEventListener('click', function(e) {
-    document.querySelectorAll('.dropdown > div[style*="display: block"]').forEach(function(menu) {
-        if (!menu.parentElement.contains(e.target)) {
-            menu.style.display = 'none';
-        }
-    });
-});
 </script>
 </div>
 {% endblock %}
