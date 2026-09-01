@@ -9,6 +9,7 @@ from app.web.rrhh import (
     _filter_employees_by_period, _generate_periods,
 )
 from app.services import hr_data_service as hr
+from app.utils.hr_utils import is_active_equivalent
 from app.services.payroll_service import PayrollService
 
 
@@ -38,7 +39,7 @@ def payroll_dashboard():
     onboard_steps = {
         "frequency": bool(config.get("payrollFrequency")),
         "catalogs": len(positions) > 0 and len(departments) > 0,
-        "employees": len([e for e in employees if e.get("status") == "activo"]) > 0,
+        "employees": len([e for e in employees if is_active_equivalent(e.get("status", ""))]) > 0,
         "concepts": True,
         "payroll": len(periods) > 0,
     }
@@ -93,7 +94,7 @@ def payroll_dashboard():
         current_period = f"{MONTHS_ES[now.month - 1]} {now.year}"
 
     # Totales
-    active_emps = [e for e in employees if e.get("status") == "activo"]
+    active_emps = [e for e in employees if is_active_equivalent(e.get("status", ""))]
     total_pago = sum(p.get("totalNet", 0) for p in periods)
     total_costo = sum(p.get("totalGross", 0) + p.get("totalEmployerContrib", 0) for p in periods)
 

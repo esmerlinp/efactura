@@ -8,6 +8,7 @@ from app.web.rrhh import (
     _filter_employees_by_period, _generate_periods,
 )
 from app.services import hr_data_service as hr
+from app.utils.hr_utils import is_active_equivalent
 from app.services.overtime_service import OvertimeService
 from app.services.payroll_overtime_calculator import PayrollOvertimeCalculator
 
@@ -65,7 +66,7 @@ def overtime_new():
     user_email = session.get("user", {}).get("email", "")
 
     employees = hr.get_employees(company_id, sandbox=sandbox)
-    active_emps = [e for e in employees if e.get("status") == "activo"]
+    active_emps = [e for e in employees if is_active_equivalent(e.get("status", ""))]
     overtime_types = hr.get_overtime_types(company_id, sandbox=sandbox)
 
     if request.method == "POST":

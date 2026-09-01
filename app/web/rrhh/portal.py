@@ -30,12 +30,19 @@ def employee_portal_dashboard():
         return redirect(url_for("web_auth.login"))
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services.payroll_service import PayrollService
+    from app.services import hr_data_service as hr
+    from app.services.employee_status_service import EmployeeStatusService
     employee = _get_my_employee(company_id, sandbox)
     if not employee:
         flash("No se encontró tu perfil de empleado. Contacta a RRHH.", "error")
         return redirect(url_for("web_rrhh.payroll_dashboard"))
 
-    vacation_days = PayrollService.calculate_vacation_days(employee.get("hireDate", ""))
+    taken = EmployeeStatusService.taken_vacation_days([
+        r for r in hr.get_vacation_requests(company_id, sandbox=sandbox)
+        if r.get("employeeId") == employee.get("id")
+    ])
+    vacation_days = PayrollService.calculate_vacation_days(
+        employee.get("hireDate", ""), taken_days=taken)
     return render_template("rrhh/portal/dashboard.html", employee=employee, vacation_days=vacation_days)
 
 
@@ -103,7 +110,13 @@ def employee_portal_vacation_new():
         from app.services.holiday_service import HolidayService
         holidays = HolidayService.get_holiday_dates(company_id, start_date, end_date, sandbox=sandbox)
         business_days = PayrollService.calculate_business_days(start_date, end_date, holidays=holidays)
-        remaining = PayrollService.calculate_vacation_days(employee.get("hireDate", ""))
+        from app.services.employee_status_service import EmployeeStatusService
+        taken = EmployeeStatusService.taken_vacation_days([
+            r for r in hr.get_vacation_requests(company_id, sandbox=sandbox)
+            if r.get("employeeId") == employee["id"]
+        ])
+        remaining = PayrollService.calculate_vacation_days(
+            employee.get("hireDate", ""), taken_days=taken)
         req_id = str(uuid.uuid4())
         hr.save_vacation_request(company_id, req_id, {
             "id": req_id, "employeeId": employee["id"],
@@ -116,7 +129,13 @@ def employee_portal_vacation_new():
         }, sandbox=sandbox)
         flash(f"Solicitud de vacaciones por {business_days} días enviada.", "success")
         return redirect(url_for("web_rrhh.employee_portal_dashboard"))
-    remaining = PayrollService.calculate_vacation_days(employee.get("hireDate", ""))
+    from app.services.employee_status_service import EmployeeStatusService
+    taken = EmployeeStatusService.taken_vacation_days([
+        r for r in hr.get_vacation_requests(company_id, sandbox=sandbox)
+        if r.get("employeeId") == employee["id"]
+    ])
+    remaining = PayrollService.calculate_vacation_days(
+        employee.get("hireDate", ""), taken_days=taken)
     return render_template("rrhh/portal/vacation_form.html", employee=employee, remaining=remaining)
 
 

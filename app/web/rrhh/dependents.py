@@ -8,7 +8,7 @@ from app.web.rrhh import (
     web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
 )
 from app.services import hr_data_service as hr
-from app.utils.hr_utils import RELATIONSHIP_CATALOG
+from app.utils.hr_utils import RELATIONSHIP_CATALOG, is_active_equivalent
 
 
 @web_rrhh_bp.route("/rrhh/employees/<employee_id>/dependents/add", methods=["POST"])
@@ -92,7 +92,7 @@ def dependents_export_tss_rd():
     from app.services.db_service import DatabaseService
 
     employees = hr.get_employees(company_id, sandbox=sandbox)
-    employees = [e for e in employees if e.get("status", "") == "activo"]
+    employees = [e for e in employees if is_active_equivalent(e.get("status", ""))]
 
     emp_ids = [e.get("id", "") for e in employees if e.get("id")]
     dependents_by_employee = hr.get_dependents_for_employees(company_id, emp_ids, sandbox=sandbox)

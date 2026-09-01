@@ -9,6 +9,7 @@ from app.web.rrhh import (
     _generate_periods,
 )
 from app.services import hr_data_service as hr
+from app.utils.hr_utils import is_active_equivalent
 from app.services.state_machine import MASS_ACTION_STATES
 
 
@@ -77,7 +78,7 @@ def mass_action_wizard():
 
     all_employees = hr.get_employees(company_id, sandbox=sandbox)
     supervisors = [e for e in all_employees
-                   if e.get("status") == "activo" and e.get("id") not in employee_ids]
+                   if is_active_equivalent(e.get("status", "")) and e.get("id") not in employee_ids]
     positions = hr.get_catalog(company_id, "positions", sandbox=sandbox)
     departments = hr.get_catalog(company_id, "departments", sandbox=sandbox)
     config = hr.get_payroll_config(company_id, sandbox=sandbox)

@@ -29,6 +29,8 @@
             <div style="display:flex; gap:20px;">
                 <span><span style="color:var(--text-muted);">Estado</span>
                     {% if employee and employee.status == 'activo' %}<span style="color:var(--accent-emerald);">● Activo</span>
+                    {% elif employee and employee.status == 'vacaciones' %}<span style="color:#3b82f6;">● Vacaciones</span>
+                    {% elif employee and employee.status == 'licencia' %}<span style="color:#7c3aed;">● Licencia</span>
                     {% elif employee and employee.status == 'suspendido' %}<span style="color:#f59e0b;">● Suspendido</span>
                     {% elif employee and employee.status == 'inactivo' %}<span style="color:var(--danger);">● Inactivo</span>
                     {% else %}{{ employee.status if employee else '—' }}{% endif %}</span>

@@ -196,6 +196,10 @@
                     <td>
                         {% if emp.status == 'activo' %}
                         <span class="badge badge-success">Activo</span>
+                        {% elif emp.status == 'vacaciones' %}
+                        <span class="badge badge-info">Vacaciones</span>
+                        {% elif emp.status == 'licencia' %}
+                        <span class="badge badge-primary">Licencia</span>
                         {% elif emp.status == 'inactivo' %}
                         <span class="badge badge-danger">Inactivo</span>
                         {% else %}

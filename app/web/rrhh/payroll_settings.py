@@ -12,6 +12,7 @@ from app.web.rrhh import (
     _filter_employees_by_period, _generate_periods,
 )
 from app.services import hr_data_service as hr
+from app.utils.hr_utils import is_active_equivalent
 from app.services.payroll_service import PayrollService
 from types import SimpleNamespace
 
@@ -93,7 +94,7 @@ def payroll_settings():
     payroll_groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
     payroll_groups.sort(key=lambda g: g.get("name", ""))
     all_employees = hr.get_employees(company_id, sandbox=sandbox)
-    unassigned_employees = [e for e in all_employees if e.get("status") == "activo"
+    unassigned_employees = [e for e in all_employees if is_active_equivalent(e.get("status", ""))
                             and not any(gid in e.get("payrollGroupIds", []) for gid in [g["id"] for g in payroll_groups])]
 
     return render_template("rrhh/settings.html", active_page="rrhh_settings",
