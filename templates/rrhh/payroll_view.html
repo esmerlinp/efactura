@@ -1016,7 +1016,7 @@ function submitDeleteForm() {
 {% block extra_scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    if (typeof $.fn.DataTable !== 'undefined') {
+    if (typeof $ !== 'undefined' && $.fn && typeof $.fn.DataTable !== 'undefined') {
         $('.emp-payroll-table').DataTable({
             "pageLength": 25,
             "lengthMenu": [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
