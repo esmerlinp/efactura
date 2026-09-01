@@ -1,13 +1,53 @@
 {% extends "layout.html" %}
 {% block title %}e-CF Recibidos{% endblock %}
-{% block page_header %}e-CF Recibidos{% endblock %}
+{% block page_header %}Recepción de e-CF{% endblock %}
 {% block content %}
+{% set sort = sort|default('received_at') %}
+{% set order = order|default('desc') %}
+{% macro sort_link(col, label, default_order) -%}
+<a href="?sort={{ col }}&order={% if sort == col %}{{ 'asc' if order == 'desc' else 'desc' }}{% else %}{{ default_order }}{% endif %}&q={{ q or '' }}&status={{ status or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&per_page={{ per_page or '10' }}" class="invoice-link" style="white-space: nowrap;">
+    {{ label }}{% if sort == col %} <i class="fa-solid {{ 'fa-sort-down' if order == 'desc' else 'fa-sort-up' }}" style="font-size:0.7rem;"></i>{% endif %}
+</a>
+{%- endmacro %}
 <div style="max-width: 1200px; margin: 0 auto;">
+<style>
+    .invoice-link {
+        text-decoration: none;
+        transition: color 0.2s ease, text-decoration 0.2s ease;
+        color: inherit;
+    }
+
+    .invoice-link:hover {
+        color: var(--accent-purple) !important;
+        text-decoration: underline;
+    }
+</style>
+
 <div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
     <h1 class="page-title"
         style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
         e-CF Recibidos
     </h1>
+</div>
+
+<div class="guide-banner" id="guide-recepcion-ecf">
+    <button class="guide-banner-close" onclick="closeGuide('guide-recepcion-ecf')" title="Cerrar guía" aria-label="Cerrar guía">
+        <i class="fa-solid fa-xmark"></i>
+    </button>
+    <div class="guide-banner-icon">
+        <i class="fa-solid fa-lightbulb"></i>
+    </div>
+    <div class="guide-banner-content">
+        <h4>Guía de Uso: Recepción de e-CF</h4>
+        <p>
+            Aquí se registran los Comprobantes Fiscales Electrónicos (e-CF) que otros contribuyentes envían a tu
+            empresa a través del servicio de recepción de la DGII.
+        </p>
+        <ul>
+            <li><strong>Filtros:</strong> Busca por e-NCF, emisor o RNC, filtra por estado y rango de fechas de recepción.</li>
+            <li><strong>Acuse:</strong> Cada comprobante aceptado genera un ARECF descargable junto al XML recibido.</li>
+        </ul>
+    </div>
 </div>
 
 <div class="card-table-wrapper">
@@ -20,66 +60,275 @@
                 Comprobantes Fiscales Electrónicos (e-CF) recibidos de otros contribuyentes.
             </p>
         </div>
-        <div style="display: flex; gap: 8px; align-items: center;">
-            <a href="{{ url_for('web_recepcion.list_received_ecf') }}"
-               class="btn btn-ghost btn-sm {% if not status_filter %}active{% endif %}">Todos</a>
-            <a href="{{ url_for('web_recepcion.list_received_ecf', status='recibido') }}"
-               class="btn btn-ghost btn-sm {% if status_filter == 'recibido' %}active{% endif %}">Recibidos</a>
-            <a href="{{ url_for('web_recepcion.list_received_ecf', status='procesado') }}"
-               class="btn btn-ghost btn-sm {% if status_filter == 'procesado' %}active{% endif %}">Procesados</a>
-        </div>
     </div>
 
-    <div class="table-container" style="overflow-x: auto;">
-        <table class="data-table" style="width: 100%; border-collapse: collapse;">
+    <!-- Filtros Minimalistas en una sola línea -->
+    <div
+        style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; background-color: transparent; align-items: center; border-bottom: 1px solid rgba(0, 0, 0, 0.05); padding-bottom: 12px;">
+        <form method="GET" action="{{ url_for('web_recepcion.list_received_ecf') }}"
+            id="filters-form"
+            style="display: flex; gap: 12px; align-items: center; width: 100%; flex-wrap: wrap; margin: 0;">
+
+            <input type="hidden" name="sort" value="{{ sort|default('received_at') }}">
+            <input type="hidden" name="order" value="{{ order|default('desc') }}">
+
+            <!-- Búsqueda -->
+            <div style="position: relative; flex-grow: 1; min-width: 220px; max-width: 350px;">
+                <i class="fa-solid fa-magnifying-glass"
+                    style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
+                <input type="text" name="q" id="q" value="{{ q or '' }}" placeholder="Buscar e-NCF, Emisor, RNC..."
+                    style="width: 100%; height: 34px; padding: 0 16px 0 38px; background-color: var(--bg-input); border: 1px solid transparent; border-radius: 20px; color: var(--text-primary); font-size: 0.85rem; transition: background-color var(--transition-fast);"
+                    onfocus="this.style.backgroundColor='#ffffff'; this.style.borderColor='var(--border-color)';"
+                    onblur="if(!this.value){this.style.backgroundColor='var(--bg-input)'; this.style.borderColor='transparent';}">
+            </div>
+
+            <!-- Selector de Estado -->
+            <div style="min-width: 130px;">
+                <select name="status" id="status"
+                    style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;">
+                    <option value="">Todos los Estados</option>
+                    <option value="recibido" {% if status=='recibido' %}selected{% endif %}>Recibido</option>
+                    <option value="procesado" {% if status=='procesado' %}selected{% endif %}>Procesado</option>
+                    <option value="rechazado" {% if status=='rechazado' %}selected{% endif %}>Rechazado</option>
+                </select>
+            </div>
+
+            <!-- Fechas -->
+            <div
+                style="display: flex; align-items: center; gap: 6px; border-bottom: 1px solid var(--border-color); padding-bottom: 2px;">
+                <i class="fa-regular fa-calendar" style="color: var(--text-muted); font-size: 0.85rem;"></i>
+                <input type="date" name="start_date" id="start_date" value="{{ start_date or '' }}"
+                    style="height: 30px; background: transparent; border: none; color: var(--text-secondary); font-size: 0.85rem; outline: none; cursor: pointer;"
+                    title="Desde">
+                <span style="color: var(--text-muted); font-size: 0.85rem;">-</span>
+                <input type="date" name="end_date" id="end_date" value="{{ end_date or '' }}"
+                    style="height: 30px; background: transparent; border: none; color: var(--text-secondary); font-size: 0.85rem; outline: none; cursor: pointer;"
+                    title="Hasta">
+            </div>
+
+            <!-- Limpiar -->
+            <a href="{{ url_for('web_recepcion.list_received_ecf') }}"
+                style="color: var(--text-muted); font-size: 0.85rem; text-decoration: none; padding: 6px 10px; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 4px;"
+                title="Limpiar Filtros"
+                onmouseover="this.style.backgroundColor='rgba(0,0,0,0.03)'; this.style.color='var(--text-primary)'"
+                onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--text-muted)'">
+                <i class="fa-solid fa-eraser"></i> Limpiar
+            </a>
+
+            <!-- Exportar -->
+            <button type="button" onclick="exportToCSV()"
+                style="color: var(--accent-blue); font-size: 0.85rem; background: transparent; border: none; padding: 6px 10px; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 4px; cursor: pointer;"
+                title="Exportar a CSV"
+                onmouseover="this.style.backgroundColor='rgba(0,0,0,0.03)'"
+                onmouseout="this.style.backgroundColor='transparent'">
+                <i class="fa-solid fa-file-csv"></i> Exportar
+            </button>
+
+            <!-- Mostrar N Registros (Alineado a la derecha) -->
+            <div style="display: flex; align-items: center; gap: 6px; margin-left: auto;">
+                <span style="font-size: 0.75rem; color: var(--text-muted);">Filas:</span>
+                <select name="per_page" id="per_page"
+                    style="background: transparent; border: none; color: var(--text-secondary); font-size: 0.8rem; cursor: pointer; outline: none; font-weight: 500;">
+                    <option value="5" {% if per_page=='5' %}selected{% endif %}>5</option>
+                    <option value="10" {% if per_page=='10' or not per_page %}selected{% endif %}>10</option>
+                    <option value="15" {% if per_page=='15' %}selected{% endif %}>15</option>
+                    <option value="20" {% if per_page=='20' %}selected{% endif %}>20</option>
+                    <option value="all" {% if per_page=='all' %}selected{% endif %}>Todas</option>
+                </select>
+            </div>
+        </form>
+    </div>
+
+    <!-- Contenedor Tabla (Vista de Lista) -->
+    <div id="view-table" class="table-responsive">
+        <table class="table-premium">
             <thead>
                 <tr>
-                    <th>Remitente (RNC)</th>
-                    <th>Razón Social</th>
-                    <th>e-NCF</th>
-                    <th>Tipo</th>
-                    <th>Monto</th>
-                    <th>Recibido</th>
-                    <th>Estado</th>
-                    <th>Acción</th>
+                    <th>{{ sort_link('encf', 'e-NCF', 'asc') }}</th>
+                    <th>{{ sort_link('sender_name', 'Remitente', 'asc') }}</th>
+                    <th>{{ sort_link('ecf_type', 'Tipo', 'asc') }}</th>
+                    <th>{{ sort_link('monto_total', 'Monto', 'desc') }}</th>
+                    <th>{{ sort_link('received_at', 'Recibido', 'desc') }}</th>
+                    <th>{{ sort_link('status', 'Estado', 'asc') }}</th>
+                    <th style="text-align: right; width: 50px;"></th>
                 </tr>
             </thead>
             <tbody>
+                {% if documents %}
                 {% for doc in documents %}
                 <tr>
-                    <td>{{ doc.sender_rnc or '-' }}</td>
-                    <td>{{ doc.sender_name or '-' }}</td>
-                    <td><strong>{{ doc.encf or '-' }}</strong></td>
-                    <td>{{ doc.ecf_type or '-' }}</td>
-                    <td>$ {{ "%.2f"|format(doc.monto_total|float) if doc.monto_total else '0.00' }}</td>
-                    <td>{{ (doc.received_at or '')[:10] }}</td>
                     <td>
-                        {% if doc.status == 'recibido' %}
-                        <span class="badge badge-warning">Recibido</span>
-                        {% elif doc.status == 'procesado' %}
-                        <span class="badge badge-success">Procesado</span>
-                        {% else %}
-                        <span class="badge badge-secondary">{{ doc.status }}</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <a href="{{ url_for('web_recepcion.detail_received_ecf', ecf_id=doc.id) }}"
-                           class="btn btn-ghost btn-sm">
-                            <i class="fa-solid fa-eye"></i> Ver
+                        <a href="{{ url_for('web_recepcion.detail_received_ecf', ecf_id=doc.id) }}" class="invoice-link" style="font-family: monospace; font-size: 0.85rem; color: var(--accent-purple);">
+                            {{ doc.encf or '-' }}
                         </a>
                     </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="8" style="text-align: center; padding: 48px; color: var(--text-muted);">
-                        <i class="fa-solid fa-inbox" style="font-size: 2rem; display: block; margin-bottom: 12px;"></i>
-                        No hay documentos recibidos aún.
+                    <td>
+                        <strong style="font-size: 0.82rem; font-weight: 700; color: var(--text-primary);">{{ doc.sender_name or '-' }}</strong>
+                        <span style="font-family: monospace; font-size: 0.75rem; color: var(--text-secondary); display: block;">RNC: {{ doc.sender_rnc or '-' }}</span>
+                    </td>
+                    <td>
+                        <span class="badge" style="font-size: 0.65rem; background-color: rgba(59, 130, 246, 0.12); color: var(--accent-blue); padding: 4px 8px; border-radius: 4px; font-weight: 600;">
+                            {{ doc.ecf_type | ecf_label }}
+                        </span>
+                    </td>
+                    <td>
+                        RD$ {{ "{:,.2f}".format(doc.monto_total | float) }}
+                    </td>
+                    <td>
+                        {{ (doc.received_at or '')[:10] | format_date }}
+                    </td>
+                    <td>
+                        {% if doc.status == 'recibido' %}
+                        <span class="badge badge-warning" style="font-size: 0.65rem; background-color: rgba(245, 158, 11, 0.15); color: #d97706; padding: 4px 8px; border-radius: 4px; font-weight: 600;">Recibido</span>
+                        {% elif doc.status == 'procesado' %}
+                        <span class="badge badge-success" style="font-size: 0.65rem; background-color: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 8px; border-radius: 4px; font-weight: 600;">Procesado</span>
+                        {% elif doc.status == 'rechazado' %}
+                        <span class="badge badge-danger" style="font-size: 0.65rem; background-color: rgba(239, 68, 68, 0.15); color: #ef4444; padding: 4px 8px; border-radius: 4px; font-weight: 600;">Rechazado</span>
+                        {% else %}
+                        <span class="badge badge-secondary" style="font-size: 0.65rem;">{{ doc.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right;">
+                        <div class="action-menu">
+                            <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                            </button>
+                            <div class="action-menu-dropdown">
+                                <a href="{{ url_for('web_recepcion.detail_received_ecf', ecf_id=doc.id) }}" class="action-menu-item">
+                                    <i class="fa-solid fa-eye"></i> Ver Detalle
+                                </a>
+                                <a href="{{ url_for('web_recepcion.download_received_xml', ecf_id=doc.id) }}" class="action-menu-item">
+                                    <i class="fa-solid fa-file-code"></i> Descargar XML Recibido
+                                </a>
+                                <a href="{{ url_for('web_recepcion.download_arecf', ecf_id=doc.id) }}" class="action-menu-item">
+                                    <i class="fa-solid fa-receipt"></i> Descargar ARECF
+                                </a>
+                            </div>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                        <i class="fa-solid fa-inbox"
+                            style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
+                        <span>No hay documentos que coincidan con los filtros aplicados.</span>
+                    </td>
+                </tr>
+                {% endif %}
             </tbody>
         </table>
     </div>
-</div>
+
+    <!-- Paginación Premium -->
+    {% if total_pages and total_pages > 1 and per_page != 'all' %}
+    <div class="pagination-container"
+        style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 16px;">
+        <div style="color: var(--text-secondary); font-size: 0.85rem;">
+            Mostrando <strong style="color: var(--text-primary);">{{ start_count }}</strong> a <strong
+                style="color: var(--text-primary);">{{ end_count }}</strong> de <strong
+                style="color: var(--text-primary);">{{ total_items }}</strong> registros
+        </div>
+        <div class="pagination-buttons" style="display: flex; gap: 6px;">
+            <!-- Anterior -->
+            {% if has_prev %}
+            <a href="?page={{ page - 1 }}&q={{ q or '' }}&status={{ status or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&per_page={{ per_page or '10' }}&sort={{ sort|default('received_at') }}&order={{ order|default('desc') }}"
+                class="btn btn-secondary"
+                style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-sm);">
+                <i class="fa-solid fa-chevron-left" style="font-size: 0.75rem;"></i>
+                <span>Anterior</span>
+            </a>
+            {% else %}
+            <button class="btn btn-secondary" disabled
+                style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; opacity: 0.5; cursor: not-allowed; border-radius: var(--radius-sm);">
+                <i class="fa-solid fa-chevron-left" style="font-size: 0.75rem;"></i>
+                <span>Anterior</span>
+            </button>
+            {% endif %}
+
+            <!-- Números de Página -->
+            {% for p in range(1, total_pages + 1) %}
+                {% if p == page %}
+            <button class="btn btn-primary"
+                style="padding: 6px 12px; font-size: 0.82rem; min-width: 34px; text-align: center; border-radius: var(--radius-sm);">{{
+                p }}</button>
+                {% elif p <= 3 or p >= total_pages - 2 or (p >= page - 1 and p <= page + 1) %}
+            <a href="?page={{ p }}&q={{ q or '' }}&status={{ status or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&per_page={{ per_page or '10' }}&sort={{ sort|default('received_at') }}&order={{ order|default('desc') }}"
+                class="btn btn-secondary"
+                style="padding: 6px 12px; font-size: 0.82rem; min-width: 34px; text-align: center; border-radius: var(--radius-sm);">{{
+                p }}</a>
+                {% elif p == 4 or p == total_pages - 3 %}
+            <span style="color: var(--text-muted); align-self: center; padding: 0 4px; font-size: 0.82rem;">...</span>
+                {% endif %}
+            {% endfor %}
+
+            <!-- Siguiente -->
+            {% if has_next %}
+            <a href="?page={{ page + 1 }}&q={{ q or '' }}&status={{ status or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&per_page={{ per_page or '10' }}&sort={{ sort|default('received_at') }}&order={{ order|default('desc') }}"
+                class="btn btn-secondary"
+                style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-sm);">
+                <span>Siguiente</span>
+                <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem;"></i>
+            </a>
+            {% else %}
+            <button class="btn btn-secondary" disabled
+                style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; opacity: 0.5; cursor: not-allowed; border-radius: var(--radius-sm);">
+                <span>Siguiente</span>
+                <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem;"></i>
+            </button>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 16px; text-align: right;">
+        Mostrando <strong style="color: var(--text-primary);">{{ total_items }}</strong> registros en total.
+    </div>
+    {% endif %}
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const form = document.getElementById('filters-form');
+            const searchInput = document.getElementById('q');
+            const selectStatus = document.getElementById('status');
+            const selectPerPage = document.getElementById('per_page');
+            const startDate = document.getElementById('start_date');
+            const endDate = document.getElementById('end_date');
+
+            // Función de debounce para la búsqueda de texto
+            let debounceTimer;
+            searchInput.addEventListener('input', function () {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    form.submit();
+                }, 500);
+            });
+
+            // Envío automático al cambiar dropdowns y fechas
+            [selectStatus, selectPerPage, startDate, endDate].forEach(elem => {
+                if (elem) {
+                    elem.addEventListener('change', () => {
+                        form.submit();
+                    });
+                }
+            });
+
+            // Enfocar input de búsqueda al final del texto al recargar si tiene valor
+            if (searchInput.value) {
+                searchInput.focus();
+                const val = searchInput.value;
+                searchInput.value = '';
+                searchInput.value = val;
+            }
+        });
+
+        function exportToCSV() {
+            const form = document.getElementById('filters-form');
+            const formData = new FormData(form);
+            const params = new URLSearchParams(formData);
+            params.set('export', 'csv');
+            window.location.href = form.action + '?' + params.toString();
+        }
+    </script>
 </div>
 {% endblock %}

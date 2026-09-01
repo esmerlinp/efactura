@@ -1,84 +1,350 @@
 {% extends "layout.html" %}
 {% block title %}e-CF Recibido - {{ doc.encf }}{% endblock %}
-{% block page_header %}e-CF Recibido{% endblock %}
+{% block page_header %}Detalle del Documento{% endblock %}
 {% block content %}
-<div style="max-width: 900px; margin: 0 auto;">
+<style>
+    .document-card-sheet {
+        position: relative;
+        transition: all var(--transition-smooth);
+    }
+
+    .document-card-sheet.received-card {
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.04) 0%, var(--bg-card) 100%) !important;
+        border: 2px solid rgba(59, 130, 246, 0.25) !important;
+        box-shadow: var(--shadow-sm), 0 10px 30px rgba(59, 130, 246, 0.05) !important;
+    }
+
+    .document-card-sheet.received-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 6px;
+        background: linear-gradient(90deg, #2563eb, #60a5fa);
+        z-index: 10;
+    }
+
+    [data-theme="dark"] .document-card-sheet.received-card {
+        background: linear-gradient(135deg, rgba(96, 165, 250, 0.06) 0%, var(--bg-card) 100%) !important;
+        border: 2px solid rgba(96, 165, 250, 0.3) !important;
+        box-shadow: var(--shadow-md), 0 10px 35px rgba(96, 165, 250, 0.08) !important;
+    }
+
+    .detail-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
+        gap: 30px;
+        max-width: 100%;
+        margin: 0 auto;
+    }
+
+    .detail-grid > * {
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    @media screen and (max-width: 1024px) {
+        .detail-grid {
+            grid-template-columns: minmax(0, 1fr);
+            gap: 20px;
+        }
+    }
+</style>
+
 <div class="breadcrumb" style="display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--text-muted);margin-bottom:16px;">
     <a href="{{ url_for('web_recepcion.list_received_ecf') }}" style="color:var(--text-muted);text-decoration:none;">e-CF Recibidos</a>
     <span class="sep" style="color:#cbd5e1;">/</span>
     <span>{{ doc.encf }}</span>
 </div>
 
-<div class="card" style="padding: 24px;">
-    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 24px;">
-        <div>
-            <h2 style="margin: 0 0 4px;">e-CF {{ doc.encf }}</h2>
-            <p style="color: var(--text-secondary); margin: 0; font-size: 0.88rem;">
-                {{ doc.ecf_type or 'Tipo no especificado' }}
-            </p>
-        </div>
-        <div>
-            {% if doc.status == 'recibido' %}
-            <span class="badge badge-warning" style="font-size: 0.85rem; padding: 6px 14px;">Recibido</span>
-            {% elif doc.status == 'procesado' %}
-            <span class="badge badge-success" style="font-size: 0.85rem; padding: 6px 14px;">Procesado</span>
+<div class="detail-grid">
+    <div style="display: flex; flex-direction: column; gap: 30px;">
+        <!-- Vista Principal del e-CF Recibido (estilo premium) -->
+        <div class="card-table-wrapper document-card-sheet received-card" style="padding: 40px; position: relative;">
+            <!-- Píldora de Sandbox visual -->
+            {% if session.get('is_sandbox_mode', True) %}
+            <div
+                style="position: absolute; top: 0; right: 0; background-color: var(--accent-purple); color: white; padding: 6px 16px; border-bottom-left-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; z-index: 15;">
+                Sandbox Mode
+            </div>
             {% endif %}
+
+            <!-- Encabezado del Emisor -->
+            <div
+                style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border-color); padding-bottom: 30px; margin-bottom: 30px; flex-wrap: wrap; gap: 20px;">
+                <div style="display: flex; align-items: center; gap: 24px;">
+                    <div
+                        style="width: 58px; height: 58px; border-radius: var(--radius-md); background: linear-gradient(135deg, #2563eb, #60a5fa); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.5rem; flex-shrink: 0;">
+                        <i class="fa-solid fa-inbox"></i>
+                    </div>
+                    <div>
+                        <h2
+                            style="font-size: 1.7rem; font-weight: 800; font-family: var(--font-heading); background: linear-gradient(135deg, var(--accent-blue), #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;">
+                            {{ detail.razon_social_emisor or doc.sender_name or 'Emisor no especificado' }}
+                        </h2>
+                        <span
+                            style="font-family: monospace; font-size: 0.88rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">RNC
+                            Emisor: {{ detail.rnc_emisor or doc.sender_rnc or '-' }}</span>
+                        {% if detail.nombre_comercial %}
+                        <span style="font-size: 0.82rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">{{
+                            detail.nombre_comercial }}</span>
+                        {% endif %}
+                        {% if detail.direccion_emisor %}
+                        <span style="font-size: 0.82rem; color: var(--text-muted); display: block;">{{
+                            detail.direccion_emisor }}</span>
+                        {% endif %}
+                        {% if detail.telefono_emisor or detail.correo_emisor %}
+                        <span style="font-size: 0.82rem; color: var(--text-muted); display: block;">
+                            {% if detail.telefono_emisor %}<i class="fa-solid fa-phone"></i> {{ detail.telefono_emisor }}{% endif %}
+                            {% if detail.telefono_emisor and detail.correo_emisor %} | {% endif %}
+                            {% if detail.correo_emisor %}<i class="fa-solid fa-envelope"></i> {{ detail.correo_emisor }}{% endif %}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div style="text-align: right;">
+                    <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 6px; font-family: monospace;">{{
+                        doc.encf }}</h3>
+                    <span class="badge" style="background: var(--accent-blue); color: white; margin-bottom: 10px;">{{
+                        (detail.tipo_ecf or doc.ecf_type) | ecf_label }}</span>
+                    {% if doc.status == 'recibido' %}
+                    <span class="badge badge-warning" style="margin-bottom: 10px; margin-left: 4px;">Recibido</span>
+                    {% elif doc.status == 'procesado' %}
+                    <span class="badge badge-success" style="margin-bottom: 10px; margin-left: 4px;">Procesado</span>
+                    {% elif doc.status == 'rechazado' %}
+                    <span class="badge badge-danger" style="margin-bottom: 10px; margin-left: 4px;">Rechazado</span>
+                    {% endif %}
+                    {% if detail.fecha_emision %}
+                    <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px;">Fecha: <strong>{{
+                            detail.fecha_emision | replace('-', '/') }}</strong></div>
+                    {% endif %}
+                    {% if detail.fecha_vencimiento %}
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);">Vence: <strong>{{
+                            detail.fecha_vencimiento | replace('-', '/') }}</strong></div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Información de Receptor / Comprador -->
+            <div
+                style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; background-color: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 20px; margin-bottom: 30px;">
+                <div>
+                    <span
+                        style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 500; display: block; margin-bottom: 6px;">Receptor
+                        (Nuestra Empresa)</span>
+                    <strong style="font-size: 1.05rem; display: block; margin-bottom: 4px;">{{ doc.receiver_name or
+                        detail.razon_social_comprador or '-' }}</strong>
+                    <span
+                        style="font-family: monospace; font-size: 0.88rem; color: var(--text-secondary); display: block;">RNC/Cédula:
+                        {{ doc.receiver_rnc or detail.rnc_comprador or '-' }}</span>
+                </div>
+
+                <div style="text-align: right;">
+                    <span
+                        style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 500; display: block; margin-bottom: 6px;">Detalles
+                        de Recepción</span>
+                    <span
+                        style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">Recibido
+                        el: <strong>{{ (doc.received_at or '')[:10] | format_date }}</strong></span>
+                    <span style="font-size: 0.85rem; color: var(--text-secondary); display: block;">Tipo de Documento:
+                        <strong>{{ (detail.tipo_ecf or doc.ecf_type) | ecf_label }}</strong></span>
+                </div>
+            </div>
+
+            <!-- Tabla de Items -->
+            {% if detail.detalle_items %}
+            <div class="table-responsive" style="margin-bottom: 30px;">
+                <table class="table-premium">
+                    <thead>
+                        <tr
+                            style="border-bottom: 2px solid var(--border-color); background-color: rgba(255,255,255,0.015);">
+                            <th
+                                style="padding: 12px 14px; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.03em;">
+                                Cód.</th>
+                            <th
+                                style="padding: 12px 14px; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.03em;">
+                                Artículo/Desc.</th>
+                            <th
+                                style="padding: 12px 14px; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.03em; text-align: right;">
+                                Precio Unit.</th>
+                            <th
+                                style="padding: 12px 14px; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.03em; text-align: center;">
+                                Cant.</th>
+                            <th
+                                style="padding: 12px 14px; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.03em; text-align: right;">
+                                Desc.</th>
+                            <th
+                                style="padding: 12px 14px; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.03em; text-align: right;">
+                                Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in detail.detalle_items %}
+                        <tr>
+                            <td style="padding: 12px 14px; vertical-align: middle;"><span
+                                    style="font-family: monospace; font-size: 0.78rem; font-weight: 500; color: var(--text-secondary);">{{
+                                    item.codigo or item.numero_linea or 'S/C' }}</span></td>
+                            <td style="padding: 12px 14px; vertical-align: middle;">
+                                <strong
+                                    style="font-size: 0.82rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em;">{{
+                                    item.nombre or 'Artículo' }}</strong>
+                                {% if item.monto_exento and item.monto_exento > 0 %}
+                                <span
+                                    style="display: block; font-size: 0.7rem; color: var(--accent-emerald); font-weight: 700; margin-top: 4px; letter-spacing: 0.02em;">
+                                    <i class="fa-solid fa-circle-check"></i> Exento de ITBIS
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td
+                                style="padding: 12px 14px; text-align: right; vertical-align: middle; font-size: 0.8rem; font-weight: 500; color: var(--text-primary);">
+                                RD$ {{ "{:,.2f}".format(item.precio_unitario) }}</td>
+                            <td
+                                style="padding: 12px 14px; text-align: center; vertical-align: middle; font-size: 0.8rem; font-weight: 700; color: var(--text-primary);">
+                                {{ "{:,.2f}".format(item.cantidad) }}</td>
+                            <td
+                                style="padding: 12px 14px; text-align: right; vertical-align: middle; font-size: 0.8rem; font-weight: 500; color: var(--text-muted);">
+                                {% if item.descuento and item.descuento > 0 %}RD$ {{ "{:,.2f}".format(item.descuento)
+                                }}{% else %}-{% endif %}</td>
+                            <td
+                                style="padding: 12px 14px; text-align: right; vertical-align: middle; font-size: 0.82rem; font-weight: 800; color: var(--text-primary);">
+                                RD$ {{ "{:,.2f}".format(item.monto_item) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+
+            <!-- Sección de Totales / Resumen -->
+            <div
+                style="display: flex; justify-content: space-between; align-items: flex-start; border-top: 1px solid var(--border-color); padding-top: 30px; flex-wrap: wrap; gap: 20px;">
+                <div>
+                    <span
+                        style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 500; display: block; margin-bottom: 6px;">Notas</span>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; max-width: 400px; line-height: 1.4;">
+                        Comprobante fiscal electrónico recibido del emisor {{
+                        detail.razon_social_emisor or doc.sender_name or '-' }}. Track ID: <span
+                            style="font-family: monospace;">{{ doc.track_id or '-' }}</span>.
+                    </p>
+                </div>
+
+                <div style="min-width: min(320px, 100%); display: flex; flex-direction: column; gap: 12px;">
+                    <div
+                        style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-secondary);">
+                        <span>Monto Gravado:</span>
+                        <span>RD$ {{ "{:,.2f}".format(detail.monto_gravado_total | float) }}</span>
+                    </div>
+                    {% if detail.monto_gravado_i1 or detail.monto_gravado_i2 or detail.monto_gravado_i3 %}
+                    <div style="padding-left: 14px; border-left: 2px solid var(--border-color); display: flex; flex-direction: column; gap: 6px;">
+                        {% if detail.monto_gravado_i1 %}
+                        <div
+                            style="display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--text-muted);">
+                            <span>Gravado ITBIS 18%:</span>
+                            <span>RD$ {{ "{:,.2f}".format(detail.monto_gravado_i1 | float) }}</span>
+                        </div>
+                        {% endif %}
+                        {% if detail.monto_gravado_i2 %}
+                        <div
+                            style="display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--text-muted);">
+                            <span>Gravado ITBIS 16%:</span>
+                            <span>RD$ {{ "{:,.2f}".format(detail.monto_gravado_i2 | float) }}</span>
+                        </div>
+                        {% endif %}
+                        {% if detail.monto_gravado_i3 %}
+                        <div
+                            style="display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--text-muted);">
+                            <span>Gravado Otras Tasas:</span>
+                            <span>RD$ {{ "{:,.2f}".format(detail.monto_gravado_i3 | float) }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% if detail.monto_exento %}
+                    <div
+                        style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-secondary);">
+                        <span>Monto Exento:</span>
+                        <span>RD$ {{ "{:,.2f}".format(detail.monto_exento | float) }}</span>
+                    </div>
+                    {% endif %}
+                    <div
+                        style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-secondary);">
+                        <span>ITBIS Total:</span>
+                        <span>RD$ {{ "{:,.2f}".format(detail.total_itbis | float) }}</span>
+                    </div>
+                    {% if detail.total_isr_retencion %}
+                    <div
+                        style="display: flex; justify-content: space-between; font-size: 0.88rem; color: var(--text-muted);">
+                        <span>(-) Retención ISR:</span>
+                        <span>-RD$ {{ "{:,.2f}".format(detail.total_isr_retencion | float) }}</span>
+                    </div>
+                    {% endif %}
+                    {% if detail.total_itbis_retenido %}
+                    <div
+                        style="display: flex; justify-content: space-between; font-size: 0.88rem; color: var(--text-muted);">
+                        <span>(-) Retención ITBIS:</span>
+                        <span>-RD$ {{ "{:,.2f}".format(detail.total_itbis_retenido | float) }}</span>
+                    </div>
+                    {% endif %}
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; font-size: 1.25rem; font-weight: 800; color: var(--accent-blue); background-color: rgba(59, 130, 246, 0.06); border: 1px dashed var(--accent-blue); border-radius: var(--radius-sm); padding: 12px 16px; margin-top: 8px;">
+                        <span style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.02em;">Monto
+                            Total:</span>
+                        <span>RD$ {{ "{:,.2f}".format(detail.monto_total or (doc.monto_total | float)) }}</span>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px;">
-        <div class="info-group">
-            <label style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Remitente (RNC)</label>
-            <p style="margin: 4px 0 0; font-weight: 600;">{{ doc.sender_rnc or '-' }}</p>
+    <!-- Barra Lateral: Estado DGII y Acciones -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+        <div class="card-table-wrapper"
+            style="padding: 24px; text-align: center; {% if doc.estado_arecf == '1' %}border: 1.5px solid var(--accent-red); background: rgba(239, 68, 68, 0.03);{% else %}border: 1.5px solid var(--accent-emerald); background: rgba(16, 185, 129, 0.03);{% endif %}">
+            <div
+                style="width: 52px; height: 52px; border-radius: 50%; background: {% if doc.estado_arecf == '1' %}var(--accent-red){% else %}linear-gradient(135deg, #059669, #10b981){% endif %}; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; color: white;">
+                <i class="fa-solid {% if doc.estado_arecf == '1' %}fa-circle-xmark{% else %}fa-circle-check{% endif %}"
+                    style="font-size: 1.2rem;"></i>
+            </div>
+            <h4 style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 8px; color: {% if doc.estado_arecf == '1' %}var(--accent-red){% else %}var(--accent-emerald){% endif %};">
+                {% if doc.estado_arecf == '1' %}Documento Rechazado{% else %}Documento Aceptado{% endif %}</h4>
+            <p style="color: var(--text-secondary); font-size: 0.79rem; line-height: 1.45; margin-bottom: 16px;">
+                {% if doc.estado_arecf == '1' %}
+                La recepción fue rechazada (código de motivo {{ doc.codigo_motivo_no_recibido or '-' }}).
+                {% else %}
+                El comprobante fue validado y aceptado con ARECF emitido.
+                {% endif %}
+            </p>
+            <div
+                style="background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 10px; font-family: monospace; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 12px; word-break: break-all;">
+                Track ID: {{ doc.track_id or '-' }}
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <a href="{{ url_for('web_recepcion.download_received_xml', ecf_id=doc.id) }}" class="btn btn-secondary"
+                    style="width: 100%; font-size: 0.82rem; padding: 8px 16px;">
+                    <i class="fa-solid fa-file-code" style="color: var(--accent-blue);"></i>
+                    <span>Descargar XML Recibido</span>
+                </a>
+                <a href="{{ url_for('web_recepcion.download_arecf', ecf_id=doc.id) }}" class="btn btn-primary"
+                    style="width: 100%; font-size: 0.82rem; padding: 8px 16px;">
+                    <i class="fa-solid fa-receipt"></i>
+                    <span>Descargar ARECF</span>
+                </a>
+            </div>
         </div>
-        <div class="info-group">
-            <label style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Razón Social Remitente</label>
-            <p style="margin: 4px 0 0;">{{ doc.sender_name or '-' }}</p>
-        </div>
-        <div class="info-group">
-            <label style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Receptor (RNC)</label>
-            <p style="margin: 4px 0 0; font-weight: 600;">{{ doc.receiver_rnc or '-' }}</p>
-        </div>
-        <div class="info-group">
-            <label style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Monto Total</label>
-            <p style="margin: 4px 0 0; font-weight: 600;">$ {{ "%.2f"|format(doc.monto_total|float) if doc.monto_total else '0.00' }}</p>
-        </div>
-        <div class="info-group">
-            <label style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">e-NCF</label>
-            <p style="margin: 4px 0 0; font-weight: 600;">{{ doc.encf or '-' }}</p>
-        </div>
-        <div class="info-group">
-            <label style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Fecha de Recepción</label>
-            <p style="margin: 4px 0 0;">{{ (doc.received_at or '')[:19] }}</p>
-        </div>
-        <div class="info-group">
-            <label style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Track ID</label>
-            <p style="margin: 4px 0 0; font-family: monospace; font-size: 0.82rem;">{{ doc.track_id or '-' }}</p>
+
+        <div class="card-table-wrapper" style="padding: 24px; display: flex; flex-direction: column; gap: 12px;">
+            <div style="text-align: center; padding-bottom: 8px;">
+                <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 4px; text-transform: uppercase; font-weight: 700;">Recibido el</span>
+                <strong style="font-size: 0.95rem; color: var(--text-primary);">{{ (doc.received_at or '')[:10] | format_date }}</strong>
+            </div>
+            <a href="{{ url_for('web_recepcion.list_received_ecf') }}" class="btn btn-secondary"
+                style="width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                <i class="fa-solid fa-arrow-rotate-left"></i>
+                <span>Volver al Listado</span>
+            </a>
         </div>
     </div>
-
-    <div style="display: flex; gap: 12px; margin-top: 16px; padding-top: 20px; border-top: 1px solid var(--border-color);">
-        <a href="{{ url_for('web_recepcion.download_received_xml', ecf_id=doc.id) }}" class="btn btn-primary">
-            <i class="fa-solid fa-download"></i> Descargar XML Recibido
-        </a>
-        <a href="{{ url_for('web_recepcion.download_arecf', ecf_id=doc.id) }}" class="btn btn-secondary">
-            <i class="fa-solid fa-receipt"></i> Descargar ARECF
-        </a>
-    </div>
-</div>
-
-{% if doc.xml_content %}
-<div class="card" style="padding: 24px; margin-top: 20px;">
-    <h3 style="margin: 0 0 12px; font-size: 1rem;">XML del e-CF Recibido</h3>
-    <pre style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 6px; padding: 16px; overflow-x: auto; font-size: 0.78rem; max-height: 400px; line-height: 1.5;">{{ doc.xml_content }}</pre>
-</div>
-{% endif %}
-
-{% if doc.arecf_xml %}
-<div class="card" style="padding: 24px; margin-top: 20px;">
-    <h3 style="margin: 0 0 12px; font-size: 1rem;">ARECF — Acuse de Recibo</h3>
-    <pre style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 6px; padding: 16px; overflow-x: auto; font-size: 0.78rem; max-height: 400px; line-height: 1.5;">{{ doc.arecf_xml }}</pre>
-</div>
-{% endif %}
 </div>
 {% endblock %}

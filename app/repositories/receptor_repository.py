@@ -164,11 +164,15 @@ class ReceptorRepository:
 
         El filtro por estado se aplica en memoria para no requerir un
         índice compuesto Firestore (status + received_at).
+        `limit=None` devuelve todos los documentos (para filtros UI).
         """
         docs = []
         for coll in ReceptorRepository._receptor_collections(owner_uid, COLLECTION_RECEIVED_ECF):
             try:
-                for doc in coll.order_by("received_at", direction="DESCENDING").limit(limit).stream():
+                query = coll.order_by("received_at", direction="DESCENDING")
+                if limit:
+                    query = query.limit(limit)
+                for doc in query.stream():
                     data = doc.to_dict() or {}
                     data["id"] = doc.id
                     docs.append(data)
@@ -177,7 +181,7 @@ class ReceptorRepository:
         docs.sort(key=lambda d: str(d.get("received_at") or ""), reverse=True)
         if status:
             docs = [d for d in docs if d.get("status") == status]
-        return docs[:limit]
+        return docs[:limit] if limit else docs
 
     @staticmethod
     def get_received_ecf_merged(owner_uid, ecf_id):
