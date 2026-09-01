@@ -1,5 +1,5 @@
 {% extends "rrhh/layout_hr.html" %}
-{% block title %}Dashboard Offboarding — {{ product_name }}{% endblock %}
+{% block title %}Dashboard Desvinculaciones — {{ product_name }}{% endblock %}
 {% block extra_head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <style>
@@ -18,7 +18,7 @@
         <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:16px; flex-wrap:wrap;">
             <div>
                 <h1 class="page-title" style="font-size:1.6rem; font-weight:800; margin:0;">
-                    <i class="fa-solid fa-door-open" style="color:var(--danger);"></i> Dashboard Offboarding
+                    <i class="fa-solid fa-door-open" style="color:var(--danger);"></i> Dashboard Desvinculaciones
                 </h1>
                 <p style="color:var(--text-secondary); margin:6px 0 0; font-size:0.88rem;">
                     Resumen de solicitudes de salida de empleados
@@ -164,7 +164,7 @@
             </div>
         </div>
         <p style="font-size:0.85rem; color:var(--text-secondary); margin:0 0 12px;">
-            Crea registros de offboarding para empleados que fueron desvinculados antes de la existencia de este módulo.
+            Crea registros de desvinculación para empleados que fueron desvinculados antes de la existencia de este módulo.
         </p>
         <div style="display:flex; gap:8px; padding:0 0 12px;">
             <form method="POST" action="{{ url_for('web_rrhh.offboarding_migrate') }}">
@@ -172,7 +172,7 @@
                 <input type="hidden" name="dry_run" value="1">
                 <button type="submit" class="btn btn-ghost btn-sm"><i class="fa-solid fa-eye"></i> Simular migración</button>
             </form>
-            <form method="POST" action="{{ url_for('web_rrhh.offboarding_migrate') }}" onsubmit="return confirm('¿Estás seguro de migrar todos los empleados inactivos sin registro de offboarding?')">
+            <form method="POST" action="{{ url_for('web_rrhh.offboarding_migrate') }}" onsubmit="return confirm('¿Estás seguro de migrar todos los empleados inactivos sin registro de desvinculación?')">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-warning btn-sm"><i class="fa-solid fa-play"></i> Ejecutar migración</button>
             </form>
@@ -188,7 +188,7 @@
             </div>
         </div>
         <p style="font-size:0.85rem; color:var(--text-secondary); margin:0 0 12px;">
-            Marca como inactivos los empleados cuya solicitud de offboarding está completada pero su estado quedó activo.
+            Marca como inactivos los empleados cuya solicitud de desvinculación está completada pero su estado quedó activo.
         </p>
         <div style="display:flex; gap:8px; padding:0 0 12px;">
             <form method="POST" action="{{ url_for('web_rrhh.offboarding_fix_status') }}">
@@ -196,7 +196,7 @@
                 <input type="hidden" name="dry_run" value="1">
                 <button type="submit" class="btn btn-ghost btn-sm"><i class="fa-solid fa-eye"></i> Simular corrección</button>
             </form>
-            <form method="POST" action="{{ url_for('web_rrhh.offboarding_fix_status') }}" onsubmit="return confirm('¿Corregir el estado de todos los empleados con offboarding completado?')">
+            <form method="POST" action="{{ url_for('web_rrhh.offboarding_fix_status') }}" onsubmit="return confirm('¿Corregir el estado de todos los empleados con desvinculación completada?')">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-warning btn-sm"><i class="fa-solid fa-play"></i> Corregir estados</button>
             </form>

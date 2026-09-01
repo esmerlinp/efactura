@@ -1,5 +1,5 @@
 {% extends "rrhh/layout_hr.html" %}
-{% block title %}{% if is_edit %}Editar{% else %}Nueva{% endif %} Solicitud de Offboarding{% endblock %}
+{% block title %}{% if is_edit %}Editar{% else %}Nueva{% endif %} Solicitud de Desvinculación{% endblock %}
 {% block extra_head %}
 <style>
 .searchable-wrapper { position: relative; width: 100%; }
@@ -35,7 +35,7 @@
 {% include "rrhh/_styles.html" %}
 
 <div class="hr-page-header">
-    <h1><i class="fa-solid fa-door-open"></i> {% if is_edit %}Editar{% else %}Nueva{% endif %} Solicitud de Offboarding</h1>
+    <h1><i class="fa-solid fa-door-open"></i> {% if is_edit %}Editar{% else %}Nueva{% endif %} Solicitud de Desvinculación</h1>
     <a href="{% if is_edit %}{{ url_for('web_rrhh.offboarding_detail', request_id=request_data.id) }}{% else %}{{ url_for('web_rrhh.offboarding_list') }}{% endif %}" class="btn btn-ghost">
         <i class="fa-solid fa-arrow-left"></i> Volver
     </a>
