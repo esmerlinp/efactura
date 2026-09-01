@@ -12,54 +12,59 @@
     </div>
 </div>
 
+<style>
+.hr-compact-table th { padding: 7px 12px; }
+.hr-compact-table td { padding: 6px 12px; }
+</style>
+
 <div class="card-table-wrapper hr-table-card">
     <div class="table-responsive">
-        <table class="table-premium" style="font-size:0.85rem;">
+        <table class="table-premium hr-compact-table" style="font-size:0.8rem;">
         <thead>
             <tr>
-                <th>Código</th>
+                <th>Cód.</th>
                 <th>Nombre</th>
                 <th>Tipo</th>
-                <th>Categoría</th>
-                <th>Prioridad</th>
-                <th>Imponible</th>
+                <th>Cat.</th>
+                <th style="text-align:right;">Prio.</th>
+                <th style="text-align:center;">Imp.</th>
                 <th>Estado</th>
-                <th>Acciones</th>
+                <th style="width:1%;"></th>
             </tr>
         </thead>
         <tbody>
             {% for c in concepts %}
             <tr>
-                <td><code style="font-size:0.8rem;">{{ c.code }}</code></td>
-                <td><strong>{{ c.name }}</strong></td>
-                <td>
-                    {% if c.type == 'earning' %}<span class="badge badge-success">Ingreso</span>
-                    {% elif c.type == 'deduction' %}<span class="badge badge-danger">Deducción</span>
-                    {% elif c.type == 'employer_contrib' %}<span class="badge badge-purple">Aporte Empleador</span>
+                <td style="white-space:nowrap; color:var(--text-secondary); font-family:var(--font-mono, ui-monospace, monospace);">{{ c.code }}</td>
+                <td style="white-space:nowrap; font-weight:600;">{{ c.name }}</td>
+                <td style="white-space:nowrap; font-weight:600;
+                    {% if c.type == 'earning' %}color:var(--accent-emerald);
+                    {% elif c.type == 'deduction' %}color:var(--danger);
+                    {% elif c.type == 'employer_contrib' %}color:var(--accent-purple);
+                    {% else %}color:var(--text-muted);{% endif %}">
+                    {% if c.type == 'earning' %}Ingreso
+                    {% elif c.type == 'deduction' %}Deducción
+                    {% elif c.type == 'employer_contrib' %}Aporte Emp.
                     {% else %}{{ c.type }}{% endif %}
                 </td>
-                <td><span class="badge badge-info">{{ c.category }}</span></td>
-                <td>{{ c.priority }}</td>
-                <td>{{ 'Sí' if c.taxable else 'No' }}</td>
-                <td>
-                    {% if c.active %}
-                    <span class="badge badge-success">Activo</span>
-                    {% else %}
-                    <span class="badge badge-warning">Inactivo</span>
-                    {% endif %}
-                </td>
-                <td><div class="hr-table-actions">
-                    <a href="{{ url_for('web_rrhh.concept_edit', concept_code=c.code) }}" class="btn btn-sm btn-ghost"
-                       title="Editar"><i class="fa-solid fa-pen-to-square"></i></a>
-                    <form method="POST" action="{{ url_for('web_rrhh.concept_toggle', concept_code=c.code) }}" style="display:contents;">
+                <td style="white-space:nowrap; color:var(--text-muted);">{{ c.category }}</td>
+                <td style="text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums;">{{ c.priority }}</td>
+                <td style="text-align:center; white-space:nowrap; color:var(--text-muted);">{{ 'Sí' if c.taxable else 'No' }}</td>
+                <td style="white-space:nowrap; font-weight:600; color:{{ 'var(--accent-emerald)' if c.active else 'var(--accent-amber)' }};">{{ 'Activo' if c.active else 'Inactivo' }}</td>
+                <td style="white-space:nowrap; text-align:right;">
+                    <a href="{{ url_for('web_rrhh.concept_edit', concept_code=c.code) }}" title="Editar"
+                       style="color:var(--text-muted); text-decoration:none; font-size:0.85rem; padding:2px 6px;"
+                       onmouseover="this.style.color='var(--accent-emerald)'" onmouseout="this.style.color='var(--text-muted)'"><i class="fa-solid fa-pen-to-square"></i></a>
+                    <form method="POST" action="{{ url_for('web_rrhh.concept_toggle', concept_code=c.code) }}" style="display:inline;">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn btn-sm btn-ghost"
-                                title="{{ 'Desactivar' if c.active else 'Activar' }}">
-                            <i class="fa-solid fa-{{ 'toggle-on' if c.active else 'toggle-off' }}"
-                               style="color:{% if c.active %}var(--accent-emerald){% else %}var(--text-muted){% endif %};"></i>
+                        <button type="submit" title="{{ 'Desactivar' if c.active else 'Activar' }}"
+                                style="background:none; border:none; cursor:pointer; padding:2px 6px; font-size:0.85rem;
+                                       color:{% if c.active %}var(--accent-emerald){% else %}var(--text-muted){% endif %};"
+                                onmouseover="this.style.color='var(--accent-emerald)'" onmouseout="this.style.color='{% if c.active %}var(--accent-emerald){% else %}var(--text-muted){% endif %}'">
+                            <i class="fa-solid fa-{{ 'toggle-on' if c.active else 'toggle-off' }}"></i>
                         </button>
                     </form>
-                </div></td>
+                </td>
             </tr>
             {% else %}
             <tr><td colspan="8" class="text-center text-muted">No hay conceptos configurados.</td></tr>
