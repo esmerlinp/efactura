@@ -12,20 +12,19 @@ def _check_auth():
 
 
 def _get_context():
-    owner_uid = session["user"]["ownerUID"]
+    owner_uid = session.get("selected_owner_uid") or session["user"].get("ownerUID")
     company_id = session.get("selected_company_id")
-    sandbox = session.get("is_sandbox_mode", True)
-    return owner_uid, company_id, sandbox
+    return owner_uid, company_id
 
 
 @web_recepcion_bp.route("/recepcion/ecf")
 def list_received_ecf():
     if not _check_auth():
         return redirect(url_for("web_auth.login"))
-    owner_uid, company_id, sandbox = _get_context()
+    owner_uid, company_id = _get_context()
     status_filter = request.args.get("status", "")
-    documents = ReceptorRepository.list_received_ecf(
-        owner_uid, sandbox=sandbox,
+    documents = ReceptorRepository.list_received_ecf_merged(
+        owner_uid,
         status=status_filter if status_filter else None
     )
     return render_template(
@@ -41,8 +40,8 @@ def list_received_ecf():
 def detail_received_ecf(ecf_id):
     if not _check_auth():
         return redirect(url_for("web_auth.login"))
-    owner_uid, company_id, sandbox = _get_context()
-    doc = ReceptorRepository.get_received_ecf(owner_uid, ecf_id, sandbox=sandbox)
+    owner_uid, company_id = _get_context()
+    doc = ReceptorRepository.get_received_ecf_merged(owner_uid, ecf_id)
     if not doc:
         flash("Documento no encontrado.", "error")
         return redirect(url_for("web_recepcion.list_received_ecf"))
@@ -58,8 +57,8 @@ def detail_received_ecf(ecf_id):
 def download_received_xml(ecf_id):
     if not _check_auth():
         return redirect(url_for("web_auth.login"))
-    owner_uid, company_id, sandbox = _get_context()
-    doc = ReceptorRepository.get_received_ecf(owner_uid, ecf_id, sandbox=sandbox)
+    owner_uid, company_id = _get_context()
+    doc = ReceptorRepository.get_received_ecf_merged(owner_uid, ecf_id)
     if not doc:
         flash("Documento no encontrado.", "error")
         return redirect(url_for("web_recepcion.list_received_ecf"))
@@ -77,8 +76,8 @@ def download_received_xml(ecf_id):
 def download_arecf(ecf_id):
     if not _check_auth():
         return redirect(url_for("web_auth.login"))
-    owner_uid, company_id, sandbox = _get_context()
-    doc = ReceptorRepository.get_received_ecf(owner_uid, ecf_id, sandbox=sandbox)
+    owner_uid, company_id = _get_context()
+    doc = ReceptorRepository.get_received_ecf_merged(owner_uid, ecf_id)
     if not doc:
         flash("Documento no encontrado.", "error")
         return redirect(url_for("web_recepcion.list_received_ecf"))
@@ -98,8 +97,8 @@ def download_arecf(ecf_id):
 def list_approvals():
     if not _check_auth():
         return redirect(url_for("web_auth.login"))
-    owner_uid, company_id, sandbox = _get_context()
-    documents = ReceptorRepository.list_received_approvals(owner_uid, sandbox=sandbox)
+    owner_uid, company_id = _get_context()
+    documents = ReceptorRepository.list_received_approvals_merged(owner_uid)
     return render_template(
         "recepcion/approvals_list.html",
         documents=documents,

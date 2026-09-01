@@ -200,6 +200,16 @@ class Config:
     DGII_SANDBOX_MODE = os.getenv('DGII_SANDBOX_MODE', 'local').lower()
     DGII_USER_AGENT = os.getenv('DGII_USER_AGENT', 'VykOne/1.0')
 
+    # --- Receptor e-CF (URLs registradas ante la DGII: /fe/...) ---
+    RECEPTOR_AUTH_ENABLED = os.getenv('RECEPTOR_AUTH_ENABLED', 'true').lower() == 'true'
+    RECEPTOR_TOKEN_EXPIRY_MINUTES = int(os.getenv('RECEPTOR_TOKEN_EXPIRY_MINUTES', '30'))
+    RECEPTOR_SEED_TTL_SECONDS = int(os.getenv('RECEPTOR_SEED_TTL_SECONDS', '900'))
+    RECEPTOR_REQUIRE_SIGNATURE = os.getenv('RECEPTOR_REQUIRE_SIGNATURE', 'false').lower() == 'true'
+    # Empresa receptora por defecto del despliegue (el RNC del certificado del
+    # emisor no identifica al receptor). Usar el owner_uid de la compañía
+    # certificada/receptora de este entorno.
+    RECEPTOR_DEFAULT_OWNER_UID = os.getenv('RECEPTOR_DEFAULT_OWNER_UID', '')
+
     # Nombre del producto (marca)
     PRODUCT_NAME = os.getenv('PRODUCT_NAME', 'VykOne')
 
