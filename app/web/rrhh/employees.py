@@ -12,6 +12,7 @@ from app.web.rrhh import (
 from app.services import hr_data_service as hr
 from app.services.payroll_static_data import DEFAULT_PAYROLL_CONFIG
 from app.services.payroll_service import PayrollService
+from app.utils.hr_utils import is_active_equivalent
 from app.services.payroll_audit_service import log_action
 from app.data.occupations_catalog import OCCUPATIONS
 
@@ -30,8 +31,14 @@ def employee_list():
 
     employees = hr.get_employees(company_id, sandbox=sandbox)
     from app.services.payroll_service import PayrollService
+    from app.services.employee_status_service import EmployeeStatusService
+    vac_by_emp = {}
+    for r in hr.get_vacation_requests(company_id, sandbox=sandbox):
+        vac_by_emp.setdefault(r.get("employeeId", ""), []).append(r)
     for emp in employees:
-        emp["vacationDays"] = PayrollService.calculate_vacation_days(emp.get("hireDate", ""))
+        taken = EmployeeStatusService.taken_vacation_days(vac_by_emp.get(emp.get("id", ""), []))
+        emp["vacationDays"] = PayrollService.calculate_vacation_days(
+            emp.get("hireDate", ""), taken_days=taken)
 
     branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id)
 
@@ -56,6 +63,8 @@ def employee_list():
     total = len(employees)
     active_count = sum(1 for e in employees if e.get("status") == "activo")
     inactive_count = sum(1 for e in employees if e.get("status") == "inactivo")
+    vacation_count = sum(1 for e in employees if e.get("status") == "vacaciones")
+    leave_count = sum(1 for e in employees if e.get("status") == "licencia")
 
     # ── Departamentos disponibles para filtro ──
     departments_set = sorted(set(e.get("department", "") or e.get("area", "") for e in employees if e.get("department") or e.get("area")))
@@ -83,7 +92,8 @@ def employee_list():
                            filter_status=filter_status, filter_department=filter_department,
                            filter_branch=filter_branch, branches=branches,
                            departments_set=departments_set, active_count=active_count,
-                           inactive_count=inactive_count)
+                           inactive_count=inactive_count,
+                           vacation_count=vacation_count, leave_count=leave_count)
 
 
 @web_rrhh_bp.route("/rrhh/employees/new", methods=["GET", "POST"])
@@ -194,7 +204,7 @@ def employee_new():
     ref_data = hr.get_reference_data(company_id, sandbox=sandbox)
     contract_types = ref_data.get("contractTypes", CONTRACT_TYPES)
     areas = ref_data.get("areas", AREAS)
-    supervisors = [e for e in hr.get_employees(company_id, sandbox=sandbox) if e.get("status") == "activo"]
+    supervisors = [e for e in hr.get_employees(company_id, sandbox=sandbox) if is_active_equivalent(e.get("status", ""))]
     positions = hr.get_catalog(company_id, "positions", sandbox=sandbox)
     departments = hr.get_catalog(company_id, "departments", sandbox=sandbox)
     payroll_groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
@@ -325,7 +335,7 @@ def employee_edit(employee_id):
     contract_types = ref_data.get("contractTypes", CONTRACT_TYPES)
     areas = ref_data.get("areas", AREAS)
     supervisors = [e for e in hr.get_employees(company_id, sandbox=sandbox)
-                   if e.get("status") == "activo" and e.get("id") != employee_id]
+                   if is_active_equivalent(e.get("status", "")) and e.get("id") != employee_id]
     positions = hr.get_catalog(company_id, "positions", sandbox=sandbox)
     departments = hr.get_catalog(company_id, "departments", sandbox=sandbox)
     payroll_groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
@@ -361,7 +371,23 @@ def employee_view(employee_id):
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_list"))
 
-    vacation_days = PayrollService.calculate_vacation_days(employee.get("hireDate", ""))
+    from app.services.employee_status_service import EmployeeStatusService
+    EmployeeStatusService.sync_employee(
+        company_id, employee_id, sandbox=sandbox,
+        actor=session["user"].get("email", ""))
+    employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
+
+    emp_vac_requests = [
+        r for r in hr.get_vacation_requests(company_id, sandbox=sandbox)
+        if r.get("employeeId") == employee_id
+    ]
+    taken_days = EmployeeStatusService.taken_vacation_days(emp_vac_requests)
+    vacation_days = PayrollService.calculate_vacation_days(
+        employee.get("hireDate", ""), taken_days=taken_days)
+    active_requests = EmployeeStatusService.get_active_requests(
+        company_id, employee_id, sandbox=sandbox)
+    status_events = hr.get_employee_status_events(
+        company_id, employee_id, sandbox=sandbox, limit=100)
     severance = PayrollService.calculate_severance(
         employee.get("baseSalary", 0), employee.get("hireDate", "")
     )
@@ -433,6 +459,8 @@ def employee_view(employee_id):
                            severance=severance, evaluations=evals, trainings=trainings,
                            documents=docs, payment_history=payment_history,
                            employee_actions=employee_actions,
+                           status_events=status_events,
+                           active_requests=active_requests,
                            payroll_groups=hr.get_payroll_groups(company_id, sandbox=sandbox),
                            branches=branches,
                            dependents=dependents, dep_minor=dep_minor, dep_adult=dep_adult,
@@ -454,7 +482,7 @@ def employee_rehire(employee_id):
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_list"))
 
-    if employee.get("status") == "activo":
+    if is_active_equivalent(employee.get("status", "")):
         flash("El empleado ya está activo.", "warning")
         return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
 

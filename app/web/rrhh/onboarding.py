@@ -8,6 +8,7 @@ from app.web.rrhh import (
     _filter_employees_by_period, _generate_periods,
 )
 from app.services import hr_data_service as hr
+from app.utils.hr_utils import is_active_equivalent
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -29,7 +30,7 @@ def onboarding_guide():
 
     step1_done = bool(config.get("payrollFrequency"))
     step2_done = len(positions) > 0 and len(departments) > 0
-    step3_done = len([e for e in employees if e.get("status") == "activo"]) > 0
+    step3_done = len([e for e in employees if is_active_equivalent(e.get("status", ""))]) > 0
     step4_done = True  # Concepts have defaults, always seeded
     step5_done = len(periods) > 0
 

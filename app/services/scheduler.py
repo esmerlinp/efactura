@@ -302,6 +302,47 @@ def run_authorization_timeout(company_id=None):
     logger.info("✅ APScheduler — Timeout de autorizaciones finalizado.")
 
 
+def run_hr_status_transitions(company_id=None):
+    """Job diario (00:15 AM RD): aplica transiciones automáticas de estado
+    de empleados (activo ⇄ vacaciones ⇄ licencia) según sus solicitudes
+    aprobadas vigentes. Idempotente: puede ejecutarse varias veces al día."""
+    from app.services.employee_status_service import EmployeeStatusService
+
+    logger.info("⏰ APScheduler — Iniciando transiciones de estado de empleados (vacaciones/licencias)...")
+
+    owner_uids = _get_all_owner_uids(company_id=company_id)
+    if not owner_uids:
+        logger.info("ℹ️ No se encontraron usuarios para transiciones de estado HR.")
+        return
+
+    total_transitions = 0
+    for owner_uid in owner_uids:
+        for is_sandbox in (True, False):
+            try:
+                transitions = EmployeeStatusService.sync_employee_statuses(
+                    owner_uid, sandbox=is_sandbox)
+                if transitions:
+                    total_transitions += len(transitions)
+                    logger.info(
+                        f"✅ {len(transitions)} transición(es) de estado para "
+                        f"{owner_uid} (sandbox={is_sandbox})")
+            except Exception as exc:
+                logger.error(
+                    f"❌ Error en transiciones de estado HR de {owner_uid} "
+                    f"(sandbox={is_sandbox}): {exc}")
+
+    logger.info(f"✅ APScheduler — Transiciones de estado HR finalizadas: {total_transitions} aplicadas.")
+
+
+def monitored_hr_status_transitions(company_id=None):
+    return _run_monitored(
+        "hr_status_transitions",
+        "Transiciones de Estado de Empleados (Vacaciones/Licencias)",
+        run_hr_status_transitions,
+        company_id=company_id,
+    )
+
+
 def monitored_authorization_timeout(company_id=None):
     return _run_monitored(
         "authorization_timeout",
@@ -397,6 +438,14 @@ def init_scheduler(app):
         trigger=CronTrigger(hour=8, minute=0),   # 8:00 AM RD cada dia
         id="authorization_timeout",
         name="Timeout y Escalacion de Autorizaciones Pendientes",
+        replace_existing=True,
+    )
+
+    _scheduler.add_job(
+        func=monitored_hr_status_transitions,
+        trigger=CronTrigger(hour=0, minute=15),  # 00:15 AM RD cada día
+        id="hr_status_transitions",
+        name="Transiciones de Estado de Empleados (Vacaciones/Licencias)",
         replace_existing=True,
     )
 

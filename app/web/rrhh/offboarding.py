@@ -18,6 +18,7 @@ from app.services.payroll_audit_service import log_action
 from app.models.offboarding import OFFBOARDING_STATES
 from app.services.liquidacion_service import LiquidacionService
 from app.services.recurring_service import get_recurring_movements
+from app.utils.hr_utils import is_active_equivalent
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
@@ -176,7 +177,7 @@ def offboarding_new():
             flash("Empleado no encontrado.", "error")
             return redirect(url_for("web_rrhh.offboarding_new"))
 
-        if employee.get("status") != "activo":
+        if not is_active_equivalent(employee.get("status", "")):
             flash("El empleado ya está inactivo.", "warning")
             return redirect(url_for("web_rrhh.offboarding_list"))
 
@@ -212,7 +213,7 @@ def offboarding_new():
         return redirect(url_for("web_rrhh.offboarding_wizard", request_id=req.id))
 
     employees = hr.get_employees(company_id, sandbox=sandbox)
-    active_employees = [e for e in employees if e.get("status") == "activo"]
+    active_employees = [e for e in employees if is_active_equivalent(e.get("status", ""))]
     preselected_id = request.args.get("employee_id", "")
     return render_template("rrhh/offboarding_form.html",
                            **_ctx(employees=active_employees, request_data=None,
@@ -257,7 +258,7 @@ def offboarding_edit(request_id):
         return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id))
 
     employees = hr.get_employees(company_id, sandbox=sandbox)
-    active_employees = [e for e in employees if e.get("status") == "activo"]
+    active_employees = [e for e in employees if is_active_equivalent(e.get("status", ""))]
     return render_template("rrhh/offboarding_form.html",
                            **_ctx(employees=active_employees, request_data=req,
                                   preselected_id=req.get("employeeId", ""),

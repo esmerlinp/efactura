@@ -10,6 +10,7 @@ from app.web.rrhh import (
 from app.web.invoices import web_invoices_bp
 from app.utils.module_gate import require_module
 from app.services import hr_data_service as hr
+from app.utils.hr_utils import is_active_equivalent
 from app.services.payroll_ytd_service import get_ytd
 from app.services.payroll_service import PayrollService
 import csv, io
@@ -51,7 +52,7 @@ def report_ir18_list():
 
     employee_ytds = []
     for emp in employees:
-        if emp.get("status") != "activo":
+        if not is_active_equivalent(emp.get("status", "")):
             continue
         ytd = get_ytd(company_id, emp["id"], year, sandbox=sandbox)
         if ytd.get("grossIncome", 0) > 0:
@@ -590,7 +591,7 @@ def _build_anniversary_data(company_id, sandbox, owner_uid):
     from app.services.db_service import DatabaseService
 
     employees = hr.get_employees(company_id, sandbox=sandbox)
-    employees = [e for e in employees if e.get("status") == "activo" and e.get("hireDate")]
+    employees = [e for e in employees if is_active_equivalent(e.get("status", "")) and e.get("hireDate")]
 
     branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id)
     branch_map = {b["id"]: b.get("name", b.get("code", b["id"])) for b in branches}
@@ -800,7 +801,7 @@ def _build_birthday_data(company_id, sandbox, owner_uid):
     from app.services.db_service import DatabaseService
 
     employees = hr.get_employees(company_id, sandbox=sandbox)
-    employees = [e for e in employees if e.get("status") == "activo" and e.get("birthDate")]
+    employees = [e for e in employees if is_active_equivalent(e.get("status", "")) and e.get("birthDate")]
 
     branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id)
     branch_map = {b["id"]: b.get("name", b.get("code", b["id"])) for b in branches}
@@ -1009,7 +1010,7 @@ def _build_vacation_balance_data(company_id, sandbox, owner_uid):
     from app.services.db_service import DatabaseService
 
     employees = hr.get_employees(company_id, sandbox=sandbox)
-    employees = [e for e in employees if e.get("status") == "activo" and e.get("hireDate")]
+    employees = [e for e in employees if is_active_equivalent(e.get("status", "")) and e.get("hireDate")]
 
     emp_map = {e.get("id", ""): e for e in employees}
 
@@ -1255,7 +1256,7 @@ def _build_vacation_periods_data(company_id, sandbox, owner_uid):
         if req.get("status") != "aprobada":
             continue
         emp = emp_map.get(req.get("employeeId", ""), {})
-        if emp.get("status") != "activo":
+        if not is_active_equivalent(emp.get("status", "")):
             continue
 
         try:

@@ -144,3 +144,50 @@ los grupos (1–3 API, 4 manual), en orden y en la misma sesión.
 Nota: los XSD de DGII usan patrones regex no soportados por libxml2
 (`[$0-9]`, `(?:...)`); el script/test los sanitiza en memoria antes de validar
 con lxml (no modificar los XSD).
+
+## Estados de Empleado — Vacaciones y Licencia (EmployeeStatusService)
+
+El campo `status` del empleado ahora admite 5 valores:
+`activo | inactivo | suspendido | vacaciones | licencia`.
+Los dos últimos son **transitorios** y los gestiona exclusivamente
+`app/services/employee_status_service.py` (nunca fijarlos a mano):
+
+- **Inicio**: cuando una solicitud `aprobada` de vacaciones/licencia tiene
+  `startDate <= hoy <= endDate`, el empleado pasa a `vacaciones`/`licencia`.
+- **Fin**: al terminar la solicitud vigente vuelve automáticamente a `activo`.
+- **Licencia gana**: aprobar una licencia solapada con vacaciones aprobadas
+  revoca la vacación (`status="revocada"`), devolviendo los días no consumidos
+  (solo descuenta días hábiles hasta el inicio de la licencia).
+- **Anulación** (`POST /rrhh/vacations/<id>/anular`): si se anula a mitad de
+  curso, `consumedDays` = días hábiles tomados hasta la fecha de anulación;
+  el resto se reembolsa. Antes del inicio → reembolso total.
+- **Días disponibles**: `taken_vacation_days()` suma `days` de solicitudes
+  `aprobada` + `consumedDays` de `anulada/revocada` (NO sumar `days` de las
+  anuladas/revocadas — ese era el bug del cálculo original).
+
+### Ejecución
+- Job APScheduler diario `hr_status_transitions` (00:15 AM RD) →
+  `sync_employee_statuses()` recorre todas las empresas (sandbox + prod).
+- Auto-sanación: `vacation_list`, `leave_list` y `employee_view` ejecutan el
+  sync al renderizar (idempotente; si el scheduler falló, se recupera solo).
+
+### Regla de nómina (crítica)
+`vacaciones` y `licencia` **cobran y cotizan normal** (equivalente-activo).
+El helper `is_active_equivalent()` (`app/utils/hr_utils.py`) debe usarse en
+todo filtro que antes era `status == "activo"`. Los archivos TSS/IR-13/nómina
+ya fueron ajustados:
+- `payroll_service.py` (`es_ex_empleado` solo si status no está en
+  activo/vacaciones/licencia/"").
+- `tss_novedades_service.py` (misma regla; la novedad VC/LV/LM sale de la
+  solicitud aprobada, no del status).
+- `ir13_service.py` (whitelist ampliada).
+
+### Historial
+Cada transición escribe en la colección `hr_employee_status_events`
+(`trigger`: vacation_start/end, leave_start/end, vacation_cancelled,
+vacation_revoked) y en el log global (`log_action`, entity="employee").
+Se muestra en el Tab "Acciones" de la ficha del empleado.
+
+### Tests
+`python -m pytest tests/test_employee_status_transitions.py` — regresión del
+motor (transiciones, revocación, prorrateo de anulación, idempotencia).

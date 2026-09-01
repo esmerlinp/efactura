@@ -10,6 +10,7 @@ from app.web.rrhh import (
 from app.services import hr_data_service as hr
 from app.services.db_service import DatabaseService
 from app.services.ai_service import AIService
+from app.utils.hr_utils import is_active_equivalent
 from app.extensions import limiter
 import csv, html, io, json, os, re, uuid, threading
 
@@ -312,7 +313,7 @@ def employee_import_process():
         c = (e.get("cedula") or e.get("idNumber") or "").strip()
         if not c:
             continue
-        if e.get("status") == "activo":
+        if is_active_equivalent(e.get("status", "")):
             active_cedulas.add(c)
         else:
             inactive_cedulas.add(c)
@@ -464,7 +465,7 @@ def employee_import_process():
                             skipped += 1
                             continue
                         final_status = "inactivo"
-                    elif status_csv in ("activo", "inactivo", "suspendido"):
+                    elif status_csv in ("activo", "inactivo", "suspendido", "vacaciones", "licencia"):
                         final_status = status_csv
                     else:
                         final_status = "activo"

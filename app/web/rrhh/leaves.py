@@ -1,5 +1,7 @@
 """RRHH module — auto-extracted."""
 
+import uuid
+from datetime import date, datetime
 from flask import render_template, request, redirect, url_for, session, flash, jsonify, send_file
 from app.web.rrhh import (
     web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
@@ -20,9 +22,18 @@ def leave_list():
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
+    # Auto-sanación: sincronizar estados antes de mostrar (idempotente)
+    try:
+        from app.services.employee_status_service import EmployeeStatusService
+        EmployeeStatusService.sync_employee_statuses(company_id, sandbox=sandbox,
+                                                     actor="Sistema (auto-sync)")
+    except Exception:
+        pass
+
     requests = hr.get_leave_requests(company_id, sandbox=sandbox)
     requests.sort(key=lambda r: r.get("startDate", ""), reverse=True)
-    return render_template("rrhh/leave_list.html", active_page="rrhh_attendance", requests=requests)
+    return render_template("rrhh/leave_list.html", active_page="rrhh_attendance",
+                           requests=requests, today=date.today().isoformat())
 
 
 @web_rrhh_bp.route("/rrhh/leaves/new", methods=["GET", "POST"])
@@ -32,7 +43,9 @@ def leave_new():
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    employees = [e for e in hr.get_employees(company_id, sandbox=sandbox) if e.get("status") == "activo"]
+    from app.utils.hr_utils import is_active_equivalent
+    employees = [e for e in hr.get_employees(company_id, sandbox=sandbox)
+                 if is_active_equivalent(e.get("status", ""))]
 
     if request.method == "POST":
         emp_id = request.form.get("employeeId", "")
@@ -86,6 +99,18 @@ def leave_action(request_id, action):
                 if employee:
                     from app.services.hr_notifications import notify_leave_approved
                     notify_leave_approved(employee, req)
+                    # Regla: licencia gana — revocar vacaciones solapadas y
+                    # sincronizar el estado (si está en rango → "licencia").
+                    from app.services.employee_status_service import EmployeeStatusService
+                    revoked = EmployeeStatusService.revoke_overlapping_vacations(
+                        company_id, req, actor=session["user"].get("email", ""),
+                        sandbox=sandbox)
+                    if revoked:
+                        flash(f"{len(revoked)} vacación(es) solapada(s) revocada(s) "
+                              f"y días devueltos al balance.", "info")
+                    EmployeeStatusService.sync_employee(
+                        company_id, employee.get("id", ""), sandbox=sandbox,
+                        actor=session["user"].get("email", ""))
             except Exception:
                 pass
 

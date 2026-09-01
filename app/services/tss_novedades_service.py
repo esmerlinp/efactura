@@ -184,7 +184,8 @@ def generate_tss_novedades(
 
         emp_status = (emp.get("status", "") or "").lower()
         es_suspendido = emp_status == "suspendido"
-        es_ex_empleado = emp_status not in ("activo", "") and emp_status != ""
+        # "vacaciones" y "licencia" cotizan normal (la novedad VC/LV/LM sale de la solicitud)
+        es_ex_empleado = emp_status not in ("activo", "vacaciones", "licencia", "") and emp_status != ""
 
         if es_suspendido:
             salario_ss = 0.0

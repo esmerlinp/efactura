@@ -35,6 +35,14 @@
             <span class="stat-value" style="color:var(--accent-emerald);">{{ active_count }}</span>
         </div>
         <div class="stat-box">
+            <span class="stat-label">Vacaciones</span>
+            <span class="stat-value" style="color:var(--accent-blue);">{{ vacation_count }}</span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-label">Licencia</span>
+            <span class="stat-value" style="color:#7c3aed;">{{ leave_count }}</span>
+        </div>
+        <div class="stat-box">
             <span class="stat-label">Ex-empleados</span>
             <span class="stat-value" style="color:var(--danger);">{{ inactive_count }}</span>
         </div>
@@ -90,8 +98,10 @@
             <select name="status" class="form-select" style="width:auto;">
                 <option value="">Todos los estados</option>
                 <option value="activo" {% if filter_status=='activo' %}selected{% endif %}>Activo</option>
-                <option value="inactivo" {% if filter_status=='inactivo' %}selected{% endif %}>Inactivo</option>
+                <option value="vacaciones" {% if filter_status=='vacaciones' %}selected{% endif %}>Vacaciones</option>
+                <option value="licencia" {% if filter_status=='licencia' %}selected{% endif %}>Licencia</option>
                 <option value="suspendido" {% if filter_status=='suspendido' %}selected{% endif %}>Suspendido</option>
+                <option value="inactivo" {% if filter_status=='inactivo' %}selected{% endif %}>Inactivo</option>
             </select>
         </div>
         <div class="form-group" style="margin:0;">
@@ -183,6 +193,10 @@
                 <td>
                     {% if emp.status == 'activo' %}
                     <span class="badge badge-success">Activo</span>
+                    {% elif emp.status == 'vacaciones' %}
+                    <span class="badge badge-info">Vacaciones</span>
+                    {% elif emp.status == 'licencia' %}
+                    <span class="badge badge-primary">Licencia</span>
                     {% elif emp.status == 'suspendido' %}
                     <span class="badge badge-warning">Suspendido</span>
                     {% else %}
@@ -211,7 +225,7 @@
                 </td>
             </tr>
             {% else %}
-            <tr><td colspan="{{ 10 if filter_status == 'inactivo' else 7 }}" class="text-center text-muted">No hay empleados que coincidan con los filtros.</td></tr>
+            <tr><td colspan="{{ 13 if filter_status == 'inactivo' else 10 }}" class="text-center text-muted">No hay empleados que coincidan con los filtros.</td></tr>
             {% endfor %}
         </tbody>
         </table>

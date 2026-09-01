@@ -2,6 +2,27 @@
 
 from datetime import date as dt_date, datetime
 
+# Estados de ciclo de vida del empleado (campo `status`)
+# "activo" | "inactivo" | "suspendido" | "vacaciones" | "licencia"
+# Los tres primeros son gestionados manualmente; "vacaciones" y "licencia"
+# son transitorios y los gestiona EmployeeStatusService automáticamente.
+EMPLOYEE_LIFECYCLE_STATUSES = ("activo", "inactivo", "suspendido")
+
+# Estados transitorios (gestionados por el motor de solicitudes)
+EMPLOYEE_TRANSIENT_STATUSES = ("vacaciones", "licencia")
+
+EMPLOYEE_STATUS_VALUES = EMPLOYEE_LIFECYCLE_STATUSES + EMPLOYEE_TRANSIENT_STATUSES
+
+# Estados en los que el empleado sigue vigente: cobra nómina y se reporta
+# en TSS/DGT/IR-13 con normalidad.
+ACTIVE_EQUIVALENT_STATUSES = ("activo", "vacaciones", "licencia")
+
+
+def is_active_equivalent(status: str | None) -> bool:
+    """True si el empleado sigue vigente a efectos de nómina, TSS y DGT
+    (activo o en vacaciones/licencia transitoria)."""
+    return (status or "") in ACTIVE_EQUIVALENT_STATUSES
+
 
 def calculate_age(birth_date_str: str) -> int:
     """Calcula la edad a partir de una fecha de nacimiento YYYY-MM-DD."""

@@ -243,7 +243,8 @@ def payroll_new():
         return redirect(url_for("web_rrhh.onboarding_guide"))
 
     all_employees = hr.get_employees(company_id, sandbox=sandbox)
-    active_employees = [e for e in all_employees if e.get("status") == "activo"]
+    from app.utils.hr_utils import is_active_equivalent
+    active_employees = [e for e in all_employees if is_active_equivalent(e.get("status", ""))]
 
     # ── Grupos de nómina ──
     payroll_groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
@@ -1035,7 +1036,9 @@ def payroll_simulate():
     if not config.get("onboardingCompleted"):
         return redirect(url_for("web_rrhh.payroll_setup"))
 
-    all_active = [e for e in hr.get_employees(company_id, sandbox=sandbox) if e.get("status") == "activo"]
+    from app.utils.hr_utils import is_active_equivalent
+    all_active = [e for e in hr.get_employees(company_id, sandbox=sandbox)
+                  if is_active_equivalent(e.get("status", ""))]
 
     payroll_groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
     payroll_groups.sort(key=lambda g: g.get("name", ""))

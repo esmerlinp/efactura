@@ -40,6 +40,8 @@
                 <td>
                     {% if r.status == 'pendiente' %}
                     <span class="badge badge-warning">Pendiente</span>
+                    {% elif r.status == 'aprobada' and r.startDate <= today and r.endDate >= today %}
+                    <span class="badge badge-info">En curso</span>
                     {% elif r.status == 'aprobada' %}
                     <span class="badge badge-success">Aprobada</span>
                     {% else %}

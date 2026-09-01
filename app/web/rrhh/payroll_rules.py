@@ -7,6 +7,7 @@ from app.web.rrhh import (
     _is_hr_role, _sanitize_for_role, MONTHS_ES,
 )
 from app.services import hr_data_service as hr
+from app.utils.hr_utils import is_active_equivalent
 from app.services.payroll_rule_engine import PayrollRuleEngine
 from app.services.payroll_concept_engine import get_concepts
 
@@ -51,7 +52,7 @@ def payroll_rules_new():
     groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
     employees = hr.get_employees(company_id, sandbox=sandbox)
     active_employees = sorted(
-        [e for e in employees if e.get("status") == "activo"],
+        [e for e in employees if is_active_equivalent(e.get("status", ""))],
         key=lambda e: e.get("fullName", "")
     )
 
@@ -162,7 +163,7 @@ def payroll_rules_edit(rule_id):
     groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
     employees = hr.get_employees(company_id, sandbox=sandbox)
     active_employees = sorted(
-        [e for e in employees if e.get("status") == "activo"],
+        [e for e in employees if is_active_equivalent(e.get("status", ""))],
         key=lambda e: e.get("fullName", "")
     )
 
@@ -302,7 +303,7 @@ def payroll_rules_test():
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     employees = hr.get_employees(company_id, sandbox=sandbox)
-    active = [e for e in employees if e.get("status") == "activo"]
+    active = [e for e in employees if is_active_equivalent(e.get("status", ""))]
     rules = hr.get_active_rules_for_scope(company_id, "global", sandbox=sandbox)
 
     test_results = None

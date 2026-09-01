@@ -8,6 +8,7 @@ from app.web.rrhh import (
     _filter_employees_by_period, _generate_periods,
 )
 from app.services import hr_data_service as hr
+from app.utils.hr_utils import is_active_equivalent
 from app.extensions import limiter
 from uuid import uuid4
 import os, json, threading
@@ -127,7 +128,7 @@ def payroll_groups_view(group_id):
 
     employees = hr.get_employees(company_id, sandbox=sandbox)
     assigned = [e for e in employees if group_id in e.get("payrollGroupIds", [])]
-    unassigned = [e for e in employees if group_id not in e.get("payrollGroupIds", []) and e.get("status") == "activo"]
+    unassigned = [e for e in employees if group_id not in e.get("payrollGroupIds", []) and is_active_equivalent(e.get("status", ""))]
 
     periods = [p for p in hr.get_payroll_periods(company_id, sandbox=sandbox)
                if p.get("payrollGroupId") == group_id]
@@ -306,7 +307,7 @@ def payroll_groups_assign_all(group_id):
     employees = hr.get_employees(company_id, sandbox=sandbox)
     count = 0
     for emp in employees:
-        if emp.get("status") != "activo":
+        if not is_active_equivalent(emp.get("status", "")):
             continue
         current = emp.get("payrollGroupIds", [])
         if group_id not in current:
@@ -375,7 +376,7 @@ def payroll_groups_assign_all_async(group_id):
 
     employees = hr.get_employees(company_id, sandbox=sandbox)
     candidates = [e for e in employees
-                  if e.get("status") == "activo"
+                  if is_active_equivalent(e.get("status", ""))
                   and group_id not in e.get("payrollGroupIds", [])]
 
     if not candidates:

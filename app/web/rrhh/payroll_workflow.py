@@ -112,10 +112,11 @@ def _transition(period, to_status, comment="", owner_uid="", sandbox=True, skip_
     if to_status in ("calculada", "cerrada") and owner_uid:
         try:
             from app.services import hr_data_service as hr
+            from app.utils.hr_utils import is_active_equivalent
             employees = hr.get_employees(owner_uid, sandbox=sandbox)
             snapshot = []
             for emp in employees:
-                if emp.get("status") == "activo":
+                if is_active_equivalent(emp.get("status", "")):
                     snapshot.append({
                         "employeeId": emp.get("id", ""),
                         "cedula": (emp.get("cedula") or emp.get("idNumber", "")).replace("-", ""),

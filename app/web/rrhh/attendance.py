@@ -10,6 +10,7 @@ from app.web.rrhh import (
     _filter_employees_by_period, _generate_periods,
 )
 from app.services import hr_data_service as hr
+from app.utils.hr_utils import is_active_equivalent
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -21,7 +22,6 @@ def attendance():
     if _login_required():
         return redirect(url_for("web_auth.login"))
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
-    from app.services import hr_data_service as hr
 
     now = datetime.now(timezone.utc)
     try:
@@ -30,7 +30,7 @@ def attendance():
     except ValueError:
         sel_month, sel_year = now.month, now.year
 
-    all_employees = [e for e in hr.get_employees(company_id, sandbox=sandbox) if e.get("status") == "activo"]
+    all_employees = [e for e in hr.get_employees(company_id, sandbox=sandbox) if is_active_equivalent(e.get("status", ""))]
     records = hr.get_attendance_records(company_id, sandbox=sandbox)
 
     # ── Filtros ──

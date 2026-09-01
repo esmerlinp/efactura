@@ -45,10 +45,19 @@
                 <td>
                     {% if r.status == 'pendiente' %}
                     <span class="badge badge-warning">Pendiente</span>
+                    {% elif r.status == 'aprobada' and r.startDate <= today and r.endDate >= today %}
+                    <span class="badge badge-info">En curso</span>
                     {% elif r.status == 'aprobada' %}
                     <span class="badge badge-success">Aprobada</span>
+                    {% elif r.status == 'anulada' %}
+                    <span class="badge badge-danger">Anulada</span>
+                    {% elif r.status == 'revocada' %}
+                    <span class="badge badge-secondary">Revocada</span>
                     {% else %}
                     <span class="badge badge-danger">Rechazada</span>
+                    {% endif %}
+                    {% if r.status in ('anulada', 'revocada') and r.get('consumedDays', 0) %}
+                    <span class="badge badge-info" title="Días efectivamente tomados">{{ r.consumedDays }} consumidos</span>
                     {% endif %}
                     {% if r.get('source') == 'masivo' %}
                     <span class="badge badge-info">Histórico</span>
@@ -64,6 +73,8 @@
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn btn-sm btn-danger">Rechazar</button>
                     </form>
+                    {% elif r.status == 'aprobada' and r.endDate >= today %}
+                    <button type="button" class="btn btn-sm btn-warning" onclick="openCancelModal('{{ r.id }}', '{{ r.employeeName }}', '{{ r.startDate }}', '{{ r.endDate }}')">Anular</button>
                     {% endif %}
                 </div></td>
             </tr>
@@ -74,4 +85,44 @@
         </table>
     </div>
 </div>
+
+<!-- Modal de anulación -->
+<div id="cancelModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:100; align-items:center; justify-content:center;">
+    <div style="background:#fff; border-radius:12px; padding:24px; max-width:420px; width:90%; box-shadow:0 10px 40px rgba(0,0,0,0.25);">
+        <h3 style="margin:0 0 12px 0;"><i class="fa-solid fa-ban" style="color:var(--danger);"></i> Anular vacaciones</h3>
+        <p style="font-size:0.9rem; color:var(--text-secondary); margin:0 0 16px 0;">
+            Empleado: <strong id="cancelEmpName"></strong><br>
+            Período: <span id="cancelRange"></span>
+        </p>
+        <form method="POST" id="cancelForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label style="font-size:0.82rem;">Fecha de anulación (opcional — si se omite, se usa hoy)</label>
+                <input type="date" name="cancelDate" class="form-input" id="cancelDateInput">
+            </div>
+            <div class="form-group">
+                <label style="font-size:0.82rem;">Motivo</label>
+                <input type="text" name="cancelReason" class="form-input" placeholder="Motivo de la anulación">
+            </div>
+            <p style="font-size:0.78rem; color:var(--text-muted);">
+                Solo se descontarán los días hábiles efectivamente tomados hasta la fecha de anulación; el resto vuelve al balance disponible.
+            </p>
+            <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:12px;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('cancelModal').style.display='none';">Cancelar</button>
+                <button type="submit" class="btn btn-danger btn-sm">Anular solicitud</button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+function openCancelModal(id, name, start, end) {
+    document.getElementById('cancelForm').action = "{{ url_for('web_rrhh.vacation_cancel', request_id='REQID') }}".replace('REQID', id);
+    document.getElementById('cancelEmpName').textContent = name;
+    document.getElementById('cancelRange').textContent = start + ' → ' + end;
+    document.getElementById('cancelDateInput').value = '';
+    document.getElementById('cancelDateInput').min = start;
+    document.getElementById('cancelDateInput').max = end;
+    document.getElementById('cancelModal').style.display = 'flex';
+}
+</script>
 {% endblock %}

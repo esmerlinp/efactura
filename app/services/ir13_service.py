@@ -90,7 +90,8 @@ def calculate_ir13(company_id: str, year: int, sandbox: bool = True) -> dict:
                 continue
 
             emp = employee_map.get(emp_id, {})
-            if emp.get("status", "activo") not in ("activo", "inactivo", "suspendido"):
+            if emp.get("status", "activo") not in (
+                    "activo", "inactivo", "suspendido", "vacaciones", "licencia"):
                 continue
 
             if emp_id not in accum:

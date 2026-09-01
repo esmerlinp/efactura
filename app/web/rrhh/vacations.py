@@ -23,9 +23,18 @@ def vacation_list():
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
+    # Auto-sanación: sincronizar estados antes de mostrar (idempotente)
+    try:
+        from app.services.employee_status_service import EmployeeStatusService
+        EmployeeStatusService.sync_employee_statuses(company_id, sandbox=sandbox,
+                                                     actor="Sistema (auto-sync)")
+    except Exception:
+        pass
+
     requests = hr.get_vacation_requests(company_id, sandbox=sandbox)
     requests.sort(key=lambda r: r.get("createdDate", ""), reverse=True)
-    return render_template("rrhh/vacation_list.html", active_page="rrhh_attendance", requests=requests)
+    return render_template("rrhh/vacation_list.html", active_page="rrhh_attendance",
+                           requests=requests, today=date.today().isoformat())
 
 
 @web_rrhh_bp.route("/rrhh/vacations/new", methods=["GET", "POST"])
@@ -36,7 +45,9 @@ def vacation_new():
     from app.services import hr_data_service as hr
     from app.services.payroll_service import PayrollService
 
-    employees = [e for e in hr.get_employees(company_id, sandbox=sandbox) if e.get("status") == "activo"]
+    from app.utils.hr_utils import is_active_equivalent
+    employees = [e for e in hr.get_employees(company_id, sandbox=sandbox)
+                 if is_active_equivalent(e.get("status", ""))]
 
     if request.method == "POST":
         emp_id = request.form.get("employeeId", "")
@@ -50,10 +61,12 @@ def vacation_new():
         from app.services.holiday_service import HolidayService
         holidays = HolidayService.get_holiday_dates(company_id, start_date, end_date, sandbox=sandbox)
         business_days = PayrollService.calculate_business_days(start_date, end_date, holidays=holidays)
-        taken_days = sum(
-            r.get("days", 0) for r in hr.get_vacation_requests(company_id, sandbox=sandbox)
-            if r.get("employeeId") == emp_id and r.get("status") == "aprobada"
-        )
+        from app.services.employee_status_service import EmployeeStatusService
+        emp_vac_requests = [
+            r for r in hr.get_vacation_requests(company_id, sandbox=sandbox)
+            if r.get("employeeId") == emp_id
+        ]
+        taken_days = EmployeeStatusService.taken_vacation_days(emp_vac_requests)
         remaining = PayrollService.calculate_vacation_days(employee.get("hireDate", ""), taken_days=taken_days)
 
         req_id = str(uuid.uuid4())
@@ -100,10 +113,39 @@ def vacation_action(request_id, action):
                 if employee:
                     from app.services.hr_notifications import notify_vacation_approved
                     notify_vacation_approved(employee, req)
+                    # Si la solicitud ya está en rango, el empleado pasa a "vacaciones"
+                    from app.services.employee_status_service import EmployeeStatusService
+                    EmployeeStatusService.sync_employee(
+                        company_id, employee.get("id", ""), sandbox=sandbox,
+                        actor=session["user"].get("email", ""))
             except Exception:
                 pass
 
         flash(f"Solicitud {'aprobada' if action == 'approve' else 'rechazada'}.", "success")
+
+    return redirect(url_for("web_rrhh.vacation_list"))
+
+
+@web_rrhh_bp.route("/rrhh/vacations/<request_id>/anular", methods=["POST"])
+def vacation_cancel(request_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+
+    cancel_date = request.form.get("cancelDate", "").strip()
+    reason = request.form.get("cancelReason", "").strip()
+    from app.services.employee_status_service import EmployeeStatusService
+    res = EmployeeStatusService.cancel_vacation_request(
+        company_id, request_id, cancel_date=cancel_date,
+        actor=session["user"].get("email", ""),
+        reason=reason or "Anulada por RRHH",
+        sandbox=sandbox)
+
+    if res.get("success"):
+        flash(f"Vacaciones anuladas: {res.get('consumedDays', 0)} día(s) consumido(s), "
+              f"{res.get('refundedDays', 0)} devuelto(s) al balance.", "success")
+    else:
+        flash(res.get("error", "No se pudo anular la solicitud."), "error")
 
     return redirect(url_for("web_rrhh.vacation_list"))
 

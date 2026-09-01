@@ -949,6 +949,32 @@ def save_employment_history(company_id: str, data: dict, sandbox: bool = True):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# EMPLOYEE STATUS EVENTS (historial de estados vacaciones/licencia)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_employee_status_events(company_id: str, employee_id: str = "",
+                               sandbox: bool = True, limit: int = 200) -> list:
+    if not firebase_initialized or db_firestore is None:
+        return []
+    try:
+        coll = _hr_company_path(company_id, "employee_status_events", sandbox)
+        if not coll:
+            return []
+        query = db_firestore.collection(coll)
+        if employee_id:
+            query = query.where("employeeId", "==", employee_id)
+        query = query.order_by("timestamp", direction="DESCENDING").limit(limit)
+        return [d.to_dict() for d in query.get()]
+    except Exception:
+        return []
+
+
+def save_employee_status_event(company_id: str, event_id: str, data: dict,
+                               sandbox: bool = True) -> bool:
+    return _save(company_id, "employee_status_events", event_id, data, sandbox)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # ONBOARDING / OFFBOARDING CHECKLISTS
 # ═══════════════════════════════════════════════════════════════════════════
 

@@ -13,6 +13,8 @@ from datetime import date, datetime, timedelta
 from typing import Optional
 import unicodedata
 
+from app.utils.hr_utils import is_active_equivalent
+
 from app.countries.do.payroll_rules import (
     AFP_EMPLOYEE_RATE, AFP_EMPLOYER_RATE,
     SFS_EMPLOYEE_RATE, SFS_EMPLOYER_RATE,
@@ -1017,7 +1019,7 @@ class PayrollService:
         per_employee = []
 
         for emp in employees:
-            if emp.get("status") != "activo":
+            if not is_active_equivalent(emp.get("status", "")):
                 continue
             dept = emp.get("department", emp.get("area", ""))
             area = emp.get("area", "")
@@ -1364,7 +1366,8 @@ class PayrollService:
         from app.services import hr_data_service as hr
         from app.services.db_service import DatabaseService
 
-        employees = [e for e in hr.get_employees(company_id, sandbox=sandbox) if e.get("status") == "activo"]
+        employees = [e for e in hr.get_employees(company_id, sandbox=sandbox)
+                     if e.get("status") in ("activo", "vacaciones", "licencia")]
         if not employees:
             return {"vacationEntry": None, "christmasEntry": None, "note": "Sin empleados activos"}
 
@@ -1521,7 +1524,7 @@ class PayrollService:
         errors = []
         warnings = []
         employees = hr.get_employees(company_id, sandbox=sandbox)
-        active = [e for e in employees if e.get("status") == "activo"]
+        active = [e for e in employees if is_active_equivalent(e.get("status", ""))]
         periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
         year_periods = [p for p in periods if p.get("year") == year]
 
@@ -1908,7 +1911,8 @@ class PayrollService:
             es_suspendido = emp_status == "suspendido"
 
             # Ex-empleado con bonificación (AR): cotizable=0, ISR=0.01, INFOTEP=0.01
-            es_ex_empleado = emp_status not in ("activo", "") and emp_status != ""
+            # "vacaciones" y "licencia" siguen cobrando y cotizando normal.
+            es_ex_empleado = emp_status not in ("activo", "vacaciones", "licencia", "") and emp_status != ""
             christmas_bonus = pl.get("christmasBonus", 0) or 0
 
             if es_suspendido:

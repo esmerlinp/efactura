@@ -27,7 +27,7 @@ class Employee(BaseModel):
     salaryType: str = "fijo"  # "fijo" | "por_hora"
     salary: float = 0.0  # Valor salario (alias for baseSalary)
     hourlyRate: float = 0.0  # Tarifa por hora (si aplica)
-    status: str = "activo"  # "activo" | "inactivo" | "suspendido"
+    status: str = "activo"  # "activo" | "inactivo" | "suspendido" | "vacaciones" | "licencia"
     email: str = ""
     phone: str = ""
     address: str = ""
