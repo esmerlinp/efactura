@@ -175,10 +175,74 @@ def get_employee(company_id: str, employee_id: str, sandbox: bool = True) -> dic
     return _get_one(company_id, "employees", employee_id, sandbox)
 
 def save_employee(company_id: str, employee_id: str, data: dict, sandbox: bool = True):
+    if not data.get("code"):
+        existing = get_employee(company_id, employee_id, sandbox=sandbox)
+        existing_code = (existing or {}).get("code")
+        if existing_code:
+            data = {**data, "code": existing_code}
+        else:
+            data = {**data, "code": get_next_employee_code(company_id, sandbox=sandbox)}
     _save(company_id, "employees", employee_id, data, sandbox)
 
 def delete_employee(company_id: str, employee_id: str, sandbox: bool = True):
     _delete(company_id, "employees", employee_id, sandbox)
+
+
+def _employee_counter_ref(company_id: str, sandbox: bool = True):
+    """Referencia al documento contador de códigos de empleado (por empresa/entorno)."""
+    return db_firestore.collection(_config_collection(company_id, sandbox)).document("employee_counter")
+
+
+def get_next_employee_code(company_id: str, sandbox: bool = True) -> int:
+    """Retorna el siguiente código incremental de empleado de forma atómica (1, 2, 3...)."""
+    if not firebase_initialized or db_firestore is None:
+        return 0
+    from firebase_admin import firestore as _fstore
+
+    transaction = db_firestore.transaction()
+
+    @_fstore.transactional
+    def increment(transaction):
+        ref = _employee_counter_ref(company_id, sandbox)
+        doc = ref.get(transaction=transaction)
+        if doc.exists:
+            next_num = int(doc.to_dict().get("next", 0)) + 1
+        else:
+            next_num = 1
+        transaction.set(ref, {"next": next_num})
+        return next_num
+
+    try:
+        return increment(transaction)
+    except Exception as e:
+        print(f"⚠️ HRDataService.get_next_employee_code: {e}")
+        try:
+            codes = [int(emp.get("code") or 0) for emp in get_employees(company_id, sandbox=sandbox)]
+            return max(codes, default=0) + 1
+        except Exception:
+            return 0
+
+
+def bump_employee_counter(company_id: str, code: int, sandbox: bool = True):
+    """Asegura que el contador de códigos quede >= code (para códigos traídos por importación)."""
+    if not firebase_initialized or db_firestore is None or not code:
+        return
+    from firebase_admin import firestore as _fstore
+
+    transaction = db_firestore.transaction()
+
+    @_fstore.transactional
+    def bump(transaction):
+        ref = _employee_counter_ref(company_id, sandbox)
+        doc = ref.get(transaction=transaction)
+        current = int(doc.to_dict().get("next", 0)) if doc.exists else 0
+        if int(code) > current:
+            transaction.set(ref, {"next": int(code)})
+
+    try:
+        bump(transaction)
+    except Exception as e:
+        print(f"⚠️ HRDataService.bump_employee_counter: {e}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════

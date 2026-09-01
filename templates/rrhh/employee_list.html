@@ -91,7 +91,7 @@
     <!-- Search + Filters -->
     <form method="GET" style="display:flex; gap:10px; flex-wrap:wrap; padding:0 20px 16px; align-items:flex-end;">
         <div class="form-group" style="margin:0; flex:2; min-width:200px;">
-            <input type="text" name="search" class="form-input" placeholder="Buscar por nombre, cédula o cargo..."
+            <input type="text" name="search" class="form-input" placeholder="Buscar por nombre, código, cédula o cargo..."
                    value="{{ search }}" style="border-radius:20px;">
         </div>
         <div class="form-group" style="margin:0;">
@@ -147,6 +147,7 @@
         <thead>
             <tr>
                 <th style="width:30px;"><input type="checkbox" id="selectAllCB" onchange="toggleAll(this)"></th>
+                <th style="width:60px;">Código</th>
                 <th>Empleado</th>
                 <th>Cédula</th>
                 <th>Cargo</th>
@@ -167,6 +168,7 @@
             {% for emp in employees %}
             <tr>
                 <td><input type="checkbox" class="emp-cb" value="{{ emp.id }}" onchange="updateBulk()"></td>
+                <td><span class="badge badge-secondary">{{ emp.code or '—' }}</span></td>
                 <td style="max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                     <strong><a href="{{ url_for('web_rrhh.employee_view', employee_id=emp.id) }}" style="color:var(--text-primary); text-decoration:none;">{{ emp.fullName }}</a></strong>
                 </td>

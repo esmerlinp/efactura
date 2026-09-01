@@ -50,6 +50,14 @@
         <h3><i class="fa-solid fa-id-card-clip"></i> Datos principales</h3>
         <div class="hr-form-grid">
             <div class="form-group">
+                <label>Código</label>
+                {% if employee and employee.code %}
+                <input type="text" class="form-input" value="{{ employee.code }}" readonly disabled>
+                {% else %}
+                <input type="text" class="form-input" value="Se asignará automáticamente" readonly disabled>
+                {% endif %}
+            </div>
+            <div class="form-group">
                 <label>Tipo de identificación <span style="color:var(--danger);">*</span></label>
                 <select name="idType" class="form-select" required>
                     {% for t in id_types %}
