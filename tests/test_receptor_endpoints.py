@@ -1,6 +1,7 @@
 import base64
 import io
 import os
+import re
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -707,6 +708,113 @@ def test_parse_ecf_unprefixed():
     assert parsed["encf"] == "E310000000001"
 
 
+# ── Parseo enriquecido para la vista de detalle (items y totales) ───────────
+
+ECF_FULL_XML = """<?xml version="1.0" encoding="utf-8"?>
+<ECF xmlns="http://www.dgii.gov.do/ecf">
+  <Encabezado>
+    <IdDoc>
+      <TipoeCF>31</TipoeCF>
+      <eNCF>E310000000001</eNCF>
+      <FechaVencimientoSecuencia>31-12-2026</FechaVencimientoSecuencia>
+    </IdDoc>
+    <Emisor>
+      <RNCEmisor>132109122</RNCEmisor>
+      <RazonSocialEmisor>EMISOR SRL</RazonSocialEmisor>
+      <NombreComercial>Emisor Shop</NombreComercial>
+      <DireccionEmisor>Calle Principal #1</DireccionEmisor>
+      <CorreoEmisor>emisor@test.do</CorreoEmisor>
+      <FechaEmision>31-08-2026</FechaEmision>
+    </Emisor>
+    <Comprador>
+      <RNCComprador>131880681</RNCComprador>
+      <RazonSocialComprador>COMPRADOR SRL</RazonSocialComprador>
+    </Comprador>
+    <Totales>
+      <MontoGravadoTotal>847.46</MontoGravadoTotal>
+      <MontoGravadoI1>847.46</MontoGravadoI1>
+      <MontoExento>0.00</MontoExento>
+      <TotalITBIS>152.54</TotalITBIS>
+      <MontoTotal>1000.00</MontoTotal>
+      <TotalITBISRetenido>30.51</TotalITBISRetenido>
+      <TotalISRRetencion>20.00</TotalISRRetencion>
+    </Totales>
+    <DetallesItems>
+      <Item>
+        <NumeroLinea>1</NumeroLinea>
+        <IndicadorFacturacion>1</IndicadorFacturacion>
+        <CodigoItem>P001</CodigoItem>
+        <NombreItem>Producto A</NombreItem>
+        <CantidadItem>2.00</CantidadItem>
+        <PrecioUnitarioItem>500.00</PrecioUnitarioItem>
+        <DescuentoMonto>10.00</DescuentoMonto>
+        <MontoItem>990.00</MontoItem>
+      </Item>
+      <Item>
+        <NumeroLinea>2</NumeroLinea>
+        <IndicadorFacturacion>2</IndicadorFacturacion>
+        <CodigoItem>S001</CodigoItem>
+        <NombreItem>Servicio B</NombreItem>
+        <CantidadItem>1.00</CantidadItem>
+        <PrecioUnitarioItem>10.00</PrecioUnitarioItem>
+        <DescuentoMonto>0.00</DescuentoMonto>
+        <MontoItem>10.00</MontoItem>
+        <MontoExento>10.00</MontoExento>
+      </Item>
+    </DetallesItems>
+  </Encabezado>
+</ECF>"""
+
+
+def test_parse_ecf_detail_extracts_items_and_totals():
+    detail, error = ReceptorXmlService.parse_ecf_detail(ECF_FULL_XML.encode("utf-8"))
+    assert error is None
+    assert detail["encf"] == "E310000000001"
+    assert detail["tipo_ecf"] == "31"
+    assert detail["fecha_emision"] == "31-08-2026"
+    assert detail["fecha_vencimiento"] == "31-12-2026"
+    assert detail["razon_social_emisor"] == "EMISOR SRL"
+    assert detail["nombre_comercial"] == "Emisor Shop"
+    assert detail["direccion_emisor"] == "Calle Principal #1"
+    assert detail["correo_emisor"] == "emisor@test.do"
+    assert detail["rnc_comprador"] == "131880681"
+    assert detail["monto_gravado_total"] == 847.46
+    assert detail["monto_gravado_i1"] == 847.46
+    assert detail["total_itbis"] == 152.54
+    assert detail["total_itbis_retenido"] == 30.51
+    assert detail["total_isr_retencion"] == 20.0
+    assert detail["monto_total"] == 1000.0
+
+    assert len(detail["detalle_items"]) == 2
+    first = detail["detalle_items"][0]
+    assert first["codigo"] == "P001"
+    assert first["nombre"] == "Producto A"
+    assert first["cantidad"] == 2.0
+    assert first["precio_unitario"] == 500.0
+    assert first["descuento"] == 10.0
+    assert first["monto_item"] == 990.0
+    assert first["monto_exento"] == 0.0
+    second = detail["detalle_items"][1]
+    assert second["indicador_facturacion"] == "2"
+    assert second["monto_exento"] == 10.0
+
+
+def test_parse_ecf_detail_minimal_xml_tolerates_missing_fields():
+    detail, error = ReceptorXmlService.parse_ecf_detail(ECF_XML.encode("utf-8"))
+    assert error is None
+    assert detail["encf"] == "E310000000001"
+    assert detail["detalle_items"] == []
+    assert detail["monto_gravado_total"] == 0.0
+    assert detail["fecha_emision"] == ""
+    assert detail["monto_total"] == 1000.0
+
+
+def test_parse_ecf_detail_malformed_returns_error():
+    detail, error = ReceptorXmlService.parse_ecf_detail(b"<ECF><Encabezado>")
+    assert detail is None
+    assert error and "malformado" in error
+
+
 # ── Lecturas combinadas sandbox + producción (UI /recepcion/ecf) ────────────
 
 class _FakeDoc:
@@ -779,3 +887,248 @@ def test_get_received_ecf_merged_finds_across_collections():
         doc = ReceptorRepository.get_received_ecf_merged("owner-1", "p9")
         assert doc is not None and doc["encf"] == "E310000000009"
         assert ReceptorRepository.get_received_ecf_merged("owner-1", "missing") is None
+
+
+# ── UI /recepcion/ecf/<id> (vista premium del detalle) ──────────────────────
+
+def _patch_ui_session_dependencies(profile=None):
+    from app.services.db_service import DatabaseService
+    fresh_profile = profile or {
+        "uid": "u1",
+        "ownerUID": "owner-1",
+        "email": "admin@test.com",
+        "name": "Admin",
+        "role": "owner",
+        "permissions": {"canInvoice": True},
+    }
+    return (
+        patch.object(DatabaseService, "get_user_profile", return_value=fresh_profile),
+        patch.object(DatabaseService, "get_user_companies", return_value=[]),
+        patch.object(DatabaseService, "get_branches", return_value=[]),
+        patch.object(DatabaseService, "get_projects", return_value=[]),
+        patch.object(DatabaseService, "get_company_profile", return_value=None),
+    )
+
+
+def test_detail_received_ecf_renders_parsed_xml(client):
+    from app.repositories.receptor_repository import ReceptorRepository
+    stored = {
+        "sender_rnc": "132109122",
+        "sender_name": "EMISOR SRL",
+        "receiver_rnc": "131880681",
+        "receiver_name": "COMPRADOR SRL",
+        "encf": "E310000000001",
+        "ecf_type": "31",
+        "monto_total": 1000.0,
+        "xml_content": ECF_FULL_XML,
+        "arecf_xml": "<ARECF/>",
+        "status": "recibido",
+        "estado_arecf": "0",
+        "codigo_motivo_no_recibido": None,
+        "track_id": "TRACK123",
+        "received_at": "2026-08-31T10:00:00+00:00",
+        "id": "doc-1",
+    }
+    with _patch_ui_session_dependencies()[0], _patch_ui_session_dependencies()[1], \
+            _patch_ui_session_dependencies()[2], _patch_ui_session_dependencies()[3], \
+            _patch_ui_session_dependencies()[4], \
+            patch.object(ReceptorRepository, "get_received_ecf_merged", return_value=stored):
+        with client.session_transaction() as sess:
+            sess["user"] = {"uid": "u1", "ownerUID": "owner-1"}
+            sess["is_sandbox_mode"] = True
+        resp = client.get("/recepcion/ecf/doc-1")
+        assert resp.status_code == 200
+        html = re.sub(r"\s+", " ", resp.get_data(as_text=True))
+        assert "EMISOR SRL" in html
+        assert "E310000000001" in html
+        assert "Producto A" in html
+        assert "Servicio B" in html
+        assert "Monto Total" in html
+        assert "TRACK123" in html
+        assert "/recepcion/ecf/doc-1/xml" in html
+        assert "/recepcion/ecf/doc-1/arecf" in html
+
+
+def test_detail_received_ecf_renders_without_xml(client):
+    from app.repositories.receptor_repository import ReceptorRepository
+    stored = {
+        "sender_rnc": "",
+        "sender_name": "",
+        "receiver_rnc": "131880681",
+        "receiver_name": "COMPRADOR SRL",
+        "encf": "E310000000002",
+        "ecf_type": "31",
+        "monto_total": 0.0,
+        "xml_content": "",
+        "arecf_xml": "",
+        "status": "recibido",
+        "estado_arecf": "0",
+        "track_id": "",
+        "received_at": "2026-08-31T10:00:00+00:00",
+        "id": "doc-2",
+    }
+    with _patch_ui_session_dependencies()[0], _patch_ui_session_dependencies()[1], \
+            _patch_ui_session_dependencies()[2], _patch_ui_session_dependencies()[3], \
+            _patch_ui_session_dependencies()[4], \
+            patch.object(ReceptorRepository, "get_received_ecf_merged", return_value=stored):
+        with client.session_transaction() as sess:
+            sess["user"] = {"uid": "u1", "ownerUID": "owner-1"}
+        resp = client.get("/recepcion/ecf/doc-2")
+        assert resp.status_code == 200
+        html = re.sub(r"\s+", " ", resp.get_data(as_text=True))
+        assert "E310000000002" in html
+        assert "Emisor no especificado" in html
+
+
+def test_detail_received_ecf_missing_redirects(client):
+    from app.repositories.receptor_repository import ReceptorRepository
+    with _patch_ui_session_dependencies()[0], _patch_ui_session_dependencies()[1], \
+            _patch_ui_session_dependencies()[2], _patch_ui_session_dependencies()[3], \
+            _patch_ui_session_dependencies()[4], \
+            patch.object(ReceptorRepository, "get_received_ecf_merged", return_value=None):
+        with client.session_transaction() as sess:
+            sess["user"] = {"uid": "u1", "ownerUID": "owner-1"}
+        resp = client.get("/recepcion/ecf/unknown")
+        assert resp.status_code == 302
+
+
+# ── UI /recepcion/ecf (listado estilo invoices con filtros) ─────────────────
+
+def _received_docs():
+    return [
+        {"id": "d1", "encf": "E310000000001", "sender_rnc": "132109122",
+         "sender_name": "EMISOR A SRL", "receiver_rnc": "131880681",
+         "receiver_name": "COMPRADOR SRL", "ecf_type": "31", "monto_total": 1000.0,
+         "status": "recibido", "track_id": "T1",
+         "received_at": "2026-08-31T10:00:00+00:00"},
+        {"id": "d2", "encf": "E320000000002", "sender_rnc": "987654321",
+         "sender_name": "EMISOR B SRL", "receiver_rnc": "131880681",
+         "receiver_name": "COMPRADOR SRL", "ecf_type": "32", "monto_total": 250.0,
+         "status": "rechazado", "track_id": "T2",
+         "received_at": "2026-08-30T10:00:00+00:00"},
+        {"id": "d3", "encf": "E450000000003", "sender_rnc": "555555555",
+         "sender_name": "GOBIERNO C", "receiver_rnc": "131880681",
+         "receiver_name": "COMPRADOR SRL", "ecf_type": "45", "monto_total": 5000.0,
+         "status": "recibido", "track_id": "T3",
+         "received_at": "2026-08-29T10:00:00+00:00"},
+    ]
+
+
+def _login_for_ui(client):
+    with client.session_transaction() as sess:
+        sess["user"] = {"uid": "u1", "ownerUID": "owner-1"}
+        sess["is_sandbox_mode"] = True
+
+
+def test_list_received_ecf_renders_rows(client):
+    from app.repositories.receptor_repository import ReceptorRepository
+    _ctx = _patch_ui_session_dependencies()
+    with _ctx[0], _ctx[1], _ctx[2], _ctx[3], _ctx[4], \
+            patch.object(ReceptorRepository, "list_received_ecf_merged",
+                         return_value=_received_docs()):
+        _login_for_ui(client)
+        resp = client.get("/recepcion/ecf")
+        assert resp.status_code == 200
+        html = re.sub(r"\s+", " ", resp.get_data(as_text=True))
+        assert "E310000000001" in html
+        assert "EMISOR A SRL" in html
+        assert "EMISOR B SRL" in html
+        assert "Documentos Electrónicos Recibidos" in html
+
+
+def test_list_received_ecf_filters_by_q_and_status(client):
+    from app.repositories.receptor_repository import ReceptorRepository
+    _ctx = _patch_ui_session_dependencies()
+    with _ctx[0], _ctx[1], _ctx[2], _ctx[3], _ctx[4], \
+            patch.object(ReceptorRepository, "list_received_ecf_merged",
+                         return_value=_received_docs()):
+        _login_for_ui(client)
+        resp = client.get("/recepcion/ecf?q=EMISOR%20B&status=rechazado")
+        assert resp.status_code == 200
+        html = re.sub(r"\s+", " ", resp.get_data(as_text=True))
+        assert "E320000000002" in html
+        assert "E310000000001" not in html
+        assert "E450000000003" not in html
+
+
+def test_list_received_ecf_filters_by_date_range(client):
+    from app.repositories.receptor_repository import ReceptorRepository
+    _ctx = _patch_ui_session_dependencies()
+    with _ctx[0], _ctx[1], _ctx[2], _ctx[3], _ctx[4], \
+            patch.object(ReceptorRepository, "list_received_ecf_merged",
+                         return_value=_received_docs()):
+        _login_for_ui(client)
+        resp = client.get("/recepcion/ecf?start_date=2026-08-29&end_date=2026-08-30")
+        assert resp.status_code == 200
+        html = re.sub(r"\s+", " ", resp.get_data(as_text=True))
+        assert "E320000000002" in html
+        assert "E450000000003" in html
+        assert "E310000000001" not in html
+
+
+def test_list_received_ecf_pagination(client):
+    from app.repositories.receptor_repository import ReceptorRepository
+    docs = _received_docs() + [
+        {"id": "d4", "encf": "E340000000004", "sender_rnc": "111111111",
+         "sender_name": "EMISOR D", "receiver_rnc": "131880681",
+         "receiver_name": "COMPRADOR SRL", "ecf_type": "34", "monto_total": 99.0,
+         "status": "recibido", "track_id": "T4",
+         "received_at": "2026-08-28T10:00:00+00:00"},
+        {"id": "d5", "encf": "E410000000005", "sender_rnc": "222222222",
+         "sender_name": "EMISOR E", "receiver_rnc": "131880681",
+         "receiver_name": "COMPRADOR SRL", "ecf_type": "41", "monto_total": 7.0,
+         "status": "recibido", "track_id": "T5",
+         "received_at": "2026-08-27T10:00:00+00:00"},
+        {"id": "d6", "encf": "E430000000006", "sender_rnc": "333333333",
+         "sender_name": "EMISOR F", "receiver_rnc": "131880681",
+         "receiver_name": "COMPRADOR SRL", "ecf_type": "43", "monto_total": 3.0,
+         "status": "recibido", "track_id": "T6",
+         "received_at": "2026-08-26T10:00:00+00:00"},
+    ]
+    _ctx = _patch_ui_session_dependencies()
+    with _ctx[0], _ctx[1], _ctx[2], _ctx[3], _ctx[4], \
+            patch.object(ReceptorRepository, "list_received_ecf_merged",
+                         return_value=docs):
+        _login_for_ui(client)
+        resp = client.get("/recepcion/ecf?per_page=5&page=1")
+        assert resp.status_code == 200
+        html = re.sub(r"\s+", " ", resp.get_data(as_text=True))
+        assert "E310000000001" in html
+        assert "E320000000002" in html
+        assert "E430000000006" not in html
+        html_text = re.sub(r"<[^>]+>", " ", html)
+        assert "de 6 registros" in re.sub(r"\s+", " ", html_text)
+
+        resp2 = client.get("/recepcion/ecf?per_page=5&page=2")
+        html2 = re.sub(r"\s+", " ", resp2.get_data(as_text=True))
+        assert "E430000000006" in html2
+        assert "E310000000001" not in html2
+
+
+def test_list_received_ecf_sort_by_monto(client):
+    from app.repositories.receptor_repository import ReceptorRepository
+    _ctx = _patch_ui_session_dependencies()
+    with _ctx[0], _ctx[1], _ctx[2], _ctx[3], _ctx[4], \
+            patch.object(ReceptorRepository, "list_received_ecf_merged",
+                         return_value=_received_docs()):
+        _login_for_ui(client)
+        resp = client.get("/recepcion/ecf?sort=monto_total&order=asc")
+        html = resp.get_data(as_text=True)
+        assert html.index("E320000000002") < html.index("E310000000001")
+        assert html.index("E310000000001") < html.index("E450000000003")
+
+
+def test_list_received_ecf_export_csv(client):
+    from app.repositories.receptor_repository import ReceptorRepository
+    _ctx = _patch_ui_session_dependencies()
+    with _ctx[0], _ctx[1], _ctx[2], _ctx[3], _ctx[4], \
+            patch.object(ReceptorRepository, "list_received_ecf_merged",
+                         return_value=_received_docs()):
+        _login_for_ui(client)
+        resp = client.get("/recepcion/ecf?export=csv&status=recibido")
+        assert resp.status_code == 200
+        assert resp.mimetype == "text/csv"
+        text = resp.get_data(as_text=True)
+        assert "RNC Emisor" in text
+        assert "EMISOR A SRL" in text
+        assert "EMISOR B SRL" not in text
