@@ -1,10 +1,10 @@
 {% extends "rrhh/layout_hr.html" %}
-{% block title %}Offboarding — Salida de Empleados{% endblock %}
+{% block title %}Desvinculaciones — Salida de Empleados{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
 
 <div class="hr-page-header">
-    <h1><i class="fa-solid fa-door-open"></i> Offboarding</h1>
+    <h1><i class="fa-solid fa-door-open"></i> Desvinculaciones</h1>
     <div>
         <a href="{{ url_for('web_rrhh.offboarding_dashboard') }}" class="btn btn-ghost btn-sm">
             <i class="fa-solid fa-gauge"></i> Dashboard
@@ -38,7 +38,7 @@
 <div class="card-table-wrapper hr-table-card">
     <div class="table-header-row">
         <div>
-            <h3>Solicitudes de offboarding</h3>
+            <h3>Solicitudes de desvinculación</h3>
             <p>{{ total }} registros{% if status_filter %} · Filtro: {{ states.get(status_filter, {}).label or status_filter }}{% endif %}</p>
         </div>
     </div>
@@ -122,7 +122,7 @@
                             <i class="fa-solid fa-xmark"></i> Limpiar filtros
                         </a>
                         {% else %}
-                        <div style="font-size:0.95rem;">No hay solicitudes de offboarding</div>
+                        <div style="font-size:0.95rem;">No hay solicitudes de desvinculación</div>
                         <p style="font-size:0.78rem; color:var(--text-muted); margin-top:4px;">Las solicitudes se crean desde la ficha del empleado → Calcular liquidación → Guardar y desvincular.</p>
                         {% endif %}
                     </td>

@@ -496,7 +496,7 @@ OFFBOARDING_STATES = {
         "label": "Borrador",
         "transitions": ["pending_supervisor_approval", "cancelled"],
         "color": "secondary",
-        "description": "Inicia el proceso de offboarding. Complete los datos preliminares antes de enviar a revisión.",
+        "description": "Inicia el proceso de desvinculación. Complete los datos preliminares antes de enviar a revisión.",
     },
     "pending_supervisor_approval": {
         "label": "Pendiente aprobación supervisor",
@@ -550,7 +550,7 @@ OFFBOARDING_STATES = {
         "label": "Completada",
         "transitions": [],
         "color": "success",
-        "description": "Proceso de offboarding finalizado. El empleado queda marcado como inactivo en el sistema.",
+        "description": "Proceso de desvinculación finalizado. El empleado queda marcado como inactivo en el sistema.",
     },
     "cancelled": {
         "label": "Cancelada",

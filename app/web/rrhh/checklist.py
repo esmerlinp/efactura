@@ -23,7 +23,7 @@ def employee_checklist(employee_id, checklist_type):
     done = sum(1 for i in items if i.get("completed"))
     total = len(items)
     pct = int(done / total * 100) if total else 0
-    titles = {"onboarding": "Onboarding", "offboarding": "Offboarding"}
+    titles = {"onboarding": "Onboarding", "offboarding": "Desvinculación"}
     return render_template("rrhh/checklist.html", active_page="rrhh_employees",
                            employee=employee, items=items, checklist_type=checklist_type,
                            title=titles.get(checklist_type, checklist_type),

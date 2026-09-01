@@ -208,7 +208,7 @@ def offboarding_new():
             except Exception:
                 pass
 
-        flash("Solicitud de offboarding creada exitosamente.", "success")
+        flash("Solicitud de desvinculación creada exitosamente.", "success")
         return redirect(url_for("web_rrhh.offboarding_wizard", request_id=req.id))
 
     employees = hr.get_employees(company_id, sandbox=sandbox)
@@ -1112,7 +1112,7 @@ def offboarding_toggle_mode():
         return redirect(url_for("web_auth.login"))
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     if not _is_hr_role():
-        flash("Solo RRHH puede cambiar el modo de offboarding.", "error")
+        flash("Solo RRHH puede cambiar el modo de desvinculación.", "error")
         return redirect(request.referrer or url_for("web_rrhh.offboarding_dashboard"))
 
     current_mode = session.get("company_offboarding_mode", "full")
@@ -1123,7 +1123,7 @@ def offboarding_toggle_mode():
         DatabaseService.update_company(company_id, {"offboarding_mode": new_mode})
         session["company_offboarding_mode"] = new_mode
         session.modified = True
-        flash(f"Modo de offboarding cambiado a: {'Simple' if new_mode == 'simple' else 'Completo (multi-parte)'}.", "success")
+        flash(f"Modo de desvinculación cambiado a: {'Simple' if new_mode == 'simple' else 'Completo (multi-parte)'}.", "success")
     except Exception as e:
         flash(f"Error al cambiar modo: {e}", "error")
 

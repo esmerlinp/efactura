@@ -12,6 +12,6 @@ from app.services import hr_data_service as hr
 
 @web_rrhh_bp.route("/rrhh/employees/<employee_id>/terminate", methods=["POST"])
 def employee_terminate(employee_id):
-    flash("Esta ruta directa ha sido descontinuada. Use el módulo Offboarding.", "warning")
+    flash("Esta ruta directa ha sido descontinuada. Use el módulo Desvinculaciones.", "warning")
     return redirect(url_for("web_rrhh.offboarding_new", employee_id=employee_id))
 
