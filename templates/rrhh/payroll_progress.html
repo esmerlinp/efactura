@@ -11,19 +11,46 @@
             <div id="progressBar" style="height:100%; width:0%; background:linear-gradient(90deg, var(--accent-emerald), #34d399); border-radius:99px; transition:width 0.5s;"></div>
         </div>
         <span id="progressText" style="font-size:0.85rem; color:var(--text-muted);">Iniciando...</span>
+        <div id="progressActions" hidden style="margin-top:24px;">
+            <a href="{{ url_for('web_rrhh.payroll_new') }}" class="btn btn-primary">Volver a nómina</a>
+            <button type="button" class="btn btn-ghost" onclick="retryPoll()">Consultar de nuevo</button>
+        </div>
     </div>
 </div>
 <script>
 var jobId = '{{ job_id }}';
+var pollFailures = 0;
+var pollTimer = null;
+function showPollingError(message) {
+    document.getElementById('statusIcon').className = 'fa-solid fa-circle-exclamation';
+    document.getElementById('statusIcon').style.color = 'var(--danger)';
+    document.getElementById('statusTitle').textContent = 'No se pudo consultar el proceso';
+    document.getElementById('statusMessage').textContent = message;
+    document.getElementById('progressActions').hidden = false;
+}
+function retryPoll() {
+    pollFailures = 0;
+    document.getElementById('progressActions').hidden = true;
+    document.getElementById('statusIcon').className = 'fa-solid fa-spinner fa-spin';
+    document.getElementById('statusTitle').textContent = 'Procesando nómina...';
+    poll();
+}
 function poll() {
     fetch('/rrhh/payroll/jobs/' + jobId + '/status')
-        .then(function(r) { return r.json(); })
+        .then(function(r) {
+            if (!r.ok) throw new Error(r.status === 401 ? 'La sesión expiró. Inicia sesión nuevamente.' : 'El servidor respondió con error ' + r.status + '.');
+            return r.json();
+        })
         .then(function(data) {
+            pollFailures = 0;
             var pct = data.progress || 0;
             document.getElementById('progressBar').style.width = pct + '%';
             document.getElementById('statusMessage').textContent = data.message || '';
 
-            if (data.status === 'running' && data.message) {
+            if ((data.status === 'running' || data.status === 'pending') && data.message) {
+                if (data.currentEmployeeName) {
+                    document.getElementById('currentEmployee').textContent = data.currentEmployeeName;
+                }
                 var match = data.message.match(/Procesando (.+?) \((\d+)\/(\d+)\)/);
                 if (match) {
                     document.getElementById('currentEmployee').textContent = '👤 ' + match[1];
@@ -62,11 +89,19 @@ function poll() {
                 document.getElementById('statusMessage').textContent = data.error || 'Ocurrió un error inesperado.';
                 document.getElementById('currentEmployee').textContent = '';
                 document.getElementById('progressText').textContent = '';
+                document.getElementById('progressActions').hidden = false;
                 return;
             }
-            setTimeout(poll, 1500);
+            pollTimer = setTimeout(poll, 1500);
         })
-        .catch(function() { setTimeout(poll, 2000); });
+        .catch(function(error) {
+            pollFailures += 1;
+            if (pollFailures >= 3) {
+                showPollingError(error.message || 'Verifica tu conexión e inténtalo nuevamente.');
+                return;
+            }
+            pollTimer = setTimeout(poll, 2000);
+        });
 }
 setTimeout(poll, 500);
 </script>

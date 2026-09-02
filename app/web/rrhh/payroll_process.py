@@ -360,6 +360,22 @@ def _build_liquidation_line(settlement, emp):
     return line, liquid_tx
 
 
+def _update_payroll_progress(company_id, job_id, index, total, employee_name,
+                             sandbox=True, completed=True):
+    """Actualiza el progreso al iniciar o terminar cada empleado."""
+    from app.services.payroll_async_service import update_job
+
+    processed = index + 1 if completed else index
+    progress_pct = int((processed / total) * 90) if total else 90
+    update_job(company_id, job_id, {
+        "progress": progress_pct,
+        "processedItems": processed,
+        "phase": "employee_completed" if completed else "employee_calculation",
+        "currentEmployeeName": employee_name,
+        "message": f"Procesando {employee_name} ({index + 1}/{total})",
+    }, sandbox=sandbox)
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # NÓMINA — Procesar
 # ═══════════════════════════════════════════════════════════════════════════
@@ -373,6 +389,19 @@ def payroll_new():
     from app.services.payroll_service import PayrollService
     from app.services.payroll_ytd_service import get_ytd, save_ytd, accumulate_ytd
     from app.services.payroll_static_data import DEFAULT_PAYROLL_CONFIG
+
+    selected_group_id = request.args.get("group", "") or request.form.get("payrollGroupId", "")
+    selected_period_key = request.form.get("period_key", "").strip()
+    existing_period_ref = None
+    if request.method == "POST" and selected_group_id and selected_period_key:
+        existing_period_ref = hr.get_payroll_period_by_key_and_group(
+            company_id, selected_period_key, selected_group_id, sandbox=sandbox)
+        recalculate = request.form.get("intent") == "recalculate"
+        if existing_period_ref and (
+                existing_period_ref.get("status") != "borrador" or not recalculate):
+            flash("La nómina seleccionada ya existe. Se abrió su detalle.", "info")
+            return redirect(url_for(
+                "web_rrhh.payroll_view", period_id=existing_period_ref["id"]))
 
     # Variables importadas por CSV (draft en sesión hasta procesar)
     from app.web.rrhh.payroll_variables_import import SESSION_KEY as _VARS_SESSION_KEY
@@ -400,11 +429,7 @@ def payroll_new():
                       if g.get("isActive", True)]
     payroll_groups.sort(key=lambda g: g.get("name", ""))
 
-    # Seleccionar grupo
-    selected_group_id = request.args.get("group", "") or request.form.get("payrollGroupId", "")
-
     # Soporte de ?period_id= (retorno del job de cálculo a esta pantalla)
-    selected_period_key = ""
     period_id_arg = request.args.get("period_id", "")
     if period_id_arg:
         _period_by_id = hr.get_payroll_period(company_id, period_id_arg, sandbox=sandbox)
@@ -421,7 +446,7 @@ def payroll_new():
             payroll_groups.sort(key=lambda g: g.get("name", ""))
 
     # Preselección de período y variables guardadas (edición desde la vista de nómina)
-    selected_period_key = request.args.get("period_key", "") or request.form.get("period_key", "") or selected_period_key
+    selected_period_key = request.args.get("period_key", "") or selected_period_key
     if selected_period_key:
         _stored_vars = _load_existing_period_variables(company_id, selected_period_key,
                                                        selected_group_id, sandbox=sandbox)
@@ -439,7 +464,6 @@ def payroll_new():
         recurring_movements = []
 
     # ── Líneas del período existente (sección Empleados: Resumen/Completo) ──
-    existing_period_ref = None
     period_lines = []
     if request.method == "GET" and selected_period_key:
         try:
@@ -536,52 +560,21 @@ def payroll_new():
             return redirect(url_for("web_rrhh.payroll_new"))
 
         # ── Anti-duplicados ──
-        existing_period_ref = None
-        if selected_group_id:
+        if selected_group_id and existing_period_ref is None:
             existing_period_ref = hr.get_payroll_period_by_key_and_group(company_id, period_key, selected_group_id, sandbox=sandbox)
-        else:
+        elif not selected_group_id:
             existing_period_ref = hr.get_payroll_period_by_key(company_id, period_key, sandbox=sandbox)
 
         if existing_period_ref:
             if existing_period_ref.get("status") != "borrador":
-                if selected_group_id:
-                    flash(f"Ya existe una nómina para el período «{period_key}» en el grupo «{selected_group.get('name', '')}».", "warning")
-                    return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll",
-                    employees=employees, now=now, now_month=now.month,
-                            available_periods=available_periods, frequency=group_frequency,
-                            show_christmas_bonus=(now.month >= 11),
-                            payroll_groups=payroll_groups,
-                            selected_group_id=selected_group_id,
-                            existing_period=existing_period_ref,
-                            imported_variables=imported_variables,
-                           selected_period_key=selected_period_key,
- variable_tabs=variable_tabs,
- recurring_managed_tabs=recurring_managed_tabs,
- ingreso_tabs=ingreso_tabs,
- descuento_tabs=descuento_tabs,
- recurring_movements=recurring_movements,
- christmas_preview=christmas_preview,
- period_lines=period_lines,
-                            incidencias=incidencias)
-                else:
-                    flash(f"Ya existe una nómina para el período «{period_key}».", "warning")
-                    return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll",
-                                            employees=employees, now=now, now_month=now.month,
-                                            available_periods=available_periods, frequency=group_frequency,
-                                            show_christmas_bonus=(now.month >= 11),
-                                            payroll_groups=payroll_groups,
-                                            selected_group_id=selected_group_id,
-                                            existing_period=existing_period_ref,
-                                            imported_variables=imported_variables,
-                           selected_period_key=selected_period_key,
- variable_tabs=variable_tabs,
- recurring_managed_tabs=recurring_managed_tabs,
- ingreso_tabs=ingreso_tabs,
- descuento_tabs=descuento_tabs,
- recurring_movements=recurring_movements,
- christmas_preview=christmas_preview,
- period_lines=period_lines,
-                                            incidencias=incidencias)
+                flash(
+                    f"La nómina del período «{period_key}» ya existe. Se abrió su detalle.",
+                    "info",
+                )
+                return redirect(url_for(
+                    "web_rrhh.payroll_view",
+                    period_id=existing_period_ref["id"],
+                ))
 
         # Parse period key
         parts = period_key.split("-")
@@ -758,6 +751,11 @@ def payroll_new():
                         return
 
                     emp_id = emp["id"]
+                    _update_payroll_progress(
+                        company_id, job_id, idx, len(period_employees),
+                        emp.get("fullName", emp_id), sandbox=sandbox,
+                        completed=False,
+                    )
 
                     # ── Nómina de liquidación: si el empleado tiene liquidación pendiente ──
                     if period_sub_type_val == "liquidation" and emp_id in liquidation_settlements_map:
@@ -765,6 +763,10 @@ def payroll_new():
                         line, liquid_tx = _build_liquidation_line(settlement, emp)
                         lines.append(line)
                         all_transactions.extend(liquid_tx)
+                        _update_payroll_progress(
+                            company_id, job_id, idx, len(period_employees),
+                            emp.get("fullName", emp_id), sandbox=sandbox,
+                        )
                         continue
 
                     emp_vars = emp_form_values.get(emp_id, {})
@@ -1159,12 +1161,10 @@ def payroll_new():
                         pass
 
                     # ── Actualizar progreso ──
-                    progress_pct = int(((idx + 1) / len(period_employees)) * 90)
-                    update_job(company_id, job_id, {
-                        "progress": progress_pct,
-                        "processedItems": idx + 1,
-                        "message": f"Procesando {emp.get('fullName', emp_id)} ({idx + 1}/{len(period_employees)})",
-                    }, sandbox=sandbox)
+                    _update_payroll_progress(
+                        company_id, job_id, idx, len(period_employees),
+                        emp.get("fullName", emp_id), sandbox=sandbox,
+                    )
 
                 # ── POST-PROCESAMIENTO ──
                 update_job(company_id, job_id, {
@@ -1253,6 +1253,7 @@ def payroll_new():
                     "processedItems": len(period_employees),
                     "message": f"Nómina {period_range or period_key} calculada: {len(lines)} empleados, neto RD$ {total_net:,.2f}.",
                     "result": {"period_id": period_id},
+                    "completedAt": datetime.now(timezone.utc).isoformat(),
                 }, sandbox=sandbox)
 
             except Exception as e:
@@ -1263,6 +1264,7 @@ def payroll_new():
                         "status": "failed",
                         "error": str(e)[:500],
                         "message": f"Error en el cálculo: {str(e)[:200]}",
+                        "completedAt": datetime.now(timezone.utc).isoformat(),
                     }, sandbox=sandbox)
                 except Exception:
                     pass
@@ -1305,9 +1307,9 @@ def payroll_create():
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
 
-    selected_group_id = request.form.get("payrollGroupId", "")
-    period_key = request.form.get("period_key", "")
-    period_sub_type = request.form.get("periodSubType", "regular")
+    selected_group_id = request.form.get("payrollGroupId", "").strip()
+    period_key = request.form.get("period_key", "").strip()
+    period_sub_type = request.form.get("periodSubType", "regular").strip() or "regular"
 
     if not selected_group_id:
         flash("Debes seleccionar un grupo de nómina.", "error")
@@ -1316,35 +1318,38 @@ def payroll_create():
         flash("Debes seleccionar un período.", "error")
         return redirect(url_for("web_rrhh.payroll_new"))
 
-    payroll_groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
-    selected_group = next((g for g in payroll_groups if g["id"] == selected_group_id), None)
-    group_frequency = selected_group["frequency"] if selected_group else "mensual"
-
-    now = date.today()
-    available_periods = _generate_periods(group_frequency, now.year)
-    period_info = next((p for p in available_periods if p["key"] == period_key), None)
-    if not period_info:
-        flash("El período seleccionado no es válido para este grupo.", "error")
-        return redirect(url_for("web_rrhh.payroll_new"))
-
-    # Validar que el grupo tenga empleados activos
-    from app.utils.hr_utils import is_active_equivalent
-    all_emps = hr.get_employees(company_id, sandbox=sandbox)
-    group_emps = [e for e in all_emps
-                  if selected_group_id in e.get("payrollGroupIds", [])
-                  and is_active_equivalent(e.get("status", ""))]
-    if not group_emps:
-        flash("Este grupo no tiene empleados activos. Asigna empleados al grupo antes de crear la nómina.", "error")
-        return redirect(url_for("web_rrhh.payroll_new", group=selected_group_id))
-
-    existing = hr.get_payroll_period_by_key_and_group(
-        company_id, period_key, selected_group_id, sandbox=sandbox)
-    if existing:
-        if existing.get("status") != "borrador":
-            flash(f"Ya existe una nómina para el período «{period_info['label']}» en este grupo. Ábrela desde el historial.", "warning")
+    try:
+        existing = hr.get_payroll_period_by_key_and_group(
+            company_id, period_key, selected_group_id, sandbox=sandbox)
+        if existing:
+            message = ("Este período ya tiene un borrador. Continúa editándolo."
+                       if existing.get("status") == "borrador"
+                       else "La nómina seleccionada ya existe. Se abrió su detalle.")
+            flash(message, "info")
             return redirect(url_for("web_rrhh.payroll_view", period_id=existing["id"]))
-        flash("Este período ya tiene un borrador. Continúa editándolo.", "info")
-        return redirect(url_for("web_rrhh.payroll_view", period_id=existing["id"]))
+
+        selected_group = hr.get_payroll_group(company_id, selected_group_id, sandbox=sandbox)
+        if not selected_group:
+            flash("El grupo de nómina seleccionado no existe.", "error")
+            return redirect(url_for("web_rrhh.payroll_new"))
+
+        group_frequency = selected_group.get("frequency", "mensual")
+        now = date.today()
+        available_periods = _generate_periods(group_frequency, now.year)
+        period_info = next((p for p in available_periods if p["key"] == period_key), None)
+        if not period_info:
+            flash("El período seleccionado no es válido para este grupo.", "error")
+            return redirect(url_for("web_rrhh.payroll_new", group=selected_group_id))
+
+        if not hr.has_active_employee_in_payroll_group(
+                company_id, selected_group_id, sandbox=sandbox):
+            flash("Este grupo no tiene empleados activos. Asigna empleados al grupo antes de crear la nómina.", "error")
+            return redirect(url_for("web_rrhh.payroll_new", group=selected_group_id))
+
+    except Exception as exc:
+        print(f"ERROR payroll_create preparando período: {exc}")
+        flash("No se pudo validar la nómina. Verifica la conexión e inténtalo nuevamente.", "error")
+        return redirect(url_for("web_rrhh.payroll_new", group=selected_group_id))
 
     parts = period_key.split("-")
     year = int(parts[0])
@@ -1380,8 +1385,16 @@ def payroll_create():
             "comment": "Período creado",
         }],
     }
-    hr.save_payroll_period(company_id, period_id, period_data, sandbox=sandbox)
-    flash(f"Nómina «{period_info['label']}» creada. Edita las variables y procesa cuando estés listo.", "success")
+    try:
+        saved = hr.save_payroll_period(company_id, period_id, period_data, sandbox=sandbox)
+        if not saved:
+            raise RuntimeError("No fue posible guardar el período de nómina.")
+    except Exception as exc:
+        print(f"ERROR payroll_create: {exc}")
+        flash("No se pudo crear la nómina. Verifica la conexión e inténtalo nuevamente.", "error")
+        return redirect(url_for("web_rrhh.payroll_new", group=selected_group_id))
+
+    flash(f"Nómina «{period_info['label']}» creada. Revisa sus variables y pulsa «Guardar y recalcular» para procesarla.", "success")
     return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
 
 

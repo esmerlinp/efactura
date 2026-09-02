@@ -171,6 +171,21 @@ def _delete(company_id: str, collection: str, doc_id: str, sandbox: bool = True)
 def get_employees(company_id: str, sandbox: bool = True) -> list:
     return _get_all(company_id, "employees", sandbox)
 
+def has_active_employee_in_payroll_group(company_id: str, group_id: str,
+                                         sandbox: bool = True) -> bool:
+    """Indica si el grupo contiene al menos un empleado vigente."""
+    if not firebase_initialized or db_firestore is None:
+        raise RuntimeError("Firebase no está inicializado.")
+    coll_path = _hr_company_path(company_id, "employees", sandbox)
+    if not coll_path:
+        raise ValueError("La empresa no es válida.")
+
+    docs = db_firestore.collection(coll_path) \
+        .where(filter=FieldFilter("payrollGroupIds", "array_contains", group_id)) \
+        .where(filter=FieldFilter("status", "in", ["activo", "vacaciones", "licencia"])) \
+        .limit(1).get()
+    return any(True for _ in docs)
+
 def get_employee(company_id: str, employee_id: str, sandbox: bool = True) -> dict | None:
     return _get_one(company_id, "employees", employee_id, sandbox)
 
@@ -766,8 +781,8 @@ def get_dependents_for_employees(company_id: str, employee_ids: list, sandbox: b
         for i in range(0, len(employee_ids), batch_size):
             chunk = employee_ids[i:i + batch_size]
             docs = db_firestore.collection(coll_path)\
-                .where("active", "==", True)\
-                .where("employeeId", "in", chunk)\
+                .where(filter=FieldFilter("active", "==", True))\
+                .where(filter=FieldFilter("employeeId", "in", chunk))\
                 .get()
             for d in docs:
                 dep = {"id": d.id, **d.to_dict()}

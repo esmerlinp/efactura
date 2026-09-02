@@ -848,10 +848,28 @@ def payroll_job_status(job_id):
     if _login_required():
         return jsonify({"error": "unauthorized"}), 401
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
-    from app.services.payroll_async_service import get_job
+    from app.services.payroll_async_service import get_job, update_job
     job = get_job(company_id, job_id, sandbox=sandbox)
     if not job:
         return jsonify({"error": "not found"}), 404
+
+    if job.get("status") in ("pending", "running"):
+        heartbeat = job.get("lastHeartbeatAt") or job.get("updatedAt") or job.get("createdAt")
+        try:
+            heartbeat_at = datetime.fromisoformat(heartbeat.replace("Z", "+00:00"))
+            if heartbeat_at.tzinfo is None:
+                heartbeat_at = heartbeat_at.replace(tzinfo=timezone.utc)
+            if (datetime.now(timezone.utc) - heartbeat_at).total_seconds() > 180:
+                message = "El procesamiento dejó de responder. Regresa a la nómina e inténtalo nuevamente."
+                update_job(company_id, job_id, {
+                    "status": "failed",
+                    "error": message,
+                    "message": message,
+                    "completedAt": datetime.now(timezone.utc).isoformat(),
+                }, sandbox=sandbox)
+                job.update({"status": "failed", "error": message, "message": message})
+        except (AttributeError, TypeError, ValueError):
+            pass
     return jsonify({
         "status": job.get("status"),
         "progress": job.get("progress", 0),
@@ -860,6 +878,8 @@ def payroll_job_status(job_id):
         "message": job.get("message", ""),
         "result": job.get("result"),
         "error": job.get("error"),
+        "phase": job.get("phase", ""),
+        "currentEmployeeName": job.get("currentEmployeeName", ""),
         "redirect_to": (job.get("metadata") or {}).get("redirect_to", "new"),
     })
 
@@ -1025,5 +1045,4 @@ def payroll_reconcile_load_transactions(period_id):
     tx_to = request.form.get("tx_to", "")
     return redirect(url_for("web_rrhh.payroll_reconcile", period_id=period_id,
                            tx_from=tx_from, tx_to=tx_to))
-
 

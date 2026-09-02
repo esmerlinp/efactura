@@ -313,6 +313,7 @@
             <input type="hidden" name="period_kind" value="{{ period.periodType or 'mensual' }}">
             <input type="hidden" name="periodSubType" value="{{ period.periodSubType or 'regular' }}">
             <input type="hidden" name="redirect_to" value="view">
+            <input type="hidden" name="intent" value="recalculate">
             <button type="submit" class="btn btn-primary btn-sm" title="Guarda las variables editadas y recalcula la nómina.">
                 <i class="fa-solid fa-calculator"></i> Guardar y recalcular
             </button>

@@ -73,7 +73,8 @@
         </div>
     </div>
     {% endif %}
-<form method="POST" action="{{ url_for('web_rrhh.payroll_create') }}">
+<form method="POST" action="{{ url_for('web_rrhh.payroll_create') }}" autocomplete="off"
+      id="payrollCreateForm" onsubmit="return startCreate()">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="card-table-wrapper" style="padding:20px 24px; margin-bottom:16px;">
         <div style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--text-primary); margin-bottom:12px;">
@@ -95,10 +96,10 @@
             {% endif %}
             <div class="form-group" style="margin:0;">
                 <label>Tipo de nómina</label>
-                <select name="periodSubType" class="form-select">
-                    <option value="regular" {% if not (pending_liquidations is defined and pending_liquidations) and now_month != 12 %}selected{% endif %}>Regular</option>
-                    <option value="liquidation" {% if pending_liquidations is defined and pending_liquidations %}selected{% endif %}>Liquidación (prestaciones)</option>
-                    <option value="christmas_bonus" {% if now_month == 12 and not (pending_liquidations is defined and pending_liquidations) %}selected{% endif %}>Regalía Pascual</option>
+                <select name="periodSubType" class="form-select" autocomplete="off">
+                    <option value="regular" selected>Regular</option>
+                    <option value="liquidation">Liquidación (prestaciones)</option>
+                    <option value="christmas_bonus">Regalía Pascual</option>
                     <option value="extraordinary">Extraordinaria</option>
                     <option value="retroactive">Retroactiva</option>
                     <option value="vacation">Vacaciones</option>
@@ -177,12 +178,29 @@
 
     <div style="display:flex; justify-content:flex-end; gap:var(--space-2); flex-wrap:wrap;">
         <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost">Cancelar</a>
-        <button type="submit" class="btn btn-primary" id="btnCrear"
-                onclick="return startCreate()" {{ 'disabled' if no_groups or not selected_group_id }}>
+         <button type="submit" class="btn btn-primary" id="btnCrear"
+                {{ 'disabled' if no_groups or not selected_group_id }}>
             <i class="fa-solid fa-play"></i> Crear y continuar
         </button>
     </div>
 </form>
+
+<div id="payrollCreateModal" role="dialog" aria-modal="true" aria-labelledby="payrollCreateTitle"
+     aria-describedby="payrollCreateMessage" aria-hidden="true"
+     style="display:none; position:fixed; inset:0; z-index:2000; background:rgba(15,23,42,0.58); backdrop-filter:blur(3px); align-items:center; justify-content:center; padding:20px;">
+    <div style="width:min(420px,100%); background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); box-shadow:0 24px 70px rgba(0,0,0,0.28); padding:32px 28px; text-align:center;">
+        <div style="width:64px; height:64px; margin:0 auto 20px; border-radius:50%; background:rgba(16,185,129,0.12); color:var(--accent-emerald); display:flex; align-items:center; justify-content:center; font-size:1.65rem;">
+            <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
+        </div>
+        <h2 id="payrollCreateTitle" style="margin:0 0 8px; color:var(--text-primary); font-size:1.15rem;">Creando nómina</h2>
+        <p id="payrollCreateMessage" role="status" aria-live="polite" style="margin:0; color:var(--text-secondary); font-size:0.88rem; line-height:1.55;">
+            Estamos validando los empleados y preparando el período.
+        </p>
+        <p id="payrollCreateDelay" hidden style="margin:16px 0 0; color:var(--text-muted); font-size:0.78rem; line-height:1.5;">
+            Está tardando más de lo esperado. No cierres esta página ni vuelvas a enviar el formulario.
+        </p>
+    </div>
+</div>
 </div>
 {% endblock %}
 
@@ -191,9 +209,44 @@
 function startCreate() {
     if (!confirm('¿Crear la nómina del período seleccionado? Podrás editar los valores de cada empleado antes de procesar.')) return false;
     var btn = document.getElementById('btnCrear');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creando...';
+    var modal = document.getElementById('payrollCreateModal');
+    window.setTimeout(function () {
+        btn.disabled = true;
+        if (modal) {
+            modal.style.display = 'flex';
+            modal.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+        }
+        window.setTimeout(function () {
+            if (modal && modal.getAttribute('aria-hidden') === 'false') {
+                var message = document.getElementById('payrollCreateDelay');
+                if (message) message.hidden = false;
+            }
+        }, 10000);
+    }, 0);
     return true;
 }
+
+function resetCreateButton() {
+    var btn = document.getElementById('btnCrear');
+    if (!btn) return;
+    btn.disabled = {{ 'true' if no_groups or not selected_group_id else 'false' }};
+    btn.innerHTML = '<i class="fa-solid fa-play"></i> Crear y continuar';
+    var modal = document.getElementById('payrollCreateModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.setAttribute('aria-hidden', 'true');
+    }
+    document.body.style.overflow = '';
+    var message = document.getElementById('payrollCreateDelay');
+    if (message) message.hidden = true;
+}
+
+window.addEventListener('pageshow', resetCreateButton);
+
+document.addEventListener('DOMContentLoaded', function () {
+    var subtype = document.querySelector('select[name="periodSubType"]');
+    if (subtype) subtype.value = 'regular';
+});
 </script>
 {% endblock %}
