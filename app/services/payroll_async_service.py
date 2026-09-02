@@ -37,6 +37,8 @@ def create_job(company_id: str, job_type: str = "payroll_calculation",
         "error": None,
         "metadata": metadata or {},
         "createdAt": now_iso,
+        "updatedAt": now_iso,
+        "lastHeartbeatAt": now_iso,
         "startedAt": None,
         "completedAt": None,
         "expiresAt": (datetime.now(timezone.utc) + __import__("datetime").timedelta(days=JOB_TTL_DAYS)).isoformat(),
@@ -47,12 +49,18 @@ def create_job(company_id: str, job_type: str = "payroll_calculation",
 def update_job(company_id: str, job_id: str, data: dict, sandbox: bool = True):
     """Actualiza campos de un job (merge)."""
     if not firebase_initialized or db_firestore is None:
-        return
+        return False
     try:
         coll = _jobs_collection(company_id, sandbox)
-        db_firestore.collection(coll).document(job_id).set(data, merge=True)
+        payload = dict(data)
+        now_iso = datetime.now(timezone.utc).isoformat()
+        payload["updatedAt"] = now_iso
+        payload["lastHeartbeatAt"] = now_iso
+        db_firestore.collection(coll).document(job_id).set(payload, merge=True)
+        return True
     except Exception as e:
         print(f"⚠️ update_job: {e}")
+        return False
 
 
 def get_job(company_id: str, job_id: str, sandbox: bool = True) -> dict:
