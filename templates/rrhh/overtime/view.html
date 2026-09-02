@@ -33,7 +33,7 @@
 </div>
 
 <div class="hr-grid-2col">
-    <div>
+    <div class="hr-card-stack">
         <div class="hr-section-card">
             <h3><i class="fa-solid fa-info-circle"></i> Información general</h3>
             <table class="info-table">
@@ -72,7 +72,7 @@
         {% endif %}
     </div>
 
-    <div>
+    <div class="hr-card-stack">
         <div class="hr-section-card">
             <h3><i class="fa-solid fa-calculator"></i> Cálculo</h3>
             {% if record.hourlyRateAtApproval > 0 %}
@@ -102,10 +102,15 @@
             <h3><i class="fa-solid fa-timeline"></i> Acciones</h3>
             <div style="display:flex; flex-direction:column; gap:8px;">
                 {% if record.status == 'draft' %}
-                <form method="POST" action="{{ url_for('web_rrhh.overtime_submit', record_id=record.id) }}" style="display:contents;">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="btn btn-warning"><i class="fa-solid fa-paper-plane"></i> Enviar a aprobación</button>
-                </form>
+                <div style="display:flex; gap:8px;">
+                    <a href="{{ url_for('web_rrhh.overtime_edit', record_id=record.id) }}" class="btn btn-ghost">
+                        <i class="fa-solid fa-pen"></i> Editar
+                    </a>
+                    <form method="POST" action="{{ url_for('web_rrhh.overtime_submit', record_id=record.id) }}" style="display:contents;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-warning"><i class="fa-solid fa-paper-plane"></i> Enviar a aprobación</button>
+                    </form>
+                </div>
                 {% endif %}
                 {% if record.status == 'pending' %}
                 <form method="POST" action="{{ url_for('web_rrhh.overtime_approve', record_id=record.id) }}" style="display:contents;">
@@ -151,8 +156,9 @@
 </div>
 
 <style>
-.hr-grid-2col { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.hr-grid-2col { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
 @media (max-width:900px) { .hr-grid-2col { grid-template-columns:1fr; } }
+.hr-card-stack { display:flex; flex-direction:column; gap:16px; }
 .info-table { width:100%; border-collapse:collapse; }
 .info-table td { padding:6px 8px; border-bottom:1px solid var(--border-subtle); font-size:0.85rem; }
 .info-table td:first-child { color:var(--text-muted); width:140px; }

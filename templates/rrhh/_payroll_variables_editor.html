@@ -1,0 +1,849 @@
+{% set pv_emps = [] %}
+{% for emp in employees %}
+    {% if not emp.isLiquidation %}
+        {% set _pv_name = ((emp.fullName or '') if (emp.fullName is defined and emp.fullName) else ((emp.firstName or '') ~ ' ' ~ (emp.firstLastName or emp.lastName or ''))) | trim %}
+        {% set _ = pv_emps.append({
+            "id": (emp.id or '')|string,
+            "name": (_pv_name or (emp.id or '')|string)|string,
+            "code": (emp.code or '')|string,
+            "department": (emp.department or emp.area or '')|string,
+            "position": (emp.position or '')|string,
+            "paymentMethod": (emp.paymentMethod or '')|string,
+            "salary": (emp.baseSalary|float if (emp.baseSalary is defined and emp.baseSalary) else 0)|float,
+            "area": (emp.area or '')|string
+        }) %}
+    {% endif %}
+{% endfor %}
+{% set imported_variables = imported_variables if imported_variables is defined else [] %}
+{% set christmas_preview = christmas_preview if christmas_preview is defined else [] %}
+{% set period_lines = period_lines if period_lines is defined else [] %}
+{% set recurring_movements = recurring_movements if recurring_movements is defined else [] %}
+{% set recurring_managed_tabs = recurring_managed_tabs if recurring_managed_tabs is defined else {} %}
+{% set ingreso_tabs = ingreso_tabs if ingreso_tabs is defined else [] %}
+{% set descuento_tabs = descuento_tabs if descuento_tabs is defined else [] %}
+{% set selected_group_id = selected_group_id if selected_group_id is defined else '' %}
+{% set pv_editable = pv_editable if pv_editable is defined else true %}
+{% set pv_return_url = pv_return_url if pv_return_url is defined else ('/rrhh/payroll/new' ~ ('?group=' ~ selected_group_id if selected_group_id else '')) %}
+
+{% set _rec_codes = [] %}
+{% for _k, _v in recurring_managed_tabs.items() %}
+    {% for _c in _v %}{% if _c not in _rec_codes %}{% set _ = _rec_codes.append(_c) %}{% endif %}{% endfor %}
+{% endfor %}
+
+    <!-- Nómina: Resumen · Completo · Ingresos · Descuentos -->
+    <div class="card-table-wrapper" style="margin-bottom:var(--space-4); padding:16px 24px;">
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span style="font-family:var(--font-heading); font-weight:700; font-size:0.95rem; color:var(--text-primary);">
+                <i class="fa-solid fa-list-check"></i> Nómina del período
+            </span>
+            {% if imported_variables is defined and imported_variables %}
+            <span class="badge" style="background:rgba(16,185,129,0.12); color:var(--accent-emerald); font-size:0.68rem;">{{ imported_variables|length }} importada(s)</span>
+            {% endif %}
+            <span style="margin-left:auto;"></span>
+            {% if pv_editable %}
+            <a href="{{ url_for('web_rrhh.concept_list', next=pv_return_url) }}" class="btn btn-sm btn-ghost" title="Gestiona los conceptos de nómina (crear, editar, activar/desactivar).">
+                <i class="fa-solid fa-cube"></i> Gestionar conceptos
+            </a>
+            <button type="button" class="btn btn-sm btn-outline" onclick="openPreview()" title="Calcula una vista previa con los valores actuales (TSS, ISR y neto reales).">
+                <i class="fa-solid fa-eye"></i> Vista previa
+            </button>
+            {% endif %}
+        </div>
+
+        <!-- Barra de totales en vivo -->
+        <div id="pvLiveTotals" style="display:flex; gap:16px; flex-wrap:wrap; padding:10px 14px; margin-top:8px; border:1px solid var(--border-color); border-radius:8px; background:var(--bg-nav-hover); font-size:0.8rem;">
+            <span>Salarios base: <strong id="pvLiveSalary" style="color:var(--text-primary);">RD$ 0.00</strong></span>
+            <span>Ingresos variables: <strong id="pvLiveIncome" style="color:var(--accent-emerald);">RD$ 0.00</strong></span>
+            <span>Descuentos variables: <strong id="pvLiveDeductions" style="color:var(--danger);">RD$ 0.00</strong></span>
+            <span>Neto estimado: <strong id="pvLiveNet" style="color:var(--accent-emerald); font-size:0.9rem;">RD$ 0.00</strong> <em style="color:var(--text-muted); font-size:0.7rem;">(sin TSS/ISR ni horas)</em></span>
+        </div>
+
+        <!-- Pestañas -->
+        <div class="pv-tabs" style="margin-top:12px;">
+            <button class="pv-tab {% if not pv_editable %}active{% endif %}" data-tab="resumen">Resumen</button>
+            <button class="pv-tab" data-tab="completo">Completo</button>
+            <button class="pv-tab {% if pv_editable %}active{% endif %}" data-tab="ingresos">Ingresos variables <span class="pv-badge" id="pv-badge-ingresos" style="display:none;"></span></button>
+            <button class="pv-tab" data-tab="descuentos">Descuentos variables <span class="pv-badge" id="pv-badge-descuentos" style="display:none;"></span></button>
+        </div>
+
+        <!-- Tab: Resumen -->
+        <div id="pv-tab-resumen" class="pv-tab-panel {% if not pv_editable %}active{% endif %}">
+            {% if period_lines %}
+            <div class="table-responsive">
+            <table class="table-premium pv-summary-grid">
+                <thead><tr><th title="Empleado">Emp.</th><th class="num" title="Total ingresos">T. Ing.</th><th class="num" title="Total descuentos">T. Desc.</th><th class="num" title="Neto a pagar">Neto</th><th class="num" title="Costo del empleador">Costo Emp.</th></tr></thead>
+                <tbody>
+                    {% for l in period_lines %}
+                    <tr>
+                            <td class="emp" title="{{ l.get('employeeName') or l.get('employeeId') }}">{{ l.get('employeeName') or l.get('employeeId') }}</td>
+                            <td class="num">{{ "{:,.2f}".format(l.get('totalIncome', 0)|float) if l.get('totalIncome', 0)|float else '—' }}</td>
+                            <td class="num">{{ "{:,.2f}".format(l.get('totalDeductions', 0)|float) if l.get('totalDeductions', 0)|float else '—' }}</td>
+                            <td class="num net">{{ "{:,.2f}".format(l.get('netSalary', 0)|float) if l.get('netSalary', 0)|float else '—' }}</td>
+                            <td class="num">{{ "{:,.2f}".format(l.get('totalEmployerContrib', 0)|float) if l.get('totalEmployerContrib', 0)|float else '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            {% else %}
+            <p class="text-muted" style="padding:18px; font-size:0.85rem; margin:0;">
+                <i class="fa-regular fa-circle-info"></i> Procesa la nómina para ver el resumen aquí. Los resultados del último cálculo se mostrarán automáticamente.
+            </p>
+            {% endif %}
+        </div>
+
+        <!-- Tab: Completo -->
+        <div id="pv-tab-completo" class="pv-tab-panel">
+            {% if period_lines %}
+            <div class="pv-complete-caption">Montos en RD$ · H.E. representa el pago de horas extras</div>
+            <div class="table-responsive">
+            <table class="table-premium pv-complete-grid">
+                <thead><tr>
+                    <th title="Empleado">Emp.</th>
+                    <th title="Salario base">Sal. Base</th>
+                    <th title="Pago de horas extras">H.E.</th>
+                    <th title="Comisión">Com.</th>
+                    <th title="Bonificación">Bon.</th>
+                    <th title="Otros ingresos">O. Ing.</th>
+                    <th title="Regalía pascual">Reg.</th>
+                    <th title="Otras deducciones">O. Desc.</th>
+                    <th class="num" title="Total ingresos">T. Ing.</th>
+                    <th class="num" title="Total descuentos">T. Desc.</th>
+                    <th class="num" title="Neto a pagar">Neto</th>
+                </tr></thead>
+                <tbody>
+                    {% for l in period_lines %}
+                    <tr>
+                        <td class="emp" title="{{ l.get('employeeName') or l.get('employeeId') }}">{{ l.get('employeeName') or l.get('employeeId') }}</td>
+                        <td class="num">{% if l.get('lineType') == 'liquidation' %}—{% else %}{{ "{:,.2f}".format(l.get('grossSalary', 0)|float) if l.get('grossSalary', 0)|float else '—' }}{% endif %}</td>
+                        <td class="num">{{ "{:,.2f}".format(l.get('overtimePay', 0)|float) if l.get('overtimePay', 0)|float else '—' }}</td>
+                        <td class="num">{{ "{:,.2f}".format(l.get('commission', 0)|float) if l.get('commission', 0)|float else '—' }}</td>
+                        <td class="num">{{ "{:,.2f}".format(l.get('bonus', 0)|float) if l.get('bonus', 0)|float else '—' }}</td>
+                        <td class="num">{{ "{:,.2f}".format(l.get('otherIncome', 0)|float) if l.get('otherIncome', 0)|float else '—' }}</td>
+                        <td class="num">{{ "{:,.2f}".format(l.get('christmasBonus', 0)|float) if l.get('christmasBonus', 0)|float else '—' }}</td>
+                        <td class="num">{{ "{:,.2f}".format(l.get('otherDeductions', 0)|float) if l.get('otherDeductions', 0)|float else '—' }}</td>
+                        <td class="num">{{ "{:,.2f}".format(l.get('totalIncome', 0)|float) if l.get('totalIncome', 0)|float else '—' }}</td>
+                        <td class="num">{{ "{:,.2f}".format(l.get('totalDeductions', 0)|float) if l.get('totalDeductions', 0)|float else '—' }}</td>
+                        <td class="num net">{{ "{:,.2f}".format(l.get('netSalary', 0)|float) if l.get('netSalary', 0)|float else '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            {% else %}
+            <p class="text-muted" style="padding:18px; font-size:0.85rem; margin:0;">Sin datos — procesa la nómina para ver el detalle completo.</p>
+            {% endif %}
+        </div>
+
+        <!-- Tab: Ingresos -->
+        <div id="pv-tab-ingresos" class="pv-tab-panel {% if pv_editable %}active{% endif %}">
+            <p style="font-size:0.75rem; color:var(--text-muted); padding:10px 0 0; margin:0;">
+                <i class="fa-regular fa-circle-info"></i>
+                El <strong>salario base</strong> se toma automáticamente de la ficha de cada empleado. Aquí solo capturas los <strong>ingresos variables</strong> (comisiones, horas, bonos, etc.).
+            </p>
+            <div class="pv-toolbar">
+                <label class="pv-search-box">
+                    <i class="fa-solid fa-search"></i>
+                    <input type="text" class="form-input pv-search" data-section="ingresos" placeholder="Buscar..." aria-label="Buscar ingresos">
+                </label>
+                <div class="pv-action-group">
+                {% if pv_editable %}
+                <button type="button" class="btn btn-sm btn-ghost pv-action-btn" onclick="pvAddRow('ingresos')" title="Agrega una fila de ingreso"><i class="fa-solid fa-plus"></i> Fila</button>
+                <a href="{{ url_for('web_rrhh.payroll_variables_import_page') }}" class="btn btn-sm btn-secondary pv-action-btn" title="Importa ingresos desde un CSV"><i class="fa-solid fa-file-csv"></i> Importar</a>
+                <button type="button" class="btn btn-sm btn-outline pv-action-btn" onclick="openBulkModal('ingresos')" title="Aplica un monto o porcentaje a varios empleados"><i class="fa-solid fa-layer-group"></i> Lote</button>
+                <button type="button" class="btn btn-sm btn-ghost pv-action-btn pv-danger-action" onclick="pvClearSection('ingresos')" title="Limpia todas las filas de ingresos"><i class="fa-solid fa-eraser"></i> Limpiar</button>
+                <a href="{{ url_for('web_rrhh.concept_new', type='earning', category='variable', next=pv_return_url) }}" class="btn btn-sm btn-ghost pv-action-btn pv-new-action" title="Crea un nuevo concepto de ingreso"><i class="fa-solid fa-plus"></i> Concepto</a>
+                {% endif %}
+                </div>
+                <div class="pv-chips" data-section="ingresos"></div>
+            </div>
+            <div class="table-responsive">
+            <table class="table-premium pv-table pv-input-grid" data-section="ingresos">
+                <thead><tr>
+                    <th title="Empleado">Emp.</th>
+                    <th title="Concepto de ingreso">Concepto</th>
+                    <th title="Valor en pesos dominicanos">Valor</th>
+                    <th style="width:36px;"></th>
+                </tr></thead>
+                <tbody id="pv-tbody-ingresos"></tbody>
+            </table>
+            </div>
+            <div id="pv-totals-ingresos" class="pv-concept-totals" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;"></div>
+        </div>
+
+        <!-- Tab: Descuentos -->
+        <div id="pv-tab-descuentos" class="pv-tab-panel">
+            <p style="font-size:0.75rem; color:var(--text-muted); padding:10px 0 0; margin:0;">
+                <i class="fa-regular fa-circle-info"></i>
+                <strong>AFP, SFS (ARS), ISR e INFOTEP</strong> se calculan automáticamente según los ingresos del período. Aquí solo capturas descuentos variables o recurrentes (préstamos, seguros, cooperativas, etc.).
+            </p>
+            {% if recurring_movements %}
+            <details class="pv-recurring" style="margin:10px 0 6px; border:1px dashed var(--border-color); border-radius:8px; padding:10px 14px;">
+                <summary style="cursor:pointer; font-weight:700; font-size:0.8rem;"><i class="fa-solid fa-repeat"></i> Movimientos recurrentes del grupo</summary>
+                <div class="table-responsive" style="margin-top:8px;">
+                <table class="table-premium" style="font-size:0.8rem; min-width:640px;">
+                    <thead><tr><th>Empleado</th><th>Concepto</th><th style="text-align:right;">Monto</th><th>Frecuencia</th><th>Estado</th><th style="width:90px;"></th></tr></thead>
+                    <tbody>
+                        {% for mv in recurring_movements %}
+                            {% if mv.conceptCode in _rec_codes %}
+                            <tr>
+                                <td>{{ mv.employeeName or mv.employeeId }}</td>
+                                <td>{{ mv.conceptCode }}</td>
+                                <td style="text-align:right;">RD$ {{ "{:,.2f}".format(mv.amount|float) }}</td>
+                                <td>{{ mv.applyFrequency or 'every_period' }}</td>
+                                <td>{{ mv.status }}</td>
+                                <td>
+                                    {% if pv_editable %}
+                                    <a href="{{ url_for('web_rrhh.recurring_edit', movement_id=mv.id, next=pv_return_url) }}" class="btn btn-sm btn-ghost" title="Editar"><i class="fa-solid fa-pen"></i></a>
+                                    <form method="POST" action="{{ url_for('web_rrhh.recurring_toggle_status', movement_id=mv.id) }}" style="display:inline; margin:0;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <input type="hidden" name="next" value="{{ pv_return_url }}">
+                                        <input type="hidden" name="new_status" value="{{ 'paused' if mv.status == 'active' else 'active' }}">
+                                        <button type="submit" class="btn btn-sm btn-ghost" title="{{ 'Pausar' if mv.status == 'active' else 'Reactivar' }}"><i class="fa-solid {{ 'fa-pause' if mv.status == 'active' else 'fa-play' }}"></i></button>
+                                    </form>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+                {% if pv_editable %}
+                <div style="margin-top:8px;">
+                    <a href="{{ url_for('web_rrhh.recurring_new', next=pv_return_url) }}" class="btn btn-sm btn-ghost"><i class="fa-solid fa-plus"></i> Nuevo movimiento recurrente</a>
+                </div>
+                {% endif %}
+            </details>
+            {% endif %}
+            <div class="pv-toolbar">
+                <label class="pv-search-box">
+                    <i class="fa-solid fa-search"></i>
+                    <input type="text" class="form-input pv-search" data-section="descuentos" placeholder="Buscar..." aria-label="Buscar descuentos">
+                </label>
+                <div class="pv-action-group">
+                {% if pv_editable %}
+                <button type="button" class="btn btn-sm btn-ghost pv-action-btn" onclick="pvAddRow('descuentos')" title="Agrega una fila de descuento"><i class="fa-solid fa-plus"></i> Fila</button>
+                <a href="{{ url_for('web_rrhh.payroll_variables_import_page') }}" class="btn btn-sm btn-secondary pv-action-btn" title="Importa descuentos desde un CSV"><i class="fa-solid fa-file-csv"></i> Importar</a>
+                <button type="button" class="btn btn-sm btn-outline pv-action-btn" onclick="openBulkModal('descuentos')" title="Aplica un monto o porcentaje a varios empleados"><i class="fa-solid fa-layer-group"></i> Lote</button>
+                <button type="button" class="btn btn-sm btn-ghost pv-action-btn pv-danger-action" onclick="pvClearSection('descuentos')" title="Limpia todas las filas de descuentos"><i class="fa-solid fa-eraser"></i> Limpiar</button>
+                <a href="{{ url_for('web_rrhh.concept_new', type='deduction', category='variable', next=pv_return_url) }}" class="btn btn-sm btn-ghost pv-action-btn pv-new-action" title="Crea un nuevo concepto de descuento"><i class="fa-solid fa-plus"></i> Concepto</a>
+                {% endif %}
+                </div>
+                <div class="pv-chips" data-section="descuentos"></div>
+            </div>
+            <div class="table-responsive">
+            <table class="table-premium pv-table pv-input-grid" data-section="descuentos">
+                <thead><tr>
+                    <th title="Empleado">Emp.</th>
+                    <th title="Concepto de descuento">Concepto</th>
+                    <th title="Valor en pesos dominicanos">Valor</th>
+                    <th style="width:36px;"></th>
+                </tr></thead>
+                <tbody id="pv-tbody-descuentos"></tbody>
+            </table>
+            </div>
+            <div id="pv-totals-descuentos" class="pv-concept-totals" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;"></div>
+        </div>
+
+        <datalist id="pvEmpDatalist">
+            {% for e in pv_emps %}<option value="{{ e.name }}{% if e.code %} — {{ e.code }}{% endif %}"></option>{% endfor %}
+        </datalist>
+
+        <!-- Modal Vista previa -->
+        <div id="pvPreviewModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.45); align-items:center; justify-content:center;" onclick="if(event.target===this)this.style.display='none';">
+            <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:24px; width:100%; max-width:760px; max-height:85vh; overflow:auto; box-shadow:var(--shadow-xl);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                    <h3 style="margin:0; font-size:1.1rem; font-weight:700;"><i class="fa-solid fa-eye" style="color:var(--accent-emerald);"></i> Vista previa — <span id="pvPreviewTitle"></span></h3>
+                    <button type="button" class="btn btn-sm btn-ghost" onclick="document.getElementById('pvPreviewModal').style.display='none'"><i class="fa-solid fa-times"></i></button>
+                </div>
+                <div id="pvPreviewLoading" style="text-align:center; padding:24px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Calculando con el motor de nómina...</div>
+                <div id="pvPreviewContent" style="display:none;">
+                    <div style="display:flex; flex-wrap:wrap; gap:0; margin-bottom:16px; border:1px solid var(--border-color); border-radius:6px; overflow:hidden;">
+                        <div style="flex:1; min-width:110px; padding:10px 14px; text-align:center; border-right:1px solid var(--border-color);">
+                            <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase;">Ingresos</div>
+                            <div id="pvPrevGross" style="font-size:0.9rem; font-weight:600;"></div>
+                        </div>
+                        <div style="flex:1; min-width:110px; padding:10px 14px; text-align:center; border-right:1px solid var(--border-color);">
+                            <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase;">Descuentos</div>
+                            <div id="pvPrevDed" style="font-size:0.9rem; font-weight:600;"></div>
+                        </div>
+                        <div style="flex:1; min-width:110px; padding:10px 14px; text-align:center; border-right:1px solid var(--border-color);">
+                            <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase;">Impuestos</div>
+                            <div id="pvPrevTaxes" style="font-size:0.9rem; font-weight:600;"></div>
+                        </div>
+                        <div style="flex:1; min-width:110px; padding:10px 14px; text-align:center; border-right:1px solid var(--border-color);">
+                            <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase;">Neto</div>
+                            <div id="pvPrevNet" style="font-size:1rem; font-weight:700; color:var(--accent-emerald);"></div>
+                        </div>
+                        <div style="flex:1; min-width:110px; padding:10px 14px; text-align:center;">
+                            <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase;">Costo empresa</div>
+                            <div id="pvPrevCost" style="font-size:0.9rem; font-weight:600;"></div>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                    <table class="table-premium" style="font-size:0.82rem; min-width:640px;">
+                        <thead><tr><th>Empleado</th><th style="text-align:right;">Ingresos</th><th style="text-align:right;">Descuentos</th><th style="text-align:right;">Neto</th><th style="text-align:right;">Costo Emp.</th></tr></thead>
+                        <tbody id="pvPreviewTbody"></tbody>
+                    </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal aplicar en lote -->
+        <div id="bulkModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.45); align-items:center; justify-content:center;" onclick="closeBulkModal(event)">
+            <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:24px; width:100%; max-width:420px; box-shadow:var(--shadow-xl);" onclick="event.stopPropagation()">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <h3 style="margin:0; font-size:1.1rem; font-weight:700;"><i class="fa-solid fa-layer-group" style="color:var(--accent-emerald);"></i> Aplicar en lote</h3>
+                    <button type="button" class="btn btn-sm btn-ghost" onclick="document.getElementById('bulkModal').style.display='none'"><i class="fa-solid fa-times"></i></button>
+                </div>
+                <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:16px;">
+                    Aplica el valor a <strong>todos los empleados</strong> de la sección: monto fijo o % del salario base. Luego puedes editar cada fila.
+                </p>
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label style="font-size:0.82rem; font-weight:600;">Concepto</label>
+                    <select id="bulkConcept" class="form-select"></select>
+                </div>
+                <div style="margin-bottom:12px; display:flex; gap:0; border:1px solid var(--border-color); border-radius:var(--radius-sm); overflow:hidden;">
+                    <button type="button" id="bulkModeFixed" class="bulk-mode-btn active" onclick="setBulkMode('fixed')" style="flex:1; padding:6px 12px; border:none; background:var(--bg-brand-translucent); color:var(--text-primary); font-size:0.78rem; font-weight:600; cursor:pointer;">Monto fijo</button>
+                    <button type="button" id="bulkModePct" class="bulk-mode-btn" onclick="setBulkMode('pct')" style="flex:1; padding:6px 12px; border:none; background:transparent; color:var(--text-muted); font-size:0.78rem; font-weight:500; cursor:pointer;">Porcentaje (%)</button>
+                </div>
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label style="font-size:0.82rem; font-weight:600;">Departamento (opcional)</label>
+                    <select id="bulkDept" class="form-select">
+                        <option value="">Todos</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom:20px;">
+                    <label id="bulkValueLabel" style="font-size:0.82rem; font-weight:600;">Valor</label>
+                    <input type="number" id="bulkValue" step="0.01" min="0" value="0" class="form-input">
+                </div>
+                <label style="display:flex; align-items:center; gap:8px; margin-bottom:16px; font-size:0.82rem; cursor:pointer;">
+                    <input type="checkbox" id="bulkReplace" style="width:16px; height:16px; accent-color:var(--danger);">
+                    Reemplazar las filas existentes de la sección
+                </label>
+                <div style="display:flex; justify-content:flex-end; gap:8px;">
+                    <button type="button" class="btn btn-ghost" onclick="document.getElementById('bulkModal').style.display='none'">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="applyBulk()"><i class="fa-solid fa-check"></i> Aplicar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<style>
+.pv-tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--border-color); flex-wrap: wrap; }
+.pv-tab { padding: 8px 14px; font-size: 0.82rem; font-weight: 600; color: var(--text-muted); cursor: pointer; border: none; border-bottom: 2px solid transparent; margin-bottom: -2px; background: none; white-space: nowrap; }
+.pv-tab:hover { color: var(--text-primary); }
+.pv-tab.active { color: var(--accent-emerald); border-bottom-color: var(--accent-emerald); }
+.pv-tab-panel { display: none; }
+.pv-tab-panel.active { display: block; }
+.pv-badge { display:inline-block; min-width:18px; padding:0 6px; border-radius:10px; background:var(--accent-emerald); color:#fff; font-size:0.68rem; font-weight:700; text-align:center; margin-left:4px; }
+.pv-chip { font-size:0.75rem; background:var(--bg-nav-hover); border:1px solid var(--border-color); border-radius:16px; padding:2px 10px; color:var(--text-primary); cursor:pointer; font-weight:600; }
+.pv-chip.active { background:var(--accent-emerald); border-color:var(--accent-emerald); color:#fff; }
+.pv-emp-info { display:block; font-size:0.66rem; color:var(--text-muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pv-toolbar { display:grid; grid-template-columns:minmax(150px, 220px) minmax(0, 1fr); gap:7px 10px; align-items:center; padding:10px 0 5px; }
+.pv-search-box { position:relative; display:block; }
+.pv-search-box i { position:absolute; left:9px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:0.68rem; pointer-events:none; }
+.pv-search-box .pv-search { width:100%; height:28px; padding:4px 8px 4px 25px; border-radius:6px; font-size:0.72rem; }
+.pv-action-group { display:flex; justify-content:flex-end; align-items:center; gap:4px; flex-wrap:wrap; }
+.pv-action-btn { height:28px; padding:3px 7px; border-radius:5px; font-size:0.68rem; white-space:nowrap; }
+.pv-danger-action { color:var(--danger); }
+.pv-new-action { color:var(--accent-emerald); }
+.pv-toolbar .pv-chips { grid-column:1 / -1; display:flex; align-items:center; gap:4px; min-width:0; overflow-x:auto; padding-bottom:1px; scrollbar-width:thin; }
+.pv-toolbar .pv-chip { flex:0 0 auto; font-size:0.66rem; padding:2px 7px; }
+@media (max-width:700px) {
+    .pv-toolbar { grid-template-columns:1fr; }
+    .pv-action-group { justify-content:flex-start; }
+    .pv-toolbar .pv-chips { grid-column:auto; }
+}
+.pv-complete-caption { color:var(--text-muted); font-size:0.68rem; margin:10px 0 5px; }
+.pv-complete-grid { font-size:0.72rem; min-width:850px; }
+.pv-complete-grid th,
+.pv-complete-grid td { padding:5px 7px; white-space:nowrap; line-height:1.15; font-weight:400; }
+.pv-complete-grid th { font-size:0.66rem; font-weight:500; text-transform:uppercase; letter-spacing:0.02em; color:var(--text-muted); }
+.pv-complete-grid .num { text-align:right; font-variant-numeric:tabular-nums; }
+.pv-complete-grid .emp { max-width:180px; overflow:hidden; text-overflow:ellipsis; }
+.pv-complete-grid .net { color:var(--accent-emerald); }
+.pv-summary-grid,
+.pv-input-grid { font-size:0.72rem; min-width:620px; }
+.pv-summary-grid th,
+.pv-summary-grid td,
+.pv-input-grid th,
+.pv-input-grid td { padding:5px 7px; white-space:nowrap; line-height:1.15; font-weight:400; }
+.pv-summary-grid th,
+.pv-input-grid th { font-size:0.66rem; font-weight:500; text-transform:uppercase; letter-spacing:0.02em; color:var(--text-muted); }
+.pv-summary-grid .num,
+.pv-input-grid .num { text-align:right; font-variant-numeric:tabular-nums; }
+.pv-summary-grid .emp { max-width:220px; overflow:hidden; text-overflow:ellipsis; }
+.pv-summary-grid .net { color:var(--accent-emerald); }
+.pv-input-grid .pv-emp,
+.pv-input-grid .pv-concept,
+.pv-input-grid .pv-amount { font-size:0.72rem; padding:4px 6px; height:28px; }
+.pv-input-grid .pv-emp { min-width:180px; }
+.pv-input-grid .pv-concept { min-width:170px; }
+.pv-input-grid .pv-unit { font-size:0.65rem; }
+</style>
+<script>
+var PV_EMPLOYEES = {{ pv_emps | tojson }};
+var PV_INGRESO_CONCEPTS = {{ ingreso_tabs | tojson }};
+var PV_DESCUENTO_CONCEPTS = {{ descuento_tabs | tojson }};
+var PV_INITIAL = {{ (imported_variables if imported_variables is defined else []) | tojson }};
+var PV_CHRISTMAS_PREVIEW = {{ (christmas_preview if christmas_preview is defined else []) | tojson }};
+var PV_CHRISTMAS_DEFAULT = {{ (christmas_enabled if christmas_enabled is defined else false) | tojson }};
+var PV_EDITABLE = {{ (pv_editable if pv_editable is defined else true) | tojson }};
+var PV_PERIOD_KEY = {{ ((period.get('periodKey') if period is defined and period else selected_period_key) if (period is defined and period) or selected_period_key is defined else '') | tojson }};
+var PV_GROUP_ID = {{ ((period.get('payrollGroupId') if period is defined and period else selected_group_id) if (period is defined and period) or selected_group_id is defined else '') | tojson }};
+
+var PV_EMP_BY_ID = {};
+PV_EMPLOYEES.forEach(function(e) { PV_EMP_BY_ID[e.id] = e; });
+
+var PV_CONCEPT_BY_CODE = {};
+PV_INGRESO_CONCEPTS.forEach(function(c) { PV_CONCEPT_BY_CODE[c.concept] = Object.assign({}, c, {section: 'ingresos'}); });
+PV_DESCUENTO_CONCEPTS.forEach(function(c) { PV_CONCEPT_BY_CODE[c.concept] = Object.assign({}, c, {section: 'descuentos'}); });
+
+var PV_EMP_LOOKUP = {};
+(function() {
+    var nameCount = {};
+    PV_EMPLOYEES.forEach(function(e) { nameCount[e.name] = (nameCount[e.name] || 0) + 1; });
+    PV_EMPLOYEES.forEach(function(e) {
+        var val = e.name;
+        if (nameCount[e.name] > 1) val = e.name + ' — ' + (e.code || e.id);
+        PV_EMP_LOOKUP[val] = e.id;
+        e._pvValue = val;
+    });
+})();
+function pvEmpValue(empId) { var e = PV_EMP_BY_ID[empId]; return e ? (e._pvValue || e.name) : ''; }
+function pvResolveEmp(val) { if (!val) return ''; return PV_EMP_LOOKUP[val] || (PV_EMP_BY_ID[val] ? val : ''); }
+
+var pvChipFilter = { ingresos: '', descuentos: '' };
+
+function pvConceptOptions(sectionKey) {
+    var list = sectionKey === 'ingresos' ? PV_INGRESO_CONCEPTS : PV_DESCUENTO_CONCEPTS;
+    return list.map(function(c) {
+        return '<option value="' + c.concept + '">' + c.label + '</option>';
+    }).join('');
+}
+
+function pvFmtMoney(v) { return 'RD$ ' + v.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
+
+function pvAddRow(sectionKey, empId, conceptCode, amount, auto) {
+    var tbody = document.getElementById('pv-tbody-' + sectionKey);
+    if (!tbody) return null;
+
+    var tr = document.createElement('tr');
+    tr.className = 'pv-row';
+    if (auto) tr.setAttribute('data-auto', '1');
+    tr.innerHTML =
+        '<td>' +
+            '<input class="form-input pv-emp" list="pvEmpDatalist" placeholder="Buscar empleado..." autocomplete="off">' +
+        '</td>' +
+        '<td><select class="form-input pv-concept">' + pvConceptOptions(sectionKey) + '</select></td>' +
+        '<td><input type="number" step="0.01" min="0" class="form-input pv-amount" value="' + (amount !== undefined && amount !== null && amount !== '' ? amount : '0') + '" oninput="this.closest(\'tr\').removeAttribute(\'data-auto\'); pvRender();"> <span class="pv-unit">RD$</span></td>' +
+        '<td><button type="button" class="btn btn-sm btn-danger" onclick="this.closest(\'tr\').remove(); pvRender();"><i class="fa-solid fa-xmark"></i></button></td>';
+    tbody.appendChild(tr);
+
+    if (!PV_EDITABLE) {
+        tr.querySelectorAll('select, input').forEach(function(el) { el.disabled = true; });
+        var delBtn = tr.querySelector('button');
+        if (delBtn) delBtn.style.display = 'none';
+    }
+
+    var empSel = tr.querySelector('.pv-emp');
+    var conSel = tr.querySelector('.pv-concept');
+    empSel.addEventListener('input', function() { pvFillRowInfo(tr); pvRender(); });
+    conSel.addEventListener('change', function() { pvUpdateUnit(tr); pvRender(); });
+
+    if (empId) empSel.value = pvEmpValue(empId);
+    if (conceptCode) conSel.value = conceptCode;
+    pvFillRowInfo(tr);
+    pvUpdateUnit(tr);
+    pvRender();
+    return tr;
+}
+
+function pvFillRowInfo(tr) {
+    var emp = PV_EMP_BY_ID[pvResolveEmp(tr.querySelector('.pv-emp').value)];
+    var input = tr.querySelector('.pv-emp');
+    if (!emp) { input.title = 'Empleado no seleccionado'; return; }
+    var parts = [];
+    if (emp.code) parts.push('Cód. ' + emp.code);
+    if (emp.department) parts.push(emp.department);
+    if (emp.position) parts.push(emp.position);
+    if (emp.paymentMethod) parts.push(emp.paymentMethod);
+    if (emp.salary > 0) parts.push('RD$ ' + emp.salary.toLocaleString('es-DO', {minimumFractionDigits: 2}));
+    input.title = parts.join(' · ');
+}
+
+function pvUpdateUnit(tr) {
+    var code = tr.querySelector('.pv-concept').value;
+    var def = PV_CONCEPT_BY_CODE[code];
+    tr.querySelector('.pv-unit').textContent = (def && def.hours) ? 'h' : 'RD$';
+}
+
+function pvSectionRows(sectionKey) {
+    var tbody = document.getElementById('pv-tbody-' + sectionKey);
+    return tbody ? Array.from(tbody.querySelectorAll('.pv-row')) : [];
+}
+
+function pvRender() {
+    ['ingresos', 'descuentos'].forEach(function(section) {
+        var rows = pvSectionRows(section);
+        var sums = {};
+        var count = 0;
+        rows.forEach(function(tr) {
+            var code = tr.querySelector('.pv-concept').value;
+            var amt = parseFloat(tr.querySelector('.pv-amount').value) || 0;
+            if (amt > 0) {
+                count++;
+                sums[code] = (sums[code] || 0) + amt;
+            }
+        });
+
+        var chipsEl = document.querySelector('.pv-chips[data-section="' + section + '"]');
+        if (chipsEl) {
+            var codes = Object.keys(sums).sort();
+            var html = '';
+            if (codes.length > 1) {
+                html += '<button type="button" class="pv-chip' + (pvChipFilter[section] === '' ? ' active' : '') + '" onclick="pvSetChipFilter(\'' + section + '\', \'\')">Todos</button>';
+            }
+            codes.forEach(function(code) {
+                var def = PV_CONCEPT_BY_CODE[code] || {label: code};
+                html += '<button type="button" class="pv-chip' + (pvChipFilter[section] === code ? ' active' : '') + '" onclick="pvSetChipFilter(\'' + section + '\', \'' + code + '\')">' + def.label + ' (' + (def && def.hours ? sums[code] + 'h' : pvFmtMoney(sums[code])) + ')</button>';
+            });
+            chipsEl.innerHTML = html;
+        }
+
+        var totalsEl = document.getElementById('pv-totals-' + section);
+        if (totalsEl) {
+            var parts = Object.keys(sums).sort().map(function(code) {
+                var def = PV_CONCEPT_BY_CODE[code] || {label: code};
+                return def.label + ': <strong>' + (def && def.hours ? sums[code].toLocaleString('es-DO', {maximumFractionDigits: 2}) + ' h' : pvFmtMoney(sums[code])) + '</strong>';
+            });
+            totalsEl.innerHTML = parts.map(function(p) {
+                return '<span style="font-size:0.76rem; background:var(--bg-nav-hover); border:1px solid var(--border-color); border-radius:16px; padding:3px 12px;">' + p + '</span>';
+            }).join('');
+        }
+
+        rows.forEach(function(tr) {
+            var code = tr.querySelector('.pv-concept').value;
+            var matchChip = !pvChipFilter[section] || pvChipFilter[section] === code;
+            var empText = (tr.querySelector('.pv-emp').value || '') + ' ' + ((PV_CONCEPT_BY_CODE[code] || {}).label || '');
+            var q = (document.querySelector('.pv-search[data-section="' + section + '"]') || {}).value || '';
+            var matchSearch = !q || empText.toLowerCase().indexOf(q.toLowerCase()) !== -1;
+            tr.style.display = (matchChip && matchSearch) ? '' : 'none';
+        });
+
+        var badge = section === 'ingresos' ? document.getElementById('pv-badge-ingresos') : document.getElementById('pv-badge-descuentos');
+        if (badge) { badge.textContent = count; badge.style.display = count > 0 ? '' : 'none'; }
+    });
+
+    var salary = 0, incMoney = 0, decMoney = 0;
+    PV_EMPLOYEES.forEach(function(e) { salary += e.salary || 0; });
+    pvSectionRows('ingresos').forEach(function(tr) {
+        var amt = parseFloat(tr.querySelector('.pv-amount').value) || 0;
+        var def = PV_CONCEPT_BY_CODE[tr.querySelector('.pv-concept').value];
+        if (def && def.hours) return;
+        incMoney += amt;
+    });
+    pvSectionRows('descuentos').forEach(function(tr) {
+        var amt = parseFloat(tr.querySelector('.pv-amount').value) || 0;
+        var def = PV_CONCEPT_BY_CODE[tr.querySelector('.pv-concept').value];
+        if (def && def.hours) return;
+        decMoney += amt;
+    });
+    var live = document.getElementById('pvLiveSalary');
+    if (live) {
+        document.getElementById('pvLiveSalary').textContent = pvFmtMoney(salary);
+        document.getElementById('pvLiveIncome').textContent = pvFmtMoney(incMoney);
+        document.getElementById('pvLiveDeductions').textContent = pvFmtMoney(decMoney);
+        document.getElementById('pvLiveNet').textContent = pvFmtMoney(salary + incMoney - decMoney);
+    }
+    try { pvSaveDraft(); } catch(e) {}
+}
+
+function pvSetChipFilter(section, code) {
+    pvChipFilter[section] = code;
+    pvRender();
+}
+
+function pvClearSection(sectionKey) {
+    var rows = pvSectionRows(sectionKey);
+    if (rows.length === 0) return;
+    if (!confirm('¿Eliminar todas las filas de esta sección?')) return;
+    rows.forEach(function(tr) { tr.remove(); });
+    pvRender();
+}
+
+function pvSerialize(form) {
+    form.querySelectorAll('.pv-hidden').forEach(function(el) { el.remove(); });
+    var agg = {};
+    ['ingresos', 'descuentos'].forEach(function(section) {
+        pvSectionRows(section).forEach(function(tr) {
+            var empId = pvResolveEmp(tr.querySelector('.pv-emp').value);
+            var concept = tr.querySelector('.pv-concept').value;
+            var amt = parseFloat(tr.querySelector('.pv-amount').value) || 0;
+            if (!empId || !concept || amt <= 0) return;
+            var key = concept + '_' + empId;
+            agg[key] = (agg[key] || 0) + amt;
+        });
+    });
+    Object.keys(agg).forEach(function(key) {
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.className = 'pv-hidden';
+        input.name = 'var_' + key;
+        input.value = Math.round(agg[key] * 100) / 100;
+        form.appendChild(input);
+    });
+}
+
+/* ── Autosave local ── */
+function pvDraftKey() { return 'pvDraft_' + (PV_PERIOD_KEY || 'nueva') + '_' + (PV_GROUP_ID || 'g'); }
+
+function pvSaveDraft() {
+    if (!PV_EDITABLE) return;
+    var rows = [];
+    ['ingresos', 'descuentos'].forEach(function(section) {
+        pvSectionRows(section).forEach(function(tr) {
+            var empId = pvResolveEmp(tr.querySelector('.pv-emp').value);
+            var concept = tr.querySelector('.pv-concept').value;
+            var amt = parseFloat(tr.querySelector('.pv-amount').value) || 0;
+            if (empId && concept && amt > 0) rows.push({section: section, empId: empId, concept: concept, amount: amt});
+        });
+    });
+    try {
+        if (rows.length) localStorage.setItem(pvDraftKey(), JSON.stringify(rows));
+        else localStorage.removeItem(pvDraftKey());
+    } catch(e) {}
+}
+
+function pvLoadDraft() {
+    var raw = null;
+    try { raw = localStorage.getItem(pvDraftKey()); } catch(e) {}
+    if (!raw) return false;
+    var rows = null;
+    try { rows = JSON.parse(raw); } catch(e) { return false; }
+    if (!rows || !rows.length) return false;
+    document.querySelectorAll('table.pv-table tbody .pv-row').forEach(function(tr) { tr.remove(); });
+    rows.forEach(function(r) {
+        if (!PV_EMP_BY_ID[r.empId]) return;
+        var def = PV_CONCEPT_BY_CODE[r.concept];
+        if (!def) return;
+        pvAddRow(def.section, r.empId, r.concept, r.amount);
+    });
+    return true;
+}
+
+/* ── Regalía: pre-llenar con el cálculo automático cuando aplica ── */
+function christmasEnabled() {
+    var subtypeSelect = document.querySelector('select[name="periodSubType"]');
+    if (subtypeSelect && subtypeSelect.value === 'christmas_bonus') return true;
+    var icb = document.getElementById('icb');
+    if (icb && icb.checked) return true;
+    return PV_CHRISTMAS_DEFAULT === true;
+}
+
+function syncChristmasRows() {
+    if (!PV_EMP_BY_ID || !PV_CONCEPT_BY_CODE['REGALIA_PASCUAL']) return;
+    if (!PV_EDITABLE) return;
+    var tbody = document.getElementById('pv-tbody-ingresos');
+    if (!tbody) return;
+    if (!christmasEnabled()) {
+        tbody.querySelectorAll('.pv-row[data-auto]').forEach(function(tr) { tr.remove(); });
+        pvRender();
+        return;
+    }
+    var existing = {};
+    tbody.querySelectorAll('.pv-row').forEach(function(tr) {
+        existing[pvResolveEmp(tr.querySelector('.pv-emp').value)] = true;
+    });
+    PV_CHRISTMAS_PREVIEW.forEach(function(p) {
+        if (existing[p.employeeId]) return;
+        pvAddRow('ingresos', p.employeeId, 'REGALIA_PASCUAL', p.amount, true);
+    });
+    pvRender();
+}
+
+/* ── Vista previa ── */
+function openPreview() {
+    var fd = new FormData();
+    var form = document.getElementById('pvProcessForm');
+    if (form) {
+        ['period_key', 'payrollGroupId', 'periodSubType'].forEach(function(n) {
+            var el = form.querySelector('[name="' + n + '"]');
+            if (el) fd.append(n, el.value);
+        });
+    }
+    ['ingresos', 'descuentos'].forEach(function(section) {
+        pvSectionRows(section).forEach(function(tr) {
+            var empId = pvResolveEmp(tr.querySelector('.pv-emp').value);
+            var concept = tr.querySelector('.pv-concept').value;
+            var amt = parseFloat(tr.querySelector('.pv-amount').value) || 0;
+            if (empId && concept && amt > 0) fd.append('var_' + concept + '_' + empId, amt);
+        });
+    });
+    document.getElementById('pvPreviewModal').style.display = 'flex';
+    document.getElementById('pvPreviewLoading').style.display = '';
+    document.getElementById('pvPreviewContent').style.display = 'none';
+    fetch('/rrhh/payroll/preview', {
+        method: 'POST',
+        headers: {'X-CSRFToken': '{{ csrf_token() }}'},
+        body: fd,
+    })
+    .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
+    .then(function(res) {
+        var d = res.data;
+        document.getElementById('pvPreviewLoading').style.display = 'none';
+        if (!res.ok || d.error) {
+            alert(d.error || 'No se pudo calcular la vista previa.');
+            document.getElementById('pvPreviewModal').style.display = 'none';
+            return;
+        }
+        document.getElementById('pvPreviewTitle').textContent = d.period_range || '';
+        document.getElementById('pvPrevGross').textContent = pvFmtMoney(d.total_gross || 0);
+        document.getElementById('pvPrevDed').textContent = pvFmtMoney(d.total_egresos || 0);
+        document.getElementById('pvPrevTaxes').textContent = pvFmtMoney(d.total_taxes || 0);
+        document.getElementById('pvPrevNet').textContent = pvFmtMoney(d.total_net || 0);
+        document.getElementById('pvPrevCost').textContent = pvFmtMoney(d.total_costo || 0);
+        document.getElementById('pvPreviewTbody').innerHTML = (d.lines || []).map(function(l) {
+            return '<tr><td>' + (l.employeeName || l.employeeId) + '</td>' +
+                '<td style="text-align:right;">' + pvFmtMoney(l.totalIncome || 0) + '</td>' +
+                '<td style="text-align:right;">' + pvFmtMoney(l.totalDeductions || 0) + '</td>' +
+                '<td style="text-align:right; font-weight:700; color:var(--accent-emerald);">' + pvFmtMoney(l.netSalary || 0) + '</td>' +
+                '<td style="text-align:right;">' + pvFmtMoney(l.totalEmployerContrib || 0) + '</td></tr>';
+        }).join('');
+        document.getElementById('pvPreviewContent').style.display = '';
+    })
+    .catch(function() {
+        document.getElementById('pvPreviewLoading').style.display = 'none';
+        alert('No se pudo calcular la vista previa.');
+        document.getElementById('pvPreviewModal').style.display = 'none';
+    });
+}
+
+/* ── Modal aplicar en lote ── */
+var bulkMode = 'fixed';
+var bulkSection = '';
+function openBulkModal(sectionKey) {
+    bulkSection = sectionKey;
+    document.getElementById('bulkValue').value = '0';
+    document.getElementById('bulkReplace').checked = false;
+    setBulkMode('fixed');
+    document.getElementById('bulkConcept').innerHTML = pvConceptOptions(sectionKey);
+    var depts = [];
+    PV_EMPLOYEES.forEach(function(e) { if (e.department && depts.indexOf(e.department) === -1) depts.push(e.department); });
+    depts.sort();
+    document.getElementById('bulkDept').innerHTML = '<option value="">Todos</option>' +
+        depts.map(function(d) { return '<option value="' + d + '">' + d + '</option>'; }).join('');
+    document.getElementById('bulkModal').style.display = 'flex';
+}
+function closeBulkModal(e) {
+    if (e.target === document.getElementById('bulkModal')) {
+        document.getElementById('bulkModal').style.display = 'none';
+    }
+}
+function setBulkMode(mode) {
+    bulkMode = mode;
+    var fixedBtn = document.getElementById('bulkModeFixed');
+    var pctBtn = document.getElementById('bulkModePct');
+    var label = document.getElementById('bulkValueLabel');
+    if (mode === 'fixed') {
+        fixedBtn.style.background = 'var(--bg-brand-translucent)';
+        fixedBtn.style.color = 'var(--text-primary)';
+        pctBtn.style.background = 'transparent';
+        pctBtn.style.color = 'var(--text-muted)';
+        label.textContent = 'Valor';
+    } else {
+        pctBtn.style.background = 'var(--bg-brand-translucent)';
+        pctBtn.style.color = 'var(--text-primary)';
+        fixedBtn.style.background = 'transparent';
+        fixedBtn.style.color = 'var(--text-muted)';
+        label.textContent = 'Porcentaje (%)';
+    }
+}
+function applyBulk() {
+    var concept = document.getElementById('bulkConcept').value;
+    if (!concept) { alert('Selecciona un concepto.'); return; }
+    var def = PV_CONCEPT_BY_CODE[concept];
+    if (bulkMode === 'pct' && def && def.hours) {
+        alert('El porcentaje no aplica a conceptos en horas.');
+        return;
+    }
+    var val = parseFloat(document.getElementById('bulkValue').value) || 0;
+    if (val <= 0) { alert('Ingresa un valor mayor a 0.'); return; }
+    var dept = document.getElementById('bulkDept').value;
+    if (document.getElementById('bulkReplace').checked) {
+        pvSectionRows(bulkSection).forEach(function(tr) { tr.remove(); });
+    }
+    var count = 0;
+    PV_EMPLOYEES.forEach(function(e) {
+        if (dept && e.department !== dept) return;
+        if (bulkMode === 'pct') {
+            if (e.salary <= 0) return;
+            pvAddRow(bulkSection, e.id, concept, (e.salary * val / 100).toFixed(2));
+        } else {
+            pvAddRow(bulkSection, e.id, concept, val);
+        }
+        count++;
+    });
+    document.getElementById('bulkModal').style.display = 'none';
+    showPvToast('Aplicado a <strong>' + count + '</strong> empleado(s) en ' + ((PV_CONCEPT_BY_CODE[concept] || {}).label || concept) + '.');
+}
+
+function showPvToast(msg) {
+    var toast = document.getElementById('pvToast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'pvToast';
+        toast.style.cssText = 'position:fixed; bottom:24px; right:24px; z-index:99999; background:var(--bg-card); border:1px solid var(--accent-emerald); border-radius:var(--radius-md); padding:12px 20px; box-shadow:var(--shadow-lg); font-size:0.85rem; color:var(--text-primary); max-width:400px; opacity:0; pointer-events:none; transition:opacity 0.3s;';
+        document.body.appendChild(toast);
+    }
+    toast.innerHTML = '<i class="fa-solid fa-circle-check" style="color:var(--accent-emerald); margin-right:8px;"></i>' + msg;
+    toast.style.opacity = '1';
+    toast.style.pointerEvents = 'none';
+    clearTimeout(toast._timeout);
+    toast._timeout = setTimeout(function() { toast.style.opacity = '0'; }, 3000);
+}
+
+/* ── Navegación de pestañas ── */
+function activateTab(tabKey) {
+    document.querySelectorAll('.pv-tab').forEach(function(t) {
+        t.classList.toggle('active', t.getAttribute('data-tab') === tabKey);
+    });
+    document.querySelectorAll('.pv-tab-panel').forEach(function(p) {
+        p.classList.toggle('active', p.id === 'pv-tab-' + tabKey);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.pv-tab').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            activateTab(tab.getAttribute('data-tab'));
+        });
+    });
+    document.querySelectorAll('.pv-search').forEach(function(input) {
+        input.addEventListener('input', function() { pvRender(); });
+    });
+
+    /* Inicializar filas importadas/guardadas */
+    (PV_INITIAL || []).forEach(function(v) {
+        if (!PV_EMP_BY_ID[v.employeeId]) return;
+        var def = PV_CONCEPT_BY_CODE[v.conceptField];
+        if (!def) return;
+        pvAddRow(def.section, v.employeeId, v.conceptField, v.amount);
+    });
+
+    /* Borrador local (autosave): gana sobre lo guardado */
+    pvLoadDraft();
+
+    syncChristmasRows();
+    pvRender();
+
+    var form = document.getElementById('pvProcessForm') || document.querySelector('form[method="POST"]');
+    if (form) form.addEventListener('submit', function() {
+        pvSerialize(form);
+        try { localStorage.removeItem(pvDraftKey()); } catch(e) {}
+    });
+});
+</script>

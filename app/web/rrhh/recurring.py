@@ -50,6 +50,14 @@ FREQUENCY_OPTS = {
 }
 
 
+def _safe_next(request):
+    """Retorna la URL de retorno (next) si es una ruta local válida."""
+    nxt = request.args.get("next", "") or request.form.get("next", "")
+    if nxt and nxt.startswith("/") and not nxt.startswith("//"):
+        return nxt
+    return ""
+
+
 @web_rrhh_bp.route("/rrhh/recurring")
 def recurring_list():
     if _login_required():
@@ -88,12 +96,16 @@ def recurring_new():
     if _login_required():
         return redirect(url_for("web_auth.login"))
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    next_url = _safe_next(request)
 
     employees = hr.get_employees(company_id, sandbox=sandbox)
     employees.sort(key=lambda e: e.get("fullName", e.get("firstName", "")))
 
     from app.services.payroll_concept_engine import get_concepts
     concepts = get_concepts(company_id, sandbox=sandbox)
+
+    preset_concept = request.args.get("concept", "")
+    preset_group = request.args.get("group", "")
 
     if request.method == "POST":
         data = _parse_recurring_form(request.form)
@@ -102,6 +114,8 @@ def recurring_new():
         data["status"] = data.get("status", "active")
         hr.save_recurring_movement(company_id, data["id"], data, sandbox=sandbox)
         flash("Movimiento recurrente creado exitosamente.", "success")
+        if next_url:
+            return redirect(next_url)
         return redirect(url_for("web_rrhh.recurring_list"))
 
     return render_template(
@@ -111,6 +125,8 @@ def recurring_new():
         employees=employees,
         concepts=concepts,
         payroll_groups=hr.get_payroll_groups(company_id, sandbox=sandbox),
+        preset_concept=preset_concept,
+        preset_group=preset_group,
         MOVEMENT_TYPES=MOVEMENT_TYPES,
         AMOUNT_TYPES=AMOUNT_TYPES,
         DEDUCTION_TYPES=DEDUCTION_TYPES,
@@ -146,6 +162,8 @@ def recurring_edit(movement_id):
         data["updatedBy"] = session.get("user", {}).get("email", "")
         hr.save_recurring_movement(company_id, movement_id, data, sandbox=sandbox)
         flash("Movimiento recurrente actualizado.", "success")
+        if _safe_next(request):
+            return redirect(_safe_next(request))
         return redirect(url_for("web_rrhh.recurring_list"))
 
     return render_template(
@@ -184,6 +202,8 @@ def recurring_toggle_status(movement_id):
     movement["updatedBy"] = session.get("user", {}).get("email", "")
     hr.save_recurring_movement(company_id, movement_id, movement, sandbox=sandbox)
     flash(f"Movimiento cambiado a '{STATUS_OPTS[new_status]}'.", "success")
+    if _safe_next(request):
+        return redirect(_safe_next(request))
     return redirect(url_for("web_rrhh.recurring_list"))
 
 

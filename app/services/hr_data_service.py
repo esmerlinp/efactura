@@ -1668,6 +1668,21 @@ def save_overtime_payroll_link(company_id: str, link_id: str, data: dict, sandbo
     _save(company_id, "overtime_payroll_links", link_id, data, sandbox)
 
 
+def delete_overtime_payroll_links(company_id: str, payroll_id: str, sandbox: bool = True):
+    """Elimina los vínculos HE↔nómina de un período (reversión de nómina)."""
+    if not firebase_initialized or db_firestore is None:
+        return
+    try:
+        coll_path = _hr_company_path(company_id, "overtime_payroll_links", sandbox)
+        query = db_firestore.collection(coll_path) \
+            .where(filter=FieldFilter("payrollId", "==", payroll_id))
+        docs = query.get()
+        for d in docs:
+            d.reference.delete()
+    except Exception as e:
+        print(f"⚠️ HRDataService.delete_overtime_payroll_links: {e}")
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # WORK CERTIFICATES (CARTAS DE TRABAJO)
 # ═══════════════════════════════════════════════════════════════════════════

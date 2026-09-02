@@ -82,7 +82,7 @@
                 <select name="conceptCode" class="form-select" required>
                     <option value="">Seleccionar concepto</option>
                     {% for c in concepts %}
-                    <option value="{{ c.code }}" {% if movement and movement.conceptCode == c.code %}selected{% endif %}>
+                    <option value="{{ c.code }}" {% if (movement and movement.conceptCode == c.code) or (not movement and preset_concept is defined and preset_concept == c.code) %}selected{% endif %}>
                         {{ c.code }} — {{ c.name }}
                     </option>
                     {% endfor %}
@@ -256,7 +256,7 @@
                             {% for g in payroll_groups %}
                             <label class="multiselect-option" data-value="{{ g.id }}">
                                 <input type="checkbox" value="{{ g.id }}"
-                                    {% if movement and g.id in movement.get('payrollGroupIds', []) %}checked{% endif %}>
+                                    {% if (movement and g.id in movement.get('payrollGroupIds', [])) or (not movement and preset_group is defined and preset_group == g.id) %}checked{% endif %}>
                                 <span>{{ g.name }} <small>({{ g.frequency or 'mensual' }})</small></span>
                             </label>
                             {% endfor %}

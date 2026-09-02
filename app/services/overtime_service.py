@@ -36,7 +36,7 @@ class OvertimeService:
         PENDING:   [APPROVED, REJECTED],
         APPROVED:  [LOCKED, REOPENED],
         LOCKED:    [PROCESSED, APPROVED],
-        PROCESSED: [REOPENED],
+        PROCESSED: [REOPENED, DRAFT],
         REOPENED:  [DRAFT],
         REJECTED:  [DRAFT],
     }
@@ -126,6 +126,49 @@ class OvertimeService:
     def list_by_status(company_id: str, status: str,
                         sandbox: bool = True) -> list:
         return hr.get_overtime_records_by_status(company_id, status, sandbox=sandbox)
+
+    @staticmethod
+    def update_record(company_id: str, record_id: str, data: dict,
+                      user_email: str, sandbox: bool = True) -> dict | tuple:
+        """Edita un registro SOLO en estado borrador (draft)."""
+        record = hr.get_overtime_record(company_id, record_id, sandbox=sandbox)
+        if not record:
+            return {"error": "Registro no encontrado."}, 404
+
+        if record.get("status") != OvertimeService.DRAFT:
+            return {"error": "Solo los registros en borrador pueden editarse."}, 400
+
+        record["employeeId"] = data.get("employeeId", record.get("employeeId", ""))
+        record["employeeSnapshot"] = {
+            "code": data.get("employeeCode", ""),
+            "name": data.get("employeeName", ""),
+        }
+        record["companyCode"] = data.get("companyCode", record.get("companyCode", ""))
+        record["departmentCode"] = data.get("departmentCode", record.get("departmentCode", ""))
+        record["payrollCode"] = data.get("payrollCode", record.get("payrollCode", ""))
+        record["date"] = data.get("date", record.get("date", ""))
+        record["overtimeTypeCode"] = data.get("overtimeTypeCode", record.get("overtimeTypeCode", ""))
+        record["totalMinutes"] = data.get("totalMinutes", record.get("totalMinutes", 0))
+        record["comment"] = data.get("comment", record.get("comment", ""))
+        record["source"] = data.get("source", record.get("source", "manual"))
+        record["sourceReference"] = data.get("sourceReference", record.get("sourceReference", ""))
+        record["details"] = data.get("details", record.get("details", []))
+
+        # Los valores congelados se recalculan al volver a enviar a aprobación
+        record["hourlyRateAtApproval"] = 0.0
+        record["factorAtApproval"] = 0.0
+
+        history = record.get("statusHistory", [])
+        history.append({
+            "status": OvertimeService.DRAFT,
+            "by": user_email,
+            "at": OvertimeService._now_iso(),
+            "comment": "Editado",
+        })
+        record["statusHistory"] = history
+
+        hr.save_overtime_record(company_id, record_id, record, sandbox=sandbox)
+        return record
 
     # ── Flujo de estados ──
 
@@ -311,6 +354,56 @@ class OvertimeService:
             if rec_date and start_date <= rec_date <= end_date:
                 filtered.append(r)
         return filtered
+
+    @staticmethod
+    def get_processed_for_payroll(company_id: str, payroll_id: str,
+                                  sandbox: bool = True) -> list:
+        """Retorna los registros procesados en una nómina específica."""
+        all_records = hr.get_overtime_records(company_id, sandbox=sandbox)
+        return [r for r in all_records if r.get("processedPayrollId") == payroll_id]
+
+    @staticmethod
+    def release_processed(company_id: str, record_id: str, user_email: str,
+                          comment: str = "", sandbox: bool = True) -> dict | tuple:
+        """Devuelve a borrador un registro procesado/bloqueado (reversión de nómina).
+
+        Limpia processedPayrollId/processedAt y los valores congelados, de modo
+        que el registro pueda editarse y volver a pasar por el flujo de
+        aprobación antes de integrarse a una nueva nómina.
+        """
+        record = hr.get_overtime_record(company_id, record_id, sandbox=sandbox)
+        if not record:
+            return {"error": "Registro no encontrado."}, 404
+
+        if record.get("status") not in (OvertimeService.PROCESSED, OvertimeService.LOCKED):
+            return {"error": "Solo registros procesados o bloqueados pueden liberarse."}, 400
+
+        now = OvertimeService._now_iso()
+        history = record.get("statusHistory", [])
+        history.append({
+            "status": OvertimeService.REOPENED,
+            "by": user_email,
+            "at": now,
+            "comment": "Reabierto por reversión de nómina",
+        })
+        history.append({
+            "status": OvertimeService.DRAFT,
+            "by": user_email,
+            "at": now,
+            "comment": comment or "Devuelto a borrador por reversión de nómina",
+        })
+
+        record["status"] = OvertimeService.DRAFT
+        record["statusHistory"] = history
+        record["processedPayrollId"] = ""
+        record["processedAt"] = None
+        record["hourlyRateAtApproval"] = 0.0
+        record["factorAtApproval"] = 0.0
+        record["approvedBy"] = ""
+        record["approvedAt"] = None
+
+        hr.save_overtime_record(company_id, record_id, record, sandbox=sandbox)
+        return record
 
     @staticmethod
     def group_by_employee_and_type(records: list) -> dict:

@@ -26,11 +26,11 @@ con la generación del DGT-3.
 ## State Machine
 
 ```
-borrador → calculada → validada → aprobada → contabilizada → pagada → cerrada
-    │          │           │          │            │           │        │
-    │          │           │          │            │           │        └─ irreversible
-    │          │           │          │            │           └─ marks payment date
-    │          │           │          │            └─ generates journal entry
+borrador → calculada → validada → aprobada → pagada → contabilizada → cerrada
+    │          │           │          │          │         │             │
+    │          │           │          │          │         │             └─ irreversible
+    │          │           │          │          │         └─ generates journal entry
+    │          │           │          │          └─ marks payment date
     │          │           │          └─ sets approvedBy, approvedAt
     │          │           └─ sets validatedBy, validatedAt
     │          └─ populates payroll lines with calculations
@@ -96,7 +96,11 @@ For each employee, `PayrollService.calculate_payroll_line()` computes:
 - Records `approvedBy`, `approvedAt`
 - Requires permission: `canApprovePayroll` (SoD: not the calculator)
 
-### Step 7: Post to Accounting
+### Step 7: Pay
+- Records `paidDate` — no journal entry, just marks as paid
+- State → `pagada`
+
+### Step 8: Post to Accounting
 - Generate journal entry debiting salary expense accounts per cost center
   and crediting payable/retention accounts
 - Account mapping from `PayrollService.get_rates()`:
@@ -107,10 +111,6 @@ For each employee, `PayrollService.calculate_payroll_line()` computes:
   - Credit: ISR Payable (2.1.2.1.08)
 - State → `contabilizada`
 
-### Step 8: Pay
-- Records `paidDate` — no journal entry, just marks as paid
-- State → `pagada`
-
 ### Step 9: Close
 - State → `cerrada` (irreversible)
 - Records `closedBy`, `closedAt`
@@ -119,6 +119,33 @@ For each employee, `PayrollService.calculate_payroll_line()` computes:
 - Uses `employeeSnapshot` to generate DGT-3 lines
 - Each line: document type, ID, name, salary, nationality, occupation code
 - Export format: SIRLA flat file (22 fields per line)
+
+## Tipo de nómina (periodSubType)
+
+`borrador`/processing form selects `periodSubType`. Only `liquidation` and
+`christmas_bonus` change behavior; `extraordinary`, `retroactive`, `vacation`
+are stored labels only (calculation equals `regular`).
+
+- **`liquidation`**: includes terminated employees with pending settlements
+  (`_collect_liquidation_employees`), builds settlement lines instead of
+  regular salary; marking the payroll `pagada` syncs linked settlements
+  (`payroll_workflow.py`, `mark_settlement_paid`).
+- **`christmas_bonus`** (Regalía Pascual, Art. 219 — before Dec 20):
+  - Auto-includes regalía: `include_christmas_bonus_val = checkbox or subtype`
+    (`payroll_process.py`); prorated by hire month via
+    `_months_worked_in_year()` + `calculate_christmas_bonus()`.
+  - Skips auto-generated group christmas rules (`generatedBy == "christmas_bonus"`)
+    to avoid double counting (`_should_skip_christmas_rule`).
+  - Line stores `christmasBonus` → feeds IR-13 column G, TSS autodeterminación
+    (tipo ingreso 01) and TSS novedades.
+  - Accounting splits the expense: per cost center, salaries expense
+    `gross + employer − christmas` plus a separate debit to
+    `account_christmas_expense` (default 6.1.1.02, resolvable via accounting
+    rules concept `nomina_gasto_regalia`) whenever `christmasBonus > 0`.
+  - Bank exports: BHD and Banreservas use "Pago Bonificacion y Regalia" /
+    "Regalia Pascual" concept; Popular BPD is fixed-format (no concept text).
+  - Soft warnings if period month ≠ 12 or scheduled payment after Dec 20.
+  - `simulate` mirrors the same behavior for preview.
 
 ## AI Guardrails for this Process
 

@@ -16,6 +16,10 @@ from app.services.payroll_static_data import DEFAULT_PAYROLL_CONFIG
 from app.services.payroll_audit_service import log_action
 from app.services.overtime_service import OvertimeService
 from app.services.payroll_overtime_calculator import PayrollOvertimeCalculator
+from app.services.payroll_variable_catalog import (
+    EXTRA_OTHER_INCOME_CONCEPTS as _EXTRA_OTHER_INCOME_CONCEPTS,
+    EXTRA_OTHER_DEDUCTION_CONCEPTS as _EXTRA_OTHER_DEDUCTION_CONCEPTS,
+)
 
 
 def _resolve_rule_concept_code(action: dict) -> str | None:
@@ -38,17 +42,150 @@ def _resolve_rule_concept_code(action: dict) -> str | None:
     }.get(action_type)
 
 
-def _build_employee_form_values(form, emp_ids):
-    values = {}
-    for emp_id in emp_ids:
-        values[emp_id] = {
-            "overtime": float(form.get(f"overtime_{emp_id}", 0) or 0),
-            "commission": float(form.get(f"commission_{emp_id}", 0) or 0),
-            "bonus": float(form.get(f"bonus_{emp_id}", 0) or 0),
-            "other_income": float(form.get(f"other_income_{emp_id}", 0) or 0),
-            "other_ded": float(form.get(f"other_ded_{emp_id}", 0) or 0),
-        }
-    return values
+def _months_worked_in_year(hire_date_str: str, today: date | None = None) -> int:
+    """Meses trabajados en el año en curso según fecha de ingreso (regalía pascual)."""
+    today = today or date.today()
+    if not hire_date_str:
+        return 12
+    try:
+        hire_date_obj = datetime.strptime(hire_date_str[:10], "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return 12
+    if hire_date_obj.year == today.year:
+        return max(1, today.month - hire_date_obj.month + 1)
+    return 12
+
+
+def _should_skip_christmas_rule(rule: dict, include_christmas: bool) -> bool:
+    """Evita doble conteo: la regla auto-generada de regalía se omite cuando la
+    regalía ya se incluye explícitamente (checkbox o tipo de nómina Regalía Pascual)."""
+    return include_christmas and rule.get("generatedBy") == "christmas_bonus"
+
+
+def _editor_tabs(company_id: str, sandbox: bool = True) -> tuple:
+    """Tabs dinámicos del editor (desde conceptos activos isManualEntry), con fallback al catálogo."""
+    from app.services.payroll_variable_catalog import INGRESO_TABS, DESCUENTO_TABS
+    try:
+        from app.services.payroll_concept_engine import get_editor_tabs
+        ing, dec = get_editor_tabs(company_id, sandbox=sandbox)
+        if ing or dec:
+            return ing, dec
+    except Exception:
+        pass
+    return list(INGRESO_TABS), list(DESCUENTO_TABS)
+
+
+def build_manual_other_income(transactions: list) -> float:
+    """Ingresos no clasificados en columnas propias (otros ingresos + conceptos custom).
+
+    Excluye: salario base, horas extra, comisión, bonificación, regalía,
+    movimientos recurrentes y generados por reglas (se muestran en columnas dinámicas).
+    """
+    from app.services.payroll_variable_catalog import CLASSIFIED_EARNING_CONCEPTS
+    total = 0.0
+    for t in transactions:
+        if t.get("type") != "earning":
+            continue
+        if t.get("isRecurring") or t.get("isRuleGenerated"):
+            continue
+        if t.get("conceptCode") in CLASSIFIED_EARNING_CONCEPTS:
+            continue
+        total += float(t.get("amount", 0) or 0)
+    return round(total, 2)
+
+
+def build_manual_other_deductions(transactions: list) -> float:
+    """Deducciones manuales (otras deducciones + conceptos custom de descuento).
+
+    Excluye: TSS/ISR, embargos, movimientos recurrentes y generados por reglas.
+    """
+    from app.services.payroll_variable_catalog import TSS_ISR_DEDUCTION_CONCEPTS
+    total = 0.0
+    for t in transactions:
+        if t.get("type") != "deduction":
+            continue
+        if t.get("isRecurring") or t.get("isRuleGenerated"):
+            continue
+        if t.get("source", "") == "garnishment":
+            continue
+        if t.get("conceptCode") in TSS_ISR_DEDUCTION_CONCEPTS:
+            continue
+        total += float(t.get("amount", 0) or 0)
+    return round(total, 2)
+
+
+def _build_christmas_preview(employees: list) -> list:
+    """Vista previa de regalía pascual por empleado (para pre-llenar el tab Regalía)."""
+    preview = []
+    try:
+        for emp in employees:
+            if emp.get("isLiquidation"):
+                continue
+            base = float(emp.get("baseSalary", 0) or 0)
+            if base <= 0:
+                continue
+            months = _months_worked_in_year(emp.get("hireDate", ""))
+            amount = PayrollService.calculate_christmas_bonus(base, months)
+            if amount > 0:
+                preview.append({"employeeId": emp.get("id", ""), "amount": amount})
+    except Exception:
+        pass
+    return preview
+
+
+def _load_existing_period_variables(company_id: str, period_key: str, group_id: str,
+                                    sandbox: bool = True) -> list:
+    """Variables manuales guardadas de un período existente en borrador."""
+    if not period_key:
+        return []
+    from app.services import hr_data_service as hr
+    try:
+        if group_id:
+            ref = hr.get_payroll_period_by_key_and_group(company_id, period_key, group_id, sandbox=sandbox)
+        else:
+            ref = hr.get_payroll_period_by_key(company_id, period_key, sandbox=sandbox)
+        if ref and ref.get("status") == "borrador":
+            return PayrollService.get_period_manual_variables(ref["id"], company_id, sandbox=sandbox)
+    except Exception as e:
+        print(f"⚠️ Error cargando variables del período existente: {e}")
+    return []
+
+
+def _extract_variable_values(form, emp_ids):
+    """Extrae variables de nómina del formulario.
+
+    Acepta entradas genéricas `var_<CONCEPTO>_<empId>` y los nombres legacy
+    (overtime_, commission_, bonus_, other_income_, other_ded_).
+    Retorna {emp_id: {conceptCode: float}}.
+    """
+    from app.services.payroll_variable_catalog import VARIABLE_CONCEPT_CODES, LEGACY_INPUT_MAP
+    valid_codes = set(VARIABLE_CONCEPT_CODES)
+    result = {}
+
+    def _add(emp_id, code, raw):
+        try:
+            val = float(raw)
+        except (TypeError, ValueError):
+            return
+        if val <= 0:
+            return
+        result.setdefault(emp_id, {})[code] = round(val, 2)
+
+    for key in form:
+        val = form.get(key)
+        if key.startswith("var_"):
+            rest = key[4:]
+            code, _, emp_id = rest.partition("_")
+            if code in valid_codes and emp_id:
+                _add(emp_id, code, val)
+            continue
+        for prefix, code in LEGACY_INPUT_MAP.items():
+            if key.startswith(prefix + "_"):
+                emp_id = key[len(prefix) + 1:]
+                if emp_id:
+                    _add(emp_id, code, val)
+                break
+    return result
 
 
 def _collect_liquidation_employees(company_id, sandbox, selected_group_id,
@@ -237,6 +374,18 @@ def payroll_new():
     from app.services.payroll_ytd_service import get_ytd, save_ytd, accumulate_ytd
     from app.services.payroll_static_data import DEFAULT_PAYROLL_CONFIG
 
+    # Variables importadas por CSV (draft en sesión hasta procesar)
+    from app.web.rrhh.payroll_variables_import import SESSION_KEY as _VARS_SESSION_KEY
+    imported_variables = session.get(_VARS_SESSION_KEY, []) or []
+
+    # Catálogo de tabs de variables
+    from app.services.payroll_variable_catalog import (
+        RECURRING_MANAGED_BY_CONCEPT as _RECURRING_MANAGED_TABS,
+    )
+    ingreso_tabs, descuento_tabs = _editor_tabs(company_id, sandbox=sandbox)
+    variable_tabs = ingreso_tabs + descuento_tabs
+    recurring_managed_tabs = dict(_RECURRING_MANAGED_TABS)
+
     # Verificar onboarding
     config = hr.get_payroll_config(company_id, sandbox=sandbox)
     if not config.get("onboardingCompleted"):
@@ -247,11 +396,65 @@ def payroll_new():
     active_employees = [e for e in all_employees if is_active_equivalent(e.get("status", ""))]
 
     # ── Grupos de nómina ──
-    payroll_groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
+    payroll_groups = [g for g in hr.get_payroll_groups(company_id, sandbox=sandbox)
+                      if g.get("isActive", True)]
     payroll_groups.sort(key=lambda g: g.get("name", ""))
 
     # Seleccionar grupo
     selected_group_id = request.args.get("group", "") or request.form.get("payrollGroupId", "")
+
+    # Soporte de ?period_id= (retorno del job de cálculo a esta pantalla)
+    selected_period_key = ""
+    period_id_arg = request.args.get("period_id", "")
+    if period_id_arg:
+        _period_by_id = hr.get_payroll_period(company_id, period_id_arg, sandbox=sandbox)
+        if _period_by_id:
+            if not selected_group_id:
+                selected_group_id = _period_by_id.get("payrollGroupId", "")
+            selected_period_key = request.args.get("period_key", "") or _period_by_id.get("periodKey", "")
+
+    # Si el grupo seleccionado ya no está activo, agregarlo para no romper el reproceso
+    if selected_group_id and not any(g.get("id") == selected_group_id for g in payroll_groups):
+        _inactive_group = hr.get_payroll_group(company_id, selected_group_id, sandbox=sandbox)
+        if _inactive_group:
+            payroll_groups.append(_inactive_group)
+            payroll_groups.sort(key=lambda g: g.get("name", ""))
+
+    # Preselección de período y variables guardadas (edición desde la vista de nómina)
+    selected_period_key = request.args.get("period_key", "") or request.form.get("period_key", "") or selected_period_key
+    if selected_period_key:
+        _stored_vars = _load_existing_period_variables(company_id, selected_period_key,
+                                                       selected_group_id, sandbox=sandbox)
+        if _stored_vars:
+            imported_variables = _stored_vars + imported_variables
+
+    # ── Movimientos recurrentes del grupo (gestión desde tabs CxC/Seguro/Fijos) ──
+    recurring_movements = []
+    try:
+        from app.services.recurring_service import get_recurring_movements
+        if selected_group_id:
+            recurring_movements = get_recurring_movements(
+                company_id, payroll_group_id=selected_group_id, sandbox=sandbox)
+    except Exception:
+        recurring_movements = []
+
+    # ── Líneas del período existente (sección Empleados: Resumen/Completo) ──
+    existing_period_ref = None
+    period_lines = []
+    if request.method == "GET" and selected_period_key:
+        try:
+            if selected_group_id:
+                existing_period_ref = hr.get_payroll_period_by_key_and_group(
+                    company_id, selected_period_key, selected_group_id, sandbox=sandbox)
+            else:
+                existing_period_ref = hr.get_payroll_period_by_key(
+                    company_id, selected_period_key, sandbox=sandbox)
+            if existing_period_ref:
+                period_lines = PayrollService.get_period_lines(
+                    existing_period_ref, company_id=company_id, sandbox=sandbox)
+        except Exception:
+            existing_period_ref = None
+            period_lines = []
 
     # Determinar frecuencia según grupo o config global
     if selected_group_id:
@@ -274,6 +477,9 @@ def payroll_new():
     pending_liquidation_ids = _get_pending_liquidation_employee_ids(company_id, sandbox)
     if pending_liquidation_ids:
         employees = [e for e in employees if e.get("id") not in pending_liquidation_ids]
+
+    # ── Vista previa de regalía (para pre-llenar el tab Regalía) ──
+    christmas_preview = _build_christmas_preview(employees)
 
     # ── Liquidaciones pendientes (para nómina tipo "liquidation") ──
     liquidation_employees = []
@@ -325,6 +531,10 @@ def payroll_new():
             flash("Debes seleccionar un período.", "error")
             return redirect(url_for("web_rrhh.payroll_new"))
 
+        if payroll_groups and not selected_group_id:
+            flash("Debes seleccionar un grupo de nómina antes de procesar.", "error")
+            return redirect(url_for("web_rrhh.payroll_new"))
+
         # ── Anti-duplicados ──
         existing_period_ref = None
         if selected_group_id:
@@ -337,22 +547,40 @@ def payroll_new():
                 if selected_group_id:
                     flash(f"Ya existe una nómina para el período «{period_key}» en el grupo «{selected_group.get('name', '')}».", "warning")
                     return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll",
-                    employees=employees, now=now,
+                    employees=employees, now=now, now_month=now.month,
                             available_periods=available_periods, frequency=group_frequency,
                             show_christmas_bonus=(now.month >= 11),
                             payroll_groups=payroll_groups,
                             selected_group_id=selected_group_id,
                             existing_period=existing_period_ref,
+                            imported_variables=imported_variables,
+                           selected_period_key=selected_period_key,
+ variable_tabs=variable_tabs,
+ recurring_managed_tabs=recurring_managed_tabs,
+ ingreso_tabs=ingreso_tabs,
+ descuento_tabs=descuento_tabs,
+ recurring_movements=recurring_movements,
+ christmas_preview=christmas_preview,
+ period_lines=period_lines,
                             incidencias=incidencias)
                 else:
                     flash(f"Ya existe una nómina para el período «{period_key}».", "warning")
                     return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll",
-                                            employees=employees, now=now,
+                                            employees=employees, now=now, now_month=now.month,
                                             available_periods=available_periods, frequency=group_frequency,
                                             show_christmas_bonus=(now.month >= 11),
                                             payroll_groups=payroll_groups,
                                             selected_group_id=selected_group_id,
                                             existing_period=existing_period_ref,
+                                            imported_variables=imported_variables,
+                           selected_period_key=selected_period_key,
+ variable_tabs=variable_tabs,
+ recurring_managed_tabs=recurring_managed_tabs,
+ ingreso_tabs=ingreso_tabs,
+ descuento_tabs=descuento_tabs,
+ recurring_movements=recurring_movements,
+ christmas_preview=christmas_preview,
+ period_lines=period_lines,
                                             incidencias=incidencias)
 
         # Parse period key
@@ -375,6 +603,11 @@ def payroll_new():
             period_id = str(uuid.uuid4())
             revision = 1
 
+        # ── Bloquear si no hay empleados que procesar ──
+        if not period_employees:
+            flash("Este grupo no tiene empleados activos para procesar. Revisa la asignación de empleados al grupo.", "error")
+            return redirect(url_for("web_rrhh.payroll_new"))
+
         # ── Nómina de liquidación: incluir empleados terminados con liquidación pendiente ──
         period_sub_type_val = request.form.get("periodSubType", "regular")
         liquidation_settlements_map = {}
@@ -395,11 +628,20 @@ def payroll_new():
                 flash(f"{err['employeeName']}: {err['issue']}", "error")
             flash("Corrige los errores antes de procesar la nómina.", "error")
             return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll",
-                                   employees=employees, now=now,
+                                   employees=employees, now=now, now_month=now.month,
                                    available_periods=available_periods, frequency=group_frequency,
                                    show_christmas_bonus=(now.month >= 11),
                                    payroll_groups=payroll_groups,
                                    selected_group_id=selected_group_id,
+                                   imported_variables=imported_variables,
+                           selected_period_key=selected_period_key,
+ variable_tabs=variable_tabs,
+ recurring_managed_tabs=recurring_managed_tabs,
+ ingreso_tabs=ingreso_tabs,
+ descuento_tabs=descuento_tabs,
+ recurring_movements=recurring_movements,
+ christmas_preview=christmas_preview,
+ period_lines=period_lines,
                                    incidencias=period_incidencias)
         # ── PASO 1: Resolver parámetros legales históricos ──
         from app.services.legal_parameter_resolver import resolve_all
@@ -450,28 +692,51 @@ def payroll_new():
         dependents_by_employee = hr.get_dependents_for_employees(company_id, all_emp_ids, sandbox=sandbox)
 
         # ── Extraer valores del formulario para el thread background ──
-        emp_form_values = _build_employee_form_values(request.form, [e["id"] for e in period_employees])
-        include_christmas_bonus_val = request.form.get("include_christmas_bonus") == "1"
+        emp_form_values = _extract_variable_values(request.form, [e["id"] for e in period_employees])
+        period_sub_type_val = request.form.get("periodSubType", "regular")
+        include_christmas_bonus_val = (request.form.get("include_christmas_bonus") == "1"
+                                       or period_sub_type_val == "christmas_bonus")
         scheduled_payment_date_val = request.form.get("scheduledPaymentDate", "").strip() or end_date
         notes_val = request.form.get("notes", "").strip()
-        period_sub_type_val = request.form.get("periodSubType", "regular")
         user_email = session.get("user", {}).get("email", "")
+
+        if period_sub_type_val == "christmas_bonus":
+            if month != 12:
+                flash("Aviso: la regalía pascual normalmente se paga en diciembre (antes del 20). Estás procesando una nómina de regalía en otro mes.", "warning")
+            elif scheduled_payment_date_val > f"{year}-12-20":
+                flash("Aviso: la regalía pascual debe pagarse antes del 20 de diciembre.", "warning")
 
         # ── Crear job asíncrono ──
         from app.services.payroll_async_service import create_job, update_job, get_job
+        redirect_to = request.form.get("redirect_to", "view")
+        if redirect_to not in ("new", "view"):
+            redirect_to = "new"
         job_id = create_job(company_id, "payroll_calculation",
                             total_items=len(period_employees),
-                            metadata={"period_key": period_key, "period_id": period_id},
+                            metadata={"period_key": period_key, "period_id": period_id,
+                                      "redirect_to": redirect_to},
                             sandbox=sandbox)
         if not job_id:
             flash("Error al crear la tarea asíncrona. Intenta nuevamente.", "error")
             return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll",
-                                   employees=employees, now=now,
+                                   employees=employees, now=now, now_month=now.month,
                                    available_periods=available_periods, frequency=group_frequency,
                                    show_christmas_bonus=(now.month >= 11),
                                    payroll_groups=payroll_groups,
                                    selected_group_id=selected_group_id,
+                                   imported_variables=imported_variables,
+                           selected_period_key=selected_period_key,
+ variable_tabs=variable_tabs,
+ recurring_managed_tabs=recurring_managed_tabs,
+ ingreso_tabs=ingreso_tabs,
+ descuento_tabs=descuento_tabs,
+ recurring_movements=recurring_movements,
+ christmas_preview=christmas_preview,
+ period_lines=period_lines,
                                    incidencias=incidencias)
+
+        # El draft de variables importadas ya fue consumido por el cálculo
+        session.pop(_VARS_SESSION_KEY, None)
 
         # ── Worker en background que ejecuta el cálculo y guarda resultados ──
         def _payroll_worker():
@@ -502,13 +767,13 @@ def payroll_new():
                         all_transactions.extend(liquid_tx)
                         continue
 
-                    vals = emp_form_values.get(emp_id, {})
+                    emp_vars = emp_form_values.get(emp_id, {})
                     base = float(emp.get("baseSalary", 0))
-                    overtime = vals.get("overtime", 0)
-                    commission = vals.get("commission", 0)
-                    bonus = vals.get("bonus", 0)
-                    other_income_manual = vals.get("other_income", 0)
-                    other_ded_manual = vals.get("other_ded", 0)
+                    overtime = emp_vars.get("HORAS_EXTRA", 0)
+                    commission = emp_vars.get("COMISION", 0)
+                    bonus = emp_vars.get("BONIFICACION", 0)
+                    other_income_manual = emp_vars.get("OTROS_INGRESOS", 0)
+                    other_ded_manual = emp_vars.get("OTRAS_DEDUCCIONES", 0)
 
                     if group_overrides.get("includeBaseSalary") is False:
                         base = 0.0
@@ -593,16 +858,18 @@ def payroll_new():
                         if tx:
                             employee_transactions.append(tx.model_dump())
 
-                    # ── Variable movements ──
-                    for concept_code, amt, src in [
-                        ("HORAS_EXTRA", overtime, "overtime"),
-                        ("COMISION", commission, "commission"),
-                        ("BONIFICACION", bonus, "bonus"),
-                        ("OTROS_INGRESOS", other_income_manual, "manual"),
-                    ]:
+                    # ── Variable movements (genérico por concepto) ──
+                    from app.services.payroll_variable_catalog import GROUP_OVERRIDE_BY_CONCEPT
+                    for vcode, amt in emp_vars.items():
                         if amt <= 0:
                             continue
-                        concept = concept_map.get(concept_code)
+                        if vcode == "REGALIA_PASCUAL":
+                            continue  # se maneja en el bloque de regalía
+                        if vcode in GROUP_OVERRIDE_BY_CONCEPT:
+                            flag = GROUP_OVERRIDE_BY_CONCEPT[vcode]
+                            if group_overrides.get(flag) is False:
+                                continue
+                        concept = concept_map.get(vcode)
                         if not concept:
                             continue
                         from app.models.transaction import PayrollTransaction
@@ -610,27 +877,21 @@ def payroll_new():
                         employee_transactions.append(PayrollTransaction(
                             id=str(uuid.uuid4()), periodId=period_id, periodKey=period_key,
                             payrollLineId=line_id, employeeId=emp_id,
-                            conceptCode=concept_code, type="earning",
-                            amount=round(amt, 2), source=src, status="applied",
+                            conceptCode=vcode, type=concept.get("type", "earning"),
+                            amount=round(amt, 2), source=f"var:{vcode}", status="applied",
                             conceptSnapshot=build_concept_snapshot(concept),
                             periodYear=year,
                             createdAt=datetime.now(timezone.utc).isoformat(),
                             updatedAt=datetime.now(timezone.utc).isoformat(),
                         ).model_dump())
 
-                    # ── Regalía pascual ──
-                    if include_christmas_bonus_val:
-                        months_worked = 12
-                        hire_date_str = emp.get("hireDate", "")
-                        if hire_date_str:
-                            try:
-                                from datetime import date as dt_date
-                                hire_date_obj = datetime.strptime(hire_date_str[:10], "%Y-%m-%d")
-                                if hire_date_obj.year == dt_date.today().year:
-                                    months_worked = max(1, dt_date.today().month - hire_date_obj.month + 1)
-                            except (ValueError, TypeError):
-                                pass
-                        christmas = PayrollService.calculate_christmas_bonus(base, months_worked)
+                    # ── Regalía pascual (auto o override manual) ──
+                    christmas = 0.0
+                    if include_christmas_bonus_val or emp_vars.get("REGALIA_PASCUAL"):
+                        christmas = emp_vars.get("REGALIA_PASCUAL", 0)
+                        if not christmas:
+                            months_worked = _months_worked_in_year(emp.get("hireDate", ""))
+                            christmas = PayrollService.calculate_christmas_bonus(base, months_worked)
                         if christmas > 0:
                             christmas_concept = concept_map.get("BONIFICACION", {})
                             from app.models.transaction import PayrollTransaction
@@ -659,6 +920,8 @@ def payroll_new():
                         for r in emp_rules:
                             trigger_month = r.get("triggerMonth", 0)
                             if trigger_month and trigger_month != month:
+                                continue
+                            if _should_skip_christmas_rule(r, include_christmas_bonus_val or "REGALIA_PASCUAL" in emp_vars):
                                 continue
                             freq = r.get("frequency", "always")
                             if freq == "always":
@@ -863,10 +1126,11 @@ def payroll_new():
                         "cedula": emp.get("cedula", ""), "position": emp.get("position", ""),
                         "department": emp.get("department", ""), "baseSalary": base, "grossSalary": base,
                         "overtimePay": round(sum(overtime_breakdown.values()) + overtime, 2),
-                        "overtimeHours": float(vals.get("overtime", 0)),
+                        "overtimeHours": float(overtime),
                         "overtimeBreakdown": overtime_breakdown,
                         "commission": commission, "bonus": bonus,
-                        "otherIncome": round(other_income_manual + recurring_earnings, 2),
+                        "christmasBonus": round(christmas, 2),
+                        "otherIncome": round(recurring_earnings + build_manual_other_income(employee_transactions), 2),
                         "periodType": emp_period_type, "transactionSummary": tx_summary,
                         "totalIncome": round(earn, 2), "totalDeductions": round(deduct, 2),
                         "netSalary": round(net, 2), "totalEmployerContrib": round(employer, 2),
@@ -878,7 +1142,7 @@ def payroll_new():
                         "sfsEmployer": sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("conceptCode") == "SFS_EMPLEADOR"),
                         "srlEmployer": sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("conceptCode") == "SRL_EMPLEADOR"),
                         "infotepEmployer": sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("conceptCode") == "INFOTEP_EMPLEADOR"),
-                        "otherDeductions": round(sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("conceptCode") in ("OTRAS_DEDUCCIONES",) and not t.get("isRecurring") and not t.get("isRuleGenerated")), 2),
+                        "otherDeductions": build_manual_other_deductions(employee_transactions),
                         "recurringDeductionsBreakdown": recurring_details,
                         "recurringAdditionsBreakdown": recurring_additions_details,
                     }
@@ -1010,24 +1274,128 @@ def payroll_new():
         return redirect(url_for("web_rrhh.payroll_progress", job_id=job_id))
 
     return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll",
-                           employees=employees, now=now,
+                           employees=employees, now=now, now_month=now.month,
+                           existing_period=existing_period_ref,
                            available_periods=available_periods, frequency=group_frequency,
                            show_christmas_bonus=(now.month >= 11),
                            payroll_groups=payroll_groups,
                            selected_group_id=selected_group_id,
+                           imported_variables=imported_variables,
+                           selected_period_key=selected_period_key,
+ variable_tabs=variable_tabs,
+ recurring_managed_tabs=recurring_managed_tabs,
+ ingreso_tabs=ingreso_tabs,
+ descuento_tabs=descuento_tabs,
+ recurring_movements=recurring_movements,
+ christmas_preview=christmas_preview,
+ period_lines=period_lines,
                            incidencias=incidencias,
                            pending_liquidations=pending_liquidations,
                            unassigned_liquidations=unassigned_liquidations)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# CREAR PERÍODO (borrador, sin calcular)
+# ═══════════════════════════════════════════════════════════════════════════
+
+@web_rrhh_bp.route("/rrhh/payroll/create", methods=["POST"])
+def payroll_create():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+
+    selected_group_id = request.form.get("payrollGroupId", "")
+    period_key = request.form.get("period_key", "")
+    period_sub_type = request.form.get("periodSubType", "regular")
+
+    if not selected_group_id:
+        flash("Debes seleccionar un grupo de nómina.", "error")
+        return redirect(url_for("web_rrhh.payroll_new"))
+    if not period_key:
+        flash("Debes seleccionar un período.", "error")
+        return redirect(url_for("web_rrhh.payroll_new"))
+
+    payroll_groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
+    selected_group = next((g for g in payroll_groups if g["id"] == selected_group_id), None)
+    group_frequency = selected_group["frequency"] if selected_group else "mensual"
+
+    now = date.today()
+    available_periods = _generate_periods(group_frequency, now.year)
+    period_info = next((p for p in available_periods if p["key"] == period_key), None)
+    if not period_info:
+        flash("El período seleccionado no es válido para este grupo.", "error")
+        return redirect(url_for("web_rrhh.payroll_new"))
+
+    # Validar que el grupo tenga empleados activos
+    from app.utils.hr_utils import is_active_equivalent
+    all_emps = hr.get_employees(company_id, sandbox=sandbox)
+    group_emps = [e for e in all_emps
+                  if selected_group_id in e.get("payrollGroupIds", [])
+                  and is_active_equivalent(e.get("status", ""))]
+    if not group_emps:
+        flash("Este grupo no tiene empleados activos. Asigna empleados al grupo antes de crear la nómina.", "error")
+        return redirect(url_for("web_rrhh.payroll_new", group=selected_group_id))
+
+    existing = hr.get_payroll_period_by_key_and_group(
+        company_id, period_key, selected_group_id, sandbox=sandbox)
+    if existing:
+        if existing.get("status") != "borrador":
+            flash(f"Ya existe una nómina para el período «{period_info['label']}» en este grupo. Ábrela desde el historial.", "warning")
+            return redirect(url_for("web_rrhh.payroll_view", period_id=existing["id"]))
+        flash("Este período ya tiene un borrador. Continúa editándolo.", "info")
+        return redirect(url_for("web_rrhh.payroll_view", period_id=existing["id"]))
+
+    parts = period_key.split("-")
+    year = int(parts[0])
+    month = int(parts[1])
+    period_id = str(uuid.uuid4())
+    user_email = session.get("user", {}).get("email", "")
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    period_data = {
+        "id": period_id,
+        "periodKey": period_key,
+        "periodType": period_info.get("type", "mensual"),
+        "periodSubType": period_sub_type,
+        "periodRange": period_info["label"],
+        "startDate": period_info["start"],
+        "endDate": period_info["end"],
+        "scheduledPaymentDate": period_info["end"],
+        "month": month,
+        "year": year,
+        "revision": 1,
+        "payrollGroupId": selected_group_id,
+        "status": "borrador",
+        "totalGross": 0.0,
+        "totalNet": 0.0,
+        "totalEmployerContrib": 0.0,
+        "processedDate": "",
+        "notes": request.form.get("notes", "").strip(),
+        "calculatedBy": "",
+        "calculatedAt": "",
+        "statusHistory": [{
+            "from": "borrador", "to": "borrador",
+            "by": user_email, "at": now_iso,
+            "comment": "Período creado",
+        }],
+    }
+    hr.save_payroll_period(company_id, period_id, period_data, sandbox=sandbox)
+    flash(f"Nómina «{period_info['label']}» creada. Edita las variables y procesa cuando estés listo.", "success")
+    return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # SIMULADOR DE NÓMINA
 # ═══════════════════════════════════════════════════════════════════════════
 
-@web_rrhh_bp.route("/rrhh/payroll/simulate", methods=["GET", "POST"])
+@web_rrhh_bp.route("/rrhh/payroll/simulate", methods=["GET"])
+@web_rrhh_bp.route("/rrhh/payroll/preview", methods=["POST"])
 def payroll_simulate():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if request.method == "GET":
+        return redirect(url_for("web_rrhh.payroll_new"))
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.payroll_service import PayrollService
@@ -1040,10 +1408,17 @@ def payroll_simulate():
     all_active = [e for e in hr.get_employees(company_id, sandbox=sandbox)
                   if is_active_equivalent(e.get("status", ""))]
 
-    payroll_groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
+    payroll_groups = [g for g in hr.get_payroll_groups(company_id, sandbox=sandbox)
+                      if g.get("isActive", True)]
     payroll_groups.sort(key=lambda g: g.get("name", ""))
 
     selected_group_id = request.args.get("group", "") or request.form.get("payrollGroupId", "")
+
+    if selected_group_id and not any(g.get("id") == selected_group_id for g in payroll_groups):
+        _inactive_group = hr.get_payroll_group(company_id, selected_group_id, sandbox=sandbox)
+        if _inactive_group:
+            payroll_groups.append(_inactive_group)
+            payroll_groups.sort(key=lambda g: g.get("name", ""))
 
     if selected_group_id:
         selected_group = next((g for g in payroll_groups if g["id"] == selected_group_id), None)
@@ -1106,6 +1481,8 @@ def payroll_simulate():
 
     if request.method == "POST":
         period_key = request.form.get("period_key", "")
+        if payroll_groups and not selected_group_id:
+            return jsonify({"error": "Debes seleccionar un grupo de nómina antes de simular."}), 400
         period_info = next((p for p in available_periods if p["key"] == period_key), None)
         start_date = period_info["start"] if period_info else ""
         end_date = period_info["end"] if period_info else ""
@@ -1188,6 +1565,8 @@ def payroll_simulate():
         dependents_by_employee = hr.get_dependents_for_employees(company_id, all_emp_ids, sandbox=sandbox)
         from app.utils.hr_utils import is_minor as _is_minor_dep
 
+        emp_var_map = _extract_variable_values(request.form, [e["id"] for e in period_employees])
+
         for emp in period_employees:
             emp_id = emp["id"]
 
@@ -1205,12 +1584,13 @@ def payroll_simulate():
                 total_non_tax_deductions += (line["totalDeductions"] - line_taxes)
                 continue
 
+            emp_vars = emp_var_map.get(emp_id, {})
             base = float(emp.get("baseSalary", 0))
-            overtime = float(request.form.get(f"overtime_{emp_id}", 0) or 0)
-            commission = float(request.form.get(f"commission_{emp_id}", 0) or 0)
-            bonus = float(request.form.get(f"bonus_{emp_id}", 0) or 0)
-            other_income_manual = float(request.form.get(f"other_income_{emp_id}", 0) or 0)
-            other_ded_manual = float(request.form.get(f"other_ded_{emp_id}", 0) or 0)
+            overtime = emp_vars.get("HORAS_EXTRA", 0)
+            commission = emp_vars.get("COMISION", 0)
+            bonus = emp_vars.get("BONIFICACION", 0)
+            other_income_manual = emp_vars.get("OTROS_INGRESOS", 0)
+            other_ded_manual = emp_vars.get("OTRAS_DEDUCCIONES", 0)
 
             if group_overrides.get("includeBaseSalary") is False:
                 base = 0.0
@@ -1297,17 +1677,16 @@ def payroll_simulate():
                 if tx:
                     employee_transactions.append(tx.model_dump())
 
-            # ── Variables: horas extra, comisión, bonificación, otros ingresos manuales ──
-            var_items = [
-                ("HORAS_EXTRA", overtime, "overtime"),
-                ("COMISION", commission, "commission"),
-                ("BONIFICACION", bonus, "bonus"),
-                ("OTROS_INGRESOS", other_income_manual, "manual"),
-            ]
-            for concept_code, amount, source_type in var_items:
-                if amount <= 0:
+            # ── Variables genéricas por concepto ──
+            from app.services.payroll_variable_catalog import GROUP_OVERRIDE_BY_CONCEPT as _SIM_OVERRIDES
+            for vcode, amt in emp_vars.items():
+                if amt <= 0:
                     continue
-                concept = concept_map.get(concept_code)
+                if vcode == "REGALIA_PASCUAL":
+                    continue  # se maneja en el bloque de regalía
+                if vcode in _SIM_OVERRIDES and group_overrides.get(_SIM_OVERRIDES[vcode]) is False:
+                    continue
+                concept = concept_map.get(vcode)
                 if not concept:
                     continue
                 from app.models.transaction import PayrollTransaction
@@ -1318,10 +1697,10 @@ def payroll_simulate():
                     periodKey=period_key,
                     payrollLineId=line_id,
                     employeeId=emp_id,
-                    conceptCode=concept_code,
-                    type="earning",
-                    amount=round(amount, 2),
-                    source=source_type,
+                    conceptCode=vcode,
+                    type=concept.get("type", "earning"),
+                    amount=round(amt, 2),
+                    source=f"var:{vcode}",
                     status="applied",
                     conceptSnapshot=build_concept_snapshot(concept),
                     periodYear=int(period_key[:4]) if period_key and len(period_key) >= 4 else 0,
@@ -1330,10 +1709,15 @@ def payroll_simulate():
                 )
                 employee_transactions.append(tx.model_dump())
 
-            # ── Otras deducciones manuales ──
-            if other_ded_manual > 0:
-                ded_concept = concept_map.get("OTRAS_DEDUCCIONES")
-                if ded_concept:
+            # ── Regalía pascual (auto o override manual) ──
+            christmas = 0.0
+            if (period_sub_type_val == "christmas_bonus" or emp_vars.get("REGALIA_PASCUAL")) and base > 0:
+                christmas = emp_vars.get("REGALIA_PASCUAL", 0)
+                if not christmas:
+                    months_worked = _months_worked_in_year(emp.get("hireDate", ""))
+                    christmas = PayrollService.calculate_christmas_bonus(base, months_worked)
+                if christmas > 0:
+                    christmas_concept = concept_map.get("BONIFICACION", {})
                     from app.models.transaction import PayrollTransaction
                     from app.services.payroll_concept_engine import build_concept_snapshot
                     tx = PayrollTransaction(
@@ -1342,12 +1726,12 @@ def payroll_simulate():
                         periodKey=period_key,
                         payrollLineId=line_id,
                         employeeId=emp_id,
-                        conceptCode="OTRAS_DEDUCCIONES",
-                        type="deduction",
-                        amount=round(other_ded_manual, 2),
-                        source="manual",
+                        conceptCode="REGALIA_PASCUAL",
+                        type="earning",
+                        amount=round(christmas, 2),
+                        source="system",
                         status="applied",
-                        conceptSnapshot=build_concept_snapshot(ded_concept),
+                        conceptSnapshot=build_concept_snapshot(christmas_concept),
                         periodYear=int(period_key[:4]) if period_key and len(period_key) >= 4 else 0,
                         createdAt=datetime.now(timezone.utc).isoformat(),
                         updatedAt=datetime.now(timezone.utc).isoformat(),
@@ -1368,6 +1752,8 @@ def payroll_simulate():
                 for r in emp_rules:
                     trigger_month = r.get("triggerMonth", 0)
                     if trigger_month and trigger_month != sim_month:
+                        continue
+                    if _should_skip_christmas_rule(r, period_sub_type_val == "christmas_bonus" or "REGALIA_PASCUAL" in emp_vars):
                         continue
                     filtered_rules.append(r)
                 # Acumulado de salario ordinario anual para reglas (ej: Salario de Navidad)
@@ -1561,7 +1947,7 @@ def payroll_simulate():
             def sum_by_concept(tx_list, *codes):
                 return sum(float(t.get("amount", 0)) for t in tx_list if t.get("conceptCode") in codes and not t.get("isRuleGenerated"))
 
-            overtime_hours_val = float(request.form.get(f"overtime_{emp_id}", 0) or 0)
+            overtime_hours_val = float(overtime)
 
             recurring_earnings = sum(
                 float(t.get("amount", 0)) for t in employee_transactions
@@ -1591,7 +1977,8 @@ def payroll_simulate():
                 "overtimeBreakdown": overtime_breakdown,
                 "commission": sum_by_concept(employee_transactions, "COMISION"),
                 "bonus": sum_by_concept(employee_transactions, "BONIFICACION"),
-                "otherIncome": round(sum_by_concept(employee_transactions, "OTROS_INGRESOS") + recurring_earnings, 2),
+                "christmasBonus": round(christmas, 2),
+                "otherIncome": round(recurring_earnings + build_manual_other_income(employee_transactions), 2),
                 "totalIncome": round(earn, 2),
                 "totalDeductions": round(deduct, 2),
                 "netSalary": round(max(0, earn - deduct), 2),
@@ -1599,7 +1986,7 @@ def payroll_simulate():
                 "afpEmployee": sum_by_concept(employee_transactions, "AFP_EMPLEADO"),
                 "sfsEmployee": sum_by_concept(employee_transactions, "SFS_EMPLEADO"),
                 "isrRetention": sum_by_concept(employee_transactions, "ISR_RETENCION"),
-                "otherDeductions": round(sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("conceptCode") in ("OTRAS_DEDUCCIONES",) and not t.get("isRecurring") and not t.get("isRuleGenerated")), 2),
+                "otherDeductions": build_manual_other_deductions(employee_transactions),
                 "recurringDeductionsBreakdown": recurring_deductions_details,
                 "recurringAdditionsBreakdown": recurring_additions_details,
             }
@@ -1608,7 +1995,7 @@ def payroll_simulate():
             # (they appear in dynamic columns via the breakdown/map mechanism)
             line["bonus"] = sum_by_concept(employee_transactions, "BONIFICACION")
             line["commission"] = sum_by_concept(employee_transactions, "COMISION")
-            line["otherIncome"] = round(sum_by_concept(employee_transactions, "OTROS_INGRESOS") + recurring_earnings, 2)
+            line["otherIncome"] = round(recurring_earnings + build_manual_other_income(employee_transactions), 2)
 
             lines.append(line)
             total_gross += line["totalIncome"]
@@ -1668,10 +2055,4 @@ def payroll_simulate():
             "lines": lines,
         }
 
-    return render_template("rrhh/payroll_simulate.html", active_page="rrhh_payroll",
-                           employees=employees, available_periods=available_periods,
-                           frequency=group_frequency, simulation=simulation,
-                           payroll_groups=payroll_groups,
-                           selected_group_id=selected_group_id,
-                           pending_liquidations=pending_liquidations,
-                           unassigned_liquidations=unassigned_liquidations)
+    return jsonify(simulation)

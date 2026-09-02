@@ -62,7 +62,58 @@ def payroll_view(period_id):
     from app.web.rrhh.payroll_process import _build_liquidation_columns
     period["liquidationColumns"] = _build_liquidation_columns(period.get("lines", []))
 
-    return render_template("rrhh/payroll_view.html", active_page="rrhh_payroll", period=period)
+    # ── Contexto del editor de variables (sección Empleados→Ingresos→Descuentos) ──
+    from app.services.payroll_variable_catalog import RECURRING_MANAGED_BY_CONCEPT
+    from app.web.rrhh.payroll_process import _build_christmas_preview, _editor_tabs
+    ingreso_tabs, descuento_tabs = _editor_tabs(company_id, sandbox=sandbox)
+    variable_tabs = ingreso_tabs + descuento_tabs
+    group_id = period.get("payrollGroupId", "")
+    employees = hr.get_employees(company_id, sandbox=sandbox)
+    if group_id:
+        employees = [e for e in employees if group_id in e.get("payrollGroupIds", [])]
+    recurring_movements = []
+    try:
+        from app.services.recurring_service import get_recurring_movements
+        if group_id:
+            recurring_movements = get_recurring_movements(
+                company_id, payroll_group_id=group_id, sandbox=sandbox)
+    except Exception:
+        recurring_movements = []
+    imported_variables = []
+    try:
+        imported_variables = PayrollService.get_period_manual_variables(
+            period_id, company_id, sandbox=sandbox)
+    except Exception:
+        imported_variables = []
+    christmas_enabled = period.get("periodSubType") == "christmas_bonus"
+    pv_editable = period.get("status") == "borrador"
+    from app.web.rrhh.payroll_workflow import _is_simple_workflow
+    simple_workflow = _is_simple_workflow(company_id, sandbox=sandbox)
+
+    active_concept_codes = set()
+    try:
+        from app.services.payroll_concept_engine import get_concepts
+        active_concept_codes = {c.get("code") for c in get_concepts(company_id, sandbox=sandbox)
+                                if c.get("active")}
+    except Exception:
+        active_concept_codes = set()
+
+    return render_template("rrhh/payroll_view.html", active_page="rrhh_payroll", period=period,
+                           employees=employees,
+                           variable_tabs=variable_tabs,
+                           ingreso_tabs=ingreso_tabs,
+                           descuento_tabs=descuento_tabs,
+                           recurring_managed_tabs=RECURRING_MANAGED_BY_CONCEPT,
+                           recurring_movements=recurring_movements,
+                           imported_variables=imported_variables,
+                           christmas_preview=_build_christmas_preview(employees),
+                           christmas_enabled=christmas_enabled,
+                           period_lines=period["lines"],
+                           selected_group_id=group_id,
+                           pv_editable=pv_editable,
+                           simple_workflow=simple_workflow,
+                           pv_return_url=url_for("web_rrhh.payroll_view", period_id=period_id),
+                           active_concept_codes=active_concept_codes)
 
 
 @web_rrhh_bp.route("/rrhh/payroll/<period_id>/tss")

@@ -56,6 +56,9 @@ def payroll_settings():
             config["payrollFrequency"] = new_freq
             hr.save_payroll_config(company_id, config, sandbox=sandbox)
 
+        config["simple_workflow"] = request.form.get("simple_workflow") == "1"
+        hr.save_payroll_config(company_id, config, sandbox=sandbox)
+
         if action == "save":
             hr.save_tax_rates(company_id, {
                 "year": date.today().year,
@@ -100,6 +103,7 @@ def payroll_settings():
     return render_template("rrhh/settings.html", active_page="rrhh_settings",
                            tax_rates=SimpleNamespace(**rates), config_updated=config_updated,
                            payroll_frequency=config.get("payrollFrequency", "mensual"),
+                           simple_workflow=config.get("simple_workflow", True),
                            payroll_groups=payroll_groups,
                            unassigned_employees=unassigned_employees,
                            group_employee_counts={g["id"]: len([e for e in all_employees if g["id"] in e.get("payrollGroupIds", [])]) for g in payroll_groups},

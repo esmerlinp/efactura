@@ -2,13 +2,18 @@
 {% block title %}Conceptos de Nómina — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
+{% set next_url = next_url if next_url is defined else '' %}
 <div class="page-header hr-page-header">
     <h1 class="page-title"><i class="fa-solid fa-cubes"></i> Conceptos de Nómina</h1>
     <div class="hr-page-actions">
         <a href="{{ url_for('web_rrhh.concept_new') }}" class="btn btn-primary">
             <i class="fa-solid fa-plus"></i> Nuevo Concepto
         </a>
+        {% if next_url %}
+        <a href="{{ next_url }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Volver a la nómina</a>
+        {% else %}
         <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Dashboard</a>
+        {% endif %}
     </div>
 </div>
 

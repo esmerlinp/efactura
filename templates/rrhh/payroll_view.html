@@ -167,7 +167,12 @@
 </div>
 
 <!-- Workflow Status -->
-{% set statuses = ['borrador','calculada','validada','aprobada','contabilizada','pagada','cerrada'] %}
+{% set simple_wf = simple_workflow if simple_workflow is defined else true %}
+{% if simple_wf %}
+    {% set statuses = ['borrador','calculada','aprobada','pagada','contabilizada','cerrada'] %}
+{% else %}
+    {% set statuses = ['borrador','calculada','validada','aprobada','pagada','contabilizada','cerrada'] %}
+{% endif %}
 {% set status_labels = {'borrador':'Borrador','calculada':'Calculada','validada':'Validada','aprobada':'Aprobada','contabilizada':'Contabilizada','pagada':'Pagada','cerrada':'Cerrada'} %}
 {% set current_idx = statuses.index(period.get('status','borrador')) if period.get('status','borrador') in statuses else 0 %}
 <div class="card-table-wrapper" style="padding:16px 24px; margin-bottom:16px;">
@@ -210,11 +215,11 @@
         <div>
             <div style="font-weight:600; font-size:0.9rem; color:var(--text-primary); margin-bottom:2px;">Siguiente paso requerido</div>
             <div style="font-size:0.75rem; color:var(--text-muted);">
-                {% if s == 'calculada' %}Verifica que los datos de la nómina son correctos antes de validarla.
-                {% elif s == 'validada' %}Aprueba formalmente la nómina para su contabilización.
-                {% elif s == 'aprobada' %}Genera el asiento contable y registra la nómina en contabilidad.
-                {% elif s == 'contabilizada' %}Marca la nómina como pagada y registra la fecha de pago.
-                {% elif s == 'pagada' %}Cierra definitivamente el período. No se permitirán modificaciones.
+                {% if s == 'calculada' %}{% if simple_wf %}Revisa los valores y aprueba la nómina para continuar con el pago.{% else %}Verifica que los datos de la nómina son correctos antes de validarla.{% endif %}
+                {% elif s == 'validada' %}Aprueba formalmente la nómina para proceder con su pago.
+                {% elif s == 'aprobada' %}Registra el pago de la nómina y la fecha de pago.
+                {% elif s == 'pagada' %}Genera el asiento contable y registra la nómina en contabilidad.
+                {% elif s == 'contabilizada' %}Cierra definitivamente el período. No se permitirán modificaciones.
                 {% elif s == 'cerrada' %}Período cerrado. Sin acciones disponibles.
                 {% elif s == 'borrador' %}Este período está en borrador. Procesa la nómina para actualizarlo.
                 {% endif %}
@@ -223,22 +228,31 @@
     </div>
     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
     {% if s == 'calculada' %}
+        {% if simple_wf %}
+        <form method="POST" action="{{ url_for('web_rrhh.payroll_approve', period_id=period.id) }}" style="margin:0;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary btn-sm" title="Aprueba la nómina para continuar con el pago.">
+                <i class="fa-solid fa-thumbs-up"></i> Aprobar
+            </button>
+        </form>
+        {% else %}
         <form method="POST" action="{{ url_for('web_rrhh.payroll_validate', period_id=period.id) }}" style="margin:0;">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-primary btn-sm" title="Verifica que los datos de la nómina son correctos antes de validarla.">
                 <i class="fa-solid fa-check-circle"></i> Validar
             </button>
         </form>
+        {% endif %}
         <form method="POST" action="{{ url_for('web_rrhh.payroll_recalculate', period_id=period.id) }}" style="margin:0;" onsubmit="return confirm('¿Revertir nómina a borrador para recalcular?')">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--danger);" title="Revierte a borrador para modificar y volver a calcular.">
-                <i class="fa-solid fa-undo"></i> Recalcular
+                <i class="fa-solid fa-undo"></i> {{ 'Editar valores' if simple_wf else 'Recalcular' }}
             </button>
         </form>
     {% elif s == 'validada' %}
         <form method="POST" action="{{ url_for('web_rrhh.payroll_approve', period_id=period.id) }}" style="margin:0;">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-primary btn-sm" title="Aprueba formalmente la nómina para su contabilización.">
+            <button type="submit" class="btn btn-primary btn-sm" title="Aprueba formalmente la nómina para proceder con su pago.">
                 <i class="fa-solid fa-thumbs-up"></i> Aprobar
             </button>
         </form>
@@ -249,10 +263,10 @@
             </button>
         </form>
     {% elif s == 'aprobada' %}
-        <form method="POST" action="{{ url_for('web_rrhh.payroll_post', period_id=period.id) }}" style="margin:0;" onsubmit="if(confirm('¿Contabilizar la nómina? Se generará el asiento contable automáticamente.')) { var btn = this.querySelector('button[type=submit]'); btn.disabled = true; btn.innerHTML = '<i class=\'fa-solid fa-spinner fa-spin\'></i> Contabilizando...'; return true; } return false;">
+        <form method="POST" action="{{ url_for('web_rrhh.payroll_pay', period_id=period.id) }}" style="margin:0;" onsubmit="return confirm('¿Confirmar pago de nómina?')">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-primary btn-sm" title="Genera el asiento contable y registra la nómina en contabilidad.">
-                <i class="fa-solid fa-book"></i> Contabilizar
+            <button type="submit" class="btn btn-primary btn-sm" title="Marca la nómina como pagada y registra la fecha de pago.">
+                <i class="fa-solid fa-money-bill-wave"></i> Registrar Pago
             </button>
         </form>
         <form method="POST" action="{{ url_for('web_rrhh.payroll_recalculate', period_id=period.id) }}" style="margin:0;" onsubmit="return confirm('¿Revertir nómina a borrador?')">
@@ -261,11 +275,25 @@
                 <i class="fa-solid fa-undo"></i> Recalcular
             </button>
         </form>
-    {% elif s == 'contabilizada' %}
-        <form method="POST" action="{{ url_for('web_rrhh.payroll_pay', period_id=period.id) }}" style="margin:0;" onsubmit="return confirm('¿Confirmar pago de nómina?')">
+    {% elif s == 'pagada' %}
+        <form method="POST" action="{{ url_for('web_rrhh.payroll_post', period_id=period.id) }}" style="margin:0;" onsubmit="if(confirm('¿Contabilizar la nómina? Se generará el asiento contable automáticamente.')) { var btn = this.querySelector('button[type=submit]'); btn.disabled = true; btn.innerHTML = '<i class=\'fa-solid fa-spinner fa-spin\'></i> Contabilizando...'; return true; } return false;">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-primary btn-sm" title="Marca la nómina como pagada y registra la fecha de pago.">
-                <i class="fa-solid fa-money-bill-wave"></i> Registrar Pago
+            <button type="submit" class="btn btn-primary btn-sm" title="Genera el asiento contable y registra la nómina en contabilidad.">
+                <i class="fa-solid fa-book"></i> Contabilizar
+            </button>
+        </form>
+        <form method="POST" action="{{ url_for('web_rrhh.payroll_recalculate', period_id=period.id) }}" style="margin:0;" onsubmit="document.getElementById('recalcConfirmField2').value = prompt('⚠️ Esta acción revertirá el pago registrado.\n\nEscribe RECALCULAR para confirmar:'); return document.getElementById('recalcConfirmField2').value === 'RECALCULAR';">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="confirm" id="recalcConfirmField2" value="">
+            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--danger);" title="Revierte el pago.">
+                <i class="fa-solid fa-rotate-left"></i> Revertir pago
+            </button>
+        </form>
+    {% elif s == 'contabilizada' %}
+        <form method="POST" action="{{ url_for('web_rrhh.payroll_close', period_id=period.id) }}" style="margin:0;" onsubmit="return confirm('¿Cerrar definitivamente el período? No se podrá modificar.')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary btn-sm" title="Cierra definitivamente el período. No se permitirán modificaciones.">
+                <i class="fa-solid fa-lock"></i> Cerrar Período
             </button>
         </form>
         <form method="POST" action="{{ url_for('web_rrhh.payroll_recalculate', period_id=period.id) }}" style="margin:0;" onsubmit="document.getElementById('recalcConfirmField').value = prompt('⚠️ Esta acción revertirá el asiento contable generado.\n\nEscribe RECALCULAR para confirmar:'); return document.getElementById('recalcConfirmField').value === 'RECALCULAR';">
@@ -275,31 +303,18 @@
                 <i class="fa-solid fa-rotate-left"></i> Revertir contabilización
             </button>
         </form>
-    {% elif s == 'pagada' %}
-        <form method="POST" action="{{ url_for('web_rrhh.payroll_close', period_id=period.id) }}" style="margin:0;" onsubmit="return confirm('¿Cerrar definitivamente el período? No se podrá modificar.')">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-primary btn-sm" title="Cierra definitivamente el período. No se permitirán modificaciones.">
-                <i class="fa-solid fa-lock"></i> Cerrar Período
-            </button>
-        </form>
-        <form method="POST" action="{{ url_for('web_rrhh.payroll_recalculate', period_id=period.id) }}" style="margin:0;" onsubmit="document.getElementById('recalcConfirmField2').value = prompt('⚠️ Esta acción revertirá el pago registrado y el asiento contable.\n\nEscribe RECALCULAR para confirmar:'); return document.getElementById('recalcConfirmField2').value === 'RECALCULAR';">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="confirm" id="recalcConfirmField2" value="">
-            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--danger);" title="Revierte el pago y la contabilización.">
-                <i class="fa-solid fa-rotate-left"></i> Revertir pago
-            </button>
-        </form>
     {% elif s == 'cerrada' %}
         <span style="color:var(--text-muted); font-size:0.85rem;"><i class="fa-solid fa-lock"></i> Período cerrado.</span>
     {% elif s == 'borrador' %}
-        <form method="POST" action="{{ url_for('web_rrhh.payroll_new', group=period.payrollGroupId or '') }}" style="margin:0;" onsubmit="var btn=this.querySelector('button[type=submit]'); btn.disabled=true; btn.innerHTML='<i class=\'fa-solid fa-spinner fa-spin\'></i> Procesando...'; return true;">
+        <form method="POST" id="pvProcessForm" action="{{ url_for('web_rrhh.payroll_new', group=period.payrollGroupId or '') }}" style="margin:0;" onsubmit="if(!confirm('¿Guardar los valores y procesar la nómina?')) return false; var btn=this.querySelector('button[type=submit]'); btn.disabled=true; btn.innerHTML='<i class=\'fa-solid fa-spinner fa-spin\'></i> Procesando...'; return true;">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="period_key" value="{{ period.periodKey }}">
             <input type="hidden" name="payrollGroupId" value="{{ period.payrollGroupId or '' }}">
             <input type="hidden" name="period_kind" value="{{ period.periodType or 'mensual' }}">
             <input type="hidden" name="periodSubType" value="{{ period.periodSubType or 'regular' }}">
-            <button type="submit" class="btn btn-primary btn-sm" title="Calcula la nómina con los empleados activos y las reglas configuradas.">
-                <i class="fa-solid fa-calculator"></i> Procesar Nómina
+            <input type="hidden" name="redirect_to" value="view">
+            <button type="submit" class="btn btn-primary btn-sm" title="Guarda las variables editadas y recalcula la nómina.">
+                <i class="fa-solid fa-calculator"></i> Guardar y recalcular
             </button>
         </form>
         <form method="POST" id="deletePayrollForm" action="{{ url_for('web_rrhh.payroll_delete', period_id=period.id) }}" style="margin:0;">
@@ -313,467 +328,10 @@
     </div>
 </div>
 
+{% if s != 'cerrada' and s != 'cancelled' %}
+    {% include "rrhh/_payroll_variables_editor.html" %}
+{% endif %}
 
-<!-- ═══════════════════════════════════════════════════ -->
-<!-- EMPLOYEE FILTER / TABS                               -->
-<!-- ═══════════════════════════════════════════════════ -->
-<div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px;">
-    <div class="form-group" style="margin:0; flex:1; min-width:220px; max-width:340px;">
-        <div style="position:relative;">
-            <i class="fa-solid fa-search" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:0.8rem;"></i>
-            <input type="text" id="employeeFilter" class="form-input" placeholder="Filtrar por nombre o cédula..."
-                   style="padding-left:34px; border-radius:24px; font-size:0.82rem;">
-        </div>
-    </div>
-    <span id="employeeFilterCount" style="font-size:0.78rem; color:var(--text-muted); white-space:nowrap;"></span>
-</div>
-
-<!-- ═══════════════════════════════════════════════════ -->
-<div class="payroll-tabs">
-    <button class="payroll-tab active" data-tab="resumen" onclick="switchTab('resumen')">
-        <i class="fa-solid fa-list"></i> Resumen
-    </button>
-    <button class="payroll-tab" data-tab="ingresos" onclick="switchTab('ingresos')">
-        <i class="fa-solid fa-arrow-trend-up"></i> Ingresos
-    </button>
-    <button class="payroll-tab" data-tab="descuentos" onclick="switchTab('descuentos')">
-        <i class="fa-solid fa-arrow-trend-down"></i> Descuentos
-    </button>
-    <button class="payroll-tab" data-tab="completo" onclick="switchTab('completo')">
-        <i class="fa-solid fa-table"></i> Completo
-    </button>
-</div>
-
-<!-- Total deductions per employee for Resumen tab -->
-{% set total_incomes = {'val': 0.0} %}
-{% set total_deductions = {'val': 0.0} %}
-{% set total_net = {'val': 0.0} %}
-{% set total_employer = {'val': 0.0} %}
-
-<!-- ═══════════════════════════════════════════════════ -->
-<!-- TAB 1: RESUMEN                                      -->
-<!-- ═══════════════════════════════════════════════════ -->
-<div class="tab-panel active" id="tab-resumen">
-    <div class="card-table-wrapper">
-        <div class="table-responsive">
-            <table class="table-premium emp-payroll-table" style="font-size:0.85rem;">
-            <thead>
-                <tr>
-                    <th>Empleado</th>
-                    <th style="text-align:right;">Total Ingresos</th>
-                    <th style="text-align:right;">Total Descuentos</th>
-                    <th style="text-align:right;">Neto</th>
-                    <th style="text-align:right;">Aportes Emp.</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for l in period.lines %}
-                {% set ded = (l.afpEmployee|float)+(l.sfsEmployee|float)+(l.get('infotepEmployee',0)|float)+(l.isrRetention|float)+(l.otherDeductions|float) %}
-                {% set _ = total_incomes.update({'val': total_incomes.val + l.totalIncome|float}) %}
-                {% set _ = total_deductions.update({'val': total_deductions.val + ded}) %}
-                {% set _ = total_net.update({'val': total_net.val + l.netSalary|float}) %}
-                {% set _ = total_employer.update({'val': total_employer.val + l.totalEmployerContrib|float}) %}
-                <tr data-search="{{ (l.employeeName or '')|lower }} {{ (l.cedula or '')|lower }}">
-                    <td style="white-space:nowrap;"><a href="{{ url_for('web_rrhh.employee_view', employee_id=l.employeeId) }}" class="emp-link">{{ l.employeeName }}</a></td>
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.totalIncome|float) }}</td>
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(ded) }}</td>
-                    <td style="text-align:right; white-space:nowrap; font-weight:700; color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(l.netSalary|float) }}</td>
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.totalEmployerContrib|float) }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-            <tfoot>
-                <tr style="font-weight:700; background:var(--bg-nav-hover);">
-                    <td>Totales ({{ period.lines|length }} empleados)</td>
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(total_incomes.val) }}</td>
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(total_deductions.val) }}</td>
-                    <td style="text-align:right; white-space:nowrap; color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(total_net.val) }}</td>
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(total_employer.val) }}</td>
-                </tr>
-            </tfoot>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════ -->
-<!-- TAB 2: INGRESOS                                     -->
-<!-- ═══════════════════════════════════════════════════ -->
-<div class="tab-panel" id="tab-ingresos">
-    <div class="card-table-wrapper">
-        <div class="table-responsive">
-            <table class="table-premium emp-payroll-table" style="font-size:0.85rem; min-width:1100px;">
-            <thead>
-                <tr>
-                    <th>Empleado</th>
-                    <th style="text-align:right;">Salario Base</th>
-                    <th style="text-align:right;">Horas Extras</th>
-                    {% for col in period.get('overtimeColumns', []) %}
-                    <th style="text-align:right; font-size:0.8rem;">{{ col.name }}</th>
-                    {% endfor %}
-                    <th style="text-align:right;">Comisiones</th>
-                    <th style="text-align:right;">Bonificación</th>
-                    <th style="text-align:right;">Otros Ingresos</th>
-                    {% for col in period.get('recurringAdditionsColumns', []) %}
-                    <th style="text-align:right;">{{ col }}</th>
-                    {% endfor %}
-                    {% for col in period.get('liquidationColumns', []) %}
-                    <th style="text-align:right; font-size:0.8rem;">{{ col.name }}</th>
-                    {% endfor %}
-                    <th style="text-align:right;">Total Ingresos</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for l in period.lines %}
-                {% set amap = l.get('recurringAdditionsMap', {}) %}
-                {% set obd = l.get('overtimeBreakdown', {}) %}
-                <tr data-search="{{ (l.employeeName or '')|lower }} {{ (l.cedula or '')|lower }}">
-                    <td style="white-space:nowrap;"><a href="{{ url_for('web_rrhh.employee_view', employee_id=l.employeeId) }}" class="emp-link">{{ l.employeeName }}</a></td>
-                    <td style="text-align:right; white-space:nowrap;">{% if l.lineType == 'liquidation' %}—{% else %}{{ "RD$ {:,.2f}".format(l.get('grossSalary', l.get('baseSalary', 0))|float) }}{% endif %}</td>
-                    <td style="text-align:right; white-space:nowrap;">
-                        {% if l.overtimePay and l.overtimePay|float > 0 %}
-                        {{ "RD$ {:,.2f}".format(l.overtimePay|float) }}
-                        <span style="font-size:0.65rem;color:var(--text-muted);"> ({{ l.overtimeHours|float }} h)</span>
-                        {% else %}—{% endif %}
-                    </td>
-                    {% for col in period.get('overtimeColumns', []) %}
-                    <td style="text-align:right; white-space:nowrap; font-size:0.8rem;">{% set amt = obd.get(col.code, 0) %}{% if amt > 0 %}RD$ {{ "{:,.2f}".format(amt) }}{% else %}—{% endif %}</td>
-                    {% endfor %}
-                    <td style="text-align:right; white-space:nowrap;">{% if l.commission and l.commission|float > 0 %}{{ "RD$ {:,.2f}".format(l.commission|float) }}{% else %}—{% endif %}</td>
-                    <td style="text-align:right; white-space:nowrap;">{% if l.bonus and l.bonus|float > 0 %}{{ "RD$ {:,.2f}".format(l.bonus|float) }}{% else %}—{% endif %}</td>
-                    <td style="text-align:right; white-space:nowrap;">{% if l.otherIncome and l.otherIncome|float > 0 %}{{ "RD$ {:,.2f}".format(l.otherIncome|float) }}{% else %}—{% endif %}</td>
-                    {% for col in period.get('recurringAdditionsColumns', []) %}
-                    <td style="text-align:right; white-space:nowrap;">{% set amt = amap.get(col, 0) %}{% if amt > 0 %}RD$ {{ "{:,.2f}".format(amt) }}{% else %}—{% endif %}</td>
-                    {% endfor %}
-                    {% for col in period.get('liquidationColumns', []) %}
-                    <td style="text-align:right; white-space:nowrap; font-size:0.8rem;">{% set amt = l.get('liquidationMap', {}).get(col.code, 0) %}{% if amt > 0 %}RD$ {{ "{:,.2f}".format(amt) }}{% else %}—{% endif %}</td>
-                    {% endfor %}
-                    <td style="text-align:right; white-space:nowrap; font-weight:600;">{{ "RD$ {:,.2f}".format(l.totalIncome|float) }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-            <tfoot>
-                <tr style="font-weight:700; background:var(--bg-nav-hover);">
-                    <td>Totales</td>
-                    <td style="text-align:right;">—</td>
-                    <td style="text-align:right;">—</td>
-                    {% for col in period.get('overtimeColumns', []) %}
-                    <td style="text-align:right;">—</td>
-                    {% endfor %}
-                    <td style="text-align:right;">—</td>
-                    <td style="text-align:right;">—</td>
-                    <td style="text-align:right;">—</td>
-                    {% for col in period.get('recurringAdditionsColumns', []) %}
-                    <td style="text-align:right;">—</td>
-                    {% endfor %}
-                    {% for col in period.get('liquidationColumns', []) %}
-                    <td style="text-align:right;">—</td>
-                    {% endfor %}
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(period.totalGross|float) }}</td>
-                </tr>
-            </tfoot>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════ -->
-<!-- TAB 3: DESCUENTOS                                   -->
-<!-- ═══════════════════════════════════════════════════ -->
-<div class="tab-panel" id="tab-descuentos">
-    <div class="card-table-wrapper">
-        <div class="table-responsive">
-            <table class="table-premium emp-payroll-table" style="font-size:0.85rem; min-width:1100px;">
-            <thead>
-                <tr>
-                    <th>Empleado</th>
-                    <th style="text-align:right;">Total Ingresos</th>
-                    <th style="text-align:right;">AFP</th>
-                    <th style="text-align:right;">SFS</th>
-                    <th style="text-align:right;">INFOTEP</th>
-                    <th style="text-align:right;">ISR</th>
-                    {% for col in period.get('recurringDeductionColumns', []) %}
-                    <th style="text-align:right;">{{ col }}</th>
-                    {% endfor %}
-                    <th style="text-align:right;">Otras Ded.</th>
-                    <th style="text-align:right;">Neto</th>
-                    <th style="text-align:right;">Aportes Emp.</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for l in period.lines %}
-                <tr data-search="{{ (l.employeeName or '')|lower }} {{ (l.cedula or '')|lower }}">
-                    <td style="white-space:nowrap;"><a href="{{ url_for('web_rrhh.employee_view', employee_id=l.employeeId) }}" class="emp-link">{{ l.employeeName }}</a></td>
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.totalIncome|float) }}</td>
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.afpEmployee|float) }}</td>
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.sfsEmployee|float) }}</td>
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.get('infotepEmployee', 0)|float) }}</td>
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.isrRetention|float) }}</td>
-                    {% set rmap = l.get('recurringDeductionsMap', {}) %}
-                    {% for col in period.get('recurringDeductionColumns', []) %}
-                    <td style="text-align:right; white-space:nowrap;">{% set amt = rmap.get(col, 0) %}{% if amt > 0 %}RD$ {{ "{:,.2f}".format(amt) }}{% else %}—{% endif %}</td>
-                    {% endfor %}
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.otherDeductions|float) }}</td>
-                    <td style="text-align:right; white-space:nowrap; font-weight:700; color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(l.netSalary|float) }}</td>
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.totalEmployerContrib|float) }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-            <tfoot>
-                <tr style="font-weight:700; background:var(--bg-nav-hover);">
-                    <td>Totales</td>
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(period.totalGross|float) }}</td>
-                    <td style="text-align:right;">—</td>
-                    <td style="text-align:right;">—</td>
-                    <td style="text-align:right;">—</td>
-                    <td style="text-align:right;">—</td>
-                    <td style="text-align:right;">—</td>
-                    <td style="text-align:right; white-space:nowrap; color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(period.totalNet|float) }}</td>
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(period.totalEmployerContrib|float) }}</td>
-                </tr>
-            </tfoot>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════ -->
-<!-- TAB 4: COMPLETO                                     -->
-<!-- ═══════════════════════════════════════════════════ -->
-<div class="tab-panel" id="tab-completo">
-    <div class="card-table-wrapper">
-        <div class="table-responsive">
-            <table class="table-premium emp-payroll-table" style="font-size:0.82rem; min-width:1800px;">
-            <thead>
-                <tr>
-                    <th>Empleado</th>
-                    <th>Cédula</th>
-                    <th>Cargo</th>
-                    <th style="text-align:right;">Salario Base</th>
-                    <th style="text-align:right;">Horas Extras</th>
-                    {% for col in period.get('overtimeColumns', []) %}
-                    <th style="text-align:right; font-size:0.8rem;">{{ col.name }}</th>
-                    {% endfor %}
-                    <th style="text-align:right;">Comisiones</th>
-                    <th style="text-align:right;">Bonificación</th>
-                    <th style="text-align:right;">Otros Ingresos</th>
-                    {% for col in period.get('recurringAdditionsColumns', []) %}
-                    <th style="text-align:right;">{{ col }}</th>
-                    {% endfor %}
-                    {% for col in period.get('liquidationColumns', []) %}
-                    <th style="text-align:right; font-size:0.8rem;">{{ col.name }}</th>
-                    {% endfor %}
-                    <th style="text-align:right;">Total Ingresos</th>
-                    <th style="text-align:right;">AFP</th>
-                    <th style="text-align:right;">SFS</th>
-                    <th style="text-align:right;">INFOTEP</th>
-                    <th style="text-align:right;">ISR</th>
-                    {% for col in period.get('recurringDeductionColumns', []) %}
-                    <th style="text-align:right;">{{ col }}</th>
-                    {% endfor %}
-                    <th style="text-align:right;">Otras Ded.</th>
-                    <th style="text-align:right;">Neto</th>
-                    <th style="text-align:right;">Aportes Emp.</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for l in period.lines %}
-                {% set amap = l.get('recurringAdditionsMap', {}) %}
-                {% set obd = l.get('overtimeBreakdown', {}) %}
-                <tr data-search="{{ (l.employeeName or '')|lower }} {{ (l.cedula or '')|lower }}">
-                    <td style="white-space:nowrap;"><a href="{{ url_for('web_rrhh.employee_view', employee_id=l.employeeId) }}" class="emp-link">{{ l.employeeName }}</a></td>
-                    <td style="white-space:nowrap;">{{ l.cedula }}</td>
-                    <td style="white-space:nowrap;">{{ l.position }}</td>
-                    <td style="text-align:right; white-space:nowrap;">{% if l.lineType == 'liquidation' %}—{% else %}{{ "RD$ {:,.2f}".format(l.get('grossSalary', l.get('baseSalary', 0))|float) }}{% endif %}</td>
-                    <td style="text-align:right; white-space:nowrap;">
-                        {% if l.overtimePay and l.overtimePay|float > 0 %}
-                        {{ "RD$ {:,.2f}".format(l.overtimePay|float) }}
-                        <span style="font-size:0.65rem;color:var(--text-muted);"> ({{ l.overtimeHours|float }} h)</span>
-                        {% else %}—{% endif %}
-                    </td>
-                    {% for col in period.get('overtimeColumns', []) %}
-                    <td style="text-align:right; white-space:nowrap; font-size:0.8rem;">{% set amt = obd.get(col.code, 0) %}{% if amt > 0 %}RD$ {{ "{:,.2f}".format(amt) }}{% else %}—{% endif %}</td>
-                    {% endfor %}
-                    <td style="text-align:right; white-space:nowrap;">{% if l.commission and l.commission|float > 0 %}{{ "RD$ {:,.2f}".format(l.commission|float) }}{% else %}—{% endif %}</td>
-                    <td style="text-align:right; white-space:nowrap;">{% if l.bonus and l.bonus|float > 0 %}{{ "RD$ {:,.2f}".format(l.bonus|float) }}{% else %}—{% endif %}</td>
-                    <td style="text-align:right; white-space:nowrap;">{% if l.otherIncome and l.otherIncome|float > 0 %}{{ "RD$ {:,.2f}".format(l.otherIncome|float) }}{% else %}—{% endif %}</td>
-                    {% for col in period.get('recurringAdditionsColumns', []) %}
-                    <td style="text-align:right; white-space:nowrap;">{% set amt = amap.get(col, 0) %}{% if amt > 0 %}RD$ {{ "{:,.2f}".format(amt) }}{% else %}—{% endif %}</td>
-                    {% endfor %}
-                    {% for col in period.get('liquidationColumns', []) %}
-                    <td style="text-align:right; white-space:nowrap; font-size:0.8rem;">{% set amt = l.get('liquidationMap', {}).get(col.code, 0) %}{% if amt > 0 %}RD$ {{ "{:,.2f}".format(amt) }}{% else %}—{% endif %}</td>
-                    {% endfor %}
-                    <td style="text-align:right; white-space:nowrap; font-weight:600;">{{ "RD$ {:,.2f}".format(l.totalIncome|float) }}</td>
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.afpEmployee|float) }}</td>
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.sfsEmployee|float) }}</td>
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.get('infotepEmployee', 0)|float) }}</td>
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.isrRetention|float) }}</td>
-                    {% set rmap = l.get('recurringDeductionsMap', {}) %}
-                    {% for col in period.get('recurringDeductionColumns', []) %}
-                    <td style="text-align:right; white-space:nowrap;">{% set amt = rmap.get(col, 0) %}{% if amt > 0 %}RD$ {{ "{:,.2f}".format(amt) }}{% else %}—{% endif %}</td>
-                    {% endfor %}
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.otherDeductions|float) }}</td>
-                    <td style="text-align:right; white-space:nowrap; font-weight:700; color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(l.netSalary|float) }}</td>
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.totalEmployerContrib|float) }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-            <tfoot>
-                <tr style="font-weight:700; background:var(--bg-nav-hover);">
-                    <td colspan="3">Totales</td>
-                    <td style="text-align:right;">—</td>
-                    <td style="text-align:right;">—</td>
-                    {% for col in period.get('overtimeColumns', []) %}
-                    <td style="text-align:right;">—</td>
-                    {% endfor %}
-                    <td style="text-align:right;">—</td>
-                    <td style="text-align:right;">—</td>
-                    <td style="text-align:right;">—</td>
-                    {% for col in period.get('recurringAdditionsColumns', []) %}
-                    <td style="text-align:right;">—</td>
-                    {% endfor %}
-                    {% for col in period.get('liquidationColumns', []) %}
-                    <td style="text-align:right;">—</td>
-                    {% endfor %}
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(period.totalGross|float) }}</td>
-                    <td style="text-align:right;">—</td>
-                    <td style="text-align:right;">—</td>
-                    <td style="text-align:right;">—</td>
-                    <td style="text-align:right;">—</td>
-                    <td style="text-align:right;">—</td>
-                    <td style="text-align:right; white-space:nowrap; color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(period.totalNet|float) }}</td>
-                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(period.totalEmployerContrib|float) }}</td>
-                </tr>
-            </tfoot>
-            </table>
-        </div>
-    </div>
-</div>
-
-<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; margin-top:16px; font-size:0.8rem; color:var(--text-secondary);">
-    <div style="display:flex; align-items:center; gap:8px;">
-        <label>Mostrar</label>
-        <select id="pageSizeSelect" class="form-input" style="padding:4px 24px 4px 8px; font-size:0.8rem; border-radius:6px; height:auto; min-height:0;">
-            <option value="10">10</option>
-            <option value="25">25</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-            <option value="-1">Todos</option>
-        </select>
-        <label>registros</label>
-    </div>
-    <div style="display:flex; align-items:center; gap:16px;">
-        <span id="paginationInfo">Mostrando 0 de 0</span>
-        <div style="display:flex; gap:4px;">
-            <button id="prevPageBtn" class="btn btn-ghost btn-sm" style="padding:4px 8px;" disabled><i class="fa-solid fa-chevron-left"></i></button>
-            <button id="nextPageBtn" class="btn btn-ghost btn-sm" style="padding:4px 8px;" disabled><i class="fa-solid fa-chevron-right"></i></button>
-        </div>
-    </div>
-</div>
-
-<script>
-function switchTab(tabName) {
-    document.querySelectorAll('.payroll-tab').forEach(function(t) { t.classList.remove('active'); });
-    document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
-    document.querySelector('[data-tab="' + tabName + '"]').classList.add('active');
-    document.getElementById('tab-' + tabName).classList.add('active');
-    try { localStorage.setItem('payroll-view-tab', tabName); } catch(e) {}
-}
-(function() {
-    var saved = null;
-    try { saved = localStorage.getItem('payroll-view-tab'); } catch(e) {}
-    if (saved && document.getElementById('tab-' + saved)) {
-        switchTab(saved);
-    }
-    
-    var filterEl = document.getElementById('employeeFilter');
-    var countEl = document.getElementById('employeeFilterCount');
-    var pageSizeEl = document.getElementById('pageSizeSelect');
-    var prevPageBtn = document.getElementById('prevPageBtn');
-    var nextPageBtn = document.getElementById('nextPageBtn');
-    var paginationInfo = document.getElementById('paginationInfo');
-    
-    if (!filterEl) return;
-    
-    var allTabs = document.querySelectorAll('.tab-panel');
-    var currentPage = 1;
-
-    function renderGrid() {
-        var tokens = filterEl.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
-        var pageSize = parseInt(pageSizeEl.value, 10);
-        
-        // Find matching indices based on the FIRST tab (all tabs have identical rows in same order)
-        var firstTabRows = allTabs[0].querySelectorAll('tbody tr[data-search]');
-        var matchedIndices = [];
-        firstTabRows.forEach(function(row, idx) {
-            var text = (row.getAttribute('data-search') || '');
-            if (tokens.length === 0 || tokens.every(function(t) { return text.indexOf(t) !== -1; })) {
-                matchedIndices.push(idx);
-            }
-        });
-
-        var totalMatched = matchedIndices.length;
-        var totalPages = pageSize === -1 ? 1 : Math.ceil(totalMatched / pageSize);
-        if (currentPage > totalPages) currentPage = Math.max(1, totalPages);
-
-        var startIndex = pageSize === -1 ? 0 : (currentPage - 1) * pageSize;
-        var endIndex = pageSize === -1 ? totalMatched : Math.min(startIndex + pageSize, totalMatched);
-
-        var visibleIndicesSet = new Set(matchedIndices.slice(startIndex, endIndex));
-
-        // Update all tabs
-        allTabs.forEach(function(tab) {
-            var rows = tab.querySelectorAll('tbody tr[data-search]');
-            rows.forEach(function(row, idx) {
-                if (visibleIndicesSet.has(idx)) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-        });
-
-        // Update UI
-        if (countEl) {
-            countEl.textContent = tokens.length > 0 ? totalMatched + ' coincidencias' : '';
-        }
-        
-        if (totalMatched === 0) {
-            paginationInfo.textContent = 'Mostrando 0 de 0';
-        } else {
-            paginationInfo.textContent = 'Mostrando ' + (startIndex + 1) + ' a ' + endIndex + ' de ' + totalMatched;
-        }
-
-        prevPageBtn.disabled = currentPage === 1;
-        nextPageBtn.disabled = currentPage === totalPages || totalPages === 0;
-    }
-
-    filterEl.addEventListener('input', function() {
-        currentPage = 1;
-        renderGrid();
-    });
-
-    pageSizeEl.addEventListener('change', function() {
-        currentPage = 1;
-        renderGrid();
-    });
-
-    prevPageBtn.addEventListener('click', function() {
-        if (currentPage > 1) {
-            currentPage--;
-            renderGrid();
-        }
-    });
-
-    nextPageBtn.addEventListener('click', function() {
-        currentPage++;
-        renderGrid();
-    });
-
-    // Initial render
-    renderGrid();
-})();
-</script>
 
 {% if period.notes %}
 <div class="card-table-wrapper" style="margin-top:var(--space-4);">

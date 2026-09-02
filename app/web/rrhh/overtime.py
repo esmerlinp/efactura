@@ -126,6 +126,99 @@ def overtime_new():
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# HORAS EXTRAS — Editar registro (solo borrador)
+# ═══════════════════════════════════════════════════════════════════════════
+
+@web_rrhh_bp.route("/rrhh/overtime/<record_id>/edit", methods=["GET", "POST"])
+def overtime_edit(record_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    user_email = session.get("user", {}).get("email", "")
+
+    record = OvertimeService.get_record(company_id, record_id, sandbox=sandbox)
+    if not record:
+        flash("Registro no encontrado.", "error")
+        return redirect(url_for("web_rrhh.overtime_list"))
+
+    employees = hr.get_employees(company_id, sandbox=sandbox)
+    active_emps = [e for e in employees if is_active_equivalent(e.get("status", ""))]
+    overtime_types = hr.get_overtime_types(company_id, sandbox=sandbox)
+
+    if request.method == "POST":
+        if record.get("status") != "draft":
+            flash("Solo los registros en borrador pueden editarse.", "error")
+            return redirect(url_for("web_rrhh.overtime_view", record_id=record_id))
+
+        emp_id = request.form.get("employeeId", "")
+        emp = hr.get_employee(company_id, emp_id, sandbox=sandbox) if emp_id else None
+        if not emp:
+            flash("Empleado no encontrado.", "error")
+            return redirect(url_for("web_rrhh.overtime_edit", record_id=record_id))
+
+        # Recolectar detalles de la tabla
+        detail_dates = request.form.getlist("detail_date[]")
+        detail_from = request.form.getlist("detail_from[]")
+        detail_to = request.form.getlist("detail_to[]")
+        detail_minutes = request.form.getlist("detail_minutes[]")
+
+        details = []
+        total_minutes = 0
+        for i in range(len(detail_dates)):
+            mins = int(detail_minutes[i]) if i < len(detail_minutes) and detail_minutes[i] else 0
+            details.append({
+                "date": detail_dates[i] if i < len(detail_dates) else "",
+                "fromTime": detail_from[i] if i < len(detail_from) else "",
+                "toTime": detail_to[i] if i < len(detail_to) else "",
+                "minutes": mins,
+            })
+            total_minutes += mins
+
+        data = {
+            "employeeId": emp_id,
+            "employeeCode": emp.get("code", ""),
+            "employeeName": emp.get("fullName", ""),
+            "companyCode": request.form.get("companyCode", ""),
+            "departmentCode": emp.get("department", ""),
+            "payrollCode": request.form.get("payrollCode", ""),
+            "date": request.form.get("date", ""),
+            "overtimeTypeCode": request.form.get("overtimeTypeCode", ""),
+            "totalMinutes": total_minutes,
+            "comment": request.form.get("comment", ""),
+            "source": request.form.get("source", "manual"),
+            "sourceReference": request.form.get("sourceReference", ""),
+            "details": details,
+        }
+
+        result = OvertimeService.update_record(company_id, record_id, data, user_email, sandbox=sandbox)
+        if isinstance(result, tuple):
+            flash(result[0].get("error", "Error al guardar cambios."), "error")
+        else:
+            flash(f"HE {result.get('number', record_id)} actualizada.", "success")
+            return redirect(url_for("web_rrhh.overtime_view", record_id=record_id))
+
+    if record.get("status") != "draft":
+        flash("Solo los registros en borrador pueden editarse.", "error")
+        return redirect(url_for("web_rrhh.overtime_view", record_id=record_id))
+
+    # Asegurar que el empleado del registro esté disponible en el buscador
+    active_ids = {e.get("id") for e in active_emps}
+    record_emp = hr.get_employee(company_id, record.get("employeeId", ""), sandbox=sandbox)
+    if record_emp and record_emp.get("id") not in active_ids:
+        active_emps = list(active_emps) + [record_emp]
+
+    return render_template(
+        "rrhh/overtime/form.html",
+        active_page="rrhh_overtime",
+        employees=active_emps,
+        overtime_types=overtime_types,
+        record=record,
+        today=date.today().isoformat(),
+        PayrollOvertimeCalculator=PayrollOvertimeCalculator,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # HORAS EXTRAS — Vista detalle
 # ═══════════════════════════════════════════════════════════════════════════
 

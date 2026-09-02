@@ -257,6 +257,61 @@ class PayrollService:
         return _hr.get_payroll_lines_unified(period, company_id=company_id, sandbox=sandbox)
 
     @staticmethod
+    def get_period_manual_variables(period_id: str, company_id: str = "",
+                                    sandbox: bool = True) -> list:
+        """Extrae las variables manuales de un período desde sus transacciones.
+
+        Retorna ``[{employeeId, conceptField(tab), conceptLabel, amount}]`` para
+        pre-llenar el editor de variables al reprocesar la nómina. Excluye
+        transacciones automáticas (reglas, recurrentes, HE del módulo,
+        embargos, TSS/ISR). Incluye la regalía (auto o override).
+        """
+        from app.services import hr_data_service as _hr
+        from app.services.payroll_variable_catalog import VARIABLE_TAB_BY_CONCEPT
+        try:
+            txs = _hr.get_payroll_transactions(company_id, sandbox=sandbox, period_id=period_id)
+        except Exception:
+            return []
+
+        rows = []
+        seen = set()
+        for tx in txs:
+            if tx.get("isRuleGenerated") or tx.get("isRecurring"):
+                continue
+            src = tx.get("source", "")
+            code = tx.get("conceptCode", "")
+            if src.startswith("var:"):
+                code = src[4:]
+            elif src in ("overtime", "commission", "bonus"):
+                pass
+            elif src == "manual":
+                if code not in ("OTROS_INGRESOS", "OTRAS_DEDUCCIONES"):
+                    continue
+            elif src == "system":
+                if code != "REGALIA_PASCUAL":
+                    continue
+            else:
+                continue
+            tab = VARIABLE_TAB_BY_CONCEPT.get(code)
+            if not tab:
+                continue
+            amount = float(tx.get("amount", 0) or 0)
+            if amount <= 0:
+                continue
+            key = (tx.get("employeeId", ""), tab["concept"])
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append({
+                "employeeId": tx.get("employeeId", ""),
+                "employeeName": "",
+                "conceptField": tab["concept"],
+                "conceptLabel": tab["label"],
+                "amount": amount,
+            })
+        return rows
+
+    @staticmethod
     def merge_group_overrides(global_rates: dict, overrides: dict) -> dict:
         """Mergea groupOverrides del grupo sobre tasas globales.
 
@@ -1183,16 +1238,18 @@ class PayrollService:
             emp = employees.get(emp_id, {})
             cc = emp.get("costCenter", "") or emp.get("area", "") or emp.get("department", "") or "General"
             if cc not in by_cc:
-                by_cc[cc] = {"gross": 0.0, "employer": 0.0}
+                by_cc[cc] = {"gross": 0.0, "employer": 0.0, "christmas": 0.0}
             by_cc[cc]["gross"] += pl.get("totalIncome", 0)
             by_cc[cc]["employer"] += pl.get("totalEmployerContrib", 0)
+            by_cc[cc]["christmas"] += float(pl.get("christmasBonus", 0) or 0)
             total_gross += pl.get("totalIncome", 0)
 
         total_employer = total_afp_empl + total_sfs_empl + total_srl_empl + total_infotep
 
         # DEBE: Líneas de gasto por centro de costo
         for cc, totals in by_cc.items():
-            cc_gasto = round(totals["gross"] + totals["employer"], 2)
+            christmas_cc = round(totals.get("christmas", 0.0), 2)
+            cc_gasto = round(totals["gross"] + totals["employer"] - christmas_cc, 2)
             acct_code = cc_accounts.get(cc, "6.2.1.01")
             resolved = _acc("nomina_gasto", {"centro_costo": cc}, fallback_code=acct_code,
                             fallback_name=f"Sueldos y salarios - {cc}")
@@ -1204,6 +1261,20 @@ class PayrollService:
                 "credit": 0.00,
                 "description": f"Nómina período {period_label} - {cc}",
             })
+            if christmas_cc > 0:
+                christmas_resolved = _acc(
+                    "nomina_gasto_regalia", {"centro_costo": cc},
+                    fallback_code=r.get("account_christmas_expense", "6.1.1.02"),
+                    fallback_name=f"Regalía pascual - {cc}",
+                )
+                lines.append({
+                    "accountId": christmas_resolved["accountId"],
+                    "accountCode": christmas_resolved["accountCode"],
+                    "accountName": christmas_resolved["accountName"],
+                    "debit": christmas_cc,
+                    "credit": 0.00,
+                    "description": f"Regalía pascual período {period_label} - {cc}",
+                })
 
         # HABER: Salarios por pagar (neto)
         if total_net > 0:
