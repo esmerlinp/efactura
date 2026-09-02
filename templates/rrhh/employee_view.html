@@ -2,15 +2,18 @@
 {% block title %}{{ employee.fullName }} — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
-<div class="page-header hr-page-header">
-    <h1 class="page-title"><i class="fa-solid fa-id-card"></i> {{ employee.fullName }} {% if employee.code %}<span class="badge badge-secondary" style="font-size:0.75rem; vertical-align:middle;">Código {{ employee.code }}</span>{% endif %}</h1>
+<div class="page-header hr-page-header employee-page-header">
+    <div>
+        <div class="employee-breadcrumb"><a href="{{ url_for('web_rrhh.employee_list') }}">Empleados</a><span>/</span><span>Perfil</span></div>
+        <h1 class="page-title"><i class="fa-solid fa-id-card"></i> Perfil del empleado</h1>
+    </div>
     <div class="hr-page-actions">
-        <a href="{{ url_for('web_rrhh.employee_edit', employee_id=employee.id) }}" class="btn btn-primary">
+        <a href="{{ url_for('web_rrhh.employee_edit', employee_id=employee.id) }}" class="btn btn-ghost employee-header-btn">
             <i class="fa-solid fa-pen-to-square"></i> Editar
         </a>
-        <div class="dropdown" style="position:relative; display:inline-block;">
-            <button class="btn btn-primary" onclick="event.stopPropagation(); document.getElementById('actionMenu').style.display='block'">
-                <i class="fa-solid fa-bolt"></i> Acción <i class="fa-solid fa-caret-down"></i>
+        <div class="dropdown employee-actions-dropdown" style="position:relative; display:inline-block;">
+            <button class="btn btn-ghost employee-header-btn" aria-label="Acciones de personal" onclick="event.stopPropagation(); document.getElementById('actionMenu').style.display='block'">
+                <i class="fa-solid fa-ellipsis"></i> Acciones de personal
             </button>
             <div id="actionMenu" style="display:none; position:absolute; top:100%; right:0; z-index:50;
                  background:#ffffff; border:1px solid #d1d5db; border-radius:8px; min-width:220px;
@@ -57,58 +60,58 @@
                 </a>
             </div>
         </div>
-        <a href="{{ url_for('web_rrhh.employee_checklist', employee_id=employee.id, checklist_type='onboarding') }}" class="btn btn-ghost btn-sm">
+        <a href="{{ url_for('web_rrhh.employee_checklist', employee_id=employee.id, checklist_type='onboarding') }}" class="btn btn-ghost btn-sm employee-header-btn">
             <i class="fa-solid fa-clipboard-check"></i> Onboarding
         </a>
-        <a href="{{ url_for('web_rrhh.employee_certificate', employee_id=employee.id) }}" class="btn btn-primary btn-sm">
+        <a href="{{ url_for('web_rrhh.employee_certificate', employee_id=employee.id) }}" class="btn btn-ghost btn-sm employee-header-btn">
             <i class="fa-solid fa-file-signature"></i> Carta de Trabajo
-        </a>
-        <a href="{{ url_for('web_rrhh.employee_list') }}" class="btn btn-ghost">
-            <i class="fa-solid fa-arrow-left"></i> Volver
         </a>
     </div>
 </div>
 
 <!-- Header -->
-<div class="card-table-wrapper hr-document-sheet" style="padding:30px; margin-bottom:0;">
-    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:20px; flex-wrap:wrap; margin-bottom:20px; padding-bottom:20px; border-bottom:1px solid var(--border-color);">
-        <div style="display:flex; align-items:center; gap:16px;">
-            <div style="position:relative; width:56px; height:56px;">
+<div class="card-table-wrapper hr-document-sheet employee-profile" style="padding:30px; margin-bottom:0;">
+    <div class="employee-summary">
+        <div class="employee-identity">
+            <div class="employee-photo" style="position:relative;">
                 {% if employee.photoBase64 %}
-                <img src="{{ employee.photoBase64 }}" alt="Foto" style="width:56px; height:56px; border-radius:50%; object-fit:cover; border:1px solid var(--border-color);">
+                <img src="{{ employee.photoBase64 }}" alt="Foto de {{ employee.fullName }}">
                 {% else %}
-                <div class="hr-avatar" style="width:56px; height:56px; font-size:1rem; margin:0;">
+                <div class="hr-avatar">
                     {{ (employee.firstName or '')[:1] }}{{ (employee.firstLastName or employee.lastName or '')[:1] }}
                 </div>
                 {% endif %}
-                <button type="button" class="btn btn-sm btn-primary" style="position:absolute; bottom:-4px; right:-4px; width:22px; height:22px; padding:0; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 4px rgba(0,0,0,0.15);" onclick="document.getElementById('photoUpload').click()" title="Actualizar foto">
-                    <i class="fa-solid fa-camera" style="font-size:0.6rem;"></i>
+                <button type="button" class="employee-photo-edit" onclick="document.getElementById('photoUpload').click()" title="Actualizar foto" aria-label="Actualizar foto">
+                    <i class="fa-solid fa-camera"></i>
                 </button>
                 <form id="photoForm" method="POST" action="{{ url_for('web_rrhh.employee_photo_upload', employee_id=employee.id) }}" enctype="multipart/form-data" style="display:none;">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="file" id="photoUpload" name="photo" accept="image/*" onchange="document.getElementById('photoForm').submit()">
                 </form>
             </div>
-            <div>
-                <h2 style="margin:0 0 6px 0; font-size:1.35rem; font-family:var(--font-heading);">{{ employee.fullName }}</h2>
-                <div style="color:var(--text-secondary); font-size:0.9rem;">{{ employee.position or 'Sin cargo' }} · {{ employee.area or employee.department or 'Sin departamento' }}</div>
-                <div style="margin-top:4px;">
-                    {% if employee.gender %}<span class="badge badge-secondary">{{ employee.gender }}</span>{% endif %}
-                    <span class="badge badge-info">{{ employee.contractType or '—' }}</span>
+            <div class="employee-identity-copy">
+                <div class="employee-name-row">
+                    <h2>{{ employee.fullName }}</h2>
+                    {% if employee.code %}<span class="employee-code">Código {{ employee.code }}</span>{% endif %}
+                </div>
+                <div class="employee-role">{{ employee.position or 'Sin cargo' }} <span>·</span> {{ employee.area or employee.department or 'Sin departamento' }}</div>
+                <div class="employee-meta-text">
+                    {% if employee.gender %}<span>{{ employee.gender }}</span><span>·</span>{% endif %}
+                    <span>{{ employee.contractType or '—' }}</span>
                 </div>
             </div>
         </div>
-        <div style="text-align:right;">
+        <div class="employee-status-block">
             {% if employee.status == 'activo' %}
-            <span class="badge badge-success" style="font-size:0.85rem;">Activo</span>
+            <span class="employee-status employee-status-active">Activo</span>
             {% elif employee.status == 'vacaciones' %}
-            <span class="badge badge-info" style="font-size:0.85rem;">Vacaciones</span>
+            <span class="employee-status employee-status-info">Vacaciones</span>
             {% elif employee.status == 'licencia' %}
-            <span class="badge badge-primary" style="font-size:0.85rem;">Licencia</span>
+            <span class="employee-status employee-status-info">Licencia</span>
             {% elif employee.status == 'suspendido' %}
-            <span class="badge badge-warning" style="font-size:0.85rem;">Suspendido</span>
+            <span class="employee-status employee-status-warning">Suspendido</span>
             {% else %}
-            <span class="badge badge-danger" style="font-size:0.85rem;">Inactivo</span>
+            <span class="employee-status employee-status-danger">Inactivo</span>
             {% endif %}
             {% if active_requests and (active_requests.vacation or active_requests.leave) %}
             <div style="margin-top:6px; font-size:0.78rem; color:var(--text-secondary);">
@@ -116,35 +119,41 @@
                 {% if active_requests.leave %}{% if active_requests.vacation %}<br>{% endif %}Licencia: {{ active_requests.leave.startDate }} → {{ active_requests.leave.endDate }}{% endif %}
             </div>
             {% endif %}
-            <div style="margin-top:8px; color:var(--text-secondary); font-size:0.85rem;">Ingreso: <strong>{{ employee.hireDate or '—' }}</strong></div>
+            <div class="employee-hire-date">Ingreso <strong>{{ employee.hireDate or '—' }}</strong></div>
         </div>
+    </div>
+    <div class="employee-quick-facts" aria-label="Datos rápidos del empleado">
+        <div><span>Identificación</span><strong>{{ employee.idNumber or employee.cedula or '—' }}</strong></div>
+        <div><span>Correo</span><strong>{{ employee.email or '—' }}</strong></div>
+        <div><span>Teléfono</span><strong>{{ employee.phone or '—' }}</strong></div>
+        <div><span>Fecha de ingreso</span><strong>{{ employee.hireDate or '—' }}</strong></div>
     </div>
 
     <!-- Tab nav -->
-    <div style="display:flex; gap:4px; margin-bottom:20px; border-bottom:2px solid var(--border-color);">
-        <button class="tab-btn active" data-tab="tab-personal" onclick="switchTab('tab-personal', this)">
+    <div class="employee-tabs" role="tablist" aria-label="Secciones del perfil">
+        <button class="tab-btn active" role="tab" aria-selected="true" data-tab="tab-personal" onclick="switchTab('tab-personal', this)">
             <i class="fa-solid fa-user"></i> Información
         </button>
-        <button class="tab-btn" data-tab="tab-laboral" onclick="switchTab('tab-laboral', this)">
+        <button class="tab-btn" role="tab" aria-selected="false" data-tab="tab-laboral" onclick="switchTab('tab-laboral', this)">
             <i class="fa-solid fa-briefcase"></i> Laboral
         </button>
-        <button class="tab-btn" data-tab="tab-docs" onclick="switchTab('tab-docs', this)">
+        <button class="tab-btn" role="tab" aria-selected="false" data-tab="tab-docs" onclick="switchTab('tab-docs', this)">
             <i class="fa-solid fa-folder-open"></i> Documentos
         </button>
-        <button class="tab-btn" data-tab="tab-dependents" onclick="switchTab('tab-dependents', this)">
+        <button class="tab-btn" role="tab" aria-selected="false" data-tab="tab-dependents" onclick="switchTab('tab-dependents', this)">
             <i class="fa-solid fa-people-group"></i> Dependientes
             {% if dependents %}<span class="badge badge-info" style="font-size:0.65rem;">{{ dependents|length }}</span>{% endif %}
         </button>
-        <button class="tab-btn" data-tab="tab-evals" onclick="switchTab('tab-evals', this)">
+        <button class="tab-btn" role="tab" aria-selected="false" data-tab="tab-evals" onclick="switchTab('tab-evals', this)">
             <i class="fa-solid fa-star"></i> Evals & Cap
         </button>
-        <button class="tab-btn" data-tab="tab-history" onclick="switchTab('tab-history', this)">
+        <button class="tab-btn" role="tab" aria-selected="false" data-tab="tab-history" onclick="switchTab('tab-history', this)">
             <i class="fa-solid fa-clock-rotate-left"></i> Historial de pago
         </button>
-        <button class="tab-btn" data-tab="tab-actions" onclick="switchTab('tab-actions', this)">
+        <button class="tab-btn" role="tab" aria-selected="false" data-tab="tab-actions" onclick="switchTab('tab-actions', this)">
             <i class="fa-solid fa-people-arrows"></i> Acciones
         </button>
-        <button class="tab-btn" data-tab="tab-herramientas" onclick="switchTab('tab-herramientas', this)">
+        <button class="tab-btn" role="tab" aria-selected="false" data-tab="tab-herramientas" onclick="switchTab('tab-herramientas', this)">
             <i class="fa-solid fa-toolbox"></i> Herramientas
             {% if herramientas_asignadas %}<span class="badge badge-info" style="font-size:0.65rem;">{{ herramientas_asignadas|length }}</span>{% endif %}
         </button>
@@ -156,7 +165,7 @@
             <div class="hr-section-card" style="border:none; box-shadow:none; padding:0;">
                 <h3>Datos personales</h3>
                 <div class="hr-info-grid">
-                    <div class="hr-info-item"><span class="hr-info-label">Código empleado</span><span class="hr-info-value"><span class="badge badge-secondary">{{ employee.code or '—' }}</span></span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Código empleado</span><span class="hr-info-value">{{ employee.code or '—' }}</span></div>
                     <div class="hr-info-item"><span class="hr-info-label">Tipo ID</span><span class="hr-info-value">{{ employee.idType or 'Cédula' }}</span></div>
                     <div class="hr-info-item"><span class="hr-info-label">No. Identificación</span><span class="hr-info-value">{{ employee.idNumber or employee.cedula or '—' }}</span></div>
                     <div class="hr-info-item"><span class="hr-info-label">Email</span><span class="hr-info-value">{{ employee.email or '—' }}</span></div>
@@ -220,7 +229,7 @@
                         {% if emp_groups %}
                             {% for gid in emp_groups %}
                                 {% set g = payroll_groups|selectattr("id", "equalto", gid)|first %}
-                                <span class="badge {% if g and g.frequency == 'mensual' %}badge-info{% else %}badge-secondary{% endif %}" style="font-size:0.7rem; margin-right:2px;">
+                             <span class="employee-inline-value">
                                     {{ g.name if g else gid[:8] }}
                                 </span>
                             {% endfor %}
@@ -333,8 +342,8 @@
                             <span><strong>Parentesco:</strong> {{ d.relationshipName or d.relationshipCode }}</span>
                             {% if d._age > 0 %}<span><strong>Edad:</strong> {{ d._age }} {{ 'año' if d._age == 1 else 'años' }}</span>{% endif %}
                             {% if d.gender %}<span>{{ '♂' if d.gender == 'masculino' else '♀' if d.gender == 'femenino' else '' }} {{ d.gender }}</span>{% endif %}
-                            {% if d.isStudent %}<span class="badge badge-info" style="font-size:0.65rem;">Estudiante</span>{% endif %}
-                            {% if d.isFinancialDependent %}<span class="badge badge-warning" style="font-size:0.65rem;">Dep. económica</span>{% endif %}
+                            {% if d.isStudent %}<span>Estudiante</span>{% endif %}
+                            {% if d.isFinancialDependent %}<span>Dependencia económica</span>{% endif %}
                             {% if d.idNumber %}<span>Cédula: {{ d.idNumber }}</span>{% endif %}
                             {% if d.birthDate %}<span>Nac: {{ d.birthDate }}</span>{% endif %}
                         </div>
@@ -780,18 +789,99 @@
 </style>
 
 <style>
-.tab-btn { background:none; border:none; padding:8px 18px; cursor:pointer; font-weight:600; font-size:0.85rem; color:var(--text-muted); border-bottom:2px solid transparent; margin-bottom:-2px; transition:all 0.2s; display:inline-flex; align-items:center; gap:6px; }
-.tab-btn.active { color:var(--accent-emerald); border-bottom-color:var(--accent-emerald); }
-.tab-btn:hover { color:var(--text-primary); }
-.tab-content { padding-top:8px; }
+ .employee-page-header { margin-bottom:18px; }
+ .employee-page-header .page-title { margin-bottom:0; font-size:1rem; color:var(--text-secondary); font-weight:600; }
+ .employee-header-btn { min-height:34px; padding:7px 10px; font-size:.76rem; border-radius:var(--radius-sm); }
+ .employee-header-btn i { font-size:.75rem; }
+ .employee-actions-dropdown #actionMenu { min-width:230px; }
+ .employee-back-btn { color:var(--text-muted); }
+ .employee-breadcrumb { display:flex; gap:7px; margin-bottom:5px; color:var(--text-muted); font-size:.75rem; }
+ .employee-breadcrumb a { color:var(--text-secondary); text-decoration:none; }
+ .employee-breadcrumb a:hover { color:var(--accent-emerald); }
+ .employee-profile { border-top:0; }
+ .employee-summary { display:flex; align-items:flex-start; justify-content:space-between; gap:24px; padding-bottom:22px; border-bottom:1px solid var(--border-color); }
+ .employee-identity { display:flex; align-items:center; gap:18px; min-width:0; }
+ .employee-photo { width:88px; height:88px; flex:0 0 88px; }
+ .employee-photo img, .employee-photo .hr-avatar { width:100%; height:100%; object-fit:cover; border-radius:50%; border:1px solid var(--border-color); }
+ .employee-photo .hr-avatar { font-size:1.5rem; margin:0; }
+ .employee-photo-edit { position:absolute; right:-4px; bottom:-3px; width:28px; height:28px; padding:0; border:2px solid var(--bg-card); border-radius:50%; background:var(--accent-emerald); color:#fff; cursor:pointer; }
+ .employee-photo-edit i { font-size:.7rem; }
+ .employee-name-row { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+ .employee-name-row h2 { margin:0; color:var(--text-primary); font-family:var(--font-heading); font-size:1.45rem; line-height:1.2; }
+ .employee-code { color:var(--text-muted); font-size:.72rem; font-weight:700; letter-spacing:.03em; text-transform:uppercase; }
+ .employee-role { margin-top:6px; color:var(--text-secondary); font-size:.92rem; }
+ .employee-role span { color:var(--text-muted); margin:0 3px; }
+ .employee-meta-badges { display:flex; gap:6px; margin-top:9px; }
+ .employee-meta-text { display:flex; gap:7px; margin-top:9px; color:var(--text-muted); font-size:.78rem; }
+ .employee-status { display:inline-flex; align-items:center; gap:6px; font-size:.82rem; font-weight:600; }
+ .employee-status::before { content:''; width:7px; height:7px; border-radius:50%; background:currentColor; }
+ .employee-status-active { color:var(--accent-emerald); }
+ .employee-status-info { color:var(--accent-blue); }
+ .employee-status-warning { color:#b45309; }
+ .employee-status-danger { color:var(--danger); }
+ .employee-status-block { min-width:150px; text-align:right; }
+ .employee-hire-date { margin-top:10px; color:var(--text-muted); font-size:.78rem; }
+ .employee-hire-date strong { display:block; color:var(--text-primary); font-size:.88rem; margin-top:2px; }
+ .employee-quick-facts { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:18px; padding:16px 0 20px; }
+ .employee-quick-facts div { min-width:0; }
+ .employee-quick-facts span { display:block; margin-bottom:4px; color:var(--text-muted); font-size:.68rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
+ .employee-quick-facts strong { display:block; overflow:hidden; color:var(--text-primary); font-size:.84rem; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
+ .employee-tabs { display:flex; gap:2px; margin:0 -30px 18px; padding:0 30px; overflow-x:auto; border-bottom:1px solid var(--border-color); scrollbar-width:thin; }
+ .tab-btn { flex:0 0 auto; min-height:44px; background:none; border:none; padding:9px 14px; cursor:pointer; font-weight:600; font-size:.82rem; color:var(--text-muted); border-bottom:2px solid transparent; margin-bottom:-1px; transition:color .2s, border-color .2s; display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+ .tab-btn.active { color:var(--accent-emerald); border-bottom-color:var(--accent-emerald); }
+ .tab-btn:hover, .tab-btn:focus-visible { color:var(--text-primary); }
+ .tab-btn:focus-visible { outline:2px solid var(--accent-emerald); outline-offset:-2px; }
+ .tab-content { padding-top:4px; }
+ .employee-profile .hr-info-item { border:0; border-bottom:1px solid var(--border-color); border-radius:0; padding:9px 0; background:none; }
+ .employee-profile .hr-info-grid { gap:0 24px; }
+ .employee-profile .hr-section-card h3 { padding-bottom:9px; border-bottom:2px solid var(--text-primary); margin-bottom:4px; }
+ .employee-profile .hr-info-value { font-weight:400; }
+ .employee-profile .hr-info-value strong { font-weight:600; }
+ .employee-inline-value { color:var(--text-primary); font-size:.82rem; font-weight:400; margin-right:6px; }
+ .employee-profile .badge { font-weight:500; }
+ @media (max-width: 768px) {
+     .employee-page-header .page-title { font-size:.9rem; }
+     .employee-header-btn { padding:7px 8px; }
+     .employee-back-btn { padding-left:6px; padding-right:6px; }
+     .employee-summary { flex-direction:column; gap:16px; }
+     .employee-status-block { width:100%; min-width:0; text-align:left; }
+     .employee-hire-date strong { display:inline; margin-left:5px; }
+     .employee-quick-facts { grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px; }
+     .employee-tabs { margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; }
+ }
+ @media (max-width: 480px) {
+     .employee-profile { padding:22px 16px !important; }
+     .employee-identity { align-items:flex-start; }
+     .employee-photo { width:72px; height:72px; flex-basis:72px; }
+     .employee-name-row h2 { font-size:1.2rem; }
+     .employee-role { font-size:.82rem; }
+ }
 </style>
 <script>
-function switchTab(tabId, btn) {
+function switchTab(tabId, btn, updateUrl) {
     document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); });
     document.getElementById(tabId).style.display = '';
     btn.classList.add('active');
+    btn.setAttribute('aria-selected', 'true');
+    if (updateUrl !== false) history.replaceState(null, '', window.location.pathname + '?tab=' + encodeURIComponent(tabId.replace('tab-', '')));
 }
+document.addEventListener('DOMContentLoaded', function() {
+    var requested = new URLSearchParams(window.location.search).get('tab');
+    if (requested) {
+        var btn = document.querySelector('.tab-btn[data-tab="tab-' + requested + '"]');
+        if (btn) switchTab(btn.dataset.tab, btn, false);
+    }
+    document.querySelectorAll('.tab-btn').forEach(function(btn, index, buttons) {
+        btn.addEventListener('keydown', function(e) {
+            if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+            e.preventDefault();
+            var next = e.key === 'ArrowRight' ? (index + 1) % buttons.length : (index - 1 + buttons.length) % buttons.length;
+            buttons[next].focus();
+            switchTab(buttons[next].dataset.tab, buttons[next]);
+        });
+    });
+});
 function openSimModal() {
     document.getElementById('simModal').style.display = 'flex';
     document.getElementById('simResults').innerHTML = '<span><i class="fa-solid fa-circle-info" style="color:var(--text-muted);"></i> Ingresa los valores y presiona <strong>Calcular</strong> para ver el desglose.</span>';
