@@ -1,30 +1,26 @@
 {% extends "rrhh/layout_hr.html" %}
-{% block title %}Procesar Nómina — {{ product_name }}{% endblock %}
+{% block title %}Nueva Nómina — {{ product_name }}{% endblock %}
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
 {% endblock %}
 {% block content %}
 {% set no_groups = not (payroll_groups is defined and payroll_groups) %}
-<style>
-.liquidation-row { background:rgba(16,185,129,0.04); }
-.liquidation-row:hover { background:rgba(16,185,129,0.08) !important; }
-</style>
+{% set selected_period_key = selected_period_key if selected_period_key is defined else '' %}
+{% set now_month = now_month if now_month is defined else 0 %}
 <div class="dashboard-container">
 <div class="page-title-container" style="margin-bottom: 0; padding-left: 4px;">
     <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:var(--space-4); flex-wrap:wrap;">
         <div>
-            <h1 class="page-title"
-                style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
-                Procesar nómina
+            <h1 class="page-title" style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+                Nueva nómina
             </h1>
             <p style="color:var(--text-secondary); margin:6px 0 0; font-size:var(--text-sm);">
-                Define el período de nómina que deseas calcular.
+                Elige el grupo, el tipo y el período. Después editarás los valores de cada empleado.
             </p>
         </div>
     </div>
 </div>
 
-    <!-- Payroll Group Selector -->
     {% if no_groups %}
     <!-- NO GROUPS: standalone warning card -->
     <div class="card-table-wrapper" style="margin-bottom:16px; border:2px solid var(--accent-orange);">
@@ -57,29 +53,6 @@
         </div>
     </div>
     {% endif %}
-    {% if payroll_groups is defined and payroll_groups %}
-    <!-- Group selector: standalone GET form (fuera del POST) -->
-    <div class="card-table-wrapper" style="padding:16px 24px; margin-bottom:16px;">
-        <form method="GET" action="{{ url_for('web_rrhh.payroll_new') }}">
-            <div style="max-width:500px;">
-                <div class="form-group">
-                    <label>Grupo de nómina</label>
-                    <select name="group" class="form-select" onchange="this.form.submit()">
-                        <option value="">General (sin grupo)</option>
-                        {% for g in payroll_groups %}
-                        <option value="{{ g.id }}" {% if selected_group_id == g.id %}selected{% endif %}>{{ g.name }}</option>
-                        {% endfor %}
-                    </select>
-                    <p style="color:var(--text-muted); font-size:0.82rem; margin-top:4px;">
-                        <i class="fa-regular fa-circle-info"></i>
-                        Los períodos se generan según la frecuencia del grupo. Solo se muestran empleados asignados al grupo.
-                        <a href="{{ url_for('web_rrhh.payroll_groups_list') }}" style="color:var(--accent-emerald);">Gestionar grupos</a>
-                    </p>
-                </div>
-            </div>
-        </form>
-    </div>
-    {% endif %}
     {% if unassigned_liquidations is defined and unassigned_liquidations %}
     <div class="card-table-wrapper" style="margin-bottom:16px; border:2px solid var(--accent-orange);">
         <div style="padding:12px 20px;">
@@ -100,71 +73,69 @@
         </div>
     </div>
     {% endif %}
-<form method="POST">
+<form method="POST" action="{{ url_for('web_rrhh.payroll_create') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="card-table-wrapper" style="padding:20px 24px; margin-bottom:16px;">
         <div style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--text-primary); margin-bottom:12px;">
-            <i class="fa-regular fa-calendar"></i> Nuevo período
+            <i class="fa-regular fa-calendar"></i> Datos del período
         </div>
-        <div style="max-width:500px;">
-            <input type="hidden" name="payrollGroupId" value="{{ selected_group_id or '' }}">
-            <div class="form-group">
+        <input type="hidden" name="payrollGroupId" value="{{ selected_group_id or '' }}">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; align-items:start;">
+            {% if payroll_groups is defined and payroll_groups %}
+            <div class="form-group" style="margin:0;">
+                <label>Grupo de nómina <span style="color:var(--danger);">*</span></label>
+                <select name="group" class="form-select" required
+                        onchange="window.location.href = '{{ url_for('web_rrhh.payroll_new') }}' + (this.value ? '?group=' + encodeURIComponent(this.value) : '');">
+                    <option value="" {% if not selected_group_id %}selected{% endif %}>Seleccionar grupo...</option>
+                    {% for g in payroll_groups %}
+                    <option value="{{ g.id }}" {% if selected_group_id == g.id %}selected{% endif %}>{{ g.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            <div class="form-group" style="margin:0;">
                 <label>Tipo de nómina</label>
                 <select name="periodSubType" class="form-select">
-                    <option value="regular" selected>Regular</option>
+                    <option value="regular" {% if not (pending_liquidations is defined and pending_liquidations) and now_month != 12 %}selected{% endif %}>Regular</option>
                     <option value="liquidation" {% if pending_liquidations is defined and pending_liquidations %}selected{% endif %}>Liquidación (prestaciones)</option>
-                    <option value="christmas_bonus">Regalía Pascual</option>
+                    <option value="christmas_bonus" {% if now_month == 12 and not (pending_liquidations is defined and pending_liquidations) %}selected{% endif %}>Regalía Pascual</option>
                     <option value="extraordinary">Extraordinaria</option>
                     <option value="retroactive">Retroactiva</option>
                     <option value="vacation">Vacaciones</option>
                 </select>
-                <p style="color:var(--text-muted); font-size:0.78rem; margin-top:4px;">
-                    <i class="fa-regular fa-circle-info"></i>
-                    «Liquidación» incluye empleados con prestaciones pendientes del grupo seleccionado, incluso si ya no están activos.
-                </p>
             </div>
-            <div class="form-group">
+            <div class="form-group" style="margin:0;">
                 <label>Período <span style="color:var(--danger);">*</span></label>
-                <select name="period_key" class="form-select" required {{ 'disabled' if no_groups }}>
+                <select name="period_key" class="form-select" required {{ 'disabled' if no_groups or not selected_group_id }}>
                     <option value="">Seleccionar período</option>
                     {% set q_groups = available_periods|selectattr('type', 'equalto', 'quincenal')|list %}
                     {% set m_groups = available_periods|selectattr('type', 'equalto', 'mensual')|list %}
-                    {% set other_groups = available_periods|rejectattr('type', 'defined')|list + available_periods|selectattr('type', 'undefined')|list %}
                     {% if q_groups %}
                     <optgroup label="── Períodos Quincenales ──">
                         {% for p in q_groups %}
-                        <option value="{{ p.key }}" {% if loop.first and not m_groups %}selected{% endif %}>{{ p.label }}</option>
+                        <option value="{{ p.key }}" {% if p.key == selected_period_key or (loop.first and not m_groups) %}selected{% endif %}>{{ p.label }}</option>
                         {% endfor %}
                     </optgroup>
                     {% endif %}
                     {% if m_groups %}
                     <optgroup label="── Períodos Mensuales ──">
                         {% for p in m_groups %}
-                        <option value="{{ p.key }}" {% if loop.first %}selected{% endif %}>{{ p.label }}</option>
+                        <option value="{{ p.key }}" {% if p.key == selected_period_key or loop.first %}selected{% endif %}>{{ p.label }}</option>
                         {% endfor %}
                     </optgroup>
                     {% endif %}
-                    {% for p in other_groups %}
-                    <option value="{{ p.key }}" {% if loop.first %}selected{% endif %}>{{ p.label }}</option>
-                    {% endfor %}
                 </select>
-                <p style="color:var(--text-muted); font-size:0.82rem; margin-top:8px;">
-                    <i class="fa-regular fa-circle-info"></i>
-                    Al crear un nuevo periodo podrás editar los datos de los empleados que incluirás en tu nómina.
-                </p>
             </div>
         </div>
-        {% if show_christmas_bonus %}
-        <div style="margin-top:16px; display:flex; align-items:center; gap:10px;">
-            <input type="checkbox" name="include_christmas_bonus" id="icb" value="1"
-                   style="width:18px; height:18px; accent-color:var(--accent-emerald);">
-            <label for="icb" style="font-weight:600; cursor:pointer;">
-                <i class="fa-solid fa-gift" style="color:var(--accent-emerald);"></i>
-                Incluir regalía pascual (salario de Navidad)
-            </label>
-            <span style="font-size:0.78rem; color:var(--text-muted);">Calculada automáticamente según meses trabajados (Ley 16-92)</span>
-        </div>
-        {% endif %}
+        <p style="color:var(--text-muted); font-size:0.78rem; margin-top:12px;">
+            <i class="fa-regular fa-circle-info"></i>
+            {% if payroll_groups is defined and payroll_groups and not selected_group_id %}
+            Selecciona un <strong>grupo de nómina</strong> para habilitar el período.
+            {% else %}
+            {{ employees|length }} empleado(s) activo(s) en este grupo. Los períodos se generan según la frecuencia del grupo.
+            {% endif %}
+            <a href="{{ url_for('web_rrhh.payroll_groups_list') }}" style="color:var(--accent-emerald);">Gestionar grupos</a>
+        </p>
     </div>
 
     {% if existing_period %}
@@ -178,244 +149,18 @@
                     <strong style="color:var(--text-primary);">Ya existe una nómina para este período</strong>
                     <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:4px;">
                         {{ existing_period.get('periodRange', existing_period.get('periodKey', '')) }}
-                        · {{ existing_period.lines|length if existing_period.get('lines') else '?' }} empleados
                         · Estado: <span class="badge" style="background:var(--bg-nav-hover); color:var(--text-primary); font-size:0.7rem; text-transform:capitalize;">{{ existing_period.get('status', '—') }}</span>
-                        {% if existing_period.get('totalNet') %}
-                        · Neto: <strong>RD$ {{ "{:,.2f}".format(existing_period.totalNet|float) }}</strong>
-                        {% endif %}
-                        {% if existing_period.get('calculatedAt') %}
-                        · {{ existing_period.calculatedAt[:10] }}
-                        {% endif %}
                     </div>
                 </div>
                 <div style="display:flex; gap:8px; flex-shrink:0;">
-                    <a href="{{ url_for('web_rrhh.payroll_view', period_id=existing_period.id) }}" class="btn btn-sm btn-ghost">
-                        <i class="fa-solid fa-eye"></i> Ver nómina
+                    <a href="{{ url_for('web_rrhh.payroll_view', period_id=existing_period.id) }}" class="btn btn-sm btn-primary">
+                        <i class="fa-solid fa-eye"></i> Abrir nómina
                     </a>
-                    {% if existing_period.get('status', '') not in ('cerrada',) %}
-                    <form method="POST" action="{{ url_for('web_rrhh.payroll_recalculate', period_id=existing_period.id) }}" style="margin:0;"
-                          onsubmit="return confirm('¿Recalcular esta nómina? Se revertirá a borrador para poder modificarla.')">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn btn-sm btn-primary" style="background:var(--accent-orange); border-color:var(--accent-orange);">
-                            <i class="fa-solid fa-rotate-right"></i> Recalcular
-                        </button>
-                    </form>
-                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
     {% endif %}
-
-    {% set total_errors = incidencias.get('errors', [])|length if incidencias else 0 %}
-    {% set total_warnings = incidencias.get('warnings', [])|length if incidencias else 0 %}
-    {% set total_incidencias = total_errors + total_warnings %}
-    {% if total_incidencias > 0 %}
-    <div class="card-table-wrapper" style="margin-bottom:16px; border:2px solid {{ 'var(--danger)' if total_errors > 0 else 'var(--accent-orange)' }};">
-        <div style="padding:0;">
-            <div onclick="toggleIncidencias()" style="cursor:pointer; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; user-select:none;">
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <div style="width:38px; height:38px; border-radius:50%; background:{{ 'rgba(239,68,68,0.12)' if total_errors > 0 else 'rgba(249,115,22,0.12)' }}; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                        <i class="fa-solid fa-triangle-exclamation" style="color:{{ 'var(--danger)' if total_errors > 0 else 'var(--accent-orange)' }}; font-size:1.1rem;"></i>
-                    </div>
-                    <div>
-                        <div style="font-weight:700; font-size:0.95rem; color:var(--text-primary);">
-                            Incidencias detectadas
-                        </div>
-                        <div style="display:flex; gap:8px; margin-top:4px; flex-wrap:wrap;">
-                            {% if total_errors > 0 %}
-                            <span style="font-size:0.78rem; color:var(--danger); font-weight:600;">
-                                <i class="fa-solid fa-circle"></i> {{ total_errors }} {{ 'error' if total_errors == 1 else 'errores' }}
-                            </span>
-                            {% endif %}
-                            {% if total_warnings > 0 %}
-                            <span style="font-size:0.78rem; color:var(--accent-orange); font-weight:600;">
-                                <i class="fa-solid fa-circle"></i> {{ total_warnings }} {{ 'advertencia' if total_warnings == 1 else 'advertencias' }}
-                            </span>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <span style="font-size:0.75rem; color:var(--text-muted);">Corrige antes de procesar</span>
-                    <i id="incidenciasToggleIcon" class="fa-solid fa-chevron-up" style="color:var(--text-muted); font-size:0.85rem; transition:transform 0.2s;"></i>
-                </div>
-            </div>
-            <div id="incidenciasGrid" style="overflow:hidden; transition:max-height 0.3s ease;">
-                <div style="border-top:1px solid var(--border-color);">
-                    <table class="table-premium" style="font-size:0.85rem; min-width:500px; margin:0;">
-                        <thead>
-                            <tr>
-                                <th style="width:35%;">Empleado</th>
-                                <th style="width:12%;">Tipo</th>
-                                <th>Descripción</th>
-                                <th style="width:10%;">Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for err in incidencias.get('errors', []) %}
-                            <tr>
-                                <td><strong>{{ err.employeeName }}</strong></td>
-                                <td><span class="badge badge-danger" style="font-size:0.7rem;">Error</span></td>
-                                <td style="color:var(--text-secondary);">{{ err.issue }}</td>
-                                <td><a href="{{ url_for('web_rrhh.employee_edit', employee_id=err.employeeId) }}" class="btn btn-sm btn-ghost" target="_blank"><i class="fa-solid fa-pencil"></i></a></td>
-                            </tr>
-                            {% endfor %}
-                            {% for warn in incidencias.get('warnings', []) %}
-                            <tr>
-                                <td><strong>{{ warn.employeeName }}</strong></td>
-                                <td><span class="badge" style="background:rgba(249,115,22,0.15); color:var(--accent-orange); font-size:0.7rem;">Advertencia</span></td>
-                                <td style="color:var(--text-secondary);">{{ warn.issue }}</td>
-                                <td><a href="{{ url_for('web_rrhh.employee_edit', employee_id=warn.employeeId) }}" class="btn btn-sm btn-ghost" target="_blank"><i class="fa-solid fa-pencil"></i></a></td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-    <script>
-    function toggleIncidencias() {
-        var grid = document.getElementById('incidenciasGrid');
-        var icon = document.getElementById('incidenciasToggleIcon');
-        if (grid.style.maxHeight && grid.style.maxHeight !== '0px') {
-            grid.style.maxHeight = '0px';
-            icon.style.transform = 'rotate(180deg)';
-        } else {
-            grid.style.maxHeight = grid.scrollHeight + 'px';
-            icon.style.transform = 'rotate(0deg)';
-        }
-    }
-    (function() {
-        var grid = document.getElementById('incidenciasGrid');
-        if (grid) grid.style.maxHeight = grid.scrollHeight + 'px';
-    })();
-    </script>
-    {% endif %}
-
-    <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
-        <button type="submit" class="btn btn-primary"
-                onclick="return startPayrollProcessing()" {{ 'disabled' if no_groups }}>
-            <i class="fa-solid fa-play"></i> Procesar Nómina
-        </button>
-    </div>
-
-    <!-- Employee Variables Table -->
-    <div class="card-table-wrapper" style="margin-bottom:var(--space-4);">
-        <div class="table-header-row" style="margin-bottom:0; display:flex; justify-content:space-between; align-items:center;">
-            <span style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--text-primary);">
-                <i class="fa-solid fa-list-check"></i> Variables de nómina por empleado
-            </span>
-            <div style="display:flex; gap:8px; align-items:center;">
-                <span style="font-size:0.78rem; color:var(--text-muted);" id="payVarCount">{{ employees|length }} empleados</span>
-                <button type="button" class="btn btn-sm btn-ghost" onclick="bulkSelectAll()">
-                    <i class="fa-solid fa-check-square"></i> Todos
-                </button>
-                <button type="button" class="btn btn-sm btn-ghost" onclick="bulkUnselectAll()">
-                    <i class="fa-solid fa-square"></i> Ninguno
-                </button>
-                <span style="font-size:0.78rem; color:var(--text-muted);" id="selectedCount">0 seleccionados</span>
-            </div>
-        </div>
-        <div style="display:flex; gap:8px; align-items:center; padding:8px 0; flex-wrap:wrap;">
-            <div class="form-group" style="margin:0; flex:1; min-width:200px; max-width:300px;">
-                <input type="text" id="payVarSearch" class="form-input" placeholder="Buscar empleado o cargo..." style="border-radius:20px; font-size:0.82rem;">
-            </div>
-            <div class="form-group" style="margin:0;">
-                <select id="payVarPerPage" class="form-select" style="width:auto; font-size:0.82rem;">
-                    <option value="5" selected>5 por página</option>
-                    <option value="10">10 por página</option>
-                    <option value="20">20 por página</option>
-                    <option value="50">50 por página</option>
-                    <option value="100">100 por página</option>
-                </select>
-            </div>
-        </div>
-        <div style="margin-bottom:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-            <button type="button" class="btn btn-sm btn-outline" onclick="openBulkModal()">
-                <i class="fa-solid fa-layer-group"></i> Aplicar en lote
-            </button>
-        </div>
-        <div class="table-responsive">
-            <table class="table-premium" style="font-size:0.88rem; min-width:1000px;">
-                <thead>
-                    <tr>
-                        <th style="width:30px;"><input type="checkbox" id="selectAllCB" onchange="toggleAll(this)"></th>
-                        <th>Empleado</th>
-                        <th>Salario Base</th>
-                        <th>Cargo</th>
-                        <th style="width:90px;">Horas Extra</th>
-                        <th style="width:90px;">Comisión</th>
-                        <th style="width:90px;">Bonificación</th>
-                        <th style="width:90px;">Otros Ingresos</th>
-                        <th style="width:90px;">Otras Deducc.</th>
-                    </tr>
-                </thead>
-                <tbody id="payVarTbody">
-                    {% for emp in employees %}
-                     <tr data-emp-id="{{ emp.id }}" data-salary="{{ emp.baseSalary or 0 }}" data-search="{{ (emp.fullName or '')|lower }} {{ (emp.position or '')|lower }} {{ (emp.area or '')|lower }}" {% if emp.isLiquidation %}class="liquidation-row"{% endif %}>
-                        <td><input type="checkbox" class="emp-cb" value="{{ emp.id }}" onchange="updateCount()" {% if emp.isLiquidation %}checked{% endif %}></td>
-                        <td>
-                            <strong>{{ emp.fullName or emp.firstName + ' ' + (emp.firstLastName or emp.lastName) }}</strong>
-                            {% if emp.area %}<span style="display:block; font-size:0.7rem; color:var(--text-muted);">{{ emp.area }}</span>{% endif %}
-                            {% if emp.isLiquidation %}<span class="badge" style="background:rgba(16,185,129,0.12); color:var(--accent-emerald); font-size:0.65rem; padding:2px 8px; border-radius:10px; margin-left:6px;">Liquidación</span>{% endif %}
-                        </td>
-                        <td>{% if emp.isLiquidation %}Liquidación{% else %}{{ "RD$ {:,.2f}".format(emp.baseSalary|float) if emp.baseSalary else '—' }}{% endif %}</td>
-                        <td style="color:var(--text-muted);">{{ emp.position }}</td>
-                        <td><input type="number" step="0.01" name="overtime_{{ emp.id }}" class="form-input emp-overtime" value="0" style="width:90px;" {% if emp.isLiquidation %}disabled readonly{% endif %}></td>
-                        <td><input type="number" step="0.01" name="commission_{{ emp.id }}" class="form-input emp-commission" value="0" style="width:90px;" {% if emp.isLiquidation %}disabled readonly{% endif %}></td>
-                        <td><input type="number" step="0.01" name="bonus_{{ emp.id }}" class="form-input emp-bonus" value="0" style="width:90px;" {% if emp.isLiquidation %}disabled readonly{% endif %}></td>
-                        <td><input type="number" step="0.01" name="other_income_{{ emp.id }}" class="form-input emp-other_income" value="0" style="width:90px;" {% if emp.isLiquidation %}disabled readonly{% endif %}></td>
-                        <td><input type="number" step="0.01" name="other_ded_{{ emp.id }}" class="form-input emp-other_ded" value="0" style="width:90px;" {% if emp.isLiquidation %}disabled readonly{% endif %}></td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        <div id="payVarPagination" style="display:flex; justify-content:center; align-items:center; gap:8px; margin-top:12px; padding-top:8px; border-top:1px solid var(--border-color);"></div>
-
-        <!-- Bulk apply modal -->
-        <div id="bulkModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.45); align-items:center; justify-content:center;" onclick="closeBulkModal(event)">
-            <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:24px; width:100%; max-width:420px; box-shadow:var(--shadow-xl);" onclick="event.stopPropagation()">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                    <h3 style="margin:0; font-size:1.1rem; font-weight:700;"><i class="fa-solid fa-layer-group" style="color:var(--accent-emerald);"></i> Aplicar en lote</h3>
-                    <button type="button" class="btn btn-sm btn-ghost" onclick="document.getElementById('bulkModal').style.display='none'">
-                        <i class="fa-solid fa-times"></i>
-                    </button>
-                </div>
-                <p id="bulkSelectedInfo" style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:16px;"></p>
-                <div class="form-group" style="margin-bottom:14px;">
-                    <label style="font-size:0.82rem; font-weight:600;">Concepto a aplicar</label>
-                    <select id="bulkField" class="form-select" onchange="onBulkFieldChange()">
-                        <option value="overtime">Horas extra</option>
-                        <option value="commission">Comisión</option>
-                        <option value="bonus">Bonificación</option>
-                        <option value="other_income">Otro ingreso</option>
-                        <option value="other_ded">Otra deducción</option>
-                    </select>
-                </div>
-                <div id="bulkModeRow" style="margin-bottom:12px; display:flex; gap:0; border:1px solid var(--border-color); border-radius:var(--radius-sm); overflow:hidden;">
-                    <button type="button" id="bulkModeFixed" class="bulk-mode-btn active" onclick="setBulkMode('fixed')" style="flex:1; padding:6px 12px; border:none; background:var(--bg-brand-translucent); color:var(--text-primary); font-size:0.78rem; font-weight:600; cursor:pointer;">Monto fijo</button>
-                    <button type="button" id="bulkModePct" class="bulk-mode-btn" onclick="setBulkMode('pct')" style="flex:1; padding:6px 12px; border:none; background:transparent; color:var(--text-muted); font-size:0.78rem; font-weight:500; cursor:pointer;">Porcentaje (%)</button>
-                </div>
-                <div class="form-group" style="margin-bottom:8px;">
-                    <label id="bulkValueLabel" style="font-size:0.82rem; font-weight:600;">Valor</label>
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <input type="number" id="bulkValue" step="0.01" value="0" class="form-input" style="font-size:0.95rem; flex:1;">
-                        <span id="bulkValueSuffix" style="font-size:0.82rem; color:var(--text-muted); display:none; font-weight:600;"></span>
-                    </div>
-                </div>
-                <p id="bulkPreview" style="font-size:0.78rem; color:var(--text-muted); margin:0 0 20px 0; min-height:18px;"></p>
-                <div style="display:flex; justify-content:flex-end; gap:8px;">
-                    <button type="button" class="btn btn-ghost" onclick="document.getElementById('bulkModal').style.display='none'">Cancelar</button>
-                    <button type="button" class="btn btn-primary" onclick="applyBulk()">
-                        <i class="fa-solid fa-check"></i> Aplicar
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- Notes -->
     <div class="card-table-wrapper" style="margin-bottom:var(--space-4);">
@@ -424,55 +169,17 @@
                 <i class="fa-regular fa-note-sticky"></i> Notas del período
             </div>
             <div class="form-group" style="margin:0;">
-                <input type="text" name="notes" class="form-input" placeholder="Notas del período (opcional)">
-            </div>
-        </div>
-    </div>
-
-    <!-- Rates Summary -->
-    <div class="card-table-wrapper" style="margin-bottom:var(--space-4);">
-        <div style="padding:12px 20px;">
-            <div style="font-family:var(--font-heading); font-weight:600; font-size:0.85rem; color:var(--text-primary); margin-bottom:10px;">
-                <i class="fa-solid fa-scale-balanced"></i> Resumen de tasas aplicables
-            </div>
-            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px;">
-                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:8px 12px; background:rgba(255,255,255,0.01);">
-                    <span style="display:block; margin-bottom:2px; color:var(--text-muted); font-size:0.65rem; font-weight:700;">AFP Empleado</span>
-                    <span style="color:var(--text-primary); font-size:0.78rem; font-weight:600;">2.87% · tope RD$ 196,750</span>
-                </div>
-                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:8px 12px; background:rgba(255,255,255,0.01);">
-                    <span style="display:block; margin-bottom:2px; color:var(--text-muted); font-size:0.65rem; font-weight:700;">AFP Empleador</span>
-                    <span style="color:var(--text-primary); font-size:0.78rem; font-weight:600;">7.10% · tope RD$ 196,750</span>
-                </div>
-                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:8px 12px; background:rgba(255,255,255,0.01);">
-                    <span style="display:block; margin-bottom:2px; color:var(--text-muted); font-size:0.65rem; font-weight:700;">SFS Empleado</span>
-                    <span style="color:var(--text-primary); font-size:0.78rem; font-weight:600;">3.04% · tope RD$ 98,375</span>
-                </div>
-                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:8px 12px; background:rgba(255,255,255,0.01);">
-                    <span style="display:block; margin-bottom:2px; color:var(--text-muted); font-size:0.65rem; font-weight:700;">SFS Empleador</span>
-                    <span style="color:var(--text-primary); font-size:0.78rem; font-weight:600;">7.09% · tope RD$ 98,375</span>
-                </div>
-                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:8px 12px; background:rgba(255,255,255,0.01);">
-                    <span style="display:block; margin-bottom:2px; color:var(--text-muted); font-size:0.65rem; font-weight:700;">INFOTEP</span>
-                    <span style="color:var(--text-primary); font-size:0.78rem; font-weight:600;">1% empleador</span>
-                </div>
-                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:8px 12px; background:rgba(255,255,255,0.01);">
-                    <span style="display:block; margin-bottom:2px; color:var(--text-muted); font-size:0.65rem; font-weight:700;">SRL</span>
-                    <span style="color:var(--text-primary); font-size:0.78rem; font-weight:600;">1.20% empleador</span>
-                </div>
-                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:8px 12px; background:rgba(255,255,255,0.01);">
-                    <span style="display:block; margin-bottom:2px; color:var(--text-muted); font-size:0.65rem; font-weight:700;">ISR</span>
-                    <span style="color:var(--text-primary); font-size:0.78rem; font-weight:600;">Tabla DGII 2026 · 0%-25%</span>
-                </div>
+                <textarea name="notes" class="form-input" rows="3" placeholder="Notas del período (opcional)"
+                          style="resize:vertical; min-height:80px;"></textarea>
             </div>
         </div>
     </div>
 
     <div style="display:flex; justify-content:flex-end; gap:var(--space-2); flex-wrap:wrap;">
         <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost">Cancelar</a>
-        <button type="submit" class="btn btn-primary" id="btnProcesar"
-                onclick="return startPayrollProcessing()" {{ 'disabled' if no_groups }}>
-            <i class="fa-solid fa-play"></i> Procesar Nómina
+        <button type="submit" class="btn btn-primary" id="btnCrear"
+                onclick="return startCreate()" {{ 'disabled' if no_groups or not selected_group_id }}>
+            <i class="fa-solid fa-play"></i> Crear y continuar
         </button>
     </div>
 </form>
@@ -481,228 +188,12 @@
 
 {% block extra_scripts %}
 <script>
-function updateCount() {
-    var cbs = document.querySelectorAll('.emp-cb:checked');
-    document.getElementById('selectedCount').textContent = cbs.length + ' seleccionados';
-}
-function toggleAll(el) {
-    document.querySelectorAll('.emp-cb').forEach(function(cb) { cb.checked = el.checked; });
-    updateCount();
-}
-function bulkSelectAll() {
-    document.querySelectorAll('.emp-cb').forEach(function(cb) { cb.checked = true; });
-    document.getElementById('selectAllCB').checked = true;
-    updateCount();
-}
-function bulkUnselectAll() {
-    document.querySelectorAll('.emp-cb').forEach(function(cb) { cb.checked = false; });
-    document.getElementById('selectAllCB').checked = false;
-    updateCount();
-}
-var bulkMode = 'fixed';
-
-function openBulkModal() {
-    var selected = document.querySelectorAll('.emp-cb:checked');
-    var info = document.getElementById('bulkSelectedInfo');
-    if (selected.length === 0) {
-        info.innerHTML = '<span style="color:var(--accent-orange);"><i class="fa-solid fa-triangle-exclamation"></i> No hay empleados seleccionados. Marca al menos uno en la tabla.</span>';
-    } else {
-        info.innerHTML = '<i class="fa-solid fa-users"></i> <strong>' + selected.length + '</strong> empleado(s) seleccionado(s).';
-    }
-    document.getElementById('bulkValue').value = '0';
-    setBulkMode('fixed');
-    document.getElementById('bulkField').value = 'overtime';
-    onBulkFieldChange();
-    document.getElementById('bulkModal').style.display = 'flex';
-}
-
-function onBulkFieldChange() {
-    var field = document.getElementById('bulkField').value;
-    var modeRow = document.getElementById('bulkModeRow');
-    if (field === 'overtime') {
-        modeRow.style.display = 'none';
-        setBulkMode('fixed');
-    } else {
-        modeRow.style.display = 'flex';
-    }
-    updateBulkPreview();
-}
-
-function setBulkMode(mode) {
-    bulkMode = mode;
-    var fixedBtn = document.getElementById('bulkModeFixed');
-    var pctBtn = document.getElementById('bulkModePct');
-    var suffix = document.getElementById('bulkValueSuffix');
-    var label = document.getElementById('bulkValueLabel');
-    if (mode === 'fixed') {
-        fixedBtn.style.background = 'var(--bg-brand-translucent)';
-        fixedBtn.style.color = 'var(--text-primary)';
-        fixedBtn.style.fontWeight = '600';
-        pctBtn.style.background = 'transparent';
-        pctBtn.style.color = 'var(--text-muted)';
-        pctBtn.style.fontWeight = '500';
-        suffix.style.display = 'none';
-        label.textContent = 'Valor';
-    } else {
-        pctBtn.style.background = 'var(--bg-brand-translucent)';
-        pctBtn.style.color = 'var(--text-primary)';
-        pctBtn.style.fontWeight = '600';
-        fixedBtn.style.background = 'transparent';
-        fixedBtn.style.color = 'var(--text-muted)';
-        fixedBtn.style.fontWeight = '500';
-        suffix.textContent = '% del salario base';
-        suffix.style.display = 'inline';
-        label.textContent = 'Porcentaje';
-    }
-    updateBulkPreview();
-}
-
-function updateBulkPreview() {
-    var preview = document.getElementById('bulkPreview');
-    var val = parseFloat(document.getElementById('bulkValue').value) || 0;
-    if (bulkMode !== 'pct' || val === 0) {
-        preview.textContent = '';
-        return;
-    }
-    var selected = document.querySelectorAll('.emp-cb:checked');
-    if (selected.length === 0) { preview.textContent = ''; return; }
-    var first = selected[0];
-    var row = first.closest('tr');
-    var salary = parseFloat(row ? row.getAttribute('data-salary') : 0) || 0;
-    var amount = (salary * val / 100);
-    var formatted = amount.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    preview.innerHTML = 'Ejemplo: <strong>' + val + '%</strong> de RD$ ' + salary.toLocaleString('es-DO') + ' = <strong style="color:var(--accent-emerald);">RD$ ' + formatted + '</strong> por empleado';
-}
-
-function applyBulk() {
-    var field = document.getElementById('bulkField').value;
-    var val = parseFloat(document.getElementById('bulkValue').value) || 0;
-    var count = 0;
-    document.querySelectorAll('.emp-cb:checked').forEach(function(cb) {
-        var row = cb.closest('tr');
-        if (!row) return;
-        var input = row.querySelector('.emp-' + field);
-        if (!input) return;
-        if (bulkMode === 'pct' && field !== 'overtime') {
-            var salary = parseFloat(row.getAttribute('data-salary')) || 0;
-            input.value = (salary * val / 100).toFixed(2);
-        } else {
-            input.value = val;
-        }
-        count++;
-    });
-    document.getElementById('bulkModal').style.display = 'none';
-    if (count > 0) {
-        var labels = { overtime: 'horas extra', commission: 'comisión', bonus: 'bonificación', other_income: 'otro ingreso', other_ded: 'otra deducción' };
-        if (bulkMode === 'pct' && field !== 'overtime') {
-            showBulkToast('Aplicado <strong>' + val + '%</strong> del salario base como ' + labels[field] + ' a ' + count + ' empleado(s).');
-        } else if (field === 'overtime') {
-            showBulkToast('Aplicado <strong>' + val + ' horas</strong> extra a ' + count + ' empleado(s).');
-        } else {
-            showBulkToast('Aplicado <strong>RD$ ' + val.toLocaleString('es-DO') + '</strong> de ' + labels[field] + ' a ' + count + ' empleado(s).');
-        }
-    }
-}
-function closeBulkModal(e) {
-    if (e.target === document.getElementById('bulkModal')) {
-        document.getElementById('bulkModal').style.display = 'none';
-    }
-}
-function showBulkToast(msg) {
-    var toast = document.getElementById('bulkToast');
-    if (!toast) {
-        toast = document.createElement('div');
-        toast.id = 'bulkToast';
-        toast.style.cssText = 'position:fixed; bottom:24px; right:24px; z-index:99999; background:var(--bg-card); border:1px solid var(--accent-emerald); border-radius:var(--radius-md); padding:12px 20px; box-shadow:var(--shadow-lg); font-size:0.85rem; color:var(--text-primary); max-width:400px; opacity:0; pointer-events:none; transition:opacity 0.3s;';
-        document.body.appendChild(toast);
-    }
-    toast.innerHTML = '<i class="fa-solid fa-circle-check" style="color:var(--accent-emerald); margin-right:8px;"></i>' + msg;
-    toast.style.opacity = '1';
-    toast.style.pointerEvents = 'none';
-    clearTimeout(toast._timeout);
-    toast._timeout = setTimeout(function() { toast.style.opacity = '0'; }, 3000);
-}
-function startPayrollProcessing() {
-    if (!confirm('¿Procesar nómina para {{ employees|length }} empleados? Se generará asiento contable automáticamente.')) return false;
-    var btn = document.getElementById('btnProcesar');
+function startCreate() {
+    if (!confirm('¿Crear la nómina del período seleccionado? Podrás editar los valores de cada empleado antes de procesar.')) return false;
+    var btn = document.getElementById('btnCrear');
     btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Validando...';
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creando...';
     return true;
 }
-
-(function() {
-    var tbody = document.getElementById('payVarTbody');
-    var searchEl = document.getElementById('payVarSearch');
-    var perPageEl = document.getElementById('payVarPerPage');
-    var paginationEl = document.getElementById('payVarPagination');
-    var countEl = document.getElementById('payVarCount');
-    if (!tbody || !searchEl || !perPageEl || !paginationEl || !countEl) return;
-
-    var allRows = Array.from(tbody.querySelectorAll('tr'));
-    var filteredRows = allRows.slice();
-    var currentPage = 1;
-    var perPage = parseInt(perPageEl.value) || 5;
-
-    function getSearchTokens() {
-        return searchEl.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
-    }
-
-    function applyFilter() {
-        var tokens = getSearchTokens();
-        if (tokens.length === 0) {
-            filteredRows = allRows.slice();
-        } else {
-            filteredRows = allRows.filter(function(row) {
-                var text = (row.getAttribute('data-search') || '');
-                return tokens.every(function(t) { return text.indexOf(t) !== -1; });
-            });
-        }
-        currentPage = 1;
-        render();
-    }
-
-    function render() {
-        perPage = parseInt(perPageEl.value) || 5;
-        var totalPages = Math.max(1, Math.ceil(filteredRows.length / perPage));
-        if (currentPage > totalPages) currentPage = totalPages;
-        var start = (currentPage - 1) * perPage;
-        var end = start + perPage;
-        var pageRows = filteredRows.slice(start, end);
-
-        allRows.forEach(function(r) { r.style.display = 'none'; });
-        pageRows.forEach(function(r) { r.style.display = ''; });
-
-        countEl.textContent = filteredRows.length === allRows.length
-            ? allRows.length + ' empleados'
-            : filteredRows.length + ' de ' + allRows.length + ' empleados';
-
-        var html = '';
-        if (totalPages > 1) {
-            if (currentPage > 1) {
-                html += '<button type="button" class="btn btn-sm btn-ghost" data-page="' + (currentPage - 1) + '"><i class="fa-solid fa-chevron-left"></i></button>';
-            }
-            html += '<span style="font-size:0.8rem; color:var(--text-muted);">P&aacute;gina ' + currentPage + ' de ' + totalPages + '</span>';
-            if (currentPage < totalPages) {
-                html += '<button type="button" class="btn btn-sm btn-ghost" data-page="' + (currentPage + 1) + '"><i class="fa-solid fa-chevron-right"></i></button>';
-            }
-        }
-        paginationEl.innerHTML = html;
-    }
-
-    searchEl.addEventListener('input', applyFilter);
-    perPageEl.addEventListener('change', function() { currentPage = 1; render(); });
-    var bulkValInput = document.getElementById('bulkValue');
-    if (bulkValInput) bulkValInput.addEventListener('input', updateBulkPreview);
-    paginationEl.addEventListener('click', function(e) {
-        var btn = e.target.closest('button[data-page]');
-        if (btn) {
-            currentPage = parseInt(btn.getAttribute('data-page'));
-            render();
-            paginationEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-    });
-
-    render();
-})();
 </script>
 {% endblock %}

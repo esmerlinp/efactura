@@ -277,7 +277,9 @@ def generate_bank_file(
         output.write(details_buffer.getvalue())
 
     elif bank == "banreservas":
-        output.write(f"H|{company_name}|Nomina {period_key}|{payment_date}\n")
+        header_concept = ("Regalia Pascual" if payroll_period.get("periodSubType") == "christmas_bonus"
+                          else "Nomina")
+        output.write(f"H|{company_name}|{header_concept} {period_key}|{payment_date}\n")
         for pl in payroll_period.get("lines", []):
             emp_id = pl.get("employeeId", "")
             emp = employees.get(emp_id, {})

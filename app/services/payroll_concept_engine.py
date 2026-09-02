@@ -20,6 +20,8 @@ SYSTEM_CONCEPT_CODES = {
     "NOCTURNIDAD",
     "COMISION", "BONIFICACION",
     "OTROS_INGRESOS", "OTRAS_DEDUCCIONES",
+    "INCENTIVO_BENEFICIO", "DIF_VACACIONES", "SALARIO_RETROACTIVO",
+    "INGRESO_VARIABLE", "DESC_CXC",
     "LIQ_PREAVISO", "LIQ_CESANTIA", "LIQ_VACACIONES",
     "LIQ_SALARIO_NAVIDAD", "LIQ_SALARIO_PROPORCIONAL",
     "LIQ_ASISTENCIA_ECONOMICA", "LIQ_DESCUENTOS",
@@ -30,6 +32,13 @@ RECURRING_CAPABLE_CODES = {
     "INCENTIVO_FIJO", "ASIGNACION", "BENEFICIO_FIJO", "INGRESO_RECURRENTE",
     "PRESTAMO", "COOPERATIVA", "SEGURO", "FONDO_AHORRO",
     "EMBARGO", "DESCUENTO_RECURRENTE", "APORTE_ESPECIAL", "BENEFICIO_CORP",
+}
+
+# ── Conceptos que generan tab en el editor de variables de la nómina ──
+MANUAL_ENTRY_SEED_CODES = {
+    "COMISION", "INCENTIVO_BENEFICIO", "HORAS_EXTRA", "DIF_VACACIONES",
+    "SALARIO_RETROACTIVO", "BONIFICACION", "REGALIA_PASCUAL", "INGRESO_VARIABLE",
+    "DESC_CXC", "SEGURO", "DESCUENTO_RECURRENTE", "OTRAS_DEDUCCIONES",
 }
 
 DEFAULT_CONCEPTS = [
@@ -102,6 +111,34 @@ DEFAULT_CONCEPTS = [
      "priority": 40, "active": True, "isSystem": True,
      "isRecurringCapable": False, "isLegalMandatory": False, "maxPercentage": 0.0},
 
+    {"code": "INCENTIVO_BENEFICIO", "name": "Incentivos y beneficios",
+     "type": "earning", "category": "variable",
+     "taxable": True, "affects_afp": True, "affects_sfs": True, "affects_isr": True,
+     "accountDebit": "6.2.1.01", "account_credit": "2.1.2.1.02",
+     "priority": 41, "active": True, "isSystem": True,
+     "isRecurringCapable": False, "isLegalMandatory": False, "maxPercentage": 0.0},
+
+    {"code": "DIF_VACACIONES",      "name": "Diferencial de vacaciones",
+     "type": "earning", "category": "variable",
+     "taxable": True, "affects_afp": True, "affects_sfs": True, "affects_isr": True,
+     "accountDebit": "6.2.1.01", "account_credit": "2.1.2.1.02",
+     "priority": 42, "active": True, "isSystem": True,
+     "isRecurringCapable": False, "isLegalMandatory": False, "maxPercentage": 0.0},
+
+    {"code": "SALARIO_RETROACTIVO", "name": "Salario retroactivo",
+     "type": "earning", "category": "variable",
+     "taxable": True, "affects_afp": True, "affects_sfs": True, "affects_isr": True,
+     "accountDebit": "6.2.1.01", "account_credit": "2.1.2.1.02",
+     "priority": 43, "active": True, "isSystem": True,
+     "isRecurringCapable": False, "isLegalMandatory": False, "maxPercentage": 0.0},
+
+    {"code": "INGRESO_VARIABLE",    "name": "Ingreso variable",
+     "type": "earning", "category": "variable",
+     "taxable": True, "affects_afp": True, "affects_sfs": True, "affects_isr": True,
+     "accountDebit": "6.2.1.01", "account_credit": "2.1.2.1.02",
+     "priority": 44, "active": True, "isSystem": True,
+     "isRecurringCapable": False, "isLegalMandatory": False, "maxPercentage": 0.0},
+
     # ═══════════════════════════════════════════════════════════════════
     # INGRESOS RECURRENTES (earning, pueden usarse en mov. recurrentes)
     # ═══════════════════════════════════════════════════════════════════
@@ -169,6 +206,13 @@ DEFAULT_CONCEPTS = [
      "taxable": False, "affects_afp": False, "affects_sfs": False, "affects_isr": False,
      "accountDebit": "2.1.2.1.02", "account_credit": "2.1.2.1.02",
      "priority": 200, "active": True, "isSystem": True,
+     "isRecurringCapable": False, "isLegalMandatory": False, "maxPercentage": 0.0},
+
+    {"code": "DESC_CXC",           "name": "Cuentas por cobrar (nómina)",
+     "type": "deduction", "category": "variable",
+     "taxable": False, "affects_afp": False, "affects_sfs": False, "affects_isr": False,
+     "accountDebit": "2.1.2.1.13", "account_credit": "2.1.2.1.02",
+     "priority": 190, "active": True, "isSystem": True,
      "isRecurringCapable": False, "isLegalMandatory": False, "maxPercentage": 0.0},
 
     # ═══════════════════════════════════════════════════════════════════
@@ -317,6 +361,10 @@ DEFAULT_CONCEPTS = [
      "isRecurringCapable": True, "isLegalMandatory": False, "maxPercentage": 0.0},
 ]
 
+# Marcar qué conceptos generan tab en el editor de variables de la nómina
+for _c in DEFAULT_CONCEPTS:
+    _c["isManualEntry"] = _c.get("code", "") in MANUAL_ENTRY_SEED_CODES
+
 
 def _concepts_collection(company_id: str, sandbox: bool = True) -> str:
     prefix = "sandbox_" if sandbox else ""
@@ -341,6 +389,8 @@ def get_concepts(company_id: str, sandbox: bool = True) -> list:
             if c["code"] in default_by_code:
                 default = default_by_code[c["code"]]
                 c["category"] = default["category"]
+            if c["code"] in MANUAL_ENTRY_SEED_CODES:
+                c["isManualEntry"] = True
 
         for code, dc in default_by_code.items():
             if code not in existing_codes:
@@ -356,6 +406,41 @@ def get_concepts(company_id: str, sandbox: bool = True) -> list:
     except Exception as e:
         print(f"⚠️ PayrollConceptService.get_concepts: {e}")
         return [dict(c) for c in DEFAULT_CONCEPTS]
+
+
+def get_editor_tabs(company_id: str, sandbox: bool = True) -> tuple:
+    """Retorna (ingreso_tabs, descuento_tabs) dinámicos desde los conceptos activos.
+
+    Un concepto genera tab en el editor de variables si cumple:
+      - active
+      - type in (earning, deduction)
+      - isManualEntry == True
+
+    Cada tab: {tab, concept, label, hours, help}.
+    """
+    from app.services.payroll_variable_catalog import HELP_BY_CONCEPT, HOURS_CONCEPTS
+    ingreso, descuento = [], []
+    for c in get_concepts(company_id, sandbox=sandbox):
+        if not c.get("active"):
+            continue
+        if not c.get("isManualEntry"):
+            continue
+        ctype = c.get("type", "")
+        if ctype not in ("earning", "deduction"):
+            continue
+        code = c.get("code", "")
+        tab = {
+            "tab": code,
+            "concept": code,
+            "label": c.get("name", code),
+            "hours": code in HOURS_CONCEPTS,
+            "help": c.get("help") or HELP_BY_CONCEPT.get(code, "Concepto configurable de nómina."),
+        }
+        if ctype == "earning":
+            ingreso.append(tab)
+        else:
+            descuento.append(tab)
+    return ingreso, descuento
 
 
 def get_active_recurring_concepts(company_id: str, sandbox: bool = True) -> list:

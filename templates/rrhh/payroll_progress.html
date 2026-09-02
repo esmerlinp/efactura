@@ -42,7 +42,11 @@ function poll() {
                 document.getElementById('progressBar').style.width = '100%';
                 if (data.result && data.result.period_id) {
                     setTimeout(function() {
-                        window.location.href = '/rrhh/payroll/' + data.result.period_id;
+                        if (data.redirect_to === 'view') {
+                            window.location.href = '/rrhh/payroll/' + data.result.period_id;
+                        } else {
+                            window.location.href = '/rrhh/payroll/new?period_id=' + data.result.period_id;
+                        }
                     }, 1500);
                 } else {
                     setTimeout(function() {

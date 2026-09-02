@@ -25,9 +25,9 @@ _VALID_TRANSITIONS = {
     "borrador":      ["calculada", "cancelled"],
     "calculada":     ["validada", "borrador"],
     "validada":      ["aprobada", "calculada"],
-    "aprobada":      ["contabilizada", "validada"],
-    "contabilizada": ["pagada", "aprobada", "reopened"],
-    "pagada":        ["cerrada", "contabilizada"],
+    "aprobada":      ["pagada", "validada"],
+    "pagada":        ["contabilizada", "aprobada"],
+    "contabilizada": ["cerrada", "pagada", "reopened"],
     "cerrada":       ["reopened"],
     "reopened":      ["calculada"],
     "cancelled":     [],
@@ -48,7 +48,18 @@ STATUS_LABELS = {
 IMMUTABLE_STATUSES = ("cerrada", "cancelled")
 
 
-def _transition(period, to_status, comment="", owner_uid="", sandbox=True, skip_sod=False):
+def _is_simple_workflow(company_id, sandbox=True) -> bool:
+    """True si la empresa usa flujo simplificado (default True)."""
+    try:
+        from app.services import hr_data_service as hr
+        cfg = hr.get_payroll_config(company_id, sandbox=sandbox)
+        return bool(cfg.get("simple_workflow", True))
+    except Exception:
+        return True
+
+
+def _transition(period, to_status, comment="", owner_uid="", sandbox=True, skip_sod=False,
+                allow_from=None):
     user_email = session.get("user", {}).get("email", "")
     user_uid = session.get("user", {}).get("uid", "")
     user_role = session.get("user", {}).get("role", "")
@@ -56,21 +67,22 @@ def _transition(period, to_status, comment="", owner_uid="", sandbox=True, skip_
     from_status = period.get("status", "borrador")
 
     if to_status not in _VALID_TRANSITIONS.get(from_status, []):
-        return False, f"Transición inválida: no se puede pasar de «{STATUS_LABELS.get(from_status, from_status)}» a «{STATUS_LABELS.get(to_status, to_status)}»."
+        if not (allow_from and from_status in allow_from):
+            return False, f"Transición inválida: no se puede pasar de «{STATUS_LABELS.get(from_status, from_status)}» a «{STATUS_LABELS.get(to_status, to_status)}»."
 
     if not skip_sod and user_role != "owner":
         if to_status == "aprobada":
             calculator = period.get("calculatedBy", "")
             if calculator and calculator == user_email:
                 return False, "Conflicto SoD: quien calculó la nómina no puede aprobarla. Otro miembro del equipo debe aprobar."
-        elif to_status == "contabilizada":
+        elif to_status == "pagada":
             approver = period.get("approvedBy", "")
             if approver and approver == user_email:
-                return False, "Conflicto SoD: quien aprobó la nómina no puede contabilizarla. Otro miembro del equipo debe contabilizar."
-        elif to_status == "pagada":
-            poster = period.get("postedBy", "")
-            if poster and poster == user_email:
-                return False, "Conflicto SoD: quien contabilizó la nómina no puede autorizar el pago. Otro miembro del equipo debe ejecutar el pago."
+                return False, "Conflicto SoD: quien aprobó la nómina no puede autorizar el pago. Otro miembro del equipo debe ejecutar el pago."
+        elif to_status == "contabilizada":
+            payer = period.get("paidBy", "")
+            if payer and payer == user_email:
+                return False, "Conflicto SoD: quien pagó la nómina no puede contabilizarla. Otro miembro del equipo debe contabilizar."
 
     period["status"] = to_status
     history = period.get("statusHistory", [])
@@ -215,18 +227,18 @@ def apply_payroll_authorization(company_id, period_id, to_status, comment="",
     │ payroll_approval   │ validada         │ returned   → permanece validada  │
     │                    │                  │              stage = devuelta     │
     ├────────────────────┼──────────────────┼──────────────────────────────────┤
-    │ payroll_post_      │ aprobada         │ approved   → status =            │
+    │ payroll_post_      │ pagada           │ approved   → status =            │
     │ accounting         │                  │              contabilizada       │
-    │ payroll_post_      │ aprobada         │ rejected   → permanece aprobada  │
+    │ payroll_post_      │ pagada           │ rejected   → permanece pagada    │
     │ accounting         │                  │              stage = rechazada    │
-    │ payroll_post_      │ aprobada         │ returned   → permanece aprobada  │
+    │ payroll_post_      │ pagada           │ returned   → permanece pagada    │
     │ accounting         │                  │              stage = devuelta     │
     └────────────────────┴──────────────────┴──────────────────────────────────┘
 
-    La transicion del status principal (validada→aprobada→contabilizada) solo
-    ocurre con decision ``approved``.  ``rejected`` y ``returned`` actualizan
-    unicamente el stage dentro de ``authorizationStageHistory`` sin tocar
-    ``status``.
+    La transicion del status principal (validada→aprobada→pagada→contabilizada)
+    solo ocurre con decision ``approved``.  ``rejected`` y ``returned``
+    actualizan unicamente el stage dentro de ``authorizationStageHistory`` sin
+    tocar ``status``.
     """
     from app.services import hr_data_service as hr
     from datetime import datetime, timezone
@@ -261,10 +273,34 @@ def apply_payroll_authorization(company_id, period_id, to_status, comment="",
         if not ok:
             return False, msg
 
-    ok, msg = _transition(period, to_status, comment, sandbox=sandbox, skip_sod=skip_sod)
+    ok, msg = _transition(period, to_status, comment, sandbox=sandbox,
+                          skip_sod=skip_sod or _is_simple_workflow(company_id, sandbox=sandbox))
     if ok:
         hr.save_payroll_period(company_id, period_id, period, sandbox=sandbox)
     return ok, msg
+
+
+def _release_payroll_overtime(company_id, period_id, sandbox=True) -> int:
+    """Devuelve a borrador las HE procesadas en la nómina revertida.
+
+    Limpia vínculos HE↔nómina del período para permitir reprocesarlo.
+    Retorna la cantidad de registros liberados.
+    """
+    from app.services.overtime_service import OvertimeService
+    from app.services import hr_data_service as hr
+    try:
+        records = OvertimeService.get_processed_for_payroll(company_id, period_id, sandbox=sandbox)
+        user_email = session.get("user", {}).get("email", "")
+        released = 0
+        for r in records:
+            result = OvertimeService.release_processed(company_id, r.get("id", ""), user_email, sandbox=sandbox)
+            if not isinstance(result, tuple):
+                released += 1
+        hr.delete_overtime_payroll_links(company_id, period_id, sandbox=sandbox)
+        return released
+    except Exception as e:
+        print(f"⚠️ Error liberando HE de nómina {period_id}: {e}")
+        return 0
 
 
 @web_rrhh_bp.route("/rrhh/payroll/<period_id>/bank-export")
@@ -400,6 +436,10 @@ def payroll_validate(period_id):
         flash("Período no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_list"))
 
+    if _is_simple_workflow(company_id, sandbox=sandbox):
+        flash("Tu empresa usa el flujo simplificado: el paso de validación no es necesario. Aprueba la nómina directamente.", "info")
+        return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
+
     ok, msg = _transition(period, "validada", request.form.get("comment", ""),
                           sandbox=sandbox)
     if not ok:
@@ -484,8 +524,10 @@ def payroll_approve(period_id):
     stage["status"] = "approved"
     stage["resolvedAt"] = now
     stage["resolvedBy"] = user.get("email","")
+    simple = _is_simple_workflow(company_id, sandbox=sandbox)
     ok, msg = _transition(period, "aprobada", request.form.get("comment", ""),
-                          sandbox=sandbox, skip_sod=req_result["request"].get("isFallback", False))
+                          sandbox=sandbox, skip_sod=req_result["request"].get("isFallback", False) or simple,
+                          allow_from=("calculada", "validada") if simple else None)
     if not ok:
         flash(msg, "error")
     else:
@@ -548,7 +590,8 @@ def payroll_post(period_id):
         return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
 
     ok, msg = _transition(period, "contabilizada", request.form.get("comment", ""),
-                          sandbox=sandbox, skip_sod=req_result["request"].get("isFallback", False))
+                          sandbox=sandbox,
+                          skip_sod=req_result["request"].get("isFallback", False) or _is_simple_workflow(company_id, sandbox=sandbox))
     if not ok:
         flash(msg, "error")
         return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
@@ -571,7 +614,7 @@ def payroll_pay(period_id):
         return redirect(url_for("web_rrhh.payroll_list"))
 
     ok, msg = _transition(period, "pagada", request.form.get("comment", ""),
-                          sandbox=sandbox)
+                          sandbox=sandbox, skip_sod=_is_simple_workflow(company_id, sandbox=sandbox))
     if not ok:
         flash(msg, "error")
     else:
@@ -630,7 +673,7 @@ def payroll_close(period_id):
         return redirect(url_for("web_rrhh.payroll_list"))
 
     ok, msg = _transition(period, "cerrada", request.form.get("comment", ""),
-                          sandbox=sandbox)
+                          sandbox=sandbox, skip_sod=_is_simple_workflow(company_id, sandbox=sandbox))
     if not ok:
         flash(msg, "error")
     else:
@@ -817,6 +860,7 @@ def payroll_job_status(job_id):
         "message": job.get("message", ""),
         "result": job.get("result"),
         "error": job.get("error"),
+        "redirect_to": (job.get("metadata") or {}).get("redirect_to", "new"),
     })
 
 
@@ -856,15 +900,15 @@ def payroll_recalculate(period_id):
             return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
         comment = "Reversión forzada con confirmación explícita"
         # Primero revertir al estado anterior
-        if status == "pagada":
-            prev_ok, prev_msg = _transition(period, "contabilizada", "Reversión desde pagada",
+        if status == "contabilizada":
+            prev_ok, prev_msg = _transition(period, "pagada", "Reversión desde contabilizada",
                                             owner_uid=company_id, sandbox=sandbox)
             if not prev_ok:
                 flash(prev_msg, "error")
                 return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
-            status = "contabilizada"
-        if status == "contabilizada":
-            prev_ok, prev_msg = _transition(period, "aprobada", "Reversión desde contabilizada",
+            status = "pagada"
+        if status == "pagada":
+            prev_ok, prev_msg = _transition(period, "aprobada", "Reversión desde pagada",
                                             owner_uid=company_id, sandbox=sandbox)
             if not prev_ok:
                 flash(prev_msg, "error")
@@ -882,6 +926,9 @@ def payroll_recalculate(period_id):
         hr.save_payroll_period(company_id, period_id, period, sandbox=sandbox)
         period_key = period.get("periodKey", "")
         hr.delete_rule_logs_by_period_key(company_id, period_key, sandbox=sandbox)
+        released_he = _release_payroll_overtime(company_id, period_id, sandbox=sandbox)
+        if released_he:
+            flash(f"{released_he} hora(s) extra devuelta(s) a borrador para edición.", "success")
         flash("Nómina revertida a borrador. Puede recalcularla desde «Procesar nómina».", "success")
     return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
 
@@ -917,6 +964,7 @@ def payroll_delete(period_id):
                changes={"period": period_key, "status": status, "range": period_range},
                comment="Eliminación de período de nómina", sandbox=sandbox)
 
+    _release_payroll_overtime(company_id, period_id, sandbox=sandbox)
     hr.delete_payroll_period(company_id, period_id, sandbox=sandbox)
     hr.delete_rule_logs_by_period_key(company_id, period_key, sandbox=sandbox)
     flash(f"Período de nómina «{period_range or period_key}» eliminado permanentemente.", "success")

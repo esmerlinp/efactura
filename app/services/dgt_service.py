@@ -338,7 +338,7 @@ class DGTService:
         payrolls = get_payroll_periods(company_id, sandbox=sandbox)
         total_overtime = 0.0
         for p in payrolls:
-            if str(p.get("year", "")) == str(year) and p.get("status") in ("aprobada", "pagada", "cerrada"):
+            if str(p.get("year", "")) == str(year) and p.get("status") in ("aprobada", "pagada", "contabilizada", "cerrada"):
                 for line in p.get("lines", []):
                     total_overtime += float(line.get("overtimeHours", 0))
 

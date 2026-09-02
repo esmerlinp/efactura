@@ -244,7 +244,7 @@ class PayrollPeriod(BaseModel):
     month: int = 0
     year: int = 0
     revision: int = 1  # Se incrementa cada vez que se recalcula el período
-    status: str = "borrador"  # borrador | calculada | validada | aprobada | contabilizada | pagada | cerrada | reopened | cancelled
+    status: str = "borrador"  # borrador | calculada | validada | aprobada | pagada | contabilizada | cerrada | reopened | cancelled
     lines: List[PayrollLine] = []
     totalGross: float = 0.0
     totalNet: float = 0.0

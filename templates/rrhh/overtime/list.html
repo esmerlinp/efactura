@@ -93,6 +93,11 @@
                     <a href="{{ url_for('web_rrhh.overtime_view', record_id=r.id) }}" class="btn btn-sm btn-ghost" title="Ver">
                         <i class="fa-solid fa-eye"></i>
                     </a>
+                    {% if r.status == 'draft' %}
+                    <a href="{{ url_for('web_rrhh.overtime_edit', record_id=r.id) }}" class="btn btn-sm btn-ghost" title="Editar">
+                        <i class="fa-solid fa-pen"></i>
+                    </a>
+                    {% endif %}
                 </td>
             </tr>
             {% else %}

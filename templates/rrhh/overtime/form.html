@@ -1,5 +1,5 @@
 {% extends "rrhh/layout_hr.html" %}
-{% block title %}Nueva Hora Extra — {{ product_name }}{% endblock %}
+{% block title %}{{ ('Editar Hora Extra ' ~ record.number) if record else 'Nueva Hora Extra' }} — {{ product_name }}{% endblock %}
 {% block extra_head %}
 <style>
 .searchable-wrapper { position: relative; width: 100%; }
@@ -34,7 +34,7 @@
 {% block content %}
 {% include "rrhh/_styles.html" %}
 <div class="page-header hr-page-header">
-    <h1 class="page-title"><i class="fa-solid fa-clock"></i> Nueva Hora Extra</h1>
+    <h1 class="page-title"><i class="fa-solid fa-clock"></i> {{ 'Editar Hora Extra ' ~ record.number if record else 'Nueva Hora Extra' }}</h1>
     <a href="{{ url_for('web_rrhh.overtime_list') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Volver</a>
 </div>
 
@@ -46,9 +46,10 @@
             <div class="form-group">
                 <label>Empleado <span style="color:var(--danger);">*</span></label>
                 <div class="searchable-wrapper">
-                    <input type="text" class="searchable-input" id="employeeSearch"
-                           placeholder="Buscar empleado por nombre o cédula…" autocomplete="new-password">
-                    <input type="hidden" name="employeeId" id="employeeIdHidden">
+                    <input type="text" class="searchable-input{% if record %} has-value{% endif %}" id="employeeSearch"
+                           placeholder="Buscar empleado por nombre o cédula…" autocomplete="new-password"
+                           value="{{ record.employeeSnapshot.get('name', '') if record else '' }}">
+                    <input type="hidden" name="employeeId" id="employeeIdHidden" value="{{ record.employeeId if record else '' }}">
                     <div id="employeeDropdown" class="searchable-dropdown"></div>
                 </div>
             </div>
@@ -59,19 +60,19 @@
                     <option value="">Seleccionar tipo</option>
                     {% for t in overtime_types %}
                     {% if t.active %}
-                    <option value="{{ t.code }}" data-factor="{{ t.factor }}">{{ t.code }} — {{ t.name }} (x{{ t.factor }})</option>
+                    <option value="{{ t.code }}" data-factor="{{ t.factor }}" {% if record and record.overtimeTypeCode == t.code %}selected{% endif %}>{{ t.code }} — {{ t.name }} (x{{ t.factor }})</option>
                     {% endif %}
                     {% endfor %}
                 </select>
             </div>
             <div class="form-group">
                 <label>Fecha <span style="color:var(--danger);">*</span></label>
-                <input type="date" name="date" class="form-input" required value="{{ today }}">
+                <input type="date" name="date" class="form-input" required value="{{ record.date if record and record.date else today }}">
             </div>
             <div class="form-group">
                 <label>Origen</label>
                 <select name="source" class="form-select">
-                    <option value="manual">Manual</option>
+                    <option value="manual" {% if not record or record.source == 'manual' %}selected{% endif %}>Manual</option>
                     <option value="attendance" disabled>Asistencia (próximamente)</option>
                     <option value="import" disabled>Importación</option>
                     <option value="api" disabled>API</option>
@@ -79,11 +80,11 @@
             </div>
             <div class="form-group">
                 <label>Ref. origen</label>
-                <input type="text" name="sourceReference" class="form-input" placeholder="Ej. ATT-20260715-001">
+                <input type="text" name="sourceReference" class="form-input" placeholder="Ej. ATT-20260715-001" value="{{ record.sourceReference if record else '' }}">
             </div>
             <div class="form-group" style="grid-column:1/-1;">
                 <label>Comentario</label>
-                <textarea name="comment" class="form-input" rows="2" placeholder="Motivo o detalle adicional..."></textarea>
+                <textarea name="comment" class="form-input" rows="2" placeholder="Motivo o detalle adicional...">{{ record.comment if record else '' }}</textarea>
             </div>
         </div>
     </div>
@@ -106,6 +107,18 @@
                     </tr>
                 </thead>
                 <tbody>
+                    {% if record and record.details %}
+                        {% for d in record.details %}
+                        <tr class="detail-row">
+                            <td><input type="date" name="detail_date[]" class="form-input" style="min-width:130px;" value="{{ d.date or '' }}" onchange="updateRowMinutes(this)"></td>
+                            <td><input type="time" name="detail_from[]" class="form-input" style="min-width:100px;" value="{{ d.fromTime or '' }}" onchange="updateRowMinutes(this)"></td>
+                            <td><input type="time" name="detail_to[]" class="form-input" style="min-width:100px;" value="{{ d.toTime or '' }}" onchange="updateRowMinutes(this)"></td>
+                            <td><input type="number" name="detail_minutes[]" class="form-input" style="min-width:80px;" readonly value="{{ d.minutes or 0 }}"></td>
+                            <td class="hours-display">{{ '%.2f'|format((d.minutes or 0) / 60) }}</td>
+                            <td><button type="button" class="btn btn-sm btn-danger" onclick="this.closest('tr').remove(); updateTotals();"><i class="fa-solid fa-xmark"></i></button></td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
                     <tr class="detail-row">
                         <td><input type="date" name="detail_date[]" class="form-input" style="min-width:130px;" onchange="updateRowMinutes(this)"></td>
                         <td><input type="time" name="detail_from[]" class="form-input" style="min-width:100px;" onchange="updateRowMinutes(this)"></td>
@@ -114,6 +127,7 @@
                         <td class="hours-display">0.00</td>
                         <td><button type="button" class="btn btn-sm btn-danger" onclick="this.closest('tr').remove(); updateTotals();"><i class="fa-solid fa-xmark"></i></button></td>
                     </tr>
+                    {% endif %}
                 </tbody>
                 <tfoot>
                     <tr>
@@ -146,7 +160,7 @@
 
     <div class="hr-section-card hr-actions-card hr-actions-bar">
         <a href="{{ url_for('web_rrhh.overtime_list') }}" class="btn btn-ghost">Cancelar</a>
-        <button type="submit" class="btn btn-primary">Crear Hora Extra</button>
+        <button type="submit" class="btn btn-primary">{{ 'Guardar Cambios' if record else 'Crear Hora Extra' }}</button>
     </div>
 </form>
 
@@ -202,6 +216,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return name.includes(q) || cedula.includes(qclean);
         }
     );
+    updateTotals();
 });
 
 function addDetailRow() {

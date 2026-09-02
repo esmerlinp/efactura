@@ -171,8 +171,26 @@
     </div>
     {% endif %}
 
-    <!-- ═══════════ PARÁMETROS LEGALES (REDIRIGIDO A VISTA DEDICADA) ═══════════ -->
-    <div class="card-table-wrapper" style="margin-bottom:16px; padding:16px 20px; border-color:var(--accent-emerald);">
+    <!-- Flujo simplificado -->
+    <div class="card-table-wrapper" style="margin-bottom:16px;">
+        <div class="table-header-row">
+            <div><h3><i class="fa-solid fa-wand-magic-sparkles"></i> Nómina simplificada</h3></div>
+        </div>
+        <div style="padding:0 20px 20px;">
+            <p style="font-size:0.82rem; color:var(--text-secondary); margin:0 0 12px;">
+                Con el flujo simplificado activado, se omite el paso de «Validación» y una misma persona
+                puede calcular, aprobar, pagar y contabilizar. Recomendado para equipos de 1 a 3 personas.
+                Desactívalo si necesitas separación de funciones (SoD).
+            </p>
+            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-weight:600;">
+                <input type="checkbox" name="simple_workflow" value="1" {% if simple_workflow %}checked{% endif %}
+                       style="width:18px; height:18px; accent-color:var(--accent-emerald);">
+                Flujo simplificado activado
+            </label>
+        </div>
+    </div>
+
+    <!-- ═══════════ PARÁMETROS LEGALES (REDIRIGIDO A VISTA DEDICADA) ═══════════ -->    <div class="card-table-wrapper" style="margin-bottom:16px; padding:16px 20px; border-color:var(--accent-emerald);">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
             <div>
                 <h3 style="margin:0; font-size:0.95rem;"><i class="fa-solid fa-scale-balanced"></i> Parámetros Legales</h3>
