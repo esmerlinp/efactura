@@ -9207,7 +9207,7 @@ def get_report_categories():
             "key": "nomina",
             "icon": "fa-solid fa-coins",
             "title": "Nómina",
-             "count": 19,
+             "count": 20,
             "description": "Reportes detallados de nómina, contribuciones TSS, certificados IR-18, simulaciones y formularios DGT.",
             "category_url": url_for('web_invoices.reports_category', category_key='nomina'),
             "reports": [
@@ -9250,6 +9250,9 @@ def get_report_categories():
                 {"title": "DGT-11: Comunicación de Ingreso", "url": "web_invoices.dgt11_view",
                  "enabled": module_enabled('nomina'),
                  "desc": "Comunicación de ingreso de trabajadores (estación o temporada)."},
+                {"title": "DGT-12: Comunicación de Cese", "url": "web_invoices.dgt12_view",
+                 "enabled": module_enabled('nomina'),
+                 "desc": "Término de contratos (fecha de salida) para el Ministerio de Trabajo."},
                 {"title": "DGT-9: Suspensión", "url": "web_invoices.dgt9_view",
                  "enabled": False,
                  "desc": "Registro de suspensión de contratos."},

@@ -506,6 +506,62 @@ class DGTExportService:
         return output.getvalue()
 
     @staticmethod
+    def to_sirla_txt_dgt12(lines: list[dict], company_info: dict = None,
+                           year: int = None, month: int = None) -> str:
+        """Genera archivo fixed-width SIRLA DGT-12 (Comunicación de Cese/Término).
+
+        Especificación oficial DGT-12 (SIRLA — carga de trabajadores):
+          E: EG2<RNC_11><MM><YYYY>                          → 20 chars
+          D: D<doc_type><doc_25><localidad_6><fechaSalida_8> → 41 chars
+          S: S<total_6>                                     → 7 chars
+
+        Posiciones por campo (1-based):
+          1        Tipo de registro "D"
+          2        Tipo de documento (C/P/N/M/I)
+          3-27     Número de documento (25, AN left)
+          28-33    Localidad (6, N right-zero, últimos 4 dígitos RNL)
+          34-41    Fecha de salida (8, DDMMYYYY)
+        """
+        ci = company_info or {}
+        rnc = (ci.get("companyRNC", "") or "").replace("-", "").replace(" ", "")[:11]
+        rnl = (ci.get("rnlNumber", "") or "").replace("-", "").replace(" ", "")
+        localidad = rnl[-4:].rjust(6, "0") if rnl else "000000"
+
+        if year and month:
+            mes = f"{int(month):02d}"
+            anio = f"{int(year):04d}"
+        else:
+            _now = datetime.now()
+            mes = _now.strftime("%m")
+            anio = _now.strftime("%Y")
+
+        output = io.StringIO()
+
+        # Registro E — Encabezado (20 chars)
+        output.write(
+            f"E"
+            f"G2"
+            f"{_ljust(rnc, 11)}"
+            f"{mes}"
+            f"{anio}".ljust(20) + "\n"
+        )
+
+        num_registros = 2  # E + S
+        for emp in lines:
+            linea = (
+                f"D"
+                f"{emp.get('docTypeSirla', 'C')}"
+                f"{_ljust((emp.get('documento', '') or '')[:25], 25)}"
+                f"{localidad}"
+                f"{_rjust_zero((emp.get('fechaSalidaSirla', '') or '')[:8], 8)}"
+            )
+            output.write(linea + "\n")
+            num_registros += 1
+
+        output.write(f"S{num_registros:06d}\n")
+        return output.getvalue()
+
+    @staticmethod
     def to_excel(lines: list[dict], title: str = "DGT") -> io.BytesIO:
         """Genera archivo .xlsx para revisión (con cabecera y estilos)."""
         import openpyxl

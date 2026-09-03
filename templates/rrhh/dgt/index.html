@@ -39,6 +39,12 @@
         <p style="margin:0; font-size:0.85rem; color:var(--text-muted);">Comunicación de Ingreso</p>
         <span style="font-size:0.75rem; color:var(--accent-blue);">Por evento / temporada</span>
     </a>
+    <a href="{{ url_for('web_invoices.dgt12_view') }}" class="dgt-card" style="background:var(--bg-card); border-radius:12px; padding:24px; border:1px solid var(--border-color); text-decoration:none; transition:all 0.2s;">
+        <div style="font-size:2rem; margin-bottom:8px; color:var(--accent-red);"><i class="fa-solid fa-user-minus"></i></div>
+        <h3 style="margin:0 0 4px; font-size:1rem; color:var(--text-primary);">DGT-12</h3>
+        <p style="margin:0; font-size:0.85rem; color:var(--text-muted);">Comunicación de Cese</p>
+        <span style="font-size:0.75rem; color:var(--accent-blue);">Mensual</span>
+    </a>
     <div class="dgt-card" style="background:var(--bg-card); border-radius:12px; padding:24px; border:1px solid var(--border-color); opacity:0.45; filter:grayscale(1); cursor:not-allowed;">
         <div style="font-size:2rem; margin-bottom:8px; color:var(--danger);"><i class="fa-solid fa-pause"></i></div>
         <h3 style="margin:0 0 4px; font-size:1rem; color:var(--text-primary);">DGT-9</h3>
