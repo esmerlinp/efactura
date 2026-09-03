@@ -309,6 +309,82 @@ class DGTExportService:
         return output.getvalue()
 
     @staticmethod
+    def to_sirla_txt_dgt5(lines: list[dict], company_info: dict = None,
+                          year: int = None, month: int = None) -> str:
+        """Genera archivo fixed-width SIRLA DGT-5 (Personal Temporero).
+
+        Especificación oficial SIRLA DGT-5 (carga de trabajadores):
+          E: ET5<RNC_11><MMYYYY>                                                          → 20 chars
+          D: D<NI_3><doc_type><doc_25><salario_mensual_16><fing_8><ocup_6><cargo_150>
+             <turno_6><localidad_6><dias_2><salario_dia_8><educ_5><disc_50>              → 287 chars
+          S: S<total_6>                                                                    → 7 chars
+
+        Posiciones por campo (1-based):
+          1        Tipo de registro "D"
+          2-4      Tipo de novedad "NI" (padded a 3 con espacio)
+          5        Tipo de documento (C/P/N/M/I)
+          6-30     Número de documento (25, AN left)
+          31-46    Salario mensual (16, N, decimal con ceros a la izquierda)
+          47-54    Fecha de ingreso (8, DDMMYYYY)
+          55-60    Ocupación (6, N right-zero)
+          61-210   Cargo (150, AN left)
+          211-216  Turno (6, N right-zero)
+          217-222  Localidad (6, N right-zero)
+          223-224  Días trabajados (2, N right-zero)
+          225-232  Salario por día (8, N, decimal con ceros a la izquierda)
+          233-237  Nivel educación (5, N right-zero)
+          238-287  Discapacidad (50, AN left)
+        """
+        ci = company_info or {}
+        rnc = (ci.get("companyRNC", "") or "").replace("-", "").replace(" ", "")[:11]
+        rnl = (ci.get("rnlNumber", "") or "").replace("-", "").replace(" ", "")
+        localidad = rnl[-4:].rjust(6, "0") if rnl else "000000"
+        if year and month:
+            periodo = f"{int(month):02d}{int(year):04d}"
+        else:
+            periodo = datetime.now().strftime("%m%Y")
+
+        output = io.StringIO()
+
+        output.write(f"ET5{rnc.rjust(11, '0')}{periodo}".ljust(20) + "\n")
+
+        num_registros = 2
+        for emp in lines:
+            doc_type = emp.get("docTypeSirla", "C")
+            doc_num = (emp.get("documento", "") or "")[:25]
+            monthly = float(emp.get("monthlySalary", 0) or 0)
+            fing = emp.get("fechaIngresoSirla", "")[:8]
+            oc_cod = (emp.get("ocupacionCodigo", "") or "").replace(" ", "")[:6]
+            cargo = (emp.get("cargo", "") or "")[:150]
+            turno = emp.get("turnoSirla", 1) or 1
+            days = int(emp.get("daysWorked", 0) or 0)
+            daily = float(emp.get("dailySalary", 0) or 0)
+            educ = emp.get("gradoInstruccion", 0) or 0
+            disc = (emp.get("discapacidad", "") or "")[:50]
+
+            linea = (
+                f"D"
+                f"{_ljust('NI', 3)}"
+                f"{doc_type}"
+                f"{_ljust(doc_num, 25)}"
+                f"{_decimal(monthly, 16, 2)}"
+                f"{_ljust(fing, 8)}"
+                f"{_rjust_zero(oc_cod, 6)}"
+                f"{_ljust(cargo, 150)}"
+                f"{_rjust_zero(turno, 6)}"
+                f"{localidad}"
+                f"{_rjust_zero(days, 2)}"
+                f"{_decimal(daily, 8, 2)}"
+                f"{_rjust_zero(educ, 5)}"
+                f"{_ljust(disc, 50)}"
+            )
+            output.write(linea + "\n")
+            num_registros += 1
+
+        output.write(f"S{num_registros:06d}\n")
+        return output.getvalue()
+
+    @staticmethod
     def to_sirla_txt_dgt9(sirla_data: dict) -> str:
         """Genera archivo fixed-width SIRLA DGT-9 (Suspensión de Contratos).
 

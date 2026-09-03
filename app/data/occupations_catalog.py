@@ -1,8 +1,9 @@
-"""Catálogo Nacional de Ocupaciones (CNO-2019) adaptado de CIUO-08.
+"""Catálogo oficial de ocupaciones SIRLA (Ministerio de Trabajo RD).
 
-Fuente: Oficina Nacional de Estadística (ONE) — Clasificación Nacional de Ocupaciones 2019
-Resolución No. 18-21 que establece la CNO-2019 en República Dominicana.
-Usado por el Ministerio de Trabajo en formularios DGT-3/DGT-4 vía SIRLA.
+Códigos de ocupación oficiales utilizados en los archivos de carga de
+trabajadores SIRLA (DGT-3/DGT-4/DGT-5). El campo "Ocupación" de estos
+archivos es numérico de 6 posiciones; el código se almacena sin ceros y se
+formatea a 6 posiciones al generar el TXT (ej. 6086 -> "006086").
 """
 
 import json

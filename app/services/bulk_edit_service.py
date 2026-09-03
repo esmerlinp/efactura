@@ -7,6 +7,7 @@ from typing import Any
 
 from app.services import hr_data_service as hr
 from app.services.payroll_audit_service import log_action
+from app.data.education_catalog import SIRLA_EDUCATION_LEVELS
 
 AFP_PROVIDERS = [
     "AFP Siembra",
@@ -133,6 +134,10 @@ BULK_EDITABLE_FIELDS = {
                 {"value": 3, "label": "Técnico"},
                 {"value": 4, "label": "Grado Universitario"},
                 {"value": 5, "label": "Postgrado/Maestría"},
+            ]},
+            {"name": "sirlaEducationCode", "label": "Nivel educativo SIRLA (DGT)", "type": "select_options", "options": [
+                {"value": e["code"], "label": f"{e['code']} — {e['label']}"}
+                for e in SIRLA_EDUCATION_LEVELS
             ]},
             {"name": "email", "label": "Correo Electrónico", "type": "text", "placeholder": "correo@ejemplo.com"},
             {"name": "phone", "label": "Teléfono", "type": "text", "placeholder": "8095551234"},

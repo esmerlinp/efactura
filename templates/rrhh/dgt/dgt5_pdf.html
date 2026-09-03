@@ -55,7 +55,7 @@
             <table style="width:100%; border:none;">
                 <tr><td class="lbl" style="border:none; width:30%;">R.N.C. No.:</td><td class="data" style="border:none;">{{ c.get("companyRNC", "") }}</td></tr>
                 <tr><td class="lbl" style="border:none;">Póliza de Accidente No.:</td><td class="data" style="border:none;">{{ c.get("insurancePolicy", "") }}</td></tr>
-                <tr><td class="lbl" style="border:none;">Cambios Efectuados en el mes de:</td><td class="data" style="border:none;">&nbsp;</td></tr>
+                <tr><td class="lbl" style="border:none;">Cambios Efectuados en el mes de:</td><td class="data" style="border:none;">{{ "%02d"|format(d.get("month", 1)) }}/{{ d.get("year", "") }}</td></tr>
             </table>
         </td>
         <td>

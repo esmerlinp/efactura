@@ -63,6 +63,7 @@ EXPORT_COLUMNS = [
     ("Horas Semanales", "weeklyHours"),
     ("Turno", "workShift"),
     ("Nivel Educación", "educationLevel"),
+    ("Código Educación SIRLA", "sirlaEducationCode"),
     ("Concesión Vacaciones", "vacationGranted"),
     ("No. SDSS", "sdssNumber"),
     ("Inicio Vacaciones (DGT)", "vacationStartDate"),

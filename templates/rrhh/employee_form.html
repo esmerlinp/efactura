@@ -149,6 +149,16 @@
                     <option value="4" {% if employee and employee.educationLevel == 4 %}selected{% endif %}>Grado Universitario</option>
                     <option value="5" {% if employee and employee.educationLevel == 5 %}selected{% endif %}>Postgrado/Maestría</option>
                 </select>
+                <span style="font-size:0.75rem; color:var(--text-muted);">Usado para reglas de nómina</span>
+            </div>
+            <div class="form-group">
+                <label>Nivel educativo SIRLA (DGT)</label>
+                <select name="sirlaEducationCode" class="form-select">
+                    <option value="">— Sin asignar (pendiente)</option>
+                    {% for lvl in sirla_education_levels %}
+                    <option value="{{ lvl.code }}" {% if employee and employee.sirlaEducationCode == lvl.code %}selected{% endif %}>{{ lvl.code }} — {{ lvl.label }}</option>
+                    {% endfor %}
+                </select>
                 <span style="font-size:0.75rem; color:var(--text-muted);">Requerido para reportes DGT (Ministerio de Trabajo)</span>
             </div>
             <div class="form-group">
