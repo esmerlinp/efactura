@@ -71,9 +71,6 @@ BULK_EDITABLE_FIELDS = {
                 "completa", "media_jornada", "reducida", "por_turnos",
             ]},
             {"name": "probationEndDate", "label": "Fin Período de Prueba", "type": "date"},
-            {"name": "status", "label": "Estado", "type": "select", "options": [
-                "activo", "inactivo", "suspendido",
-            ]},
         ],
     },
     "payment": {
@@ -228,7 +225,7 @@ def _execute_bulk_edit(company_id: str, job_id: str, user_email: str, sandbox: b
 
     job["status"] = "processing"
     employee_ids = job["employee_ids"]
-    changes = job["changes"]
+    changes = {k: v for k, v in job["changes"].items() if k != "status"}
 
     for eid in employee_ids:
         try:
