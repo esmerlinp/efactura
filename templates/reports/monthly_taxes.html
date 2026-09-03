@@ -281,7 +281,7 @@
 
     {% if active_tab == 'sales' %}
         {% if sales_bd %}
-        <table class="data-table">
+        <table class="data-grid data-grid--wide">
             <thead>
                 <tr>
                     <th>Impuesto</th>
@@ -314,7 +314,7 @@
 
     {% elif active_tab == 'purchases' %}
         {% if purchase_detail_rows %}
-        <table class="data-table">
+        <table class="data-grid data-grid--wide">
             <thead>
                 <tr>
                     <th>NCF / Número</th>
@@ -357,7 +357,7 @@
 
     {% elif active_tab == 'sales_retentions' %}
         {% if sales_ret_rows %}
-        <table class="data-table">
+        <table class="data-grid data-grid--wide">
             <thead>
                 <tr>
                     <th>NCF / Número</th>
@@ -392,7 +392,7 @@
 
     {% elif active_tab == 'purchase_retentions' %}
         {% if purchase_ret_rows %}
-        <table class="data-table">
+        <table class="data-grid data-grid--wide">
             <thead>
                 <tr>
                     <th>NCF / Número</th>

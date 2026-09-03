@@ -42,7 +42,7 @@
 <div class="balance-container">
 
     <div class="breadcrumb">
-        <a href="{{ url_for('web_invoices.reports_dashboard') }}">Reportes</a>
+        <a href="{{ url_for('web_invoices.reports_category', category_key='empleados') }}">Empleados</a>
         <span class="sep">›</span>
         <span>Saldo de Vacaciones</span>
     </div>
@@ -60,9 +60,6 @@
                 <i class="fa-solid fa-file-pdf"></i> PDF
             </a>
             {% endif %}
-            <a href="{{ url_for('web_invoices.reports_dashboard') }}" class="btn btn-ghost">
-                <i class="fa-solid fa-arrow-left"></i> Reportes
-            </a>
         </div>
     </div>
 
@@ -154,7 +151,7 @@
             <h3>Saldo actual de vacaciones por empleado</h3>
         </div>
         <div class="table-responsive">
-            <table class="table-premium balance-table">
+            <table class="data-grid balance-table">
                 <thead>
                     <tr>
                         <th>Código</th>
@@ -171,7 +168,7 @@
                 <tbody>
                     {% for r in results %}
                     <tr>
-                        <td>{{ r.cedula }}</td>
+                         <td>{{ r.code }}</td>
                         <td>{{ r.fullName }}</td>
                         <td>{{ r.branchName or '—' }}</td>
                         <td>{{ r.department or '—' }}</td>

@@ -83,6 +83,10 @@
     <!-- Shared Design System Components -->
     <link rel="stylesheet"
         href="{{ url_for('static', filename='css/_components.css') }}?v={{ static_hash('css/_components.css') }}">
+    <link rel="stylesheet"
+        href="{{ url_for('static', filename='css/_data-grid.css') }}?v={{ static_hash('css/_data-grid.css') }}">
+    <link rel="stylesheet"
+        href="{{ url_for('static', filename='css/_report-header.css') }}?v={{ static_hash('css/_report-header.css') }}">
     <style>:root{--accent-orange:#f97316}</style>
 
     {% if company_apply_color_marca_ui and company_color_marca %}

@@ -9207,7 +9207,7 @@ def get_report_categories():
             "key": "nomina",
             "icon": "fa-solid fa-coins",
             "title": "Nómina",
-            "count": 14,
+             "count": 19,
             "description": "Reportes detallados de nómina, contribuciones TSS, certificados IR-18, simulaciones y formularios DGT.",
             "category_url": url_for('web_invoices.reports_category', category_key='nomina'),
             "reports": [
@@ -9250,7 +9250,17 @@ def get_report_categories():
                 {"title": "DGT-9: Suspensión", "url": "web_invoices.dgt9_view",
                  "enabled": module_enabled('nomina'),
                  "desc": "Registro de suspensión de contratos."},
-            ]
+                 {"title": "Proyección anual de nómina", "url": "web_invoices.report_payroll_projection",
+                  "enabled": module_enabled('nomina'), "desc": "Proyecta mes a mes el costo anual de tu nómina."},
+                 {"title": "Proyección de prestaciones laborales", "url": "web_invoices.report_benefits_projection",
+                  "enabled": module_enabled('nomina'), "desc": "Detalle de prestaciones laborales por empleado."},
+                 {"title": "Proyección anual de AFP", "url": "web_invoices.report_afp_projection",
+                  "enabled": module_enabled('nomina'), "desc": "Proyecta los aportes AFP del empleado y empleador."},
+                 {"title": "Proyección anual de SFS", "url": "web_invoices.report_sfs_projection",
+                  "enabled": module_enabled('nomina'), "desc": "Proyecta los aportes SFS del empleado y empleador."},
+                 {"title": "Proyección anual de ISR", "url": "web_invoices.report_isr_projection",
+                  "enabled": module_enabled('nomina'), "desc": "Proyecta las retenciones ISR de nómina."},
+             ]
         },
         {
             "key": "para_trabajar",

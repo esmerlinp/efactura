@@ -2,6 +2,7 @@
 {% block title %}DGT-12 — Cese de Suspensión — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
+<div class="breadcrumb"><a href="{{ url_for('web_invoices.reports_category', category_key='nomina') }}">Nómina</a><span class="sep">›</span><span>DGT-12</span></div>
 <div class="page-header hr-page-header">
     <h1 class="page-title"><i class="fa-solid fa-play-circle"></i> DGT-12: Cese de Suspensión</h1>
     <p style="color:var(--text-secondary); margin:0;">Ministerio de Trabajo — Reincorporación de trabajadores tras suspensión</p>
@@ -52,7 +53,7 @@
         <h3><i class="fa-solid fa-list"></i> Suspensiones Activas</h3>
         {% if suspensions %}
         <div style="overflow-x:auto;">
-            <table class="table-premium" style="font-size:0.8rem;">
+            <table class="data-grid data-grid--wide">
                 <thead><tr><th>Fecha</th><th>Causa</th><th>Trabajadores</th><th>Estado</th></tr></thead>
                 <tbody>
                     {% for s in suspensions %}

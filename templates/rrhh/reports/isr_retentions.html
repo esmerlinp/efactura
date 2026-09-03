@@ -2,14 +2,14 @@
 {% block title %}Retenciones ISR Nómina — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
-<div class="breadcrumb"><a href="{{ url_for('web_invoices.reports_index') }}">Reportes de RRHH</a> <span class="sep">›</span> <span>Retenciones ISR Nómina</span></div>
+<div class="breadcrumb"><a href="{{ url_for('web_invoices.reports_category', category_key='nomina') }}">Nómina</a> <span class="sep">›</span> <span>Retenciones ISR Nómina</span></div>
 <div class="page-header hr-page-header">
     <h1 class="page-title"><i class="fa-solid fa-file-invoice-dollar"></i> Retenciones ISR Nómina {{ year }}</h1>
     <div class="hr-page-actions">
         <a href="{{ url_for('web_invoices.report_isr_retentions_export', year=year, month=request.args.get('month', 1)) }}" class="btn btn-primary">
             <i class="fa-solid fa-file-csv"></i> Exportar CSV
         </a>
-        <a href="{{ url_for('web_invoices.reports_index') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Reportes</a>
+        <a href="{{ url_for('web_invoices.reports_category', category_key='nomina') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Nómina</a>
     </div>
 </div>
 
@@ -21,7 +21,7 @@
 
 <div class="card-table-wrapper hr-table-card">
     <div class="table-responsive">
-        <table class="table-premium" style="font-size:0.85rem;">
+        <table class="data-grid">
         <thead><tr>
             <th>Mes</th>
             <th style="text-align:right;">Empleados</th>

@@ -2,6 +2,7 @@
 {% block title %}DGT-4 — Cambios {{ year }}-{{ '%02d'|format(month) }} — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
+<div class="breadcrumb"><a href="{{ url_for('web_invoices.reports_category', category_key='nomina') }}">Nómina</a><span class="sep">›</span><span>DGT-4</span></div>
 <div class="page-header hr-page-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;">
     <div>
         <h1 class="page-title"><i class="fa-solid fa-arrows-rotate"></i> DGT-4: Cambios en Personal Fijo</h1>
@@ -62,7 +63,7 @@
     </div>
 
     <div style="overflow-x:auto;">
-        <table class="table-premium" style="font-size:0.8rem;">
+        <table class="data-grid data-grid--wide">
             <thead>
                 <tr>
                     <th>#</th>

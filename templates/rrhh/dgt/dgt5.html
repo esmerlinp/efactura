@@ -2,19 +2,23 @@
 {% block title %}DGT-5 — Personal Ocasional — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
-<div class="page-header hr-page-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;">
+<div class="breadcrumb"><a href="{{ url_for('web_invoices.reports_category', category_key='nomina') }}">Nómina</a><span class="sep">›</span><span>DGT-5</span></div>
+<div class="report-header">
+<div class="report-header__top">
     <div>
-        <h1 class="page-title"><i class="fa-solid fa-user-clock"></i> DGT-5: Relación de Personal Temporero</h1>
-        <p style="color:var(--text-secondary); margin:0;">Ministerio de Trabajo — Trabajadores temporeros, móviles u ocasionales</p>
+        <div class="report-header__eyebrow">Ministerio de Trabajo</div>
+        <h1 class="report-header__title"><i class="fa-solid fa-user-clock"></i> DGT-5: Personal temporero</h1>
+        <p class="report-header__description">Trabajadores temporeros, móviles u ocasionales.</p>
     </div>
-    <div style="display:flex; gap:8px;">
-        <a href="{{ url_for('web_invoices.dgt5_export', format='xlsx') }}" class="btn btn-success">
+    <div class="report-header__actions">
+        <a href="{{ url_for('web_invoices.dgt5_export', format='xlsx') }}" class="report-header__action report-header__action--csv">
             <i class="fa-solid fa-file-excel"></i> .xlsx
         </a>
-        <a href="{{ url_for('web_invoices.dgt5_export', format='pdf') }}" class="btn btn-danger">
+        <a href="{{ url_for('web_invoices.dgt5_export', format='pdf') }}" class="report-header__action report-header__action--pdf">
             <i class="fa-solid fa-file-pdf"></i> .pdf
         </a>
     </div>
+</div>
 </div>
 
 {% set lines = data.get("lines", []) %}
@@ -37,7 +41,7 @@
 
     {% if lines %}
     <div style="overflow-x:auto;">
-        <table class="table-premium" style="font-size:0.78rem;">
+        <table class="data-grid data-grid--wide">
             <thead>
                 <tr>
                     <th>#</th>

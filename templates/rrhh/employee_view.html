@@ -376,7 +376,7 @@
             <h3>Evaluaciones ({{ evaluations|length }})</h3>
             {% if evaluations %}
             <div class="table-responsive">
-                <table class="table-premium">
+                <table class="data-grid">
                 <thead><tr><th>Fecha</th><th>Tipo</th><th>Punt.</th><th>Evaluador</th><th>Fortalezas</th></tr></thead>
                 <tbody>{% for ev in evaluations %}
                     <tr><td>{{ ev.date }}</td><td>{{ ev.evalType }}</td><td><span class="badge badge-info">{{ ev.score }}/5</span></td><td>{{ ev.evaluatorName }}</td><td>{{ ev.strengths[:60] }}</td></tr>
@@ -387,7 +387,7 @@
             <h3>Capacitaciones ({{ trainings|length }})</h3>
             {% if trainings %}
                 <div class="table-responsive">
-                <table class="table-premium">
+                <table class="data-grid">
                 <thead><tr><th>Fecha</th><th>Capacitación</th><th>Institución</th><th>Horas</th><th>Cert.</th></tr></thead>
                 <tbody>{% for t in trainings %}
                     <tr><td>{{ t.date }}</td><td>{{ t.trainingName }}</td><td>{{ t.institution }}</td><td>{{ t.hours }}</td><td>{% if t.hasCertificate %}<span class="badge badge-success">Sí</span>{% else %}No{% endif %}</td></tr>
@@ -406,7 +406,7 @@
             </h3>
             {% if payment_history %}
             <div class="table-responsive">
-                <table class="table-premium" style="font-size:0.82rem;">
+                <table class="data-grid">
                 <thead>
                     <tr>
                         <th>Período</th>
@@ -470,7 +470,7 @@
         <div class="hr-section-card" style="margin-bottom:20px;">
             <h3><i class="fa-solid fa-clock-rotate-left"></i> Historial de estado</h3>
             <div class="table-responsive">
-                <table class="table-premium">
+                <table class="data-grid">
                     <thead>
                         <tr>
                             <th>Fecha</th>
@@ -510,7 +510,7 @@
         {% endif %}
         {% if employee_actions %}
         <div class="table-responsive">
-            <table class="table-premium">
+            <table class="data-grid">
                 <thead>
                     <tr>
                         <th>Fecha</th>
@@ -597,7 +597,7 @@
                 </div>
             </div>
             <div class="table-responsive">
-                <table class="table-premium">
+                <table class="data-grid">
                     <thead>
                         <tr>
                             <th>Herramienta</th>

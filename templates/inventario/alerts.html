@@ -21,7 +21,7 @@
     </div>
     {% if reorder %}
     <div class="table-responsive">
-        <table class="table-premium">
+        <table class="data-grid">
             <thead><tr><th>Producto</th><th>Stock</th><th>Mín</th><th>Máx</th><th>Consumo/Mes</th><th>Sugerido</th><th>Meses</th><th>Severidad</th></tr></thead>
             <tbody>
                 {% for r in reorder %}
@@ -51,7 +51,7 @@
     </div>
     {% if expirations.alert_30d %}
     <div class="table-responsive">
-        <table class="table-premium">
+        <table class="data-grid">
             <thead><tr><th>Producto</th><th>Lote</th><th>Cantidad</th><th>Vence</th><th>Días</th></tr></thead>
             <tbody>
                 {% for e in expirations.alert_30d %}
@@ -72,7 +72,7 @@
     </div>
     {% if expirations.alert_60d %}
     <div class="table-responsive">
-        <table class="table-premium">
+        <table class="data-grid">
             <thead><tr><th>Producto</th><th>Lote</th><th>Cantidad</th><th>Vence</th><th>Días</th></tr></thead>
             <tbody>
                 {% for e in expirations.alert_60d %}
@@ -93,7 +93,7 @@
     </div>
     {% if expirations.alert_90d %}
     <div class="table-responsive">
-        <table class="table-premium">
+        <table class="data-grid">
             <thead><tr><th>Producto</th><th>Lote</th><th>Cantidad</th><th>Vence</th><th>Días</th></tr></thead>
             <tbody>
                 {% for e in expirations.alert_90d %}

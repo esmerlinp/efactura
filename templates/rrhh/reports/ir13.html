@@ -209,7 +209,7 @@
 
     {% if not is_pdf %}
     <div class="ir13-toolbar">
-        <a href="{{ url_for('web_invoices.reports_index') }}" class="btn-back">&larr; Reportes</a>
+        <a href="{{ url_for('web_invoices.reports_category', category_key='nomina') }}" class="btn-back">&larr; Nómina</a>
         <select class="btn-year" onchange="window.location.href='?year='+this.value">
             {% for y in range(year-3, year+2) %}
             <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>

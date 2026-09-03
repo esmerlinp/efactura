@@ -16,6 +16,159 @@ from app.services.payroll_service import PayrollService
 import csv, io
 
 
+def _projection_filters(employees):
+    """Lee filtros comunes y devuelve opciones para todas las proyecciones."""
+    return {
+        "employee_id": request.args.get("employee_id", ""),
+        "department": request.args.get("department", ""),
+        "area": request.args.get("area", ""),
+        "group_id": request.args.get("group_id", ""),
+        "status": request.args.get("status", ""),
+        "include_inactive": request.args.get("include_inactive") == "1",
+        "employees": employees,
+        "departments": sorted({e.get("department", e.get("area", "General")) for e in employees if e.get("department") or e.get("area")}),
+        "areas": sorted({e.get("area", "") for e in employees if e.get("area")}),
+        "groups": [],
+        "statuses": ["activo", "vacaciones", "licencia", "suspendido", "inactivo"],
+    }
+
+
+def _projection_groups(company_id, sandbox):
+    try:
+        return hr.get_payroll_groups(company_id, sandbox=sandbox)
+    except (AttributeError, TypeError):
+        return []
+
+
+def _projection_year():
+    try:
+        return int(request.args.get("year", date.today().year))
+    except (TypeError, ValueError):
+        return date.today().year
+
+
+def _projection_csv(title, headers, rows, total_row):
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([title])
+    writer.writerow(headers)
+    writer.writerows(rows)
+    writer.writerow([])
+    writer.writerow(total_row)
+    result = io.BytesIO(b"\xef\xbb\xbf" + output.getvalue().encode("utf-8"))
+    result.seek(0)
+    return result
+
+
+def _projection_pdf(template, data, filename):
+    from app.utils.pdf import pdf_write_options
+    from weasyprint import HTML as WeasyprintHTML
+    data["is_pdf"] = True
+    rendered = render_template(template, active_page="rrhh_reports", **data)
+    pdf_bytes = WeasyprintHTML(string=rendered, base_url=request.host_url).write_pdf(**pdf_write_options())
+    response = make_response(pdf_bytes)
+    response.headers["Content-Type"] = "application/pdf"
+    response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+def _projection_data(kind):
+    from app.services import hr_data_service as hr
+    from app.services.payroll_projection_service import PayrollProjectionService
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    employees = hr.get_employees(company_id, sandbox=sandbox)
+    filters = _projection_filters(employees)
+    filters["groups"] = _projection_groups(company_id, sandbox)
+    year = _projection_year()
+    if kind == "benefits":
+        cutoff = request.args.get("cutoff_date", f"{year}-12-31")
+        result = PayrollProjectionService.project_benefits(employees, cutoff, **{k: filters[k] for k in ("employee_id", "department", "area", "group_id", "status", "include_inactive")})
+        result.update(filters=filters, year=year, cutoff_date=cutoff)
+        return result
+    result = PayrollProjectionService.project_payroll(employees, year, tax_rates=hr.get_tax_rates(company_id, sandbox=sandbox), **{k: filters[k] for k in ("employee_id", "department", "area", "group_id", "status", "include_inactive")})
+    result["filters"] = filters
+    return result
+
+
+def _projection_view(kind, title, template):
+    data = _projection_data(kind)
+    return render_template(template, active_page="rrhh_reports", title=title, **data)
+
+
+@web_invoices_bp.route('/reports/rrhh/payroll-projection')
+@web_rrhh_bp.route('/rrhh/reports/payroll-projection')
+@require_module('nomina')
+def report_payroll_projection():
+    if _login_required(): return redirect(url_for('web_auth.login'))
+    return _projection_view('payroll', 'Proyección anual de nómina', 'rrhh/reports/projection.html')
+
+
+@web_invoices_bp.route('/reports/rrhh/benefits-projection')
+@web_rrhh_bp.route('/rrhh/reports/benefits-projection')
+@require_module('nomina')
+def report_benefits_projection():
+    if _login_required(): return redirect(url_for('web_auth.login'))
+    return _projection_view('benefits', 'Proyección de prestaciones laborales', 'rrhh/reports/benefits_projection.html')
+
+
+def _contribution_projection(kind, title):
+    data = _projection_data('payroll')
+    metric = 'afpEmployee' if kind == 'afp' else 'sfsEmployee' if kind == 'sfs' else 'isrRetention'
+    employer = 'afpEmployer' if kind == 'afp' else 'sfsEmployer' if kind == 'sfs' else None
+    data['metric'] = metric
+    data['employer_metric'] = employer
+    data['projection_title'] = title
+    return render_template('rrhh/reports/contribution_projection.html', active_page='rrhh_reports', **data)
+
+
+@web_invoices_bp.route('/reports/rrhh/afp-projection')
+@web_rrhh_bp.route('/rrhh/reports/afp-projection')
+@require_module('nomina')
+def report_afp_projection():
+    if _login_required(): return redirect(url_for('web_auth.login'))
+    return _contribution_projection('afp', 'Proyección anual de AFP')
+
+
+@web_invoices_bp.route('/reports/rrhh/sfs-projection')
+@web_rrhh_bp.route('/rrhh/reports/sfs-projection')
+@require_module('nomina')
+def report_sfs_projection():
+    if _login_required(): return redirect(url_for('web_auth.login'))
+    return _contribution_projection('sfs', 'Proyección anual de SFS')
+
+
+@web_invoices_bp.route('/reports/rrhh/isr-projection')
+@web_rrhh_bp.route('/rrhh/reports/isr-projection')
+@require_module('nomina')
+def report_isr_projection():
+    if _login_required(): return redirect(url_for('web_auth.login'))
+    return _contribution_projection('isr', 'Proyección anual de ISR')
+
+
+@web_invoices_bp.route('/reports/rrhh/projection/export')
+@web_rrhh_bp.route('/rrhh/reports/projection/export')
+@require_module('nomina')
+def report_projection_export():
+    if _login_required(): return redirect(url_for('web_auth.login'))
+    kind = request.args.get('kind', 'payroll')
+    fmt = request.args.get('format', 'csv')
+    data = _projection_data(kind)
+    if kind == 'benefits':
+        headers = ['Empleado', 'Cédula', 'Departamento', 'Preaviso', 'Cesantía', 'Vacaciones', 'Salario Navidad', 'Salario proporcional', 'Total']
+        rows = [[r['employeeName'], r['cedula'], r['department'], r['preaviso'], r['cesantia'], r['vacaciones'], r['salarioNavidad'], r['salarioProporcional'], r['total']] for r in data['rows']]
+        total = ['TOTAL', '', '', '', '', '', '', '', data['total']]
+        filename = 'proyeccion_prestaciones'
+    else:
+        headers = ['Mes', 'Bruto', 'AFP empleado', 'SFS empleado', 'ISR', 'Neto', 'Aportes patronales', 'Costo total']
+        rows = [[r['month'], r['totalIncome'], r['afpEmployee'], r['sfsEmployee'], r['isrRetention'], r['netSalary'], r['totalEmployerContrib'], r['totalCost']] for r in data['months']]
+        total = ['TOTAL', data['totals']['totalIncome'], data['totals']['afpEmployee'], data['totals']['sfsEmployee'], data['totals']['isrRetention'], data['totals']['netSalary'], data['totals']['totalEmployerContrib'], data['totals']['totalCost']]
+        filename = 'proyeccion_nomina'
+    if fmt == 'pdf':
+        template = 'rrhh/reports/benefits_projection.html' if kind == 'benefits' else 'rrhh/reports/projection.html'
+        return _projection_pdf(template, data, f'{filename}_{data.get("year", "")}.pdf')
+    return send_file(_projection_csv(filename, headers, rows, total), mimetype='text/csv', as_attachment=True, download_name=f'{filename}_{data.get("year", "")}.csv')
+
+
 def _enrich_periods(periods, owner_uid, sandbox):
     """Inyecta líneas desde subcolección a cada período para compatibilidad con templates."""
     for p in periods:
@@ -96,7 +249,9 @@ def report_ir18_view(employee_id):
 def reports_index():
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    return render_template("rrhh/reports/index.html", active_page="rrhh_reports")
+    # Legacy RRHH reports landing page: keep old URLs working while using the
+    # unified reports category navigation.
+    return redirect(url_for("web_invoices.reports_category", category_key="nomina"))
 
 
 @web_invoices_bp.route('/reports/rrhh/department')
@@ -610,7 +765,7 @@ def _build_anniversary_data(company_id, sandbox, owner_uid):
 
         results.append({
             "id": emp.get("id", ""),
-            "cedula": emp.get("cedula", "") or emp.get("idNumber", ""),
+            "code": emp.get("code", ""),
             "fullName": emp.get("fullName", ""),
             "branchName": branch_map.get(emp.get("branchId", ""), ""),
             "department": emp.get("department", "") or emp.get("area", ""),
@@ -708,7 +863,7 @@ def report_anniversary_export():
                     "Dia de Aniversario", "Anos en la Empresa"])
         for r in filtered:
             ws.append([
-                r["cedula"],
+                r["code"],
                 r["fullName"],
                 r["branchName"],
                 r["department"],
@@ -728,7 +883,7 @@ def report_anniversary_export():
         csv_out.write("Codigo,Nombre,Sucursal,Departamento,Puesto,Dia de Aniversario,Anos en la Empresa\n")
         for r in filtered:
             csv_out.write(
-                f"{r['cedula']},{r['fullName']},{r['branchName']},{r['department']},"
+                 f"{r['code']},{r['fullName']},{r['branchName']},{r['department']},"
                 f"{r['position']},{r['anniversaryDay']:02d}/{r['anniversaryMonth']:02d},{r['yearsInCompany']}\n"
             )
         buf = io.BytesIO()
@@ -820,7 +975,7 @@ def _build_birthday_data(company_id, sandbox, owner_uid):
 
         results.append({
             "id": emp.get("id", ""),
-            "cedula": emp.get("cedula", "") or emp.get("idNumber", ""),
+            "code": emp.get("code", ""),
             "fullName": emp.get("fullName", ""),
             "branchName": branch_map.get(emp.get("branchId", ""), ""),
             "department": emp.get("department", "") or emp.get("area", ""),
@@ -917,7 +1072,7 @@ def report_birthday_export():
                     "Dia de Nacimiento", "Edad"])
         for r in filtered:
             ws.append([
-                r["cedula"],
+                r["code"],
                 r["fullName"],
                 r["branchName"],
                 r["department"],
@@ -937,7 +1092,7 @@ def report_birthday_export():
         csv_out.write("Codigo,Nombre,Sucursal,Departamento,Puesto,Dia de Nacimiento,Edad\n")
         for r in filtered:
             csv_out.write(
-                f"{r['cedula']},{r['fullName']},{r['branchName']},{r['department']},"
+                 f"{r['code']},{r['fullName']},{r['branchName']},{r['department']},"
                 f"{r['position']},{r['birthDay']:02d}/{r['birthMonth']:02d},{r['age']}\n"
             )
         buf = io.BytesIO()
@@ -1051,7 +1206,7 @@ def _build_vacation_balance_data(company_id, sandbox, owner_uid):
 
         results.append({
             "id": emp_id,
-            "cedula": emp.get("cedula", "") or emp.get("idNumber", ""),
+            "code": emp.get("code", ""),
             "fullName": emp.get("fullName", ""),
             "branchName": branch_map.get(emp.get("branchId", ""), ""),
             "department": emp.get("department", "") or emp.get("area", ""),
@@ -1157,7 +1312,7 @@ def report_vacation_balance_export():
                     "Dias Tomados", "Dias Pendientes"])
         for r in results:
             ws.append([
-                r["cedula"], r["fullName"], r["branchName"], r["department"],
+                r["code"], r["fullName"], r["branchName"], r["department"],
                 r["position"], r["hireDate"], r["yearsInCompany"],
                 r["accruedDays"], r["takenDays"], r["remainingDays"],
             ])
@@ -1174,7 +1329,7 @@ def report_vacation_balance_export():
         csv_out.write("Codigo,Nombre,Sucursal,Departamento,Puesto,Fecha Ingreso,Anos Antiguedad,Dias Acumulados,Dias Tomados,Dias Pendientes\n")
         for r in results:
             csv_out.write(
-                f"{r['cedula']},{r['fullName']},{r['branchName']},{r['department']},"
+                 f"{r['code']},{r['fullName']},{r['branchName']},{r['department']},"
                 f"{r['position']},{r['hireDate']},{r['yearsInCompany']},"
                 f"{r['accruedDays']},{r['takenDays']},{r['remainingDays']}\n"
             )
@@ -1270,7 +1425,7 @@ def _build_vacation_periods_data(company_id, sandbox, owner_uid):
 
         results.append({
             "id": req.get("id", ""),
-            "cedula": emp.get("cedula", "") or emp.get("idNumber", ""),
+            "code": emp.get("code", ""),
             "fullName": req.get("employeeName", emp.get("fullName", "")),
             "branchName": branch_map.get(emp.get("branchId", ""), ""),
             "department": emp.get("department", "") or emp.get("area", ""),
@@ -1357,7 +1512,7 @@ def report_vacation_periods_export():
                     "Desde", "Hasta", "Dias", "Estado"])
         for r in filtered:
             ws.append([
-                r["cedula"], r["fullName"], r["branchName"], r["department"],
+                r["code"], r["fullName"], r["branchName"], r["department"],
                 r["position"],
                 r["startDate"].strftime("%d/%m/%Y") if r["startDate"] else "",
                 r["endDate"].strftime("%d/%m/%Y") if r["endDate"] else "",
@@ -1377,7 +1532,7 @@ def report_vacation_periods_export():
             sd = r["startDate"].strftime("%d/%m/%Y") if r["startDate"] else ""
             ed = r["endDate"].strftime("%d/%m/%Y") if r["endDate"] else ""
             csv_out.write(
-                f"{r['cedula']},{r['fullName']},{r['branchName']},{r['department']},"
+                 f"{r['code']},{r['fullName']},{r['branchName']},{r['department']},"
                 f"{r['position']},{sd},{ed},{r['days']},{r['status']}\n"
             )
         buf = io.BytesIO()
@@ -1434,5 +1589,3 @@ def report_vacation_periods_pdf():
     filename = f"periodos_vacaciones_{year}_{month:02d}.pdf" if month > 0 else f"periodos_vacaciones_{year}.pdf"
     response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
-
-

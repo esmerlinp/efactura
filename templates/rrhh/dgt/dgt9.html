@@ -2,6 +2,7 @@
 {% block title %}DGT-9 — Suspensión de Contratos — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
+<div class="breadcrumb"><a href="{{ url_for('web_invoices.reports_category', category_key='nomina') }}">Nómina</a><span class="sep">›</span><span>DGT-9</span></div>
 <div class="page-header hr-page-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;">
     <div>
         <h1 class="page-title"><i class="fa-solid fa-pause-circle"></i> DGT-9: Suspensión de Contratos</h1>
@@ -106,7 +107,7 @@
         <h3><i class="fa-solid fa-list"></i> Suspensiones Registradas</h3>
         {% if data %}
         <div style="overflow-x:auto;">
-            <table class="table-premium" style="font-size:0.8rem;">
+            <table class="data-grid data-grid--wide">
                 <thead><tr><th>Fecha</th><th>Causa</th><th>Inicio</th><th>Trab.</th><th>Estado</th></tr></thead>
                 <tbody>
                     {% for s in data %}

@@ -2,6 +2,7 @@
 {% block title %}Reportes DGT — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
+<div class="breadcrumb"><a href="{{ url_for('web_invoices.reports_category', category_key='nomina') }}">Nómina</a><span class="sep">›</span><span>DGT</span></div>
 <div class="page-header hr-page-header">
     <h1 class="page-title"><i class="fa-solid fa-file-shield"></i> Reportes DGT / SIRLA</h1>
     <p style="color:var(--text-secondary); margin:0;">Formularios ante el Ministerio de Trabajo (Dirección General de Trabajo)</p>

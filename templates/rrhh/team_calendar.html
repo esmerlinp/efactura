@@ -79,7 +79,7 @@
         <h3>Detalle de ausencias — {{ months_es[month-1] }} {{ year }}</h3>
     </div>
     <div class="table-responsive">
-        <table class="table-premium" style="font-size:0.85rem;">
+        <table class="data-grid">
         <thead><tr><th>Empleado</th><th>Tipo</th><th>Desde</th><th>Hasta</th><th>Días</th></tr></thead>
         <tbody>
             {% for ev in events | sort(attribute='start') %}

@@ -209,7 +209,7 @@
     <div class="section-card">
         <h3><i class="fa-solid fa-box" style="color:var(--accent-amber);"></i> Partidas ({{ order['items']|length if order['items'] else 0 }})</h3>
         <div class="table-responsive">
-            <table class="table-premium">
+            <table class="data-grid">
                 <thead>
                     <tr>
                         <th>#</th>
@@ -265,7 +265,7 @@
         <h3><i class="fa-solid fa-truck-loading" style="color:var(--accent-emerald);"></i> Recepciones</h3>
         {% if order.receipts and order.receipts|length > 0 %}
         <div class="table-responsive">
-            <table class="table-premium">
+            <table class="data-grid">
                 <thead>
                     <tr>
                         <th>Recepción #</th>
@@ -318,7 +318,7 @@
         <h3><i class="fa-solid fa-file-invoice" style="color:var(--accent-purple);"></i> Facturas de Proveedor</h3>
         {% if order.supplier_invoices and order.supplier_invoices|length > 0 %}
         <div class="table-responsive">
-            <table class="table-premium">
+            <table class="data-grid">
                 <thead>
                     <tr>
                         <th>Factura#</th>

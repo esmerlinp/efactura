@@ -170,7 +170,7 @@
     <tbody>
         {% for r in results %}
         <tr class="{% if is_today %}highlight-row{% endif %}">
-            <td>{{ r.cedula }}</td>
+            <td>{{ r.code }}</td>
             <td>
                 {{ r.fullName }}
                 {% if is_today %}<span class="today-tag">Hoy</span>{% endif %}

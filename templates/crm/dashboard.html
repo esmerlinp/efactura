@@ -47,7 +47,7 @@
                 <a href="{{ url_for('web_crm.pipeline') }}" class="btn btn-sm btn-secondary">Ver Pipeline</a>
             </div>
             <div class="table-responsive">
-                <table class="table-premium">
+                <table class="data-grid">
                     <thead><tr><th>Etapa</th><th>Prob.</th><th>Oportunidades</th><th>Valor</th><th>Ponderado</th></tr></thead>
                     <tbody>
                         {% for stage in crm.pipeline %}
@@ -71,7 +71,7 @@
                 <span style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--text-primary);"><i class="fa-solid fa-user-check"></i> Leads Priorizados</span>
             </div>
             <div class="table-responsive">
-                <table class="table-premium">
+                <table class="data-grid">
                     <thead><tr><th>Contacto</th><th>Etapa</th><th>Score</th><th>Próxima Acción</th><th></th></tr></thead>
                     <tbody>
                         {% for lead in crm.topLeads %}
