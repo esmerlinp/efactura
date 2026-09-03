@@ -13,6 +13,7 @@ from app.services.ai_service import AIService
 from app.utils.hr_utils import is_active_equivalent
 from app.extensions import limiter
 from app.data.nationality_catalog import is_valid_nationality_code, LEGACY_NATIONALITY_CODE_MAP
+from app.data.disability_catalog import normalize_disability
 import csv, html, io, json, os, re, uuid, threading
 # ═══════════════════════════════════════════════════════════════════════════
 # IMPORTACIÓN MASIVA DE EMPLEADOS — Onboarding de 4 pasos
@@ -39,6 +40,7 @@ EMPLOYEE_CSV_FIELDS = [
     ("educationLevel", "Grado de instrucción", False, ["instruccion", "educacion", "educación", "education", "educationlevel", "grado"]),
     ("sirlaEducationCode", "Nivel educativo SIRLA (DGT)", False, ["sirla", "nivel_sirla", "educacion_sirla", "educación_sirla", "codigo_educativo", "código_educativo"]),
     ("nationality", "Nacionalidad SIRLA", False, ["nacionalidad", "nationality", "nacionalidad_sirla", "pais", "país"]),
+    ("disability", "Discapacidad SIRLA", False, ["discapacidad", "disability", "discapacidades", "capacidades_especiales"]),
     ("emergencyContact", "Contacto de emergencia", False, ["emergencia", "emergency", "contacto_emergencia", "emergencycontact"]),
     ("emergencyPhone", "Teléfono de emergencia", False, ["tel_emergencia", "emergencyphone", "telefono_emergencia"]),
     ("afpProvider", "AFP", False, ["afp", "afpprovider", "afp_provider"]),
@@ -81,7 +83,7 @@ EMPLOYEE_EXAMPLE_ROW = [
     "Juan", "Carlos", "Pérez", "Gómez",
     "cedula", "40212345678", "juan.perez@example.com", "8095551234",
     "Santo Domingo Este", "Calle Primera #45, Los Prados", "masculino", "1990-05-15",
-    "S", "4", "4765", "1", "María Pérez", "8095555678",
+    "S", "4", "4765", "1", "4714", "María Pérez", "8095555678",
     "AFP Popular", "Empleado ejemplar con buen desempeño.", "2024-01-15", "tiempo_indefinido",
     "2024-04-15", "", "quincenal", "35000",
     "completa", "no", "44", "1",
@@ -583,6 +585,7 @@ def employee_import_process():
                         "sirlaEducationCode": _get_val(row_data, "sirlaEducationCode", "").strip(),
                         "vacationGranted": int(_get_val(row_data, "vacationGranted", "1") or 1),
                         "nationality": _resolve_nationality_id(_get_val(row_data, "nationality", "1")),
+                        "disability": normalize_disability(_get_val(row_data, "disability", "")),
                         "payrollGroupIds": [g.strip() for g in _get_val(row_data, "payrollGroupIds").split(",") if g.strip()],
                     }
 

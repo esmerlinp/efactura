@@ -16,6 +16,7 @@ from app.utils.hr_utils import is_active_equivalent
 from app.services.payroll_audit_service import log_action
 from app.data.occupations_catalog import OCCUPATIONS
 from app.data.nationality_catalog import SIRLA_NATIONALITIES
+from app.data.disability_catalog import SIRLA_DISABILITIES, normalize_disability
 
 
 # Días de la semana para el editor de horario: (código, índice 0=Lun..6=Dom)
@@ -206,7 +207,7 @@ def employee_new():
             "sdssNumber": request.form.get("sdssNumber", "").strip(),
             "vacationStartDate": request.form.get("vacationStartDate", "").strip(),
             "vacationEndDate": request.form.get("vacationEndDate", "").strip(),
-            "disability": request.form.get("disability", "").strip(),
+            "disability": normalize_disability(request.form.getlist("disability")),
             "nationality": int(request.form.get("nationality", 1) or 1),
             "numberOfChildren": int(request.form.get("numberOfChildren", 0) or 0),
             "daysWorked": int(request.form.get("daysWorked", 0) or 0),
@@ -269,7 +270,8 @@ def employee_new():
                            display_schedule={},
                            occupations=OCCUPATIONS, branches=branches,
                            sirla_education_levels=SIRLA_EDUCATION_LEVELS,
-                           sirla_nationalities=SIRLA_NATIONALITIES)
+                           sirla_nationalities=SIRLA_NATIONALITIES,
+                           sirla_disabilities=SIRLA_DISABILITIES)
 
 @web_rrhh_bp.route("/rrhh/employees/<employee_id>/edit", methods=["GET", "POST"])
 def employee_edit(employee_id):
@@ -350,7 +352,7 @@ def employee_edit(employee_id):
             "sdssNumber": request.form.get("sdssNumber", "").strip(),
             "vacationStartDate": request.form.get("vacationStartDate", "").strip(),
             "vacationEndDate": request.form.get("vacationEndDate", "").strip(),
-            "disability": request.form.get("disability", "").strip(),
+            "disability": normalize_disability(request.form.getlist("disability")),
             "nationality": int(request.form.get("nationality", 1) or 1),
             "numberOfChildren": int(request.form.get("numberOfChildren", 0) or 0),
             "daysWorked": int(request.form.get("daysWorked", 0) or 0),
@@ -427,7 +429,8 @@ def employee_edit(employee_id):
                            display_schedule=display_schedule,
                            occupations=OCCUPATIONS, branches=branches,
                            sirla_education_levels=SIRLA_EDUCATION_LEVELS,
-                           sirla_nationalities=SIRLA_NATIONALITIES)
+                           sirla_nationalities=SIRLA_NATIONALITIES,
+                           sirla_disabilities=SIRLA_DISABILITIES)
 
 
 @web_rrhh_bp.route("/rrhh/employees/<employee_id>/view")
@@ -530,6 +533,12 @@ def employee_view(employee_id):
     employee_work_days = PayrollService.resolve_employee_work_days(company_id, employee, sandbox=sandbox)
     from app.data.education_catalog import get_education_label
     from app.data.nationality_catalog import get_nationality_name
+    from app.data.disability_catalog import get_disability_name, normalize_disability
+    _dis_names = [
+        get_disability_name(c)
+        for c in normalize_disability(employee.get("disability")).split(",")
+        if get_disability_name(c)
+    ]
     return render_template("rrhh/employee_view.html", active_page="rrhh_employees",
                            employee=_sanitize_for_role(employee), vacation_days=vacation_days,
                            severance=severance, evaluations=evals, trainings=trainings,
@@ -547,6 +556,7 @@ def employee_view(employee_id):
                            states=offboarding_states,
                            sirla_education_label=get_education_label(employee.get("sirlaEducationCode", "")),
                            sirla_nationality_name=get_nationality_name(employee.get("nationality", 1)),
+                           sirla_disability_names=", ".join(_dis_names),
                            employee_work_days=employee_work_days)
 
 
