@@ -14,6 +14,7 @@ from app.services.hr_data_service import (
     get_overtime_records,
 )
 from app.data.occupations_catalog import get_occupation_name
+from app.data.education_catalog import is_valid_education_code, get_education_label
 from app.utils.hr_utils import is_active_equivalent
 
 
@@ -33,6 +34,18 @@ def _to_sirla_date(d: str) -> str:
 def _map_doc_type_sirla(id_type: str) -> str:
     m = {"cedula": "C", "pasaporte": "P", "nss": "N", "migracion": "M", "seguro_social": "N", "ip": "I"}
     return m.get(id_type.lower(), "C")
+
+
+def _sirla_education_code(emp: dict) -> int:
+    """Código educativo oficial SIRLA (4744-4782) desde el campo del empleado.
+
+    Si no existe un código oficial asignado, devuelve 0 (pendiente). No se
+    inventan equivalencias desde el nivel legacy 1-6.
+    """
+    code = str(emp.get("sirlaEducationCode", "") or "").strip()
+    if is_valid_education_code(code):
+        return int(code)
+    return 0
 
 
 def _to_dgt_date(d: str) -> str:
@@ -130,7 +143,7 @@ def _build_dgt_line(emp: dict, novedad_tipo: int = 0, novedad_fecha: str = "") -
         "estadoTrabajador": 1 if emp.get("status") == "activo" else 1,
         "tipoNovedad": novedad_tipo,
         "fechaNovedad": _to_dgt_date(novedad_fecha) if novedad_fecha else "",
-        "gradoInstruccion": emp.get("educationLevel", 0) or 0,
+        "gradoInstruccion": _sirla_education_code(emp),
         "concesionVacaciones": emp.get("vacationGranted", 1) or 1,
         # SIRLA (nuevo formato fixed-width)
         "docTypeSirla": _map_doc_type_sirla(id_type),
@@ -480,14 +493,23 @@ class DGTService:
         }
 
     @staticmethod
-    def get_dgt5_data(company_id: str, sandbox: bool = True) -> dict:
-        """DGT-5: Personal móvil u ocasional (contrato temporal) con datos PDF."""
+    def get_dgt5_data(company_id: str, year: int = None, month: int = None, sandbox: bool = True) -> dict:
+        """DGT-5: Personal móvil u ocasional (contrato temporal) con datos SIRLA + PDF.
+
+        El archivo SIRLA DGT-5 se declara por mes (Periodo = MMYYYY).
+        """
+        from datetime import datetime as _dt
         from app.services.db_service import DatabaseService
+
+        if year is None:
+            year = _dt.now().year
+        if month is None:
+            month = _dt.now().month
 
         employees = get_employees(company_id, sandbox=sandbox)
         temporales = [
             e for e in employees
-            if e.get("status") == "activo"
+            if is_active_equivalent(e.get("status"))
             and e.get("contractType") in ("tiempo_definido", "temporal", "obra_servicio")
         ]
 
@@ -510,6 +532,8 @@ class DGTService:
         company_raw = DatabaseService.get_company(company_id) or {}
 
         return {
+            "year": year,
+            "month": month,
             "company": {
                 "companyName": company_raw.get("company_name") or company_raw.get("trade_name", ""),
                 "tradeName": company_raw.get("trade_name", ""),

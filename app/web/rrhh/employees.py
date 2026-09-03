@@ -200,6 +200,7 @@ def employee_new():
             "workSchedule": work_schedule,
             "workScheduleCustom": work_schedule_custom,
             "educationLevel": int(request.form.get("educationLevel", 0) or 0),
+            "sirlaEducationCode": request.form.get("sirlaEducationCode", "").strip(),
             "vacationGranted": int(request.form.get("vacationGranted", 1) or 1),
             "sdssNumber": request.form.get("sdssNumber", "").strip(),
             "vacationStartDate": request.form.get("vacationStartDate", "").strip(),
@@ -256,6 +257,7 @@ def employee_new():
     bank_names = [be["name"] for be in bank_entities_list if be.get("active")]
 
     from app.data.occupations_catalog import OCCUPATIONS
+    from app.data.education_catalog import SIRLA_EDUCATION_LEVELS
     return render_template("rrhh/employee_form.html", active_page="rrhh_employees", employee=None,
                            id_types=ID_TYPES, municipios=MUNICIPIOS_RD,
                            contract_types=contract_types, areas=areas,
@@ -265,7 +267,8 @@ def employee_new():
                            positions=positions, departments=departments,
                            payroll_groups=payroll_groups, schedule_days=SCHEDULE_DAYS,
                            display_schedule={},
-                           occupations=OCCUPATIONS, branches=branches)
+                           occupations=OCCUPATIONS, branches=branches,
+                           sirla_education_levels=SIRLA_EDUCATION_LEVELS)
 
 @web_rrhh_bp.route("/rrhh/employees/<employee_id>/edit", methods=["GET", "POST"])
 def employee_edit(employee_id):
@@ -341,6 +344,7 @@ def employee_edit(employee_id):
             "workSchedule": work_schedule,
             "workScheduleCustom": work_schedule_custom,
             "educationLevel": int(request.form.get("educationLevel", 0) or 0),
+            "sirlaEducationCode": request.form.get("sirlaEducationCode", "").strip(),
             "vacationGranted": int(request.form.get("vacationGranted", 1) or 1),
             "sdssNumber": request.form.get("sdssNumber", "").strip(),
             "vacationStartDate": request.form.get("vacationStartDate", "").strip(),
@@ -411,6 +415,7 @@ def employee_edit(employee_id):
             display_schedule = _schedule_map(_pos.get("workSchedule"))
 
     from app.data.occupations_catalog import OCCUPATIONS
+    from app.data.education_catalog import SIRLA_EDUCATION_LEVELS
     return render_template("rrhh/employee_form.html", active_page="rrhh_employees", employee=employee,
                            id_types=ID_TYPES, municipios=MUNICIPIOS_RD,
                            contract_types=contract_types, areas=areas,
@@ -420,7 +425,8 @@ def employee_edit(employee_id):
                            positions=positions, departments=departments,
                            payroll_groups=payroll_groups, schedule_days=SCHEDULE_DAYS,
                            display_schedule=display_schedule,
-                           occupations=OCCUPATIONS, branches=branches)
+                           occupations=OCCUPATIONS, branches=branches,
+                           sirla_education_levels=SIRLA_EDUCATION_LEVELS)
 
 
 @web_rrhh_bp.route("/rrhh/employees/<employee_id>/view")
@@ -521,6 +527,7 @@ def employee_view(employee_id):
 
     branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id)
     employee_work_days = PayrollService.resolve_employee_work_days(company_id, employee, sandbox=sandbox)
+    from app.data.education_catalog import get_education_label
     return render_template("rrhh/employee_view.html", active_page="rrhh_employees",
                            employee=_sanitize_for_role(employee), vacation_days=vacation_days,
                            severance=severance, evaluations=evals, trainings=trainings,
@@ -536,6 +543,7 @@ def employee_view(employee_id):
                            herramientas_asignadas=herramientas_asignadas,
                            offboarding_requests=offboarding_requests,
                            states=offboarding_states,
+                           sirla_education_label=get_education_label(employee.get("sirlaEducationCode", "")),
                            employee_work_days=employee_work_days)
 
 

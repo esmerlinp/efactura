@@ -73,6 +73,7 @@ class Employee(BaseModel):
     workSchedule: List[dict] = []  # [{"day": 0..6, "start": "HH:MM", "end": "HH:MM"}] — 0=Lun..6=Dom
     workScheduleCustom: bool = False  # True = horario propio del empleado (no hereda del puesto)
     educationLevel: int = 0  # Grado instrucción: 1=Primaria, 2=Secundaria, 3=Técnico, 4=Grado, 5=Postgrado, 6=Ninguno
+    sirlaEducationCode: str = ""  # Código oficial SIRLA (4744-4782) para DGT-2/3/4/5
     vacationGranted: int = 1  # Concesión vacaciones: 1=Tomará en el año, 2=Ya las tomó
     sdssNumber: str = ""  # Número de Seguridad Social (SDSS) para DGT-3
     vacationStartDate: str = ""  # Fecha inicio de vacaciones (YYYY-MM-DD) para DGT-3/SIRLA

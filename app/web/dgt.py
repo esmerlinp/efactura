@@ -215,9 +215,11 @@ def dgt5_view():
         return resp
     owner_uid, sandbox, company_id = _get_owner()
     now = datetime.now(timezone.utc)
-    data = DGTService.get_dgt5_data(company_id, sandbox=sandbox)
-    return render_template("rrhh/dgt/dgt5.html", data=data, now=now,
-                           active_page="rrhh_dgt")
+    year = int(request.args.get("year", now.year))
+    month = int(request.args.get("month", now.month))
+    data = DGTService.get_dgt5_data(company_id, year, month, sandbox=sandbox)
+    return render_template("rrhh/dgt/dgt5.html", data=data, year=year, month=month,
+                           now=now, active_page="rrhh_dgt")
 
 
 @web_dgt_bp.route("/rrhh/dgt/dgt5/export")
@@ -227,17 +229,28 @@ def dgt5_export():
         return resp
     owner_uid, sandbox, company_id = _get_owner()
     now = datetime.now(timezone.utc)
-    fmt = request.args.get("format", "xlsx")
+    year = int(request.args.get("year", now.year))
+    month = int(request.args.get("month", now.month))
+    fmt = request.args.get("format", "txt")
 
-    data = DGTService.get_dgt5_data(company_id, sandbox=sandbox)
-    filename = f"DGT5"
+    data = DGTService.get_dgt5_data(company_id, year, month, sandbox=sandbox)
+    filename = f"DGT5_{year:04d}{month:02d}"
 
-    if fmt == "xlsx":
-        buffer = DGTExportService.to_excel(data.get("lines", []), title="DGT-5")
+    if fmt == "txt":
+        content = DGTExportService.to_sirla_txt_dgt5(
+            data.get("lines", []),
+            company_info=data.get("company", {}),
+            year=year, month=month,
+        )
+        buffer = io.BytesIO(content.encode("utf-8"))
+        return send_file(buffer, mimetype="text/plain", as_attachment=True,
+                         download_name=f"{filename}.txt")
+    elif fmt == "xlsx":
+        buffer = DGTExportService.to_excel(data.get("lines", []), title=f"DGT-5 {year}-{month:02d}")
         return send_file(buffer, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                          as_attachment=True, download_name=f"{filename}.xlsx")
     elif fmt == "pdf":
-        buffer = DGTExportService.to_pdf(data.get("lines", []), "dgt5", "DGT-5", data=data)
+        buffer = DGTExportService.to_pdf(data.get("lines", []), "dgt5", f"DGT-5 {year}-{month:02d}", data=data)
         return send_file(buffer, mimetype="application/pdf", as_attachment=True,
                          download_name=f"{filename}.pdf")
     return redirect(url_for("web_dgt.dgt5_view"))

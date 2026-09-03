@@ -1,5 +1,5 @@
 {% extends "rrhh/layout_hr.html" %}
-{% block title %}DGT-5 — Personal Ocasional — {{ product_name }}{% endblock %}
+{% block title %}DGT-5 — Personal Ocasional {{ year }}-{{ '%02d'|format(month) }} — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
 <div class="breadcrumb"><a href="{{ url_for('web_invoices.reports_category', category_key='nomina') }}">Nómina</a><span class="sep">›</span><span>DGT-5</span></div>
@@ -11,14 +11,38 @@
         <p class="report-header__description">Trabajadores temporeros, móviles u ocasionales.</p>
     </div>
     <div class="report-header__actions">
-        <a href="{{ url_for('web_invoices.dgt5_export', format='xlsx') }}" class="report-header__action report-header__action--csv">
+        <a href="{{ url_for('web_invoices.dgt5_export', year=year, month=month, format='txt') }}" class="report-header__action report-header__action--csv">
+            <i class="fa-solid fa-download"></i> .txt (SIRLA)
+        </a>
+        <a href="{{ url_for('web_invoices.dgt5_export', year=year, month=month, format='xlsx') }}" class="report-header__action report-header__action--csv">
             <i class="fa-solid fa-file-excel"></i> .xlsx
         </a>
-        <a href="{{ url_for('web_invoices.dgt5_export', format='pdf') }}" class="report-header__action report-header__action--pdf">
+        <a href="{{ url_for('web_invoices.dgt5_export', year=year, month=month, format='pdf') }}" class="report-header__action report-header__action--pdf">
             <i class="fa-solid fa-file-pdf"></i> .pdf
         </a>
     </div>
 </div>
+</div>
+
+<div class="hr-section-card" style="margin-bottom:16px;">
+    <form method="GET" style="display:flex; gap:12px; align-items:end; flex-wrap:wrap;">
+        <div class="form-group" style="margin:0;">
+            <label>Año</label>
+            <select name="year" class="form-select" onchange="this.form.submit()">
+                {% for y in range(now.year - 3, now.year + 2) %}
+                <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label>Mes</label>
+            <select name="month" class="form-select" onchange="this.form.submit()">
+                {% for m in range(1, 13) %}
+                <option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ '%02d'|format(m) }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
 </div>
 
 {% set lines = data.get("lines", []) %}
