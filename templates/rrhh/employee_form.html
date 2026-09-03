@@ -168,19 +168,13 @@
                 <span style="font-size:0.75rem; color:var(--text-muted);">Para reporte DGT-4</span>
             </div>
             <div class="form-group">
-                <label>Nacionalidad (código SIRLA)</label>
-                <select name="nationalityCode" class="form-select">
-                    <option value="">— (Dominicana)</option>
-                    <option value="USA" {% if employee and employee.nationalityCode == 'USA' %}selected{% endif %}>Estados Unidos</option>
-                    <option value="VEN" {% if employee and employee.nationalityCode == 'VEN' %}selected{% endif %}>Venezuela</option>
-                    <option value="COL" {% if employee and employee.nationalityCode == 'COL' %}selected{% endif %}>Colombia</option>
-                    <option value="CUB" {% if employee and employee.nationalityCode == 'CUB' %}selected{% endif %}>Cuba</option>
-                    <option value="HAI" {% if employee and employee.nationalityCode == 'HAI' %}selected{% endif %}>Haití</option>
-                    <option value="ESP" {% if employee and employee.nationalityCode == 'ESP' %}selected{% endif %}>España</option>
-                    <option value="MEX" {% if employee and employee.nationalityCode == 'MEX' %}selected{% endif %}>México</option>
-                    <option value="ARG" {% if employee and employee.nationalityCode == 'ARC' %}selected{% endif %}>Argentina</option>
-                    <option value="PER" {% if employee and employee.nationalityCode == 'PER' %}selected{% endif %}>Perú</option>
+                <label>Nacionalidad (SIRLA)</label>
+                <select name="nationality" class="form-select">
+                    {% for nat in sirla_nationalities %}
+                    <option value="{{ nat.code }}" {% if employee and (employee.nationality|string) == nat.code %}selected{% endif %}>{{ nat.code }} — {{ nat.name }}</option>
+                    {% endfor %}
                 </select>
+                <span style="font-size:0.75rem; color:var(--text-muted);">Catálogo oficial SIRLA (Ministerio de Trabajo)</span>
             </div>
             <div class="form-group">
                 <label>Contacto de emergencia</label>

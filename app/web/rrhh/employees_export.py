@@ -7,6 +7,7 @@ from app.web.rrhh import (
     _filter_employees_by_period, _generate_periods,
 )
 from app.services import hr_data_service as hr
+from app.data.nationality_catalog import get_nationality_name
 import csv, io
 
 
@@ -55,8 +56,8 @@ EXPORT_COLUMNS = [
     ("Tope SFS", "sfsSalaryCap"),
     ("No. Registro TSS", "tssRegistrationNumber"),
     ("Supervisor", "supervisorName"),
-    ("Nacionalidad", "nationality"),
-    ("Código País (SIRLA)", "nationalityCode"),
+    ("Nacionalidad", "nationalityName"),
+    ("ID Nacionalidad SIRLA", "nationality"),
     ("Estado Civil", "maritalStatus"),
     ("No. Hijos", "numberOfChildren"),
     ("Código Ocupación (CNO)", "occupationCode"),
@@ -128,6 +129,8 @@ def _build_export_rows(employees, branches):
             return sup.get("fullName", "") if sup else ""
         if key == "vacationDays":
             return emp.get("vacationDays", 0)
+        if key == "nationalityName":
+            return get_nationality_name(emp.get("nationality", 1))
         return emp.get(key, "")
 
     rows = []

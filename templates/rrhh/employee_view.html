@@ -248,6 +248,7 @@
                     <div class="hr-info-item"><span class="hr-info-label">Días laborables</span><span class="hr-info-value">{% set _dl = ['L','M','X','J','V','S','D'] %}{% for d in range(7) %}{% if d in employee_work_days %}{{ _dl[d] }}{% endif %}{% endfor %}</span></div>
                     <div class="hr-info-item"><span class="hr-info-label">Instrucción</span><span class="hr-info-value">{% if employee.educationLevel == 1 %}Primaria{% elif employee.educationLevel == 2 %}Secundaria{% elif employee.educationLevel == 3 %}Técnico{% elif employee.educationLevel == 4 %}Grado{% elif employee.educationLevel == 5 %}Postgrado{% elif employee.educationLevel == 6 %}Ninguno{% else %}—{% endif %}</span></div>
                     <div class="hr-info-item"><span class="hr-info-label">Nivel educativo SIRLA (DGT)</span><span class="hr-info-value">{% if employee.sirlaEducationCode %}{{ employee.sirlaEducationCode }} — {{ sirla_education_label }}{% else %}<span style="color:var(--accent-orange);">Pendiente de asignar</span>{% endif %}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Nacionalidad (SIRLA)</span><span class="hr-info-value">{{ sirla_nationality_name or '—' }}</span></div>
                 </div>
             </div>
             <div class="hr-section-card" style="border:none; box-shadow:none; padding:0;">

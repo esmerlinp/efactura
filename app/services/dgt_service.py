@@ -15,6 +15,7 @@ from app.services.hr_data_service import (
 )
 from app.data.occupations_catalog import get_occupation_name
 from app.data.education_catalog import is_valid_education_code, get_education_label
+from app.data.nationality_catalog import nationality_to_sirla, get_nationality_name
 from app.utils.hr_utils import is_active_equivalent
 
 
@@ -118,8 +119,11 @@ def _build_dgt_line(emp: dict, novedad_tipo: int = 0, novedad_fecha: str = "") -
 
     oc_code = emp.get("occupationCode", "")
     posicion = emp.get("position", "")
-    nationality_val = emp.get("nationality", 1)
-    nationality_sirla = "" if nationality_val == 1 else str(nationality_val)[:3]
+    try:
+        nationality_val = int(emp.get("nationality", 1) or 1)
+    except (ValueError, TypeError):
+        nationality_val = 1
+    nationality_sirla = nationality_to_sirla(nationality_val)
 
     return {
         # Legacy (mantener compatibilidad)
@@ -166,7 +170,8 @@ def _build_dgt_line(emp: dict, novedad_tipo: int = 0, novedad_fecha: str = "") -
         "novedadSirla": _map_novedad_sirla(novedad_tipo),
         "nacionalidadSirla": nationality_sirla,
         # DGT-4 PDF
-        "nationalityCode": emp.get("nationalityCode", "") or nationality_sirla,
+        "nationalityCode": nationality_sirla,
+        "nacionalidadNombre": get_nationality_name(nationality_val),
         "numberOfChildren": emp.get("numberOfChildren", 0) or 0,
         "birthDay": emp.get("birthDate", "")[8:10] if len(emp.get("birthDate", "")) >= 10 else "",
         "birthMonth": emp.get("birthDate", "")[5:7] if len(emp.get("birthDate", "")) >= 10 else "",

@@ -63,8 +63,8 @@ class Employee(BaseModel):
     reportsTo: str = ""  # Employee ID del supervisor directo
 
     # Datos DGT/SIRLA
-    nationality: int = 1  # Código de país (1 = Dominicana)
-    nationalityCode: str = ""  # Código país 3 letras para SIRLA (ej: DOM, USA, VEN)
+    nationality: int = 1  # ID oficial SIRLA de nacionalidad (1 = Dominicana)
+    nationalityCode: str = ""  # Legacy: código texto de país (en desuso; migrar a nationality)
     maritalStatus: str = ""  # Estado civil: S/Soltero, C/Casado, U/Unión Libre, D/Divorciado, V/Viudo
     numberOfChildren: int = 0  # Número de hijos para DGT-4
     occupationCode: str = ""  # Código CNO-2019 (4 dígitos, catálogo oficial MT)
