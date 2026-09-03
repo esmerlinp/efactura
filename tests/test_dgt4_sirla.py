@@ -46,7 +46,7 @@ class TestToSirlaTxtDgt4:
         txt = self._render()
         header = txt.split("\n")[0]
         assert len(header) == 20
-        assert header == "ET4" + "00131880681" + "092026"
+        assert header == "ET4" + "131880681  " + "092026"
 
     def test_detalle_longitud_451(self):
         txt = self._render()

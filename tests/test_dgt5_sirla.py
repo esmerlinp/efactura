@@ -39,7 +39,7 @@ class TestToSirlaTxtDgt5:
         txt = self._render()
         header = txt.split("\n")[0]
         assert len(header) == 20
-        assert header == "ET5" + "00131880681" + "092026"
+        assert header == "ET5" + "131880681  " + "092026"
 
     def test_detalle_longitud_287(self):
         txt = self._render()

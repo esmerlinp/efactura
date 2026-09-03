@@ -8,7 +8,7 @@ from flask import render_template, request, redirect, url_for, session, flash, j
 from app.web.rrhh import web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required
 from app.web.invoices import web_invoices_bp
 from app.utils.module_gate import require_module
-from app.services.dgt_service import DGTService
+from app.services.dgt_service import DGTService, _to_sirla_date
 from app.services.dgt_export_service import DGTExportService
 from app.services.db_service import DatabaseService
 from app.data.occupations_catalog import OCCUPATIONS
@@ -258,6 +258,69 @@ def dgt5_export():
         return send_file(buffer, mimetype="application/pdf", as_attachment=True,
                          download_name=f"{filename}.pdf")
     return redirect(url_for("web_invoices.dgt5_view"))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# DGT-11: Comunicación de Ingreso (Estación o Temporada)
+# ═══════════════════════════════════════════════════════════════════════════
+
+@web_invoices_bp.route('/reports/rrhh/dgt/dgt11')
+@web_rrhh_bp.route("/rrhh/dgt/dgt11")
+@require_module('nomina')
+def dgt11_view():
+    resp = _dgt_login_check()
+    if resp:
+        return resp
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    now = datetime.now(timezone.utc)
+    year = int(request.args.get("year", now.year))
+    month = int(request.args.get("month", now.month))
+    fecha_inicio = request.args.get("fecha_inicio", f"{year:04d}-{month:02d}-01")
+    duracion = int(request.args.get("duracion", 1) or 1)
+    data = DGTService.get_dgt11_data(company_id, year, month, sandbox=sandbox)
+    return render_template("rrhh/dgt/dgt11.html", data=data, year=year, month=month,
+                           fecha_inicio=fecha_inicio, duracion=duracion,
+                           now=now, active_page="rrhh_dgt")
+
+
+@web_invoices_bp.route('/reports/rrhh/dgt/dgt11/export')
+@web_rrhh_bp.route("/rrhh/dgt/dgt11/export")
+@require_module('nomina')
+def dgt11_export():
+    resp = _dgt_login_check()
+    if resp:
+        return resp
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    now = datetime.now(timezone.utc)
+    year = int(request.args.get("year", now.year))
+    month = int(request.args.get("month", now.month))
+    fmt = request.args.get("format", "txt")
+    fecha_inicio = request.args.get("fecha_inicio", f"{year:04d}-{month:02d}-01")
+    duracion = int(request.args.get("duracion", 1) or 1)
+
+    data = DGTService.get_dgt11_data(company_id, year, month, sandbox=sandbox)
+    filename = f"DGT11_{year:04d}{month:02d}"
+
+    if fmt == "txt":
+        content = DGTExportService.to_sirla_txt_dgt11(
+            data.get("lines", []),
+            company_info=data.get("company", {}),
+            year=year, month=month,
+            fecha_inicio_estacion=_to_sirla_date(fecha_inicio),
+            duracion_estacion=duracion,
+        )
+        buffer = io.BytesIO(content.encode("utf-8"))
+        return send_file(buffer, mimetype="text/plain", as_attachment=True,
+                         download_name=f"{filename}.txt")
+    elif fmt == "xlsx":
+        buffer = DGTExportService.to_excel(data.get("lines", []), title=f"DGT-11 {year}-{month:02d}")
+        return send_file(buffer, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                         as_attachment=True, download_name=f"{filename}.xlsx")
+    elif fmt == "pdf":
+        buffer = DGTExportService.to_pdf(data.get("lines", []), "dgt11", f"DGT-11 {year}-{month:02d}", data=data)
+        return send_file(buffer, mimetype="application/pdf", as_attachment=True,
+                         download_name=f"{filename}.pdf")
+    return redirect(url_for("web_invoices.dgt11_view"))
 
 
 # ═══════════════════════════════════════════════════════════════════════════
