@@ -8,6 +8,7 @@ from app.web.rrhh import (
 )
 from app.services import hr_data_service as hr
 from app.data.nationality_catalog import get_nationality_name
+from app.data.disability_catalog import get_disability_name, normalize_disability
 import csv, io
 
 
@@ -69,7 +70,7 @@ EXPORT_COLUMNS = [
     ("No. SDSS", "sdssNumber"),
     ("Inicio Vacaciones (DGT)", "vacationStartDate"),
     ("Fin Vacaciones (DGT)", "vacationEndDate"),
-    ("Discapacidad", "disability"),
+    ("Discapacidad", "disabilityName"),
     ("Días Trabajados", "daysWorked"),
     ("Sueldo Diario", "dailySalary"),
     ("Fecha Salida", "terminationDate"),
@@ -94,6 +95,12 @@ def _stringify(value):
     if isinstance(value, bool):
         return "Sí" if value else "No"
     return value
+
+
+def disability_names(value) -> str:
+    """Nombres legibles de las discapacidades SIRLA separados por coma."""
+    codes = normalize_disability(value).split(",")
+    return ", ".join(get_disability_name(c) for c in codes if get_disability_name(c))
 
 
 def _build_export_rows(employees, branches):
@@ -131,6 +138,8 @@ def _build_export_rows(employees, branches):
             return emp.get("vacationDays", 0)
         if key == "nationalityName":
             return get_nationality_name(emp.get("nationality", 1))
+        if key == "disabilityName":
+            return disability_names(emp.get("disability"))
         return emp.get(key, "")
 
     rows = []

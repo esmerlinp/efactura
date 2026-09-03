@@ -16,6 +16,7 @@ from app.services.hr_data_service import (
 from app.data.occupations_catalog import get_occupation_name
 from app.data.education_catalog import is_valid_education_code, get_education_label
 from app.data.nationality_catalog import nationality_to_sirla, get_nationality_name
+from app.data.disability_catalog import normalize_disability
 from app.utils.hr_utils import is_active_equivalent
 
 
@@ -165,7 +166,7 @@ def _build_dgt_line(emp: dict, novedad_tipo: int = 0, novedad_fecha: str = "") -
         "inicioVacaciones": _to_sirla_date(emp.get("vacationStartDate", "")),
         "finVacaciones": _to_sirla_date(emp.get("vacationEndDate", "")),
         "turnoSirla": emp.get("workShift", 1) or 1,
-        "discapacidad": (emp.get("disability", "") or "")[:50],
+        "discapacidad": normalize_disability(emp.get("disability"))[:50],
         "sdssNumber": emp.get("sdssNumber", "") or emp.get("tssRegistrationNumber", ""),
         "novedadSirla": _map_novedad_sirla(novedad_tipo),
         "nacionalidadSirla": nationality_sirla,

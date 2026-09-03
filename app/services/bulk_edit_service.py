@@ -9,6 +9,7 @@ from app.services import hr_data_service as hr
 from app.services.payroll_audit_service import log_action
 from app.data.education_catalog import SIRLA_EDUCATION_LEVELS
 from app.data.nationality_catalog import SIRLA_NATIONALITIES
+from app.data.disability_catalog import SIRLA_DISABILITIES
 
 AFP_PROVIDERS = [
     "AFP Siembra",
@@ -131,6 +132,10 @@ BULK_EDITABLE_FIELDS = {
             {"name": "sirlaEducationCode", "label": "Nivel educativo SIRLA (DGT)", "type": "select_options", "options": [
                 {"value": e["code"], "label": f"{e['code']} — {e['label']}"}
                 for e in SIRLA_EDUCATION_LEVELS
+            ]},
+            {"name": "disability", "label": "Discapacidad (SIRLA)", "type": "select_options", "options": [
+                {"value": d["code"], "label": f"{d['code']} — {d['name']}"}
+                for d in SIRLA_DISABILITIES
             ]},
             {"name": "email", "label": "Correo Electrónico", "type": "text", "placeholder": "correo@ejemplo.com"},
             {"name": "phone", "label": "Teléfono", "type": "text", "placeholder": "8095551234"},

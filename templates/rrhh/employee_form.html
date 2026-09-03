@@ -392,10 +392,32 @@
             </div>
             <div class="form-group">
                 <label>Discapacidad (SIRLA)</label>
-                <input type="text" name="disability" class="form-input" maxlength="50"
-                       placeholder="Códigos separados por coma"
-                       value="{{ employee.disability if employee else '' }}">
-                <span style="font-size:0.75rem; color:var(--text-muted);">Código(s) de discapacidad según catálogo SIRLA</span>
+                {% set emp_dis = (employee.disability if employee else '4714') or '' %}
+                {% set emp_dis_list = emp_dis.split(',') %}
+                <div class="multiselect-container" id="disability-multiselect">
+                    <div class="multiselect-trigger" tabindex="0" role="button" onclick="toggleDisabilityDropdown()">
+                        <div class="multiselect-chips" id="disability-chips">
+                            <span class="multiselect-placeholder">Seleccionar discapacidad…</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down multiselect-arrow"></i>
+                    </div>
+                    <div class="multiselect-dropdown" id="disability-dropdown">
+                        <div class="multiselect-search">
+                            <i class="fa-solid fa-search"></i>
+                            <input type="text" class="multiselect-search-input" placeholder="Filtrar discapacidades…" oninput="filterDisabilityOptions(this)">
+                        </div>
+                        <div class="multiselect-options" id="disability-options">
+                            {% for dis in sirla_disabilities %}
+                            <label class="multiselect-option" data-value="{{ dis.code }}">
+                                <input type="checkbox" name="disability" value="{{ dis.code }}"
+                                    {% if dis.code in emp_dis_list %}checked{% endif %}>
+                                <span>{{ dis.code }} — {{ dis.name }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <span style="font-size:0.75rem; color:var(--text-muted);">Selecciona "Ninguna" si no aplica (no debe combinarse con otras).</span>
             </div>
             <div class="form-group">
                 <label>TSS Clave nómina</label>
@@ -572,6 +594,45 @@
     .step-indicator div:nth-child(2) { display: none; }
     .step-connector { width: 12px; }
 }
+.multiselect-container { position: relative; width: 100%; }
+.multiselect-trigger {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px; border: 1px solid var(--border-color);
+    border-radius: var(--radius-md); background: var(--input-bg, #fff);
+    cursor: pointer; min-height: 42px; gap: 8px;
+}
+.multiselect-trigger:hover { border-color: var(--primary); }
+.multiselect-chips { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; }
+.multiselect-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--primary-bg, rgba(37,99,235,0.1)); color: var(--primary);
+    padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; white-space: nowrap;
+}
+.multiselect-chip i { cursor: pointer; font-size: 0.7rem; opacity: 0.7; }
+.multiselect-chip i:hover { opacity: 1; }
+.multiselect-placeholder { color: var(--text-muted); font-size: 0.9rem; }
+.multiselect-arrow { color: var(--text-muted); font-size: 0.8rem; transition: transform 0.2s; }
+.multiselect-dropdown {
+    display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    background: var(--card-bg, #fff); border: 1px solid var(--border-color);
+    border-radius: var(--radius-md); box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    z-index: 100; max-height: 320px; overflow: hidden;
+}
+.multiselect-dropdown.open { display: block; }
+.multiselect-search {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; border-bottom: 1px solid var(--border-color);
+}
+.multiselect-search i { color: var(--text-muted); }
+.multiselect-search-input { border: none; outline: none; flex: 1; background: transparent; font-size: 0.9rem; }
+.multiselect-options { max-height: 220px; overflow-y: auto; }
+.multiselect-option {
+    display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+    cursor: pointer; transition: background 0.15s;
+}
+.multiselect-option:hover { background: var(--hover-bg, rgba(0,0,0,0.04)); }
+.multiselect-option input[type="checkbox"] { accent-color: var(--primary); }
+.multiselect-option small { color: var(--text-muted); }
 </style>
 
 <script>
@@ -724,5 +785,56 @@
     if (inheritEl) inheritEl.addEventListener('change', syncScheduleDisabled);
     syncScheduleDisabled();
 })();
+</script>
+
+<script>
+function toggleDisabilityDropdown() {
+    document.getElementById('disability-dropdown').classList.toggle('open');
+}
+function filterDisabilityOptions(input) {
+    var q = input.value.toLowerCase();
+    document.querySelectorAll('#disability-options .multiselect-option').forEach(function(opt) {
+        opt.style.display = opt.textContent.toLowerCase().includes(q) ? 'flex' : 'none';
+    });
+}
+function updateDisabilityChips() {
+    var chips = document.getElementById('disability-chips');
+    var checked = document.querySelectorAll('#disability-options input[type="checkbox"]:checked');
+    var html = '';
+    checked.forEach(function(cb) {
+        var label = cb.closest('.multiselect-option').querySelector('span').textContent.trim();
+        html += '<span class="multiselect-chip" data-value="' + cb.value + '">' + label + ' <i class="fa-solid fa-xmark" onclick="removeDisabilityChip(\'' + cb.value + '\')"></i></span>';
+    });
+    if (checked.length === 0) {
+        html = '<span class="multiselect-placeholder">Seleccionar discapacidad…</span>';
+    }
+    chips.innerHTML = html;
+}
+function removeDisabilityChip(val) {
+    document.querySelectorAll('#disability-options input[type="checkbox"]').forEach(function(cb) {
+        if (cb.value === val) cb.checked = false;
+    });
+    updateDisabilityChips();
+}
+document.addEventListener('DOMContentLoaded', function() {
+    var boxes = document.querySelectorAll('#disability-options input[type="checkbox"]');
+    boxes.forEach(function(cb) {
+        cb.addEventListener('change', function() {
+            if (cb.value === '4714' && cb.checked) {
+                boxes.forEach(function(o) { if (o.value !== '4714') o.checked = false; });
+            } else if (cb.value !== '4714' && cb.checked) {
+                boxes.forEach(function(o) { if (o.value === '4714') o.checked = false; });
+            }
+            updateDisabilityChips();
+        });
+    });
+    updateDisabilityChips();
+    document.addEventListener('click', function(e) {
+        var container = document.getElementById('disability-multiselect');
+        if (container && !container.contains(e.target)) {
+            document.getElementById('disability-dropdown').classList.remove('open');
+        }
+    });
+});
 </script>
 {% endblock %}

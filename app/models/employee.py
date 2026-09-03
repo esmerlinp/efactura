@@ -78,7 +78,7 @@ class Employee(BaseModel):
     sdssNumber: str = ""  # Número de Seguridad Social (SDSS) para DGT-3
     vacationStartDate: str = ""  # Fecha inicio de vacaciones (YYYY-MM-DD) para DGT-3/SIRLA
     vacationEndDate: str = ""  # Fecha fin de vacaciones (YYYY-MM-DD) para DGT-3/SIRLA
-    disability: str = ""  # Códigos de discapacidad SIRLA separados por coma
+    disability: str = "4714"  # Códigos de discapacidad SIRLA separados por coma (4714 = Ninguna)
     daysWorked: int = 0  # Días trabajados para DGT-5 (temporeros)
     dailySalary: float = 0.0  # Sueldo por día para DGT-5 (temporeros)
     employeeType: str = "empleado"  # "obrero" | "empleado" para DGT-9
