@@ -72,6 +72,16 @@ def employee_list():
 
     branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id)
 
+    # ── Columnas configurables del grid (visibilidad por usuario) ──
+    from app.web.rrhh.employee_columns import (
+        EMPLOYEE_GRID_COLUMNS, enrich_employees, get_employee_list_columns,
+        format_cell, status_class, FIXED_COLUMNS, DEFAULT_VISIBLE_COLUMNS,
+    )
+    user_uid = session.get("user", {}).get("uid", "")
+    employees = enrich_employees(employees, branches)
+    visible_map = get_employee_list_columns(user_uid)
+    visible_columns = [c for c in EMPLOYEE_GRID_COLUMNS if visible_map.get(c["key"])]
+
     # ── Filtros ──
     search = request.args.get("search", "").strip().lower()
     filter_status = request.args.get("status", "").strip()
@@ -124,7 +134,42 @@ def employee_list():
                            filter_branch=filter_branch, branches=branches,
                            departments_set=departments_set, active_count=active_count,
                            inactive_count=inactive_count,
-                           vacation_count=vacation_count, leave_count=leave_count)
+                           vacation_count=vacation_count, leave_count=leave_count,
+                           grid_columns=EMPLOYEE_GRID_COLUMNS,
+                           visible_columns=visible_columns,
+                           visible_keys={k for k, v in visible_map.items() if v},
+                           fixed_columns=FIXED_COLUMNS,
+                           default_visible=DEFAULT_VISIBLE_COLUMNS,
+                           fmt=format_cell, status_class=status_class)
+
+
+@web_rrhh_bp.route("/rrhh/employees/columns", methods=["GET", "POST"])
+def employee_list_columns():
+    """Lee o guarda la visibilidad de columnas del grid para el usuario actual."""
+    if _login_required():
+        return jsonify({"error": "No autorizado"}), 401
+    from app.web.rrhh.employee_columns import (
+        EMPLOYEE_GRID_COLUMNS, get_employee_list_columns, save_employee_list_columns,
+        DEFAULT_VISIBLE_COLUMNS, FIXED_COLUMNS,
+    )
+    user_uid = session.get("user", {}).get("uid", "")
+
+    if request.method == "POST":
+        data = request.get_json(silent=True) or {}
+        columns = data.get("columns")
+        if not isinstance(columns, dict):
+            return jsonify({"error": "Debe enviar {columns: {key: bool}}"}), 400
+        ok = save_employee_list_columns(user_uid, columns)
+        return jsonify({"ok": ok})
+
+    visible = get_employee_list_columns(user_uid)
+    return jsonify({
+        "columns": [c["key"] for c in EMPLOYEE_GRID_COLUMNS],
+        "labels": {c["key"]: c["label"] for c in EMPLOYEE_GRID_COLUMNS},
+        "visible": visible,
+        "default": DEFAULT_VISIBLE_COLUMNS,
+        "fixed": list(FIXED_COLUMNS),
+    })
 
 
 @web_rrhh_bp.route("/rrhh/employees/new", methods=["GET", "POST"])
