@@ -72,6 +72,7 @@ CLASSIFIED_EARNING_CONCEPTS = {
 # Deducciones legales que se reportan en columnas propias (TSS/ISR).
 TSS_ISR_DEDUCTION_CONCEPTS = {
     "AFP_EMPLEADO", "SFS_EMPLEADO", "ISR_RETENCION", "INFOTEP_EMPLEADO",
+    "DESC_LICENCIA",
 }
 
 # Conceptos de ingreso variable que se reportan como "otros ingresos" en la línea

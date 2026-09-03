@@ -107,6 +107,10 @@
                     <th title="Otros ingresos">O. Ing.</th>
                     <th title="Regalía pascual">Reg.</th>
                     <th title="Otras deducciones">O. Desc.</th>
+                    <th title="AFP empleado">AFP</th>
+                    <th title="SFS empleado">SFS</th>
+                    <th title="Impuesto sobre la renta">ISR</th>
+                    <th title="Licencia no pagada">Lic. No Pag.</th>
                     <th class="num" title="Total ingresos">T. Ing.</th>
                     <th class="num" title="Total descuentos">T. Desc.</th>
                     <th class="num" title="Neto a pagar">Neto</th>
@@ -122,6 +126,10 @@
                         <td class="num">{{ "{:,.2f}".format(l.get('otherIncome', 0)|float) if l.get('otherIncome', 0)|float else '—' }}</td>
                         <td class="num">{{ "{:,.2f}".format(l.get('christmasBonus', 0)|float) if l.get('christmasBonus', 0)|float else '—' }}</td>
                         <td class="num">{{ "{:,.2f}".format(l.get('otherDeductions', 0)|float) if l.get('otherDeductions', 0)|float else '—' }}</td>
+                        <td class="num">{{ "{:,.2f}".format(l.get('afpEmployee', 0)|float) if l.get('afpEmployee', 0)|float else '—' }}</td>
+                        <td class="num">{{ "{:,.2f}".format(l.get('sfsEmployee', 0)|float) if l.get('sfsEmployee', 0)|float else '—' }}</td>
+                        <td class="num">{{ "{:,.2f}".format(l.get('isrRetention', 0)|float) if l.get('isrRetention', 0)|float else '—' }}</td>
+                        <td class="num" title="{{ l.get('leaveDeductionDays', 0) }} día(s) de licencia no pagada">{{ "{:,.2f}".format(l.get('leaveDeduction', 0)|float) if l.get('leaveDeduction', 0)|float else '—' }}</td>
                         <td class="num">{{ "{:,.2f}".format(l.get('totalIncome', 0)|float) if l.get('totalIncome', 0)|float else '—' }}</td>
                         <td class="num">{{ "{:,.2f}".format(l.get('totalDeductions', 0)|float) if l.get('totalDeductions', 0)|float else '—' }}</td>
                         <td class="num net">{{ "{:,.2f}".format(l.get('netSalary', 0)|float) if l.get('netSalary', 0)|float else '—' }}</td>
@@ -358,7 +366,7 @@
     .pv-toolbar .pv-chips { grid-column:auto; }
 }
 .pv-complete-caption { color:var(--text-muted); font-size:0.68rem; margin:10px 0 5px; }
-.pv-complete-grid { font-size:0.72rem; min-width:850px; }
+.pv-complete-grid { font-size:0.72rem; min-width:1180px; }
 .pv-complete-grid th,
 .pv-complete-grid td { padding:5px 7px; white-space:nowrap; line-height:1.15; font-weight:400; }
 .pv-complete-grid th { font-size:0.66rem; font-weight:500; text-transform:uppercase; letter-spacing:0.02em; color:var(--text-muted); }

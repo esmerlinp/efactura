@@ -600,6 +600,17 @@ def _apply_action_to_employee(owner_uid: str, emp: dict, action_type: str,
         changes = {}
         if new_position:
             changes["position"] = new_position
+            # Resolver positionId para herencia de horario del puesto
+            try:
+                _pid = ""
+                for p in hr.get_catalog(company_id, "positions", sandbox=sandbox):
+                    if (p.get("name", "") or "").strip().lower() == (new_position or "").strip().lower():
+                        _pid = p.get("id", "")
+                        break
+                changes["positionId"] = _pid
+            except Exception:
+                pass
+            changes["workScheduleCustom"] = False
         if new_area:
             changes["area"] = new_area
         if new_department:
@@ -670,4 +681,5 @@ def _apply_action_to_employee(owner_uid: str, emp: dict, action_type: str,
                 "status": "aprobada",
                 "approvedBy": created_by,
                 "notes": payload.get("reason", "Licencia masiva"),
+                "paidByPayroll": True,
             }, sandbox=sandbox)

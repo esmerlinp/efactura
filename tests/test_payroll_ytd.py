@@ -111,6 +111,28 @@ class TestAccumulateYTD:
         result = accumulate_ytd(prev, line)
         assert result["byConcept"] == {}
 
+    def test_idempotente_por_period_id(self):
+        """Recalcular el mismo período (mismo period_id) no duplica acumulados."""
+        prev = _empty_ytd("EMP1", 2025)
+        line = self._make_line()
+        r1 = accumulate_ytd(prev, line, period_key="2025-07-M", period_id="P-07")
+        assert r1["isrRetention"] == 2345.67
+        r2 = accumulate_ytd(r1, line, period_key="2025-07-M", period_id="P-07")
+        # Mismo período → no cambia
+        assert r2["isrRetention"] == 2345.67
+        assert r2["grossIncome"] == 50000.00
+        assert r2["periodsCount"] == 1
+
+    def test_distintos_period_id_acumulan(self):
+        """Períodos distintos se acumulan normalmente."""
+        prev = _empty_ytd("EMP1", 2025)
+        line = self._make_line()
+        r1 = accumulate_ytd(prev, line, period_key="2025-07-M", period_id="P-07")
+        r2 = accumulate_ytd(r1, line, period_key="2025-08-M", period_id="P-08")
+        assert r2["isrRetention"] == round(2345.67 * 2, 2)
+        assert r2["periodsCount"] == 2
+        assert set(r2.get("periodIds", [])) == {"P-07", "P-08"}
+
 
 class TestEmptyYTD:
 

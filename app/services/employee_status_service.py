@@ -20,6 +20,7 @@ El servicio es idempotente: puede ejecutarse tantas veces como sea necesario
 
 import uuid
 from datetime import date, datetime, timedelta, timezone
+from typing import Optional
 
 from app.services import hr_data_service as hr
 from app.utils.hr_utils import ACTIVE_EQUIVALENT_STATUSES
@@ -65,7 +66,8 @@ class EmployeeStatusService:
         return s1 <= e2 and s2 <= e1
 
     @staticmethod
-    def _business_days(company_id: str, start: date, end: date, sandbox: bool) -> int:
+    def _business_days(company_id: str, start: date, end: date, sandbox: bool,
+                       work_days: Optional[set] = None) -> int:
         if not start or not end or start > end:
             return 0
         from app.services.holiday_service import HolidayService
@@ -76,7 +78,13 @@ class EmployeeStatusService:
         except Exception:
             holidays = set()
         return PayrollService.calculate_business_days(
-            start.isoformat(), end.isoformat(), holidays=holidays)
+            start.isoformat(), end.isoformat(), holidays=holidays, work_days=work_days)
+
+    @staticmethod
+    def _employee_work_days(company_id: str, employee: dict, sandbox: bool) -> set:
+        """Días laborables efectivos del empleado (horario propio > puesto > L-V)."""
+        from app.services.payroll_service import PayrollService
+        return PayrollService.resolve_employee_work_days(company_id, employee, sandbox=sandbox)
 
     @staticmethod
     def _approved_vacations_for(company_id: str, employee_id: str, sandbox: bool) -> list:
@@ -296,11 +304,13 @@ class EmployeeStatusService:
             return {"success": False, "error": "La solicitud no tiene fecha de inicio."}
 
         original_days = int(req.get("days", 0) or 0)
+        _emp = hr.get_employee(company_id, req.get("employeeId", ""), sandbox=sandbox)
+        _work_days = cls._employee_work_days(company_id, _emp, sandbox) if _emp else None
         if cd < start:
             consumed = 0
         else:
             last_taken = min(cd, end)
-            consumed = cls._business_days(company_id, start, last_taken, sandbox)
+            consumed = cls._business_days(company_id, start, last_taken, sandbox, work_days=_work_days)
         consumed = min(consumed, original_days)
         refunded = max(0, original_days - consumed)
 
@@ -345,11 +355,13 @@ class EmployeeStatusService:
             return {"success": False, "error": "Fechas inválidas."}
 
         original_days = int(vac_req.get("days", 0) or 0)
+        _emp = hr.get_employee(company_id, vac_req.get("employeeId", ""), sandbox=sandbox)
+        _work_days = cls._employee_work_days(company_id, _emp, sandbox) if _emp else None
         if leave_start <= vac_start:
             consumed = 0
         else:
             last_taken = min(leave_start - timedelta(days=1), vac_end)
-            consumed = cls._business_days(company_id, vac_start, last_taken, sandbox)
+            consumed = cls._business_days(company_id, vac_start, last_taken, sandbox, work_days=_work_days)
         consumed = min(consumed, original_days)
         refunded = max(0, original_days - consumed)
 

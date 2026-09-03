@@ -151,6 +151,12 @@
                 <td style="text-align:right; padding:6px 10px;">RD$ {{ "{:,.2f}".format(line.otherDeductions|float) }}</td>
             </tr>
             {% endif %}
+            {% if line.get('leaveDeduction', 0)|float > 0 %}
+            <tr>
+                <td style="padding:6px 10px; padding-left:24px;">Licencia no pagada ({{ line.get('leaveDeductionDays', 0) }} días)</td>
+                <td style="text-align:right; padding:6px 10px;">RD$ {{ "{:,.2f}".format(line.leaveDeduction|float) }}</td>
+            </tr>
+            {% endif %}
             {% endif %}
             <tr style="border-top:2px solid var(--border-color); font-weight:700;">
                 <td style="padding:8px 10px;">Total deducciones</td>

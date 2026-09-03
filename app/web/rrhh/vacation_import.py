@@ -337,7 +337,8 @@ def vacation_import_process():
                                 company_id, start_date, end_date, sandbox=sandbox
                             )
                         days = PayrollService.calculate_business_days(
-                            start_date, end_date, holidays=holiday_cache[cache_key]
+                            start_date, end_date, holidays=holiday_cache[cache_key],
+                            work_days=PayrollService.resolve_employee_work_days(company_id, emp, sandbox=sandbox),
                         )
                         if days <= 0:
                             errors.append({"row": row_num, "reason": f"No se pudieron calcular días hábiles entre {start_date} y {end_date}."})

@@ -310,6 +310,21 @@ class TestDeductionPriorityEngine:
         assert prestamo_amount > 0
         assert result["netSalary"] >= 0
 
+    def test_licencia_no_pagada_se_aplica_integra(self):
+        """La licencia no pagada (categoría 'leave') se aplica íntegra, sin tope ni salario protegido."""
+        txs = [
+            {"type": "earning", "amount": 30000.00, "conceptSnapshot": {}, "conceptCode": "SALARIO_BASE", "priority": 0},
+            {"type": "deduction", "amount": 1435.00, "conceptSnapshot": {"category": "tss", "isLegalMandatory": True}, "conceptCode": "AFP_EMPLEADO", "priority": 1},
+            {"type": "deduction", "amount": 1520.00, "conceptSnapshot": {"category": "tss", "isLegalMandatory": True}, "conceptCode": "SFS_EMPLEADO", "priority": 2},
+            {"type": "deduction", "amount": 5000.00, "conceptSnapshot": {"category": "leave", "isLegalMandatory": False}, "conceptCode": "DESC_LICENCIA", "priority": 201},
+            {"type": "deduction", "amount": 3000.00, "conceptSnapshot": {"category": "loan", "isLegalMandatory": False, "maxPercentage": 0.15}, "conceptCode": "PRESTAMO", "priority": 300},
+        ]
+        result = DeductionPriorityEngine.process(txs, RD_PARAMS)
+        leave_amount = [d for d in result["transactions"] if d["conceptCode"] == "DESC_LICENCIA"][0]["amount"]
+        assert leave_amount == pytest.approx(5000.00, abs=0.01)
+        # neto = 30000 - 1435 - 1520 - 5000 - 3000 = 19045
+        assert result["netSalary"] == pytest.approx(19045.00, abs=0.01)
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # ConceptEngine — Evaluación completa de conceptos

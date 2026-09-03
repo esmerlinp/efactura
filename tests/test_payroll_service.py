@@ -161,6 +161,133 @@ class TestProrateSalary:
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# DESCUENTO POR LICENCIA NO PAGADA
+# ═══════════════════════════════════════════════════════════════════════
+
+class TestUnpaidLeaveDeduction:
+
+    # 2026-08-13 (jue) .. 2026-08-17 (lun) — días hábiles: jue 13, vie 14, lun 17
+    LEAVE = [{
+        "id": "L1", "employeeId": "E1", "status": "aprobada",
+        "paidByPayroll": False, "startDate": "2026-08-13", "endDate": "2026-08-17",
+    }]
+
+    @pytest.fixture(autouse=True)
+    def _no_holidays(self):
+        with patch("app.services.holiday_service.HolidayService.get_holiday_dates", return_value=set()):
+            yield
+
+    def test_quincena1_dos_dias_habiles(self):
+        r = PayrollService.unpaid_leave_deduction(
+            23830.00, self.LEAVE, "2026-08-01", "2026-08-15", working_days=23.83)
+        assert r["days"] == 2
+
+    def test_quincena2_un_dia_habil(self):
+        r = PayrollService.unpaid_leave_deduction(
+            23830.00, self.LEAVE, "2026-08-16", "2026-08-31", working_days=23.83)
+        assert r["days"] == 1
+
+    def test_excluye_fines_de_semana(self):
+        # Período completo agosto: solo jue/vie/lun son hábiles (3, no 5)
+        r = PayrollService.unpaid_leave_deduction(
+            23830.00, self.LEAVE, "2026-08-01", "2026-08-31", working_days=23.83)
+        assert r["days"] == 3
+
+    def test_licencia_pagada_no_descuenta(self):
+        paid = [dict(self.LEAVE[0], paidByPayroll=True)]
+        r = PayrollService.unpaid_leave_deduction(
+            23830.00, paid, "2026-08-01", "2026-08-31", working_days=23.83)
+        assert r["days"] == 0
+        assert r["amount"] == 0.0
+
+    def test_sin_indicador_por_defecto_pagada(self):
+        legacy = [{k: v for k, v in self.LEAVE[0].items() if k != "paidByPayroll"}]
+        r = PayrollService.unpaid_leave_deduction(
+            23830.00, legacy, "2026-08-01", "2026-08-31", working_days=23.83)
+        assert r["days"] == 0
+
+    def test_solo_aprobadas(self):
+        pendiente = [dict(self.LEAVE[0], status="pendiente")]
+        r = PayrollService.unpaid_leave_deduction(
+            23830.00, pendiente, "2026-08-01", "2026-08-31", working_days=23.83)
+        assert r["days"] == 0
+
+    def test_monto_por_dia_habil(self):
+        # daily_rate = 23830 / 23.83 = 1000 → 3 días = 3000
+        r = PayrollService.unpaid_leave_deduction(
+            23830.00, self.LEAVE, "2026-08-01", "2026-08-31", working_days=23.83)
+        assert r["days"] == 3
+        assert r["amount"] == round(23830.00 / 23.83 * 3, 2)
+
+    def test_deduplica_solape_entre_licencias(self):
+        overlapping = self.LEAVE + [dict(self.LEAVE[0], id="L2", startDate="2026-08-14", endDate="2026-08-17")]
+        r = PayrollService.unpaid_leave_deduction(
+            23830.00, overlapping, "2026-08-01", "2026-08-31", working_days=23.83)
+        assert r["days"] == 3
+
+    def test_sin_solape_con_periodo(self):
+        r = PayrollService.unpaid_leave_deduction(
+            23830.00, self.LEAVE, "2026-09-01", "2026-09-30", working_days=23.83)
+        assert r["days"] == 0
+
+    def test_salario_cero_no_aplica(self):
+        r = PayrollService.unpaid_leave_deduction(
+            0.0, self.LEAVE, "2026-08-01", "2026-08-31", working_days=23.83)
+        assert r["days"] == 0
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# HORARIO SEMANAL (workSchedule / herencia de puesto)
+# ═══════════════════════════════════════════════════════════════════════
+
+class TestWorkSchedule:
+
+    def test_work_days_from_schedule(self):
+        sched = [
+            {"day": 5, "start": "08:00", "end": "17:00"},
+            {"day": 6, "start": "08:00", "end": "12:00"},
+            {"day": 0, "start": "08:00", "end": "08:00"},  # start == end → ignorado
+        ]
+        assert PayrollService.work_days_from_schedule(sched) == {5, 6}
+
+    def test_work_days_from_schedule_vacio(self):
+        assert PayrollService.work_days_from_schedule([]) == set()
+        assert PayrollService.work_days_from_schedule(None) == set()
+
+    def test_resolve_work_days_custom_wins(self):
+        emp = {"workScheduleCustom": True, "workSchedule": [{"day": 5, "start": "08:00", "end": "17:00"}]}
+        pos = {"workSchedule": [{"day": 0, "start": "08:00", "end": "17:00"}]}
+        assert PayrollService.resolve_work_days(emp, pos) == {5}
+
+    def test_resolve_work_days_inherit_position(self):
+        emp = {"workScheduleCustom": False, "workSchedule": []}
+        pos = {"workSchedule": [{"day": 5, "start": "08:00", "end": "17:00"},
+                                {"day": 6, "start": "08:00", "end": "17:00"}]}
+        assert PayrollService.resolve_work_days(emp, pos) == {5, 6}
+
+    def test_resolve_work_days_default_lun_vie(self):
+        assert PayrollService.resolve_work_days({}, {}) == {0, 1, 2, 3, 4}
+
+    def test_calculate_business_days_weekend_worker(self):
+        # Solo sábado y domingo: agosto 2026 tiene 5 sáb + 5 dom = 10
+        r = PayrollService.calculate_business_days("2026-08-01", "2026-08-31", work_days={5, 6})
+        assert r == 10
+
+    def test_calculate_business_days_default_lun_vie(self):
+        r = PayrollService.calculate_business_days("2026-08-01", "2026-08-31")
+        assert r == 21  # agosto 2026: 21 días hábiles L-V
+
+    def test_unpaid_leave_deduction_weekend_worker(self):
+        leave = [{"id": "L1", "employeeId": "E1", "status": "aprobada",
+                  "paidByPayroll": False, "startDate": "2026-08-15", "endDate": "2026-08-16"}]
+        with patch("app.services.holiday_service.HolidayService.get_holiday_dates", return_value=set()):
+            r = PayrollService.unpaid_leave_deduction(
+                23830.00, leave, "2026-08-01", "2026-08-31",
+                working_days=23.83, work_days={5, 6})
+        assert r["days"] == 2
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # ANOMALY DETECTION
 # ═══════════════════════════════════════════════════════════════════════
 

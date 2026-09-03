@@ -745,6 +745,27 @@ def payroll_new():
                 all_transactions = []
                 all_applications = []
 
+                # ── Licencias aprobadas indexadas por empleado (para descuento) ──
+                from collections import defaultdict as _dd
+                leave_requests_by_employee = _dd(list)
+                try:
+                    for _lr in hr.get_leave_requests(company_id, sandbox=sandbox):
+                        _leid = _lr.get("employeeId", "")
+                        if _leid:
+                            leave_requests_by_employee[_leid].append(_lr)
+                except Exception:
+                    pass
+
+                # ── Posiciones (para heredar horario del puesto) ──
+                positions_by_id = {}
+                positions_by_name = {}
+                try:
+                    for _p in hr.get_catalog(company_id, "positions", sandbox=sandbox):
+                        positions_by_id[_p.get("id", "")] = _p
+                        positions_by_name[(_p.get("name", "") or "").strip().lower()] = _p
+                except Exception:
+                    pass
+
                 for idx, emp in enumerate(period_employees):
                     job_check = get_job(company_id, job_id, sandbox=sandbox)
                     if job_check.get("status") == "cancelled":
@@ -787,6 +808,26 @@ def payroll_new():
                         bonus = 0.0
                     if group_overrides.get("includeOtherIncome") is False:
                         other_income_manual = 0.0
+
+                    # ── Licencia no pagada (solo salario fijo) ──
+                    leave_deduction = 0.0
+                    leave_deduction_days = 0
+                    if base > 0 and (emp.get("salaryType") or "fijo") == "fijo":
+                        _position = positions_by_id.get(emp.get("positionId", "")) or \
+                            positions_by_name.get((emp.get("position", "") or "").strip().lower())
+                        _work_days = PayrollService.resolve_work_days(emp, _position)
+                        _leave_res = PayrollService.unpaid_leave_deduction(
+                            monthly_salary=base,
+                            leave_requests=leave_requests_by_employee.get(emp_id, []),
+                            period_start=start_date,
+                            period_end=end_date,
+                            company_id=company_id,
+                            sandbox=sandbox,
+                            working_days=float(params.get("working_days_per_month", 23.83)),
+                            work_days=_work_days,
+                        )
+                        leave_deduction_days = int(_leave_res.get("days", 0))
+                        leave_deduction = float(_leave_res.get("amount", 0.0))
 
                     emp_period_type = period_type
                     emp_is_quincenal = emp_period_type == "quincenal"
@@ -1003,8 +1044,26 @@ def payroll_new():
                     employee_transactions.extend(recurring_txs)
                     all_applications.extend(recurring_apps)
 
+                    # ── Licencia no pagada (descuento) ──
+                    if leave_deduction > 0:
+                        lic_concept = concept_map.get("DESC_LICENCIA")
+                        if lic_concept:
+                            from app.models.transaction import PayrollTransaction as _PTx
+                            from app.services.payroll_concept_engine import build_concept_snapshot as _bcs
+                            employee_transactions.append(_PTx(
+                                id=str(uuid.uuid4()), periodId=period_id, periodKey=period_key,
+                                payrollLineId=line_id, employeeId=emp_id,
+                                conceptCode="DESC_LICENCIA", type="deduction",
+                                amount=round(leave_deduction, 2), source="leave", status="applied",
+                                conceptSnapshot=_bcs(lic_concept),
+                                periodYear=year,
+                                createdAt=datetime.now(timezone.utc).isoformat(),
+                                updatedAt=datetime.now(timezone.utc).isoformat(),
+                            ).model_dump())
+
                     # ── Gross income ──
                     gross_income = sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("type") == "earning")
+                    cotizable_income = max(0.0, gross_income - leave_deduction)
 
                     # ── TSS ──
                     for tss_code in ["AFP_EMPLEADO", "SFS_EMPLEADO", "INFOTEP_EMPLEADO",
@@ -1015,7 +1074,7 @@ def payroll_new():
                         from app.services.concept_engine import ConceptEngine as CE
                         tx = CE.evaluate(
                             concept=concept,
-                            context={"baseSalary": base, "grossIncome": gross_income, "isQuincenal": emp_is_quincenal},
+                            context={"baseSalary": base, "grossIncome": cotizable_income, "isQuincenal": emp_is_quincenal},
                             params=params, period_id=period_id, period_key=period_key,
                             employee_id=emp_id, contract_id=emp.get("contractId", ""),
                             payroll_line_id=line_id, period_revision=1,
@@ -1030,11 +1089,16 @@ def payroll_new():
                         from app.services.payroll_ytd_service import get_ytd
                         ytd_data = get_ytd(company_id, emp_id, year, sandbox=sandbox)
                         ytd_isr = ytd_data.get("isrRetention", 0) if ytd_data else 0
+                        afp_ded = sum(float(t.get("amount", 0)) for t in employee_transactions
+                                      if t.get("conceptCode") == "AFP_EMPLEADO")
+                        sfs_ded = sum(float(t.get("amount", 0)) for t in employee_transactions
+                                      if t.get("conceptCode") == "SFS_EMPLEADO")
                         from app.services.concept_engine import ConceptEngine as CE
                         tx = CE.evaluate(
                             concept=isr_concept,
-                            context={"baseSalary": base, "grossIncome": gross_income,
-                                     "isQuincenal": emp_is_quincenal, "ytd_isr": ytd_isr},
+                            context={"baseSalary": base, "grossIncome": cotizable_income,
+                                     "isQuincenal": emp_is_quincenal, "ytd_isr": ytd_isr,
+                                     "afpDeduction": afp_ded, "sfsDeduction": sfs_ded},
                             params=params, period_id=period_id, period_key=period_key,
                             employee_id=emp_id, contract_id=emp.get("contractId", ""),
                             payroll_line_id=line_id, period_revision=1,
@@ -1145,6 +1209,8 @@ def payroll_new():
                         "srlEmployer": sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("conceptCode") == "SRL_EMPLEADOR"),
                         "infotepEmployer": sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("conceptCode") == "INFOTEP_EMPLEADOR"),
                         "otherDeductions": build_manual_other_deductions(employee_transactions),
+                        "leaveDeduction": round(leave_deduction, 2),
+                        "leaveDeductionDays": leave_deduction_days,
                         "recurringDeductionsBreakdown": recurring_details,
                         "recurringAdditionsBreakdown": recurring_additions_details,
                     }
@@ -1155,7 +1221,8 @@ def payroll_new():
                     try:
                         from app.services.payroll_ytd_service import get_ytd, save_ytd, accumulate_ytd
                         ytd = get_ytd(company_id, emp_id, year, sandbox=sandbox)
-                        ytd = accumulate_ytd(ytd, line, period_factor=24 if emp_is_quincenal else 12, period_key=period_key)
+                        ytd = accumulate_ytd(ytd, line, period_factor=24 if emp_is_quincenal else 12,
+                                             period_key=period_key, period_id=period_id)
                         save_ytd(company_id, emp_id, year, ytd, sandbox=sandbox)
                     except Exception:
                         pass
@@ -1578,6 +1645,26 @@ def payroll_simulate():
         dependents_by_employee = hr.get_dependents_for_employees(company_id, all_emp_ids, sandbox=sandbox)
         from app.utils.hr_utils import is_minor as _is_minor_dep
 
+        # ── Licencias aprobadas indexadas por empleado (para descuento) ──
+        leave_requests_by_employee = defaultdict(list)
+        try:
+            for _lr in hr.get_leave_requests(company_id, sandbox=sandbox):
+                _leid = _lr.get("employeeId", "")
+                if _leid:
+                    leave_requests_by_employee[_leid].append(_lr)
+        except Exception:
+            pass
+
+        # ── Posiciones (para heredar horario del puesto) ──
+        positions_by_id = {}
+        positions_by_name = {}
+        try:
+            for _p in hr.get_catalog(company_id, "positions", sandbox=sandbox):
+                positions_by_id[_p.get("id", "")] = _p
+                positions_by_name[(_p.get("name", "") or "").strip().lower()] = _p
+        except Exception:
+            pass
+
         emp_var_map = _extract_variable_values(request.form, [e["id"] for e in period_employees])
 
         for emp in period_employees:
@@ -1615,6 +1702,26 @@ def payroll_simulate():
                 bonus = 0.0
             if group_overrides.get("includeOtherIncome") is False:
                 other_income_manual = 0.0
+
+            # ── Licencia no pagada (solo salario fijo) ──
+            leave_deduction = 0.0
+            leave_deduction_days = 0
+            if base > 0 and (emp.get("salaryType") or "fijo") == "fijo":
+                _position = positions_by_id.get(emp.get("positionId", "")) or \
+                    positions_by_name.get((emp.get("position", "") or "").strip().lower())
+                _work_days = PayrollService.resolve_work_days(emp, _position)
+                _leave_res = PayrollService.unpaid_leave_deduction(
+                    monthly_salary=base,
+                    leave_requests=leave_requests_by_employee.get(emp_id, []),
+                    period_start=start_date,
+                    period_end=end_date,
+                    company_id=company_id,
+                    sandbox=sandbox,
+                    working_days=float(params.get("working_days_per_month", 23.83)),
+                    work_days=_work_days,
+                )
+                leave_deduction_days = int(_leave_res.get("days", 0))
+                leave_deduction = float(_leave_res.get("amount", 0.0))
 
             emp_period_type = period_type
             emp_is_quincenal = emp_period_type == "quincenal"
@@ -1885,8 +1992,26 @@ def payroll_simulate():
                 )
                 employee_transactions.append(tx.model_dump())
 
+            # ── Licencia no pagada (descuento) ──
+            if leave_deduction > 0:
+                lic_concept = concept_map.get("DESC_LICENCIA")
+                if lic_concept:
+                    from app.models.transaction import PayrollTransaction as _PTx
+                    from app.services.payroll_concept_engine import build_concept_snapshot as _bcs
+                    employee_transactions.append(_PTx(
+                        id=str(uuid.uuid4()), periodId=sim_period_id, periodKey=period_key,
+                        payrollLineId=line_id, employeeId=emp_id,
+                        conceptCode="DESC_LICENCIA", type="deduction",
+                        amount=round(leave_deduction, 2), source="leave", status="applied",
+                        conceptSnapshot=_bcs(lic_concept),
+                        periodYear=int(period_key[:4]) if period_key and len(period_key) >= 4 else 0,
+                        createdAt=datetime.now(timezone.utc).isoformat(),
+                        updatedAt=datetime.now(timezone.utc).isoformat(),
+                    ).model_dump())
+
             # ── Calcular ingresos totales para TSS e ISR ──
             gross_income = sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("type") == "earning")
+            cotizable_income = max(0.0, gross_income - leave_deduction)
             emp_name = emp.get("fullName", emp_id)
 
             # ── TSS vía ConceptEngine ──
@@ -1898,7 +2023,7 @@ def payroll_simulate():
                 from app.services.concept_engine import ConceptEngine as CE
                 tx = CE.evaluate(
                     concept=concept,
-                    context={"baseSalary": base, "grossIncome": gross_income, "isQuincenal": emp_is_quincenal},
+                    context={"baseSalary": base, "grossIncome": cotizable_income, "isQuincenal": emp_is_quincenal},
                     params=params,
                     period_id=sim_period_id, period_key=period_key,
                     employee_id=emp_id, contract_id=emp.get("contractId", ""),
@@ -1926,7 +2051,7 @@ def payroll_simulate():
                 tx = CE.evaluate(
                     concept=isr_concept,
                     context={
-                        "baseSalary": base, "grossIncome": gross_income,
+                        "baseSalary": base, "grossIncome": cotizable_income,
                         "isQuincenal": emp_is_quincenal, "ytd_isr": 0,
                         "afpDeduction": afp_ded, "sfsDeduction": sfs_ded,
                     },
@@ -2000,6 +2125,8 @@ def payroll_simulate():
                 "sfsEmployee": sum_by_concept(employee_transactions, "SFS_EMPLEADO"),
                 "isrRetention": sum_by_concept(employee_transactions, "ISR_RETENCION"),
                 "otherDeductions": build_manual_other_deductions(employee_transactions),
+                "leaveDeduction": round(leave_deduction, 2),
+                "leaveDeductionDays": leave_deduction_days,
                 "recurringDeductionsBreakdown": recurring_deductions_details,
                 "recurringAdditionsBreakdown": recurring_additions_details,
             }
