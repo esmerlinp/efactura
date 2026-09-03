@@ -37,6 +37,9 @@ from app.countries.do.payroll_rules import (
 
 INFOTEP_EMPLOYEE_THRESHOLD = MIN_SALARY * 5
 
+# Días laborables por defecto (0=Lun .. 6=Dom) cuando no hay horario registrado
+DEFAULT_WORK_DAYS = {0, 1, 2, 3, 4}
+
 # Alias privados para compatibilidad interna (usados en el servicio)
 _AFP_EMPLOYEE_RATE = AFP_EMPLOYEE_RATE
 _AFP_EMPLOYER_RATE = AFP_EMPLOYER_RATE
@@ -899,10 +902,70 @@ class PayrollService:
 
         return round(daily_rate * emp_days, 2)
 
+    @staticmethod
+    def work_days_from_schedule(work_schedule: list) -> set:
+        """Extrae los días laborables (0=Lun..6=Dom) de un horario semanal.
+
+        Un día se considera laborable si tiene ``start`` y ``end`` definidos
+        y distintos. Horario vacío/inválido → set vacío.
+        """
+        days = set()
+        for entry in (work_schedule or []):
+            if not isinstance(entry, dict):
+                continue
+            try:
+                day = int(entry.get("day", -1))
+            except (ValueError, TypeError):
+                continue
+            start = (entry.get("start") or "").strip()
+            end = (entry.get("end") or "").strip()
+            if 0 <= day <= 6 and start and end and start != end:
+                days.add(day)
+        return days
+
+    @classmethod
+    def resolve_work_schedule(cls, employee: dict = None, position: dict = None) -> list:
+        """Horario semanal efectivo del empleado: propio > puesto > vacío (default)."""
+        if employee and employee.get("workScheduleCustom") and employee.get("workSchedule"):
+            return employee.get("workSchedule")
+        if position and position.get("workSchedule"):
+            return position.get("workSchedule")
+        return []
+
+    @classmethod
+    def resolve_work_days(cls, employee: dict = None, position: dict = None) -> set:
+        """Días laborables efectivos del empleado (horario propio > puesto > Lun-Vie)."""
+        schedule = cls.resolve_work_schedule(employee, position)
+        days = cls.work_days_from_schedule(schedule)
+        return days or set(DEFAULT_WORK_DAYS)
+
+    @classmethod
+    def resolve_employee_work_days(cls, company_id: str, employee: dict = None,
+                                   sandbox: bool = True) -> set:
+        """Resuelve los días laborables de un empleado buscando su puesto en el catálogo."""
+        position = None
+        if employee:
+            try:
+                from app.services import hr_data_service as _hr
+                for p in _hr.get_catalog(company_id, "positions", sandbox=sandbox):
+                    if p.get("id") == employee.get("positionId") or \
+                       (p.get("name", "") or "").strip().lower() == (employee.get("position", "") or "").strip().lower():
+                        position = p
+                        break
+            except Exception:
+                pass
+        return cls.resolve_work_days(employee, position)
+
     @classmethod
     def calculate_business_days(cls, start_date_str: str, end_date_str: str,
-                                holidays: Optional[set] = None) -> int:
-        """Cuenta días hábiles (lunes-viernes) entre dos fechas, excluyendo feriados si se pasan."""
+                                holidays: Optional[set] = None,
+                                work_days: Optional[set] = None) -> int:
+        """Cuenta días laborables entre dos fechas, excluyendo feriados si se pasan.
+
+        Args:
+            work_days: Conjunto de días de semana laborables (0=Lun..6=Dom).
+                       Si es None, se asume lunes-viernes.
+        """
         try:
             start = datetime.strptime(start_date_str[:10], "%Y-%m-%d").date()
             end = datetime.strptime(end_date_str[:10], "%Y-%m-%d").date()
@@ -912,13 +975,91 @@ class PayrollService:
         if start > end:
             return 0
 
+        if work_days is None:
+            work_days = DEFAULT_WORK_DAYS
+
         days = 0
         current = start
         while current <= end:
-            if current.weekday() < 5 and (not holidays or current.isoformat() not in holidays):
+            if current.weekday() in work_days and (not holidays or current.isoformat() not in holidays):
                 days += 1
             current += timedelta(days=1)
         return days
+
+    @classmethod
+    def unpaid_leave_deduction(
+        cls,
+        monthly_salary: float,
+        leave_requests: list,
+        period_start: str,
+        period_end: str,
+        company_id: str = "",
+        sandbox: bool = True,
+        working_days: float = DEFAULT_WORKING_DAYS_PER_MONTH,
+        work_days: Optional[set] = None,
+    ) -> dict:
+        """Descuento por licencias no pagadas dentro del período de nómina.
+
+        Cuenta los días laborables del empleado (por defecto L-V, excluyendo
+        feriados) de las solicitudes aprobadas con ``paidByPayroll=False`` que
+        se solapan con el período y retorna ``{"days": int, "amount": float}``.
+        Los solapes entre licencias se deduplican (unión de fechas).
+
+        Args:
+            monthly_salary: Salario mensual completo (antes de dividir por quincena).
+            leave_requests: Lista de solicitudes de licencia (dicts).
+            period_start/period_end: Rango del período (YYYY-MM-DD).
+            working_days: Días laborables por mes para la tasa diaria.
+            work_days: Conjunto de días laborables del empleado (0=Lun..6=Dom).
+        """
+        if monthly_salary <= 0 or not leave_requests:
+            return {"days": 0, "amount": 0.0}
+        try:
+            ps = datetime.strptime(period_start[:10], "%Y-%m-%d").date()
+            pe = datetime.strptime(period_end[:10], "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            return {"days": 0, "amount": 0.0}
+        if ps > pe:
+            return {"days": 0, "amount": 0.0}
+
+        if work_days is None:
+            work_days = DEFAULT_WORK_DAYS
+
+        from app.services.holiday_service import HolidayService
+        try:
+            holidays = HolidayService.get_holiday_dates(
+                company_id, ps.isoformat(), pe.isoformat(), sandbox=sandbox)
+        except Exception:
+            holidays = set()
+
+        leave_days = set()
+        for req in leave_requests:
+            if req.get("status") != "aprobada":
+                continue
+            if req.get("paidByPayroll", True) is not False:
+                continue
+            start_str = req.get("startDate", "")
+            end_str = req.get("endDate", "") or start_str
+            try:
+                ls = datetime.strptime(start_str[:10], "%Y-%m-%d").date()
+                le = datetime.strptime(end_str[:10], "%Y-%m-%d").date()
+            except (ValueError, TypeError):
+                continue
+            seg_start = max(ls, ps)
+            seg_end = min(le, pe)
+            if seg_start > seg_end:
+                continue
+            cur = seg_start
+            while cur <= seg_end:
+                if cur.weekday() in work_days and cur.isoformat() not in holidays:
+                    leave_days.add(cur.isoformat())
+                cur += timedelta(days=1)
+
+        days = len(leave_days)
+        if days <= 0:
+            return {"days": 0, "amount": 0.0}
+        daily_rate = monthly_salary / working_days if working_days else 0.0
+        return {"days": days, "amount": round(daily_rate * days, 2)}
 
     # ═══════════════════════════════════════════════════════════════════════
     # RETROACTIVIDAD SALARIAL

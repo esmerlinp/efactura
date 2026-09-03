@@ -44,6 +44,22 @@ def is_minor(birth_date_str: str, adult_age: int = 18) -> bool:
     return 0 < calculate_age(birth_date_str) < adult_age
 
 
+def parse_work_schedule_form(form, prefix: str = "ws") -> list:
+    """Extrae un horario semanal de un formulario web.
+
+    Lee ``{prefix}_start_{day}`` / ``{prefix}_end_{day}`` (day 0..6, 0=Lun..6=Dom)
+    y retorna ``[{"day": d, "start": "HH:MM", "end": "HH:MM"}, ...]`` solo para
+    los días con hora de inicio y fin definidas y distintas.
+    """
+    schedule = []
+    for day in range(7):
+        start = (form.get(f"{prefix}_start_{day}", "") or "").strip()
+        end = (form.get(f"{prefix}_end_{day}", "") or "").strip()
+        if start and end and start != end:
+            schedule.append({"day": day, "start": start, "end": end})
+    return schedule
+
+
 RELATIONSHIP_CATALOG = [
     {"code": "hijo", "name": "Hijo"},
     {"code": "hija", "name": "Hija"},

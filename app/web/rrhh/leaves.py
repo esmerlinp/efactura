@@ -69,6 +69,7 @@ def leave_new():
             "days": days,
             "status": "pendiente",
             "notes": request.form.get("notes", "").strip(),
+            "paidByPayroll": request.form.get("paidByPayroll") == "on",
         }, sandbox=sandbox)
         flash("Permiso registrado.", "success")
         return redirect(url_for("web_rrhh.leave_list"))

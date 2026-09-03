@@ -109,7 +109,8 @@ def employee_portal_vacation_new():
         end_date = request.form.get("endDate", "")
         from app.services.holiday_service import HolidayService
         holidays = HolidayService.get_holiday_dates(company_id, start_date, end_date, sandbox=sandbox)
-        business_days = PayrollService.calculate_business_days(start_date, end_date, holidays=holidays)
+        work_days = PayrollService.resolve_employee_work_days(company_id, employee, sandbox=sandbox)
+        business_days = PayrollService.calculate_business_days(start_date, end_date, holidays=holidays, work_days=work_days)
         from app.services.employee_status_service import EmployeeStatusService
         taken = EmployeeStatusService.taken_vacation_days([
             r for r in hr.get_vacation_requests(company_id, sandbox=sandbox)
@@ -188,6 +189,7 @@ def employee_portal_leave_new():
             "leaveType": request.form.get("leaveType", "otro"),
             "startDate": start_date, "endDate": end_date, "days": days,
             "status": "pendiente", "notes": request.form.get("notes", "").strip(),
+            "paidByPayroll": True,
         }, sandbox=sandbox)
         flash("Permiso registrado.", "success")
         return redirect(url_for("web_rrhh.employee_portal_dashboard"))

@@ -50,6 +50,7 @@ class DeductionPriorityEngine:
         total_employer = 0.0
         tss_deductions = []
         isr_deductions = []
+        leave_deductions = []
         other_deductions = []
         skipped = []
         warnings = []
@@ -77,7 +78,10 @@ class DeductionPriorityEngine:
                 category = tx.get("conceptSnapshot", {}).get("category", "other")
                 is_mandatory = tx.get("conceptSnapshot", {}).get("isLegalMandatory", False)
 
-                if is_mandatory and category in ("tss", "isr"):
+                if category == "leave":
+                    # Reducción salarial por días no trabajados: se aplica íntegra
+                    leave_deductions.append(tx)
+                elif is_mandatory and category in ("tss", "isr"):
                     if category == "tss":
                         tss_deductions.append(tx)
                     else:
@@ -88,11 +92,14 @@ class DeductionPriorityEngine:
         # Aplicar TSS obligatorios primero (no se pueden exceder)
         tss_total = sum(float(d.get("amount", 0)) for d in tss_deductions)
         isr_total = sum(float(d.get("amount", 0)) for d in isr_deductions)
+        leave_total = sum(float(d.get("amount", 0)) for d in leave_deductions)
 
-        available = total_income - tss_total - isr_total
+        # La licencia no pagada reduce el salario efectivamente devengado.
+        earned_income = max(0.0, total_income - leave_total)
+        available = earned_income - tss_total - isr_total
 
-        # Calcular monto protegido
-        protected = max(0, total_income * protected_pct)
+        # Calcular monto protegido (sobre el salario devengado)
+        protected = max(0, earned_income * protected_pct)
         available_after_protected = max(0, available - protected)
 
         # Ordenar otros descuentos por prioridad
@@ -136,7 +143,7 @@ class DeductionPriorityEngine:
             available_after_protected = max(0, available_after_protected - max_applicable)
 
         # Recalcular totales
-        all_applied = tss_deductions + isr_deductions + other_deductions
+        all_applied = tss_deductions + isr_deductions + leave_deductions + other_deductions
         final_net = total_income - sum(float(d.get("amount", 0)) for d in all_applied)
 
         # Asegurar neto no negativo

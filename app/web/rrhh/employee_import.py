@@ -495,7 +495,8 @@ def employee_import_process():
                     else:
                         final_status = "activo"
 
-                    hr.find_or_create_catalog_item(company_id, "positions", position, sandbox=sandbox)
+                    _pos_item = hr.find_or_create_catalog_item(company_id, "positions", position, sandbox=sandbox)
+                    position_id = (_pos_item or {}).get("id", "")
                     if department_catalog:
                         hr.find_or_create_catalog_item(company_id, "departments", department_catalog, sandbox=sandbox)
 
@@ -521,6 +522,7 @@ def employee_import_process():
                         "secondLastName": second_last_name,
                         "fullName": " ".join(p for p in [first_name, middle_name, first_last_name, second_last_name] if p),
                         "position": position,
+                        "positionId": position_id,
                         "area": area,
                         "costCenter": _get_val(row_data, "costCenter", area),
                         "department": department_catalog or area,

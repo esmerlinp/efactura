@@ -118,8 +118,18 @@ def _ytd_doc_id(employee_id: str, year: int, contract_id: str = "") -> str:
 
 
 def accumulate_ytd(prev_ytd: dict, payroll_line: dict,
-                     period_factor: int = 12, period_key: str = "") -> dict:
-    """Acumula los valores de una línea de nómina en los acumuladores YTD."""
+                     period_factor: int = 12, period_key: str = "",
+                     period_id: str = "") -> dict:
+    """Acumula los valores de una línea de nómina en los acumuladores YTD.
+
+    Idempotencia: si ``period_id`` ya fue acumulado, se retorna ``prev_ytd`` sin
+    cambios. Esto evita que recalcular un mismo período duplique los acumulados
+    (causa histórica de ISR en cero al recalcular).
+    """
+    period_ids = set(prev_ytd.get("periodIds", []) or [])
+    if period_id and period_id in period_ids:
+        return prev_ytd
+
     updated = dict(prev_ytd)
     updated["grossIncome"] = round(prev_ytd.get("grossIncome", 0) + payroll_line.get("totalIncome", 0), 2)
     updated["afpEmployee"] = round(prev_ytd.get("afpEmployee", 0) + payroll_line.get("afpEmployee", 0), 2)
@@ -168,5 +178,9 @@ def accumulate_ytd(prev_ytd: dict, payroll_line: dict,
             ),
         }
         updated["monthly"] = monthly
+
+    if period_id:
+        period_ids.add(period_id)
+        updated["periodIds"] = sorted(period_ids)
 
     return updated

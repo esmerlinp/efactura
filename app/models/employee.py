@@ -70,6 +70,8 @@ class Employee(BaseModel):
     occupationCode: str = ""  # Código CNO-2019 (4 dígitos, catálogo oficial MT)
     weeklyHours: int = 44  # Horas semanales contratadas (max 44)
     workShift: int = 1  # Turno: 1=Diurno, 2=Nocturno, 3=Mixto
+    workSchedule: List[dict] = []  # [{"day": 0..6, "start": "HH:MM", "end": "HH:MM"}] — 0=Lun..6=Dom
+    workScheduleCustom: bool = False  # True = horario propio del empleado (no hereda del puesto)
     educationLevel: int = 0  # Grado instrucción: 1=Primaria, 2=Secundaria, 3=Técnico, 4=Grado, 5=Postgrado, 6=Ninguno
     vacationGranted: int = 1  # Concesión vacaciones: 1=Tomará en el año, 2=Ya las tomó
     sdssNumber: str = ""  # Número de Seguridad Social (SDSS) para DGT-3
@@ -168,6 +170,7 @@ class LeaveRequest(BaseModel):
     status: str = "pendiente"  # "pendiente" | "aprobada" | "rechazada"
     approvedBy: str = ""
     notes: str = ""
+    paidByPayroll: bool = True  # False = días no pagados → descuento en nómina
 
 
 class PayrollLine(BaseModel):

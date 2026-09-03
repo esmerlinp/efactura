@@ -17,6 +17,34 @@ from app.services.payroll_audit_service import log_action
 from app.data.occupations_catalog import OCCUPATIONS
 
 
+# Días de la semana para el editor de horario: (código, índice 0=Lun..6=Dom)
+SCHEDULE_DAYS = [("L", 0), ("M", 1), ("X", 2), ("J", 3), ("V", 4), ("S", 5), ("D", 6)]
+
+
+def _schedule_map(work_schedule):
+    """Convierte un horario semanal en {day_int: entry}."""
+    result = {}
+    for entry in (work_schedule or []):
+        try:
+            result[int(entry.get("day", -1))] = entry
+        except (ValueError, TypeError):
+            continue
+    return result
+
+
+def _resolve_position(company_id, position_id, position_name, sandbox):
+    """Retorna (position_id, position_name) resolviendo el nombre desde el catálogo si hace falta."""
+    positions = hr.get_catalog(company_id, "positions", sandbox=sandbox)
+    for p in positions:
+        if position_id and p.get("id") == position_id:
+            return p.get("id", ""), p.get("name", "")
+    if position_name:
+        for p in positions:
+            if (p.get("name", "") or "").strip().lower() == (position_name or "").strip().lower():
+                return p.get("id", ""), p.get("name", "")
+    return position_id or "", position_name or ""
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # EMPLOYEES
 # ═══════════════════════════════════════════════════════════════════════════
@@ -115,6 +143,13 @@ def employee_new():
         middle_name = request.form.get("middleName", "").strip()
         second_last_name = request.form.get("secondLastName", "").strip()
 
+        position_id = request.form.get("positionId", "").strip()
+        position_name = request.form.get("position", "").strip()
+        position_id, position_name = _resolve_position(company_id, position_id, position_name, sandbox)
+        from app.utils.hr_utils import parse_work_schedule_form
+        work_schedule = parse_work_schedule_form(request.form)
+        work_schedule_custom = request.form.get("workScheduleInherit") != "on"
+
         data = {
             "id": emp_id,
             "idType": request.form.get("idType", "cedula").strip(),
@@ -126,7 +161,8 @@ def employee_new():
             "firstLastName": first_last_name,
             "secondLastName": second_last_name,
             "fullName": " ".join(p for p in [first_name, middle_name, first_last_name, second_last_name] if p),
-            "position": request.form.get("position", "").strip(),
+            "position": position_name,
+            "positionId": position_id,
             "area": request.form.get("area", "").strip(),
             "costCenter": request.form.get("costCenter", request.form.get("area", "")).strip(),
             "department": request.form.get("department_catalog", request.form.get("area", "")).strip(),
@@ -161,6 +197,8 @@ def employee_new():
             "occupationCode": request.form.get("occupationCode", "").strip(),
             "weeklyHours": int(request.form.get("weeklyHours", 44) or 44),
             "workShift": int(request.form.get("workShift", 1) or 1),
+            "workSchedule": work_schedule,
+            "workScheduleCustom": work_schedule_custom,
             "educationLevel": int(request.form.get("educationLevel", 0) or 0),
             "vacationGranted": int(request.form.get("vacationGranted", 1) or 1),
             "sdssNumber": request.form.get("sdssNumber", "").strip(),
@@ -207,6 +245,8 @@ def employee_new():
     areas = ref_data.get("areas", AREAS)
     supervisors = [e for e in hr.get_employees(company_id, sandbox=sandbox) if is_active_equivalent(e.get("status", ""))]
     positions = hr.get_catalog(company_id, "positions", sandbox=sandbox)
+    for _p in positions:
+        _p["_schedule_map"] = _schedule_map(_p.get("workSchedule"))
     departments = hr.get_catalog(company_id, "departments", sandbox=sandbox)
     payroll_groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
     payroll_groups.sort(key=lambda g: g.get("name", ""))
@@ -223,7 +263,8 @@ def employee_new():
                            bancos=bank_names, account_types=ACCOUNT_TYPES,
                            supervisors=supervisors,
                            positions=positions, departments=departments,
-                           payroll_groups=payroll_groups,
+                           payroll_groups=payroll_groups, schedule_days=SCHEDULE_DAYS,
+                           display_schedule={},
                            occupations=OCCUPATIONS, branches=branches)
 
 @web_rrhh_bp.route("/rrhh/employees/<employee_id>/edit", methods=["GET", "POST"])
@@ -248,6 +289,13 @@ def employee_edit(employee_id):
         middle_name = request.form.get("middleName", "").strip()
         second_last_name = request.form.get("secondLastName", "").strip()
 
+        position_id = request.form.get("positionId", "").strip()
+        position_name = request.form.get("position", "").strip()
+        position_id, position_name = _resolve_position(company_id, position_id, position_name, sandbox)
+        from app.utils.hr_utils import parse_work_schedule_form
+        work_schedule = parse_work_schedule_form(request.form)
+        work_schedule_custom = request.form.get("workScheduleInherit") != "on"
+
         employee.update({
             "idType": request.form.get("idType", "cedula").strip(),
             "idNumber": re.sub(r'\D', '', request.form.get("idNumber", "")),
@@ -258,7 +306,8 @@ def employee_edit(employee_id):
             "firstLastName": first_last_name,
             "secondLastName": second_last_name,
             "fullName": " ".join(p for p in [first_name, middle_name, first_last_name, second_last_name] if p),
-            "position": request.form.get("position", "").strip(),
+            "position": position_name,
+            "positionId": position_id,
             "area": request.form.get("area", "").strip(),
             "costCenter": request.form.get("costCenter", request.form.get("area", "")).strip(),
             "department": request.form.get("department_catalog", request.form.get("area", "")).strip(),
@@ -289,6 +338,8 @@ def employee_edit(employee_id):
             "occupationCode": request.form.get("occupationCode", "").strip(),
             "weeklyHours": int(request.form.get("weeklyHours", 44) or 44),
             "workShift": int(request.form.get("workShift", 1) or 1),
+            "workSchedule": work_schedule,
+            "workScheduleCustom": work_schedule_custom,
             "educationLevel": int(request.form.get("educationLevel", 0) or 0),
             "vacationGranted": int(request.form.get("vacationGranted", 1) or 1),
             "sdssNumber": request.form.get("sdssNumber", "").strip(),
@@ -305,7 +356,7 @@ def employee_edit(employee_id):
         hr.save_employee(company_id, employee_id, employee, sandbox=sandbox)
 
         # ── Historial de cambios estructurales ──
-        new_position = request.form.get("position", "").strip()
+        new_position = position_name
         new_department = request.form.get("department_catalog", "").strip()
         new_supervisor = request.form.get("reportsTo", "").strip()
         old_position = employee.get("position", "")
@@ -338,6 +389,8 @@ def employee_edit(employee_id):
     supervisors = [e for e in hr.get_employees(company_id, sandbox=sandbox)
                    if is_active_equivalent(e.get("status", "")) and e.get("id") != employee_id]
     positions = hr.get_catalog(company_id, "positions", sandbox=sandbox)
+    for _p in positions:
+        _p["_schedule_map"] = _schedule_map(_p.get("workSchedule"))
     departments = hr.get_catalog(company_id, "departments", sandbox=sandbox)
     payroll_groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
     payroll_groups.sort(key=lambda g: g.get("name", ""))
@@ -345,6 +398,17 @@ def employee_edit(employee_id):
     branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id)
     bank_entities_list = DatabaseService.get_bank_entities(owner_uid, sandbox=sandbox, company_id=company_id)
     bank_names = [be["name"] for be in bank_entities_list if be.get("active")]
+
+    # Horario a mostrar: propio (si personalizado) o heredado del puesto
+    display_schedule = {}
+    if employee.get("workScheduleCustom"):
+        display_schedule = _schedule_map(employee.get("workSchedule"))
+    else:
+        _pos = next((p for p in positions
+                     if p.get("id") == employee.get("positionId")
+                     or (p.get("name", "") or "").strip().lower() == (employee.get("position", "") or "").strip().lower()), None)
+        if _pos:
+            display_schedule = _schedule_map(_pos.get("workSchedule"))
 
     from app.data.occupations_catalog import OCCUPATIONS
     return render_template("rrhh/employee_form.html", active_page="rrhh_employees", employee=employee,
@@ -354,7 +418,8 @@ def employee_edit(employee_id):
                            bancos=bank_names, account_types=ACCOUNT_TYPES,
                            supervisors=supervisors,
                            positions=positions, departments=departments,
-                           payroll_groups=payroll_groups,
+                           payroll_groups=payroll_groups, schedule_days=SCHEDULE_DAYS,
+                           display_schedule=display_schedule,
                            occupations=OCCUPATIONS, branches=branches)
 
 
@@ -455,6 +520,7 @@ def employee_view(employee_id):
         pass
 
     branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id)
+    employee_work_days = PayrollService.resolve_employee_work_days(company_id, employee, sandbox=sandbox)
     return render_template("rrhh/employee_view.html", active_page="rrhh_employees",
                            employee=_sanitize_for_role(employee), vacation_days=vacation_days,
                            severance=severance, evaluations=evals, trainings=trainings,
@@ -469,7 +535,8 @@ def employee_view(employee_id):
                            relationship_catalog=RELATIONSHIP_CATALOG,
                            herramientas_asignadas=herramientas_asignadas,
                            offboarding_requests=offboarding_requests,
-                           states=offboarding_states)
+                           states=offboarding_states,
+                           employee_work_days=employee_work_days)
 
 
 @web_rrhh_bp.route("/rrhh/employees/<employee_id>/rehire", methods=["POST"])

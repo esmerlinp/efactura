@@ -19,7 +19,7 @@ SYSTEM_CONCEPT_CODES = {
     "INFOTEP_EMPLEADO",     "HORAS_EXTRA", "HE_DIURNA", "HE_FERIADO",
     "NOCTURNIDAD",
     "COMISION", "BONIFICACION",
-    "OTROS_INGRESOS", "OTRAS_DEDUCCIONES",
+    "OTROS_INGRESOS", "OTRAS_DEDUCCIONES", "DESC_LICENCIA",
     "INCENTIVO_BENEFICIO", "DIF_VACACIONES", "SALARIO_RETROACTIVO",
     "INGRESO_VARIABLE", "DESC_CXC",
     "LIQ_PREAVISO", "LIQ_CESANTIA", "LIQ_VACACIONES",
@@ -206,6 +206,13 @@ DEFAULT_CONCEPTS = [
      "taxable": False, "affects_afp": False, "affects_sfs": False, "affects_isr": False,
      "accountDebit": "2.1.2.1.02", "account_credit": "2.1.2.1.02",
      "priority": 200, "active": True, "isSystem": True,
+     "isRecurringCapable": False, "isLegalMandatory": False, "maxPercentage": 0.0},
+
+    {"code": "DESC_LICENCIA",      "name": "Licencia no pagada",
+     "type": "deduction", "category": "leave",
+     "taxable": False, "affects_afp": False, "affects_sfs": False, "affects_isr": False,
+     "accountDebit": "2.1.2.1.02", "account_credit": "2.1.2.1.02",
+     "priority": 201, "active": True, "isSystem": True,
      "isRecurringCapable": False, "isLegalMandatory": False, "maxPercentage": 0.0},
 
     {"code": "DESC_CXC",           "name": "Cuentas por cobrar (nómina)",
