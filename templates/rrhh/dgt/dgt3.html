@@ -2,6 +2,7 @@
 {% block title %}DGT-3 — Personal Fijo {{ year }} — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
+<div class="breadcrumb"><a href="{{ url_for('web_invoices.reports_category', category_key='nomina') }}">Nómina</a><span class="sep">›</span><span>DGT-3</span></div>
 <div class="page-header hr-page-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;">
     <div>
         <h1 class="page-title"><i class="fa-solid fa-file-lines"></i> DGT-3: Planilla de Personal Fijo</h1>
@@ -87,7 +88,7 @@
     </div>
 
     <div style="overflow-x:auto;">
-        <table class="table-premium" style="font-size:0.78rem;">
+        <table class="data-grid data-grid--wide">
             <thead>
                 <tr>
                     <th>#</th>

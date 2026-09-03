@@ -2,7 +2,7 @@
 {% block title %}Nómina Neta sin Provisiones — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
-<div class="breadcrumb"><a href="{{ url_for('web_invoices.reports_index') }}">Reportes de RRHH</a> <span class="sep">›</span> <span>Nómina Neta sin Provisiones</span></div>
+<div class="breadcrumb"><a href="{{ url_for('web_invoices.reports_category', category_key='nomina') }}">Nómina</a> <span class="sep">›</span> <span>Nómina Neta sin Provisiones</span></div>
 <div class="page-header hr-page-header">
     <h1 class="page-title"><i class="fa-solid fa-file-invoice"></i> Nómina Neta sin Provisiones</h1>
     <div class="hr-page-actions">
@@ -11,7 +11,7 @@
             <i class="fa-solid fa-file-csv"></i> Exportar CSV
         </a>
         {% endif %}
-        <a href="{{ url_for('web_invoices.reports_index') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Reportes</a>
+        <a href="{{ url_for('web_invoices.reports_category', category_key='nomina') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Nómina</a>
     </div>
 </div>
 
@@ -36,7 +36,7 @@
         </div>
     </div>
     <div class="table-responsive">
-        <table class="table-premium" style="font-size:0.85rem;">
+        <table class="data-grid">
         <thead><tr>
             <th>Empleado</th><th>Cédula</th><th>Cargo</th>
             <th style="text-align:right;">Salario Base</th>

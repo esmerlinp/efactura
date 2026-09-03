@@ -2,14 +2,14 @@
 {% block title %}Aportes TSS — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
-<div class="breadcrumb"><a href="{{ url_for('web_invoices.reports_index') }}">Reportes de RRHH</a> <span class="sep">›</span> <span>Aportes TSS</span></div>
+<div class="breadcrumb"><a href="{{ url_for('web_invoices.reports_category', category_key='nomina') }}">Nómina</a> <span class="sep">›</span> <span>Aportes TSS</span></div>
 <div class="page-header hr-page-header">
     <h1 class="page-title"><i class="fa-solid fa-shield-halved"></i> Aportes TSS {{ year }}</h1>
-    <a href="{{ url_for('web_invoices.reports_index') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Reportes</a>
+    <a href="{{ url_for('web_invoices.reports_category', category_key='nomina') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Nómina</a>
 </div>
 <div class="card-table-wrapper hr-table-card">
     <div class="table-responsive">
-        <table class="table-premium" style="font-size:0.85rem;">
+        <table class="data-grid">
         <thead><tr><th>Mes</th><th style="text-align:right;">AFP Emp.</th><th style="text-align:right;">SFS Emp.</th><th style="text-align:right;">AFP Empl.</th><th style="text-align:right;">SFS Empl.</th><th style="text-align:right;">SRL</th><th style="text-align:right;">INFOTEP</th><th style="text-align:right;">Total</th></tr></thead>
         <tbody>
             {% for key, data in monthly.items() %}

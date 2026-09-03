@@ -14,7 +14,7 @@
     <form method="POST">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="card-body">
-            <table class="table" style="font-size:0.85rem;">
+            <table class="data-grid">
                 <thead>
                     <tr>
                         <th>Producto</th>
@@ -58,7 +58,7 @@
 </div>
 
 <div class="card" style="margin-top:20px; overflow-x:auto;">
-    <table class="table" style="font-size:0.85rem;">
+    <table class="data-grid">
         <thead>
             <tr><th>Producto</th><th style="text-align:right;">Esperado</th><th style="text-align:right;">Contado</th><th style="text-align:right;">Diferencia</th></tr>
         </thead>

@@ -251,7 +251,7 @@
     <div class="hr-section-card" style="margin-top:16px;">
         <h4 style="margin:0 0 12px; font-size:0.9rem;"><i class="fa-solid fa-list"></i> Conceptos</h4>
         <div class="table-responsive">
-            <table class="table-premium">
+            <table class="data-grid">
                 <thead>
                     <tr>
                         <th>Concepto</th>
@@ -594,7 +594,7 @@
     <div class="hr-section-card">
         <h3><i class="fa-solid fa-money-bill"></i> Pagos registrados</h3>
         <div class="table-responsive" style="margin-top:12px;">
-            <table class="table-premium">
+            <table class="data-grid">
                 <thead><tr><th>Referencia</th><th>Método</th><th>Monto</th><th>Fecha</th><th>Estado</th></tr></thead>
                 <tbody>
                     {% for p in payments %}
@@ -955,7 +955,7 @@
         {% if req.statusHistory %}
         {% set history = req.statusHistory | sort(attribute='changedAt', reverse=True) %}
         <div class="table-responsive" style="margin-top:12px;">
-            <table class="table-premium">
+            <table class="data-grid">
                 <thead><tr><th style="width:40px;"></th><th>Desde</th><th>Hasta</th><th>Fecha</th><th>Usuario</th><th>Comentario</th></tr></thead>
                 <tbody>
                     {% for h in history %}

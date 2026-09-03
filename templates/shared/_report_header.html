@@ -1,0 +1,11 @@
+<div class="report-header">
+    <div class="report-header__top">
+        <div>
+            {% if report_eyebrow %}<div class="report-header__eyebrow">{{ report_eyebrow }}</div>{% endif %}
+            <h1 class="report-header__title">{% if report_icon %}<i class="{{ report_icon }}"></i>{% endif %}{{ report_title }}</h1>
+            {% if report_description %}<p class="report-header__description">{{ report_description }}</p>{% endif %}
+        </div>
+        {% if report_actions %}<div class="report-header__actions">{{ report_actions|safe }}</div>{% endif %}
+    </div>
+    {% if report_filters %}{{ report_filters|safe }}{% endif %}
+</div>

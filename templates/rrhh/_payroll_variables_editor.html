@@ -70,7 +70,7 @@
         <div id="pv-tab-resumen" class="pv-tab-panel {% if not pv_editable %}active{% endif %}">
             {% if period_lines %}
             <div class="table-responsive">
-            <table class="table-premium pv-summary-grid">
+            <table class="data-grid pv-summary-grid">
                 <thead><tr><th title="Empleado">Emp.</th><th class="num" title="Total ingresos">T. Ing.</th><th class="num" title="Total descuentos">T. Desc.</th><th class="num" title="Neto a pagar">Neto</th><th class="num" title="Costo del empleador">Costo Emp.</th></tr></thead>
                 <tbody>
                     {% for l in period_lines %}
@@ -97,7 +97,7 @@
             {% if period_lines %}
             <div class="pv-complete-caption">Montos en RD$ · H.E. representa el pago de horas extras</div>
             <div class="table-responsive">
-            <table class="table-premium pv-complete-grid">
+            <table class="data-grid pv-complete-grid">
                 <thead><tr>
                     <th title="Empleado">Emp.</th>
                     <th title="Salario base">Sal. Base</th>
@@ -166,7 +166,7 @@
                 <div class="pv-chips" data-section="ingresos"></div>
             </div>
             <div class="table-responsive">
-            <table class="table-premium pv-table pv-input-grid" data-section="ingresos">
+            <table class="data-grid data-grid--editable pv-table pv-input-grid" data-section="ingresos">
                 <thead><tr>
                     <th title="Empleado">Emp.</th>
                     <th title="Concepto de ingreso">Concepto</th>
@@ -189,7 +189,7 @@
             <details class="pv-recurring" style="margin:10px 0 6px; border:1px dashed var(--border-color); border-radius:8px; padding:10px 14px;">
                 <summary style="cursor:pointer; font-weight:700; font-size:0.8rem;"><i class="fa-solid fa-repeat"></i> Movimientos recurrentes del grupo</summary>
                 <div class="table-responsive" style="margin-top:8px;">
-                <table class="table-premium" style="font-size:0.8rem; min-width:640px;">
+                <table class="data-grid data-grid--compact">
                     <thead><tr><th>Empleado</th><th>Concepto</th><th style="text-align:right;">Monto</th><th>Frecuencia</th><th>Estado</th><th style="width:90px;"></th></tr></thead>
                     <tbody>
                         {% for mv in recurring_movements %}
@@ -241,7 +241,7 @@
                 <div class="pv-chips" data-section="descuentos"></div>
             </div>
             <div class="table-responsive">
-            <table class="table-premium pv-table pv-input-grid" data-section="descuentos">
+            <table class="data-grid data-grid--editable pv-table pv-input-grid" data-section="descuentos">
                 <thead><tr>
                     <th title="Empleado">Emp.</th>
                     <th title="Concepto de descuento">Concepto</th>
@@ -290,7 +290,7 @@
                         </div>
                     </div>
                     <div class="table-responsive">
-                    <table class="table-premium" style="font-size:0.82rem; min-width:640px;">
+                    <table class="data-grid data-grid--compact">
                         <thead><tr><th>Empleado</th><th style="text-align:right;">Ingresos</th><th style="text-align:right;">Descuentos</th><th style="text-align:right;">Neto</th><th style="text-align:right;">Costo Emp.</th></tr></thead>
                         <tbody id="pvPreviewTbody"></tbody>
                     </table>

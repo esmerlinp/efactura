@@ -1,0 +1,8 @@
+{% extends "rrhh/reports/projection.html" %}
+{% block title %}{{ projection_title }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="breadcrumb"><a href="{{ url_for('web_invoices.reports_category', category_key='nomina') }}">Nómina</a><span class="sep">›</span><span>{{ projection_title }}</span></div>
+<div class="report-header"><div class="report-header__top"><div><h1 class="report-header__title"><i class="fa-solid fa-chart-column"></i> {{ projection_title }}</h1><p class="report-header__description">Estimación mensual para el año seleccionado.</p></div></div>{% set kind = 'payroll' %}{% include 'rrhh/reports/_projection_filters.html' %}</div>
+<div class="card-table-wrapper hr-table-card"><div class="table-responsive"><table class="data-grid"><thead><tr><th>Mes</th><th>Empleados</th><th>Empleado</th>{% if employer_metric %}<th>Empleador</th>{% endif %}<th>Total</th></tr></thead><tbody>{% for m in months %}<tr><td>{{ ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][m.month-1] }}</td><td>{{ m.employees }}</td><td>RD$ {{ '{:,.2f}'.format(m[metric]) }}</td>{% if employer_metric %}<td>RD$ {{ '{:,.2f}'.format(m[employer_metric]) }}</td>{% endif %}<td class="value-positive">RD$ {{ '{:,.2f}'.format(m[metric] + (m[employer_metric] if employer_metric else 0)) }}</td></tr>{% endfor %}</tbody></table></div></div>
+{% endblock %}

@@ -1,0 +1,106 @@
+/* Global compact data-grid standard, based on the payroll Completo grid. */
+.data-grid,
+.table-premium,
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 0.72rem;
+}
+
+.data-grid th, .data-grid td,
+.table-premium th, .table-premium td,
+.data-table th, .data-table td {
+    padding: 5px 7px;
+    white-space: nowrap;
+    line-height: 1.15;
+    font-weight: 400;
+}
+
+.data-grid th:first-child, .data-grid td:first-child,
+.table-premium th:first-child, .table-premium td:first-child,
+.data-table th:first-child, .data-table td:first-child {
+    padding-left: 14px;
+}
+
+.data-grid th, .table-premium th, .data-table th {
+    font-size: 0.66rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--text-muted);
+}
+
+.data-grid td, .table-premium td, .data-table td {
+    color: var(--text-primary);
+    vertical-align: middle;
+}
+
+.data-grid tbody tr, .table-premium tbody tr, .data-table tbody tr {
+    transition: background-color var(--transition-fast, 0.15s ease);
+}
+
+.data-grid tbody tr:hover, .table-premium tbody tr:hover, .data-table tbody tr:hover {
+    background-color: var(--bg-table-hover);
+}
+
+.data-grid .num, .table-premium .num, .data-table .num,
+.data-grid .text-right, .table-premium .text-right, .data-table .text-right {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.data-grid .emp, .data-grid .truncate,
+.table-premium .emp, .table-premium .truncate,
+.data-table .emp, .data-table .truncate {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.data-grid .value-positive, .data-grid .status-positive,
+.table-premium .value-positive, .table-premium .status-positive,
+.data-table .value-positive, .data-table .status-positive { color: var(--accent-emerald); }
+.data-grid .value-negative, .data-grid .status-negative,
+.table-premium .value-negative, .table-premium .status-negative,
+.data-table .value-negative, .data-table .status-negative { color: var(--danger, #ef4444); }
+.data-grid .value-warning, .data-grid .status-warning,
+.table-premium .value-warning, .table-premium .status-warning,
+.data-table .value-warning, .data-table .status-warning { color: var(--accent-orange, #f59e0b); }
+.data-grid .value-info, .data-grid .status-info,
+.table-premium .value-info, .table-premium .status-info,
+.data-table .value-info, .data-table .status-info { color: var(--accent-blue, #3b82f6); }
+.data-grid .status-muted, .table-premium .status-muted, .data-table .status-muted { color: var(--text-muted); }
+
+.data-grid tfoot th, .data-grid tfoot td, .data-grid .row-total td,
+.table-premium tfoot th, .table-premium tfoot td, .table-premium .row-total td,
+.data-table tfoot th, .data-table tfoot td, .data-table .row-total td {
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-nav-hover);
+}
+
+.data-grid--wide, .table-premium--wide { min-width: 1000px; }
+.data-grid--compact, .table-premium--compact { min-width: 620px; }
+
+.data-grid--editable input,
+.data-grid--editable select,
+.data-grid--editable textarea {
+    min-height: 26px;
+    padding: 3px 6px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font: inherit;
+    color: var(--text-primary);
+    background: var(--bg-card);
+}
+
+.data-grid--editable .grid-action {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+}
+
+.data-grid--editable .grid-action:hover { color: var(--accent-emerald); }
+
+@media (max-width: 768px) {
+    .data-grid, .table-premium, .data-table { min-width: 620px; }
+}

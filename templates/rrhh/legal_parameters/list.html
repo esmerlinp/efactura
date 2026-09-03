@@ -51,7 +51,7 @@
             </div>
         </div>
         <div class="table-responsive">
-            <table class="table-premium" style="font-size:0.82rem;">
+            <table class="data-grid">
             <thead>
                 <tr>
                     <th>Versión</th>
@@ -69,7 +69,7 @@
                     <td><strong>v{{ p.version }}</strong></td>
                     <td style="font-family:monospace; font-size:0.8rem;">
                         {% if p.parameterType == 'isr_annual_table' and p.value %}
-                        <table class="table table-sm table-bordered" style="margin:0; font-size:0.72rem;">
+                        <table class="data-grid data-grid--compact">
                             <thead><tr><th style="padding:2px 6px;">Desde</th><th style="padding:2px 6px;">Hasta</th><th style="padding:2px 6px;">Tasa</th><th style="padding:2px 6px;">Ded.</th></tr></thead>
                             <tbody>
                             {% for row in p.value %}
@@ -138,7 +138,7 @@
         </div>
     </div>
     <div class="table-responsive">
-        <table class="table-premium" style="font-size:0.82rem;">
+        <table class="data-grid">
         <thead>
             <tr>
                 <th>Tipo de Parámetro</th>
@@ -159,7 +159,7 @@
                 </td>
                 <td style="font-family:monospace; font-size:0.8rem;">
                     {% if pt == 'isr_annual_table' and pt in default_params and default_params[pt] %}
-                    <table class="table table-sm table-bordered" style="margin:0; font-size:0.72rem;">
+                    <table class="data-grid data-grid--compact">
                         <thead><tr><th style="padding:2px 6px;">Desde</th><th style="padding:2px 6px;">Hasta</th><th style="padding:2px 6px;">Tasa</th><th style="padding:2px 6px;">Ded.</th></tr></thead>
                         <tbody>
                         {% for row in default_params[pt] %}

@@ -2,7 +2,7 @@
 {% block title %}Resumen por Departamento — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
-<div class="breadcrumb"><a href="{{ url_for('web_invoices.reports_index') }}">Reportes de RRHH</a> <span class="sep">›</span> <span>Resumen por Departamento</span></div>
+<div class="breadcrumb"><a href="{{ url_for('web_invoices.reports_category', category_key='nomina') }}">Nómina</a> <span class="sep">›</span> <span>Resumen por Departamento</span></div>
 <div class="page-header hr-page-header">
     <h1 class="page-title"><i class="fa-solid fa-building"></i> Resumen por Departamento</h1>
     <div style="display:flex; gap:8px; align-items:center;">
@@ -12,14 +12,14 @@
             <option value="{{ k }}" {% if k == selected %}selected{% endif %}>{{ k }}</option>
             {% endfor %}
         </select>
-        <a href="{{ url_for('web_invoices.reports_index') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Reportes</a>
+        <a href="{{ url_for('web_invoices.reports_category', category_key='nomina') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Nómina</a>
     </div>
 </div>
 {% if by_dept %}
 <div class="card-table-wrapper hr-table-card">
     <div class="table-header-row"><h3>Período: {{ selected }}</h3></div>
     <div class="table-responsive">
-        <table class="table-premium">
+        <table class="data-grid">
         <thead><tr><th>Departamento</th><th style="text-align:right;">Empleados</th><th style="text-align:right;">Bruto</th><th style="text-align:right;">Neto</th><th style="text-align:right;">Aportes Empleador</th><th style="text-align:right;">Costo Total</th></tr></thead>
         <tbody>
             {% for dept, data in by_dept.items() %}

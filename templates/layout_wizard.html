@@ -23,6 +23,8 @@
     <!-- Estilos según Tema -->
     {% if company_theme == 'moderno' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style_moderno.css') }}?v={{ static_hash('css/style_moderno.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/_data-grid.css') }}?v={{ static_hash('css/_data-grid.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/_report-header.css') }}?v={{ static_hash('css/_report-header.css') }}">
     {% elif company_theme == 'alegra' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style_alegra.css') }}?v={{ static_hash('css/style_alegra.css') }}">
     {% elif company_theme == 'landing' %}

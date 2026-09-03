@@ -114,7 +114,7 @@
 <div class="birthday-container">
 
     <div class="breadcrumb">
-        <a href="{{ url_for('web_invoices.reports_dashboard') }}">Reportes</a>
+        <a href="{{ url_for('web_invoices.reports_category', category_key='empleados') }}">Empleados</a>
         <span class="sep">›</span>
         <span>Cumpleaños</span>
     </div>
@@ -132,9 +132,6 @@
                 <i class="fa-solid fa-file-pdf"></i> PDF
             </a>
             {% endif %}
-            <a href="{{ url_for('web_invoices.reports_dashboard') }}" class="btn btn-ghost">
-                <i class="fa-solid fa-arrow-left"></i> Reportes
-            </a>
         </div>
     </div>
 
@@ -199,7 +196,7 @@
             </h3>
         </div>
         <div class="table-responsive">
-            <table class="table-premium birthday-table">
+            <table class="data-grid birthday-table">
                 <thead>
                     <tr>
                         <th>Código</th>
@@ -214,7 +211,7 @@
                 <tbody>
                     {% for r in results %}
                     <tr class="{% if is_today %}highlight-row{% endif %}">
-                        <td>{{ r.cedula }}</td>
+                         <td>{{ r.code }}</td>
                         <td>
                             {{ r.fullName }}
                             {% if is_today %}

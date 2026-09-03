@@ -115,7 +115,7 @@
         </div>
         <div id="unassigned-content" style="padding:0 20px 20px; display:none;">
             <div class="table-responsive">
-                <table class="table-premium" style="font-size:0.82rem;">
+                <table class="data-grid">
                     <thead>
                         <tr>
                             <th>Nombre</th>
@@ -239,7 +239,7 @@
             <div>
                 <h4 style="font-size:0.85rem; font-weight:700; margin:0 0 10px; color:var(--text-primary);">Cuentas de gasto por centro de costo (DEBE)</h4>
                 {% set cc_accounts = tax_rates.costCenterAccounts %}
-                <table class="table-premium" style="font-size:0.82rem; margin-bottom:8px;">
+                <table class="data-grid">
                     <thead><tr><th>Centro de costo</th><th>Código de cuenta</th><th></th></tr></thead>
                     <tbody id="cc-accounts-tbody">
                         {% for cc_name, cc_code in cc_accounts.items() %}

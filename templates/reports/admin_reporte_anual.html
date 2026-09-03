@@ -297,7 +297,7 @@
     <div class="an-widget">
         <h3><i class="fa-solid fa-box-open"></i> Productos/Servicios más vendidos</h3>
         {% if top_products %}
-            <table class="widget-table">
+            <table class="data-grid widget-table">
                 <thead>
                     <tr>
                         <th>Producto / Servicio</th>
@@ -330,7 +330,7 @@
     <div class="an-widget">
         <h3><i class="fa-solid fa-users"></i> Mejores vendedores</h3>
         {% if top_sellers %}
-            <table class="widget-table">
+            <table class="data-grid widget-table">
                 <thead>
                     <tr>
                         <th>Vendedor</th>
@@ -361,7 +361,7 @@
     <div class="an-widget">
         <h3><i class="fa-solid fa-handshake"></i> Mejores clientes</h3>
         {% if top_clients %}
-            <table class="widget-table">
+            <table class="data-grid widget-table">
                 <thead>
                     <tr>
                         <th>Cliente</th>
@@ -394,7 +394,7 @@
     <div class="an-widget" style="grid-column: 1 / -1; min-height: auto;">
         <h3><i class="fa-solid fa-receipt"></i> Principales gastos</h3>
         {% if top_expenses %}
-            <table class="widget-table">
+            <table class="data-grid widget-table">
                 <thead>
                     <tr>
                         <th>Categoría / Concepto</th>
@@ -423,7 +423,7 @@
 <div class="annual-table-section" id="monthly-detail-section" style="background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px 22px; margin-bottom: 30px;">
     <h3 style="margin: 0 0 4px 0; font-size: 0.95rem; font-weight: 800; color: var(--text-primary);">Detalle mensual</h3>
     <p style="margin: 0 0 18px 0; font-size: 0.8rem; color: var(--text-muted);">Resumen numérico de facturación y compras por mes.</p>
-    <table class="annual-table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+    <table class="data-grid data-grid--wide annual-table">
         <thead>
             <tr>
                 <th style="text-align: left; padding: 12px 16px; background: #f8fafc; font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid #e2e8f0;">Mes</th>

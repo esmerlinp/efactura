@@ -199,7 +199,7 @@
 {% macro bd_table(title, breakdown) %}
 <div class="bd-card">
     <div class="bd-card-title">{{ title }}</div>
-    <table class="bd-table">
+    <table class="data-grid data-grid--wide bd-table">
         <thead>
             <tr>
                 <th>Impuesto</th>
@@ -251,7 +251,7 @@
         <a href="{{ base_url }}&tab=purchase_returns" class="tab-link {% if active_tab == 'purchase_returns' %}active{% endif %}">Devoluciones de compras</a>
     </div>
     {% if detail_rows %}
-    <table class="detail-table">
+    <table class="data-grid data-grid--wide detail-table">
         <thead>
             <tr>
                 <th>NCF / Número</th>
