@@ -1,21 +1,21 @@
 {% extends "rrhh/layout_hr.html" %}
-{% block title %}DGT-3 — Personal Fijo {{ year }} — {{ product_name }}{% endblock %}
+{% block title %}DGT-3 — Personal Fijo {{ year }}-{{ '%02d'|format(month) }} — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
 <div class="breadcrumb"><a href="{{ url_for('web_invoices.reports_category', category_key='nomina') }}">Nómina</a><span class="sep">›</span><span>DGT-3</span></div>
 <div class="page-header hr-page-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;">
     <div>
         <h1 class="page-title"><i class="fa-solid fa-file-lines"></i> DGT-3: Planilla de Personal Fijo</h1>
-        <p style="color:var(--text-secondary); margin:0;">Ministerio de Trabajo — Anexo/2021</p>
+        <p style="color:var(--text-secondary); margin:0;">Ministerio de Trabajo — Reporte mensual (SIRLA DGT-3)</p>
     </div>
     <div style="display:flex; gap:8px;">
-        <a href="{{ url_for('web_invoices.dgt3_export', year=year, format='txt') }}" class="btn btn-primary">
+        <a href="{{ url_for('web_invoices.dgt3_export', year=year, month=month, format='txt') }}" class="btn btn-primary">
             <i class="fa-solid fa-download"></i> .txt (SIRLA)
         </a>
-        <a href="{{ url_for('web_invoices.dgt3_export', year=year, format='xlsx') }}" class="btn btn-success">
+        <a href="{{ url_for('web_invoices.dgt3_export', year=year, month=month, format='xlsx') }}" class="btn btn-success">
             <i class="fa-solid fa-file-excel"></i> .xlsx
         </a>
-        <a href="{{ url_for('web_invoices.dgt3_export', year=year, format='pdf') }}" class="btn btn-danger">
+        <a href="{{ url_for('web_invoices.dgt3_export', year=year, month=month, format='pdf') }}" class="btn btn-danger">
             <i class="fa-solid fa-file-pdf"></i> .pdf
         </a>
     </div>
@@ -28,6 +28,14 @@
             <select name="year" class="form-select" onchange="this.form.submit()">
                 {% for y in range(now.year - 3, now.year + 2) %}
                 <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label>Mes</label>
+            <select name="month" class="form-select" onchange="this.form.submit()">
+                {% for m in range(1, 13) %}
+                <option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ '%02d'|format(m) }}</option>
                 {% endfor %}
             </select>
         </div>
@@ -122,7 +130,7 @@
                     <td style="text-align:center;">{{ emp.gradoInstruccion }}</td>
                 </tr>
                 {% else %}
-                <tr><td colspan="12" style="text-align:center; color:var(--text-muted); padding:32px;">No hay empleados fijos registrados para {{ year }}.</td></tr>
+                <tr><td colspan="12" style="text-align:center; color:var(--text-muted); padding:32px;">No hay empleados fijos registrados para {{ '%02d'|format(month) }}/{{ year }}.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
