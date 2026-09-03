@@ -30,6 +30,40 @@ def _rjust_zero(value, length):
     return s[-length:].rjust(length, "0")
 
 
+def _decimal(value, length, decimals=2):
+    """Formatea un número con punto decimal fijo, alineado a la derecha con ceros.
+
+    Ejemplos (SIRLA DGT-2): _decimal(100.0, 8) -> "00100.00";
+    _decimal(35.0, 6) -> "035.00"; _decimal(0.0, 5) -> "00.00".
+    """
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        v = 0.0
+    return f"{v:0{length}.{decimals}f}"
+
+
+def _sanitize_cause(cause: str) -> str:
+    """Causa de prolongación válida según art. 153 Código de Trabajo: a-e."""
+    c = (cause or "").strip().lower()
+    return c if c in ("a", "b", "c", "d", "e") else ""
+
+
+def _build_days_block(overtime_days: dict) -> str:
+    """Construye los 31 bloques diarios (5 chars horas + 6 chars porcentaje).
+
+    Cada día ocupa 11 caracteres (5 + 6), 31 días -> 341 caracteres.
+    Los días sin horas extras se llenan con "00.00" y "000.00".
+    """
+    block = ""
+    for day in range(1, 32):
+        data = overtime_days.get(day) or overtime_days.get(str(day)) or {}
+        hours = float(data.get("hours", 0) or 0)
+        pct = float(data.get("percentage", 0) or 0)
+        block += _decimal(hours, 5, 2) + _decimal(pct, 6, 2)
+    return block
+
+
 class DGTExportService:
 
     @staticmethod
@@ -108,23 +142,35 @@ class DGTExportService:
 
     @staticmethod
     def to_sirla_txt_dgt2(lines: list[dict], company_info: dict = None,
-                          establishment_id: str = "000000", year: int = None) -> str:
+                          establishment_id: str = "000000", year: int = None,
+                          month: int = None) -> str:
         """Genera archivo fixed-width SIRLA DGT-2 (Cartel de Horas y Vacaciones).
 
-        Especificación:
-          E: ET2<RNC_11><MMYYYY>                                                           → 20 chars
-          D: DNC<doc_type><doc_25><estab_6><hourly_rate_8><31d×11chars><cause_15>         → 400 chars
-          S: S<total_6>                                                                     → 7 chars
+        Especificación oficial DGT-2 (SIRLA — carga de trabajadores):
+          E: ET2<RNC_11><MMYYYY>                                               → 20 chars
+          D: D<NC_3><doc_type><doc_25><estab_6><valor_hora_8><31d×11><causa_15> → 400 chars
+          S: S<total_6>                                                        → 7 chars
 
-        Cada día (1-31): 5 chars horas + 6 chars porcentaje = 11 chars × 31 = 341 chars.
+        Posiciones por campo (1-based):
+          1        Tipo de registro "D"
+          2-4      Tipo de novedad "NC" (padded a 3 con espacio)
+          5        Tipo de documento (C/P/N/M/I)
+          6-30     Número de documento (25, AN left)
+          31-36    ID establecimiento (6, N right-zero)
+          37-44    Valor de la hora normal (8, con punto decimal: "00100.00")
+          45-385   Días 1..31: 5 chars horas + 6 chars porcentaje (341)
+          386-400  Causa de prolongación (15, AN left)
         """
         ci = company_info or {}
         rnc = (ci.get("companyRNC", "") or "").replace("-", "").replace(" ", "")[:11]
-        periodo = f"{year:04d}"[-4:] if year else datetime.now().strftime("%Y")
+        if year and month:
+            periodo = f"{int(month):02d}{int(year):04d}"
+        else:
+            periodo = datetime.now().strftime("%m%Y")
 
         output = io.StringIO()
 
-        # Registro E — Encabezado
+        # Registro E — Encabezado (20 chars)
         output.write(f"ET2{rnc.rjust(11, '0')}{periodo}".ljust(20) + "\n")
 
         num_registros = 2  # E + S
@@ -132,27 +178,25 @@ class DGTExportService:
             doc_type = emp.get("docTypeSirla", "C")
             doc_num = (emp.get("documento", "") or "")[:25]
             hourly_rate = float(emp.get("hourlyRate", 0) or 0)
-            cause = (emp.get("overtimeCause", "") or "")[:15]
+            cause = _sanitize_cause(emp.get("overtimeCause", ""))
 
-            # 31 días de horas extras (5h + 6%) → todo en ceros (Fase 1)
-            dias_he = ""
-            for _ in range(31):
-                dias_he += _rjust_zero(0, 5) + _rjust_zero(0, 6)  # "00000" + "000000"
+            # 31 días de horas extras (5h + 6%) desde el detalle por día
+            dias_he = _build_days_block(emp.get("overtimeDays", {}) or {})
 
             linea = (
                 f"D"
-                f"NC"
+                f"{_ljust('NC', 3)}"
                 f"{doc_type}"
                 f"{_ljust(doc_num, 25)}"
-                f"{establishment_id}"
-                f"{_rjust_zero(int(round(hourly_rate * 100)), 8)}"
+                f"{_rjust_zero(establishment_id, 6)}"
+                f"{_decimal(hourly_rate, 8, 2)}"
                 f"{dias_he}"
                 f"{_ljust(cause, 15)}"
             )
             output.write(linea + "\n")
             num_registros += 1
 
-        # Registro S — Sumario
+        # Registro S — Sumario (7 chars)
         output.write(f"S{num_registros:06d}\n")
 
         return output.getvalue()

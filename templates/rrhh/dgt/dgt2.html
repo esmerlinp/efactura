@@ -1,33 +1,41 @@
 {% extends "rrhh/layout_hr.html" %}
-{% block title %}DGT-2 — Horas y Vacaciones {{ year }} — {{ product_name }}{% endblock %}
+{% block title %}DGT-2 — Horas y Vacaciones {{ year }}-{{ '%02d'|format(month) }} — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
 <div class="breadcrumb"><a href="{{ url_for('web_invoices.reports_category', category_key='nomina') }}">Nómina</a><span class="sep">›</span><span>DGT-2</span></div>
 <div class="page-header hr-page-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;">
     <div>
         <h1 class="page-title"><i class="fa-solid fa-clock"></i> DGT-2: Cartel de Horas y Vacaciones</h1>
-        <p style="color:var(--text-secondary); margin:0;">Ministerio de Trabajo — Anexo/2021</p>
+        <p style="color:var(--text-secondary); margin:0;">Ministerio de Trabajo — Reporte mensual (SIRLA DGT-2)</p>
     </div>
     <div style="display:flex; gap:8px;">
-        <a href="{{ url_for('web_invoices.dgt2_export', year=year, format='txt') }}" class="btn btn-primary">
+        <a href="{{ url_for('web_invoices.dgt2_export', year=year, month=month, format='txt') }}" class="btn btn-primary">
             <i class="fa-solid fa-download"></i> .txt (SIRLA)
         </a>
-        <a href="{{ url_for('web_invoices.dgt2_export', year=year, format='xlsx') }}" class="btn btn-success">
+        <a href="{{ url_for('web_invoices.dgt2_export', year=year, month=month, format='xlsx') }}" class="btn btn-success">
             <i class="fa-solid fa-file-excel"></i> .xlsx
         </a>
-        <a href="{{ url_for('web_invoices.dgt2_export', year=year, format='pdf') }}" class="btn btn-danger">
+        <a href="{{ url_for('web_invoices.dgt2_export', year=year, month=month, format='pdf') }}" class="btn btn-danger">
             <i class="fa-solid fa-file-pdf"></i> .pdf
         </a>
     </div>
 </div>
 
 <div class="hr-section-card" style="margin-bottom:16px;">
-    <form method="GET" style="display:flex; gap:12px; align-items:end;">
+    <form method="GET" style="display:flex; gap:12px; align-items:end; flex-wrap:wrap;">
         <div class="form-group" style="margin:0;">
             <label>Año</label>
             <select name="year" class="form-select" onchange="this.form.submit()">
                 {% for y in range(now.year - 3, now.year + 2) %}
                 <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label>Mes</label>
+            <select name="month" class="form-select" onchange="this.form.submit()">
+                {% for m in range(1, 13) %}
+                <option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ '%02d'|format(m) }}</option>
                 {% endfor %}
             </select>
         </div>
@@ -52,7 +60,7 @@
         <h3><i class="fa-solid fa-clock-rotate-left"></i> Horas Extraordinarias</h3>
         <div style="text-align:center; padding:24px;">
             <div style="font-size:2.5rem; font-weight:700; color:var(--accent-orange);">{{ "%.2f"|format(data.totalOvertimeHours) }}</div>
-            <div style="font-size:0.85rem; color:var(--text-muted);">HE acumuladas en {{ year }}</div>
+            <div style="font-size:0.85rem; color:var(--text-muted);">HE acumuladas en {{ '%02d'|format(month) }}/{{ year }}</div>
         </div>
     </div>
 </div>
@@ -80,7 +88,13 @@
                     <td>{{ emp.nombres }}</td>
                     <td>{{ emp.primerApellido }} {{ emp.segundoApellido }}</td>
                     <td style="text-align:right;">{{ "%.2f"|format(emp.hourlyRate) }}</td>
-                    <td style="text-align:center; color:var(--text-muted);">0.00 (sin registro diario)</td>
+                    <td style="text-align:center; {% if not emp.overtimeDays %}color:var(--text-muted);{% endif %}">
+                        {% if emp.overtimeDays %}
+                            {{ "%.2f"|format(emp.totalHoras) }}
+                        {% else %}
+                            0.00 (sin registro diario)
+                        {% endif %}
+                    </td>
                     <td style="text-align:center;">{{ emp.overtimeCause or '—' }}</td>
                 </tr>
                 {% else %}

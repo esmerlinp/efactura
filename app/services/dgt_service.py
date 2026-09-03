@@ -11,8 +11,10 @@ from typing import List, Optional
 from app.services.hr_data_service import (
     get_employees, get_employee, get_payroll_periods, get_payroll_period,
     get_payroll_period_by_key, get_all_salary_history, get_vacation_requests,
+    get_overtime_records,
 )
 from app.data.occupations_catalog import get_occupation_name
+from app.utils.hr_utils import is_active_equivalent
 
 
 def _to_sirla_date(d: str) -> str:
@@ -327,24 +329,61 @@ class DGTService:
         }
 
     @staticmethod
-    def get_dgt2_data(company_id: str, year: int, sandbox: bool = True) -> dict:
-        """DGT-2: Cartel de Horas y Vacaciones con datos SIRLA."""
+    def get_dgt2_data(company_id: str, year: int, month: int = None, sandbox: bool = True) -> dict:
+        """DGT-2: Cartel de Horas y Vacaciones con datos SIRLA (mensual).
+
+        El archivo SIRLA DGT-2 se declara por mes (Periodo = MMYYYY) y el bloque
+        de "Día {n}" (1..31) exige el detalle diario de horas extras y su
+        porcentaje, por lo que el reporte debe ser mensual.
+        """
+        from datetime import datetime as _dt
         from app.services.db_service import DatabaseService
+
+        if month is None:
+            month = _dt.now().month
 
         employees = get_employees(company_id, sandbox=sandbox)
         vacations = get_vacation_requests(company_id, sandbox=sandbox)
 
-        # Obtener HE totales del año desde nóminas
-        payrolls = get_payroll_periods(company_id, sandbox=sandbox)
+        # Horas extras del mes por empleado y día, desde overtime_records
+        overtime_records = get_overtime_records(company_id, sandbox=sandbox)
+        period_prefix = f"{year:04d}-{month:02d}"
+        overtime_by_emp = {}  # employeeId -> {day(int): {"hours": h, "percentage": p}}
         total_overtime = 0.0
-        for p in payrolls:
-            if str(p.get("year", "")) == str(year) and p.get("status") in ("aprobada", "pagada", "contabilizada", "cerrada"):
-                for line in p.get("lines", []):
-                    total_overtime += float(line.get("overtimeHours", 0))
+        for rec in overtime_records:
+            if rec.get("status") not in ("approved", "locked", "processed"):
+                continue
+            rec_date = (rec.get("date") or "")[:10]
+            if not rec_date or not rec_date.startswith(period_prefix):
+                continue
+            emp_id = rec.get("employeeId", "")
+            try:
+                day = int(rec_date[-2:])
+            except ValueError:
+                continue
+            minutes = int(rec.get("totalMinutes", 0) or 0)
+            hours = round(minutes / 60.0, 2)
+            factor = float(rec.get("factorAtApproval", 0) or 0)
+            # Porcentaje de recargo (Ley 16-92): 1.35 -> 35%, 2.00 -> 100%.
+            percentage = round((factor - 1.0) * 100.0, 2) if factor > 1.0 else 0.0
+            if hours <= 0:
+                continue
+            total_overtime += hours
+            bucket = overtime_by_emp.setdefault(emp_id, {})
+            if day in bucket:
+                prev = bucket[day]
+                combined_hours = prev["hours"] + hours
+                combined_pct = round(
+                    (prev["hours"] * prev["percentage"] + hours * percentage) / combined_hours,
+                    2,
+                ) if combined_hours else 0.0
+                bucket[day] = {"hours": combined_hours, "percentage": combined_pct}
+            else:
+                bucket[day] = {"hours": hours, "percentage": percentage}
 
         employees_on_vacation = []
         for v in vacations:
-            if v.get("status") == "aprobada" and str(v.get("startDate", ""))[:4] == str(year):
+            if v.get("status") == "aprobada" and str(v.get("startDate", ""))[:7] == period_prefix:
                 emp = next((e for e in employees if e.get("id") == v.get("employeeId")), None)
                 employees_on_vacation.append({
                     "name": emp.get("fullName", v.get("employeeName", "")) if emp else v.get("employeeName", ""),
@@ -353,16 +392,13 @@ class DGTService:
                     "days": v.get("days", 0),
                 })
 
-        # Tomar configuración de jornada de cualquier empleado activo como referencia
-        active_emp = next((e for e in employees if e.get("status") == "activo"), {})
-
         # Datos de empresa para SIRLA
         company_raw = DatabaseService.get_company(company_id) or {}
         rnl = (company_raw.get("rnl_number", "") or "").replace("-", "").replace(" ", "")
         establishment_id = rnl[-4:].rjust(6, "0") if rnl else "000000"
 
-        # Empleados activos para SIRLA
-        activos = [e for e in employees if e.get("status") == "activo"]
+        # Empleados vigentes para SIRLA (activo / vacaciones / licencia)
+        activos = [e for e in employees if is_active_equivalent(e.get("status"))]
         sirla_lines = []
         for emp in activos:
             cedula = (emp.get("cedula") or emp.get("idNumber") or "").replace("-", "").replace(" ", "")
@@ -370,6 +406,15 @@ class DGTService:
             salary = float(emp.get("baseSalary", emp.get("salary", 0)))
             weekly_hours = emp.get("weeklyHours", 44) or 44
             hourly_rate = round(salary / (weekly_hours * 4.33), 2) if weekly_hours > 0 else 0.0
+
+            emp_days = overtime_by_emp.get(emp.get("id"), {})
+            horas35 = sum(v["hours"] for v in emp_days.values() if round(v["percentage"]) == 35)
+            horas100 = sum(v["hours"] for v in emp_days.values() if round(v["percentage"]) == 100)
+            horas_otro = sum(
+                v["hours"] for v in emp_days.values()
+                if round(v["percentage"]) not in (0, 35, 100)
+            )
+            total_horas = round(sum(v["hours"] for v in emp_days.values()), 2)
 
             sirla_lines.append({
                 "docTypeSirla": _map_doc_type_sirla(id_type),
@@ -379,11 +424,17 @@ class DGTService:
                 "segundoApellido": (emp.get("secondLastName", "") or "")[:40],
                 "sdssNumber": emp.get("sdssNumber", "") or emp.get("tssRegistrationNumber", ""),
                 "hourlyRate": hourly_rate,
+                "overtimeDays": emp_days,
                 "overtimeCause": "",
+                "horas35": horas35,
+                "horas100": horas100,
+                "horasOtro": horas_otro,
+                "totalHoras": total_horas,
             })
 
         return {
             "year": year,
+            "month": month,
             "company": {
                 "companyName": company_raw.get("company_name") or company_raw.get("trade_name", ""),
                 "tradeName": company_raw.get("trade_name", ""),
