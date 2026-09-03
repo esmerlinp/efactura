@@ -133,8 +133,8 @@
         <td colspan="3" style="border-right:none;">
             <table style="width:100%; border:none;">
                 <tr>
-                    <td class="lbl" style="border:none; width:30%;">Año Reportado:</td>
-                    <td class="data" style="border:none;">{{ data.get("year", "") }}</td>
+                    <td class="lbl" style="border:none; width:30%;">Período Reportado:</td>
+                    <td class="data" style="border:none;">{{ '%02d'|format(data.get('month', 1)) }}/{{ data.get('year', '') }}</td>
                 </tr>
                 <tr>
                     <td class="lbl" style="border:none;">R.N.C. No.:</td>

@@ -134,7 +134,9 @@ def _build_dgt_line(emp: dict, novedad_tipo: int = 0, novedad_fecha: str = "") -
         "concesionVacaciones": emp.get("vacationGranted", 1) or 1,
         # SIRLA (nuevo formato fixed-width)
         "docTypeSirla": _map_doc_type_sirla(id_type),
-        "primerNombre": (emp.get("firstName", "") or "")[:50],
+        "primerNombre": " ".join(
+            p for p in [emp.get("firstName", ""), emp.get("middleName", "")] if p
+        )[:50],
         "primerApellido": (emp.get("firstLastName", "") or "")[:40],
         "segundoApellido": (emp.get("secondLastName", "") or "")[:40],
         "fechaNacimientoSirla": _to_sirla_date(emp.get("birthDate", "")),
@@ -162,14 +164,21 @@ def _build_dgt_line(emp: dict, novedad_tipo: int = 0, novedad_fecha: str = "") -
 class DGTService:
 
     @staticmethod
-    def get_dgt3_data(company_id: str, year: int, sandbox: bool = True) -> dict:
-        """DGT-3: Personal fijo activo al corte del año con datos SIRLA + PDF."""
+    def get_dgt3_data(company_id: str, year: int, month: int = None, sandbox: bool = True) -> dict:
+        """DGT-3: Personal fijo activo al corte del período con datos SIRLA + PDF.
+
+        El archivo SIRLA DGT-3 se declara por mes (Periodo = MMYYYY).
+        """
+        from datetime import datetime as _dt
         from app.services.db_service import DatabaseService
+
+        if month is None:
+            month = _dt.now().month
 
         employees = get_employees(company_id, sandbox=sandbox)
         fijos = [
             e for e in employees
-            if e.get("status") == "activo"
+            if is_active_equivalent(e.get("status"))
             and e.get("contractType") == "tiempo_indefinido"
         ]
 
@@ -210,6 +219,7 @@ class DGTService:
 
         return {
             "year": year,
+            "month": month,
             "company": company_info,
             "totalEmployees": len(lines),
             "totalSalary": round(total_salary, 2),

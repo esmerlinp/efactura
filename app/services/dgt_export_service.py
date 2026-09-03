@@ -67,26 +67,52 @@ def _build_days_block(overtime_days: dict) -> str:
 class DGTExportService:
 
     @staticmethod
-    def to_txt(lines: list[dict], company_info: dict = None, year: int = None) -> str:
+    def to_txt(lines: list[dict], company_info: dict = None, year: int = None,
+               month: int = None) -> str:
         """Genera archivo fixed-width para SIRLA con registros E (Header), D (Detalle), S (Sumario).
 
-        Especificación SIRLA DGT-3:
+        Especificación oficial SIRLA DGT-3 (carga de trabajadores):
           E: ET3<RNC_11><MMYYYY>                                                          → 20 chars
-          D: DNI<doc_type><doc_25><names_50><ap1_40><ap2_40><birth_8><sex_1><salary_16>
+          D: D<NI_3><doc_type><doc_25><names_50><ap1_40><ap2_40><birth_8><sex_1><salary_16>
              <hire_8><occup_6><cargo_150><vac_ini_8><vac_fin_8><turno_6><loc_6>
-             <pad_11><educ_5><disc_50>                                                    → 443 chars
+             <reserved_11><educ_5><disc_50>                                              → 443 chars
           S: S<total_6>                                                                    → 7 chars
+
+        Posiciones por campo (1-based):
+          1        Tipo de registro "D"
+          2-4      Tipo de novedad "NI" (padded a 3 con espacio)
+          5        Tipo de documento (C/P/N/M/I)
+          6-30     Número de documento (25, AN left)
+          31-80    Nombres (50, AN left)
+          81-120   Primer apellido (40, AN left)
+          121-160  Segundo apellido (40, AN left)
+          161-168  Fecha nacimiento (8, DDMMYYYY)
+          169      Sexo (1)
+          170-185  Salario (16, N right-zero)
+          186-193  Fecha de ingreso (8, DDMMYYYY)
+          194-199  Ocupación (6, N right-zero)
+          200-349  Cargo (150, AN left)
+          350-357  Inicio vacaciones (8, DDMMYYYY)
+          358-365  Fin vacaciones (8, DDMMYYYY)
+          366-371  Turno (6, N right-zero)
+          372-377  Localidad (6, N right-zero)
+          378-388  Reservado (11 espacios)
+          389-393  Nivel educación (5, N right-zero)
+          394-443  Discapacidad (50, AN left)
         """
         ci = company_info or {}
         rnc = (ci.get("companyRNC", "") or "").replace("-", "").replace(" ", "")[:11]
         rnl = (ci.get("rnlNumber", "") or "").replace("-", "").replace(" ", "")
         localidad = rnl[-4:].rjust(6, "0") if rnl else "000000"
 
-        periodo = f"{year:04d}"[-4:] if year else datetime.now().strftime("%Y")
+        if year and month:
+            periodo = f"{int(month):02d}{int(year):04d}"
+        else:
+            periodo = datetime.now().strftime("%m%Y")
 
         output = io.StringIO()
 
-        # Registro E — Encabezado
+        # Registro E — Encabezado (20 chars)
         header = f"ET3{rnc.rjust(11, '0')}{periodo}"
         output.write(header.ljust(20) + "\n")
 
@@ -112,7 +138,7 @@ class DGTExportService:
 
             linea = (
                 f"D"
-                f"NI"
+                f"{_ljust('NI', 3)}"
                 f"{doc_type}"
                 f"{_ljust(doc_num, 25)}"
                 f"{_ljust(nombres, 50)}"
