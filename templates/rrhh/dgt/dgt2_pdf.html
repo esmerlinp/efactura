@@ -95,7 +95,7 @@
         <td colspan="3"><span class="lbl">R.N.C. No.:</span> <span class="data">{{ c.get("companyRNC", "") }}</span></td>
     </tr>
     <tr>
-        <td colspan="3"><span class="lbl">Mes y Año correspondiente a las horas extra laboradas:</span> <span class="data">{{ d.get("year", "") }}</span></td>
+        <td colspan="3"><span class="lbl">Mes y Año correspondiente a las horas extra laboradas:</span> <span class="data">{{ '%02d'|format(d.get('month', 1)) }}/{{ d.get('year', '') }}</span></td>
     </tr>
     <tr>
         <td style="width:50%;"><span class="lbl">Nombre de la Empresa o Razón Social:</span> <span class="data">{{ c.get("companyName", "") }}</span></td>
@@ -153,11 +153,15 @@
             <td class="doc">{{ emp.get("documento", "") }}</td>
             <td>{{ emp.get("sdssNumber", "") }}</td>
             <td class="money">{{ "%.2f"|format(emp.get("hourlyRate", 0)) }}</td>
-            {% for _ in range(31) %}<td>0</td>{% endfor %}
-            <td>0.00</td>
-            <td>0.00</td>
-            <td>0.00</td>
-            <td>0.00</td>
+            {% set od = emp.get("overtimeDays", {}) %}
+            {% for dia in range(1, 32) %}
+            {% set v = od.get(dia) %}
+            <td>{% if v %}{{ "%.2f"|format(v.hours) }}{% endif %}</td>
+            {% endfor %}
+            <td>{{ "%.2f"|format(emp.get("horas35", 0)) }}</td>
+            <td>{{ "%.2f"|format(emp.get("horas100", 0)) }}</td>
+            <td>{{ "%.2f"|format(emp.get("horasOtro", 0)) }}</td>
+            <td>{{ "%.2f"|format(emp.get("totalHoras", 0)) }}</td>
             <td class="money">0.00</td>
             <td>{{ emp.get("overtimeCause", "") }}</td>
         </tr>
