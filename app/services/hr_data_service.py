@@ -692,6 +692,53 @@ def delete_employee_document(company_id: str, doc_id: str, sandbox: bool = True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# REQUEST ATTACHMENTS (documentos de aval para vacaciones / licencias)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_request_attachments(company_id: str, request_id: str = None,
+                            request_type: str = None, sandbox: bool = True) -> list:
+    """Obtiene los adjuntos de una solicitud (vacation|leave). Si request_id es
+    None devuelve todos los adjuntos de la empresa."""
+    if not firebase_initialized or db_firestore is None:
+        return []
+    try:
+        coll_path = _hr_company_path(company_id, "request_attachments", sandbox)
+        if request_id:
+            docs = db_firestore.collection(coll_path).where("requestId", "==", request_id).get()
+        else:
+            docs = db_firestore.collection(coll_path).get()
+        items = [{"id": d.id, **d.to_dict()} for d in docs]
+        if request_type:
+            items = [i for i in items if i.get("requestType") == request_type]
+        return sorted(items, key=lambda x: x.get("uploadedAt", ""), reverse=True)
+    except Exception as e:
+        print(f"⚠️ get_request_attachments: {e}")
+        return []
+
+
+def save_request_attachment(company_id: str, data: dict, sandbox: bool = True):
+    if not firebase_initialized or db_firestore is None:
+        return
+    try:
+        coll_path = _hr_company_path(company_id, "request_attachments", sandbox)
+        doc_id = data.get("id", str(uuid.uuid4()))
+        data["id"] = doc_id
+        db_firestore.collection(coll_path).document(doc_id).set(data)
+    except Exception as e:
+        print(f"⚠️ save_request_attachment: {e}")
+
+
+def delete_request_attachment(company_id: str, doc_id: str, sandbox: bool = True):
+    if not firebase_initialized or db_firestore is None:
+        return
+    try:
+        coll_path = _hr_company_path(company_id, "request_attachments", sandbox)
+        db_firestore.collection(coll_path).document(doc_id).delete()
+    except Exception as e:
+        print(f"⚠️ delete_request_attachment: {e}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # EMPLOYEE DEPENDENTS
 # ═══════════════════════════════════════════════════════════════════════════
 

@@ -74,8 +74,8 @@
     <div class="employee-summary">
         <div class="employee-identity">
             <div class="employee-photo" style="position:relative;">
-                {% if employee.photoBase64 %}
-                <img src="{{ employee.photoBase64 }}" alt="Foto de {{ employee.fullName }}">
+                {% if employee.photoUrl or employee.photoBase64 %}
+                <img src="{{ employee.photoUrl or employee.photoBase64 }}" alt="Foto de {{ employee.fullName }}">
                 {% else %}
                 <div class="hr-avatar">
                     {{ (employee.firstName or '')[:1] }}{{ (employee.firstLastName or employee.lastName or '')[:1] }}

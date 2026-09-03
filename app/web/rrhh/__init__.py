@@ -124,6 +124,7 @@ from app.web.rrhh import employees_export    # noqa: E402, F401
 from app.web.rrhh import employee_import     # noqa: E402, F401
 from app.web.rrhh import salary_history      # noqa: E402, F401
 from app.web.rrhh import documents           # noqa: E402, F401
+from app.web.rrhh import request_attachments # noqa: E402, F401
 from app.web.rrhh import checklist           # noqa: E402, F401
 from app.web.rrhh import org_chart           # noqa: E402, F401
 from app.web.rrhh import attendance          # noqa: E402, F401

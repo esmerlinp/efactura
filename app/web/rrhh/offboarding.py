@@ -5,9 +5,11 @@ con un flujo estructurado de 12 estados, aprobaciones, SOD y checklist.
 """
 
 import io
+import uuid
 from datetime import datetime, timezone
 from collections import Counter
 from flask import render_template, request, redirect, url_for, session, flash, jsonify, send_file
+from werkzeug.utils import secure_filename
 from app.web.rrhh import (
     web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
     _is_hr_role, _sanitize_for_role,
@@ -699,12 +701,18 @@ def offboarding_upload_document(request_id):
         flash("Debes seleccionar un archivo.", "error")
         return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id, tab="documents"))
 
-    import base64, uuid
-    content = base64.b64encode(file.read()).decode("utf-8")
+    from app.services.db_service import DatabaseService
+
+    file_data = file.read()
     max_size = 10 * 1024 * 1024
-    if len(content) > max_size * 1.4:
+    if len(file_data) > max_size:
         flash("El archivo excede el tamaño máximo de 10MB.", "error")
         return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id, tab="documents"))
+
+    mime_type = file.content_type or "application/pdf"
+    safe_name = secure_filename(file.filename) or "documento"
+    destination_path = f"users/{owner_uid}/offboarding/{request_id}/{uuid.uuid4().hex[:8]}_{safe_name}"
+    file_url = DatabaseService.upload_file_to_storage(file_data, destination_path, mime_type)
 
     doc_id = str(uuid.uuid4())
     doc_data = {
@@ -712,9 +720,10 @@ def offboarding_upload_document(request_id):
         "requestId": request_id,
         "documentType": doc_type or "other",
         "title": file.filename,
-        "fileUrl": f"data:application/pdf;base64,{content}",
-        "fileSize": len(content),
-        "mimeType": file.content_type or "application/pdf",
+        "fileUrl": file_url,
+        "storagePath": destination_path,
+        "fileSize": len(file_data),
+        "mimeType": mime_type,
         "notes": notes,
         "uploadedBy": _email(),
         "uploadedAt": datetime.now(timezone.utc).isoformat(),
@@ -739,8 +748,11 @@ def offboarding_download_document(request_id, doc_id):
         flash("Documento no encontrado.", "error")
         return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id, tab="documents"))
 
-    import base64
     raw = doc["fileUrl"]
+    if raw.startswith("http") or raw.startswith("/uploads/"):
+        return redirect(raw)
+
+    import base64
     if raw.startswith("data:"):
         _, b64 = raw.split(",", 1)
     else:

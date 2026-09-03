@@ -32,8 +32,25 @@ def leave_list():
 
     requests = hr.get_leave_requests(company_id, sandbox=sandbox)
     requests.sort(key=lambda r: r.get("startDate", ""), reverse=True)
+
+    import json as _json
+    attachments = hr.get_request_attachments(company_id, request_type="leave", sandbox=sandbox)
+    attachments_by_request = {}
+    for a in attachments:
+        attachments_by_request.setdefault(a.get("requestId"), []).append({
+            "id": a.get("id"),
+            "name": a.get("name"),
+            "size": a.get("size", 0),
+            "uploadedAt": a.get("uploadedAt", ""),
+            "download": url_for("web_rrhh.leave_attachment_download",
+                                request_id=a.get("requestId"), doc_id=a.get("id")),
+            "delete": url_for("web_rrhh.leave_attachment_delete",
+                              request_id=a.get("requestId"), doc_id=a.get("id")),
+        })
+
     return render_template("rrhh/leave_list.html", active_page="rrhh_attendance",
-                           requests=requests, today=date.today().isoformat())
+                           requests=requests, today=date.today().isoformat(),
+                           attachments_json=_json.dumps(attachments_by_request))
 
 
 @web_rrhh_bp.route("/rrhh/leaves/new", methods=["GET", "POST"])
@@ -71,6 +88,10 @@ def leave_new():
             "notes": request.form.get("notes", "").strip(),
             "paidByPayroll": request.form.get("paidByPayroll") == "on",
         }, sandbox=sandbox)
+
+        from app.web.rrhh.request_attachments import save_uploaded_files
+        save_uploaded_files(company_id, req_id, "leave", sandbox)
+
         flash("Permiso registrado.", "success")
         return redirect(url_for("web_rrhh.leave_list"))
 

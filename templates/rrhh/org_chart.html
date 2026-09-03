@@ -20,8 +20,8 @@
             {% else %}
             <div style="width:24px;"></div>
             {% endif %}
-            {% if node.photoBase64 %}
-            <img src="{{ node.photoBase64 }}" alt="Foto" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border:1px solid var(--border-color); flex-shrink:0;">
+            {% if node.photoUrl or node.photoBase64 %}
+            <img src="{{ node.photoUrl or node.photoBase64 }}" alt="Foto" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border:1px solid var(--border-color); flex-shrink:0;">
             {% else %}
             <div class="hr-avatar" style="width:36px; height:36px; font-size:0.75rem; flex-shrink:0;">
                 {{ (node.firstName or '')[0] }}{{ (node.firstLastName or node.lastName or '')[0] }}
@@ -59,8 +59,8 @@
             {% else %}
             <div style="width:20px;"></div>
             {% endif %}
-            {% if node.photoBase64 %}
-            <img src="{{ node.photoBase64 }}" alt="Foto" style="width:28px; height:28px; border-radius:50%; object-fit:cover; border:1px solid var(--border-color); flex-shrink:0;">
+            {% if node.photoUrl or node.photoBase64 %}
+            <img src="{{ node.photoUrl or node.photoBase64 }}" alt="Foto" style="width:28px; height:28px; border-radius:50%; object-fit:cover; border:1px solid var(--border-color); flex-shrink:0;">
             {% else %}
             <div class="hr-avatar" style="width:28px; height:28px; font-size:0.65rem; flex-shrink:0;">
                 {{ (node.firstName or '')[0] }}{{ (node.firstLastName or node.lastName or '')[0] }}
@@ -103,8 +103,8 @@
     <div style="padding:0 20px 16px; display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:10px;">
         {% for emp in flat_employees %}
         <div class="hr-person-card">
-            {% if emp.photoBase64 %}
-            <img src="{{ emp.photoBase64 }}" alt="Foto" style="width:32px; height:32px; border-radius:50%; object-fit:cover; border:1px solid var(--border-color); flex-shrink:0;">
+            {% if emp.photoUrl or emp.photoBase64 %}
+            <img src="{{ emp.photoUrl or emp.photoBase64 }}" alt="Foto" style="width:32px; height:32px; border-radius:50%; object-fit:cover; border:1px solid var(--border-color); flex-shrink:0;">
             {% else %}
             <div class="hr-avatar">{{ (emp.firstName or '')[0] }}{{ (emp.firstLastName or emp.lastName or '')[0] }}</div>
             {% endif %}

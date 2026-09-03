@@ -613,17 +613,22 @@ def employee_photo_upload(employee_id):
         flash("No se seleccionó ninguna imagen.", "error")
         return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
         
-    import base64
     content = file.read()
     max_size = 2 * 1024 * 1024  # 2MB
     if len(content) > max_size:
         flash("La imagen excede el tamaño máximo de 2MB.", "error")
         return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
         
-    content_b64 = base64.b64encode(content).decode("utf-8")
     mime_type = file.content_type or "image/jpeg"
-    
-    employee["photoBase64"] = f"data:{mime_type};base64,{content_b64}"
+    ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else "jpg"
+    if ext not in ("jpg", "jpeg", "png", "gif", "webp"):
+        ext = "jpg"
+    from app.services.db_service import DatabaseService
+    destination_path = f"users/{owner_uid}/employees/{employee_id}/photo_{uuid.uuid4().hex[:8]}.{ext}"
+    photo_url = DatabaseService.upload_file_to_storage(content, destination_path, mime_type)
+
+    employee["photoUrl"] = photo_url
+    employee.pop("photoBase64", None)
     hr.save_employee(company_id, employee_id, employee, sandbox=sandbox)
     
     flash("Foto de perfil actualizada exitosamente.", "success")

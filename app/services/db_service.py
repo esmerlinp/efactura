@@ -3871,13 +3871,15 @@ class DatabaseService:
             return 0.0
 
     @classmethod
-    def upload_file_to_storage(cls, file_data, destination_path, mime_type="application/octet-stream"):
+    def upload_file_to_storage(cls, file_data, destination_path, mime_type="application/octet-stream", company_id=None):
         """Sube un archivo (PDF, XML, Ticket) a Firebase Storage y retorna su URL pública."""
         # Validar límite de almacenamiento
         owner_uid = None
         parts = destination_path.split('/')
         if len(parts) > 1 and parts[0] == 'users':
             owner_uid = parts[1]
+        elif len(parts) > 1 and parts[0] == 'companies' and company_id:
+            owner_uid = _resolve_owner_uid(company_id)
             
         if owner_uid:
             try:
