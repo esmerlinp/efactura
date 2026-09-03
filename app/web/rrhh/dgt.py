@@ -324,6 +324,62 @@ def dgt11_export():
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# DGT-12: Comunicación de Cese/Término
+# ═══════════════════════════════════════════════════════════════════════════
+
+@web_invoices_bp.route('/reports/rrhh/dgt/dgt12')
+@web_rrhh_bp.route("/rrhh/dgt/dgt12")
+@require_module('nomina')
+def dgt12_view():
+    resp = _dgt_login_check()
+    if resp:
+        return resp
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    now = datetime.now(timezone.utc)
+    year = int(request.args.get("year", now.year))
+    month = int(request.args.get("month", now.month))
+    data = DGTService.get_dgt12_data(company_id, year, month, sandbox=sandbox)
+    return render_template("rrhh/dgt/dgt12.html", data=data, year=year, month=month,
+                           now=now, active_page="rrhh_dgt")
+
+
+@web_invoices_bp.route('/reports/rrhh/dgt/dgt12/export')
+@web_rrhh_bp.route("/rrhh/dgt/dgt12/export")
+@require_module('nomina')
+def dgt12_export():
+    resp = _dgt_login_check()
+    if resp:
+        return resp
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    now = datetime.now(timezone.utc)
+    year = int(request.args.get("year", now.year))
+    month = int(request.args.get("month", now.month))
+    fmt = request.args.get("format", "txt")
+
+    data = DGTService.get_dgt12_data(company_id, year, month, sandbox=sandbox)
+    filename = f"DGT12_{year:04d}{month:02d}"
+
+    if fmt == "txt":
+        content = DGTExportService.to_sirla_txt_dgt12(
+            data.get("lines", []),
+            company_info=data.get("company", {}),
+            year=year, month=month,
+        )
+        buffer = io.BytesIO(content.encode("utf-8"))
+        return send_file(buffer, mimetype="text/plain", as_attachment=True,
+                         download_name=f"{filename}.txt")
+    elif fmt == "xlsx":
+        buffer = DGTExportService.to_excel(data.get("lines", []), title=f"DGT-12 {year}-{month:02d}")
+        return send_file(buffer, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                         as_attachment=True, download_name=f"{filename}.xlsx")
+    elif fmt == "pdf":
+        buffer = DGTExportService.to_pdf(data.get("lines", []), "dgt12", f"DGT-12 {year}-{month:02d}", data=data)
+        return send_file(buffer, mimetype="application/pdf", as_attachment=True,
+                         download_name=f"{filename}.pdf")
+    return redirect(url_for("web_invoices.dgt12_view"))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # DGT-9: Suspensión de Contratos
 # ═══════════════════════════════════════════════════════════════════════════
 
