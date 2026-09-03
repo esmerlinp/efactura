@@ -22,6 +22,7 @@
 .employee-list-page .status-licencia { color: var(--accent-purple); }
 .employee-list-page .status-suspendido { color: var(--accent-orange); }
 .employee-list-page .status-inactivo { color: var(--accent-red); }
+.employee-list-page .col-right { text-align: right; font-variant-numeric: tabular-nums; }
 </style>
 <div class="employee-list-page">
 <div class="page-header hr-page-header">
@@ -148,6 +149,10 @@
         <button type="button" id="bulkBulkEditBtn" class="btn btn-sm btn-success" disabled onclick="bulkBulkEdit()">
             <i class="fa-solid fa-pen-to-square"></i> Edición Masiva
         </button>
+        <span style="border-left:1px solid var(--border-color); height:20px; margin:0 2px;"></span>
+        <button type="button" class="btn btn-sm btn-ghost" onclick="openColumnsModal()">
+            <i class="fa-solid fa-table-columns"></i> Mostrar columnas
+        </button>
     </div>
 
     <div class="table-responsive">
@@ -155,57 +160,33 @@
         <thead>
             <tr>
                 <th style="width:30px;"><input type="checkbox" id="selectAllCB" onchange="toggleAll(this)"></th>
-                <th style="width:46px;">Cód.</th>
-                <th>Empleado</th>
-                <th>Cargo</th>
-                <th>Depto.</th>
-                {% if filter_status == 'inactivo' %}
-                <th>Fecha Salida</th>
-                <th>Motivo</th>
-                <th>Tipo</th>
-                {% endif %}
-                <th>Vac.</th>
-                <th>Estado</th>
+                {% for col in visible_columns %}
+                <th class="{% if col.kind in ('money', 'vacation') %}col-right{% endif %}">{{ col.label }}</th>
+                {% endfor %}
             </tr>
         </thead>
         <tbody>
             {% for emp in employees %}
             <tr>
                 <td><input type="checkbox" class="emp-cb" value="{{ emp.id }}" onchange="updateBulk()"></td>
-                <td><a class="emp-code" href="{{ url_for('web_rrhh.employee_view', employee_id=emp.id) }}">{{ emp.code or '—' }}</a></td>
-                <td class="cell-ellipsis emp-name">
-                    <a href="{{ url_for('web_rrhh.employee_view', employee_id=emp.id) }}">{{ emp.fullName }}</a>
-                </td>
-                <td class="cell-ellipsis" title="{{ emp.position or '' }}">{{ emp.position or '—' }}</td>
-                <td class="cell-ellipsis" title="{{ emp.department or emp.area or '' }}">{{ emp.department or emp.area or '—' }}</td>
-                {% if filter_status == 'inactivo' %}
-                <td>{{ emp.terminationDate or '—' }}</td>
-                <td class="cell-ellipsis" title="{{ emp.terminationReason or '' }}">{{ emp.terminationReason or '—' }}</td>
-                <td>
-                    {% if emp.terminationType == 'renuncia' %}Renuncia
-                    {% elif emp.terminationType == 'despido' %}Despido
-                    {% elif emp.terminationType == 'mutuo_acuerdo' %}Mutuo acuerdo
-                    {% elif emp.terminationType == 'fin_contrato' %}Fin contrato
-                    {% else %}{{ emp.terminationType or '—' }}{% endif %}
-                </td>
-                {% endif %}
-                <td class="emp-vac">{{ emp.vacationDays }} d</td>
-                <td>
-                    {% if emp.status == 'activo' %}
-                    <span class="status-activo">Activo</span>
-                    {% elif emp.status == 'vacaciones' %}
-                    <span class="status-vacaciones">Vacaciones</span>
-                    {% elif emp.status == 'licencia' %}
-                    <span class="status-licencia">Licencia</span>
-                    {% elif emp.status == 'suspendido' %}
-                    <span class="status-suspendido">Suspendido</span>
+                {% for col in visible_columns %}
+                    {% if col.key == 'code' %}
+                    <td><a class="emp-code" href="{{ url_for('web_rrhh.employee_view', employee_id=emp.id) }}">{{ emp.code or '—' }}</a></td>
+                    {% elif col.key == 'fullName' %}
+                    <td class="cell-ellipsis emp-name">
+                        <a href="{{ url_for('web_rrhh.employee_view', employee_id=emp.id) }}">{{ emp.fullName }}</a>
+                    </td>
+                    {% elif col.key == 'status' %}
+                    <td><span class="{{ status_class(emp.status) }}">{{ fmt(emp.get('status'), 'status') }}</span></td>
+                    {% elif col.kind in ('money', 'vacation') %}
+                    <td class="col-right">{{ fmt(emp.get(col.key, ''), col.kind) }}</td>
                     {% else %}
-                    <span class="status-inactivo">Inactivo</span>
+                    <td class="cell-ellipsis" title="{{ fmt(emp.get(col.key, ''), col.kind) }}">{{ fmt(emp.get(col.key, ''), col.kind) }}</td>
                     {% endif %}
-                </td>
+                {% endfor %}
             </tr>
             {% else %}
-            <tr><td colspan="{{ 10 if filter_status == 'inactivo' else 7 }}" class="text-center text-muted">No hay empleados que coincidan con los filtros.</td></tr>
+            <tr><td colspan="{{ visible_columns|length + 1 }}" class="text-center text-muted">No hay empleados que coincidan con los filtros.</td></tr>
             {% endfor %}
         </tbody>
         </table>
@@ -276,6 +257,84 @@ function bulkBulkEdit() {
     var ids = Array.from(document.querySelectorAll('.emp-cb:checked')).map(function(cb) { return cb.value; });
     if (!ids.length) return;
     window.location.href = "{{ url_for('web_rrhh.bulk_edit_wizard') }}?ids=" + ids.join(',');
+}
+</script>
+
+<!-- ── Modal "Mostrar columnas" ── -->
+<div class="modal-overlay" id="columnsModal">
+    <div class="modal-backdrop" onclick="closeColumnsModal()"></div>
+    <div class="modal-card modal-card--lg">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="fa-solid fa-table-columns"></i> Mostrar columnas</h3>
+            <button type="button" class="modal-close" onclick="closeColumnsModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="margin-bottom:12px; position:relative;">
+                <input type="text" id="columnsSearch" class="form-input" placeholder="Buscar columna…"
+                       style="padding-left:32px;" oninput="filterColumns(this.value)">
+                <i class="fa-solid fa-search" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--text-muted);"></i>
+            </div>
+            <div id="columnsOptions" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:6px; max-height:420px; overflow-y:auto;">
+                {% for col in grid_columns %}
+                <label class="col-option" data-key="{{ col.key }}" style="display:flex; align-items:center; gap:8px; padding:6px 8px; border:1px solid var(--border-color); border-radius:6px; cursor:pointer; font-size:0.82rem;">
+                    <input type="checkbox" value="{{ col.key }}"
+                           {% if col.key in fixed_columns %}checked disabled{% elif col.key in visible_keys %}checked{% endif %}>
+                    <span>{{ col.label }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="modal-footer" style="justify-content:space-between;">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="resetColumns()">
+                <i class="fa-solid fa-rotate-left"></i> Restablecer por defecto
+            </button>
+            <div style="display:flex; gap:8px;">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="closeColumnsModal()">Cancelar</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="saveColumns()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function openColumnsModal() {
+    document.getElementById('columnsModal').classList.add('active');
+}
+function closeColumnsModal() {
+    document.getElementById('columnsModal').classList.remove('active');
+    document.getElementById('columnsSearch').value = '';
+    document.querySelectorAll('.col-option').forEach(function(o) { o.style.display = 'flex'; });
+}
+function filterColumns(q) {
+    q = q.toLowerCase();
+    document.querySelectorAll('.col-option').forEach(function(o) {
+        var label = o.querySelector('span').textContent.toLowerCase();
+        o.style.display = label.includes(q) ? 'flex' : 'none';
+    });
+}
+function collectColumns() {
+    var result = {};
+    document.querySelectorAll('#columnsOptions input[type="checkbox"]').forEach(function(cb) {
+        if (!cb.disabled) result[cb.value] = cb.checked;
+    });
+    return result;
+}
+function saveColumns() {
+    var columns = collectColumns();
+    fetch("{{ url_for('web_rrhh.employee_list_columns') }}", {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}'},
+        body: JSON.stringify({columns: columns})
+    }).then(function() { window.location.reload(); })
+      .catch(function() { alert('No se pudo guardar la configuración.'); });
+}
+function resetColumns() {
+    var defaults = {{ default_visible | tojson }};
+    document.querySelectorAll('#columnsOptions input[type="checkbox"]').forEach(function(cb) {
+        if (cb.disabled) return;
+        cb.checked = defaults.indexOf(cb.value) !== -1;
+    });
+    saveColumns();
 }
 </script>
 </div>
