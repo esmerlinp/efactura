@@ -104,7 +104,7 @@ class TestToSirlaTxtDgt2:
         txt = self._render()
         header = txt.split("\n")[0]
         assert len(header) == 20
-        assert header == "ET2" + "00131880681" + "092026"
+        assert header == "ET2" + "131880681  " + "092026"
 
     def test_detalle_longitud_400(self):
         txt = self._render()
@@ -156,7 +156,7 @@ class TestToSirlaTxtDgt2:
     def test_periodo_es_mmyyyy(self):
         txt = self._render(year=2026, month=9)
         header = txt.split("\n")[0]
-        assert header[3:14] == "00131880681"
+        assert header[3:14] == "131880681  "
         assert header[14:20] == "092026"
 
 

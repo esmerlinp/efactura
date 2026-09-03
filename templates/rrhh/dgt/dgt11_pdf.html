@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        @page { size: letter landscape; margin: 0.5cm 0.6cm; }
+        body {
+            font-family: 'Arial', 'Helvetica', sans-serif;
+            font-size: 7pt;
+            color: #000; margin: 0; padding: 0;
+        }
+        table.form { width: 100%; border-collapse: collapse; }
+        table.form td, table.form th {
+            border: 1px solid #000; padding: 3px 4px;
+            vertical-align: middle; font-size: 7pt;
+        }
+        table.form td.lbl { font-weight: bold; font-size: 6.5pt; white-space: nowrap; }
+        table.form td.data { font-size: 7.5pt; }
+        .header-title { text-align: center; font-weight: bold; font-size: 9pt; }
+
+        table.emp { width: 100%; border-collapse: collapse; font-size: 6pt; }
+        table.emp th, table.emp td {
+            border: 1px solid #000; padding: 2px 3px;
+            vertical-align: middle; text-align: center;
+        }
+        table.emp th { font-weight: bold; font-size: 5.5pt; background: #f8f8f8; }
+        table.emp td.name { text-align: left; }
+        table.emp td.money { text-align: right; }
+    </style>
+</head>
+<body>
+
+{% set d = data or {} %}
+{% set c = d.get("company", {}) %}
+{% set lines = d.get("lines", []) %}
+
+<table class="form">
+    <tr>
+        <td style="width:70%; text-align:center; border-bottom:1px solid #000; border-right:1px solid #000;">
+            <div class="header-title">MINISTERIO DE TRABAJO</div>
+            <div style="font-size:10pt; font-weight:bold;">COMUNICACIÓN DE INGRESO DE TRABAJADORES</div>
+        </td>
+        <td style="width:30%; text-align:right; vertical-align:top; border-bottom:1px solid #000; padding:4px;">
+            <div style="font-size:5pt;">Página 1 de 1</div>
+            <div style="font-size:5pt; margin-top:4px;">Registro Nacional Laboral -RNL-</div>
+            <div style="border:1px solid #000; padding:3px; margin-top:2px; font-size:7pt; font-weight:bold; text-align:center;">
+                {{ c.get("rnlNumber", "") or "_________________" }}
+            </div>
+        </td>
+    </tr>
+    <tr>
+        <td style="border-right:1px solid #000;">
+            <span class="lbl">R.N.C. No.:</span> <span class="data">{{ c.get("companyRNC", "") }}</span> &nbsp;
+            <span class="lbl">Mes:</span> <span class="data">{{ "%02d"|format(d.get("month", 1)) }}/{{ d.get("year", "") }}</span>
+        </td>
+        <td>
+            <span class="lbl">Razón Social:</span> <span class="data">{{ c.get("companyName", "") }}</span>
+        </td>
+    </tr>
+</table>
+
+<table class="emp" style="margin-top:0;">
+    <thead>
+        <tr>
+            <th style="width:3%;">No.</th>
+            <th style="width:18%;">Nombres y Apellidos</th>
+            <th style="width:12%;">Documento</th>
+            <th style="width:8%;">Salario</th>
+            <th style="width:9%;">Fecha Ingreso</th>
+            <th style="width:20%;">Ocupación</th>
+            <th style="width:6%;">Turno</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for emp in lines %}
+        <tr>
+            <td>{{ loop.index }}</td>
+            <td class="name">{{ emp.get("primerNombre", "") }} {{ emp.get("primerApellido", "") }} {{ emp.get("segundoApellido", "") }}</td>
+            <td>{{ emp.get("documento", "") }}</td>
+            <td class="money">{{ "{:,.2f}".format(emp.get("salario", 0)) }}</td>
+            <td>{{ emp.get("fechaIngreso", "") }}</td>
+            <td>{{ emp.get("cargo", emp.get("ocupacionTexto", "")) }}</td>
+            <td>{{ emp.get("turnoSirla", emp.get("turnoTrabajo", "")) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="text-align:center; padding:24px;">Sin ingresos registrados.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<div style="margin-top:10px; text-align:center; font-size:5.5pt; color:#555;">
+    Generado el {{ now.strftime('%d/%m/%Y %H:%M') }} &mdash; DGT-11 Comunicación de Ingreso &mdash; Ministerio de Trabajo, República Dominicana
+</div>
+
+</body>
+</html>

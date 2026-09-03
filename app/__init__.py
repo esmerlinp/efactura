@@ -509,6 +509,8 @@ def create_app():
                     'web_invoices.dgt4_export': 'nomina',
                     'web_invoices.dgt2_view': 'nomina',
                     'web_invoices.dgt5_view': 'nomina',
+                    'web_invoices.dgt11_view': 'nomina',
+                    'web_invoices.dgt11_export': 'nomina',
                     'web_invoices.dgt9_view': 'nomina',
                     'web_invoices.dgt9_view': 'nomina',
                 }

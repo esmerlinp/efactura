@@ -48,7 +48,7 @@ class TestToTxtDgt3:
         txt = self._render()
         header = txt.split("\n")[0]
         assert len(header) == 20
-        assert header == "ET3" + "00131880681" + "092026"
+        assert header == "ET3" + "131880681  " + "092026"
 
     def test_detalle_longitud_443(self):
         txt = self._render()

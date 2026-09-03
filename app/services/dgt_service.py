@@ -358,6 +358,45 @@ class DGTService:
         }
 
     @staticmethod
+    def get_dgt11_data(company_id: str, year: int, month: int, sandbox: bool = True) -> dict:
+        """DGT-11: Comunicación de ingreso de trabajadores (estación o temporada).
+
+        Reutiliza la detección de altas de DGT-4: personal indefinido cuyo
+        hireDate cae dentro del período solicitado. Devuelve las líneas SIRLA
+        DGT-11 listas para el export fixed-width.
+        """
+        from app.services.db_service import DatabaseService
+
+        employees = get_employees(company_id, sandbox=sandbox)
+        period_key = f"{year:04d}-{month:02d}"
+        lines = []
+        for emp in employees:
+            hire = emp.get("hireDate", "")
+            if emp.get("contractType") != "tiempo_indefinido":
+                continue
+            if (hire or "")[:7] == period_key:
+                lines.append(_build_dgt_line(emp, novedad_tipo=1, novedad_fecha=hire))
+
+        lines.sort(key=lambda l: l.get("fechaIngresoSirla", "") or "")
+
+        company_raw = DatabaseService.get_company(company_id) or {}
+        rnl = (company_raw.get("rnl_number", "") or "").replace("-", "").replace(" ", "")
+        localidad = rnl[-4:].rjust(6, "0") if rnl else "000000"
+
+        return {
+            "year": year,
+            "month": month,
+            "company": {
+                "companyName": company_raw.get("company_name") or company_raw.get("trade_name", ""),
+                "companyRNC": company_raw.get("rnc", ""),
+                "rnlNumber": company_raw.get("rnl_number", ""),
+            },
+            "establishmentId": localidad,
+            "lines": lines,
+            "totalIngresos": len(lines),
+        }
+
+    @staticmethod
     def get_dgt2_data(company_id: str, year: int, month: int = None, sandbox: bool = True) -> dict:
         """DGT-2: Cartel de Horas y Vacaciones con datos SIRLA (mensual).
 

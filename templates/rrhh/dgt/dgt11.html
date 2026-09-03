@@ -1,0 +1,90 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}DGT-11 — Ingresos {{ year }}-{{ '%02d'|format(month) }} — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="breadcrumb"><a href="{{ url_for('web_invoices.reports_category', category_key='nomina') }}">Nómina</a><span class="sep">›</span><span>DGT-11</span></div>
+<div class="page-header hr-page-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;">
+    <div>
+        <h1 class="page-title"><i class="fa-solid fa-user-plus"></i> DGT-11: Comunicación de Ingreso</h1>
+        <p style="color:var(--text-secondary); margin:0;">Ministerio de Trabajo — Ingresos de trabajadores (estación o temporada)</p>
+    </div>
+    <div style="display:flex; gap:8px;">
+        <a href="{{ url_for('web_invoices.dgt11_export', year=year, month=month, fecha_inicio=fecha_inicio, duracion=duracion, format='txt') }}" class="btn btn-primary">
+            <i class="fa-solid fa-download"></i> .txt (SIRLA)
+        </a>
+        <a href="{{ url_for('web_invoices.dgt11_export', year=year, month=month, fecha_inicio=fecha_inicio, duracion=duracion, format='xlsx') }}" class="btn btn-success">
+            <i class="fa-solid fa-file-excel"></i> .xlsx
+        </a>
+        <a href="{{ url_for('web_invoices.dgt11_export', year=year, month=month, fecha_inicio=fecha_inicio, duracion=duracion, format='pdf') }}" class="btn btn-danger">
+            <i class="fa-solid fa-file-pdf"></i> .pdf
+        </a>
+    </div>
+</div>
+
+<div class="hr-section-card" style="margin-bottom:16px;">
+    <form method="GET" style="display:flex; gap:12px; align-items:end; flex-wrap:wrap;">
+        <div class="form-group" style="margin:0;">
+            <label>Año</label>
+            <select name="year" class="form-select" onchange="this.form.submit()">
+                {% for y in range(now.year - 3, now.year + 2) %}
+                <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label>Mes</label>
+            <select name="month" class="form-select" onchange="this.form.submit()">
+                {% for m in range(1, 13) %}
+                <option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ '%02d'|format(m) }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label>Fecha inicio estación/temporada</label>
+            <input type="date" name="fecha_inicio" class="form-input" value="{{ fecha_inicio }}" onchange="this.form.submit()">
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label>Duración (meses)</label>
+            <input type="number" name="duracion" class="form-input" min="1" max="99" value="{{ duracion }}" onchange="this.form.submit()">
+        </div>
+    </form>
+</div>
+
+<div class="hr-section-card">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:16px; margin-bottom:20px;">
+        <div class="kpi-box" style="text-align:center; padding:16px; background:rgba(16,185,129,0.08); border-radius:8px;">
+            <div style="font-size:1.8rem; font-weight:700; color:var(--accent-emerald);">{{ data.totalIngresos }}</div>
+            <div style="font-size:0.8rem; color:var(--text-muted);">Ingresos</div>
+        </div>
+    </div>
+
+    <div style="overflow-x:auto;">
+        <table class="data-grid data-grid--wide">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Documento</th>
+                    <th>Nombre</th>
+                    <th>Salario</th>
+                    <th>Fecha Ingreso</th>
+                    <th>Cargo</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for l in data.lines %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td><span class="mono">{{ l.documento }}</span></td>
+                    <td>{{ l.primerNombre }} {{ l.primerApellido }} {{ l.segundoApellido }}</td>
+                    <td>{{ "{:,.2f}".format(l.salario) }}</td>
+                    <td>{{ l.fechaIngreso }}</td>
+                    <td>{{ l.cargo }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:32px;">No se detectaron ingresos en {{ year }}-{{ '%02d'|format(month) }}.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

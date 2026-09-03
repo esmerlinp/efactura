@@ -113,7 +113,7 @@ class DGTExportService:
         output = io.StringIO()
 
         # Registro E — Encabezado (20 chars)
-        header = f"ET3{rnc.rjust(11, '0')}{periodo}"
+        header = f"ET3{_ljust(rnc, 11)}{periodo}"
         output.write(header.ljust(20) + "\n")
 
         # Registros D — Detalle
@@ -197,7 +197,7 @@ class DGTExportService:
         output = io.StringIO()
 
         # Registro E — Encabezado (20 chars)
-        output.write(f"ET2{rnc.rjust(11, '0')}{periodo}".ljust(20) + "\n")
+        output.write(f"ET2{_ljust(rnc, 11)}{periodo}".ljust(20) + "\n")
 
         num_registros = 2  # E + S
         for emp in lines:
@@ -274,7 +274,7 @@ class DGTExportService:
 
         output = io.StringIO()
 
-        output.write(f"ET4{rnc.rjust(11, '0')}{periodo}".ljust(20) + "\n")
+        output.write(f"ET4{_ljust(rnc, 11)}{periodo}".ljust(20) + "\n")
 
         num_registros = 2
         for emp in lines:
@@ -346,7 +346,7 @@ class DGTExportService:
 
         output = io.StringIO()
 
-        output.write(f"ET5{rnc.rjust(11, '0')}{periodo}".ljust(20) + "\n")
+        output.write(f"ET5{_ljust(rnc, 11)}{periodo}".ljust(20) + "\n")
 
         num_registros = 2
         for emp in lines:
@@ -431,6 +431,78 @@ class DGTExportService:
 
             output.write(f"S{num_registros:06d}\n\n")
 
+        return output.getvalue()
+
+    @staticmethod
+    def to_sirla_txt_dgt11(lines: list[dict], company_info: dict = None,
+                           year: int = None, month: int = None,
+                           fecha_inicio_estacion: str = "", duracion_estacion: int = 0) -> str:
+        """Genera archivo fixed-width SIRLA DGT-11 (Comunicación de Ingreso).
+
+        Especificación oficial DGT-11 (SIRLA — carga de trabajadores):
+          E: EG1<RNC_11><MMYYYY><fechaInicio_DDMMYYYY><duracion_2>   → 30 chars
+          D: D<NI_3><doc_type><doc_25><salario_16><fing_8><ocup_6><cargo_150>
+             <turno_6><localidad_6><reservado_1><educ_5><disc_50>    → 278 chars
+          S: S<total_6>                                              → 7 chars
+
+        Posiciones por campo (1-based):
+          1        Tipo de registro "D"
+          2-4      Tipo de novedad "NI" (3, AN left)
+          5        Tipo de documento (C/P/N/M/I)
+          6-30     Número de documento (25, AN left)
+          31-46    Salario (16, N right-zero)
+          47-54    Fecha de ingreso (8, DDMMYYYY)
+          55-60    Ocupación (6, N right-zero)
+          61-210   Cargo (150, AN left)
+          211-216  Turno (6, N right-zero)
+          217-222  Localidad (6, N right-zero, últimos 4 dígitos RNL)
+          223      Reservado (1 espacio)
+          224-228  Nivel educación (5, N right-zero)
+          229-278  Discapacidad (50, AN left)
+        """
+        ci = company_info or {}
+        rnc = (ci.get("companyRNC", "") or "").replace("-", "").replace(" ", "")[:11]
+        rnl = (ci.get("rnlNumber", "") or "").replace("-", "").replace(" ", "")
+        localidad = rnl[-4:].rjust(6, "0") if rnl else "000000"
+
+        if year and month:
+            periodo = f"{int(month):02d}{int(year):04d}"
+        else:
+            periodo = datetime.now().strftime("%m%Y")
+
+        output = io.StringIO()
+
+        # Registro E — Encabezado (30 chars)
+        output.write(
+            f"E"
+            f"G1"
+            f"{rnc.rjust(11, '0')}"
+            f"{periodo}"
+            f"{(fecha_inicio_estacion or '00000000')[:8]}"
+            f"{_rjust_zero(duracion_estacion, 2)}".ljust(30) + "\n"
+        )
+
+        num_registros = 2  # E + S
+        for emp in lines:
+            linea = (
+                f"D"
+                f"{_ljust('NI', 3)}"
+                f"{emp.get('docTypeSirla', 'C')}"
+                f"{_ljust((emp.get('documento', '') or '')[:25], 25)}"
+                f"{_rjust_zero(int(float(emp.get('salario', 0))), 16)}"
+                f"{_ljust((emp.get('fechaIngresoSirla', '') or '')[:8], 8)}"
+                f"{_rjust_zero((emp.get('ocupacionCodigo', '') or '').replace(' ', '')[:6], 6)}"
+                f"{_ljust((emp.get('cargo', '') or '')[:150], 150)}"
+                f"{_rjust_zero(emp.get('turnoSirla', 1) or 1, 6)}"
+                f"{localidad}"
+                f"{' ' * 1}"
+                f"{_rjust_zero(emp.get('gradoInstruccion', 0) or 0, 5)}"
+                f"{_ljust((emp.get('discapacidad', '') or '')[:50], 50)}"
+            )
+            output.write(linea + "\n")
+            num_registros += 1
+
+        output.write(f"S{num_registros:06d}\n")
         return output.getvalue()
 
     @staticmethod
