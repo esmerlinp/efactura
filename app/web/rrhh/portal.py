@@ -1,6 +1,6 @@
 """RRHH module — auto-extracted."""
 
-from datetime import date
+from datetime import date, datetime
 from flask import render_template, request, redirect, url_for, session, flash, jsonify, send_file
 from app.web.rrhh import (
     web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
@@ -43,7 +43,38 @@ def employee_portal_dashboard():
     ])
     vacation_days = PayrollService.calculate_vacation_days(
         employee.get("hireDate", ""), taken_days=taken)
-    return render_template("rrhh/portal/dashboard.html", employee=employee, vacation_days=vacation_days)
+
+    my_vacations = sorted(
+        [r for r in hr.get_vacation_requests(company_id, sandbox=sandbox)
+         if r.get("employeeId") == employee.get("id")],
+        key=lambda r: r.get("createdDate", ""), reverse=True)
+    my_leaves = sorted(
+        [r for r in hr.get_leave_requests(company_id, sandbox=sandbox)
+         if r.get("employeeId") == employee.get("id")],
+        key=lambda r: r.get("startDate", ""), reverse=True)
+
+    import json as _json
+    attachments_by_request = {}
+    for a in hr.get_request_attachments(company_id, sandbox=sandbox):
+        rid = a.get("requestId")
+        rtype = a.get("requestType")
+        if rid not in {r.get("id") for r in my_vacations + my_leaves}:
+            continue
+        endpoint = "vacation_attachment_download" if rtype == "vacation" else "leave_attachment_download"
+        del_endpoint = "vacation_attachment_delete" if rtype == "vacation" else "leave_attachment_delete"
+        attachments_by_request.setdefault(rid, []).append({
+            "id": a.get("id"),
+            "name": a.get("name"),
+            "size": a.get("size", 0),
+            "uploadedAt": a.get("uploadedAt", ""),
+            "download": url_for("web_rrhh." + endpoint, request_id=rid, doc_id=a.get("id")),
+            "delete": url_for("web_rrhh." + del_endpoint, request_id=rid, doc_id=a.get("id")),
+        })
+
+    return render_template("rrhh/portal/dashboard.html", employee=employee,
+                           vacation_days=vacation_days,
+                           my_vacations=my_vacations, my_leaves=my_leaves,
+                           attachments_json=_json.dumps(attachments_by_request))
 
 
 @web_rrhh_bp.route("/mi-perfil/payslips")
@@ -128,6 +159,8 @@ def employee_portal_vacation_new():
             "notes": request.form.get("notes", "").strip(),
             "createdDate": date.today().isoformat(),
         }, sandbox=sandbox)
+        from app.web.rrhh.request_attachments import save_uploaded_files
+        save_uploaded_files(company_id, req_id, "vacation", sandbox)
         flash(f"Solicitud de vacaciones por {business_days} días enviada.", "success")
         return redirect(url_for("web_rrhh.employee_portal_dashboard"))
     from app.services.employee_status_service import EmployeeStatusService
@@ -191,6 +224,8 @@ def employee_portal_leave_new():
             "status": "pendiente", "notes": request.form.get("notes", "").strip(),
             "paidByPayroll": True,
         }, sandbox=sandbox)
+        from app.web.rrhh.request_attachments import save_uploaded_files
+        save_uploaded_files(company_id, req_id, "leave", sandbox)
         flash("Permiso registrado.", "success")
         return redirect(url_for("web_rrhh.employee_portal_dashboard"))
     return render_template("rrhh/portal/leave_form.html", employee=employee)

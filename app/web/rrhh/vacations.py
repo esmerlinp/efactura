@@ -33,8 +33,25 @@ def vacation_list():
 
     requests = hr.get_vacation_requests(company_id, sandbox=sandbox)
     requests.sort(key=lambda r: r.get("createdDate", ""), reverse=True)
+
+    import json as _json
+    attachments = hr.get_request_attachments(company_id, request_type="vacation", sandbox=sandbox)
+    attachments_by_request = {}
+    for a in attachments:
+        attachments_by_request.setdefault(a.get("requestId"), []).append({
+            "id": a.get("id"),
+            "name": a.get("name"),
+            "size": a.get("size", 0),
+            "uploadedAt": a.get("uploadedAt", ""),
+            "download": url_for("web_rrhh.vacation_attachment_download",
+                                request_id=a.get("requestId"), doc_id=a.get("id")),
+            "delete": url_for("web_rrhh.vacation_attachment_delete",
+                              request_id=a.get("requestId"), doc_id=a.get("id")),
+        })
+
     return render_template("rrhh/vacation_list.html", active_page="rrhh_attendance",
-                           requests=requests, today=date.today().isoformat())
+                           requests=requests, today=date.today().isoformat(),
+                           attachments_json=_json.dumps(attachments_by_request))
 
 
 @web_rrhh_bp.route("/rrhh/vacations/new", methods=["GET", "POST"])
@@ -83,6 +100,10 @@ def vacation_new():
             "notes": request.form.get("notes", "").strip(),
             "createdDate": date.today().isoformat(),
         }, sandbox=sandbox)
+
+        from app.web.rrhh.request_attachments import save_uploaded_files
+        save_uploaded_files(company_id, req_id, "vacation", sandbox)
+
         flash(f"Solicitud de vacaciones por {business_days} días creada.", "success")
         return redirect(url_for("web_rrhh.vacation_list"))
 
