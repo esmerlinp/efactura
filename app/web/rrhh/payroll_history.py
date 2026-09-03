@@ -40,7 +40,7 @@ def payroll_list():
         for g in payroll_groups
     }
 
-    return render_template("rrhh/payroll_list.html", active_page="rrhh_payroll",
+    return render_template("rrhh/payroll_list.html", active_page="rrhh_payroll_history",
                            periods=periods, payroll_groups=payroll_groups,
                            filter_group=filter_group, group_map=group_map,
                            group_employee_counts=group_employee_counts)

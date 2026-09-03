@@ -55,7 +55,7 @@
             <tr>
                 {% if payroll_groups is defined and payroll_groups %}<td style="white-space:nowrap; color:var(--text-muted);">{{ group_map.get(p.payrollGroupId, '—') }}</td>{% endif %}
                 <td style="white-space:nowrap;"><a href="{{ url_for('web_rrhh.payroll_view', period_id=p.id) }}" style="color:var(--text-primary); text-decoration:none; font-weight:600;">{{ p.get('periodRange') or p.periodKey }}</a></td>
-                <td style="white-space:nowrap; color:var(--accent-blue); font-weight:600;">{{ p.get('periodType', 'mensual') }}</td>
+                <td style="white-space:nowrap; color:var(--accent-blue); font-weight:600;">{{ p.get('periodType', 'mensual')|upper }}</td>
                 <td style="text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums;">{{ p.lines|length }}</td>
                 <td style="text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums;">{{ "RD$ {:,.2f}".format(p.totalGross|float) }}</td>
                 <td style="text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums;">{{ "RD$ {:,.2f}".format(p.totalNet|float) }}</td>
