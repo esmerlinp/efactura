@@ -232,18 +232,45 @@ class DGTExportService:
                           year: int = None, month: int = None) -> str:
         """Genera archivo fixed-width SIRLA DGT-4 (Cambios en Personal Fijo).
 
-        Especificación:
-          E: ET4<RNC_11><MMYYYY>
-          D: D<NI|NS|NC><doc_type><doc_25><nombres_50><ap1_40><ap2_40><fnac_8><sexo_1>
+        Especificación oficial SIRLA DGT-4 (carga de trabajadores):
+          E: ET4<RNC_11><MMYYYY>                                                          → 20 chars
+          D: D<NI|NS|NC_3><doc_type><doc_25><nombres_50><ap1_40><ap2_40><fnac_8><sexo_1>
              <salario_16><fing_8><fsal_8><ocup_cod_6><ocup_desc_150><vac_ini_8><vac_fin_8>
-             <turno_6><localidad_6><nacion_3><fcambio_8><educ_5><disc_50>   → 451 chars
-          S: S<total_6>
+             <turno_6><localidad_6><nacion_3><fcambio_8><educ_5><disc_50>                → 451 chars
+          S: S<total_6>                                                                    → 7 chars
+
+        Posiciones por campo (1-based):
+          1        Tipo de registro "D"
+          2-4      Tipo de novedad NI/NS/NC (padded a 3 con espacio)
+          5        Tipo de documento (C/P/N/M/I)
+          6-30     Número de documento (25, AN left)
+          31-80    Nombres (50, AN left)
+          81-120   Primer apellido (40, AN left)
+          121-160  Segundo apellido (40, AN left)
+          161-168  Fecha nacimiento (8, DDMMYYYY)
+          169      Sexo (1)
+          170-185  Salario (16, N right-zero)
+          186-193  Fecha de ingreso (8, DDMMYYYY)
+          194-201  Fecha de salida (8, DDMMYYYY)
+          202-207  Ocupación (6, N right-zero)
+          208-357  Descripción ocupación (150, AN left)
+          358-365  Inicio vacaciones (8, DDMMYYYY)
+          366-373  Fin vacaciones (8, DDMMYYYY)
+          374-379  Turno (6, N right-zero)
+          380-385  Localidad (6, N right-zero)
+          386-388  Nacionalidad (3, AN left, solo extranjeros)
+          389-396  Fecha del cambio (8, DDMMYYYY)
+          397-401  Nivel educación (5, N right-zero)
+          402-451  Discapacidad (50, AN left)
         """
         ci = company_info or {}
         rnc = (ci.get("companyRNC", "") or "").replace("-", "").replace(" ", "")[:11]
         rnl = (ci.get("rnlNumber", "") or "").replace("-", "").replace(" ", "")
         localidad = rnl[-4:].rjust(6, "0") if rnl else "000000"
-        periodo = f"{year:04d}{month:02d}" if year and month else datetime.now().strftime("%Y%m")
+        if year and month:
+            periodo = f"{int(month):02d}{int(year):04d}"
+        else:
+            periodo = datetime.now().strftime("%m%Y")
 
         output = io.StringIO()
 
@@ -253,7 +280,7 @@ class DGTExportService:
         for emp in lines:
             linea = (
                 f"D"
-                f"{emp.get('novedadSirla', 'NI')}"
+                f"{_ljust(emp.get('novedadSirla', 'NI') or 'NI', 3)}"
                 f"{emp.get('docTypeSirla', 'C')}"
                 f"{_ljust((emp.get('documento', '') or '')[:25], 25)}"
                 f"{_ljust(emp.get('primerNombre', '')[:50], 50)}"
