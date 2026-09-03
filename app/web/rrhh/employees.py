@@ -15,6 +15,7 @@ from app.services.payroll_service import PayrollService
 from app.utils.hr_utils import is_active_equivalent
 from app.services.payroll_audit_service import log_action
 from app.data.occupations_catalog import OCCUPATIONS
+from app.data.nationality_catalog import SIRLA_NATIONALITIES
 
 
 # Días de la semana para el editor de horario: (código, índice 0=Lun..6=Dom)
@@ -206,8 +207,7 @@ def employee_new():
             "vacationStartDate": request.form.get("vacationStartDate", "").strip(),
             "vacationEndDate": request.form.get("vacationEndDate", "").strip(),
             "disability": request.form.get("disability", "").strip(),
-            "nationality": 1,
-            "nationalityCode": request.form.get("nationalityCode", "").strip(),
+            "nationality": int(request.form.get("nationality", 1) or 1),
             "numberOfChildren": int(request.form.get("numberOfChildren", 0) or 0),
             "daysWorked": int(request.form.get("daysWorked", 0) or 0),
             "dailySalary": float(request.form.get("dailySalary", 0) or 0),
@@ -268,7 +268,8 @@ def employee_new():
                            payroll_groups=payroll_groups, schedule_days=SCHEDULE_DAYS,
                            display_schedule={},
                            occupations=OCCUPATIONS, branches=branches,
-                           sirla_education_levels=SIRLA_EDUCATION_LEVELS)
+                           sirla_education_levels=SIRLA_EDUCATION_LEVELS,
+                           sirla_nationalities=SIRLA_NATIONALITIES)
 
 @web_rrhh_bp.route("/rrhh/employees/<employee_id>/edit", methods=["GET", "POST"])
 def employee_edit(employee_id):
@@ -350,8 +351,7 @@ def employee_edit(employee_id):
             "vacationStartDate": request.form.get("vacationStartDate", "").strip(),
             "vacationEndDate": request.form.get("vacationEndDate", "").strip(),
             "disability": request.form.get("disability", "").strip(),
-            "nationality": employee.get("nationality", 1),
-            "nationalityCode": request.form.get("nationalityCode", "").strip(),
+            "nationality": int(request.form.get("nationality", 1) or 1),
             "numberOfChildren": int(request.form.get("numberOfChildren", 0) or 0),
             "daysWorked": int(request.form.get("daysWorked", 0) or 0),
             "dailySalary": float(request.form.get("dailySalary", 0) or 0),
@@ -426,7 +426,8 @@ def employee_edit(employee_id):
                            payroll_groups=payroll_groups, schedule_days=SCHEDULE_DAYS,
                            display_schedule=display_schedule,
                            occupations=OCCUPATIONS, branches=branches,
-                           sirla_education_levels=SIRLA_EDUCATION_LEVELS)
+                           sirla_education_levels=SIRLA_EDUCATION_LEVELS,
+                           sirla_nationalities=SIRLA_NATIONALITIES)
 
 
 @web_rrhh_bp.route("/rrhh/employees/<employee_id>/view")
@@ -528,6 +529,7 @@ def employee_view(employee_id):
     branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id)
     employee_work_days = PayrollService.resolve_employee_work_days(company_id, employee, sandbox=sandbox)
     from app.data.education_catalog import get_education_label
+    from app.data.nationality_catalog import get_nationality_name
     return render_template("rrhh/employee_view.html", active_page="rrhh_employees",
                            employee=_sanitize_for_role(employee), vacation_days=vacation_days,
                            severance=severance, evaluations=evals, trainings=trainings,
@@ -544,6 +546,7 @@ def employee_view(employee_id):
                            offboarding_requests=offboarding_requests,
                            states=offboarding_states,
                            sirla_education_label=get_education_label(employee.get("sirlaEducationCode", "")),
+                           sirla_nationality_name=get_nationality_name(employee.get("nationality", 1)),
                            employee_work_days=employee_work_days)
 
 

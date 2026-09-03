@@ -8,6 +8,7 @@ from typing import Any
 from app.services import hr_data_service as hr
 from app.services.payroll_audit_service import log_action
 from app.data.education_catalog import SIRLA_EDUCATION_LEVELS
+from app.data.nationality_catalog import SIRLA_NATIONALITIES
 
 AFP_PROVIDERS = [
     "AFP Siembra",
@@ -42,16 +43,8 @@ BANKS = [
 ]
 
 NATIONALITIES = [
-    {"value": 1, "label": "Dominicana"},
-    {"value": 2, "label": "Haitiana"},
-    {"value": 3, "label": "Estadounidense"},
-    {"value": 4, "label": "Venezolana"},
-    {"value": 5, "label": "Colombiana"},
-    {"value": 6, "label": "Española"},
-    {"value": 7, "label": "Cubana"},
-    {"value": 8, "label": "Puertorriqueña"},
-    {"value": 9, "label": "Italiana"},
-    {"value": 10, "label": "Otra"},
+    {"value": int(n["code"]), "label": f"{n['code']} — {n['name']}"}
+    for n in SIRLA_NATIONALITIES
 ]
 
 BULK_EDITABLE_FIELDS = {

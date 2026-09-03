@@ -12,9 +12,8 @@ from app.services.db_service import DatabaseService
 from app.services.ai_service import AIService
 from app.utils.hr_utils import is_active_equivalent
 from app.extensions import limiter
+from app.data.nationality_catalog import is_valid_nationality_code, LEGACY_NATIONALITY_CODE_MAP
 import csv, html, io, json, os, re, uuid, threading
-
-
 # ═══════════════════════════════════════════════════════════════════════════
 # IMPORTACIÓN MASIVA DE EMPLEADOS — Onboarding de 4 pasos
 # ═══════════════════════════════════════════════════════════════════════════
@@ -39,6 +38,7 @@ EMPLOYEE_CSV_FIELDS = [
     ("maritalStatus", "Estado civil", False, ["estado_civil", "civil", "marital", "maritalstatus"]),
     ("educationLevel", "Grado de instrucción", False, ["instruccion", "educacion", "educación", "education", "educationlevel", "grado"]),
     ("sirlaEducationCode", "Nivel educativo SIRLA (DGT)", False, ["sirla", "nivel_sirla", "educacion_sirla", "educación_sirla", "codigo_educativo", "código_educativo"]),
+    ("nationality", "Nacionalidad SIRLA", False, ["nacionalidad", "nationality", "nacionalidad_sirla", "pais", "país"]),
     ("emergencyContact", "Contacto de emergencia", False, ["emergencia", "emergency", "contacto_emergencia", "emergencycontact"]),
     ("emergencyPhone", "Teléfono de emergencia", False, ["tel_emergencia", "emergencyphone", "telefono_emergencia"]),
     ("afpProvider", "AFP", False, ["afp", "afpprovider", "afp_provider"]),
@@ -81,7 +81,7 @@ EMPLOYEE_EXAMPLE_ROW = [
     "Juan", "Carlos", "Pérez", "Gómez",
     "cedula", "40212345678", "juan.perez@example.com", "8095551234",
     "Santo Domingo Este", "Calle Primera #45, Los Prados", "masculino", "1990-05-15",
-    "S", "4", "4765", "María Pérez", "8095555678",
+    "S", "4", "4765", "1", "María Pérez", "8095555678",
     "AFP Popular", "Empleado ejemplar con buen desempeño.", "2024-01-15", "tiempo_indefinido",
     "2024-04-15", "", "quincenal", "35000",
     "completa", "no", "44", "1",
@@ -115,6 +115,26 @@ def _sanitize_float_import(val, default=0.0):
         return float(val_clean)
     except Exception:
         return default
+
+
+def _resolve_nationality_id(val) -> int:
+    """Resuelve el ID oficial SIRLA de nacionalidad desde un valor de importación.
+
+    Acepta el ID numérico directo (ej. "18") o un código textual legacy
+    (ej. "VEN"). Devuelve 1 (Dominicana) ante valores vacíos o no reconocidos.
+    """
+    s = str(val or "").strip()
+    if not s:
+        return 1
+    if is_valid_nationality_code(s):
+        return int(s)
+    mapped = LEGACY_NATIONALITY_CODE_MAP.get(s.upper())
+    if mapped:
+        return int(mapped)
+    # Intentar numérico crudo
+    if s.isdigit():
+        return int(s)
+    return 1
 
 
 @web_rrhh_bp.route("/rrhh/employees/import")
@@ -562,7 +582,7 @@ def employee_import_process():
                         "educationLevel": int(_get_val(row_data, "educationLevel", "0") or 0),
                         "sirlaEducationCode": _get_val(row_data, "sirlaEducationCode", "").strip(),
                         "vacationGranted": int(_get_val(row_data, "vacationGranted", "1") or 1),
-                        "nationality": 1,
+                        "nationality": _resolve_nationality_id(_get_val(row_data, "nationality", "1")),
                         "payrollGroupIds": [g.strip() for g in _get_val(row_data, "payrollGroupIds").split(",") if g.strip()],
                     }
 
