@@ -3,109 +3,45 @@
 <head>
 <meta charset="utf-8">
 <style>
-    @page { size: letter; margin: 2.5cm 2cm 2cm 2cm; }
-    @page { @bottom-right { content: "Página " counter(page); font-size: 9px; color: #999; } }
-    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; line-height: 1.6; color: #222; margin: 0; padding: 0; }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; border-bottom: 2px solid #1e40af; padding-bottom: 20px; }
-    .logo-img { max-height: 70px; }
-    .company-info { text-align: right; font-size: 9pt; color: #555; }
-    .title { text-align: center; font-size: 14pt; font-weight: 700; color: #1e40af; margin: 30px 0; text-transform: uppercase; letter-spacing: 1px; }
-    .ref-line { text-align: right; font-size: 9pt; color: #666; margin-bottom: 20px; }
-    .content { text-align: justify; margin: 20px 0; }
-    .content p { margin: 10px 0; }
-    .signature-box { margin-top: 50px; text-align: center; }
-    .signature-line { border-top: 1px solid #333; margin: 50px auto 0; padding-top: 8px; font-size: 9pt; color: #555; width: 280px; }
-    .signature-name { font-size: 11pt; font-weight: 600; color: #222; }
-    .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 8pt; color: #999; border-top: 1px solid #ddd; padding-top: 6px; }
-    .qr-code { position: fixed; bottom: 40px; right: 20px; width: 60px; height: 60px; }
+    @page { size: letter; margin: 2.5cm 2.5cm 2cm 2.5cm; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; line-height: 1.7; color: #222; margin: 0; padding: 0; }
+    .addressee { margin: 0 0 24px; }
+    .addressee p { margin: 2px 0; }
+    .subject { font-weight: 700; margin: 24px 0; }
+    .content { text-align: justify; }
+    .content p { margin: 14px 0; }
+    .closing { margin-top: 28px; }
+    .signature { margin-top: 70px; text-align: center; }
+    .signature-line { border-top: 1px solid #333; width: 300px; margin: 0 auto 10px; }
+    .signature-name { font-weight: 600; }
 </style>
 </head>
 <body>
 
-<div class="header">
-    <div>
-        {% if company.logoBase64 %}
-        <img src="data:image/png;base64,{{ company.logoBase64 }}" class="logo-img" alt="Logo">
-        {% endif %}
-    </div>
-    <div class="company-info">
-        <strong>{{ company.companyName }}</strong><br>
-        {% if company.rnc %}RNC: {{ company.rnc }}<br>{% endif %}
-        {% if company.address %}{{ company.address }}<br>{% endif %}
-        {% if company.city %}{{ company.city }}<br>{% endif %}
-        {% if company.phone %}Tel: {{ company.phone }}<br>{% endif %}
-        {% if company.email %}{{ company.email }}{% endif %}
-    </div>
+<div class="addressee">
+    <p><strong>Señores</strong></p>
+    <p>Ministerio de Trabajo</p>
+    <p>Santo Domingo, D.N.,</p>
+    <p>República Dominicana.</p>
 </div>
 
-<div class="title">Carta de Desvinculación Laboral</div>
-
-<div class="ref-line">
-    Ref: {{ request_data.requestNumber or request_data.id[:8] }}<br>
-    Fecha: {{ today_es }}
-</div>
+<p class="subject">Asunto: Notificación de desahucio empleado</p>
 
 <div class="content">
-    <p><strong>Señor(es)</strong><br>
-    {{ employee.fullName or '' }}<br>
-    {{ employee.cedula or employee.idNumber or '' }}<br>
-    Presente.-</p>
+    <p>Estimados señores:</p>
 
-    <p>Por medio de la presente, {{ company.companyName }},
-    {% if representative_name %}
-    debidamente representada por <strong>{{ representative_name }}</strong>, <strong>{{ representative_position }}</strong>, quien suscribe,
-    {% else %}
-    debidamente representada por quien suscribe,
-    {% endif %}
-    hace constar que el(la) señor(ra) <strong>{{ employee.fullName or '' }}</strong>, portador(a) de la cédula de identidad No. <strong>{{ employee.cedula or employee.idNumber or '' }}</strong>,
-    {% set effective_date = request_data.effectiveDate %}
-    {% set last_work_date = request_data.lastWorkDate or request_data.effectiveDate %}
-    {% if effective_date == last_work_date %}
-    ha finalizado su relación laboral con esta empresa en fecha <strong>{{ format_date_es(effective_date) }}</strong>.
-    {% else %}
-    ha finalizado su relación laboral con esta empresa en fecha <strong>{{ format_date_es(effective_date) }}</strong>, siendo su último día laborado el <strong>{{ format_date_es(last_work_date) }}</strong>.
-    {% endif %}</p>
+    <p>En cumplimiento a lo dispuesto por el Artículo 77 del Código de Trabajo, por medio de la presente tenemos a bien notificarles que en fecha <strong>{{ format_date_es(request_data.effectiveDate) }}</strong>, nuestra empresa dio por terminado el contrato de trabajo que le unía con la señora <strong>{{ employee.fullName or '' }}</strong>, portador de la Cédula de Identidad y Electoral No. <strong>{{ employee.cedula or employee.idNumber or '' }}</strong> quien ocupaba la posición de <strong>{{ employee.position or employee.jobTitle or '' }}</strong> en nuestra empresa desde el <strong>{{ format_date_es(employee.hireDate) }}</strong>, mediante el ejercicio del desahucio previsto por el Artículo 75 del Código de Trabajo.</p>
 
-    <p>El tipo de desvinculación corresponde a: <strong>{{ request_data.terminationType | replace('_', ' ') | title }}</strong>.</p>
+    <p>Sin otro particular por el momento, y agradeciendo de antemano su atención a la presente, queda de ustedes.</p>
 
-    {% if request_data.terminationReason %}
-    <p><strong>Motivo:</strong> {{ request_data.terminationReason }}</p>
-    {% elif request_data.terminationType == 'renuncia_voluntaria' %}
-    <p><strong>Motivo:</strong> Renuncia presentada por el colaborador.</p>
-    {% endif %}
-
-    {% if request_data.detailedReason %}
-    <p><strong>Detalle adicional:</strong> {{ request_data.detailedReason }}</p>
-    {% endif %}
-
-    {% if settlement_completed %}
-    <p>La empresa ha cumplido con las obligaciones laborales y de seguridad social correspondientes conforme a la legislación laboral vigente.</p>
-    {% else %}
-    <p>La empresa procederá al cumplimiento de las obligaciones laborales y de seguridad social que correspondan conforme a la legislación laboral vigente.</p>
-    {% endif %}
-
-    <p>Se expide la presente certificación para los fines que correspondan.</p>
-
-
-
-<div class="signature-box">
-    <p>Atentamente,</p>
-    <div class="signature-line">
-        {% if representative_name %}
-        <div class="signature-name">{{ representative_name }}</div>
-        {% endif %}
-        <div>{{ representative_position }}</div>
-        <div>{{ company.companyName }}</div>
-        {% if company.rnc %}<div>RNC: {{ company.rnc }}</div>{% endif %}
-    </div>
+    <p class="closing">Muy atentamente,</p>
 </div>
 
-{% if qr_base64 %}
-<img src="data:image/png;base64,{{ qr_base64 }}" class="qr-code">
-{% endif %}
-
-<div class="footer">
-    Código de verificación: {{ verification_code }} | Documento generado electrónicamente
+<div class="signature">
+    <div class="signature-line"></div>
+    {% if representative_name %}<div class="signature-name">{{ representative_name }}</div>{% endif %}
+    <div>{{ representative_position }}</div>
+    <div>{{ company.companyName }}</div>
 </div>
 
 </body>

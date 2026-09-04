@@ -75,6 +75,7 @@
         <div><span class="info-label">Fecha de salida:</span><br><span class="info-value">{{ format_date_es(settlement.terminationDate) }}</span></div>
         <div><span class="info-label">Tipo de salida:</span><br><span class="info-value">{{ settlement.terminationType | replace('_', ' ') | title }}</span></div>
         <div><span class="info-label">Salario base mensual:</span><br><span class="info-value">RD$ {{ "{:,.2f}".format(settlement.baseSalary|float) }}</span></div>
+        <div><span class="info-label">Salario promedio:</span><br><span class="info-value">RD$ {{ "{:,.2f}".format(settlement.salarioPromedioMensual|float) if settlement.salarioPromedioMensual else '—' }}</span></div>
     </div>
 </div>
 

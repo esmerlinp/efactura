@@ -7,7 +7,7 @@
         <i class="fa-solid fa-layer-group"></i>
         {{ 'Editar' if group else 'Nuevo' }} Grupo de Nómina
     </h1>
-    <a href="{{ url_for('web_rrhh.payroll_groups_list') }}" class="btn btn-secondary">
+    <a href="{{ url_for('web_rrhh.payroll_settings') }}" class="btn btn-secondary">
         <i class="fa-solid fa-arrow-left"></i> Volver
     </a>
 </div>
@@ -64,7 +64,7 @@
         </div>
 
         <div style="display:flex; gap:12px; justify-content:flex-end;">
-            <a href="{{ url_for('web_rrhh.payroll_groups_list') }}" class="btn btn-secondary">Cancelar</a>
+            <a href="{{ url_for('web_rrhh.payroll_settings') }}" class="btn btn-secondary">Cancelar</a>
             <button type="submit" class="btn btn-primary">
                 <i class="fa-solid fa-floppy-disk"></i> {{ 'Guardar cambios' if group else 'Crear grupo' }}
             </button>

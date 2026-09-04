@@ -25,14 +25,6 @@
                 </p>
             </div>
             <div style="display:flex; gap:8px;">
-                <form method="POST" action="{{ url_for('web_rrhh.offboarding_toggle_mode') }}" style="display:inline;">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="btn btn-sm {% if is_simple %}btn-outline{% else %}btn-info{% endif %}"
-                            style="font-size:0.72rem;" title="{% if is_simple %}Cambiar a modo completo (multi-parte){% else %}Cambiar a modo simple (una sola persona){% endif %}">
-                        <i class="fa-solid {% if is_simple %}fa-users{% else %}fa-bolt{% endif %}"></i>
-                        {% if is_simple %}Modo: Simple{% else %}Modo: Completo{% endif %}
-                    </button>
-                </form>
                 <a href="{{ url_for('web_rrhh.employee_list') }}" class="btn btn-primary">
                     <i class="fa-solid fa-user"></i> Buscar empleado
                 </a>
@@ -141,7 +133,7 @@
                         <td>{{ (r.terminationType or '') | replace('_', ' ') | title }}</td>
                         <td><span class="badge badge-{{ st.color or 'secondary' }}">{{ st.label or r.status }}</span></td>
                         <td>{{ (r.createdAt or '')[:10] }}</td>
-                        <td><a href="{{ url_for('web_rrhh.offboarding_detail', request_id=r.id) }}" class="btn btn-sm btn-ghost"><i class="fa-regular fa-eye"></i></a></td>
+                        <td><a href="{{ url_for('web_rrhh.offboarding_wizard', request_id=r.id) }}" class="btn btn-sm btn-ghost"><i class="fa-regular fa-eye"></i></a></td>
                     </tr>
                     {% endfor %}
                 </tbody>

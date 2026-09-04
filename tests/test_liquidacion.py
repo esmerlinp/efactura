@@ -761,3 +761,27 @@ class TestSalarioPromedioMensual:
         r = LiquidacionService.calcular_salario_promedio_mensual([])
         assert r["promedio_mensual"] == 0.0
         assert r["monthly_salaries_ytd"] == []
+
+    def test_dedup_transacciones_duplicadas(self):
+        base = {"periodId": "P1", "employeeId": "E1", "conceptCode": "SALARIO_BASE",
+                "source": "system", "sourceId": "", "type": "earning", "status": "applied",
+                "conceptSnapshot": {"affectsTSS": True}, "periodKey": "2026-07"}
+        txs = [
+            {**base, "id": "a", "amount": 45000, "createdAt": "2026-07-01"},
+            {**base, "id": "b", "amount": 45000, "createdAt": "2026-07-05"},
+            {**base, "id": "c", "amount": 45000, "createdAt": "2026-07-10"},
+        ]
+        r = LiquidacionService.calcular_salario_promedio_mensual(txs)
+        assert r["promedio_mensual"] == 45000.0
+        assert r["months"] == 1
+
+    def test_dedup_conserva_mas_reciente(self):
+        base = {"periodId": "P1", "employeeId": "E1", "conceptCode": "SALARIO_BASE",
+                "source": "system", "sourceId": "", "type": "earning", "status": "applied",
+                "conceptSnapshot": {"affectsTSS": True}, "periodKey": "2026-07"}
+        txs = [
+            {**base, "id": "old", "amount": 40000, "createdAt": "2026-07-01"},
+            {**base, "id": "new", "amount": 48000, "createdAt": "2026-07-10"},
+        ]
+        r = LiquidacionService.calcular_salario_promedio_mensual(txs)
+        assert r["promedio_mensual"] == 48000.0

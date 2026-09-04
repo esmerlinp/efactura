@@ -112,3 +112,11 @@ def list_requests(company_id: str, sandbox: bool = True,
     return get_all("offboarding_requests", company_id, sandbox,
                    order_by="createdAt", direction="DESCENDING",
                    limit=limit, where_filters=filters)
+
+
+def list_requests_by_employee(company_id: str, employee_id: str,
+                              sandbox: bool = True, limit: int = 100) -> list[dict]:
+    coll = _collection("offboarding_requests", company_id, sandbox)
+    query = coll.where("employeeId", "==", employee_id).limit(limit)
+    docs = query.get()
+    return [d.to_dict() for d in docs]

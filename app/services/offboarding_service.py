@@ -68,6 +68,13 @@ class OffboardingService:
     def list_requests(self, status: str = None, limit: int = 100) -> list[dict]:
         return ods.list_requests(self.company_id, self.sandbox, status=status, limit=limit)
 
+    def get_active_request_for_employee(self, employee_id: str) -> Optional[dict]:
+        terminal = {"completed", "cancelled", "rejected"}
+        for r in ods.list_requests_by_employee(self.company_id, employee_id, sandbox=self.sandbox):
+            if r.get("status") not in terminal:
+                return r
+        return None
+
     def save_request_raw(self, request_id: str, data: dict, user_email: str):
         data["updatedBy"] = user_email
         data["updatedAt"] = self._now()
@@ -163,7 +170,9 @@ class OffboardingService:
                    user_email, {"fromStatus": old_status, "toStatus": new_status}, sandbox=self.sandbox)
 
         if new_status == "completed":
-            self._mark_employee_inactive(req_data)
+            self.deactivate_employee(req_data)
+        elif new_status in ("cancelled", "rejected"):
+            self.reactivate_employee(req_data)
 
         return req_data
 
@@ -245,25 +254,60 @@ class OffboardingService:
 
     # ── Mark Employee Inactive ───────────────────────────────────────────────
 
-    def _mark_employee_inactive(self, req_data: dict):
+    def deactivate_employee(self, req_data: dict):
+        """Inactiva al empleado al iniciar/finalizar la desvinculación.
+
+        Guarda ``terminationDate`` (fecha efectiva de salida) y ``lastWorkDate``
+        (último día trabajado, usado para prorratear la nómina del período final),
+        además de la bandera ``keepInCurrentPayroll`` para retenerlo en la nómina
+        en curso si el usuario así lo pidió.
+        """
         employee_id = req_data.get("employeeId", "")
         if not employee_id:
             return
         try:
             from app.services import hr_data_service as hr
             emp = hr.get_employee(self.company_id, employee_id, sandbox=self.sandbox)
-            if emp and emp.get("status") != "inactivo":
-                emp["status"] = "inactivo"
-                emp["terminationDate"] = req_data.get("effectiveDate", "")
-                emp["terminationType"] = req_data.get("terminationType", "")
+            if not emp:
+                return
+            emp["status"] = "inactivo"
+            emp["terminationDate"] = req_data.get("effectiveDate", "")
+            emp["terminationType"] = req_data.get("terminationType", "")
+            emp["lastWorkDate"] = req_data.get("lastWorkDate", "") or req_data.get("effectiveDate", "")
+            emp["keepInCurrentPayroll"] = bool(req_data.get("keepInCurrentPayroll", False))
+            hr.save_employee(self.company_id, employee_id, emp, sandbox=self.sandbox)
+            log_action(self.company_id, "employee_marked_inactive", "employee",
+                       employee_id, "system",
+                       {"offboardingId": req_data.get("id", ""),
+                        "terminationType": req_data.get("terminationType", ""),
+                        "keepInCurrentPayroll": emp["keepInCurrentPayroll"]},
+                       sandbox=self.sandbox)
+        except Exception as e:
+            print(f"⚠️ Offboarding.deactivate_employee: {e}")
+
+    def reactivate_employee(self, req_data: dict):
+        """Revierte la inactivación si el proceso se cancela o rechaza."""
+        employee_id = req_data.get("employeeId", "")
+        if not employee_id:
+            return
+        try:
+            from app.services import hr_data_service as hr
+            emp = hr.get_employee(self.company_id, employee_id, sandbox=self.sandbox)
+            if not emp:
+                return
+            if emp.get("status") == "inactivo":
+                emp["status"] = "activo"
+                emp["terminationDate"] = ""
+                emp["terminationType"] = ""
+                emp["lastWorkDate"] = ""
+                emp["keepInCurrentPayroll"] = False
                 hr.save_employee(self.company_id, employee_id, emp, sandbox=self.sandbox)
-                log_action(self.company_id, "employee_marked_inactive", "employee",
+                log_action(self.company_id, "employee_reactivated", "employee",
                            employee_id, "system",
-                           {"offboardingId": req_data.get("id", ""),
-                            "terminationType": req_data.get("terminationType", "")},
+                           {"offboardingId": req_data.get("id", "")},
                            sandbox=self.sandbox)
         except Exception as e:
-            print(f"⚠️ Offboarding._mark_employee_inactive: {e}")
+            print(f"⚠️ Offboarding.reactivate_employee: {e}")
 
     # ── Access Revocation ────────────────────────────────────────────────────
 

@@ -27,7 +27,7 @@ from app.utils.hr_utils import is_active_equivalent
 
 def _service():
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
-    offboarding_mode = session.get("company_offboarding_mode", "simple")
+    offboarding_mode = "simple"
     return OffboardingService(company_id, sandbox, offboarding_mode=offboarding_mode), owner_uid, sandbox, company_id
 
 
@@ -183,6 +183,11 @@ def offboarding_new():
             flash("El empleado ya está inactivo.", "warning")
             return redirect(url_for("web_rrhh.offboarding_list"))
 
+        existing = svc.get_active_request_for_employee(employee_id)
+        if existing:
+            flash("El empleado ya tiene un proceso de desvinculación abierto.", "error")
+            return redirect(url_for("web_rrhh.offboarding_wizard", request_id=existing.get("id", "")))
+
         data = {
             "employeeId": employee_id,
             "employeeName": employee.get("fullName", ""),
@@ -199,10 +204,12 @@ def offboarding_new():
             "initiatedBy": _email(),
             "initiatedByRole": _role(),
             "noticePeriodDays": int(request.form.get("noticePeriodDays", "0") or 0),
+            "keepInCurrentPayroll": request.form.get("keepInCurrentPayroll") == "1",
         }
 
         req = svc.create_request(data, _email())
         svc.init_checklist(req.id, employee_id)
+        svc.deactivate_employee(req.model_dump())
 
         user_email = _email()
         if svc.is_simple:
@@ -252,9 +259,12 @@ def offboarding_edit(request_id):
                 else:
                     req[field] = val.strip() if val else ""
 
+        req["keepInCurrentPayroll"] = request.form.get("keepInCurrentPayroll") == "1"
+
         req["updatedBy"] = _email()
         svc.save_request_raw(request_id, req, _email())
         svc.save_version(request_id, req, _email(), reason="Edición de solicitud")
+        svc.deactivate_employee(req)
 
         flash("Solicitud actualizada.", "success")
         return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id))
@@ -300,51 +310,7 @@ def offboarding_cancel(request_id):
 def offboarding_detail(request_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
-    svc, owner_uid, sandbox, company_id = _service()
-    req = svc.get_request(request_id)
-    if not req:
-        flash("Solicitud no encontrada.", "error")
-        return redirect(url_for("web_rrhh.offboarding_list"))
-
-    tab = request.args.get("tab", "overview")
-    extra = {}
-    extra["is_simple"] = svc.is_simple
-
-    if tab == "settlement":
-        if req.get("settlementId"):
-            extra["settlement"] = svc.get_settlement(req["settlementId"])
-        extra["employee"] = hr.get_employee(company_id, req.get("employeeId", ""), sandbox=sandbox)
-
-    elif tab == "checklist":
-        if req.get("checklistId"):
-            extra["checklist"] = svc.get_checklist(req["checklistId"])
-
-    elif tab == "documents":
-        extra["documents"] = svc.get_documents(request_id)
-
-    elif tab == "payment":
-        extra["payments"] = svc.get_payments(request_id)
-
-    elif tab == "interview":
-        extra["interviews"] = svc.get_interviews(request_id)
-        extra["interviews"] = svc.get_interviews(request_id)
-
-    elif tab == "risk":
-        ra_id = req.get("riskAssessmentId")
-        if ra_id:
-            extra["risk"] = svc.get_risk_assessment(ra_id)
-
-    elif tab == "legal":
-        lc_id = req.get("legalCaseId")
-        if lc_id:
-            extra["legal"] = svc.get_legal_case(lc_id)
-
-    transitions = svc.allowed_transitions(req.get("status", ""))
-    extra["allowed_transitions"] = transitions
-
-    return render_template("rrhh/offboarding_detail.html",
-                           **_ctx(req=req, tab=tab, active_page="rrhh_offboarding",
-                                  **extra))
+    return redirect(url_for("web_rrhh.offboarding_wizard", request_id=request_id))
 
 
 # ── Transition (POST) ─────────────────────────────────────────────────────
@@ -704,12 +670,19 @@ def offboarding_upload_document(request_id):
         flash("Solicitud no encontrada.", "error")
         return redirect(url_for("web_rrhh.offboarding_list"))
 
+    next_view = request.form.get("next", "").strip()
+
+    def _back_url(tab="documents"):
+        if next_view == "wizard":
+            return url_for("web_rrhh.offboarding_wizard", request_id=request_id)
+        return url_for("web_rrhh.offboarding_detail", request_id=request_id, tab=tab)
+
     doc_type = request.form.get("documentType", "").strip()
     notes = request.form.get("notes", "").strip()
     file = request.files.get("file")
     if not file or not file.filename:
         flash("Debes seleccionar un archivo.", "error")
-        return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id, tab="documents"))
+        return redirect(_back_url())
 
     from app.services.db_service import DatabaseService
 
@@ -717,7 +690,7 @@ def offboarding_upload_document(request_id):
     max_size = 10 * 1024 * 1024
     if len(file_data) > max_size:
         flash("El archivo excede el tamaño máximo de 10MB.", "error")
-        return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id, tab="documents"))
+        return redirect(_back_url())
 
     mime_type = file.content_type or "application/pdf"
     safe_name = secure_filename(file.filename) or "documento"
@@ -744,7 +717,7 @@ def offboarding_upload_document(request_id):
     }
     svc.save_document(doc_data, _email())
     flash("Documento firmado subido exitosamente.", "success")
-    return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id, tab="documents"))
+    return redirect(_back_url())
 
 
 @web_rrhh_bp.route("/rrhh/offboarding/<request_id>/documents/<doc_id>/download")
@@ -934,7 +907,7 @@ def offboarding_tss_download(request_id):
     if _login_required():
         return redirect(url_for("web_auth.login"))
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
-    svc = OffboardingService(company_id, sandbox, offboarding_mode=session.get("company_offboarding_mode", "full"))
+    svc = OffboardingService(company_id, sandbox, offboarding_mode="simple")
     req = svc.get_request(request_id)
     if not req:
         flash("Solicitud no encontrada.", "error")
@@ -1011,7 +984,7 @@ def offboarding_fix_status():
         return redirect(url_for("web_rrhh.offboarding_dashboard"))
 
     dry_run = request.form.get("dry_run") == "1"
-    svc = OffboardingService(company_id, sandbox, offboarding_mode=session.get("company_offboarding_mode", "full"))
+    svc = OffboardingService(company_id, sandbox, offboarding_mode="simple")
     all_requests = svc.list_requests(limit=1000)
     completed = [r for r in all_requests if r.get("status") == "completed"]
 
@@ -1128,39 +1101,8 @@ def offboarding_employee_data(request_id):
 
 
 # ── Toggle offboarding mode (simple / full) ──────────────────────────────
+# (Removed: the offboarding flow is always in "simple" mode now.)
 
-@web_rrhh_bp.route("/rrhh/offboarding/toggle-mode", methods=["POST"])
-def offboarding_toggle_mode():
-    if _login_required():
-        return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
-    if not _is_hr_role():
-        flash("Solo RRHH puede cambiar el modo de desvinculación.", "error")
-        return redirect(request.referrer or url_for("web_rrhh.offboarding_dashboard"))
-
-    current_mode = session.get("company_offboarding_mode", "full")
-    new_mode = "simple" if current_mode == "full" else "full"
-
-    try:
-        from app.services.db_service import DatabaseService
-        DatabaseService.update_company(company_id, {"offboarding_mode": new_mode})
-        session["company_offboarding_mode"] = new_mode
-        session.modified = True
-        flash(f"Modo de desvinculación cambiado a: {'Simple' if new_mode == 'simple' else 'Completo (multi-parte)'}.", "success")
-    except Exception as e:
-        flash(f"Error al cambiar modo: {e}", "error")
-
-    import re
-    referrer = request.referrer or ""
-    match = re.search(r'/offboarding/([a-zA-Z0-9\-]+)', referrer)
-    if match:
-        request_id = match.group(1)
-        if new_mode == "simple":
-            return redirect(url_for("web_rrhh.offboarding_wizard", request_id=request_id))
-        else:
-            return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id))
-
-    return redirect(request.referrer or url_for("web_rrhh.offboarding_dashboard"))
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1292,6 +1234,8 @@ def offboarding_wizard_step1(request_id):
     vacation_taken = int(request.form.get("vacationTakenCurrentPeriod", "0") or 0)
     vacation_dias_pendientes_val = int(request.form.get("vacationDiasPendientes", "0") or 0)
     dias_adeudados = int(request.form.get("diasAdeudados", "0") or 0)
+    if req.get("keepInCurrentPayroll"):
+        dias_adeudados = 0
 
     base_salary = float(employee.get("baseSalary", 0) or 0)
     salary_frequency = employee.get("paymentFrequency", "") or "mensual"

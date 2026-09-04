@@ -172,6 +172,7 @@ class TerminationRequest(BaseModel):
     effectiveDate: str = ""
     lastWorkDate: str = ""
     noticePeriodDays: int = 0
+    keepInCurrentPayroll: bool = False
 
     terminationType: TerminationType = TerminationType.RENUNCIA_VOLUNTARIA
     terminationReason: str = ""
@@ -274,6 +275,7 @@ class TerminationSettlement(BaseModel):
 
     antiguedad: dict = {}
     salarioDiarioPromedio: float = 0.0
+    salarioPromedioMensual: float = 0.0
     conceptos: dict[str, "ConceptoResult"] = {}
     conceptosAdicionales: list = []
     descuentosDetalle: list = []

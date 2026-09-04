@@ -36,7 +36,7 @@
 
 <div class="hr-page-header">
     <h1><i class="fa-solid fa-door-open"></i> {% if is_edit %}Editar{% else %}Nueva{% endif %} Solicitud de Desvinculación</h1>
-    <a href="{% if is_edit %}{{ url_for('web_rrhh.offboarding_detail', request_id=request_data.id) }}{% else %}{{ url_for('web_rrhh.offboarding_list') }}{% endif %}" class="btn btn-ghost">
+    <a href="{% if is_edit %}{{ url_for('web_rrhh.offboarding_wizard', request_id=request_data.id) }}{% else %}{{ url_for('web_rrhh.offboarding_list') }}{% endif %}" class="btn btn-ghost">
         <i class="fa-solid fa-arrow-left"></i> Volver
     </a>
 </div>
@@ -113,6 +113,15 @@
             <label>Días de preaviso</label>
             <input type="number" name="noticePeriodDays" class="form-input" style="width:100%;" value="{{ request_data.noticePeriodDays or 0 }}" min="0">
         </div>
+        <div class="form-group" style="grid-column:1/-1;">
+            <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer; font-weight:600;">
+                <input type="checkbox" name="keepInCurrentPayroll" value="1" style="width:16px; height:16px; accent-color:var(--accent-emerald); margin-top:2px;"
+                       {% if request_data and request_data.keepInCurrentPayroll %}checked{% endif %}>
+                <span>Permanecer en nómina del período en curso
+                    <span style="display:block; font-weight:400; font-size:0.72rem; color:var(--text-muted);">Mantiene al empleado en la nómina actual solo para pagar el período final trabajado (ej. días trabajados hasta su salida). Las prestaciones se calculan según la fecha de salida.</span>
+                </span>
+            </label>
+        </div>
     </div>
 
     <div class="hr-section-card hr-actions-card hr-actions-bar">
@@ -121,7 +130,7 @@
             {% if is_edit %}Guardar cambios{% else %}Crear solicitud{% endif %}
         </button>
         {% if is_edit %}
-        <a href="{{ url_for('web_rrhh.offboarding_detail', request_id=request_data.id) }}" class="btn btn-ghost">Cancelar</a>
+        <a href="{{ url_for('web_rrhh.offboarding_wizard', request_id=request_data.id) }}" class="btn btn-ghost">Cancelar</a>
         {% else %}
         <a href="{{ url_for('web_rrhh.offboarding_list') }}" class="btn btn-ghost">Cancelar</a>
         {% endif %}

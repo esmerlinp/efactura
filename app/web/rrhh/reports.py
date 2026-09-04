@@ -82,7 +82,7 @@ def _projection_data(kind):
     year = _projection_year()
     if kind == "benefits":
         cutoff = request.args.get("cutoff_date", f"{year}-12-31")
-        result = PayrollProjectionService.project_benefits(employees, cutoff, **{k: filters[k] for k in ("employee_id", "department", "area", "group_id", "status", "include_inactive")})
+        result = PayrollProjectionService.project_benefits(employees, cutoff, company_id=company_id, sandbox=sandbox, **{k: filters[k] for k in ("employee_id", "department", "area", "group_id", "status", "include_inactive")})
         result.update(filters=filters, year=year, cutoff_date=cutoff)
         return result
     result = PayrollProjectionService.project_payroll(employees, year, tax_rates=hr.get_tax_rates(company_id, sandbox=sandbox), **{k: filters[k] for k in ("employee_id", "department", "area", "group_id", "status", "include_inactive")})
@@ -154,9 +154,9 @@ def report_projection_export():
     fmt = request.args.get('format', 'csv')
     data = _projection_data(kind)
     if kind == 'benefits':
-        headers = ['Empleado', 'Cédula', 'Departamento', 'Preaviso', 'Cesantía', 'Vacaciones', 'Salario Navidad', 'Salario proporcional', 'Total']
-        rows = [[r['employeeName'], r['cedula'], r['department'], r['preaviso'], r['cesantia'], r['vacaciones'], r['salarioNavidad'], r['salarioProporcional'], r['total']] for r in data['rows']]
-        total = ['TOTAL', '', '', '', '', '', '', '', data['total']]
+        headers = ['Empleado', 'Cédula', 'Departamento', 'Salario promedio', 'Preaviso', 'Cesantía', 'Vacaciones', 'Salario Navidad', 'Salario proporcional', 'Descuentos', 'Total', 'Neto a pagar']
+        rows = [[r['employeeName'], r['cedula'], r['department'], r['salarioPromedio'], r['preaviso'], r['cesantia'], r['vacaciones'], r['salarioNavidad'], r['salarioProporcional'], r['descuentos'], r['total'], r['netoAPagar']] for r in data['rows']]
+        total = ['TOTAL', '', '', '', '', '', '', '', '', '', data['total'], data['totalNeto']]
         filename = 'proyeccion_prestaciones'
     else:
         headers = ['Mes', 'Bruto', 'AFP empleado', 'SFS empleado', 'ISR', 'Neto', 'Aportes patronales', 'Costo total']
