@@ -5,7 +5,7 @@
 <div class="page-header hr-page-header">
     <h1 class="page-title"><i class="fa-solid fa-layer-group"></i> {{ group.name }}</h1>
     <div class="hr-page-actions">
-        <a href="{{ url_for('web_rrhh.payroll_groups_list') }}" class="btn btn-secondary">
+        <a href="{{ url_for('web_rrhh.payroll_settings') }}" class="btn btn-secondary">
             <i class="fa-solid fa-arrow-left"></i> Volver
         </a>
         <a href="{{ url_for('web_rrhh.payroll_groups_edit', group_id=group.id) }}" class="btn btn-primary">

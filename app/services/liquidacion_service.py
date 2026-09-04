@@ -89,7 +89,8 @@ class LiquidacionService:
             {"promedio_mensual": float, "monthly_salaries_ytd": list,
              "monthly_totals_last_12": list, "months": int}
         """
-        monthly = {}
+        # Filtrar solo lo relevante (earning, aplicado/ajustado, cotiza TSS)
+        eligible = []
         for tx in (transactions or []):
             if tx.get("type") != "earning":
                 continue
@@ -98,6 +99,27 @@ class LiquidacionService:
             snap = tx.get("conceptSnapshot") or {}
             if not snap.get("affectsTSS", False):
                 continue
+            eligible.append(tx)
+
+        # Deduplicar transacciones (los recálculos de nómina pueden dejar
+        # transacciones repetidas con el mismo periodo/concepto/origen).
+        deduped = {}
+        for tx in eligible:
+            key = (
+                tx.get("periodId") or tx.get("periodKey", ""),
+                tx.get("employeeId", ""),
+                tx.get("conceptCode", ""),
+                tx.get("source", ""),
+                tx.get("sourceId", ""),
+            )
+            ts = tx.get("updatedAt") or tx.get("createdAt") or ""
+            cur = deduped.get(key)
+            cur_ts = (cur.get("updatedAt") or cur.get("createdAt") or "") if cur else ""
+            if cur is None or ts >= cur_ts:
+                deduped[key] = tx
+
+        monthly = {}
+        for tx in deduped.values():
             period_key = tx.get("periodKey", "") or ""
             month_key = period_key[:7] if len(period_key) >= 7 else ""
             if not month_key:

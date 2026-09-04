@@ -205,10 +205,13 @@ def employee_liquidacion(employee_id):
         vacation_dias_pendientes_val = int(request.form.get("vacationDiasPendientes",
             str(vacation_auto_dias_pendientes) if vacation_auto_dias_pendientes else "0") or 0)
         notes = request.form.get("notes", "").strip()
+        keep_in_current_payroll = request.form.get("keepInCurrentPayroll") == "1"
 
         base_salary = float(employee.get("baseSalary", 0) or 0)
         salary_frequency = employee.get("paymentFrequency", "") or "mensual"
         dias_adeudados = int(request.form.get("diasAdeudados", "0") or 0)
+        if keep_in_current_payroll:
+            dias_adeudados = 0
 
         # Salario promedio real (base + conceptos que cotizan TSS) desde transacciones de nómina
         promedio_mensual = float(employee.get("averageSalary", 0) or 0)
@@ -283,9 +286,14 @@ def employee_liquidacion(employee_id):
                        }, sandbox=sandbox)
 
             from app.services.offboarding_service import OffboardingService
-            off_mode = session.get("company_offboarding_mode", "simple")
+            off_mode = "simple"
             svc = OffboardingService(company_id, sandbox, offboarding_mode=off_mode)
             user_email = session.get("user", {}).get("email", "")
+
+            existing = svc.get_active_request_for_employee(employee_id)
+            if existing:
+                flash("El empleado ya tiene un proceso de desvinculación abierto.", "error")
+                return redirect(url_for("web_rrhh.offboarding_wizard", request_id=existing.get("id", "")))
 
             req_data = {
                 "employeeId": employee_id,
@@ -301,9 +309,11 @@ def employee_liquidacion(employee_id):
                 "terminationReason": "Liquidación calculada desde ficha del empleado",
                 "initiatedBy": user_email,
                 "initiatedByRole": session.get("user", {}).get("role", ""),
+                "keepInCurrentPayroll": keep_in_current_payroll,
             }
             req = svc.create_request(req_data, user_email)
             svc.init_checklist(req.id, employee_id)
+            svc.deactivate_employee(req.model_dump())
 
             result_copy = dict(resultado)
             result_copy["requestId"] = req.id

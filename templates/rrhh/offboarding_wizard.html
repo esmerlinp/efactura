@@ -156,23 +156,36 @@
                 </p>
             </div>
             <div style="display:flex; gap:6px; align-items:flex-start;">
-                <form method="POST" action="{{ url_for('web_rrhh.offboarding_toggle_mode') }}" style="display:inline;">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="btn btn-sm {% if is_simple %}btn-outline{% else %}btn-info{% endif %}"
-                            style="font-size:0.72rem;" title="{% if is_simple %}Cambiar a modo completo (multi-parte){% else %}Cambiar a modo simple (sin aprobaciones){% endif %}">
-                        <i class="fa-solid {% if is_simple %}fa-users{% else %}fa-bolt{% endif %}"></i>
-                        {% if is_simple %}Completo{% else %}Simple{% endif %}
-                    </button>
-                </form>
-                <a href="{{ url_for('web_rrhh.offboarding_detail', request_id=req.id) }}" class="btn btn-ghost btn-sm" title="Vista avanzada con todos los tabs">
-                    <i class="fa-solid fa-table-columns"></i> Vista avanzada
-                </a>
+                {% set terminal_statuses = ['completed', 'cancelled', 'rejected'] %}
+                {% if req.status not in terminal_statuses %}
+                <button type="button" class="btn btn-sm btn-outline" style="font-size:0.72rem; color:var(--danger); border-color:var(--danger);" onclick="document.getElementById('cancelModal').style.display='flex'">
+                    <i class="fa-solid fa-ban"></i> Cancelar
+                </button>
+                {% endif %}
                 <a href="{{ url_for('web_rrhh.offboarding_list') }}" class="btn btn-ghost btn-sm">
                     <i class="fa-solid fa-arrow-left"></i> Volver
                 </a>
             </div>
         </div>
     </div>
+
+    {% if req.status in ('cancelled', 'rejected') %}
+    <!-- Terminal: cancelada / rechazada -->
+    <div class="wizard-step-card" style="text-align:center; padding:48px 24px;">
+        <div style="font-size:3rem; color:var(--danger); margin-bottom:12px;">
+            <i class="fa-solid {% if req.status == 'cancelled' %}fa-ban{% else %}fa-circle-xmark{% endif %}"></i>
+        </div>
+        <h2 style="margin:0 0 8px; color:var(--text-primary);">
+            {% if req.status == 'cancelled' %}Desvinculación cancelada{% else %}Desvinculación rechazada{% endif %}
+        </h2>
+        <p style="color:var(--text-secondary); margin-bottom:20px;">
+            El proceso de desvinculación de {{ req.employeeName }} ya no está activo.
+        </p>
+        <div style="display:flex; justify-content:center; gap:8px;">
+            <a href="{{ url_for('web_rrhh.offboarding_list') }}" class="btn btn-primary">Volver a desvinculaciones</a>
+        </div>
+    </div>
+    {% else %}
 
     <!-- Stepper -->
     <div class="wizard-stepper">
@@ -587,6 +600,48 @@
         <p style="font-size:0.82rem; color:var(--text-muted);">Genere los PDFs de carta de desvinculación y acta de liquidación usando los botones superiores.</p>
         {% endif %}
 
+        <!-- Adjuntar documentos -->
+        <div style="margin-top:18px; padding-top:14px; border-top:1px solid var(--border-color);">
+            <div style="font-weight:600; font-size:0.85rem; margin-bottom:10px; display:flex; align-items:center; gap:8px;">
+                <i class="fa-solid fa-paperclip" style="color:var(--accent-emerald);"></i> Adjuntar documento firmado
+            </div>
+            <form method="POST" action="{{ url_for('web_rrhh.offboarding_upload_document', request_id=req.id) }}" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="next" value="wizard">
+                <div style="display:flex; flex-wrap:wrap; gap:10px 14px; align-items:end;">
+                    <div class="form-group" style="margin:0; min-width:220px; flex:1;">
+                        <label style="font-size:0.7rem; font-weight:600;">Tipo de documento</label>
+                        <select name="documentType" class="form-select" style="width:100%; font-size:0.78rem;">
+                            <option value="termination_letter">Carta de desvinculación firmada</option>
+                            <option value="settlement_acta">Acta de liquidación firmada</option>
+                            <option value="payment_receipt">Recibo de pago firmado</option>
+                            <option value="asset_return_acta">Acta de devolución de activos</option>
+                            <option value="other">Otro</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin:0; min-width:220px; flex:1;">
+                        <label style="font-size:0.7rem; font-weight:600;">Archivo</label>
+                        <label for="wizardDocFile" style="display:block; border:2px dashed var(--border-color); border-radius:8px; padding:12px 14px; text-align:center; cursor:pointer; background:rgba(0,0,0,0.01); transition:border-color .15s;" onmouseover="this.style.borderColor='var(--accent-emerald)'" onmouseout="this.style.borderColor='var(--border-color)'">
+                            <i class="fa-solid fa-cloud-arrow-up" style="color:var(--text-muted); display:block; margin-bottom:4px;"></i>
+                            <span id="wizardDocFileName" style="font-size:0.75rem; color:var(--text-secondary);">Seleccionar archivo (PDF, JPG, PNG)</span>
+                            <input id="wizardDocFile" type="file" name="file" accept=".pdf,.jpg,.png" required style="display:none;" onchange="document.getElementById('wizardDocFileName').textContent = this.files[0] ? this.files[0].name : 'Seleccionar archivo (PDF, JPG, PNG)';">
+                        </label>
+                    </div>
+                </div>
+                <div style="display:flex; gap:16px; flex-wrap:wrap; margin-top:8px;">
+                    <label style="font-size:0.72rem; display:flex; align-items:center; gap:6px; cursor:pointer;">
+                        <input type="checkbox" name="signedByEmployee" value="1"> Firmado por empleado
+                    </label>
+                    <label style="font-size:0.72rem; display:flex; align-items:center; gap:6px; cursor:pointer;">
+                        <input type="checkbox" name="signedByEmployer" value="1"> Firmado por empleador
+                    </label>
+                </div>
+                <button type="submit" class="btn btn-outline btn-sm" style="margin-top:10px;">
+                    <i class="fa-solid fa-upload"></i> Adjuntar documento
+                </button>
+            </form>
+        </div>
+
         <div class="wizard-actions">
             <form method="POST" action="{{ url_for('web_rrhh.offboarding_wizard_step3', request_id=req.id) }}" onsubmit="return submitStep3(event)" style="display:flex; gap:8px;">
                 <button type="button" class="btn btn-ghost" onclick="wizardBack()">
@@ -733,6 +788,34 @@
         </div>
     </div>
     {% endif %}
+    {% endif %}
+</div>
+
+<!-- Cancel Modal -->
+<div id="cancelModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.55); backdrop-filter:blur(6px); align-items:center; justify-content:center;" onclick="if(event.target===this)this.style.display='none'">
+    <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-xl); width:100%; max-width:420px; max-height:90vh; display:flex; flex-direction:column; box-shadow:var(--shadow-xl);" onclick="event.stopPropagation()">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--border-color);">
+            <h2 style="margin:0; font-size:1rem; font-weight:700;"><i class="fa-solid fa-ban" style="color:var(--danger);"></i> Cancelar solicitud</h2>
+            <button type="button" class="btn btn-sm btn-ghost" onclick="document.getElementById('cancelModal').style.display='none'">
+                <i class="fa-solid fa-times" style="font-size:1.1rem;"></i>
+            </button>
+        </div>
+        <form method="POST" action="{{ url_for('web_rrhh.offboarding_cancel', request_id=req.id) }}" style="padding:20px; display:flex; flex-direction:column; gap:14px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <p style="color:var(--text-secondary); font-size:0.9rem; margin:0;">
+                ¿Estás seguro de cancelar este proceso de desvinculación?
+                Esta acción no puede deshacerse.
+            </p>
+            <div class="form-group" style="margin:0;">
+                <label style="font-size:0.78rem; font-weight:600;">Motivo de cancelación *</label>
+                <textarea name="reason" class="form-control" rows="3" required placeholder="Explique por qué se cancela..."></textarea>
+            </div>
+            <div style="display:flex; gap:8px; justify-content:flex-end;">
+                <button type="button" class="btn btn-ghost" onclick="document.getElementById('cancelModal').style.display='none'">Volver</button>
+                <button type="submit" class="btn btn-danger"><i class="fa-solid fa-ban"></i> Confirmar cancelación</button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <script>

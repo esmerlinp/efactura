@@ -95,7 +95,7 @@
                     <td><code>{{ r.requestNumber or r.id[:8] }}</code></td>
                     <td>
                         <strong>
-                            <a href="{{ url_for('web_rrhh.offboarding_detail', request_id=r.id) }}" style="color:var(--text-primary); text-decoration:none;">
+                            <a href="{{ url_for('web_rrhh.offboarding_wizard', request_id=r.id) }}" style="color:var(--text-primary); text-decoration:none;">
                                 {{ r.employeeName or '—' }}
                             </a>
                         </strong>
@@ -107,7 +107,7 @@
                     </td>
                     <td><span style="font-size:0.78rem; color:var(--text-muted);">{{ r.createdAt[:10] if r.createdAt else '—' }}</span></td>
                     <td>
-                        <a href="{{ url_for('web_rrhh.offboarding_detail', request_id=r.id) }}" class="btn btn-sm btn-ghost" title="Ver solicitud">
+                        <a href="{{ url_for('web_rrhh.offboarding_wizard', request_id=r.id) }}" class="btn btn-sm btn-ghost" title="Ver solicitud">
                             <i class="fa-regular fa-eye"></i>
                         </a>
                     </td>

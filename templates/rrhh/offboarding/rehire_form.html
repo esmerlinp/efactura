@@ -8,7 +8,7 @@
         <h1><i class="fa-solid fa-user-plus"></i> Recontratar empleado</h1>
         <p>{{ req.employeeName }} — {{ req.requestNumber or req.id[:8] }}</p>
     </div>
-    <a href="{{ url_for('web_rrhh.offboarding_detail', request_id=req.id) }}" class="btn btn-ghost">
+    <a href="{{ url_for('web_rrhh.offboarding_wizard', request_id=req.id) }}" class="btn btn-ghost">
         <i class="fa-solid fa-arrow-left"></i> Volver
     </a>
 </div>
@@ -61,7 +61,7 @@
         <button type="submit" class="btn btn-success">
             <i class="fa-solid fa-user-plus"></i> Recontratar
         </button>
-        <a href="{{ url_for('web_rrhh.offboarding_detail', request_id=req.id) }}" class="btn btn-ghost">Cancelar</a>
+        <a href="{{ url_for('web_rrhh.offboarding_wizard', request_id=req.id) }}" class="btn btn-ghost">Cancelar</a>
     </div>
 </form>
 {% endblock %}

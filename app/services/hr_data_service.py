@@ -1490,6 +1490,34 @@ def get_payroll_transactions(company_id: str, sandbox: bool = True,
         return []
 
 
+def get_payroll_transactions_for_employees(company_id: str, employee_ids: list,
+                                           sandbox: bool = True) -> dict:
+    """Carga las transacciones de nómina de múltiples empleados en una sola pasada.
+
+    Firestore limita 'in' a 30 valores; se particiona en lotes.
+
+    Returns:
+        Dict {employee_id: [tx_dict, ...]}
+    """
+    if not firebase_initialized or db_firestore is None or not employee_ids:
+        return {}
+    try:
+        coll_path = _hr_company_path(company_id, "payroll_transactions", sandbox)
+        result: dict = {}
+        batch_size = 30
+        for i in range(0, len(employee_ids), batch_size):
+            chunk = employee_ids[i:i + batch_size]
+            docs = db_firestore.collection(coll_path)\
+                .where(filter=FieldFilter("employeeId", "in", chunk)).get()
+            for d in docs:
+                tx = {"id": d.id, **d.to_dict()}
+                result.setdefault(tx.get("employeeId", ""), []).append(tx)
+        return result
+    except Exception as e:
+        print(f"⚠️ HRDataService.get_payroll_transactions_for_employees: {e}")
+        return {}
+
+
 def get_payroll_transaction(company_id: str, tx_id: str,
                               sandbox: bool = True) -> dict | None:
     return _get_one(company_id, "payroll_transactions", tx_id, sandbox)
