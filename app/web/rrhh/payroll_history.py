@@ -22,7 +22,7 @@ def payroll_list():
     from app.services import hr_data_service as hr
 
     periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
-    periods.sort(key=lambda p: p.get("periodKey", ""), reverse=True)
+    periods.sort(key=lambda p: p.get("periodKey", ""))
 
     # Filtrar por grupo si se especifica
     filter_group = request.args.get("group", "").strip()

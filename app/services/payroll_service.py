@@ -1330,6 +1330,7 @@ class PayrollService:
 
         total_gross = 0.0
         total_net = 0.0
+        total_deductions = 0.0
         total_afp_emp = 0.0
         total_sfs_emp = 0.0
         total_isr = 0.0
@@ -1365,6 +1366,7 @@ class PayrollService:
         by_cc = {}
         for pl in plines:
             total_net += pl.get("netSalary", 0)
+            total_deductions += pl.get("totalDeductions", 0)
             total_afp_emp += pl.get("afpEmployee", 0)
             total_sfs_emp += pl.get("sfsEmployee", 0)
             total_isr += pl.get("isrRetention", 0)
@@ -1507,6 +1509,23 @@ class PayrollService:
                 "accountName": resolved["accountName"],
                 "debit": 0.00, "credit": round(total_other_ded, 2),
                 "description": f"Otras deducciones {period_label}",
+            })
+
+        # ── Residual: deducciones que bajan el neto pero no tienen línea propia ──
+        # (recurrentes, embargos y reglas) se acreditan para cuadrar el asiento.
+        residual = round(
+            total_deductions - (total_afp_emp + total_sfs_emp + total_isr
+                                + total_infotep_emp + total_other_ded), 2)
+        if residual != 0:
+            resolved = _acc("nomina_otras_deducciones", fallback_code=r["account_other_deductions"],
+                            fallback_name="Deducciones varias por pagar")
+            lines.append({
+                "accountId": resolved["accountId"],
+                "accountCode": resolved["accountCode"],
+                "accountName": resolved["accountName"],
+                "debit": round(max(0.0, -residual), 2),
+                "credit": round(max(0.0, residual), 2),
+                "description": f"Deducciones recurrentes/embargos {period_label}",
             })
 
         return lines

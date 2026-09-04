@@ -329,9 +329,7 @@
     </div>
 </div>
 
-{% if s != 'cerrada' and s != 'cancelled' %}
-    {% include "rrhh/_payroll_variables_editor.html" %}
-{% endif %}
+{% include "rrhh/_payroll_variables_editor.html" %}
 
 
 {% if period.notes %}

@@ -8,6 +8,7 @@ from app.web.rrhh import (
     web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
     _is_hr_role, _sanitize_for_role, MONTHS_ES,
     _filter_employees_by_period, _generate_periods,
+    get_locked_periods,
 )
 from app.services import hr_data_service as hr
 from app.services.payroll_service import PayrollService
@@ -254,10 +255,46 @@ def _get_pending_liquidation_employee_ids(company_id, sandbox):
                 continue
             if req.get("status") in ("cancelled", "rejected"):
                 continue
+            if req.get("keepInCurrentPayroll"):
+                continue
             pending_ids.add(req.get("employeeId"))
     except Exception:
         pass
     return pending_ids
+
+
+def _collect_retained_employees(all_employees, period_start, period_end, selected_group_id=""):
+    """Devuelve empleados inactivos con ``keepInCurrentPayroll`` cuyo último día
+    trabajado cae dentro del período, para pagarles el período final por nómina regular.
+
+    Se usan solo en nómina tipo "regular" (no "liquidation"), de modo que el salario
+    prorrateado de los días trabajados se paga por nómina y las prestaciones por la
+    nómina de liquidación.
+    """
+    retained = []
+    if not period_start or not period_end:
+        return retained
+    try:
+        from datetime import datetime as _dt
+        ps = _dt.strptime(period_start, "%Y-%m-%d").date()
+        pe = _dt.strptime(period_end, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return retained
+    for e in all_employees:
+        if not e.get("keepInCurrentPayroll"):
+            continue
+        if selected_group_id and selected_group_id not in e.get("payrollGroupIds", []):
+            continue
+        ref = e.get("lastWorkDate") or e.get("terminationDate") or ""
+        if not ref:
+            continue
+        try:
+            d = _dt.strptime(ref[:10], "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            continue
+        if ps <= d <= pe:
+            retained.append(e)
+    return retained
 
 
 def _build_liquidation_columns(lines):
@@ -509,6 +546,7 @@ def payroll_new():
     liquidation_employees = []
     pending_liquidations = []
     unassigned_liquidations = []
+    has_unassigned = False
     if selected_group_id:
         try:
             from app.services.offboarding_service import OffboardingService
@@ -529,8 +567,10 @@ def payroll_new():
                 elif not assigned and selected_group_id in emp.get("payrollGroupIds", []):
                     liquidation_employees.append(emp)
                     pending_liquidations.append(s)
+                    has_unassigned = True
                 elif not assigned:
                     unassigned_liquidations.append(s)
+                    has_unassigned = True
         except Exception:
             pass
 
@@ -548,6 +588,17 @@ def payroll_new():
 
     now = date.today()
     available_periods = _generate_periods(group_frequency, now.year)
+
+    # ── Bloqueo secuencial: períodos posteriores al primer regular abierto ──
+    locked_period_keys = set()
+    lock_open_label = None
+    closed_period_keys = set()
+    if selected_group_id:
+        try:
+            locked_period_keys, lock_open_label, closed_period_keys = get_locked_periods(
+                company_id, selected_group_id, available_periods, sandbox=sandbox)
+        except Exception:
+            locked_period_keys, lock_open_label, closed_period_keys = set(), None, set()
 
     if request.method == "POST":
         period_key = request.form.get("period_key", "")
@@ -587,6 +638,31 @@ def payroll_new():
         end_date = period_info["end"] if period_info else ""
         period_type = period_info.get("type", "mensual") if period_info else ("quincenal" if len(parts) == 3 and parts[2] != "M" else "mensual")
 
+        # ── Bloqueo secuencial (solo nóminas regulares) ──
+        period_sub_type_val = request.form.get("periodSubType", "regular")
+        if (period_sub_type_val or "regular") == "regular" and period_key in locked_period_keys:
+            flash(
+                f"Debes cerrar el período «{lock_open_label or 'anterior'}» antes de procesar «{period_key}».",
+                "error",
+            )
+            return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll",
+                                   employees=employees, now=now, now_month=now.month,
+                                   available_periods=available_periods, frequency=group_frequency,
+                                   locked_period_keys=locked_period_keys, lock_open_label=lock_open_label, closed_period_keys=closed_period_keys,
+                                   show_christmas_bonus=(now.month >= 11),
+                                   payroll_groups=payroll_groups,
+                                   selected_group_id=selected_group_id,
+                                   imported_variables=imported_variables,
+                                   selected_period_key=selected_period_key,
+                                   variable_tabs=variable_tabs,
+                                   recurring_managed_tabs=recurring_managed_tabs,
+                                   ingreso_tabs=ingreso_tabs,
+                                   descuento_tabs=descuento_tabs,
+                                   recurring_movements=recurring_movements,
+                                   christmas_preview=christmas_preview,
+                                   period_lines=period_lines,
+                                   incidencias=incidencias)
+
         period_employees, excluded = _filter_employees_by_period(employees, period_key)
         # Reuse existing borrador period_id when re-processing, otherwise create new
         if existing_period_ref:
@@ -596,13 +672,20 @@ def payroll_new():
             period_id = str(uuid.uuid4())
             revision = 1
 
+        # ── Empleados inactivos retenidos en nómina (período final por nómina regular) ──
+        if period_sub_type_val != "liquidation":
+            retained = _collect_retained_employees(all_employees, start_date, end_date, selected_group_id)
+            existing_ids = {e.get("id") for e in period_employees}
+            for re in retained:
+                if re.get("id") not in existing_ids:
+                    period_employees.append(re)
+                    existing_ids.add(re.get("id"))
+
         # ── Bloquear si no hay empleados que procesar ──
         if not period_employees:
             flash("Este grupo no tiene empleados activos para procesar. Revisa la asignación de empleados al grupo.", "error")
             return redirect(url_for("web_rrhh.payroll_new"))
 
-        # ── Nómina de liquidación: incluir empleados terminados con liquidación pendiente ──
-        period_sub_type_val = request.form.get("periodSubType", "regular")
         liquidation_settlements_map = {}
         if period_sub_type_val == "liquidation" and selected_group_id:
             period_employees, liquidation_settlements_map = _collect_liquidation_employees(
@@ -611,8 +694,8 @@ def payroll_new():
         else:
             # Remove liquidation employees from regular payroll — they get no regular salary
             period_employees = [e for e in period_employees if not e.get("isLiquidation")]
-            if pending_liquidations:
-                flash("Aviso: este grupo tiene liquidaciones pendientes. Seleccione «Liquidación (prestaciones)» como tipo de nómina para incluirlas.", "warning")
+            if has_unassigned:
+                flash("Aviso: hay liquidaciones sin asignar a un grupo de nómina. Asígnalas para incluirlas en una nómina de liquidación.", "warning")
 
         # Pre-validación: bloquear si hay errores antes de calcular
         period_incidencias = PayrollService.validate_employees_before_payroll(period_employees)
@@ -623,6 +706,7 @@ def payroll_new():
             return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll",
                                    employees=employees, now=now, now_month=now.month,
                                    available_periods=available_periods, frequency=group_frequency,
+                                   locked_period_keys=locked_period_keys, lock_open_label=lock_open_label, closed_period_keys=closed_period_keys,
                                    show_christmas_bonus=(now.month >= 11),
                                    payroll_groups=payroll_groups,
                                    selected_group_id=selected_group_id,
@@ -714,6 +798,7 @@ def payroll_new():
             return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll",
                                    employees=employees, now=now, now_month=now.month,
                                    available_periods=available_periods, frequency=group_frequency,
+                                   locked_period_keys=locked_period_keys, lock_open_label=lock_open_label, closed_period_keys=closed_period_keys,
                                    show_christmas_bonus=(now.month >= 11),
                                    payroll_groups=payroll_groups,
                                    selected_group_id=selected_group_id,
@@ -882,7 +967,7 @@ def payroll_new():
                     prorated = PayrollService.prorate_salary(
                         monthly_salary=base, period_start=start_date, period_end=end_date,
                         hire_date=emp.get("hireDate", ""),
-                        termination_date=emp.get("terminationDate", ""),
+                        termination_date=emp.get("lastWorkDate", "") or emp.get("terminationDate", ""),
                         salary_history=salary_history,
                     )
 
@@ -1290,10 +1375,14 @@ def payroll_new():
                     ],
                 }
 
-                from app.services.recurring_service import save_applications_batch
+                from app.services.recurring_service import save_applications_batch, delete_applications_by_period
                 saved = hr.save_payroll_period(company_id, period_id, period_data, sandbox=sandbox)
                 if not saved:
                     raise RuntimeError("Error al guardar el período en la base de datos.")
+                # Reemplazo idempotente: borrar lo previo para no duplicar en recálculos
+                hr.delete_payroll_lines(company_id, period_id, sandbox=sandbox)
+                hr.delete_payroll_transactions_by_period(company_id, period_id, sandbox=sandbox)
+                delete_applications_by_period(company_id, period_id, sandbox=sandbox)
                 hr.save_payroll_lines_batch(company_id, period_id, lines, sandbox=sandbox)
                 hr.save_payroll_transactions_batch(company_id, all_transactions, sandbox=sandbox)
                 save_applications_batch(company_id, all_applications, sandbox=sandbox)
@@ -1346,6 +1435,7 @@ def payroll_new():
                            employees=employees, now=now, now_month=now.month,
                            existing_period=existing_period_ref,
                            available_periods=available_periods, frequency=group_frequency,
+                           locked_period_keys=locked_period_keys, lock_open_label=lock_open_label, closed_period_keys=closed_period_keys,
                            show_christmas_bonus=(now.month >= 11),
                            payroll_groups=payroll_groups,
                            selected_group_id=selected_group_id,
@@ -1407,6 +1497,17 @@ def payroll_create():
         if not period_info:
             flash("El período seleccionado no es válido para este grupo.", "error")
             return redirect(url_for("web_rrhh.payroll_new", group=selected_group_id))
+
+        # ── Bloqueo secuencial (solo nóminas regulares) ──
+        if period_sub_type == "regular":
+            locked_keys, open_label, _closed = get_locked_periods(
+                company_id, selected_group_id, available_periods, sandbox=sandbox)
+            if period_key in locked_keys:
+                flash(
+                    f"Debes cerrar el período «{open_label or 'anterior'}» antes de crear «{period_key}».",
+                    "error",
+                )
+                return redirect(url_for("web_rrhh.payroll_new", group=selected_group_id))
 
         if not hr.has_active_employee_in_payroll_group(
                 company_id, selected_group_id, sandbox=sandbox):
@@ -1572,6 +1673,16 @@ def payroll_simulate():
 
         period_employees, _sim_excluded = _filter_employees_by_period(employees)
 
+        # ── Empleados inactivos retenidos en nómina (período final por nómina regular) ──
+        if period_sub_type_val != "liquidation":
+            all_employees_full = hr.get_employees(company_id, sandbox=sandbox)
+            retained = _collect_retained_employees(all_employees_full, start_date, end_date, selected_group_id)
+            existing_ids = {e.get("id") for e in period_employees}
+            for re in retained:
+                if re.get("id") not in existing_ids:
+                    period_employees.append(re)
+                    existing_ids.add(re.get("id"))
+
         # Empleados con liquidación pendiente: igual que en el procesamiento real,
         # la liquidación toma prioridad sobre el salario regular.
         liquidation_settlements_map = {}
@@ -1732,7 +1843,7 @@ def payroll_simulate():
             prorated = PayrollService.prorate_salary(
                 monthly_salary=base, period_start=start_date, period_end=end_date,
                 hire_date=emp.get("hireDate", ""),
-                termination_date=emp.get("terminationDate", ""),
+                termination_date=emp.get("lastWorkDate", "") or emp.get("terminationDate", ""),
                 salary_history=salary_history,
             )
 

@@ -7,6 +7,7 @@ from app.web.rrhh import (
     web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
     _is_hr_role, _sanitize_for_role, MONTHS_ES,
     _filter_employees_by_period, _generate_periods,
+    get_locked_periods,
 )
 from app.services import hr_data_service as hr
 from app.utils.hr_utils import is_active_equivalent
@@ -198,6 +199,21 @@ def payroll_dashboard():
                 "group": g,
                 "suggestedPeriod": expected_key,
             })
+
+    # ── Marcar grupos cuyo período sugerido está bloqueado secuencialmente ──
+    for entry in pending_groups:
+        gid = entry["group"]["id"]
+        freq = entry["group"].get("frequency", "mensual")
+        try:
+            locked, open_label, _closed = get_locked_periods(
+                company_id, gid, _generate_periods(freq, current_year), sandbox=sandbox)
+        except Exception:
+            locked, open_label = set(), None
+        if entry["suggestedPeriod"] in locked:
+            entry["blocked"] = True
+            entry["blocked_by"] = open_label
+        else:
+            entry["blocked"] = False
 
     # ── Offboarding pipeline ──
     offboarding_pipeline = []
