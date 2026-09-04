@@ -256,6 +256,7 @@
                 <h3>Compensación</h3>
                 <div class="hr-info-grid">
                     <div class="hr-info-item"><span class="hr-info-label">Salario base</span><span class="hr-info-value" style="color:var(--accent-emerald);font-size:1.05rem;">{{ "RD$ {:,.2f}".format(employee.baseSalary|float) if employee.baseSalary else '—' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Salario promedio</span><span class="hr-info-value" style="color:var(--accent-blue);">{{ "RD$ {:,.2f}".format(average_salary|float) if average_salary else '—' }}</span></div>
                     <div class="hr-info-item"><span class="hr-info-label">AFP</span><span class="hr-info-value">{{ employee.afpProvider or '—' }}</span></div>
                     <div class="hr-info-item"><span class="hr-info-label">Método de pago</span><span class="hr-info-value">{{ employee.paymentMethod or '—' }}</span></div>
                     <div class="hr-info-item"><span class="hr-info-label">Banco</span><span class="hr-info-value">{{ employee.bank or '—' }}</span></div>

@@ -231,6 +231,8 @@ class ConceptoResult(BaseModel):
 class Totales(BaseModel):
     montoPrestaciones: float = 0.0
     montoDerechosAdquiridos: float = 0.0
+    montoOtrosIngresos: float = 0.0
+    montoOtrosDescuentos: float = 0.0
     montoTotal: float = 0.0
     montoSalarioPendiente: float = 0.0
     montoComisiones: float = 0.0
@@ -273,6 +275,8 @@ class TerminationSettlement(BaseModel):
     antiguedad: dict = {}
     salarioDiarioPromedio: float = 0.0
     conceptos: dict[str, "ConceptoResult"] = {}
+    conceptosAdicionales: list = []
+    descuentosDetalle: list = []
     totales: "Totales" = Field(default_factory=Totales)
     salarioPendiente: float = 0.0
     comisionesPendientes: float = 0.0

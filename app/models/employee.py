@@ -25,6 +25,7 @@ class Employee(BaseModel):
     branchId: str = ""  # Sucursal
     hireDate: str = ""  # Fecha ingreso (YYYY-MM-DD)
     baseSalary: float = 0.0  # Salario base mensual
+    averageSalary: float = 0.0  # Salario promedio mensual (auto-calculado, últimos 12 meses)
     salaryType: str = "fijo"  # "fijo" | "por_hora"
     salary: float = 0.0  # Valor salario (alias for baseSalary)
     hourlyRate: float = 0.0  # Tarifa por hora (si aplica)

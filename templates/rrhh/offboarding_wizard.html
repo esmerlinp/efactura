@@ -2,6 +2,93 @@
 {% block title %}Desvinculación — {{ req.employeeName }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
+{% macro liq_extras() %}
+<div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--border-color);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+        <label style="font-size:0.72rem; font-weight:600;">Conceptos adicionales</label>
+        <button type="button" class="btn btn-sm btn-ghost" onclick="liqAddConcept(this)" style="font-size:0.7rem;"><i class="fa-solid fa-plus"></i> Agregar concepto</button>
+    </div>
+    <p style="font-size:0.62rem; color:var(--text-muted); margin:0 0 6px;">Ingresos o descuentos extra desde el catálogo de nómina. El estado fiscal se toma del concepto.</p>
+    <table style="width:100%; border-collapse:collapse; margin-bottom:12px;">
+        <thead>
+            <tr style="border-bottom:1px solid var(--border-color);">
+                <th style="text-align:left; font-size:0.6rem; text-transform:uppercase; letter-spacing:0.03em; color:var(--text-muted); padding:4px 2px;">Concepto</th>
+                <th style="text-align:right; font-size:0.6rem; text-transform:uppercase; letter-spacing:0.03em; color:var(--text-muted); padding:4px 2px; width:100px;">Monto</th>
+                <th style="text-align:left; font-size:0.6rem; text-transform:uppercase; letter-spacing:0.03em; color:var(--text-muted); padding:4px 2px;">Comentario</th>
+                <th style="width:70px;"></th>
+            </tr>
+        </thead>
+        <tbody class="ac-tbody">
+            {% for r in additional_rows %}
+            <tr class="ac-row">
+                <td style="padding:4px 2px;">
+                    <select name="ac_concept" class="form-select liq-concept" style="font-size:0.78rem;" onchange="liqConceptChanged(this)">
+                        <option value="">— Seleccionar —</option>
+                        {% for c in concepts_available %}
+                        <option value="{{ c.code }}" data-name="{{ c.name }}" data-type="{{ c.type }}" data-taxable="{{ '1' if c.taxable else '0' }}" data-affects-tss="{{ '1' if c.affects_tss else '0' }}" {% if r.conceptCode == c.code %}selected{% endif %}>{{ c.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="hidden" name="ac_name" class="liq-ac-name" value="{{ r.name }}">
+                    <input type="hidden" name="ac_type" class="liq-ac-type" value="{{ r.type }}">
+                    <input type="hidden" name="ac_taxable" class="liq-ac-taxable" value="{{ '1' if r.taxable else '0' }}">
+                    <input type="hidden" name="ac_affects_tss" class="liq-ac-affects-tss" value="{{ '1' if r.affectsTSS else '0' }}">
+                </td>
+                <td style="padding:4px 2px;">
+                    <input type="number" name="ac_monto" step="0.01" class="form-input" style="font-size:0.78rem; text-align:right;" value="{{ r.monto if r.monto else '' }}" placeholder="0.00">
+                </td>
+                <td style="padding:4px 2px;">
+                    <input type="text" name="ac_comment" class="form-input" style="font-size:0.78rem;" value="{{ r.comment }}" placeholder="Breve comentario">
+                </td>
+                <td style="padding:4px 2px; text-align:center; white-space:nowrap;">
+                    <span class="liq-fiscal-badge">{% if r.type == 'deduction' %}Descuento{% elif r.taxable %}Gravable{% else %}Exento{% endif %}</span>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="liqRemoveRow(this)" title="Quitar"><i class="fa-solid fa-xmark"></i></button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <label style="font-size:0.72rem; font-weight:600;">Descuentos recurrentes</label>
+    <p style="font-size:0.62rem; color:var(--text-muted); margin:0 0 6px;">Se agregan automáticamente desde los movimientos recurrentes. Puedes editar el monto o quitarlos.</p>
+    <input type="hidden" name="dd_present" value="1">
+    <table style="width:100%; border-collapse:collapse;">
+        <thead>
+            <tr style="border-bottom:1px solid var(--border-color);">
+                <th style="text-align:center; font-size:0.6rem; text-transform:uppercase; letter-spacing:0.03em; color:var(--text-muted); padding:4px 2px; width:44px;">Aplica</th>
+                <th style="text-align:left; font-size:0.6rem; text-transform:uppercase; letter-spacing:0.03em; color:var(--text-muted); padding:4px 2px;">Concepto</th>
+                <th style="text-align:right; font-size:0.6rem; text-transform:uppercase; letter-spacing:0.03em; color:var(--text-muted); padding:4px 2px; width:100px;">Monto</th>
+                <th style="width:40px;"></th>
+            </tr>
+        </thead>
+        <tbody class="dd-tbody">
+            {% for d in deduction_rows %}
+            <tr class="dd-row">
+                <td style="padding:4px 2px; text-align:center;">
+                    <input type="checkbox" class="liq-dd-check" {% if d.aplica %}checked{% endif %} onchange="liqToggleDd(this)">
+                </td>
+                <td style="padding:4px 2px;">
+                    <span style="font-size:0.78rem;">{{ d.name }} <span style="font-size:0.62rem; color:var(--text-muted);">({{ d.tipo|title }})</span></span>
+                </td>
+                <td style="padding:4px 2px;">
+                    <input type="number" name="dd_monto" step="0.01" class="form-input" style="font-size:0.78rem; text-align:right;" value="{{ d.monto }}">
+                </td>
+                <td style="padding:4px 2px; text-align:center;">
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="liqRemoveRow(this)" title="Quitar"><i class="fa-solid fa-xmark"></i></button>
+                </td>
+                <td style="display:none;">
+                    <input type="hidden" name="dd_movementId" value="{{ d.movementId }}">
+                    <input type="hidden" name="dd_conceptCode" value="{{ d.conceptCode }}">
+                    <input type="hidden" name="dd_name" value="{{ d.name }}">
+                    <input type="hidden" name="dd_tipo" value="{{ d.tipo }}">
+                    <input type="hidden" name="dd_aplica" class="liq-dd-aplica" value="{{ '1' if d.aplica else '0' }}">
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endmacro %}
+
 <style>
     .wizard-container { max-width:960px; margin:0 auto; }
     .wizard-stepper { display:flex; gap:0; margin:20px 0 28px; }
@@ -183,6 +270,23 @@
                 </tr>
                 {% endif %}
                 {% endfor %}
+                {% for ac in settlement.get('conceptosAdicionales', []) %}
+                <tr style="border-bottom:1px solid rgba(0,0,0,0.04);">
+                    <td style="padding:7px 8px; font-weight:500;">{{ ac.name }}</td>
+                    <td style="padding:7px 8px; font-size:0.7rem; color:var(--text-muted);">{{ ac.comment if ac.comment else '—' }}</td>
+                    <td style="padding:7px 8px; text-align:right; font-size:0.75rem; color:var(--text-secondary);">—</td>
+                    <td style="padding:7px 8px; text-align:right; font-weight:600; font-size:0.74rem; white-space:nowrap;">{{ '+' if ac.type != 'deduction' else '−' }} RD$ {{ "{:,.2f}".format(ac.monto | float) }}</td>
+                    <td style="padding:7px 8px; text-align:center;">
+                        {% if ac.type == 'deduction' %}
+                        <span class="concept-badge badge-exento">Descuento</span>
+                        {% elif ac.taxable %}
+                        <span class="concept-badge badge-gravable">Gravable</span>
+                        {% else %}
+                        <span class="concept-badge badge-exento">Exento</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
                 <tr style="border-top:2px solid var(--border-color);">
                     <td colspan="3" style="padding:9px 8px; font-weight:700; font-size:0.8rem; text-align:right;">Total</td>
                     <td style="padding:9px 8px; text-align:right; font-weight:700; font-size:0.78rem; color:var(--accent-emerald); white-space:nowrap;">RD$ {{ "{:,.2f}".format(totales.get('montoTotal', 0) | float) }}</td>
@@ -196,6 +300,32 @@
                 <tr style="border: none;">
                     <td colspan="3" style="padding:3px 4px; font-size:0.66rem; color:var(--text-muted); text-align:right;">Derechos adquiridos</td>
                     <td style="padding:3px 4px; text-align:right; font-size:0.68rem; color:var(--text-secondary); white-space:nowrap;">RD$ {{ "{:,.2f}".format(totales.get('montoDerechosAdquiridos', 0) | float) }}</td>
+                    <td></td>
+                </tr>
+                {% if totales.get('montoOtrosIngresos', 0) %}
+                <tr style="border: none;">
+                    <td colspan="3" style="padding:3px 4px; font-size:0.66rem; color:var(--text-muted); text-align:right;">Otros ingresos</td>
+                    <td style="padding:3px 4px; text-align:right; font-size:0.68rem; color:var(--text-secondary); white-space:nowrap;">RD$ {{ "{:,.2f}".format(totales.get('montoOtrosIngresos', 0) | float) }}</td>
+                    <td></td>
+                </tr>
+                {% endif %}
+                {% for d in settlement.get('descuentosDetalle', []) %}
+                <tr style="border: none;">
+                    <td colspan="3" style="padding:3px 4px; font-size:0.66rem; color:var(--text-muted); text-align:right;">Descuento: {{ d.name }}</td>
+                    <td style="padding:3px 4px; text-align:right; font-size:0.68rem; color:var(--danger); white-space:nowrap;">− RD$ {{ "{:,.2f}".format(d.monto | float) }}</td>
+                    <td></td>
+                </tr>
+                {% endfor %}
+                {% if totales.get('montoOtrosDescuentos', 0) %}
+                <tr style="border: none;">
+                    <td colspan="3" style="padding:3px 4px; font-size:0.66rem; color:var(--text-muted); text-align:right;">Otros descuentos</td>
+                    <td style="padding:3px 4px; text-align:right; font-size:0.68rem; color:var(--danger); white-space:nowrap;">− RD$ {{ "{:,.2f}".format(totales.get('montoOtrosDescuentos', 0) | float) }}</td>
+                    <td></td>
+                </tr>
+                {% endif %}
+                <tr style="border-top:2px solid var(--border-color);">
+                    <td colspan="3" style="padding:9px 8px; font-weight:700; font-size:0.8rem; text-align:right;">Neto a pagar</td>
+                    <td style="padding:9px 8px; text-align:right; font-weight:700; font-size:0.78rem; color:var(--accent-emerald); white-space:nowrap;">RD$ {{ "{:,.2f}".format(totales.get('montoNetoAPagar', 0) | float) }}</td>
                     <td></td>
                 </tr>
             </tbody>
@@ -263,6 +393,7 @@
                         <i class="fa-solid fa-calculator"></i> Recalcular
                     </button>
                 </div>
+                {{ liq_extras() }}
             </form>
         </div>
 
@@ -314,6 +445,7 @@
                     <i class="fa-solid fa-calculator"></i> Calcular liquidación
                 </button>
             </div>
+            {{ liq_extras() }}
         </form>
         {% endif %}
     </div>
@@ -840,6 +972,67 @@ function completeOffboarding() {
         alert('Error: ' + err.message);
         btn.disabled = false;
     });
+}
+
+var LIQ_CONCEPTS = {{ concepts_available | tojson }};
+
+function liqFiscalBadge(taxable, type) {
+    if (type === 'deduction') {
+        return '<span style="font-size:0.62rem; padding:1px 6px; border-radius:6px; background:rgba(99,102,241,0.1); color:var(--accent-indigo);">Descuento</span>';
+    }
+    return taxable
+        ? '<span style="font-size:0.62rem; padding:1px 6px; border-radius:6px; background:rgba(249,115,22,0.1); color:var(--accent-orange);">Gravable</span>'
+        : '<span style="font-size:0.62rem; padding:1px 6px; border-radius:6px; background:rgba(16,185,129,0.1); color:var(--accent-emerald);">Exento</span>';
+}
+
+function liqConceptSelectHTML() {
+    var opts = '<option value="">— Seleccionar —</option>';
+    LIQ_CONCEPTS.forEach(function (c) {
+        opts += '<option value="' + c.code + '" data-name="' + c.name + '" data-type="' + c.type + '" data-taxable="' + (c.taxable ? '1' : '0') + '" data-affects-tss="' + (c.affects_tss ? '1' : '0') + '">' + c.name + '</option>';
+    });
+    return opts;
+}
+
+function liqAddConcept(btn) {
+    var form = btn ? btn.closest('form') : document.querySelector('form');
+    var tbody = form.querySelector('.ac-tbody');
+    var tr = document.createElement('tr');
+    tr.className = 'ac-row';
+    tr.innerHTML =
+        '<td style="padding:4px 2px;">' +
+            '<select name="ac_concept" class="form-select liq-concept" style="font-size:0.78rem;" onchange="liqConceptChanged(this)">' + liqConceptSelectHTML() + '</select>' +
+            '<input type="hidden" name="ac_name" class="liq-ac-name" value="">' +
+            '<input type="hidden" name="ac_type" class="liq-ac-type" value="">' +
+            '<input type="hidden" name="ac_taxable" class="liq-ac-taxable" value="0">' +
+            '<input type="hidden" name="ac_affects_tss" class="liq-ac-affects-tss" value="0">' +
+        '</td>' +
+        '<td style="padding:4px 2px;"><input type="number" name="ac_monto" step="0.01" class="form-input" style="font-size:0.78rem; text-align:right;" placeholder="0.00"></td>' +
+        '<td style="padding:4px 2px;"><input type="text" name="ac_comment" class="form-input" style="font-size:0.78rem;" placeholder="Breve comentario"></td>' +
+        '<td style="padding:4px 2px; text-align:center; white-space:nowrap;"><span class="liq-fiscal-badge">Exento</span>' +
+            '<button type="button" class="btn btn-ghost btn-sm" onclick="liqRemoveRow(this)" title="Quitar"><i class="fa-solid fa-xmark"></i></button></td>';
+    tbody.appendChild(tr);
+}
+
+function liqConceptChanged(sel) {
+    var opt = sel.options[sel.selectedIndex];
+    var tr = sel.closest('tr');
+    tr.querySelector('.liq-ac-name').value = opt ? opt.getAttribute('data-name') || '' : '';
+    tr.querySelector('.liq-ac-type').value = opt ? opt.getAttribute('data-type') || 'earning' : 'earning';
+    tr.querySelector('.liq-ac-taxable').value = opt && opt.getAttribute('data-taxable') === '1' ? '1' : '0';
+    tr.querySelector('.liq-ac-affects-tss').value = opt && opt.getAttribute('data-affects-tss') === '1' ? '1' : '0';
+    var type = opt ? opt.getAttribute('data-type') : 'earning';
+    var taxable = opt && opt.getAttribute('data-taxable') === '1';
+    tr.querySelector('.liq-fiscal-badge').innerHTML = liqFiscalBadge(taxable, type);
+}
+
+function liqToggleDd(cb) {
+    var tr = cb.closest('tr');
+    tr.querySelector('.liq-dd-aplica').value = cb.checked ? '1' : '0';
+}
+
+function liqRemoveRow(btn) {
+    var tr = btn.closest('tr');
+    if (tr && tr.parentNode) tr.parentNode.removeChild(tr);
 }
 </script>
 {% endblock %}
