@@ -11,12 +11,101 @@ from app.web.rrhh import (
 from app.services import hr_data_service as hr
 from app.services.liquidacion_service import LiquidacionService
 from app.services.payroll_audit_service import log_action
+from app.services import payroll_concept_engine as concept_engine
+from app.services import recurring_service as recurring_svc
 
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # LIQUIDACIÓN LABORAL — Cálculo de Prestaciones y Derechos Adquiridos
 # ═══════════════════════════════════════════════════════════════════════════
+
+def _concepts_available(company_id: str, sandbox: bool) -> list:
+    """Conceptos activos de nómina (ingresos y descuentos) para los dropdowns."""
+    try:
+        concepts = concept_engine.get_concepts(company_id, sandbox=sandbox)
+    except Exception:
+        concepts = []
+    defaults = {c.get("code", ""): c for c in getattr(concept_engine, "DEFAULT_CONCEPTS", [])}
+    result = []
+    for c in concepts:
+        if not c.get("active"):
+            continue
+        if c.get("type") not in ("earning", "deduction"):
+            continue
+        dc = defaults.get(c.get("code", ""), {})
+        taxable = c.get("taxable", dc.get("taxable", False))
+        affects_afp = c.get("affects_afp", dc.get("affects_afp", False))
+        affects_sfs = c.get("affects_sfs", dc.get("affects_sfs", False))
+        result.append({
+            "code": c.get("code", ""),
+            "name": c.get("name", c.get("code", "")),
+            "type": c.get("type", "earning"),
+            "taxable": bool(taxable),
+            "affects_tss": bool(affects_afp or affects_sfs),
+        })
+    return result
+
+
+def _parse_additional_concepts(form) -> list:
+    """Parse filas dinámicas de conceptos adicionales desde el formulario."""
+    codes = form.getlist("ac_concept")
+    montos = form.getlist("ac_monto")
+    comments = form.getlist("ac_comment")
+    names = form.getlist("ac_name")
+    types = form.getlist("ac_type")
+    taxables = form.getlist("ac_taxable")
+    affects_tss = form.getlist("ac_affects_tss")
+
+    rows = []
+    for i, code in enumerate(codes):
+        code = (code or "").strip()
+        if not code:
+            continue
+        try:
+            monto = float(montos[i] if i < len(montos) else 0)
+        except (ValueError, TypeError, IndexError):
+            monto = 0.0
+        if monto == 0.0:
+            continue
+        rows.append({
+            "id": str(uuid4()),
+            "conceptCode": code,
+            "name": (names[i] if i < len(names) else "") or code,
+            "monto": monto,
+            "comment": comments[i] if i < len(comments) else "",
+            "type": types[i] if i < len(types) else "earning",
+            "taxable": (taxables[i] if i < len(taxables) else "0") == "1",
+            "affectsTSS": (affects_tss[i] if i < len(affects_tss) else "0") == "1",
+        })
+    return rows
+
+
+def _parse_deductions(form) -> list:
+    """Parse filas de descuentos recurrentes (auto + editables) desde el formulario."""
+    movement_ids = form.getlist("dd_movementId")
+    concept_codes = form.getlist("dd_conceptCode")
+    names = form.getlist("dd_name")
+    montos = form.getlist("dd_monto")
+    tipos = form.getlist("dd_tipo")
+    aplicas = form.getlist("dd_aplica")
+
+    rows = []
+    for i, mid in enumerate(movement_ids):
+        try:
+            monto = float(montos[i] if i < len(montos) else 0)
+        except (ValueError, TypeError, IndexError):
+            monto = 0.0
+        rows.append({
+            "movementId": mid,
+            "id": mid,
+            "conceptCode": concept_codes[i] if i < len(concept_codes) else "",
+            "name": names[i] if i < len(names) else "",
+            "monto": monto,
+            "tipo": tipos[i] if i < len(tipos) else "otro",
+            "aplica": (aplicas[i] if i < len(aplicas) else "1") == "1",
+        })
+    return rows
 
 @web_rrhh_bp.route("/rrhh/employees/<employee_id>/liquidacion", methods=["GET", "POST"])
 def employee_liquidacion(employee_id):
@@ -88,6 +177,25 @@ def employee_liquidacion(employee_id):
 
     resultado = None
 
+    concepts_available = _concepts_available(company_id, sandbox)
+    recurring_movements = recurring_svc.get_recurring_movements(
+        company_id, employee_id=employee_id, sandbox=sandbox
+    )
+    deduction_rows = LiquidacionService.build_recurring_deductions(recurring_movements)
+    additional_rows = []
+
+    # Salario promedio (base + conceptos que cotizan TSS) para la card de datos
+    salario_promedio = float(employee.get("averageSalary", 0) or 0)
+    try:
+        txs = hr.get_payroll_transactions(company_id, employee_id=employee_id, sandbox=sandbox)
+        prom = LiquidacionService.calcular_salario_promedio_mensual(txs)
+        if prom.get("promedio_mensual", 0) > 0:
+            salario_promedio = prom["promedio_mensual"]
+    except Exception:
+        pass
+    if salario_promedio <= 0:
+        salario_promedio = float(employee.get("baseSalary", 0) or 0)
+
     if request.method == "POST":
         termination_type = request.form.get("terminationType", "renuncia").strip()
         termination_date = request.form.get("terminationDate", "").strip()
@@ -100,50 +208,27 @@ def employee_liquidacion(employee_id):
 
         base_salary = float(employee.get("baseSalary", 0) or 0)
         salary_frequency = employee.get("paymentFrequency", "") or "mensual"
-        is_variable = employee.get("isVariableSalary", False)
         dias_adeudados = int(request.form.get("diasAdeudados", "0") or 0)
 
-        # SDP: para salario fijo, usar el salario base actual directamente
-        if not is_variable:
-            salaries_12 = [base_salary]
-        else:
-            salaries_12 = [base_salary]
-            try:
-                salary_history = hr.get_salary_history(company_id, employee_id, sandbox=sandbox)
-                if salary_history:
-                    recent = sorted(salary_history, key=lambda x: x.get("effectiveDate", ""), reverse=True)[:12]
-                    salaries_12 = [s.get("amount", base_salary) for s in recent if s.get("amount")]
-                    if not salaries_12:
-                        salaries_12 = [base_salary]
-            except Exception:
-                salaries_12 = [base_salary]
-
-        # Salarios año corriente (enero a fecha de salida)
-        try:
-            if termination_date:
-                td = datetime.strptime(termination_date, "%Y-%m-%d")
-                months_ytd = td.month
-            else:
-                months_ytd = date.today().month
-        except ValueError:
-            months_ytd = date.today().month
-
+        # Salario promedio real (base + conceptos que cotizan TSS) desde transacciones de nómina
+        promedio_mensual = float(employee.get("averageSalary", 0) or 0)
+        salaries_12 = [base_salary]
         salaries_ytd = [base_salary]
         try:
-            if salary_history:
-                current_year = (datetime.strptime(termination_date, "%Y-%m-%d") if termination_date else datetime.now()).year
-                ytd_entries = sorted(
-                    [s for s in salary_history if s.get("effectiveDate", "").startswith(str(current_year))],
-                    key=lambda x: x.get("effectiveDate", "")
-                )
-                if ytd_entries:
-                    salaries_ytd = [s.get("amount", base_salary) for s in ytd_entries]
+            txs = hr.get_payroll_transactions(company_id, employee_id=employee_id, sandbox=sandbox)
+            prom = LiquidacionService.calcular_salario_promedio_mensual(txs)
+            if prom.get("promedio_mensual", 0) > 0:
+                promedio_mensual = prom["promedio_mensual"]
+                salaries_12 = prom.get("monthly_totals_last_12") or [promedio_mensual]
+                ytd = prom.get("monthly_salaries_ytd") or []
+                if ytd:
+                    salaries_ytd = ytd
         except Exception:
-            salaries_ytd = [base_salary] * max(1, months_ytd)
+            pass
 
-        # Excluir el mes actual incompleto (ya se prorratea via dias_extra_navidad)
-        if len(salaries_ytd) >= months_ytd and salaries_ytd:
-            salaries_ytd = salaries_ytd[:-1]
+        if promedio_mensual <= 0:
+            promedio_mensual = base_salary
+            salaries_12 = [base_salary]
 
         # Normalizar tipo de terminación
         nt = LiquidacionService._normalizar_terminacion(termination_type)
@@ -155,6 +240,10 @@ def employee_liquidacion(employee_id):
             dias_extra_navidad = td.day
         except Exception:
             pass
+
+        # Conceptos adicionales y descuentos recurrentes (filas dinámicas editables)
+        additional_rows = _parse_additional_concepts(request.form)
+        deduction_rows = _parse_deductions(request.form)
 
         resultado = LiquidacionService.calcular_liquidacion(
             employee_id=employee_id,
@@ -174,6 +263,8 @@ def employee_liquidacion(employee_id):
             vacation_dias_pendientes=vacation_dias_pendientes_val,
             dias_adeudados=dias_adeudados,
             dias_extra_navidad=dias_extra_navidad,
+            recurring_deductions=deduction_rows,
+            additional_concepts=additional_rows,
             notes=notes,
             created_by=session.get("user", {}).get("email", ""),
         )
@@ -233,6 +324,10 @@ def employee_liquidacion(employee_id):
                            active_page="rrhh_employees",
                            employee=_sanitize_for_role(employee),
                            resultado=resultado,
+                           concepts_available=concepts_available,
+                           additional_rows=additional_rows,
+                           deduction_rows=deduction_rows,
+                           salario_promedio=salario_promedio,
                            vacation_auto_pending_complete=vacation_auto_pending_complete,
                            vacation_auto_taken_current=vacation_auto_taken_current,
                            vacation_auto_total_accrued=vacation_auto_total_accrued,

@@ -474,27 +474,33 @@ def offboarding_settlement_calculate(request_id):
     vacation_pending_complete = int(request.form.get("vacationPendingCompleteYears", "0") or 0)
     vacation_taken_current = int(request.form.get("vacationTakenCurrentPeriod", "0") or 0)
 
+    employee_id = req.get("employeeId", "")
+
+    # Salario promedio real (base + conceptos que cotizan TSS) desde transacciones de nómina
+    promedio_mensual = float(employee.get("averageSalary", 0) or 0)
     salaries_12 = [base_salary]
+    salaries_ytd = [base_salary]
     try:
-        salary_history = hr.get_salary_history(company_id, req.get("employeeId", ""), sandbox=sandbox)
-        if salary_history:
-            recent = sorted(salary_history, key=lambda x: x.get("effectiveDate", ""), reverse=True)[:12]
-            salaries_12 = [s.get("amount", base_salary) for s in recent if s.get("amount")]
-            if not salaries_12:
-                salaries_12 = [base_salary]
+        txs = hr.get_payroll_transactions(company_id, employee_id=employee_id, sandbox=sandbox)
+        prom = LiquidacionService.calcular_salario_promedio_mensual(txs)
+        if prom.get("promedio_mensual", 0) > 0:
+            promedio_mensual = prom["promedio_mensual"]
+            salaries_12 = prom.get("monthly_totals_last_12") or [promedio_mensual]
+            ytd = prom.get("monthly_salaries_ytd") or []
+            if ytd:
+                salaries_ytd = ytd
     except Exception:
+        pass
+    if promedio_mensual <= 0:
+        promedio_mensual = base_salary
         salaries_12 = [base_salary]
 
-    from datetime import datetime
-    try:
-        td = datetime.strptime(termination_date, "%Y-%m-%d") if termination_date else datetime.now()
-        months_ytd = td.month
-    except ValueError:
-        months_ytd = datetime.now().month
-    salaries_ytd = [base_salary] * max(1, months_ytd)
-
-    employee_id = req.get("employeeId", "")
     recurring_movements = get_recurring_movements(company_id, employee_id=employee_id, sandbox=sandbox)
+
+    from app.web.rrhh.liquidacion import _parse_additional_concepts, _parse_deductions
+    additional_rows = _parse_additional_concepts(request.form)
+    dd_present = request.form.get("dd_present") == "1"
+    deduction_rows = _parse_deductions(request.form)
 
     result = LiquidacionService.calcular_liquidacion(
         employee_id=employee_id,
@@ -512,7 +518,9 @@ def offboarding_settlement_calculate(request_id):
         vacation_pending_complete_years=vacation_pending_complete,
         vacation_taken_current_period=vacation_taken_current,
         dias_adeudados=int(request.form.get("diasAdeudados", "0") or 0),
-        recurring_movements=recurring_movements,
+        recurring_movements=None if dd_present else recurring_movements,
+        recurring_deductions=deduction_rows if dd_present else None,
+        additional_concepts=additional_rows,
         notes=request.form.get("notes", ""),
         created_by=_email(),
     )
@@ -533,6 +541,8 @@ def offboarding_settlement_calculate(request_id):
         "vacationPendingCompleteYears": vacation_pending_complete,
         "vacationTakenCurrentPeriod": vacation_taken_current,
         "conceptos": result.get("conceptos", {}),
+        "conceptosAdicionales": result.get("conceptosAdicionales", []),
+        "descuentosDetalle": result.get("descuentosDetalle", []),
         "totales": totales,
         "antiguedad": result.get("antiguedad", {}),
         "salarioDiarioPromedio": totales.get("salarioDiarioPromedio", 0),
@@ -1226,6 +1236,25 @@ def offboarding_wizard(request_id):
     except Exception:
         pass
 
+    # ── Conceptos adicionales y descuentos recurrentes (para el formulario) ──
+    from app.web.rrhh.liquidacion import _concepts_available
+    concepts_available = _concepts_available(company_id, sandbox)
+
+    recurring_movements = []
+    if employee:
+        recurring_movements = get_recurring_movements(
+            company_id, employee_id=employee.get("id", ""), sandbox=sandbox
+        )
+
+    if settlement and settlement.get("descuentosDetalle"):
+        deduction_rows = [dict(d) for d in settlement.get("descuentosDetalle", [])]
+    else:
+        deduction_rows = LiquidacionService.build_recurring_deductions(recurring_movements)
+
+    additional_rows = []
+    if settlement and settlement.get("conceptosAdicionales"):
+        additional_rows = [dict(a) for a in settlement.get("conceptosAdicionales", [])]
+
     return render_template("rrhh/offboarding_wizard.html",
                            **_ctx(req=req, employee=employee,
                                   settlement=settlement, checklist=checklist,
@@ -1236,7 +1265,10 @@ def offboarding_wizard(request_id):
                                   vacation_taken=vacation_taken,
                                   vacation_total_pendientes=vacation_total_pendientes,
                                   vacation_total_accrued=vacation_total_accrued,
-                                  vacation_total_taken=vacation_total_taken))
+                                  vacation_total_taken=vacation_total_taken,
+                                  concepts_available=concepts_available,
+                                  additional_rows=additional_rows,
+                                  deduction_rows=deduction_rows))
 
 
 @web_rrhh_bp.route("/rrhh/offboarding/<request_id>/wizard/step1", methods=["POST"])
@@ -1264,47 +1296,35 @@ def offboarding_wizard_step1(request_id):
     base_salary = float(employee.get("baseSalary", 0) or 0)
     salary_frequency = employee.get("paymentFrequency", "") or "mensual"
 
-    if not employee.get("isVariableSalary", False):
-        salaries_12 = [base_salary]
-    else:
-        salaries_12 = [base_salary]
-        try:
-            salary_history = hr.get_salary_history(company_id, employee["id"], sandbox=sandbox)
-            if salary_history:
-                recent = sorted(salary_history, key=lambda x: x.get("effectiveDate", ""), reverse=True)[:12]
-                salaries_12 = [s.get("amount", base_salary) for s in recent if s.get("amount")]
-                if not salaries_12:
-                    salaries_12 = [base_salary]
-        except Exception:
-            pass
-
-    try:
-        if termination_date:
-            td = datetime.strptime(termination_date[:10], "%Y-%m-%d")
-            months_ytd = td.month
-        else:
-            months_ytd = date.today().month
-    except Exception:
-        months_ytd = date.today().month
-
+    # Salario promedio real (base + conceptos que cotizan TSS) desde transacciones de nómina
+    promedio_mensual = float(employee.get("averageSalary", 0) or 0)
+    salaries_12 = [base_salary]
     salaries_ytd = [base_salary]
     try:
-        sh = hr.get_salary_history(company_id, employee["id"], sandbox=sandbox)
-        if sh:
-            current_year = (datetime.strptime(termination_date[:10], "%Y-%m-%d") if termination_date else datetime.now()).year
-            ytd_entries = sorted(
-                [s for s in sh if s.get("effectiveDate", "").startswith(str(current_year))],
-                key=lambda x: x.get("effectiveDate", "")
-            )
-            if ytd_entries:
-                salaries_ytd = [s.get("amount", base_salary) for s in ytd_entries]
+        txs = hr.get_payroll_transactions(company_id, employee_id=employee["id"], sandbox=sandbox)
+        prom = LiquidacionService.calcular_salario_promedio_mensual(txs)
+        if prom.get("promedio_mensual", 0) > 0:
+            promedio_mensual = prom["promedio_mensual"]
+            salaries_12 = prom.get("monthly_totals_last_12") or [promedio_mensual]
+            ytd = prom.get("monthly_salaries_ytd") or []
+            if ytd:
+                salaries_ytd = ytd
     except Exception:
-        salaries_ytd = [base_salary] * max(1, months_ytd)
+        pass
+    if promedio_mensual <= 0:
+        promedio_mensual = base_salary
+        salaries_12 = [base_salary]
 
-    if len(salaries_ytd) >= months_ytd and salaries_ytd:
-        salaries_ytd = salaries_ytd[:-1]
+    # ── Conceptos adicionales y descuentos recurrentes (filas editables) ──
+    from app.web.rrhh.liquidacion import _parse_additional_concepts, _parse_deductions
+    additional_rows = _parse_additional_concepts(request.form)
+    dd_present = request.form.get("dd_present") == "1"
+    deduction_rows = _parse_deductions(request.form)
+    recurring_movements = get_recurring_movements(
+        company_id, employee_id=employee["id"], sandbox=sandbox
+    )
 
-    result = LiquidacionService.calcular_liquidacion(
+    calc_kwargs = dict(
         employee_id=employee["id"],
         employee_name=employee.get("fullName", ""),
         cedula=employee.get("cedula", ""),
@@ -1324,11 +1344,26 @@ def offboarding_wizard_step1(request_id):
         dias_extra_navidad=(
             int(termination_date[8:10]) if termination_date and len(termination_date) >= 10 else 0
         ),
+        additional_concepts=additional_rows,
         created_by=user_email,
     )
+    if dd_present:
+        calc_kwargs["recurring_deductions"] = deduction_rows
+    else:
+        calc_kwargs["recurring_movements"] = recurring_movements
+
+    result = LiquidacionService.calcular_liquidacion(**calc_kwargs)
     result["requestId"] = request_id
     result["terminationType"] = termination_type
     result["terminationDate"] = termination_date
+
+    # Poblar campos legados (floats) para compatibilidad con la vista de detalle/PDF
+    _t = result.get("totales", {})
+    result["descuentos"] = float(_t.get("montoDescuentos", 0.0))
+    result["loanDeductions"] = float(_t.get("loanDeductions", 0.0))
+    result["advanceDeductions"] = float(_t.get("advanceDeductions", 0.0))
+    result["otherDeductions"] = float(_t.get("otherDeductions", 0.0))
+    result["montoNetoAPagar"] = float(_t.get("montoNetoAPagar", 0.0))
 
     # ── Capture existing settlement data to preserve across recalculations ──
     existing = svc.get_settlement(req.get("settlementId", "")) if req.get("settlementId") else None

@@ -45,7 +45,8 @@ class LiquidacionService:
         Calcula el Salario Diario Promedio según la frecuencia de pago.
 
         - Salario fijo (is_variable=False): SDP = sueldo_base / divisor.
-        - Salario variable (is_variable=True): SDP = sum(últimos 12m) / 12 / divisor.
+        - Salario variable (is_variable=True): SDP = promedio(salarios) / divisor,
+          donde el promedio se divide entre los meses efectivamente trabajados.
 
         Args:
             salaries: Lista de salarios. Para fijo: [base_salary].
@@ -59,10 +60,7 @@ class LiquidacionService:
         if not salaries:
             return 0.0
 
-        if is_variable:
-            promedio = sum(salaries) / 12.0
-        else:
-            promedio = sum(salaries) / len(salaries)
+        promedio = sum(salaries) / max(1.0, float(len(salaries)))
 
         if frequency == "mensual":
             return round(promedio / cls.DIAS_LABORABLES_MENSUAL, 4)
@@ -74,6 +72,55 @@ class LiquidacionService:
             return round(promedio, 4)
         else:
             return round(promedio / cls.DIAS_LABORABLES_MENSUAL, 4)
+
+    # ─────────────────────────────────────────────────────────────────
+    # SALARIO PROMEDIO MENSUAL (Art. 85 — salario ordinario cotizable)
+    # ─────────────────────────────────────────────────────────────────
+
+    @classmethod
+    def calcular_salario_promedio_mensual(cls, transactions: list) -> dict:
+        """
+        Calcula el salario ordinario promedio mensual a partir de transacciones
+        de nómina. Solo se consideran conceptos tipo 'earning' con estado
+        applied/adjusted cuyo concepto cotiza TSS (conceptSnapshot.affectsTSS),
+        excluyendo implícitamente la regalía pascual y otros no-salariales.
+
+        Returns:
+            {"promedio_mensual": float, "monthly_salaries_ytd": list,
+             "monthly_totals_last_12": list, "months": int}
+        """
+        monthly = {}
+        for tx in (transactions or []):
+            if tx.get("type") != "earning":
+                continue
+            if tx.get("status") not in ("applied", "adjusted"):
+                continue
+            snap = tx.get("conceptSnapshot") or {}
+            if not snap.get("affectsTSS", False):
+                continue
+            period_key = tx.get("periodKey", "") or ""
+            month_key = period_key[:7] if len(period_key) >= 7 else ""
+            if not month_key:
+                continue
+            amount = float(tx.get("amount", 0.0) or 0.0)
+            monthly[month_key] = monthly.get(month_key, 0.0) + amount
+
+        sorted_months = sorted(monthly.keys())
+        last_12 = sorted_months[-12:]
+        total = sum(monthly[m] for m in last_12)
+        n = len(last_12) or 1
+        promedio_mensual = round(total / n, 2)
+
+        current_year = last_12[-1][:4] if last_12 else ""
+        ytd = [round(monthly[m], 2) for m in sorted_months if m.startswith(current_year)]
+        monthly_totals_last_12 = [round(monthly[m], 2) for m in last_12]
+
+        return {
+            "promedio_mensual": promedio_mensual,
+            "monthly_salaries_ytd": ytd,
+            "monthly_totals_last_12": monthly_totals_last_12,
+            "months": n,
+        }
 
     # ─────────────────────────────────────────────────────────────────
     # ANTIGÜEDAD
@@ -598,6 +645,39 @@ class LiquidacionService:
         return mapping.get(t, "otro")
 
     @classmethod
+    def build_recurring_deductions(cls, recurring_movements: list) -> list:
+        """Construye la lista estructurada de descuentos recurrentes (préstamos,
+        adelantos, otros) para pre-carga y edición en la UI de liquidación."""
+        result = []
+        for mv in (recurring_movements or []):
+            status = mv.get("status", "")
+            if status not in ("active", "scheduled"):
+                continue
+            if mv.get("isLoan"):
+                tipo = "prestamo"
+                monto = float(mv.get("remainingBalance", 0.0))
+            elif mv.get("conceptCode") in ("ADELANTO", "ADVANCE"):
+                tipo = "adelanto"
+                monto = float(mv.get("remainingBalance", mv.get("amount", 0.0)))
+            elif mv.get("movementType") == "deduction" and mv.get("remainingBalance", 0) > 0:
+                tipo = "otro"
+                monto = float(mv.get("remainingBalance", 0.0))
+            else:
+                continue
+            if monto <= 0:
+                continue
+            result.append({
+                "movementId": mv.get("id", ""),
+                "id": mv.get("id", ""),
+                "conceptCode": mv.get("conceptCode", ""),
+                "name": mv.get("description", "") or mv.get("conceptCode", ""),
+                "monto": round(monto, 2),
+                "tipo": tipo,
+                "aplica": True,
+            })
+        return result
+
+    @classmethod
     def calcular_liquidacion(
         cls,
         employee_id: str = "",
@@ -618,6 +698,8 @@ class LiquidacionService:
         vacation_dias_pendientes: int = 0,
         dias_extra_navidad: int = 0,
         recurring_movements: list = None,
+        recurring_deductions: list = None,
+        additional_concepts: list = None,
         notes: str = "",
         created_by: str = "",
     ) -> dict:
@@ -631,6 +713,8 @@ class LiquidacionService:
           4. Vacaciones no tomadas (Art. 177/182) - siempre
           5. Salario de Navidad (Art. 219) - siempre
           6. Salario Proporcional (Mes de Salida) - siempre
+          7. Conceptos adicionales (ingresos/descuentos desde catálogo de nómina)
+          8. Descuentos recurrentes del empleado (préstamos/adelantos/otros)
 
         Returns:
             Dict con todos los campos de LiquidacionOutput listo para serializar.
@@ -641,6 +725,10 @@ class LiquidacionService:
             monthly_salaries_ytd = []
         if recurring_movements is None:
             recurring_movements = []
+        if recurring_deductions is None:
+            recurring_deductions = []
+        if additional_concepts is None:
+            additional_concepts = []
 
         # Si no se proveyeron salarios variables, usar el último salario base repetido
         if not monthly_salaries_last_12:
@@ -652,8 +740,29 @@ class LiquidacionService:
         antiguedad = cls.calcular_antiguedad(hire_date, termination_date)
 
         # 2. Salario Diario Promedio
-        sdp = cls.calcular_sdp(monthly_salaries_last_12, salary_frequency,
-                               is_variable=is_variable_salary)
+        #    Los conceptos adicionales que cotizan TSS se suman al acumulado salarial
+        #    y se recalcula el promedio (Art. 85: salario ordinario).
+        adicional_cotizable = 0.0
+        for ac in additional_concepts:
+            if (ac.get("type") or ac.get("movementType")) == "deduction":
+                continue
+            if not ac.get("affectsTSS", False):
+                continue
+            try:
+                adicional_cotizable += float(ac.get("monto", 0.0) or 0.0)
+            except (TypeError, ValueError):
+                pass
+
+        if adicional_cotizable > 0:
+            total_acumulado = sum(monthly_salaries_last_12) + adicional_cotizable
+            meses = max(1.0, float(len(monthly_salaries_last_12)))
+            promedio_mensual = total_acumulado / meses
+            sdp = cls.calcular_sdp([promedio_mensual], salary_frequency,
+                                   is_variable=False)
+        else:
+            promedio_mensual = sum(monthly_salaries_last_12) / max(1.0, float(len(monthly_salaries_last_12)))
+            sdp = cls.calcular_sdp(monthly_salaries_last_12, salary_frequency,
+                                   is_variable=is_variable_salary)
 
         # 3. Determinar si aplican prestaciones (Preaviso + Cesantía)
         tipos_con_prestaciones = [
@@ -740,7 +849,7 @@ class LiquidacionService:
                 "baseLegal": "Art. 82 Código de Trabajo",
             }
 
-        # 5. Totales
+        # 5. Totales base
         monto_prestaciones = (
             conceptos["preaviso"]["monto"]
             + conceptos["cesantia"]["monto"]
@@ -751,7 +860,39 @@ class LiquidacionService:
             + conceptos["salarioNavidad"]["monto"]
             + conceptos["salarioProporcional"]["monto"]
         )
-        monto_total = monto_prestaciones + monto_derechos
+
+        # 6. Conceptos adicionales (ingresos/descuentos desde catálogo de nómina)
+        conceptos_adicionales = []
+        monto_otros_ingresos = 0.0
+        monto_otros_descuentos = 0.0
+        for ac in additional_concepts:
+            try:
+                monto = float(ac.get("monto", 0.0) or 0.0)
+            except (TypeError, ValueError):
+                monto = 0.0
+            if monto == 0.0:
+                continue
+            tipo = ac.get("type") or ac.get("movementType") or "earning"
+            taxable = bool(ac.get("taxable", False))
+            row = {
+                "id": ac.get("id", ""),
+                "conceptCode": ac.get("conceptCode", ""),
+                "name": ac.get("name", ""),
+                "monto": round(monto, 2),
+                "comment": ac.get("comment", ""),
+                "type": tipo,
+                "taxable": taxable,
+                "affectsTSS": bool(ac.get("affectsTSS", False)),
+                "exentoTSS": not taxable,
+                "exentoISR": not taxable,
+            }
+            if tipo == "deduction":
+                monto_otros_descuentos += monto
+            else:
+                monto_otros_ingresos += monto
+            conceptos_adicionales.append(row)
+
+        monto_total = monto_prestaciones + monto_derechos + monto_otros_ingresos
 
         # Montos gravables y exentos
         monto_gravable_tss = 0.0
@@ -770,32 +911,77 @@ class LiquidacionService:
             else:
                 monto_gravable_isr += c["monto"]
 
-        # 6. Deducciones recurrentes (Préstamos, Adelantos)
+        for ac in conceptos_adicionales:
+            if ac["type"] == "deduction":
+                continue
+            if ac["exentoTSS"]:
+                monto_exento_tss += ac["monto"]
+            else:
+                monto_gravable_tss += ac["monto"]
+            if ac["exentoISR"]:
+                monto_exento_isr += ac["monto"]
+            else:
+                monto_gravable_isr += ac["monto"]
+
+        # 7. Descuentos recurrentes (Préstamos, Adelantos, Otros) — auto + editables
+        descuentos = []
         loan_deductions = 0.0
         advance_deductions = 0.0
         other_deductions = 0.0
 
-        for mv in recurring_movements:
-            status = mv.get("status", "")
-            if status not in ("active", "scheduled"):
-                continue
-            
-            # Préstamos (se cobra el balance restante)
+        def _clasificar_tipo(mv: dict) -> str:
             if mv.get("isLoan"):
-                loan_deductions += float(mv.get("remainingBalance", 0.0))
-            # Adelantos (si conceptCode sugiere adelanto)
-            elif mv.get("conceptCode") in ("ADELANTO", "ADVANCE"):
-                advance_deductions += float(mv.get("remainingBalance", mv.get("amount", 0.0)))
-            # Otras deducciones recurrentes (opcional incluirlas, el negocio indicó enfocarse en préstamos y adelantos)
-            elif mv.get("movementType") == "deduction" and mv.get("remainingBalance", 0) > 0:
-                other_deductions += float(mv.get("remainingBalance", 0.0))
-        
-        descuentos_totales = loan_deductions + advance_deductions + other_deductions
+                return "prestamo"
+            if mv.get("conceptCode") in ("ADELANTO", "ADVANCE"):
+                return "adelanto"
+            return "otro"
+
+        if recurring_deductions:
+            for d in recurring_deductions:
+                if not d.get("aplica", True):
+                    continue
+                try:
+                    monto = float(d.get("monto", 0.0) or 0.0)
+                except (TypeError, ValueError):
+                    monto = 0.0
+                if monto <= 0:
+                    continue
+                tipo = d.get("tipo") or _clasificar_tipo(d)
+                descuentos.append({
+                    "id": d.get("id", "") or d.get("movementId", ""),
+                    "movementId": d.get("movementId", d.get("id", "")),
+                    "conceptCode": d.get("conceptCode", ""),
+                    "name": d.get("name", "") or d.get("description", ""),
+                    "monto": round(monto, 2),
+                    "tipo": tipo,
+                    "aplica": True,
+                })
+                if tipo == "prestamo":
+                    loan_deductions += monto
+                elif tipo == "adelanto":
+                    advance_deductions += monto
+                else:
+                    other_deductions += monto
+        else:
+            for d in cls.build_recurring_deductions(recurring_movements):
+                descuentos.append(d)
+                if d["tipo"] == "prestamo":
+                    loan_deductions += d["monto"]
+                elif d["tipo"] == "adelanto":
+                    advance_deductions += d["monto"]
+                else:
+                    other_deductions += d["monto"]
+
+        descuentos_totales = (
+            loan_deductions + advance_deductions + other_deductions + monto_otros_descuentos
+        )
         monto_neto_a_pagar = max(0.0, monto_total - descuentos_totales)
 
         totales = {
             "montoPrestaciones": round(monto_prestaciones, 2),
             "montoDerechosAdquiridos": round(monto_derechos, 2),
+            "montoOtrosIngresos": round(monto_otros_ingresos, 2),
+            "montoOtrosDescuentos": round(monto_otros_descuentos, 2),
             "montoTotal": round(monto_total, 2),
             "montoGravableTSS": round(monto_gravable_tss, 2),
             "montoGravableISR": round(monto_gravable_isr, 2),
@@ -828,7 +1014,10 @@ class LiquidacionService:
             "aplicaPrestaciones": aplica_prestaciones,
             "antiguedad": antiguedad,
             "salarioDiarioPromedio": sdp,
+            "salarioPromedioMensual": round(promedio_mensual, 2),
             "conceptos": conceptos,
+            "conceptosAdicionales": conceptos_adicionales,
+            "descuentosDetalle": descuentos,
             "totales": totales,
             "notas": notes,
             "status": "calculada",

@@ -62,6 +62,28 @@ class ConceptoResult(BaseModel):
     baseLegal: str = ""
 
 
+class ConceptoAdicional(BaseModel):
+    id: str = ""
+    conceptCode: str = ""
+    name: str = ""
+    monto: float = 0.0
+    comment: str = ""
+    type: str = "earning"
+    taxable: bool = False
+    exentoTSS: bool = True
+    exentoISR: bool = True
+
+
+class DescuentoLiquidacion(BaseModel):
+    id: str = ""
+    movementId: str = ""
+    conceptCode: str = ""
+    name: str = ""
+    monto: float = 0.0
+    tipo: str = "otro"
+    aplica: bool = True
+
+
 class Antiguedad(BaseModel):
     years: int = 0
     months: int = 0
@@ -72,12 +94,19 @@ class Antiguedad(BaseModel):
 class Totales(BaseModel):
     montoPrestaciones: float = 0.0
     montoDerechosAdquiridos: float = 0.0
+    montoOtrosIngresos: float = 0.0
+    montoOtrosDescuentos: float = 0.0
     montoTotal: float = 0.0
     montoGravableTSS: float = 0.0
     montoGravableISR: float = 0.0
     montoExentoTSS: float = 0.0
     montoExentoISR: float = 0.0
     montoExento: float = 0.0
+    loanDeductions: float = 0.0
+    advanceDeductions: float = 0.0
+    otherDeductions: float = 0.0
+    montoDescuentos: float = 0.0
+    montoNetoAPagar: float = 0.0
 
 
 class LiquidacionOutput(BaseModel):
@@ -92,6 +121,8 @@ class LiquidacionOutput(BaseModel):
     antiguedad: Antiguedad = Field(default_factory=Antiguedad)
     salarioDiarioPromedio: float = 0.0
     conceptos: dict = Field(default_factory=dict)
+    conceptosAdicionales: List[ConceptoAdicional] = Field(default_factory=list)
+    descuentosDetalle: List[DescuentoLiquidacion] = Field(default_factory=list)
     totales: Totales = Field(default_factory=Totales)
     notas: str = ""
     status: str = "calculada"

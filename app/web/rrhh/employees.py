@@ -512,6 +512,17 @@ def employee_view(employee_id):
     severance = PayrollService.calculate_severance(
         employee.get("baseSalary", 0), employee.get("hireDate", "")
     )
+
+    # Salario promedio (auto-calculado, últimos 12 meses, conceptos que cotizan TSS)
+    average_salary = float(employee.get("averageSalary", 0) or 0)
+    try:
+        from app.services.liquidacion_service import LiquidacionService
+        txs = hr.get_payroll_transactions(company_id, employee_id=employee_id, sandbox=sandbox)
+        prom = LiquidacionService.calcular_salario_promedio_mensual(txs)
+        if prom.get("promedio_mensual", 0) > 0:
+            average_salary = prom["promedio_mensual"]
+    except Exception:
+        pass
     evals = [e for e in hr.get_evaluations(company_id, sandbox=sandbox) if e.get("employeeId") == employee_id]
     trainings = [t for t in hr.get_trainings(company_id, sandbox=sandbox) if t.get("employeeId") == employee_id]
     docs = hr.get_employee_documents(company_id, employee_id, sandbox=sandbox)
@@ -591,6 +602,7 @@ def employee_view(employee_id):
                            employee_actions=employee_actions,
                            status_events=status_events,
                            active_requests=active_requests,
+                           average_salary=average_salary,
                            payroll_groups=hr.get_payroll_groups(company_id, sandbox=sandbox),
                            branches=branches,
                            dependents=dependents, dep_minor=dep_minor, dep_adult=dep_adult,

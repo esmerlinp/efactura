@@ -600,3 +600,164 @@ class TestCalcularLiquidacion:
         )
 
         assert r["salarioDiarioPromedio"] == 1500.0
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONCEPTOS ADICIONALES Y DESCUENTOS RECURRENTES
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestConceptosAdicionalesYDescuentos:
+    def _base(self, **kw):
+        params = dict(
+            employee_id="emp-020",
+            hire_date=_d(1095),
+            termination_date=_d(0),
+            termination_type="desahucio_empleador",
+            last_base_salary=45000.0,
+            salary_frequency="mensual",
+            monthly_salaries_last_12=[45000.0] * 12,
+            monthly_salaries_ytd=[45000.0] * 7,
+            created_by="test@example.com",
+        )
+        params.update(kw)
+        return LiquidacionService.calcular_liquidacion(**params)
+
+    def test_concepto_adicional_ingreso_gravable(self):
+        r = self._base(additional_concepts=[{
+            "conceptCode": "COMISION", "name": "Comisión", "monto": 5000.0,
+            "comment": "Comisión pendiente", "type": "earning", "taxable": True,
+        }])
+        assert len(r["conceptosAdicionales"]) == 1
+        assert r["conceptosAdicionales"][0]["exentoTSS"] is False
+        assert r["conceptosAdicionales"][0]["exentoISR"] is False
+        assert r["totales"]["montoOtrosIngresos"] == 5000.0
+        assert r["totales"]["montoTotal"] == round(
+            r["totales"]["montoPrestaciones"] + r["totales"]["montoDerechosAdquiridos"] + 5000.0, 2)
+
+    def test_concepto_adicional_ingreso_exento(self):
+        r = self._base(additional_concepts=[{
+            "conceptCode": "BONIFICACION", "name": "Bono", "monto": 3000.0,
+            "type": "earning", "taxable": False,
+        }])
+        assert r["conceptosAdicionales"][0]["exentoTSS"] is True
+        assert r["conceptosAdicionales"][0]["exentoISR"] is True
+        assert r["totales"]["montoOtrosIngresos"] == 3000.0
+
+    def test_concepto_adicional_descuento_no_toca_gravables(self):
+        gravable_antes = self._base()["totales"]["montoGravableISR"]
+        r = self._base(additional_concepts=[{
+            "conceptCode": "OTRAS_DEDUCCIONES", "name": "Deducción extra",
+            "monto": 1000.0, "type": "deduction", "taxable": False,
+        }])
+        assert r["totales"]["montoOtrosDescuentos"] == 1000.0
+        assert r["totales"]["montoGravableISR"] == gravable_antes
+
+    def test_descuentos_recurrentes_auto(self):
+        r = self._base(recurring_movements=[
+            {"id": "mv-1", "status": "active", "isLoan": True,
+             "remainingBalance": 12000.0, "conceptCode": "PRESTAMO", "description": "Préstamo"},
+            {"id": "mv-2", "status": "active", "movementType": "deduction",
+             "remainingBalance": 2500.0, "conceptCode": "SEGURO", "description": "Seguro"},
+        ])
+        detalle = r["descuentosDetalle"]
+        assert len(detalle) == 2
+        assert r["totales"]["loanDeductions"] == 12000.0
+        assert r["totales"]["otherDeductions"] == 2500.0
+        assert r["totales"]["montoDescuentos"] == 14500.0
+        assert r["totales"]["montoNetoAPagar"] == round(
+            r["totales"]["montoTotal"] - 14500.0, 2)
+
+    def test_descuentos_recurrentes_override_y_quitar(self):
+        r = self._base(recurring_deductions=[
+            {"movementId": "mv-1", "conceptCode": "PRESTAMO", "name": "Préstamo",
+             "monto": 9000.0, "tipo": "prestamo", "aplica": True},
+            {"movementId": "mv-2", "conceptCode": "SEGURO", "name": "Seguro",
+             "monto": 2500.0, "tipo": "otro", "aplica": False},
+        ])
+        detalle = r["descuentosDetalle"]
+        assert len(detalle) == 1
+        assert detalle[0]["monto"] == 9000.0
+        assert r["totales"]["montoDescuentos"] == 9000.0
+
+    def test_descuentos_vacios_no_aplican(self):
+        r = self._base()
+        assert r["descuentosDetalle"] == []
+        assert r["totales"]["montoDescuentos"] == 0.0
+        assert r["totales"]["montoNetoAPagar"] == r["totales"]["montoTotal"]
+
+    def test_concepto_adicional_cotiza_tss_recalcula_promedio(self):
+        r_sin = self._base()
+        r_con = self._base(additional_concepts=[{
+            "conceptCode": "COMISION", "name": "Comisión", "monto": 5000.0,
+            "type": "earning", "taxable": True, "affectsTSS": True,
+        }])
+        assert r_con["salarioDiarioPromedio"] > r_sin["salarioDiarioPromedio"]
+        assert r_con["salarioPromedioMensual"] > r_sin["salarioPromedioMensual"]
+        assert r_con["conceptos"]["cesantia"]["monto"] > r_sin["conceptos"]["cesantia"]["monto"]
+        assert r_con["conceptosAdicionales"][0]["affectsTSS"] is True
+
+    def test_concepto_adicional_no_cotiza_no_altera_promedio(self):
+        r_sin = self._base()
+        r_no = self._base(additional_concepts=[{
+            "conceptCode": "REGALIA_PASCUAL", "name": "Regalía", "monto": 5000.0,
+            "type": "earning", "taxable": True, "affectsTSS": False,
+        }])
+        assert r_no["salarioDiarioPromedio"] == r_sin["salarioDiarioPromedio"]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SALARIO PROMEDIO MENSUAL (Art. 85 — conceptos que cotizan TSS)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestSalarioPromedioMensual:
+    def _tx(self, concept_code, monto, period_key, type="earning",
+            affects_tss=True, status="applied"):
+        return {
+            "conceptCode": concept_code, "amount": monto, "periodKey": period_key,
+            "type": type, "status": status,
+            "conceptSnapshot": {"affectsTSS": affects_tss},
+        }
+
+    def test_incluye_solo_earning_que_cotiza_tss(self):
+        txs = [
+            self._tx("SALARIO_BASE", 45000, "2026-07"),
+            self._tx("COMISION", 5000, "2026-07"),
+            self._tx("REGALIA_PASCUAL", 45000, "2026-07", affects_tss=False),
+            self._tx("AFP_EMPLEADO", 2000, "2026-07", type="deduction", affects_tss=False),
+        ]
+        r = LiquidacionService.calcular_salario_promedio_mensual(txs)
+        assert r["promedio_mensual"] == 50000.0
+
+    def test_promedia_meses_reales(self):
+        txs = [
+            self._tx("SALARIO_BASE", 45000, "2026-01"),
+            self._tx("SALARIO_BASE", 45000, "2026-02"),
+            self._tx("SALARIO_BASE", 45000, "2026-03"),
+        ]
+        r = LiquidacionService.calcular_salario_promedio_mensual(txs)
+        assert r["promedio_mensual"] == 45000.0
+        assert r["months"] == 3
+        assert r["monthly_salaries_ytd"] == [45000.0, 45000.0, 45000.0]
+
+    def test_ignora_no_aplicadas(self):
+        txs = [
+            self._tx("SALARIO_BASE", 45000, "2026-07"),
+            self._tx("SALARIO_BASE", 45000, "2026-07", status="reversed"),
+        ]
+        r = LiquidacionService.calcular_salario_promedio_mensual(txs)
+        assert r["promedio_mensual"] == 45000.0
+
+    def test_solo_ultimos_12_meses(self):
+        txs = [self._tx("SALARIO_BASE", 1000.0, f"2025-{m:02d}") for m in range(1, 13)]
+        txs.append(self._tx("SALARIO_BASE", 2000.0, "2026-01"))
+        r = LiquidacionService.calcular_salario_promedio_mensual(txs)
+        assert r["months"] == 12
+        assert r["promedio_mensual"] == round(13000.0 / 12, 2)
+        assert r["monthly_salaries_ytd"] == [2000.0]
+        assert sum(r["monthly_totals_last_12"]) == 13000.0
+        assert len(r["monthly_totals_last_12"]) == 12
+
+    def test_sin_transacciones_devuelve_cero(self):
+        r = LiquidacionService.calcular_salario_promedio_mensual([])
+        assert r["promedio_mensual"] == 0.0
+        assert r["monthly_salaries_ytd"] == []

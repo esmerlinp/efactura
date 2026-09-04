@@ -79,9 +79,24 @@ def calculate_settlement():
               default: false
             vacationPendingDays:
               type: integer
-            vacationDaysTakenThisPeriod:
-              type: integer
-            notes:
+             vacationDaysTakenThisPeriod:
+               type: integer
+             recurringMovements:
+               type: array
+               items:
+                 type: object
+               description: Movimientos recurrentes del empleado (para deducciones automáticas)
+             recurringDeductions:
+               type: array
+               items:
+                 type: object
+               description: Descuentos recurrentes editados (movementId, monto, tipo, aplica)
+             additionalConcepts:
+               type: array
+               items:
+                 type: object
+               description: Conceptos adicionales (conceptCode, name, monto, comment, type, taxable)
+             notes:
               type: string
             createdBy:
               type: string
@@ -120,6 +135,9 @@ def calculate_settlement():
         preaviso_trabajado = bool(data.get("preavisoTrabajado", False))
         vacation_pending_days = int(data.get("vacationPendingDays", 0) or 0)
         vacation_days_taken_this_period = int(data.get("vacationDaysTakenThisPeriod", 0) or 0)
+        recurring_movements = data.get("recurringMovements", []) or []
+        recurring_deductions = data.get("recurringDeductions", []) or []
+        additional_concepts = data.get("additionalConcepts", []) or []
         notes = data.get("notes", "")
         created_by = data.get("createdBy", "api")
 
@@ -139,6 +157,9 @@ def calculate_settlement():
             vacation_pending_complete_years=vacation_pending_days,
             vacation_taken_current_period=vacation_days_taken_this_period,
             dias_adeudados=dias_adeudados,
+            recurring_movements=recurring_movements,
+            recurring_deductions=recurring_deductions,
+            additional_concepts=additional_concepts,
             notes=notes,
             created_by=created_by,
         )
