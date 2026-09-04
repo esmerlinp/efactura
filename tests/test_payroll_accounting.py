@@ -91,6 +91,7 @@ def _make_payroll_line(**overrides):
         "employeeName": "Juan Pérez",
         "totalIncome": 50000.00,
         "netSalary": 43699.33,
+        "totalDeductions": 6300.67,
         "afpEmployee": 1435.00,
         "sfsEmployee": 1520.00,
         "infotepEmployee": 0.0,
@@ -180,6 +181,27 @@ class TestBuildPayrollAccountingLines:
                 )
         salarios_por_pagar = [r for r in result if r["accountCode"] == "2.1.1.01"]
         assert len(salarios_por_pagar) == 0
+
+    def test_deducciones_recurrentes_se_acreditan_como_residual(self):
+        # Deducciones recurrentes/embargos/reglas bajan el neto pero no tienen
+        # cuenta propia: totalDeductions > (TSS/ISR + manuales).
+        line = _make_payroll_line(
+            totalIncome=50000.00,
+            netSalary=40000.00,
+            totalDeductions=10000.00,
+        )
+        payroll_period = self._make_period([line])
+        with patch.object(PayrollService, 'get_period_lines', return_value=[line]):
+            with patch.object(hr_data_service, 'get_tax_rates_snapshot', return_value=TAX_RATES_SNAPSHOT):
+                result = PayrollService.build_payroll_accounting_lines(
+                    payroll_period, employees={"emp-001": {}}
+                )
+        total_debit = sum(r["debit"] for r in result)
+        total_credit = sum(r["credit"] for r in result)
+        assert pytest.approx(total_debit, abs=0.02) == total_credit
+        residual_lines = [r for r in result if "recurrentes/embargos" in r.get("description", "")]
+        assert len(residual_lines) == 1
+        assert residual_lines[0]["credit"] == pytest.approx(3699.33, abs=0.02)
 
 
 # ═══════════════════════════════════════════════════════════════════════

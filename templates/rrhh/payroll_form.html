@@ -6,6 +6,9 @@
 {% block content %}
 {% set no_groups = not (payroll_groups is defined and payroll_groups) %}
 {% set selected_period_key = selected_period_key if selected_period_key is defined else '' %}
+{% set locked_period_keys = locked_period_keys if locked_period_keys is defined else [] %}
+{% set lock_open_label = lock_open_label if lock_open_label is defined else '' %}
+{% set closed_period_keys = closed_period_keys if closed_period_keys is defined else [] %}
 {% set now_month = now_month if now_month is defined else 0 %}
 <div class="dashboard-container">
 <div class="page-title-container" style="margin-bottom: 0; padding-left: 4px;">
@@ -114,18 +117,24 @@
                     {% if q_groups %}
                     <optgroup label="── Períodos Quincenales ──">
                         {% for p in q_groups %}
-                        <option value="{{ p.key }}" {% if p.key == selected_period_key or (loop.first and not m_groups) %}selected{% endif %}>{{ p.label }}</option>
+                        <option value="{{ p.key }}" {% if p.key == selected_period_key or (loop.first and not m_groups) %}selected{% endif %} {% if p.key in locked_period_keys %}disabled data-locked="1"{% endif %}>{{ p.label }}{% if p.key in closed_period_keys %} (cerrado){% elif p.key in locked_period_keys %} (bloqueado){% endif %}</option>
                         {% endfor %}
                     </optgroup>
                     {% endif %}
                     {% if m_groups %}
                     <optgroup label="── Períodos Mensuales ──">
                         {% for p in m_groups %}
-                        <option value="{{ p.key }}" {% if p.key == selected_period_key or loop.first %}selected{% endif %}>{{ p.label }}</option>
+                        <option value="{{ p.key }}" {% if p.key == selected_period_key or loop.first %}selected{% endif %} {% if p.key in locked_period_keys %}disabled data-locked="1"{% endif %}>{{ p.label }}{% if p.key in closed_period_keys %} (cerrado){% elif p.key in locked_period_keys %} (bloqueado){% endif %}</option>
                         {% endfor %}
                     </optgroup>
                     {% endif %}
                 </select>
+                {% if lock_open_label %}
+                <div style="color:var(--accent-orange); font-size:0.75rem; margin-top:6px;">
+                    <i class="fa-solid fa-lock"></i>
+                    Debes cerrar el período <strong>{{ lock_open_label }}</strong> antes de procesar el siguiente.
+                </div>
+                {% endif %}
             </div>
         </div>
         <p style="color:var(--text-muted); font-size:0.78rem; margin-top:12px;">
@@ -244,9 +253,19 @@ function resetCreateButton() {
 
 window.addEventListener('pageshow', resetCreateButton);
 
+function syncPeriodLocks() {
+    var subtypeEl = document.querySelector('select[name="periodSubType"]');
+    var isRegular = !subtypeEl || subtypeEl.value === 'regular';
+    document.querySelectorAll('select[name="period_key"] option[data-locked]').forEach(function (opt) {
+        opt.disabled = isRegular;
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     var subtype = document.querySelector('select[name="periodSubType"]');
     if (subtype) subtype.value = 'regular';
+    syncPeriodLocks();
+    if (subtype) subtype.addEventListener('change', syncPeriodLocks);
 });
 </script>
 {% endblock %}

@@ -84,7 +84,7 @@ def _generate_periods(frequency: str, year: int = None):
         for m in range(1, 13):
             last_day = calendar.monthrange(year, m)[1]
             mid = 15
-            label_m = MONTHS_ES[m - 1]
+            label_m = MONTHS_ES[m - 1].upper()
             periods.append({
                 "key": f"{year}-{m:02d}-1",
                 "label": f"Q1: 1 {label_m} - 15 {label_m}",
@@ -101,7 +101,7 @@ def _generate_periods(frequency: str, year: int = None):
             })
     if frequency in ("mensual", "ambos", "quincenal_y_mensual"):
         for m in range(1, 13):
-            label_m = MONTHS_ES[m - 1]
+            label_m = MONTHS_ES[m - 1].upper()
             last_day = calendar.monthrange(year, m)[1]
             periods.append({
                 "key": f"{year}-{m:02d}-M",
@@ -111,6 +111,20 @@ def _generate_periods(frequency: str, year: int = None):
                 "type": "mensual",
             })
     return periods
+
+
+def get_locked_periods(company_id, group_id, available_periods, sandbox=True):
+    """Devuelve ``(locked_keys, open_label, closed_keys)`` de períodos de un grupo.
+
+    ``locked_keys`` es el conjunto de periodKeys deshabilitados (posteriores al
+    siguiente período procesable), ``open_label`` el rótulo del período abierto
+    que hay que cerrar (o ``None``) y ``closed_keys`` los periodKeys ya cerrados.
+    """
+    from app.services import hr_data_service as hr
+    from app.services.payroll_period_sequence import blocked_period_keys
+
+    periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
+    return blocked_period_keys(periods, available_periods, group_id)
 
 
 # ── Import all module files so their @routes are registered on the Blueprint ──

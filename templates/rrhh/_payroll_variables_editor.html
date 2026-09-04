@@ -391,6 +391,8 @@
 .pv-input-grid .pv-emp { min-width:180px; }
 .pv-input-grid .pv-concept { min-width:170px; }
 .pv-input-grid .pv-unit { font-size:0.65rem; }
+.pv-tab-panel .table-responsive { max-height:480px; overflow-y:auto; }
+.pv-tab-panel .table-responsive thead th { position:sticky; top:0; background:var(--bg-card); z-index:2; }
 </style>
 <script>
 var PV_EMPLOYEES = {{ pv_emps | tojson }};
@@ -402,6 +404,7 @@ var PV_CHRISTMAS_DEFAULT = {{ (christmas_enabled if christmas_enabled is defined
 var PV_EDITABLE = {{ (pv_editable if pv_editable is defined else true) | tojson }};
 var PV_PERIOD_KEY = {{ ((period.get('periodKey') if period is defined and period else selected_period_key) if (period is defined and period) or selected_period_key is defined else '') | tojson }};
 var PV_GROUP_ID = {{ ((period.get('payrollGroupId') if period is defined and period else selected_group_id) if (period is defined and period) or selected_group_id is defined else '') | tojson }};
+var PV_PERIOD_TYPE = {{ (period.get('periodType') if period is defined and period else '') | tojson }};
 
 var PV_EMP_BY_ID = {};
 PV_EMPLOYEES.forEach(function(e) { PV_EMP_BY_ID[e.id] = e; });
@@ -434,6 +437,15 @@ function pvConceptOptions(sectionKey) {
 }
 
 function pvFmtMoney(v) { return 'RD$ ' + v.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
+
+function pvPeriodDivisor() {
+    if ((PV_PERIOD_TYPE || '').toLowerCase() === 'quincenal') return 2;
+    var key = PV_PERIOD_KEY || '';
+    var seg = key.split('-');
+    var last = seg[seg.length - 1] || '';
+    if (last === '1' || last === '2') return 2;
+    return 1;
+}
 
 function pvAddRow(sectionKey, empId, conceptCode, amount, auto) {
     var tbody = document.getElementById('pv-tbody-' + sectionKey);
@@ -546,8 +558,9 @@ function pvRender() {
         if (badge) { badge.textContent = count; badge.style.display = count > 0 ? '' : 'none'; }
     });
 
+    var salaryDivisor = pvPeriodDivisor();
     var salary = 0, incMoney = 0, decMoney = 0;
-    PV_EMPLOYEES.forEach(function(e) { salary += e.salary || 0; });
+    PV_EMPLOYEES.forEach(function(e) { salary += (e.salary || 0) / salaryDivisor; });
     pvSectionRows('ingresos').forEach(function(tr) {
         var amt = parseFloat(tr.querySelector('.pv-amount').value) || 0;
         var def = PV_CONCEPT_BY_CODE[tr.querySelector('.pv-concept').value];
