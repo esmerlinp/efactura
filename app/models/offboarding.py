@@ -66,6 +66,7 @@ class DocumentType(str, Enum):
     DISMISSAL_LETTER       = "dismissal_letter"
     RESIGNATION_ACCEPTANCE = "resignation_acceptance"
     SETTLEMENT_ACTA        = "settlement_acta"
+    FINIQUITO              = "finiquito"
     PAYMENT_RECEIPT        = "payment_receipt"
     WORK_CERTIFICATE       = "work_certificate"
     ASSET_RETURN_ACTA      = "asset_return_acta"

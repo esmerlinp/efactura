@@ -900,6 +900,52 @@ def offboarding_pdf_settlement(request_id):
         return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id))
 
 
+@web_rrhh_bp.route("/rrhh/offboarding/<request_id>/pdf/finiquito")
+def offboarding_pdf_finiquito(request_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    svc, owner_uid, sandbox, company_id = _service()
+    req = svc.get_request(request_id)
+    if not req:
+        flash("Solicitud no encontrada.", "error")
+        return redirect(url_for("web_rrhh.offboarding_list"))
+
+    settlement = None
+    if req.get("settlementId"):
+        settlement = svc.get_settlement(req["settlementId"])
+    if not settlement:
+        flash("Liquidación no encontrada. Calcule la liquidación primero.", "warning")
+        return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id, tab="settlement"))
+
+    employee = hr.get_employee(company_id, req.get("employeeId", ""), sandbox=sandbox)
+    if not employee:
+        flash("Empleado no encontrado.", "error")
+        return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id))
+
+    try:
+        from app.services.offboarding_document_service import generate_finiquito, _company_data
+        from app.models.offboarding import SettlementStatus
+        company = _company_data(owner_uid, sandbox)
+
+        settlement_completed = settlement.get("status") == SettlementStatus.PAGADA.value if settlement else False
+
+        payments = svc.get_payments(request_id)
+        payment = payments[-1] if payments else None
+
+        pdf_bytes = generate_finiquito(
+            req, settlement, employee, company, request.host_url,
+            payment=payment,
+            settlement_completed=settlement_completed,
+        )
+        filename = f"acta_finiquito_{request_id[:8]}.pdf"
+        return send_file(io.BytesIO(pdf_bytes), mimetype="application/pdf",
+                         as_attachment=True, download_name=filename)
+    except Exception as e:
+        print(f"Error generando PDF acta de finiquito: {e}")
+        flash("Error al generar el PDF.", "error")
+        return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id))
+
+
 # ── TSS Notification ───────────────────────────────────────────────────────
 
 @web_rrhh_bp.route("/rrhh/offboarding/<request_id>/tss/download")

@@ -370,3 +370,89 @@ class TestOffboardingGuards:
         svc = OffboardingService("test_uid", sandbox=True)
         guard = svc._check_guards("pending_settlement", "pending_assets", {})
         assert guard is None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ACTA DE FINIQUITO
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestFiniquitoDocument:
+    def test_document_type_finiquito_exists(self):
+        from app.models.offboarding import DocumentType
+        assert DocumentType.FINIQUITO.value == "finiquito"
+
+    def test_finiquito_template_renders(self):
+        import os
+        from jinja2 import Environment, FileSystemLoader
+        from app.utils.spanish_numbers import numero_a_letras
+        from app.web.rrhh.work_certificate import _format_date_es, _today_es
+
+        env = Environment(loader=FileSystemLoader(os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates"
+        )))
+        template = env.get_template("rrhh/offboarding/finiquito_pdf.html")
+
+        settlement = {
+            "conceptos": {
+                "salarioProporcional": {"monto": 10000.0, "aplica": True},
+                "vacaciones": {"monto": 5000.0, "aplica": True},
+                "salarioNavidad": {"monto": 3000.0, "aplica": True},
+                "cesantia": {"monto": 0.0, "aplica": False},
+                "preaviso": {"monto": 0.0, "aplica": False},
+                "asistenciaEconomica": {"monto": 0.0, "aplica": False},
+            },
+            "totales": {
+                "montoTotal": 18000.0,
+                "montoDescuentos": 0.0,
+                "montoNetoAPagar": 18000.0,
+                "montoOtrosIngresos": 0.0,
+            },
+            "conceptosAdicionales": [],
+            "terminationDate": "2025-06-30",
+        }
+        request_data = {
+            "id": "req123",
+            "terminationType": "renuncia_voluntaria",
+            "terminationReason": "",
+            "detailedReason": "",
+        }
+        employee = {
+            "fullName": "Juan Pérez",
+            "cedula": "001-2345678-9",
+            "address": "Calle 1, Santo Domingo",
+            "position": "Analista",
+            "hireDate": "2020-01-15",
+        }
+        company = {
+            "companyName": "Empresa SA",
+            "rnc": "132000001",
+            "address": "Av. Winston Churchill 1012",
+            "city": "Santo Domingo",
+            "representativeName": "Ana Rodríguez",
+            "representativePosition": "Gerente General",
+        }
+        html = template.render(
+            request_data=request_data,
+            settlement=settlement,
+            employee=employee,
+            company=company,
+            payment={
+                "paymentMethod": "transfer",
+                "accountNumber": "123456789",
+                "bankName": "Banco Popular",
+                "paymentDate": "2025-07-01",
+            },
+            qr_base64=None,
+            verification_code="ABC123",
+            format_date_es=_format_date_es,
+            today_es=_today_es(),
+            numero_a_letras=numero_a_letras,
+            representative_name="Ana Rodríguez",
+            representative_position="Gerente General",
+            settlement_completed=False,
+        )
+        assert "Acta de Finiquito y Liquidación Laboral" in html
+        assert "Juan Pérez" in html
+        assert "TERCERO" in html
+        assert "TOTAL NETO A PAGAR" in html
+        assert "18,000.00" in html
