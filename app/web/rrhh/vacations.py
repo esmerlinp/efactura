@@ -104,6 +104,20 @@ def vacation_new():
         from app.web.rrhh.request_attachments import save_uploaded_files
         save_uploaded_files(company_id, req_id, "vacation", sandbox)
 
+        try:
+            from app.services.payroll_audit_service import log_employee_action
+            log_employee_action(
+                company_id, emp_id, "vacation_request_created",
+                comment=f"Solicitud de vacaciones: {business_days} días",
+                changes={
+                    "startDate": start_date, "endDate": end_date,
+                    "days": business_days,
+                },
+                user_email=session.get("user", {}).get("email", ""), sandbox=sandbox,
+            )
+        except Exception as e:
+            print(f"⚠️ vacations.log_employee_action: {e}")
+
         flash(f"Solicitud de vacaciones por {business_days} días creada.", "success")
         return redirect(url_for("web_rrhh.vacation_list"))
 
@@ -127,6 +141,20 @@ def vacation_action(request_id, action):
         req["approvedDate"] = date.today().isoformat()
         req["approvedBy"] = session["user"].get("email", "")
         hr.save_vacation_request(company_id, request_id, req, sandbox=sandbox)
+
+        try:
+            from app.services.payroll_audit_service import log_employee_action
+            log_employee_action(
+                company_id, req.get("employeeId", ""),
+                "vacation_approved" if action == "approve" else "vacation_rejected",
+                comment=f"Vacaciones {req.get('days', 0)} días "
+                        f"({req.get('startDate', '')} → {req.get('endDate', '')})",
+                changes={"requestId": request_id, "status": req["status"],
+                         "days": req.get("days", 0)},
+                user_email=req["approvedBy"], sandbox=sandbox,
+            )
+        except Exception as e:
+            print(f"⚠️ vacations.log_employee_action (action): {e}")
 
         # Notificar al empleado si se aprobó
         if action == "approve":

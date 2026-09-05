@@ -54,6 +54,22 @@ def evaluation_new():
             "evaluatorName": request.form.get("evaluatorName", "").strip(),
             "notes": request.form.get("notes", "").strip(),
         }, sandbox=sandbox)
+
+        try:
+            from app.services.payroll_audit_service import log_employee_action
+            log_employee_action(
+                company_id, emp_id, "evaluation_created",
+                comment=f"Evaluación {request.form.get('evalType', 'periodica')} — {request.form.get('score', 3)}",
+                changes={
+                    "evalType": request.form.get("evalType", "periodica"),
+                    "score": float(request.form.get("score", 3)),
+                    "evaluatorName": request.form.get("evaluatorName", "").strip(),
+                },
+                user_email=session.get("user", {}).get("email", ""), sandbox=sandbox,
+            )
+        except Exception as e:
+            print(f"⚠️ evaluations.log_employee_action: {e}")
+
         flash("Evaluación registrada.", "success")
         return redirect(url_for("web_rrhh.evaluation_list"))
 

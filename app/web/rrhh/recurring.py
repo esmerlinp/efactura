@@ -113,6 +113,26 @@ def recurring_new():
         data["createdBy"] = session.get("user", {}).get("email", "")
         data["status"] = data.get("status", "active")
         hr.save_recurring_movement(company_id, data["id"], data, sandbox=sandbox)
+
+        try:
+            from app.services.payroll_audit_service import log_employee_action
+            mtype = data.get("movementType", "deduction")
+            mtype_label = MOVEMENT_TYPES.get(mtype, mtype)
+            log_employee_action(
+                company_id, data.get("employeeId", ""), "recurring_movement_created",
+                comment=f"Movimiento recurrente ({mtype_label}): {data.get('description', '')}",
+                changes={
+                    "movementId": data.get("id", ""),
+                    "movementType": mtype,
+                    "conceptCode": data.get("conceptCode", ""),
+                    "amount": data.get("amount", 0),
+                    "description": data.get("description", ""),
+                },
+                user_email=data["createdBy"], sandbox=sandbox,
+            )
+        except Exception as e:
+            print(f"⚠️ recurring.log_employee_action: {e}")
+
         flash("Movimiento recurrente creado exitosamente.", "success")
         if next_url:
             return redirect(next_url)

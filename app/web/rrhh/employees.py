@@ -1,5 +1,7 @@
 """RRHH module — auto-extracted."""
 
+import csv
+import io
 import re
 import uuid
 from datetime import date, datetime, timezone
@@ -13,10 +15,325 @@ from app.services import hr_data_service as hr
 from app.services.payroll_static_data import DEFAULT_PAYROLL_CONFIG
 from app.services.payroll_service import PayrollService
 from app.utils.hr_utils import is_active_equivalent
-from app.services.payroll_audit_service import log_action
+from app.services.payroll_audit_service import log_action, get_audit_log
 from app.data.occupations_catalog import OCCUPATIONS
 from app.data.nationality_catalog import SIRLA_NATIONALITIES
 from app.data.disability_catalog import SIRLA_DISABILITIES, normalize_disability
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# HISTORIAL DE ACCIONES DEL EMPLEADO (timeline unificado)
+# ═══════════════════════════════════════════════════════════════════════════
+
+ACTION_LABELS = {
+    "create": "Empleado creado",
+    "update": "Empleado actualizado",
+    "rehire": "Recontratación",
+    "work_certificate_generated": "Carta de trabajo",
+    "overtime_created": "Hora extra",
+    "overtime_approved": "Hora extra aprobada",
+    "recurring_movement_created": "Movimiento recurrente",
+    "payroll_paid": "Pago de nómina",
+    "evaluation_created": "Evaluación",
+    "training_created": "Capacitación",
+    "vacation_request_created": "Solicitud de vacaciones",
+    "vacation_approved": "Vacaciones aprobadas",
+    "vacation_rejected": "Vacaciones rechazadas",
+    "leave_request_created": "Solicitud de licencia",
+    "leave_approved": "Licencia aprobada",
+    "leave_rejected": "Licencia rechazada",
+    "tool_assigned": "Herramienta asignada",
+    "tool_returned": "Herramienta devuelta",
+    "tool_maintenance": "Mantenimiento de herramienta",
+    "employee_marked_inactive": "Baja de empleado",
+    "employee_reactivated": "Reactivación",
+    "liquidacion_calculada": "Liquidación calculada",
+}
+
+
+def _action_category(action: str, changes: dict) -> str:
+    """Mapea una acción del audit log a una categoría visual (badge)."""
+    if action in ("work_certificate_generated",):
+        return "carta"
+    if action in ("overtime_created", "overtime_approved"):
+        return "hora_extra"
+    if action == "recurring_movement_created":
+        return "recurrente_ingreso" if (changes or {}).get("movementType") == "earning" else "recurrente_deduccion"
+    if action in ("payroll_paid",):
+        return "pago"
+    if action in ("evaluation_created",):
+        return "evaluacion"
+    if action in ("training_created",):
+        return "capacitacion"
+    if action.startswith("vacation"):
+        return "vacaciones"
+    if action.startswith("leave"):
+        return "licencia"
+    if action in ("tool_assigned", "tool_returned", "tool_maintenance"):
+        return "herramienta"
+    if action in ("employee_marked_inactive",):
+        return "baja"
+    if action in ("rehire", "employee_reactivated"):
+        return "alta"
+    return "empleado"
+
+
+def _fmt_currency(value) -> str:
+    try:
+        return "RD$ {:,.2f}".format(float(value or 0))
+    except (TypeError, ValueError):
+        return "—"
+
+
+def _fmt_currency_0(value) -> str:
+    try:
+        return "RD$ {:,.0f}".format(float(value or 0))
+    except (TypeError, ValueError):
+        return "—"
+
+
+def _format_ts(ts: str) -> tuple:
+    """Convierte un timestamp ISO en (fecha, hora) en zona horaria local."""
+    if not ts:
+        return "", ""
+    s = str(ts)
+    try:
+        dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        local = dt.astimezone()
+        return local.strftime("%Y-%m-%d"), local.strftime("%H:%M")
+    except Exception:
+        return s[:10], s[11:16] if len(s) > 16 else ""
+
+
+def _detail_text(item: dict) -> str:
+    """Construye una única línea de detalle legible para una acción del timeline."""
+    kind = item.get("kind", "")
+    action = item.get("action", "")
+    changes = item.get("changes", {}) or {}
+
+    if kind == "status":
+        txt = item.get("comment", "") or "—"
+        reason = item.get("reason", "")
+        return f"{txt} · {reason}" if reason else txt
+
+    if kind == "mass":
+        c = changes
+        if action == "desvinculacion" and c and c.get("after"):
+            after = c["after"]
+            parts = [f"Estado: {after.get('status') or '—'}"]
+            tt = (after.get("terminationType") or "").replace("_", " ").title()
+            if tt:
+                parts.append(tt)
+            if after.get("terminationDate"):
+                parts.append(after["terminationDate"])
+            return " · ".join(parts)
+        if c and c.get("before") and c.get("after"):
+            before, after = c["before"], c["after"]
+            parts = []
+            if (before.get("baseSalary") != after.get("baseSalary")
+                    or before.get("salary") != after.get("salary")):
+                parts.append(f"Salario {_fmt_currency_0(before.get('baseSalary') or before.get('salary') or 0)}"
+                             f" → {_fmt_currency_0(after.get('baseSalary') or after.get('salary') or 0)}")
+            if before.get("position") != after.get("position"):
+                parts.append(f"Puesto {before.get('position') or '—'} → {after.get('position') or '—'}")
+            if before.get("department") != after.get("department"):
+                parts.append(f"Depto {before.get('department') or '—'} → {after.get('department') or '—'}")
+            if before.get("area") != after.get("area"):
+                parts.append(f"Área {before.get('area') or '—'} → {after.get('area') or '—'}")
+            if before.get("reportsTo") != after.get("reportsTo"):
+                parts.append("Supervisor cambiado")
+            return " · ".join(parts) if parts else "Sin cambios detectados"
+        return "Detalle no disponible"
+
+    # audit
+    txt = item.get("comment", "") or ""
+    extras = []
+    if action == "payroll_paid" and changes.get("netSalary"):
+        extras.append(f"Neto {_fmt_currency(changes.get('netSalary'))}")
+    elif action in ("overtime_created", "overtime_approved") and changes.get("hours"):
+        extras.append(f"{changes.get('hours')} h")
+    elif action == "recurring_movement_created" and changes.get("amount"):
+        extras.append(_fmt_currency(changes.get("amount")))
+    if extras:
+        return f"{txt} · {' · '.join(extras)}" if txt else " · ".join(extras)
+    return txt or "—"
+
+
+def build_employee_timeline(audit_log: list, status_events: list,
+                            employee_actions: list) -> list:
+    """Fusiona audit log + transiciones de estado + acciones masivas en una
+    única línea de tiempo cronológica (más reciente primero)."""
+    items = []
+
+    for e in audit_log or []:
+        action = e.get("action", "")
+        if action.startswith("employee_status_"):
+            # Las transiciones de estado se muestran desde status_events (más ricas).
+            continue
+        changes = e.get("changes", {}) or {}
+        items.append({
+            "ts": e.get("timestamp", ""),
+            "kind": "audit",
+            "action": action,
+            "category": _action_category(action, changes),
+            "label": ACTION_LABELS.get(action, action.replace("_", " ").title()),
+            "comment": e.get("comment", ""),
+            "changes": changes,
+            "actor": e.get("userId", ""),
+        })
+
+    for ev in status_events or []:
+        trigger = ev.get("trigger", "")
+        if trigger.startswith("vacation"):
+            category = "vacaciones"
+            label = "Vacaciones" if "cancel" not in trigger and "revok" not in trigger else (
+                "Anulación" if "cancel" in trigger else "Revocación")
+        elif trigger.startswith("leave"):
+            category = "licencia"
+            label = "Licencia"
+        else:
+            category = "estado"
+            label = "Estado"
+        items.append({
+            "ts": ev.get("timestamp", ""),
+            "kind": "status",
+            "action": trigger,
+            "category": category,
+            "label": label,
+            "comment": f"{ev.get('fromStatus', '') or '—'} → {ev.get('toStatus', '') or '—'}",
+            "reason": ev.get("reason", ""),
+            "changes": {},
+            "actor": ev.get("actor", ""),
+        })
+
+    for a in employee_actions or []:
+        items.append({
+            "ts": a.get("createdAt", ""),
+            "kind": "mass",
+            "action": a.get("actionType", ""),
+            "category": "accion_masiva",
+            "label": a.get("actionTypeLabel", a.get("actionType", "")),
+            "comment": "",
+            "changes": (a.get("result") or {}).get("changes", {}),
+            "actor": a.get("createdBy", ""),
+            "mass_action_id": a.get("id", ""),
+        })
+
+    items.sort(key=lambda i: i.get("ts", ""), reverse=True)
+    for it in items:
+        it["_date"], it["_time"] = _format_ts(it.get("ts", ""))
+        it["detail"] = _detail_text(it)
+    return items
+
+
+def _timeline_detail_url(item: dict, employee_id: str):
+    """Retorna la URL de detalle de una acción del timeline, o None si no aplica.
+
+    Requiere contexto de request (url_for). Se invoca dentro del view.
+    """
+    kind = item.get("kind", "")
+    action = item.get("action", "")
+    changes = item.get("changes", {}) or {}
+
+    if kind == "mass":
+        aid = item.get("mass_action_id", "")
+        return url_for("web_rrhh.mass_action_detail", action_id=aid) if aid else None
+
+    if kind == "status":
+        if action.startswith("vacation"):
+            return url_for("web_rrhh.vacation_list")
+        if action.startswith("leave"):
+            return url_for("web_rrhh.leave_list")
+        return None
+
+    # kind == "audit"
+    if action in ("create", "update", "rehire", "employee_marked_inactive",
+                  "employee_reactivated"):
+        return url_for("web_rrhh.employee_view", employee_id=employee_id)
+    if action == "work_certificate_generated":
+        return url_for("web_rrhh.employee_certificate", employee_id=employee_id)
+    if action in ("overtime_created", "overtime_approved"):
+        oid = changes.get("overtimeId", "")
+        return url_for("web_rrhh.overtime_view", record_id=oid) if oid else None
+    if action == "recurring_movement_created":
+        mid = changes.get("movementId", "")
+        return url_for("web_rrhh.recurring_edit", movement_id=mid) if mid else None
+    if action == "payroll_paid":
+        pid = changes.get("periodId", "")
+        return url_for("web_rrhh.payroll_view", period_id=pid) if pid else None
+    if action == "evaluation_created":
+        return url_for("web_rrhh.evaluation_list")
+    if action == "training_created":
+        return url_for("web_rrhh.training_list")
+    if action.startswith("vacation"):
+        return url_for("web_rrhh.vacation_list")
+    if action.startswith("leave"):
+        return url_for("web_rrhh.leave_list")
+    if action in ("tool_assigned", "tool_returned", "tool_maintenance"):
+        hid = changes.get("herramientaId", "")
+        return url_for("web_herramientas.detail_herramienta", herramienta_id=hid) if hid else None
+    if action == "liquidacion_calculada":
+        return url_for("web_rrhh.employee_liquidaciones_list", employee_id=employee_id)
+    return None
+
+
+MASS_ACTION_LABELS = {
+    "salary_change": "Cambio Salarial", "position_change": "Cambio de Puesto",
+    "supervisor_change": "Cambio de Supervisor", "promotion": "Promoción",
+    "mass_absence": "Ausencia Masiva", "desvinculacion": "Desvinculación",
+}
+
+
+def _employee_mass_actions(company_id: str, employee_id: str, sandbox: bool = True) -> list:
+    mass_actions = hr.get_mass_actions(company_id, sandbox=sandbox)
+    employee_actions = []
+    for ma in mass_actions:
+        for r in ma.get("results", []):
+            if r.get("employeeId") == employee_id:
+                employee_actions.append({
+                    "id": ma.get("id", ""),
+                    "actionType": ma.get("actionType", ""),
+                    "actionTypeLabel": MASS_ACTION_LABELS.get(ma.get("actionType", ""), ma.get("actionType", "")),
+                    "createdAt": ma.get("createdAt", ""),
+                    "createdBy": ma.get("createdBy", ""),
+                    "status": ma.get("status", ""),
+                    "result": r,
+                })
+                break
+    employee_actions.sort(key=lambda a: a.get("createdAt", ""), reverse=True)
+    return employee_actions
+
+
+def _build_employee_timeline(company_id: str, employee_id: str, sandbox: bool = True) -> list:
+    """Construye el timeline de acciones del empleado (con enlaces de detalle)."""
+    audit_log = get_audit_log(company_id, entity="employee", entity_id=employee_id,
+                              limit=300, sandbox=sandbox)
+    status_events = hr.get_employee_status_events(company_id, employee_id, sandbox=sandbox, limit=100)
+    employee_actions = _employee_mass_actions(company_id, employee_id, sandbox=sandbox)
+    timeline = build_employee_timeline(audit_log, status_events, employee_actions)
+    for item in timeline:
+        item["detail_url"] = _timeline_detail_url(item, employee_id)
+    return timeline
+
+
+def _filter_timeline(timeline: list, category: str = "", actor: str = "",
+                     date_from: str = "", date_to: str = "") -> list:
+    """Filtra el timeline por categoría, actor y rango de fechas."""
+    result = []
+    for it in timeline:
+        if category and it.get("category", "") != category:
+            continue
+        if actor and actor.lower() not in (it.get("actor", "") or "").lower():
+            continue
+        d = it.get("_date", "")
+        if date_from and d and d < date_from:
+            continue
+        if date_to and d and d > date_to:
+            continue
+        result.append(it)
+    return result
 
 
 # Días de la semana para el editor de horario: (código, índice 0=Lun..6=Dom)
@@ -507,8 +824,6 @@ def employee_view(employee_id):
         employee.get("hireDate", ""), taken_days=taken_days)
     active_requests = EmployeeStatusService.get_active_requests(
         company_id, employee_id, sandbox=sandbox)
-    status_events = hr.get_employee_status_events(
-        company_id, employee_id, sandbox=sandbox, limit=100)
     severance = PayrollService.calculate_severance(
         employee.get("baseSalary", 0), employee.get("hireDate", "")
     )
@@ -537,28 +852,8 @@ def employee_view(employee_id):
                 payment_history.append({"period": p, "line": l})
                 break
 
-    # Acciones de personal masivas que afectaron a este empleado
-    mass_actions = hr.get_mass_actions(company_id, sandbox=sandbox)
-    ACTION_LABELS = {
-        "salary_change": "Cambio Salarial", "position_change": "Cambio de Puesto",
-        "supervisor_change": "Cambio de Supervisor", "promotion": "Promoción",
-        "mass_absence": "Ausencia Masiva", "desvinculacion": "Desvinculación",
-    }
-    employee_actions = []
-    for ma in mass_actions:
-        for r in ma.get("results", []):
-            if r.get("employeeId") == employee_id:
-                employee_actions.append({
-                    "id": ma["id"],
-                    "actionType": ma["actionType"],
-                    "actionTypeLabel": ACTION_LABELS.get(ma["actionType"], ma["actionType"]),
-                    "createdAt": ma.get("createdAt", ""),
-                    "createdBy": ma.get("createdBy", ""),
-                    "status": ma.get("status", ""),
-                    "result": r,
-                })
-                break
-    employee_actions.sort(key=lambda a: a.get("createdAt", ""), reverse=True)
+    # ── Historial de acciones unificado (audit log + estados + acciones masivas) ──
+    timeline = _build_employee_timeline(company_id, employee_id, sandbox=sandbox)
 
     dependents = hr.get_employee_dependents(company_id, employee_id, sandbox=sandbox)
     from app.utils.hr_utils import calculate_age, is_minor, RELATIONSHIP_CATALOG
@@ -599,8 +894,7 @@ def employee_view(employee_id):
                            employee=_sanitize_for_role(employee), vacation_days=vacation_days,
                            severance=severance, evaluations=evals, trainings=trainings,
                            documents=docs, payment_history=payment_history,
-                           employee_actions=employee_actions,
-                           status_events=status_events,
+                           timeline=timeline,
                            active_requests=active_requests,
                            average_salary=average_salary,
                            payroll_groups=hr.get_payroll_groups(company_id, sandbox=sandbox),
@@ -615,6 +909,73 @@ def employee_view(employee_id):
                            sirla_nationality_name=get_nationality_name(employee.get("nationality", 1)),
                            sirla_disability_names=", ".join(_dis_names),
                            employee_work_days=employee_work_days)
+
+
+def _timeline_export_query() -> dict:
+    return {
+        "category": request.args.get("type", "").strip(),
+        "actor": request.args.get("actor", "").strip(),
+        "date_from": request.args.get("date_from", "").strip(),
+        "date_to": request.args.get("date_to", "").strip(),
+    }
+
+
+@web_rrhh_bp.route("/rrhh/employees/<employee_id>/actions/export.csv")
+def employee_actions_export_csv(employee_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+
+    employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
+    if not employee:
+        flash("Empleado no encontrado.", "error")
+        return redirect(url_for("web_rrhh.employee_list"))
+
+    timeline = _filter_timeline(_build_employee_timeline(company_id, employee_id, sandbox=sandbox),
+                                **_timeline_export_query())
+
+    output = io.StringIO()
+    output.write("\ufeff")
+    writer = csv.writer(output)
+    writer.writerow(["Fecha", "Hora", "Tipo", "Detalle", "Registrado por"])
+    for it in timeline:
+        writer.writerow([
+            it.get("_date", ""), it.get("_time", ""),
+            it.get("label", ""), it.get("detail", ""), it.get("actor", ""),
+        ])
+    buffer = io.BytesIO(output.getvalue().encode("utf-8-sig"))
+    return send_file(buffer, mimetype="text/csv", as_attachment=True,
+                     download_name=f"historial_acciones_{employee_id}.csv")
+
+
+@web_rrhh_bp.route("/rrhh/employees/<employee_id>/actions/export.pdf")
+def employee_actions_export_pdf(employee_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+
+    employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
+    if not employee:
+        flash("Empleado no encontrado.", "error")
+        return redirect(url_for("web_rrhh.employee_list"))
+
+    timeline = _filter_timeline(_build_employee_timeline(company_id, employee_id, sandbox=sandbox),
+                                **_timeline_export_query())
+
+    try:
+        from weasyprint import HTML as WeasyprintHTML
+        from app.utils.pdf import pdf_write_options
+        rendered = render_template("rrhh/employee_actions_pdf.html",
+                                   employee=employee, timeline=timeline,
+                                   now=date.today().strftime("%d/%m/%Y"))
+        pdf_bytes = WeasyprintHTML(string=rendered, base_url=request.host_url).write_pdf(**pdf_write_options())
+        return send_file(io.BytesIO(pdf_bytes), mimetype="application/pdf",
+                         as_attachment=True,
+                         download_name=f"historial_acciones_{employee_id}.pdf")
+    except Exception as e:
+        print(f"Error generando PDF de historial de acciones: {e}")
+        flash("Error al generar el PDF.", "error")
+        return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
 
 
 @web_rrhh_bp.route("/rrhh/employees/<employee_id>/rehire", methods=["POST"])

@@ -70,17 +70,39 @@ def log_action(company_id: str, action: str, entity: str, entity_id: str,
         print(f"⚠️ PayrollAuditService — error delegando a AuditService: {e}")
 
 
+def log_employee_action(company_id: str, employee_id: str, action: str,
+                        comment: str = "", changes: dict = None,
+                        user_email: str = "", sandbox: bool = True):
+    """Registra un evento del ciclo de vida del empleado en su historial de acciones.
+
+    Escribe en `hr_audit_log` con entity="employee" y entityId=employee_id, de
+    modo que el tab "Acciones" de la ficha del empleado lo muestre en su timeline.
+    """
+    log_action(company_id, action, "employee", employee_id, user_email,
+               changes=changes or {}, comment=comment, sandbox=sandbox)
+
+
 def get_audit_log(company_id: str, entity: str = None, entity_id: str = None,
                   limit: int = 200, sandbox: bool = True) -> list:
     if not firebase_initialized or db_firestore is None:
         return []
     try:
         coll = _audit_collection(company_id, sandbox)
-        query = db_firestore.collection(coll).order_by("timestamp", direction="DESCENDING")
+        query = db_firestore.collection(coll)
         if entity:
             query = query.where("entity", "==", entity)
         if entity_id:
             query = query.where("entityId", "==", entity_id)
+
+        if entity and entity_id:
+            # Con dos filtros de igualdad no usamos order_by para no requerir un
+            # índice compuesto en Firestore; ordenamos en memoria.
+            docs = query.get()
+            results = [d.to_dict() for d in docs]
+            results.sort(key=lambda x: x.get("timestamp", "") or "", reverse=True)
+            return results[:limit]
+
+        query = query.order_by("timestamp", direction="DESCENDING")
         docs = query.limit(limit).get()
         return [d.to_dict() for d in docs]
     except Exception as e:

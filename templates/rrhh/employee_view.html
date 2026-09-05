@@ -467,122 +467,181 @@
         </div>
     </div>
 
-    <!-- Tab: Acciones de Personal Masivas -->
+    <!-- Tab: Historial de acciones -->
     <div id="tab-actions" class="tab-content" style="display:none;">
-        <!-- Historial de estado (vacaciones/licencias) -->
-        {% if status_events %}
-        <div class="hr-section-card" style="margin-bottom:20px;">
-            <h3><i class="fa-solid fa-clock-rotate-left"></i> Historial de estado</h3>
-            <div class="table-responsive">
-                <table class="data-grid">
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Evento</th>
-                            <th>Detalle</th>
-                            <th>Por</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for ev in status_events %}
-                        <tr>
-                            <td style="white-space:nowrap; font-size:0.85rem;">{{ ev.date or (ev.timestamp[:10] if ev.timestamp else '—') }}</td>
-                            <td>
-                                {% if ev.trigger in ('vacation_start', 'vacation_end') %}
-                                <span style="display:inline-flex; align-items:center; gap:4px; padding:2px 10px; border-radius:20px; font-size:0.78rem; font-weight:500; background:#dbeafe;color:#1d4ed8;">Vacaciones</span>
-                                {% elif ev.trigger in ('leave_start', 'leave_end') %}
-                                <span style="display:inline-flex; align-items:center; gap:4px; padding:2px 10px; border-radius:20px; font-size:0.78rem; font-weight:500; background:#ede9fe;color:#6d28d9;">Licencia</span>
-                                {% elif ev.trigger == 'vacation_cancelled' %}
-                                <span style="display:inline-flex; align-items:center; gap:4px; padding:2px 10px; border-radius:20px; font-size:0.78rem; font-weight:500; background:#fee2e2;color:#dc2626;">Anulación</span>
-                                {% elif ev.trigger == 'vacation_revoked' %}
-                                <span style="display:inline-flex; align-items:center; gap:4px; padding:2px 10px; border-radius:20px; font-size:0.78rem; font-weight:500; background:#ffedd5;color:#c2410c;">Revocación</span>
-                                {% else %}
-                                <span style="display:inline-flex; align-items:center; gap:4px; padding:2px 10px; border-radius:20px; font-size:0.78rem; font-weight:500; background:var(--bg-secondary);color:var(--text-muted);">Estado</span>
-                                {% endif %}
-                            </td>
-                            <td style="font-size:0.82rem; line-height:1.5;">
-                                {{ ev.fromStatus or '—' }} → <strong>{{ ev.toStatus or '—' }}</strong>
-                                {% if ev.reason %}<br><span class="text-muted">{{ ev.reason }}</span>{% endif %}
-                            </td>
-                            <td style="font-size:0.82rem; color:var(--text-muted);">{{ ev.actor or '—' }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+        <style>
+            .emp-timeline { display: flex; flex-direction: column; }
+            .emp-tl-item { display: flex; gap: 10px; }
+            .emp-tl-rail { display: flex; flex-direction: column; align-items: center; width: 10px; flex-shrink: 0; }
+            .emp-tl-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+            .emp-tl-line { flex: 1; width: 2px; background: var(--border-color, #e5e7eb); margin: 4px 0 0; }
+            .emp-tl-item:last-child .emp-tl-line { display: none; }
+            .emp-tl-body { flex: 1; min-width: 0; padding-bottom: 16px; }
+            .emp-tl-item:last-child .emp-tl-body { padding-bottom: 0; }
+            .emp-tl-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+            .emp-tl-badge { display: inline-flex; align-items: center; padding: 1px 9px; border-radius: 999px; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.02em; white-space: nowrap; flex-shrink: 0; }
+            .emp-tl-time { font-size: 0.72rem; color: var(--text-muted, #6b7280); white-space: nowrap; flex-shrink: 0; }
+            .emp-tl-actor { font-size: 0.72rem; color: var(--text-muted, #9ca3af); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .emp-tl-link { margin-left: auto; flex-shrink: 0; color: var(--text-muted, #9ca3af); font-size: 0.78rem; text-decoration: none; }
+            .emp-tl-link:hover { color: var(--accent-emerald, #10b981); }
+            .emp-tl-detail { margin-top: 2px; font-size: 0.78rem; color: var(--text-secondary, #4b5563); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .emp-tl-toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin: 12px 0 18px; }
+            .emp-tl-field { display: flex; flex-direction: column; gap: 3px; }
+            .emp-tl-field label { font-size: 0.66rem; color: var(--text-muted, #6b7280); text-transform: uppercase; letter-spacing: 0.04em; }
+            .emp-tl-field select, .emp-tl-field input { font-size: 0.78rem; padding: 5px 8px; border: 1px solid var(--border-color, #e5e7eb); border-radius: 6px; background: var(--bg-secondary, #f9fafb); color: var(--text-primary, #111827); min-width: 128px; }
+            .emp-tl-actions { margin-left: auto; display: flex; gap: 8px; align-items: flex-end; }
+            .emp-tl-actions button { font-size: 0.75rem; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border-color, #e5e7eb); background: transparent; color: var(--text-secondary, #4b5563); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+            .emp-tl-actions button:hover { border-color: var(--accent-emerald, #10b981); color: var(--accent-emerald, #10b981); }
+            .emp-tl-empty { padding: 18px; text-align: center; color: var(--text-muted, #9ca3af); font-size: 0.8rem; }
+        </style>
+        {% if timeline %}
+        <div class="hr-section-card">
+            <h3><i class="fa-solid fa-clock-rotate-left"></i> Historial de acciones</h3>
+            <div class="emp-tl-toolbar">
+                <div class="emp-tl-field">
+                    <label for="tlFilterType">Tipo</label>
+                    <select id="tlFilterType"><option value="">Todos</option></select>
+                </div>
+                <div class="emp-tl-field">
+                    <label for="tlFilterActor">Registrado por</label>
+                    <select id="tlFilterActor"><option value="">Todos</option></select>
+                </div>
+                <div class="emp-tl-field">
+                    <label for="tlFilterFrom">Desde</label>
+                    <input type="date" id="tlFilterFrom">
+                </div>
+                <div class="emp-tl-field">
+                    <label for="tlFilterTo">Hasta</label>
+                    <input type="date" id="tlFilterTo">
+                </div>
+                <div class="emp-tl-actions">
+                    <button type="button" onclick="exportTimeline('csv')"><i class="fa-solid fa-file-csv"></i> CSV</button>
+                    <button type="button" onclick="exportTimeline('pdf')"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+                </div>
             </div>
+            <div class="emp-timeline">
+                {% for it in timeline %}
+                {% set cat = it.category %}
+                {% if cat == 'carta' %}{% set bg = '#dbeafe' %}{% set fg = '#1d4ed8' %}
+                {% elif cat == 'hora_extra' %}{% set bg = '#fef3c7' %}{% set fg = '#b45309' %}
+                {% elif cat == 'recurrente_ingreso' %}{% set bg = '#d1fae5' %}{% set fg = '#047857' %}
+                {% elif cat == 'recurrente_deduccion' %}{% set bg = '#fee2e2' %}{% set fg = '#dc2626' %}
+                {% elif cat == 'pago' %}{% set bg = '#e0e7ff' %}{% set fg = '#4338ca' %}
+                {% elif cat == 'evaluacion' %}{% set bg = '#fae8ff' %}{% set fg = '#a21caf' %}
+                {% elif cat == 'capacitacion' %}{% set bg = '#cffafe' %}{% set fg = '#0e7490' %}
+                {% elif cat == 'vacaciones' %}{% set bg = '#dbeafe' %}{% set fg = '#1d4ed8' %}
+                {% elif cat == 'licencia' %}{% set bg = '#ede9fe' %}{% set fg = '#6d28d9' %}
+                {% elif cat == 'herramienta' %}{% set bg = '#fef9c3' %}{% set fg = '#a16207' %}
+                {% elif cat == 'baja' %}{% set bg = '#fee2e2' %}{% set fg = '#dc2626' %}
+                {% elif cat == 'alta' %}{% set bg = '#d1fae5' %}{% set fg = '#047857' %}
+                {% elif cat == 'accion_masiva' %}
+                    {% if it.action == 'salary_change' %}{% set bg = '#dbeafe' %}{% set fg = '#1d4ed8' %}
+                    {% elif it.action == 'position_change' %}{% set bg = '#fae8ff' %}{% set fg = '#a21caf' %}
+                    {% elif it.action == 'supervisor_change' %}{% set bg = '#fef3c7' %}{% set fg = '#b45309' %}
+                    {% elif it.action == 'promotion' %}{% set bg = '#d1fae5' %}{% set fg = '#047857' %}
+                    {% elif it.action == 'mass_absence' %}{% set bg = '#e0e7ff' %}{% set fg = '#4338ca' %}
+                    {% elif it.action == 'desvinculacion' %}{% set bg = '#fee2e2' %}{% set fg = '#dc2626' %}
+                    {% else %}{% set bg = 'var(--bg-secondary)' %}{% set fg = 'var(--text-muted)' %}{% endif %}
+                {% else %}{% set bg = 'var(--bg-secondary)' %}{% set fg = 'var(--text-muted)' %}{% endif %}
+                <div class="emp-tl-item" data-category="{{ it.category }}" data-actor="{{ it.actor }}" data-date="{{ it._date }}">
+                    <div class="emp-tl-rail">
+                        <span class="emp-tl-dot" style="background:{{ fg }};"></span>
+                        <span class="emp-tl-line"></span>
+                    </div>
+                    <div class="emp-tl-body">
+                        <div class="emp-tl-head">
+                            <span class="emp-tl-badge" style="background:{{ bg }};color:{{ fg }};">{{ it.label }}</span>
+                            <span class="emp-tl-time">{{ it._date }}{% if it._time %} · {{ it._time }}{% endif %}</span>
+                            {% if it.actor %}<span class="emp-tl-actor">· {{ it.actor }}</span>{% endif %}
+                            {% if it.detail_url %}<a class="emp-tl-link" href="{{ it.detail_url }}" title="Ver detalle"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>{% endif %}
+                        </div>
+                        <div class="emp-tl-detail" title="{{ it.detail }}">{{ it.detail }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <p class="emp-tl-empty" id="tlEmpty" style="display:none;">Sin resultados para los filtros seleccionados.</p>
         </div>
-        {% endif %}
-        {% if employee_actions %}
-        <div class="table-responsive">
-            <table class="data-grid">
-                <thead>
-                    <tr>
-                        <th>Fecha</th>
-                        <th>Tipo</th>
-                        <th>Cambios aplicados</th>
-                        <th>Realizado por</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for a in employee_actions %}
-                    {% set c = a.result.changes %}
-                    <tr>
-                        <td style="white-space:nowrap; font-size:0.85rem;">{{ a.createdAt[:10] if a.createdAt else '—' }}</td>
-                        <td>
-                            <span style="display:inline-flex; align-items:center; gap:4px; padding:2px 10px; border-radius:20px; font-size:0.78rem; font-weight:500;
-                                {% if a.actionType == 'salary_change' %}background:#dbeafe;color:#1d4ed8;
-                                {% elif a.actionType == 'position_change' %}background:#fae8ff;color:#a21caf;
-                                {% elif a.actionType == 'supervisor_change' %}background:#fef3c7;color:#b45309;
-                                {% elif a.actionType == 'promotion' %}background:#d1fae5;color:#047857;
-                                {% elif a.actionType == 'mass_absence' %}background:#e0e7ff;color:#4338ca;
-                                {% elif a.actionType == 'desvinculacion' %}background:#fee2e2;color:#dc2626;
-                                {% else %}background:var(--bg-secondary);color:var(--text-muted);{% endif %}">
-                                {{ a.actionTypeLabel }}
-                            </span>
-                        </td>
-                        <td style="font-size:0.82rem; line-height:1.5;">
-                            {% if a.actionType == 'desvinculacion' %}
-                                Estado: <strong>{{ c.after.status }}</strong> ·
-                                {{ c.after.terminationType|replace('_',' ')|title }}
-                                {% if c.after.terminationDate %}({{ c.after.terminationDate }}){% endif %}
-                            {% elif c.before and c.after %}
-                                {% if c.before.get('baseSalary') != c.after.get('baseSalary') or c.before.get('salary') != c.after.get('salary') %}
-                                Salario: RD$ {{ "{:,.0f}".format(c.before.get('baseSalary') or c.before.get('salary') or 0) }}
-                                → RD$ {{ "{:,.0f}".format(c.after.get('baseSalary') or c.after.get('salary') or 0) }}<br>
-                                {% endif %}
-                                {% if c.before.get('position') != c.after.get('position') %}
-                                Puesto: {{ c.before.position or '—' }} → {{ c.after.position or '—' }}<br>
-                                {% endif %}
-                                {% if c.before.get('department') != c.after.get('department') %}
-                                Depto: {{ c.before.department or '—' }} → {{ c.after.department or '—' }}<br>
-                                {% endif %}
-                                {% if c.before.get('area') != c.after.get('area') %}
-                                Área: {{ c.before.area or '—' }} → {{ c.after.area or '—' }}<br>
-                                {% endif %}
-                                {% if c.before.get('reportsTo') != c.after.get('reportsTo') %}
-                                Supervisor cambiado<br>
-                                {% endif %}
-                                {% if c.before == c.after %}
-                                <span class="text-muted">Sin cambios detectados</span>
-                                {% endif %}
-                            {% else %}
-                                <span class="text-muted">Detalle no disponible</span>
-                            {% endif %}
-                        </td>
-                        <td style="font-size:0.82rem; color:var(--text-muted);">{{ a.createdBy or '—' }}</td>
-                        <td>
-                            <a href="{{ url_for('web_rrhh.mass_action_detail', action_id=a.id) }}" class="btn btn-sm btn-ghost" title="Ver acción completa">
-                                <i class="fa-solid fa-eye"></i>
-                            </a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+        <script>
+        (function () {
+            const TL_CATEGORY_LABELS = {
+                'carta': 'Carta de trabajo', 'hora_extra': 'Hora extra',
+                'recurrente_ingreso': 'Mov. recurrente (Ingreso)', 'recurrente_deduccion': 'Mov. recurrente (Deducción)',
+                'pago': 'Pago de nómina', 'evaluacion': 'Evaluación', 'capacitacion': 'Capacitación',
+                'vacaciones': 'Vacaciones', 'licencia': 'Licencia', 'herramienta': 'Herramienta',
+                'baja': 'Baja', 'alta': 'Alta', 'accion_masiva': 'Acción masiva',
+                'empleado': 'Empleado', 'estado': 'Estado'
+            };
+            const exportCsvUrl = "{{ url_for('web_rrhh.employee_actions_export_csv', employee_id=employee.id) }}";
+            const exportPdfUrl = "{{ url_for('web_rrhh.employee_actions_export_pdf', employee_id=employee.id) }}";
+
+            const items = Array.from(document.querySelectorAll('#tab-actions .emp-tl-item'));
+            const typeSelect = document.getElementById('tlFilterType');
+            const actorSelect = document.getElementById('tlFilterActor');
+            const fromInput = document.getElementById('tlFilterFrom');
+            const toInput = document.getElementById('tlFilterTo');
+            const emptyEl = document.getElementById('tlEmpty');
+
+            const seenTypes = new Set();
+            const seenActors = new Set();
+            items.forEach(el => {
+                const c = el.dataset.category || '';
+                if (c && !seenTypes.has(c)) {
+                    seenTypes.add(c);
+                    const opt = document.createElement('option');
+                    opt.value = c;
+                    opt.textContent = TL_CATEGORY_LABELS[c] || c;
+                    typeSelect.appendChild(opt);
+                }
+                const a = (el.dataset.actor || '').trim();
+                if (a && !seenActors.has(a)) {
+                    seenActors.add(a);
+                    const opt = document.createElement('option');
+                    opt.value = a;
+                    opt.textContent = a;
+                    actorSelect.appendChild(opt);
+                }
+            });
+
+            function applyFilters() {
+                const type = typeSelect.value;
+                const actor = actorSelect.value;
+                const from = fromInput.value;
+                const to = toInput.value;
+                let visible = 0;
+                items.forEach(el => {
+                    const c = el.dataset.category || '';
+                    const a = el.dataset.actor || '';
+                    const d = el.dataset.date || '';
+                    let ok = true;
+                    if (type && c !== type) ok = false;
+                    if (actor && a !== actor) ok = false;
+                    if (from && d && d < from) ok = false;
+                    if (to && d && d > to) ok = false;
+                    el.style.display = ok ? '' : 'none';
+                    if (ok) visible++;
+                });
+                emptyEl.style.display = visible ? 'none' : '';
+            }
+
+            [typeSelect, actorSelect].forEach(el => el.addEventListener('change', applyFilters));
+            fromInput.addEventListener('change', applyFilters);
+            toInput.addEventListener('change', applyFilters);
+
+            window.exportTimeline = function (kind) {
+                const params = new URLSearchParams();
+                if (typeSelect.value) params.set('type', typeSelect.value);
+                if (actorSelect.value) params.set('actor', actorSelect.value);
+                if (fromInput.value) params.set('date_from', fromInput.value);
+                if (toInput.value) params.set('date_to', toInput.value);
+                const base = kind === 'csv' ? exportCsvUrl : exportPdfUrl;
+                const qs = params.toString();
+                window.open(base + (qs ? '?' + qs : ''), '_blank');
+            };
+        })();
+        </script>
         {% else %}
-        <p class="text-muted" style="padding:20px;">Este empleado no ha sido incluido en ninguna acción masiva.</p>
+        <p class="text-muted" style="padding:20px;">Sin acciones registradas para este empleado.</p>
         {% endif %}
     </div>
 
