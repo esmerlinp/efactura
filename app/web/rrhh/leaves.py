@@ -92,6 +92,20 @@ def leave_new():
         from app.web.rrhh.request_attachments import save_uploaded_files
         save_uploaded_files(company_id, req_id, "leave", sandbox)
 
+        try:
+            from app.services.payroll_audit_service import log_employee_action
+            log_employee_action(
+                company_id, emp_id, "leave_request_created",
+                comment=f"Licencia {request.form.get('leaveType', 'otro')}: {days} días",
+                changes={
+                    "leaveType": request.form.get("leaveType", "otro"),
+                    "startDate": start_date, "endDate": end_date, "days": days,
+                },
+                user_email=session.get("user", {}).get("email", ""), sandbox=sandbox,
+            )
+        except Exception as e:
+            print(f"⚠️ leaves.log_employee_action: {e}")
+
         flash("Permiso registrado.", "success")
         return redirect(url_for("web_rrhh.leave_list"))
 
@@ -114,6 +128,21 @@ def leave_action(request_id, action):
         req["status"] = "aprobada" if action == "approve" else "rechazada"
         req["approvedBy"] = session["user"].get("email", "")
         hr.save_leave_request(company_id, request_id, req, sandbox=sandbox)
+
+        try:
+            from app.services.payroll_audit_service import log_employee_action
+            log_employee_action(
+                company_id, req.get("employeeId", ""),
+                "leave_approved" if action == "approve" else "leave_rejected",
+                comment=f"Licencia {req.get('leaveType', 'otro')} {req.get('days', 0)} días "
+                        f"({req.get('startDate', '')} → {req.get('endDate', '')})",
+                changes={"requestId": request_id, "status": req["status"],
+                         "leaveType": req.get("leaveType", "otro"),
+                         "days": req.get("days", 0)},
+                user_email=req["approvedBy"], sandbox=sandbox,
+            )
+        except Exception as e:
+            print(f"⚠️ leaves.log_employee_action (action): {e}")
 
         if action == "approve":
             try:

@@ -48,6 +48,32 @@ class OvertimeService:
         return datetime.now(timezone.utc).isoformat()
 
     @staticmethod
+    def _log_employee_action(company_id: str, record: dict, action: str,
+                             user_email: str, sandbox: bool):
+        """Registra el evento de HE en el historial de acciones del empleado."""
+        try:
+            from app.services.payroll_audit_service import log_employee_action
+            otype = hr.get_overtime_type(
+                company_id, record.get("overtimeTypeCode", ""), sandbox=sandbox)
+            type_name = otype.get("name", record.get("overtimeTypeCode", "")) if otype else record.get("overtimeTypeCode", "")
+            minutes = int(record.get("totalMinutes", 0) or 0)
+            hours = round(minutes / 60, 2)
+            log_employee_action(
+                company_id, record.get("employeeId", ""), action,
+                comment=f"HE {record.get('number', '')} — {type_name}",
+                changes={
+                    "overtimeId": record.get("id", ""),
+                    "number": record.get("number", ""),
+                    "overtimeTypeCode": record.get("overtimeTypeCode", ""),
+                    "totalMinutes": minutes,
+                    "hours": hours,
+                },
+                user_email=user_email, sandbox=sandbox,
+            )
+        except Exception as e:
+            print(f"⚠️ OvertimeService._log_employee_action: {e}")
+
+    @staticmethod
     def _next_number(company_id: str, sandbox: bool) -> str:
         """Genera el siguiente número visible HE-XXXXXX."""
         records = hr.get_overtime_records(company_id, sandbox=sandbox)
@@ -111,6 +137,8 @@ class OvertimeService:
         }
 
         hr.save_overtime_record(company_id, record_id, record, sandbox=sandbox)
+        OvertimeService._log_employee_action(
+            company_id, record, "overtime_created", user_email, sandbox)
         return record
 
     @staticmethod
@@ -254,10 +282,14 @@ class OvertimeService:
             "authorizationId": authorization_id or record.get("authorizationId", ""),
         }
 
-        return OvertimeService._transition(
+        result = OvertimeService._transition(
             company_id, record_id, OvertimeService.APPROVED,
             user_email, "Aprobado", extra, sandbox=sandbox,
         )
+        if not isinstance(result, tuple):
+            OvertimeService._log_employee_action(
+                company_id, result, "overtime_approved", user_email, sandbox)
+        return result
 
     @staticmethod
     def reject(company_id: str, record_id: str, user_email: str,

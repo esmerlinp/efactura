@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page { size: letter; margin: 1.6cm 1.6cm; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            font-size: 9.5pt;
+            color: #1a1a1a;
+            line-height: 1.45;
+        }
+        h1 { font-size: 15pt; margin-bottom: 2px; }
+        .subtitle { font-size: 9pt; color: #555; margin-bottom: 14px; }
+        .meta { font-size: 9pt; color: #333; margin-bottom: 16px; border-bottom: 1px solid #ddd; padding-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; }
+        th {
+            text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.03em;
+            color: #666; border-bottom: 2px solid #ddd; padding: 6px 8px;
+        }
+        td { padding: 6px 8px; border-bottom: 1px solid #eee; vertical-align: top; }
+        tr:last-child td { border-bottom: none; }
+        .date { white-space: nowrap; color: #444; }
+        .badge { font-size: 8pt; color: #555; }
+        .detail { color: #333; }
+        .actor { color: #888; white-space: nowrap; }
+        .empty { color: #999; text-align: center; padding: 24px 0; }
+        .footer {
+            margin-top: 20px; font-size: 8pt; color: #999; text-align: right;
+            border-top: 1px solid #eee; padding-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Historial de acciones</h1>
+    <div class="subtitle">Empleado: {{ employee.fullName or employee.firstName }}</div>
+    <div class="meta">
+        Código: {{ employee.code or '—' }} &nbsp;·&nbsp;
+        Cargo: {{ employee.position or '—' }} &nbsp;·&nbsp;
+        Generado: {{ now }}
+    </div>
+
+    {% if timeline %}
+    <table>
+        <thead>
+            <tr>
+                <th style="width:120px;">Fecha</th>
+                <th>Tipo</th>
+                <th>Detalle</th>
+                <th style="width:130px;">Registrado por</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for it in timeline %}
+            <tr>
+                <td class="date">{{ it._date }}{% if it._time %} {{ it._time }}{% endif %}</td>
+                <td class="badge">{{ it.label }}</td>
+                <td class="detail">{{ it.detail }}</td>
+                <td class="actor">{{ it.actor or '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty">Sin acciones registradas para este empleado.</p>
+    {% endif %}
+
+    <div class="footer">{{ timeline|length }} registro(s)</div>
+</body>
+</html>

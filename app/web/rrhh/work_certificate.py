@@ -183,6 +183,18 @@ def certificate_generate(employee_id):
 
     hr.save_work_certificate(company_id, cert, sandbox=sandbox)
 
+    try:
+        from app.services.payroll_audit_service import log_employee_action
+        log_employee_action(
+            company_id, employee_id, "work_certificate_generated",
+            comment=f"Carta de Trabajo {reference_code}",
+            changes={"referenceCode": reference_code, "purpose": purpose,
+                     "certificateId": cert.get("id", "")},
+            user_email=cert["generatedBy"], sandbox=sandbox,
+        )
+    except Exception as e:
+        print(f"⚠️ work_certificate.log_employee_action: {e}")
+
     flash(f"Carta de Trabajo {reference_code} generada exitosamente.", "success")
     return redirect(url_for("web_rrhh.employee_certificate", employee_id=employee_id,
                             _anchor=f"cert-{cert['id']}"))

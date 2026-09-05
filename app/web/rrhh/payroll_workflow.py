@@ -621,6 +621,28 @@ def payroll_pay(period_id):
         period["paidDate"] = date.today().isoformat()
         hr.save_payroll_period(company_id, period_id, period, sandbox=sandbox)
 
+        # ── Registrar pago en el historial de acciones de cada empleado ──
+        try:
+            from app.services.payroll_audit_service import log_employee_action
+            payer = session.get("user", {}).get("email", "")
+            for line in period.get("lines", []):
+                emp_id = line.get("employeeId", "")
+                if not emp_id:
+                    continue
+                log_employee_action(
+                    company_id, emp_id, "payroll_paid",
+                    comment=f"Nómina pagada — {period.get('periodKey', '')}",
+                    changes={
+                        "periodId": period_id,
+                        "periodKey": period.get("periodKey", ""),
+                        "netSalary": line.get("netSalary", 0),
+                        "lineType": line.get("lineType", ""),
+                    },
+                    user_email=payer, sandbox=sandbox,
+                )
+        except Exception as e:
+            print(f"⚠️ payroll_pay — log_employee_action: {e}")
+
         # ── Sincronizar liquidaciones vinculadas ──
         if period.get("periodSubType") == "liquidation":
             try:

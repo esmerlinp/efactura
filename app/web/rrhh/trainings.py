@@ -47,6 +47,22 @@ def training_new():
             "hasCertificate": request.form.get("hasCertificate") == "on",
             "notes": request.form.get("notes", "").strip(),
         }, sandbox=sandbox)
+
+        try:
+            from app.services.payroll_audit_service import log_employee_action
+            log_employee_action(
+                company_id, emp_id, "training_created",
+                comment=f"Capacitación: {request.form.get('trainingName', '').strip()}",
+                changes={
+                    "trainingName": request.form.get("trainingName", "").strip(),
+                    "institution": request.form.get("institution", "").strip(),
+                    "hours": int(request.form.get("hours", 0) or 0),
+                },
+                user_email=session.get("user", {}).get("email", ""), sandbox=sandbox,
+            )
+        except Exception as e:
+            print(f"⚠️ trainings.log_employee_action: {e}")
+
         flash("Capacitación registrada.", "success")
         return redirect(url_for("web_rrhh.training_list"))
 

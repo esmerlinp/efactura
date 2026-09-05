@@ -388,6 +388,22 @@ def asignar_herramienta(herramienta_id):
 
         _log_movimiento(owner_uid, herramienta_id, herramienta.get("code", ""), "ASIGNADA",
                         new=f"Empleado: {empleado_name}", sandbox=sandbox, company_id=company_id)
+
+        try:
+            from app.services.payroll_audit_service import log_employee_action
+            log_employee_action(
+                company_id, empleado_id, "tool_assigned",
+                comment=f"Herramienta asignada: {herramienta.get('name', '')}",
+                changes={
+                    "herramientaId": herramienta_id,
+                    "herramientaCode": herramienta.get("code", ""),
+                    "herramientaName": herramienta.get("name", ""),
+                },
+                user_email=user.get("email", ""), sandbox=sandbox,
+            )
+        except Exception as e:
+            print(f"⚠️ herramientas.log_employee_action (asignar): {e}")
+
         flash(f"Herramienta asignada a {empleado_name}.", "success")
         return redirect(url_for("web_herramientas.detail_herramienta", herramienta_id=herramienta_id))
 
@@ -428,6 +444,21 @@ def devolver_asignacion(asignacion_id):
         _log_movimiento(owner_uid, herramienta_id, herramienta.get("code", ""), "DEVUELTA",
                         previous=f"Asignada a: {asignacion.get('empleadoName', '')}",
                         new="Disponible", sandbox=sandbox, company_id=company_id)
+
+        try:
+            from app.services.payroll_audit_service import log_employee_action
+            log_employee_action(
+                company_id, asignacion.get("empleadoId", ""), "tool_returned",
+                comment=f"Herramienta devuelta: {herramienta.get('name', '')}",
+                changes={
+                    "herramientaId": herramienta_id,
+                    "herramientaCode": herramienta.get("code", ""),
+                    "herramientaName": herramienta.get("name", ""),
+                },
+                user_email=session.get("user", {}).get("email", ""), sandbox=sandbox,
+            )
+        except Exception as e:
+            print(f"⚠️ herramientas.log_employee_action (devolver): {e}")
 
     flash("Herramienta devuelta exitosamente.", "success")
     return redirect(url_for("web_herramientas.list_herramientas"))
@@ -491,6 +522,29 @@ def nuevo_mantenimiento(herramienta_id):
 
         _log_movimiento(owner_uid, herramienta_id, herramienta.get("code", ""), "MANTENIMIENTO",
                         new=f"{data['type']}: {data['description'][:100]}", sandbox=sandbox, company_id=company_id)
+
+        try:
+            asignaciones = get_asignaciones_por_herramienta(
+                owner_uid, herramienta_id, sandbox=sandbox, company_id=company_id)
+            activa = next((a for a in asignaciones if a.get("status") == "activa"), None)
+            if activa and activa.get("empleadoId"):
+                from app.services.payroll_audit_service import log_employee_action
+                log_employee_action(
+                    company_id, activa.get("empleadoId", ""), "tool_maintenance",
+                    comment=f"Mantenimiento de herramienta: {herramienta.get('name', '')}",
+                    changes={
+                        "herramientaId": herramienta_id,
+                        "herramientaCode": herramienta.get("code", ""),
+                        "herramientaName": herramienta.get("name", ""),
+                        "type": data.get("type", ""),
+                        "date": data.get("date", ""),
+                        "cost": data.get("cost", 0),
+                    },
+                    user_email=session.get("user", {}).get("email", ""), sandbox=sandbox,
+                )
+        except Exception as e:
+            print(f"⚠️ herramientas.log_employee_action (mantenimiento): {e}")
+
         flash("Mantenimiento registrado exitosamente.", "success")
         return redirect(url_for("web_herramientas.detail_herramienta", herramienta_id=herramienta_id))
 
