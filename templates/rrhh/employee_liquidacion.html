@@ -38,7 +38,6 @@
                     {% elif employee and employee.status == 'suspendido' %}<span style="color:#f59e0b;">● Suspendido</span>
                     {% elif employee and employee.status == 'inactivo' %}<span style="color:var(--danger);">● Inactivo</span>
                     {% else %}{{ employee.status if employee else '—' }}{% endif %}</span>
-                <span><span style="color:var(--text-muted);">Frecuencia</span> {{ employee.paymentFrequency if employee else 'mensual' }}</span>
             </div>
         </div>
 

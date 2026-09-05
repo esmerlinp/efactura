@@ -17,6 +17,7 @@ from flask import render_template, request
 from app.web.rrhh.work_certificate import _format_date_es, _today_es
 from app.models.offboarding import OFFBOARDING_STATES
 from app.utils.pdf import pdf_write_options
+from app.utils.spanish_numbers import numero_a_letras
 
 
 MONTHS_ES_FULL = [
@@ -127,6 +128,43 @@ def generate_settlement_acta(
         format_date_es=_format_date_es,
         today_es=_today_es(),
         format_key_label=_format_key_label,
+        representative_name=representative_name,
+        representative_position=representative_position,
+        settlement_completed=settlement_completed,
+    )
+    return WeasyprintHTML(string=rendered, base_url=host_url).write_pdf(**pdf_write_options())
+
+
+def generate_finiquito(
+    request_data: dict,
+    settlement: dict,
+    employee: dict,
+    company_data: dict,
+    host_url: str,
+    payment: Optional[dict] = None,
+    settlement_completed: bool = False,
+) -> bytes:
+    from weasyprint import HTML as WeasyprintHTML
+
+    verification_code = _verification_code()
+    qr_data = f"offboarding-finiquito-{request_data.get('id', '')}-{verification_code}"
+    qr_b64 = _generate_qr_base64(qr_data)
+
+    representative_name = company_data.get("representativeName", "")
+    representative_position = company_data.get("representativePosition", "") or "Representante Legal"
+
+    rendered = render_template(
+        "rrhh/offboarding/finiquito_pdf.html",
+        request_data=request_data,
+        settlement=settlement,
+        employee=employee,
+        company=company_data,
+        payment=payment,
+        qr_base64=qr_b64,
+        verification_code=verification_code,
+        format_date_es=_format_date_es,
+        today_es=_today_es(),
+        numero_a_letras=numero_a_letras,
         representative_name=representative_name,
         representative_position=representative_position,
         settlement_completed=settlement_completed,

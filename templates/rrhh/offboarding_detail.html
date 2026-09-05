@@ -504,6 +504,9 @@
             <a href="{{ url_for('web_rrhh.offboarding_pdf_settlement', request_id=req.id) }}" class="btn btn-primary btn-sm" target="_blank">
                 <i class="fa-solid fa-file-pdf"></i> Acta de liquidación
             </a>
+            <a href="{{ url_for('web_rrhh.offboarding_pdf_finiquito', request_id=req.id) }}" class="btn btn-primary btn-sm" target="_blank">
+                <i class="fa-solid fa-file-pdf"></i> Acta de finiquito
+            </a>
             {% endif %}
         </div>
     </div>
@@ -518,6 +521,7 @@
                     <select name="documentType" class="form-select" style="width:100%;">
                         <option value="termination_letter">Carta de desvinculación firmada</option>
                         <option value="settlement_acta">Acta de liquidación firmada</option>
+                        <option value="finiquito">Acta de finiquito firmada</option>
                         <option value="payment_receipt">Recibo de pago firmado</option>
                         <option value="asset_return_acta">Acta de devolución de activos</option>
                         <option value="other">Otro</option>

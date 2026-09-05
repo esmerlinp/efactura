@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+    @page { size: letter; margin: 2.2cm; }
+    @page { @bottom-right { content: "Página " counter(page); font-size: 9px; color: #999; } }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10.5pt; line-height: 1.6; color: #222; margin: 0; padding: 0; }
+    .title { text-align: center; font-size: 14pt; font-weight: 700; color: #1e40af; text-transform: uppercase; margin: 10px 0 4px; }
+    .fecha { margin: 12px 0 20px; text-align: justify; }
+    .partes { margin: 0 0 20px; text-align: justify; }
+    .partes p { margin: 4px 0; }
+    .clausula { margin: 18px 0; text-align: justify; }
+    .clausula-title { font-weight: 700; margin-bottom: 4px; }
+    .option { margin: 3px 0 3px 22px; text-indent: -22px; }
+    .monto-line { display: flex; justify-content: space-between; margin: 3px 0; }
+    .monto-line .valor { text-align: right; font-family: monospace; }
+    .monto-total { font-weight: 700; border-top: 1px solid #999; padding-top: 6px; margin-top: 8px; }
+    .firmas { margin-top: 40px; display: flex; justify-content: space-between; gap: 30px; }
+    .firma { flex: 1; text-align: center; }
+    .firma .linea { border-top: 1px solid #333; margin-top: 55px; padding-top: 6px; font-size: 8.5pt; color: #333; }
+    .testigos { margin-top: 30px; display: flex; justify-content: space-between; gap: 30px; }
+    .sello { margin-top: 30px; text-align: center; font-size: 8pt; color: #888; }
+    .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 7pt; color: #999; border-top: 1px solid #ddd; padding-top: 4px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .footer-qr { width: 40px; height: 40px; }
+    .negrita { font-weight: 700; }
+</style>
+</head>
+<body>
+
+{% set conceptos = settlement.get('conceptos', {}) if settlement else {} %}
+{% set totales = settlement.get('totales', {}) if settlement else {} %}
+{% set m_salarios = ((conceptos.get('salarioProporcional') or {}).get('monto', 0)) | float %}
+{% set m_vacaciones = ((conceptos.get('vacaciones') or {}).get('monto', 0)) | float %}
+{% set m_regalia = ((conceptos.get('salarioNavidad') or {}).get('monto', 0)) | float %}
+{% set m_cesantia = ((conceptos.get('cesantia') or {}).get('monto', 0)) | float %}
+{% set m_preaviso = ((conceptos.get('preaviso') or {}).get('monto', 0)) | float %}
+{% set m_asistencia = ((conceptos.get('asistenciaEconomica') or {}).get('monto', 0)) | float %}
+{% set m_otros = (totales.get('montoOtrosIngresos', 0) or 0) | float %}
+{% set m_subtotal = (totales.get('montoTotal', 0) or 0) | float %}
+{% set m_descuentos = (totales.get('montoDescuentos', 0) or 0) | float %}
+{% set m_neto = (totales.get('montoNetoAPagar', 0) or 0) | float %}
+
+<div class="title">Acta de Finiquito y Liquidación Laboral</div>
+
+<div class="fecha">
+    En la ciudad de {{ company.city or 'Santo Domingo' }}, República Dominicana, a los {{ today_es }}.
+</div>
+
+<div class="partes">
+    <p><strong>Entre:</strong></p>
+    <p><strong>1) LA EMPRESA:</strong> {{ company.companyName }}, RNC No. {{ company.rnc }}, con domicilio en {{ company.address or '—' }}, en lo sucesivo <strong>&ldquo;EL EMPLEADOR&rdquo;</strong>;</p>
+    <p><strong>y</strong></p>
+    <p><strong>2) EL TRABAJADOR:</strong> {{ employee.fullName or '' }}, cédula No. {{ employee.cedula or employee.idNumber or '' }}, con domicilio en {{ employee.address or '—' }}, en lo sucesivo <strong>&ldquo;EL TRABAJADOR&rdquo;</strong>;</p>
+</div>
+
+<p class="partes" style="margin-bottom:20px;">Ambas partes, mayores de edad, con plena capacidad legal, acuerdan lo siguiente:</p>
+
+<div class="clausula">
+    <div class="clausula-title">PRIMERO. &ndash; ANTECEDENTES</div>
+    <p>EL TRABAJADOR ingresó a laborar para EL EMPLEADOR el día {{ format_date_es(employee.hireDate) }}, desempeñando el cargo de {{ employee.position or employee.jobTitle or '—' }}, hasta la fecha de terminación de la relación laboral, que fue el {{ format_date_es(settlement.terminationDate if settlement else request_data.effectiveDate) }}.</p>
+</div>
+
+<div class="clausula">
+    <div class="clausula-title">SEGUNDO. &ndash; MOTIVO DE TERMINACIÓN</div>
+    <p>La presente relación laboral termina por: (marcar lo que corresponda)</p>
+    {% set tt = request_data.terminationType or '' %}
+    <div class="option">[{{ 'x' if tt == 'renuncia_voluntaria' else '&nbsp;&nbsp;' }}] Renuncia voluntaria del trabajador.</div>
+    <div class="option">[{{ 'x' if tt == 'despido_justificado' else '&nbsp;&nbsp;' }}] Despido justificado.</div>
+    <div class="option">[{{ 'x' if tt == 'despido_injustificado' else '&nbsp;&nbsp;' }}] Despido injustificado.</div>
+    <div class="option">[{{ 'x' if tt == 'mutuo_acuerdo' else '&nbsp;&nbsp;' }}] Mutuo acuerdo.</div>
+    <div class="option">[{{ 'x' if tt not in ('renuncia_voluntaria', 'despido_justificado', 'despido_injustificado', 'mutuo_acuerdo') else '&nbsp;&nbsp;' }}] Otro: {{ request_data.terminationReason or request_data.detailedReason or '' }}</div>
+</div>
+
+<div class="clausula">
+    <div class="clausula-title">TERCERO. &ndash; LIQUIDACIÓN DE PRESTACIONES</div>
+    <p>Como consecuencia de la terminación del contrato de trabajo, EL EMPLEADOR paga a EL TRABAJADOR la suma total de <strong>RD$ {{ "{:,.2f}".format(m_neto) }}</strong> ({{ numero_a_letras(m_neto) }}), correspondiente a la liquidación de los siguientes conceptos:</p>
+
+    <div class="monto-line"><span>1. Salarios devengados y no pagados:</span><span class="valor">RD$ {{ "{:,.2f}".format(m_salarios) }}</span></div>
+    <div class="monto-line"><span>2. Vacaciones (proporcionales / completas):</span><span class="valor">RD$ {{ "{:,.2f}".format(m_vacaciones) }}</span></div>
+    <div class="monto-line"><span>3. Regalía pascual proporcional:</span><span class="valor">RD$ {{ "{:,.2f}".format(m_regalia) }}</span></div>
+    <div class="monto-line"><span>4. Cesantía (Art. 80 Código de Trabajo), si aplica:</span><span class="valor">RD$ {{ "{:,.2f}".format(m_cesantia) }}</span></div>
+    <div class="monto-line"><span>5. Preaviso (Art. 76 Código de Trabajo), si aplica:</span><span class="valor">RD$ {{ "{:,.2f}".format(m_preaviso) }}</span></div>
+    <div class="monto-line"><span>6. Otros conceptos (especificar):</span><span class="valor">RD$ {{ "{:,.2f}".format(m_otros) }}</span></div>
+    {% if (conceptos.get('asistenciaEconomica') or {}).get('aplica') %}
+    <div class="monto-line" style="padding-left:22px;"><span>Asistencia económica (Art. 82 Código de Trabajo)</span><span class="valor">RD$ {{ "{:,.2f}".format(m_asistencia) }}</span></div>
+    {% endif %}
+    {% for ac in settlement.get('conceptosAdicionales', []) %}
+    {% if ac.get('type') != 'deduction' %}
+    <div class="monto-line" style="padding-left:22px;"><span>{{ ac.get('name', 'Concepto adicional') }}</span><span class="valor">RD$ {{ "{:,.2f}".format((ac.get('monto', 0) or 0) | float) }}</span></div>
+    {% endif %}
+    {% endfor %}
+
+    <div class="monto-line monto-total"><span>SUBTOTAL BRUTO:</span><span class="valor">RD$ {{ "{:,.2f}".format(m_subtotal) }}</span></div>
+    <div class="monto-line"><span>MENOS DESCUENTOS LEGALES (TSS, ISR, otros):</span><span class="valor">RD$ {{ "{:,.2f}".format(m_descuentos) }}</span></div>
+    <div class="monto-line monto-total"><span>TOTAL NETO A PAGAR:</span><span class="valor">RD$ {{ "{:,.2f}".format(m_neto) }}</span></div>
+</div>
+
+<div class="clausula">
+    <div class="clausula-title">CUARTO. &ndash; FORMA DE PAGO</div>
+    {% set pm = payment.get('paymentMethod', '') if payment else '' %}
+    <p>EL TRABAJADOR declara haber recibido el pago arriba indicado el día {{ format_date_es(payment.paymentDate) if payment and payment.get('paymentDate') else today_es }}, mediante: (marcar lo que corresponda)</p>
+    <div class="option">[{{ 'x' if pm in ('transfer', 'payroll') else '&nbsp;&nbsp;' }}] Transferencia bancaria a la cuenta No. {{ (payment.get('accountNumber') or '') if payment else '' }} del banco {{ (payment.get('bankName') or '') if payment else '' }}.</div>
+    <div class="option">[{{ 'x' if pm == 'check' else '&nbsp;&nbsp;' }}] Cheque No. {{ (payment.get('paymentReference') or '') if payment else '' }} del banco {{ (payment.get('bankName') or '') if payment else '' }}.</div>
+    <div class="option">[{{ 'x' if pm in ('cash', 'mixed') else '&nbsp;&nbsp;' }}] Efectivo.</div>
+</div>
+
+<div class="clausula">
+    <div class="clausula-title">QUINTO. &ndash; DESCARGO Y RENUNCIA DE RECLAMOS</div>
+    <p>En virtud del pago recibido, EL TRABAJADOR otorga a EL EMPLEADOR formal recibo de descargo y finiquito por todos los conceptos derivados de la relación laboral extinguida, declarando que no le adeuda suma alguna por razón de salarios, prestaciones, beneficios, indemnizaciones o cualquier otro concepto, y que no tiene ni tendrá reclamo alguno presente o futuro contra EL EMPLEADOR, sus representantes, socios o empresas relacionadas, por causa de dicha relación laboral.</p>
+</div>
+
+<div class="clausula">
+    <div class="clausula-title">SEXTO. &ndash; ACEPTACIÓN</div>
+    <p>Ambas partes leen, entienden y aceptan el contenido del presente documento, el cual firman en señal de conformidad, en presencia de los testigos que también suscriben.</p>
+</div>
+
+<div class="firmas">
+    <div class="firma">
+        <div class="linea">
+            <div>EL TRABAJADOR</div>
+            <div>Nombre: {{ employee.fullName or '' }}</div>
+            <div>Cédula: {{ employee.cedula or employee.idNumber or '' }}</div>
+        </div>
+    </div>
+    <div class="firma">
+        <div class="linea">
+            <div>EL EMPLEADOR</div>
+            <div>Nombre: {{ representative_name }}</div>
+            <div>Cargo: {{ representative_position }}</div>
+        </div>
+    </div>
+</div>
+
+<div style="margin-top:12px; font-size:9pt; font-weight:700;">TESTIGOS (OPCIONAL PERO RECOMENDADO):</div>
+<div class="testigos">
+    <div class="firma">
+        <div class="linea">
+            <div>Nombre: ______________________</div>
+            <div>Cédula: ______________________</div>
+        </div>
+    </div>
+    <div class="firma">
+        <div class="linea">
+            <div>Nombre: ______________________</div>
+            <div>Cédula: ______________________</div>
+        </div>
+    </div>
+</div>
+
+<div class="sello">(ESPACIO PARA SELLO NOTARIAL, SI APLICA)</div>
+
+<div class="footer">
+    Código de verificación: {{ verification_code }} | Documento generado electrónicamente
+    {% if qr_base64 %}
+    <img src="data:image/png;base64,{{ qr_base64 }}" class="footer-qr">
+    {% endif %}
+</div>
+
+</body>
+</html>
