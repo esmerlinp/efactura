@@ -49,7 +49,7 @@ def vacation_list():
                               request_id=a.get("requestId"), doc_id=a.get("id")),
         })
 
-    return render_template("rrhh/vacation_list.html", active_page="rrhh_attendance",
+    return render_template("rrhh/vacation_list.html", active_page="rrhh_vacations",
                            requests=requests, today=date.today().isoformat(),
                            attachments_json=_json.dumps(attachments_by_request))
 
@@ -121,7 +121,7 @@ def vacation_new():
         flash(f"Solicitud de vacaciones por {business_days} días creada.", "success")
         return redirect(url_for("web_rrhh.vacation_list"))
 
-    return render_template("rrhh/vacation_form.html", active_page="rrhh_attendance", employees=employees)
+    return render_template("rrhh/vacation_form.html", active_page="rrhh_vacations", employees=employees)
 
 
 @web_rrhh_bp.route("/rrhh/vacations/<request_id>/<action>", methods=["POST"])

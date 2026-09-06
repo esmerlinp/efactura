@@ -455,7 +455,7 @@ def authorization_rules_list():
 
     return render_template(
         "rrhh/authorization_rules.html",
-        active_page="rrhh_authorizations",
+        active_page="rrhh_authorization_rules",
         rules=rules,
         doc_types=AUTHORIZATION_DOC_TYPES,
         team=team,

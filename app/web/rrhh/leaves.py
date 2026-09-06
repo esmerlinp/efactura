@@ -48,7 +48,7 @@ def leave_list():
                               request_id=a.get("requestId"), doc_id=a.get("id")),
         })
 
-    return render_template("rrhh/leave_list.html", active_page="rrhh_attendance",
+    return render_template("rrhh/leave_list.html", active_page="rrhh_leaves",
                            requests=requests, today=date.today().isoformat(),
                            attachments_json=_json.dumps(attachments_by_request))
 
@@ -109,7 +109,7 @@ def leave_new():
         flash("Permiso registrado.", "success")
         return redirect(url_for("web_rrhh.leave_list"))
 
-    return render_template("rrhh/leave_form.html", active_page="rrhh_attendance", employees=employees)
+    return render_template("rrhh/leave_form.html", active_page="rrhh_leaves", employees=employees)
 
 
 @web_rrhh_bp.route("/rrhh/leaves/<request_id>/<action>", methods=["POST"])

@@ -278,7 +278,6 @@ def recurring_applications(movement_id):
         return redirect(url_for("web_rrhh.recurring_list"))
 
     from app.services.recurring_service import get_applications_by_period
-    from app.services import hr_data_service as hr
 
     # Get all applications related to this movement via period lookups
     all_apps = []
@@ -358,6 +357,12 @@ def recurring_authorization_upload(movement_id):
         return redirect(url_for("web_rrhh.recurring_list"))
 
     employee_id = movement.get("employeeId", "")
+    employee = hr.get_employee(company_id, employee_id, sandbox=sandbox) if employee_id else None
+    if not employee:
+        flash("El movimiento no tiene un empleado válido asociado. Corrige el movimiento e intenta de nuevo.", "error")
+        return redirect(url_for("web_rrhh.recurring_edit", movement_id=movement_id))
+    employee_id = employee.get("id", employee_id)
+
     file = request.files.get("file")
     if not file or not file.filename:
         flash("Debes seleccionar un archivo.", "error")
