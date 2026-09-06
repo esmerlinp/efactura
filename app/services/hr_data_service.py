@@ -653,19 +653,38 @@ def close_previous_salary(company_id: str, employee_id: str, new_effective_date:
 # ═══════════════════════════════════════════════════════════════════════════
 
 DOC_CATEGORIES = [
-    "contract", "id", "certificate", "medical", "disciplinary", "academic", "other"
+    "contract", "id", "certificate", "medical", "disciplinary", "academic", "authorization", "other"
 ]
 
-def get_employee_documents(company_id: str, employee_id: str, sandbox: bool = True) -> list:
+def get_employee_documents(company_id: str, employee_id: str, sandbox: bool = True,
+                           recurring_movement_id: str = "") -> list:
     if not firebase_initialized or db_firestore is None:
         return []
     try:
         coll_path = _hr_company_path(company_id, "employee_documents", sandbox)
-        docs = db_firestore.collection(coll_path).where("employeeId", "==", employee_id).get()
+        query = db_firestore.collection(coll_path).where("employeeId", "==", employee_id)
+        if recurring_movement_id:
+            query = query.where("recurringMovementId", "==", recurring_movement_id)
+        docs = query.get()
         return sorted([{"id": d.id, **d.to_dict()} for d in docs],
                       key=lambda x: x.get("uploadedAt", ""), reverse=True)
     except Exception as e:
         print(f"⚠️ get_employee_documents: {e}")
+        return []
+
+
+def get_deduction_authorization_docs(company_id: str, movement_id: str,
+                                     sandbox: bool = True) -> list:
+    """Documentos de Autorización de Descuento de Nómina asociados a un movimiento recurrente."""
+    if not firebase_initialized or db_firestore is None:
+        return []
+    try:
+        coll_path = _hr_company_path(company_id, "employee_documents", sandbox)
+        docs = db_firestore.collection(coll_path).where("recurringMovementId", "==", movement_id).get()
+        return sorted([{"id": d.id, **d.to_dict()} for d in docs],
+                      key=lambda x: x.get("uploadedAt", ""), reverse=True)
+    except Exception as e:
+        print(f"⚠️ get_deduction_authorization_docs: {e}")
         return []
 
 
