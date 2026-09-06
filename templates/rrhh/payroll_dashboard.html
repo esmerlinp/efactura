@@ -5,25 +5,60 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 {% endblock %}
 {% block content %}
+{% include "rrhh/_styles.html" %}
+<style>
+    .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(165px, 1fr)); gap:8px; margin-bottom:12px; }
+    .kpi-card { background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:11px 13px; display:flex; flex-direction:column; gap:4px; }
+    .kpi-card .kpi-label { font-size:0.62rem; color:var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:0.04em; }
+    .kpi-card .kpi-value { font-size:1.05rem; font-weight:750; color:var(--text-primary); line-height:1.15; }
+    .kpi-card .kpi-value.accent { color:var(--accent-emerald); }
+    .kpi-card .kpi-sub { font-size:0.65rem; color:var(--text-muted); line-height:1.25; }
+    .delta-up { color:var(--danger); font-weight:700; }
+    .delta-down { color:var(--accent-emerald); font-weight:700; }
+    .delta-flat { color:var(--text-muted); font-weight:700; }
+    .filter-bar { display:flex; gap:7px; align-items:flex-end; flex-wrap:wrap; padding:10px 12px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-sm); margin-bottom:12px; }
+    .filter-bar .field { display:flex; flex-direction:column; gap:4px; min-width:150px; }
+    .filter-bar label { font-size:0.62rem; color:var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:0.04em; }
+    .filter-bar select { background:var(--bg-input); border:1px solid var(--border-color); color:var(--text-primary); border-radius:var(--radius-sm); padding:6px 8px; font-size:0.78rem; }
+    .grid-21 { display:grid; grid-template-columns:2fr 1fr; gap:12px; margin-bottom:12px; }
+    .grid-12 { display:grid; grid-template-columns:2fr 1fr; gap:12px; margin-bottom:12px; }
+    .grid-11 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+    @media (max-width: 900px) { .grid-21, .grid-12, .grid-11 { grid-template-columns:1fr; } }
+    .panel { background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:14px 16px; }
+    .panel h3 { font-size:0.82rem; font-weight:700; margin:0 0 10px; display:flex; align-items:center; gap:6px; }
+    .legend-inline { display:flex; justify-content:center; gap:14px; margin-top:8px; font-size:0.7rem; flex-wrap:wrap; }
+    .legend-inline .dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:4px; }
+    .group-row { display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border:1px solid var(--border-color); border-radius:var(--radius-sm); }
+    .group-row .g-name { font-weight:600; font-size:0.8rem; }
+    .group-row .g-meta { font-size:0.67rem; color:var(--text-muted); }
+    .group-row .g-amount { text-align:right; font-weight:700; font-size:0.8rem; }
+    .status-pill { display:inline-block; font-size:0.68rem; font-weight:700; text-transform:capitalize; padding:2px 8px; border-radius:12px; }
+    .status-pill.calculada, .status-pill.procesada, .status-pill.validada { background:rgba(59,130,246,0.14); color:var(--accent-blue); }
+    .status-pill.aprobada, .status-pill.contabilizada, .status-pill.pagada, .status-pill.cerrada { background:rgba(16,185,129,0.14); color:var(--accent-emerald); }
+    .status-pill.borrador { background:rgba(148,163,184,0.18); color:var(--text-muted); }
+    .pending-item { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:9px 10px; border:1px solid var(--border-color); border-radius:var(--radius-sm); }
+    .pending-item.blocked { border-color:rgba(234,179,8,0.4); background:rgba(234,179,8,0.06); }
+</style>
+
 <div class="dashboard-container">
 
     <!-- Header -->
-    <div class="page-title-container" style="margin-bottom:0; padding-left:4px;">
+    <div class="page-title-container" style="margin-bottom:10px; padding-left:4px;">
         <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:16px; flex-wrap:wrap;">
             <div>
-                <h1 class="page-title" style="font-size:1.75rem; font-weight:800; margin:0;">
+                <h1 class="page-title" style="font-size:1.35rem; font-weight:750; margin:0;">
                     <i class="fa-solid fa-coins" style="color:var(--accent-emerald);"></i>
                     {{ greeting }}
                 </h1>
-                <p style="color:var(--text-secondary); margin:6px 0 0; font-size:0.88rem;">
-                    Aquí puedes ver tus resúmenes y accesos rápidos.
+                <p style="color:var(--text-secondary); margin:4px 0 0; font-size:0.75rem;">
+                    Resumen, indicadores y accesos rápidos de nómina.
                 </p>
             </div>
             <div style="display:flex; gap:8px;">
-                <a href="{{ url_for('web_rrhh.payroll_new') }}" class="btn btn-success">
+                <a href="{{ url_for('web_rrhh.payroll_new') }}" class="btn btn-success btn-sm">
                     <i class="fa-solid fa-calculator"></i> Nuevo período
                 </a>
-                <a href="{{ url_for('web_rrhh.payroll_settings') }}" class="btn btn-primary">
+                <a href="{{ url_for('web_rrhh.payroll_settings') }}" class="btn btn-primary btn-sm">
                     <i class="fa-solid fa-gear"></i> Configuración
                 </a>
             </div>
@@ -32,17 +67,17 @@
 
     {% if not onboard_all_done %}
     <!-- Onboarding Guide -->
-    <div class="card-table-wrapper" style="padding:24px; margin-bottom:16px; border:1.5px solid var(--accent-emerald); background:var(--bg-card);">
-        <div style="display:flex; flex-direction:column; align-items:center; gap:12px;">
+    <div class="card-table-wrapper" style="padding:16px; margin-bottom:12px; border:1px solid var(--accent-emerald); background:var(--bg-card);">
+        <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
             <div style="text-align:center;">
-                <i class="fa-solid fa-rocket" style="font-size:1.8rem;"></i>
-                <h2 style="margin:6px 0 0; font-size:1.15rem; font-weight:700;">Configuración inicial</h2>
-                <p style="color:var(--text-muted); font-size:0.85rem; margin:4px 0 0;">
+                <i class="fa-solid fa-rocket" style="font-size:1.35rem;"></i>
+                <h2 style="margin:4px 0 0; font-size:0.95rem; font-weight:700;">Configuración inicial</h2>
+                <p style="color:var(--text-muted); font-size:0.72rem; margin:3px 0 0;">
                     {{ onboard_done_count }} de 5 pasos completados ·
                     {% if onboard_done_count == 5 %}¡Todo listo!{% else %}~{{ (5 - onboard_done_count) * 3 }} min restantes{% endif %}
                 </p>
             </div>
-            <div style="display:flex; gap:6px; align-items:flex-start; flex-wrap:wrap; justify-content:center;">
+            <div style="display:flex; gap:4px; align-items:flex-start; flex-wrap:wrap; justify-content:center;">
                 {% set step_labels = ['Frecuencia', 'Catálogos', 'Empleados', 'Conceptos', 'Nómina'] %}
                 {% set step_keys = ['frequency', 'catalogs', 'employees', 'concepts', 'payroll'] %}
                 {% set next_idx = namespace(n=5) %}
@@ -52,8 +87,8 @@
                 {% for i in range(5) %}
                 {% set is_done = onboard_steps[step_keys[i]] %}
                 {% set is_current = (i == next_idx.n) %}
-                <div style="display:flex; flex-direction:column; align-items:center; min-width:60px;">
-                    <div style="width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:700;
+                <div style="display:flex; flex-direction:column; align-items:center; min-width:52px;">
+                    <div style="width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.65rem; font-weight:700;
                         {% if is_done %}
                             background:var(--bg-card); border:2px solid var(--accent-emerald); color:var(--accent-emerald); box-shadow:0 0 0 3px rgba(0,177,157,0.10);
                         {% elif is_current %}
@@ -63,9 +98,9 @@
                         {% endif %}">
                         {% if is_done %}<i class="fa-solid fa-check"></i>{% else %}{{ i+1 }}{% endif %}
                     </div>
-                    <span style="font-size:0.62rem; margin-top:4px; {% if is_done %}color:var(--text-secondary);{% elif is_current %}color:var(--accent-emerald); font-weight:700;{% else %}color:var(--text-muted);{% endif %}">{{ step_labels[i] }}</span>
+                    <span style="font-size:0.56rem; margin-top:3px; {% if is_done %}color:var(--text-secondary);{% elif is_current %}color:var(--accent-emerald); font-weight:700;{% else %}color:var(--text-muted);{% endif %}">{{ step_labels[i] }}</span>
                 </div>
-                {% if i < 4 %}<div style="width:22px; height:2px; margin-bottom:16px; {% if is_done %}background:var(--accent-emerald);{% else %}background:var(--border-color);{% endif %}"></div>{% endif %}
+                {% if i < 4 %}<div style="width:16px; height:1px; margin-bottom:13px; {% if is_done %}background:var(--accent-emerald);{% else %}background:var(--border-color);{% endif %}"></div>{% endif %}
                 {% endfor %}
             </div>
             <a href="{{ url_for('web_rrhh.onboarding_guide') }}" class="btn btn-primary btn-sm">
@@ -75,170 +110,279 @@
     </div>
     {% endif %}
 
-    <!-- Summary Cards -->
-    <style>
-        .summary-cards { display:grid; grid-template-columns:repeat(5, 1fr); gap:10px; margin-bottom:20px; }
-        @media (max-width: 900px) { .summary-cards { grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); } }
-    </style>
-    <div class="summary-cards">
-        <div style="border:1px solid var(--border-color); border-radius:var(--radius-md); padding:16px 18px; background:var(--bg-card); display:flex; flex-direction:column; gap:6px;">
-            <span style="font-size:0.7rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Grupos de nómina</span>
-            <span style="font-size:1.15rem; font-weight:700; color:var(--text-primary);">
-                {% if payroll_groups %}
-                <i class="fa-solid fa-layer-group" style="color:var(--accent-emerald);"></i>
-                {% for g in payroll_groups %}
-                <span class="badge {% if g.frequency == 'mensual' %}badge-info{% else %}badge-secondary{% endif %}" style="font-size:0.75rem;">
-                    {{ g.name }} ({{ g._employee_count }})
-                </span>
+    <!-- Filtros -->
+    <form method="get" action="{{ url_for('web_rrhh.payroll_dashboard') }}" class="filter-bar">
+        <div class="field">
+            <label for="f-year">Año</label>
+            <select id="f-year" name="year" onchange="this.form.submit()">
+                {% for y in years_available %}
+                <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
                 {% endfor %}
-                {% else %}
-                <span style="color:var(--text-muted); font-size:0.85rem;">Sin grupos</span>
+            </select>
+        </div>
+        <div class="field" style="min-width:190px;">
+            <label for="f-group">Grupo de nómina</label>
+            <select id="f-group" name="group_id" onchange="this.form.submit()">
+                <option value="all" {% if selected_group_id == 'all' %}selected{% endif %}>Todos los grupos</option>
+                {% for g in payroll_groups %}
+                <option value="{{ g.id }}" {% if selected_group_id == g.id %}selected{% endif %}>{{ g.name }} ({{ g._employee_count }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="field" style="min-width:200px;">
+            <label for="f-period">Período</label>
+            <select id="f-period" name="period_key" onchange="this.form.submit()">
+                <option value="" {% if not selected_period_key %}selected{% endif %}>Todos los períodos</option>
+                {% for po in period_options %}
+                <option value="{{ po.key }}" {% if selected_period_key == po.key %}selected{% endif %}>{{ po.label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% if selected_year or selected_group_id != 'all' or selected_period_key %}
+        <div class="field" style="justify-content:flex-end;">
+            <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost btn-sm" style="margin-bottom:2px;">
+                <i class="fa-solid fa-xmark"></i> Limpiar filtros
+            </a>
+        </div>
+        {% endif %}
+    </form>
+
+    <!-- KPIs -->
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <span class="kpi-label">Costo nómina (último período)</span>
+            <span class="kpi-value">{{ "RD$ {:,.2f}".format(latest_cost) if latest_period else '—' }}</span>
+            <span class="kpi-sub">
+                {% if latest_period %}{{ latest_period.get('periodRange') or latest_period.get('periodKey','') }}{% endif %}
+                {% if cost_delta_pct is not none %}
+                    · <span class="{{ 'delta-down' if cost_delta_pct <= 0 else 'delta-up' }}">{{ '+' if cost_delta_pct > 0 else '' }}{{ cost_delta_pct }}%</span> vs anterior
                 {% endif %}
             </span>
         </div>
-        <div style="border:1px solid var(--border-color); border-radius:var(--radius-md); padding:16px 18px; background:var(--bg-card); display:flex; flex-direction:column; gap:6px;">
-            <span style="font-size:0.7rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Período</span>
-            <span style="font-size:1.15rem; font-weight:700; color:var(--text-primary);">{{ current_period or '—' }}</span>
+        <div class="kpi-card">
+            <span class="kpi-label">Neto a pagar (último período)</span>
+            <span class="kpi-value accent">{{ "RD$ {:,.2f}".format(latest_net) if latest_period else '—' }}</span>
+            <span class="kpi-sub">Acumulado año: {{ "RD$ {:,.2f}".format(year_net) }}</span>
         </div>
-        <div style="border:1px solid var(--border-color); border-radius:var(--radius-md); padding:16px 18px; background:var(--bg-card); display:flex; flex-direction:column; gap:6px;">
-            <span style="font-size:0.7rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">No. empleados</span>
-            <span style="font-size:1.15rem; font-weight:700; color:var(--text-primary);">{{ employee_count }}</span>
+        <div class="kpi-card">
+            <span class="kpi-label">Empleados activos</span>
+            <span class="kpi-value">{{ employee_count }}</span>
+            <span class="kpi-sub">Período actual: {{ current_period or '—' }}</span>
         </div>
-        <div style="border:1px solid var(--border-color); border-radius:var(--radius-md); padding:16px 18px; background:var(--bg-card); display:flex; flex-direction:column; gap:6px;">
-            <span style="font-size:0.7rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Total pago</span>
-            <span style="font-size:1.15rem; font-weight:700; color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(total_pago) if total_pago else 'RD$ 0.00' }}</span>
+        <div class="kpi-card">
+            <span class="kpi-label">Costo promedio por empleado</span>
+            <span class="kpi-value">{{ "RD$ {:,.2f}".format(avg_cost_per_employee) }}</span>
+            <span class="kpi-sub">Costo total / nº empleados del último período</span>
         </div>
-        <div style="border:1px solid var(--border-color); border-radius:var(--radius-md); padding:16px 18px; background:var(--bg-card); display:flex; flex-direction:column; gap:6px;">
-            <span style="font-size:0.7rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Total costo</span>
-            <span style="font-size:1.15rem; font-weight:700; color:var(--text-primary);">{{ "RD$ {:,.2f}".format(total_costo) if total_costo else 'RD$ 0.00' }}</span>
+        <div class="kpi-card">
+            <span class="kpi-label">ISR retenido ({{ selected_year }})</span>
+            <span class="kpi-value">{{ "RD$ {:,.2f}".format(year_isr) }}</span>
+            <span class="kpi-sub">Acumulado del año filtrado</span>
         </div>
-
+        <div class="kpi-card">
+            <span class="kpi-label">Aporte empleador TSS ({{ selected_year }})</span>
+            <span class="kpi-value">{{ "RD$ {:,.2f}".format(year_tss_employer) }}</span>
+            <span class="kpi-sub">AFP + SFS + SRL + INFOTEP empleador</span>
+        </div>
     </div>
 
-    <!-- Main Grid: Chart + Indicators -->
-    <div style="display:grid; grid-template-columns:2fr 1fr; gap:16px; margin-bottom:20px;">
-        <!-- Chart: Costo vs Pago -->
-        <div class="card-table-wrapper" style="padding:20px 24px;">
-            <h3 style="font-size:0.95rem; font-weight:700; margin:0 0 16px;">Costo de nómina vs Pago de nómina</h3>
+    <!-- Costo vs Pago + Composición -->
+    <div class="grid-21">
+        <div class="panel">
+            <h3><i class="fa-solid fa-chart-column" style="color:var(--accent-emerald);"></i> Costo de nómina vs Pago de nómina</h3>
             {% if chart_labels %}
-            <div style="position:relative; height:260px;">
-                <canvas id="costoVsPagoChart"></canvas>
-            </div>
-            <div style="display:flex; justify-content:center; gap:24px; margin-top:12px; font-size:0.82rem;">
-                <span><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:var(--accent-emerald); margin-right:4px;"></span> Costo de nómina</span>
-                <span><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:var(--accent-purple); margin-right:4px;"></span> Pago de nómina</span>
+            <div style="position:relative; height:210px;"><canvas id="costoVsPagoChart"></canvas></div>
+            <div class="legend-inline">
+                <span><span class="dot" style="background:var(--accent-emerald);"></span> Costo de nómina</span>
+                <span><span class="dot" style="background:var(--accent-purple);"></span> Pago de nómina</span>
             </div>
             {% else %}
-            <div style="text-align:center; padding:40px; color:var(--text-muted);">
-                <i class="fa-solid fa-chart-bar" style="font-size:2rem; display:block; margin-bottom:8px; opacity:0.4;"></i>
-                <p style="margin:0;">Sin datos de nómina para graficar.</p>
+            <div class="hr-empty-state">
+                <div class="hr-empty-icon"><i class="fa-solid fa-chart-bar"></i></div>
+                <p>Sin datos de nómina</p>
+                <span>No hay períodos calculados para los filtros seleccionados.</span>
             </div>
             {% endif %}
         </div>
 
-        <!-- Indicators -->
-        <div class="card-table-wrapper" style="padding:20px 24px;">
-            <h3 style="font-size:0.95rem; font-weight:700; margin:0 0 16px;">Indicadores</h3>
-            <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700; margin-bottom:4px;">{{ indicators.year }}</div>
+        <div class="panel">
+            <h3><i class="fa-solid fa-chart-pie" style="color:var(--accent-purple);"></i> Composición del costo</h3>
+            {% if has_composition %}
+            <div style="position:relative; height:210px;"><canvas id="compositionChart"></canvas></div>
+            <div class="legend-inline">
+                {% for i in range(cost_composition['labels']|length) %}
+                <span style="font-size:0.78rem;"><span class="dot" style="background:{{ cost_composition['colors'][i] }};"></span> {{ cost_composition['labels'][i] }}</span>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="hr-empty-state">
+                <div class="hr-empty-icon"><i class="fa-solid fa-chart-pie"></i></div>
+                <p>Sin desglose</p>
+                <span>El desglose está disponible para nóminas calculadas recientemente.</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Costo por departamento + Altas/Bajas -->
+    <div class="grid-12">
+        <div class="panel">
+            <h3><i class="fa-solid fa-building" style="color:var(--accent-blue);"></i> Costo por departamento</h3>
+            {% if dept_labels %}
+            <div style="position:relative; height:195px;"><canvas id="deptChart"></canvas></div>
+            <div class="legend-inline">
+                <span><span class="dot" style="background:var(--accent-blue);"></span> Costo (bruto + empleador)</span>
+                <span><span class="dot" style="background:var(--accent-emerald);"></span> Neto</span>
+            </div>
+            {% else %}
+            <div class="hr-empty-state">
+                <div class="hr-empty-icon"><i class="fa-solid fa-building"></i></div>
+                <p>Sin desglose por departamento</p>
+                <span>Disponible en períodos calculados a partir de ahora.</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="panel">
+            <h3><i class="fa-solid fa-right-left" style="color:var(--accent-orange);"></i> Altas y bajas ({{ selected_year }})</h3>
+            {% if rotation_labels %}
+            <div style="position:relative; height:195px;"><canvas id="rotationChart"></canvas></div>
+            <div class="legend-inline">
+                <span><span class="dot" style="background:var(--accent-emerald);"></span> Altas</span>
+                <span><span class="dot" style="background:var(--danger);"></span> Bajas</span>
+            </div>
+            {% else %}
+            <div class="hr-empty-state">
+                <div class="hr-empty-icon"><i class="fa-solid fa-user-plus"></i></div>
+                <p>Sin movimientos en {{ selected_year }}</p>
+                <span>No hay altas ni bajas registradas este año.</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Nómina por grupo + Topes/Historial -->
+    <div class="grid-21">
+        <div class="panel">
+            <h3><i class="fa-solid fa-layer-group" style="color:var(--accent-emerald);"></i> Nómina por grupo ({{ selected_year }})</h3>
+            {% if group_summary %}
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                {% for gs in group_summary %}
+                <div class="group-row">
+                    <div>
+                        <div class="g-name">{{ gs.name }}</div>
+                        <div class="g-meta">{{ gs.employees }} empleados · {{ gs.period_count }} período(s) · <span class="status-pill {{ gs.latest_status }}">{{ gs.latest_status }}</span></div>
+                    </div>
+                    <div class="g-amount">
+                        <div>{{ "RD$ {:,.2f}".format(gs.cost) }}</div>
+                        <div class="g-meta">neto {{ "RD$ {:,.2f}".format(gs.net) }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="hr-empty-state">
+                <div class="hr-empty-icon"><i class="fa-solid fa-layer-group"></i></div>
+                <p>Sin períodos en {{ selected_year }}</p>
+                <span>Aún no hay nóminas procesadas para este año.</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="panel">
+            <h3><i class="fa-solid fa-sliders" style="color:var(--accent-orange);"></i> Topes legales {{ indicators.year }}</h3>
             <div style="display:flex; flex-direction:column; gap:10px;">
                 <div class="hr-info-item">
                     <span class="hr-info-label">Salario mínimo</span>
                     <span class="hr-info-value">RD$ {{ "{:,.2f}".format(indicators.minSalary) }}</span>
                 </div>
                 <div class="hr-info-item">
-                    <span class="hr-info-label">AFP</span>
+                    <span class="hr-info-label">Tope AFP</span>
                     <span class="hr-info-value">RD$ {{ "{:,.2f}".format(indicators.afpTotal) }}</span>
                 </div>
                 <div class="hr-info-item">
-                    <span class="hr-info-label">SFS</span>
+                    <span class="hr-info-label">Tope SFS</span>
                     <span class="hr-info-value">RD$ {{ "{:,.2f}".format(indicators.sfsTotal) }}</span>
                 </div>
                 <div class="hr-info-item">
-                    <span class="hr-info-label">SRL</span>
+                    <span class="hr-info-label">Tope SRL</span>
                     <span class="hr-info-value">RD$ {{ "{:,.2f}".format(indicators.srlTotal) }}</span>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <!-- Bottom Grid: Hiring chart + History + Actions -->
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
-        <!-- Hiring Chart -->
-        <div class="card-table-wrapper" style="padding:20px 24px;">
-            <h3 style="font-size:0.95rem; font-weight:700; margin:0 0 16px;">Altas y bajas por mes</h3>
-            {% if rotation_labels %}
-            <div style="position:relative; height:180px;">
-                <canvas id="rotationChart"></canvas>
-            </div>
-            <div style="display:flex; justify-content:center; gap:24px; margin-top:12px; font-size:0.82rem;">
-                <span><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:var(--accent-emerald); margin-right:4px;"></span> Altas</span>
-                <span><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:var(--danger); margin-right:4px;"></span> Bajas</span>
-            </div>
-            {% else %}
-            <div class="hr-empty-state">
-                <i class="fa-solid fa-user-plus"></i>
-                <p style="font-weight:600; margin-bottom:4px;">¡Empieza a sumar talentos!</p>
-                <p style="font-size:0.85rem;">Agrega tu primer empleado/a para actualizar la gráfica</p>
-                <a href="{{ url_for('web_rrhh.employee_new') }}" class="btn btn-primary" style="margin-top:12px;">
-                    <i class="fa-solid fa-plus"></i> Nuevo empleado
-                </a>
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- History + Actions -->
-        <div class="card-table-wrapper" style="padding:20px 24px;">
-            <h3 style="font-size:0.95rem; font-weight:700; margin:0 0 16px;">Historial</h3>
-            {% if recent_periods %}
-            <div style="display:flex; flex-direction:column; gap:8px;">
-                {% for p in recent_periods %}
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border:1px solid var(--border-color); border-radius:var(--radius-sm);">
-                    <div>
-                        <div style="font-weight:600; font-size:0.88rem;">
-                            {{ p.get('periodRange') or p.get('periodKey','') }}
-                        </div>
-                        <div style="font-size:0.78rem; color:var(--text-muted);">
-                            Cálculo de nómina
-                        </div>
-                    </div>
-                    <a href="{{ url_for('web_rrhh.payroll_view', period_id=p.id) }}" class="btn btn-sm btn-ghost">
-                        Ir
-                    </a>
-                </div>
-                {% endfor %}
-            </div>
-            {% else %}
-            <p style="color:var(--text-muted); font-size:0.88rem;">Aún no has calculado ninguna nómina.</p>
-            {% endif %}
 
             <div style="display:flex; gap:8px; margin-top:16px; flex-wrap:wrap;">
-                <a href="{{ url_for('web_rrhh.employee_new') }}" class="btn btn-ghost">
-                    <i class="fa-solid fa-plus"></i> Nuevo empleado
-                </a>
-                <a href="{{ url_for('web_rrhh.payroll_list') }}" class="btn btn-ghost">
+                <a href="{{ url_for('web_rrhh.payroll_list') }}" class="btn btn-ghost btn-sm">
                     <i class="fa-solid fa-clock-rotate-left"></i> Ver historial
                 </a>
-                <a href="{{ url_for('web_invoices.reports_category', category_key='nomina') }}" class="btn btn-ghost">
+                <a href="{{ url_for('web_invoices.reports_category', category_key='nomina') }}" class="btn btn-ghost btn-sm">
                     <i class="fa-solid fa-file-lines"></i> Reportes
                 </a>
-                <a href="{{ url_for('web_rrhh.payroll_settings') }}" class="btn btn-ghost" style="color:var(--accent-purple);">
+                <a href="{{ url_for('web_rrhh.payroll_settings') }}" class="btn btn-ghost btn-sm" style="color:var(--accent-purple);">
                     <i class="fa-solid fa-gear"></i> Tasas y topes
                 </a>
             </div>
         </div>
     </div>
 
+    <!-- Acciones pendientes -->
+    {% if pending_groups %}
+    <div class="panel" style="margin-bottom:20px; border-color:rgba(16,185,129,0.35);">
+        <h3><i class="fa-solid fa-bell" style="color:var(--accent-emerald);"></i> Grupos pendientes de calcular este mes</h3>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:10px;">
+            {% for entry in pending_groups %}
+            <div class="pending-item {% if entry.blocked %}blocked{% endif %}">
+                <div>
+                    <div style="font-weight:600; font-size:0.88rem;">{{ entry.group.name }}</div>
+                    <div style="font-size:0.75rem; color:var(--text-muted);">
+                        {{ entry.group._employee_count }} empleado(s)
+                        {% if entry.blocked %} · <span style="color:#b45309;">Bloqueado: cierre {{ entry.blocked_by or 'período anterior' }} primero</span>{% endif %}
+                    </div>
+                </div>
+                {% if not entry.blocked %}
+                <a href="{{ url_for('web_rrhh.payroll_new', group=entry.group.id, period_key=entry.suggestedPeriod) }}" class="btn btn-sm btn-primary">
+                    <i class="fa-solid fa-calculator"></i> Calcular
+                </a>
+                {% else %}
+                <span class="btn btn-sm btn-ghost" style="pointer-events:none; opacity:0.6;">Bloqueado</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Historial reciente -->
+    {% if recent_periods %}
+    <div class="panel" style="margin-bottom:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+            <h3 style="margin:0;"><i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-emerald);"></i> Períodos recientes</h3>
+            <a href="{{ url_for('web_rrhh.payroll_list') }}" class="btn btn-sm btn-ghost"><i class="fa-solid fa-arrow-right"></i> Ver historial</a>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:8px;">
+            {% for p in recent_periods %}
+            <div class="group-row">
+                <div>
+                    <div class="g-name">{{ p.get('periodRange') or p.get('periodKey','') }}</div>
+                    <div class="g-meta"><span class="status-pill {{ p.get('status','') }}">{{ p.get('status','') }}</span></div>
+                </div>
+                <a href="{{ url_for('web_rrhh.payroll_view', period_id=p.id) }}" class="btn btn-sm btn-ghost">Abrir</a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Offboarding Pipeline -->
-    <div class="card-table-wrapper" style="padding:20px 24px; margin-top:16px;">
+    {% if offboarding_pipeline %}
+    <div class="panel">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-            <h3 style="font-size:0.95rem; font-weight:700; margin:0;">
+            <h3 style="margin:0;">
                 <i class="fa-solid fa-door-open" style="color:var(--danger);"></i> Pipeline de Desvinculaciones
             </h3>
             <a href="{{ url_for('web_rrhh.offboarding_list') }}" class="btn btn-sm btn-ghost">
                 <i class="fa-solid fa-arrow-right"></i> Ver todas
             </a>
         </div>
-        {% if offboarding_pipeline %}
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px;">
             {% for item in offboarding_pipeline %}
             <div style="text-align:center; padding:14px 8px; border:1px solid var(--border-color); border-radius:var(--radius-md); background:var(--bg-card);">
@@ -247,20 +391,8 @@
             </div>
             {% endfor %}
         </div>
-        <div style="margin-top:12px;">
-            <div style="display:flex; gap:4px; height:8px; border-radius:4px; overflow:hidden;">
-                {% for item in offboarding_pipeline %}
-                {% set pct = (item.count / offboarding_pipeline_total * 100) if offboarding_pipeline_total > 0 else 0 %}
-                {% if pct > 0 %}
-                <div style="flex:{{ pct }}; background:var(--accent-{{ item.color }});" title="{{ item.label }}: {{ item.count }}"></div>
-                {% endif %}
-                {% endfor %}
-            </div>
-        </div>
-        {% else %}
-        <p style="color:var(--text-muted); font-size:0.88rem; margin:0;">No hay solicitudes de desvinculación activas.</p>
-        {% endif %}
     </div>
+    {% endif %}
 </div>
 
 <script>
@@ -276,40 +408,27 @@ document.addEventListener('DOMContentLoaded', function() {
                     data: {{ costo_data | tojson }},
                     backgroundColor: 'rgba(16,185,129,0.65)',
                     borderColor: 'rgba(16,185,129,1)',
-                    borderWidth: 0,
-                    borderRadius: 3,
-                    categoryPercentage: 0.7,
-                    barPercentage: 0.85,
+                    borderWidth: 0, borderRadius: 3,
+                    categoryPercentage: 0.7, barPercentage: 0.85,
                 },
                 {
                     label: 'Pago de nómina',
                     data: {{ pago_data | tojson }},
                     backgroundColor: 'rgba(124,58,237,0.65)',
                     borderColor: 'rgba(124,58,237,1)',
-                    borderWidth: 0,
-                    borderRadius: 3,
-                    categoryPercentage: 0.7,
-                    barPercentage: 0.85,
+                    borderWidth: 0, borderRadius: 3,
+                    categoryPercentage: 0.7, barPercentage: 0.85,
                 }
             ]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },
             plugins: { legend: { display: false } },
             scales: {
-                x: {
-                    grid: { display: false },
-                    ticks: {
-                        maxRotation: 45,
-                        minRotation: 0,
-                        font: { size: 10 },
-                    }
-                },
+                x: { grid: { display: false }, ticks: { maxRotation: 45, minRotation: 0, font: { size: 10 } } },
                 y: {
-                    beginAtZero: true,
-                    grid: { color: 'rgba(0,0,0,0.06)' },
+                    beginAtZero: true, grid: { color: 'rgba(0,0,0,0.06)' },
                     ticks: {
                         count: 5,
                         callback: function(v) {
@@ -324,41 +443,74 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     {% endif %}
 
-    {% if hiring_data %}
-    new Chart(document.getElementById('hiringChart'), {
-        type: 'line',
+    {% if has_composition %}
+    new Chart(document.getElementById('compositionChart'), {
+        type: 'doughnut',
         data: {
-            labels: {{ hiring_labels | tojson }},
+            labels: {{ cost_composition['labels'] | tojson }},
             datasets: [{
-                label: 'Contrataciones',
-                data: {{ hiring_data | tojson }},
-                backgroundColor: 'rgba(16,185,129,0.08)',
-                borderColor: 'rgba(16,185,129,0.85)',
-                borderWidth: 2,
-                fill: true,
-                tension: 0.3,
-                pointBackgroundColor: 'rgba(16,185,129,1)',
-                pointBorderWidth: 0,
-                pointRadius: 3,
-                pointHoverRadius: 6,
+                data: {{ cost_composition['values'] | tojson }},
+                backgroundColor: {{ cost_composition['colors'] | tojson }},
+                borderWidth: 0,
+                hoverOffset: 6,
             }]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
+            cutout: '58%',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            var total = ctx.dataset.data.reduce(function(a,b){ return a+b; }, 0);
+                            var pct = total ? (ctx.parsed/total*100).toFixed(1) : 0;
+                            return ' ' + ctx.label + ': RD$ ' + ctx.parsed.toLocaleString('en-US', {minimumFractionDigits:2}) + ' (' + pct + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+    {% endif %}
+
+    {% if dept_labels %}
+    new Chart(document.getElementById('deptChart'), {
+        type: 'bar',
+        data: {
+            labels: {{ dept_labels | tojson }},
+            datasets: [
+                {
+                    label: 'Costo',
+                    data: {{ dept_cost | tojson }},
+                    backgroundColor: 'rgba(59,130,246,0.65)',
+                    borderColor: 'rgba(59,130,246,1)',
+                    borderWidth: 0, borderRadius: 3,
+                },
+                {
+                    label: 'Neto',
+                    data: {{ dept_net | tojson }},
+                    backgroundColor: 'rgba(16,185,129,0.65)',
+                    borderColor: 'rgba(16,185,129,1)',
+                    borderWidth: 0, borderRadius: 3,
+                }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },
             plugins: { legend: { display: false } },
             scales: {
-                x: {
-                    grid: { display: false },
-                    ticks: { font: { size: 10 } }
-                },
+                x: { grid: { display: false }, ticks: { maxRotation: 45, minRotation: 0, font: { size: 10 } } },
                 y: {
-                    beginAtZero: true,
-                    grid: { color: 'rgba(0,0,0,0.06)' },
+                    beginAtZero: true, grid: { color: 'rgba(0,0,0,0.06)' },
                     ticks: {
-                        stepSize: 1,
-                        callback: function(v) { return Number.isInteger(v) ? v : ''; }
+                        count: 5,
+                        callback: function(v) {
+                            if (v >= 1000000) return 'RD$ ' + (v/1000000).toFixed(1) + 'M';
+                            if (v >= 1000) return 'RD$ ' + (v/1000).toFixed(0) + 'K';
+                            return 'RD$ ' + v;
+                        }
                     }
                 }
             }
@@ -377,36 +529,26 @@ document.addEventListener('DOMContentLoaded', function() {
                     data: {{ rotation_hires | tojson }},
                     backgroundColor: 'rgba(16,185,129,0.65)',
                     borderColor: 'rgba(16,185,129,1)',
-                    borderWidth: 0,
-                    borderRadius: 3,
+                    borderWidth: 0, borderRadius: 3,
                 },
                 {
                     label: 'Bajas',
                     data: {{ rotation_terms | tojson }},
                     backgroundColor: 'rgba(239,68,68,0.65)',
                     borderColor: 'rgba(239,68,68,1)',
-                    borderWidth: 0,
-                    borderRadius: 3,
+                    borderWidth: 0, borderRadius: 3,
                 }
             ]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },
             plugins: { legend: { display: false } },
             scales: {
-                x: {
-                    grid: { display: false },
-                    ticks: { font: { size: 10 } }
-                },
+                x: { grid: { display: false }, ticks: { font: { size: 10 } } },
                 y: {
-                    beginAtZero: true,
-                    grid: { color: 'rgba(0,0,0,0.06)' },
-                    ticks: {
-                        stepSize: 1,
-                        callback: function(v) { return Number.isInteger(v) ? v : ''; }
-                    }
+                    beginAtZero: true, grid: { color: 'rgba(0,0,0,0.06)' },
+                    ticks: { stepSize: 1, callback: function(v) { return Number.isInteger(v) ? v : ''; } }
                 }
             }
         }
