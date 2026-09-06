@@ -180,3 +180,13 @@ def test_get_deduction_authorization_docs_filters_by_movement(db):
 def test_get_deduction_authorization_docs_empty_when_firestore_off():
     with patch.object(hr, "firebase_initialized", False):
         assert hr.get_deduction_authorization_docs(COMPANY, "m1") == []
+
+
+def test_saved_document_is_visible_in_employee_documents(db):
+    doc = _doc("d1", "m1")
+    with patch.object(hr, "firebase_initialized", True), patch.object(hr, "db_firestore", db):
+        hr.save_employee_document(COMPANY, doc)
+        result = hr.get_employee_documents(COMPANY, "e1")
+    assert [d["id"] for d in result] == ["d1"]
+    assert result[0]["recurringMovementId"] == "m1"
+    assert result[0]["category"] == "authorization"

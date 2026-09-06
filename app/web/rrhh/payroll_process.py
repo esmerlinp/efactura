@@ -1349,6 +1349,34 @@ def payroll_new():
                 total_gross = sum(l.get("totalIncome", 0) for l in lines)
                 total_net = sum(l.get("netSalary", 0) for l in lines)
                 total_employer = sum(l.get("totalEmployerContrib", 0) for l in lines)
+
+                # ── Totales fiscales + desglose por departamento (para dashboard) ──
+                total_isr = sum(l.get("isrRetention", 0) for l in lines)
+                total_tss_employee = sum(
+                    (l.get("afpEmployee", 0) + l.get("sfsEmployee", 0) + l.get("infotepEmployee", 0))
+                    for l in lines
+                )
+                total_afp_employer = sum(l.get("afpEmployer", 0) for l in lines)
+                total_sfs_employer = sum(l.get("sfsEmployer", 0) for l in lines)
+                total_srl_employer = sum(l.get("srlEmployer", 0) for l in lines)
+                total_infotep = sum(l.get("infotepEmployer", 0) for l in lines)
+                total_tss_employer = round(total_afp_employer + total_sfs_employer + total_srl_employer + total_infotep, 2)
+                total_deducciones = sum(l.get("totalDeductions", 0) for l in lines)
+
+                dept_map = {}
+                for l in lines:
+                    dept = (l.get("department") or "").strip() or "Sin departamento"
+                    d = dept_map.setdefault(dept, {"gross": 0.0, "net": 0.0, "employer": 0.0, "employees": 0})
+                    d["gross"] += l.get("totalIncome", 0)
+                    d["net"] += l.get("netSalary", 0)
+                    d["employer"] += l.get("totalEmployerContrib", 0)
+                    d["employees"] += 1
+                department_breakdown = [
+                    {"department": dept, "gross": round(v["gross"], 2), "net": round(v["net"], 2),
+                     "cost": round(v["gross"] + v["employer"], 2), "employees": v["employees"]}
+                    for dept, v in sorted(dept_map.items(), key=lambda kv: -kv[1]["gross"])
+                ]
+
                 now_dt = date.today()
 
                 period_data = {
@@ -1360,6 +1388,12 @@ def payroll_new():
                     "payrollGroupId": selected_group_id, "status": "calculada",
                     "totalGross": round(total_gross, 2), "totalNet": round(total_net, 2),
                     "totalEmployerContrib": round(total_employer, 2),
+                    "totalIsr": round(total_isr, 2),
+                    "totalTssEmployee": round(total_tss_employee, 2),
+                    "totalTssEmployer": round(total_tss_employer, 2),
+                    "totalInfotep": round(total_infotep, 2),
+                    "totalDeducciones": round(total_deducciones, 2),
+                    "departmentBreakdown": department_breakdown,
                     "processedDate": now_dt.isoformat(),
                     "notes": (existing_period_ref.get("notes", "") + "\n" + notes_val).strip() if existing_period_ref and notes_val else (notes_val or existing_period_ref.get("notes", "") if existing_period_ref else notes_val),
                     "calculatedBy": user_email, "calculatedAt": now_dt.isoformat(),

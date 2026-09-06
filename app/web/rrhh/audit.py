@@ -23,7 +23,7 @@ def audit_log():
     entity = request.args.get("entity", "")
     limit = min(int(request.args.get("limit", 100) or 100), 500)
     logs = get_audit_log(company_id, entity=entity or None, limit=limit, sandbox=sandbox)
-    return render_template("rrhh/audit_log.html", active_page="rrhh_settings",
+    return render_template("rrhh/audit_log.html", active_page="rrhh_audit",
                            logs=logs, entity=entity, limit=limit)
 
 

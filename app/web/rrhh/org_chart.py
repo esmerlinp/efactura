@@ -57,7 +57,7 @@ def org_chart():
     root_nodes = actual_roots
     flat_employees = []
 
-    return render_template("rrhh/org_chart.html", active_page="rrhh_employees",
+    return render_template("rrhh/org_chart.html", active_page="rrhh_org_chart",
                            root_nodes=root_nodes, flat_employees=flat_employees,
                            emp_map=emp_map)
 
@@ -93,7 +93,7 @@ def team_calendar():
                           "start": l.get("startDate", ""), "end": l.get("endDate", ""),
                           "days": l.get("days", 0), "leaveType": l.get("leaveType", "")})
 
-    return render_template("rrhh/team_calendar.html", active_page="rrhh_employees",
+    return render_template("rrhh/team_calendar.html", active_page="rrhh_team_calendar",
                            events=events, year=year, month=month,
                            months_es=MONTHS_ES, employees=employees,
                            num_days=calendar.monthrange(year, month)[1])

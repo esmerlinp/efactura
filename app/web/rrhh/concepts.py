@@ -28,7 +28,7 @@ def concept_list():
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services.payroll_concept_engine import get_concepts
     concepts = get_concepts(company_id, sandbox=sandbox)
-    return render_template("rrhh/concepts/list.html", active_page="rrhh_settings",
+    return render_template("rrhh/concepts/list.html", active_page="rrhh_concepts",
                            concepts=concepts, next_url=_safe_next(request))
 
 
@@ -60,7 +60,7 @@ def concept_new():
         if _safe_next(request):
             return redirect(_safe_next(request))
         return redirect(url_for("web_rrhh.concept_list"))
-    return render_template("rrhh/concepts/form.html", active_page="rrhh_settings", concept=None,
+    return render_template("rrhh/concepts/form.html", active_page="rrhh_concepts", concept=None,
                            preset_type=preset_type, preset_category=preset_category,
                            next_url=_safe_next(request))
 
@@ -94,7 +94,7 @@ def concept_edit(concept_code):
         if _safe_next(request):
             return redirect(_safe_next(request))
         return redirect(url_for("web_rrhh.concept_list"))
-    return render_template("rrhh/concepts/form.html", active_page="rrhh_settings", concept=concept,
+    return render_template("rrhh/concepts/form.html", active_page="rrhh_concepts", concept=concept,
                            preset_type="", preset_category="", next_url=_safe_next(request))
 
 
