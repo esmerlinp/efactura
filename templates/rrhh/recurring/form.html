@@ -333,6 +333,48 @@
         </div>
     </div>
 
+    {# ── SECCIÓN 7: Documentos y Firmas (solo deducción regular/préstamo) ── #}
+    {% if movement and can_authorize %}
+    <div class="hr-section-card">
+        <h3><i class="fa-solid fa-file-signature"></i> Documentos y Firmas — Autorización de Descuento</h3>
+        <p class="hr-section-desc">Descarga la plantilla, hazla firmar por el empleado y sube el documento firmado.</p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:16px;">
+            <a href="{{ url_for('web_rrhh.recurring_authorization_pdf', movement_id=movement.id) }}" class="btn btn-primary">
+                <i class="fa-solid fa-download"></i> Descargar plantilla de autorización
+            </a>
+        </div>
+
+        {% if authorization_docs %}
+        <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:16px;">
+            {% for d in authorization_docs %}
+            <div style="display:flex; align-items:center; gap:10px; padding:8px 12px; border:1px solid var(--border-color); border-radius:var(--radius-sm);">
+                <i class="fa-solid fa-file-lines" style="color:var(--accent-blue); font-size:1.1rem;"></i>
+                <div style="flex:1;">
+                    <a href="{{ url_for('web_rrhh.employee_document_download', employee_id=movement.employeeId, doc_id=d.id) }}"
+                       style="font-weight:600; font-size:0.85rem; text-decoration:none;">{{ d.name }}</a>
+                    <div style="font-size:0.7rem; color:var(--text-muted);">Firmado · {{ d.uploadedAt[:10] if d.uploadedAt else '' }} · {{ (d.size|int // 1024) if d.size else 0 }}KB</div>
+                </div>
+                <form method="POST" action="{{ url_for('web_rrhh.recurring_authorization_delete', movement_id=movement.id, doc_id=d.id) }}"
+                      onsubmit="return confirm('¿Eliminar este documento?')" style="display:contents;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sm btn-ghost" style="color:var(--danger);"><i class="fa-solid fa-trash-can"></i></button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p style="color:var(--text-muted); margin-bottom:16px;">Aún no se ha subido el documento firmado.</p>
+        {% endif %}
+
+        <form method="POST" action="{{ url_for('web_rrhh.recurring_authorization_upload', movement_id=movement.id) }}"
+              enctype="multipart/form-data" style="display:flex; gap:8px; flex-wrap:wrap;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="file" name="file" class="form-input" style="flex:1; min-width:200px;" required>
+            <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-upload"></i> Subir documento firmado</button>
+        </form>
+    </div>
+    {% endif %}
+
     <div class="hr-section-card hr-actions-card hr-actions-bar">
         <a href="{{ url_for('web_rrhh.recurring_list') }}" class="btn btn-ghost">Cancelar</a>
         <button type="submit" class="btn btn-primary">{{ 'Guardar' if movement else 'Crear Movimiento' }}</button>

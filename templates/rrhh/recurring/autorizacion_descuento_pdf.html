@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Autorización Descuento de Nómina</title>
+<style>
+    @page { size: Letter; margin: 2.2cm 2.4cm; }
+    body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #1a1a1a; font-size: 13px; line-height: 1.7; }
+    h1 { text-align: center; font-size: 16px; letter-spacing: 1px; text-transform: uppercase; margin: 0 0 24px 0; border-bottom: 2px solid #1a1a1a; padding-bottom: 10px; }
+    .fecha { text-align: right; margin-bottom: 28px; font-size: 13px; }
+    p { margin: 0 0 14px 0; text-align: justify; }
+    .campo { border-bottom: 1px solid #1a1a1a; display: inline-block; min-width: 160px; }
+    .campo-grande { border-bottom: 1px solid #1a1a1a; display: inline-block; min-width: 320px; }
+    .letras { font-style: italic; }
+    .firmas { display: flex; justify-content: space-between; margin-top: 70px; gap: 40px; }
+    .firma { text-align: center; flex: 1; }
+    .firma .linea { border-top: 1px solid #1a1a1a; margin-top: 60px; padding-top: 6px; font-size: 12px; }
+    .descargo { margin-top: 34px; font-size: 12px; color: #333; }
+</style>
+</head>
+<body>
+    <h1>Autorización Descuento de Nómina</h1>
+
+    <div class="fecha">Fecha: {{ today_es }}</div>
+
+    <p>
+        Yo, <strong>{{ employee.fullName or (employee.firstName ~ ' ' ~ employee.lastName) }}</strong>,
+        identificada(o) con la cédula <strong>{{ employee.idNumber or employee.cedula or '_________________' }}</strong>,
+        autorizo a <strong>{{ company.companyName or '________________________________' }}</strong>
+        a descontar de mi salario, un valor (en pesos y en letras) de
+        <strong>(${{ '{:,.2f}'.format(ctx.valor_total) }})</strong>
+        <span class="letras">{{ ctx.valor_en_letras }}</span>,
+        {% if ctx.periodo_adj %}
+        por {{ ctx.n_cuotas }} cuota{% if ctx.n_cuotas != 1 %}s{% endif %} {{ ctx.periodo_adj }}
+        de <strong>${{ '{:,.2f}'.format(ctx.valor_cuota) }}</strong>
+        {% else %}
+        por cuotas (dependiendo de mi periodo de pago) <strong>{{ ctx.n_cuotas }}</strong>
+        de <strong>${{ '{:,.2f}'.format(ctx.valor_cuota) }}</strong>
+        {% endif %}
+        por concepto de:
+        <strong>{{ ctx.concepto or '______________________________________________' }}</strong>.
+    </p>
+
+    <p>
+        Asimismo, autorizo expresamente al empleador para que retenga y cobre de mi
+        liquidación final de prestaciones sociales y salarios, los saldos que esté
+        adeudando, si llegase a finalizar mi contrato de trabajo antes de completar el
+        pago total de lo adeudado.
+    </p>
+
+    <div class="firmas">
+        <div class="firma">
+            <div class="linea">Firma del empleado</div>
+        </div>
+        <div class="firma">
+            <div class="linea">Firma de Recursos Humanos</div>
+        </div>
+    </div>
+</body>
+</html>

@@ -270,6 +270,7 @@
     <!-- Tab: Documentos -->
     <div id="tab-docs" class="tab-content" style="display:none;">
         <div class="hr-section-card" style="border:none; box-shadow:none; padding:0;">
+            {% set _cat_labels = {'contract':'Contrato','id':'Identificación','certificate':'Certificado','medical':'Médico','disciplinary':'Disciplinario','academic':'Académico','authorization':'Autorización','other':'Otro'} %}
             <h3>Documentos ({{ documents|length }})</h3>
             {% if documents %}
             <div style="display:flex; flex-direction:column; gap:6px;">
@@ -280,7 +281,7 @@
                         <a href="{{ url_for('web_rrhh.employee_document_download', employee_id=employee.id, doc_id=d.id) }}" style="font-weight:600; font-size:0.85rem; text-decoration:none;">
                             {{ d.name }}
                         </a>
-                        <div style="font-size:0.7rem; color:var(--text-muted);">{{ d.category }} · {{ d.uploadedAt[:10] if d.uploadedAt else '' }} · {{ (d.size|int // 1024) if d.size else 0 }}KB</div>
+                        <div style="font-size:0.7rem; color:var(--text-muted);">{{ _cat_labels.get(d.category, d.category) }} · {{ d.uploadedAt[:10] if d.uploadedAt else '' }} · {{ (d.size|int // 1024) if d.size else 0 }}KB</div>
                     </div>
                     <form method="POST" action="{{ url_for('web_rrhh.employee_document_delete', employee_id=employee.id, doc_id=d.id) }}"
                           onsubmit="return confirm('¿Eliminar?')" style="display:contents;">
@@ -300,6 +301,7 @@
                     <option value="certificate">Certificado</option>
                     <option value="medical">Médico</option>
                     <option value="academic">Académico</option>
+                    <option value="authorization">Autorización</option>
                 </select>
                 <input type="file" name="file" class="form-input" style="flex:1; min-width:150px;" required>
                 <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-upload"></i> Subir</button>

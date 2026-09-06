@@ -2,6 +2,10 @@
 {% block title %}Movimientos Recurrentes — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
+<style>
+.hr-compact-table th { padding: 7px 12px; }
+.hr-compact-table td { padding: 6px 12px; }
+</style>
 <div class="page-header hr-page-header">
     <h1 class="page-title"><i class="fa-solid fa-rotate"></i> Movimientos Recurrentes</h1>
     <div class="hr-page-actions">
@@ -19,7 +23,7 @@
             <select name="employee_id" class="form-select" onchange="this.form.submit()">
                 <option value="">Todos los empleados</option>
                 {% for e in employees %}
-                <option value="{{ e.id }}" {% if filters.employee_id == e.id %}selected{% endif %}>{{ e.get('fullName', e.get('firstName','') ~ ' ' ~ e.get('lastName','')) }}</option>
+                <option value="{{ e.id }}" {% if filters.employee_id == e.id %}selected{% endif %}>{{ employee_names.get(e.id, e.get('fullName', '')) }}</option>
                 {% endfor %}
             </select>
         </div>
@@ -51,39 +55,50 @@
 
 <div class="card-table-wrapper hr-table-card">
     <div class="table-responsive">
-        <table class="data-grid">
+        <table class="data-grid hr-compact-table">
         <thead>
             <tr>
+                <th style="width:1%;">Código</th>
                 <th>Empleado</th>
                 <th>Descripción</th>
-                <th>Tipo</th>
-                <th>Monto</th>
+                <th style="text-align:right;">Monto</th>
                 <th>Frecuencia</th>
-                <th>Préstamo</th>
-                <th>Embargo</th>
-                <th>Prioridad</th>
+                <th>Detalle</th>
                 <th>Estado</th>
-                <th>Acciones</th>
+                <th style="width:1%;"></th>
             </tr>
         </thead>
         <tbody>
             {% for m in movements %}
-            <tr>
-                <td><strong>{{ m.employeeName or '—' }}</strong></td>
-                <td>
-                    <span style="font-size:0.8rem;">{{ m.description or m.conceptCode }}</span>
-                    {% if m.conceptCode %}<br><code style="font-size:0.7rem;">{{ m.conceptCode }}</code>{% endif %}
+            <tr title="Prioridad: {{ m.priority }}">
+                <td style="white-space:nowrap; color:var(--text-muted); font-variant-numeric:tabular-nums;">
+                    {% set _code = employee_codes.get(m.employeeId, '') if m.employeeId else '' %}
+                    {% if _code %}
+                    <a href="{{ url_for('web_rrhh.employee_view', employee_id=m.employeeId) }}" style="color:var(--text-muted); text-decoration:none;">{{ _code }}</a>
+                    {% else %}—{% endif %}
                 </td>
-                <td>
-                    {% if m.movementType == 'earning' %}
-                    <span class="badge badge-success">Ingreso</span>
-                    {% elif m.movementType == 'deduction' %}
-                    <span class="badge badge-danger">Deducción</span>
+                <td style="white-space:nowrap;">
+                    {% if m.employeeId %}
+                    <a href="{{ url_for('web_rrhh.employee_view', employee_id=m.employeeId) }}" style="color:var(--text-primary); text-decoration:none; font-weight:600;">
+                        {{ employee_names.get(m.employeeId, m.employeeName or '—') }}
+                    </a>
                     {% else %}
-                    <span class="badge badge-purple">Aporte Emp.</span>
+                    <strong>{{ m.employeeName or '—' }}</strong>
                     {% endif %}
                 </td>
-                <td style="text-align:right; font-weight:600;">
+                <td style="white-space:nowrap;">
+                    <span style="font-size:0.8rem; font-weight:600;">{{ m.description or m.conceptCode or '—' }}</span>
+                    {% if m.conceptCode %}<br><code style="font-size:0.7rem;">{{ m.conceptCode }}</code>{% endif %}
+                    <br>
+                    {% if m.movementType == 'earning' %}
+                    <span style="font-weight:600; color:var(--accent-emerald);">Ingreso</span>
+                    {% elif m.movementType == 'deduction' %}
+                    <span style="font-weight:600; color:var(--danger);">Deducción</span>
+                    {% else %}
+                    <span style="font-weight:600; color:var(--accent-purple);">Aporte Emp.</span>
+                    {% endif %}
+                </td>
+                <td style="text-align:right; font-weight:600; white-space:nowrap; font-variant-numeric:tabular-nums;">
                     {% if m.amountType == 'fixed' %}
                     RD$ {{ "{:,.2f}".format(m.amount) }}
                     {% elif m.amountType == 'percentage' %}
@@ -92,57 +107,71 @@
                     Fórmula
                     {% endif %}
                 </td>
-                <td style="font-size:0.75rem;">
+                <td style="font-size:0.75rem; white-space:nowrap;">
                     {% if m.applyFrequency == 'every_period' %}Cada período
                     {% elif m.applyFrequency == 'monthly' %}Mensual
                     {% elif m.applyFrequency == 'specific_months' %}Meses: {{ m.applyMonths | join(', ') }}
                     {% endif %}
                 </td>
-                <td class="text-center">
+                <td class="text-center" style="white-space:nowrap;">
                     {% if m.isLoan %}
-                    <span class="badge badge-info" style="font-size:0.7rem;">
-                        {{ m.paidInstallments }}/{{ m.totalInstallments }}
-                        <span style="font-size:0.65rem;">(RD${{ "{:,.0f}".format(m.remainingBalance or 0) }})</span>
-                    </span>
+                    <span style="font-weight:600; color:var(--accent-blue);">Préstamo {{ m.paidInstallments }}/{{ m.totalInstallments }}</span>
+                    {% if m.remainingBalance %}<br><span style="font-size:0.65rem; color:var(--text-muted);">RD${{ "{:,.0f}".format(m.remainingBalance) }}</span>{% endif %}
+                    {% elif m.isGarnishment %}
+                    <span style="font-weight:600; color:var(--accent-orange);">Embargo</span>
                     {% else %}—{% endif %}
                 </td>
-                <td class="text-center">{% if m.isGarnishment %}<span class="badge badge-warning" style="font-size:0.7rem;">Sí</span>{% else %}—{% endif %}</td>
-                <td class="text-center">{{ m.priority }}</td>
-                <td>
+                <td style="white-space:nowrap;">
                     {% set s = m.status %}
-                    {% if s == 'active' %}<span class="badge badge-success">Activo</span>
-                    {% elif s == 'scheduled' %}<span class="badge badge-info">Programado</span>
-                    {% elif s == 'paused' %}<span class="badge badge-warning">Pausado</span>
-                    {% elif s == 'completed' %}<span class="badge badge-secondary">Completado</span>
-                    {% elif s == 'cancelled' %}<span class="badge badge-danger">Cancelado</span>
+                    {% if s == 'active' %}<span style="font-weight:600; color:var(--accent-emerald);">Activo</span>
+                    {% elif s == 'scheduled' %}<span style="font-weight:600; color:var(--accent-blue);">Programado</span>
+                    {% elif s == 'paused' %}<span style="font-weight:600; color:var(--accent-orange);">Pausado</span>
+                    {% elif s == 'completed' %}<span style="font-weight:600; color:var(--text-muted);">Completado</span>
+                    {% elif s == 'cancelled' %}<span style="font-weight:600; color:var(--danger);">Cancelado</span>
                     {% else %}{{ s }}{% endif %}
                 </td>
-                <td><div class="hr-table-actions">
-                    <a href="{{ url_for('web_rrhh.recurring_edit', movement_id=m.id) }}" class="btn btn-sm btn-ghost" title="Editar"><i class="fa-solid fa-pen-to-square"></i></a>
-                    {% if m.status in ('active', 'scheduled') %}
-                    <form method="POST" action="{{ url_for('web_rrhh.recurring_toggle_status', movement_id=m.id) }}" style="display:contents;">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <input type="hidden" name="new_status" value="paused">
-                        <button type="submit" class="btn btn-sm btn-ghost" title="Pausar"><i class="fa-solid fa-pause" style="color:var(--accent-orange);"></i></button>
-                    </form>
-                    {% elif m.status == 'paused' %}
-                    <form method="POST" action="{{ url_for('web_rrhh.recurring_toggle_status', movement_id=m.id) }}" style="display:contents;">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <input type="hidden" name="new_status" value="active">
-                        <button type="submit" class="btn btn-sm btn-ghost" title="Reanudar"><i class="fa-solid fa-play" style="color:var(--accent-emerald);"></i></button>
-                    </form>
-                    {% endif %}
-                    <a href="{{ url_for('web_rrhh.recurring_applications', movement_id=m.id) }}" class="btn btn-sm btn-ghost" title="Historial de aplicación"><i class="fa-solid fa-clock-rotate-left"></i></a>
-                    {% if m.status in ('completed', 'cancelled') %}
-                    <form method="POST" action="{{ url_for('web_rrhh.recurring_delete', movement_id=m.id) }}" style="display:contents;" onsubmit="return confirm('¿Eliminar este movimiento?')">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn btn-sm btn-ghost" title="Eliminar" style="color:var(--danger);"><i class="fa-solid fa-trash-can"></i></button>
-                    </form>
-                    {% endif %}
-                </div></td>
+                <td style="white-space:nowrap; text-align:right;">
+                    <div class="action-menu">
+                        <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                            <i class="fa-solid fa-ellipsis-vertical"></i>
+                        </button>
+                        <div class="action-menu-dropdown">
+                            {% if m.movementType == 'deduction' and not m.isGarnishment %}
+                            <a href="{{ url_for('web_rrhh.recurring_authorization_pdf', movement_id=m.id) }}" class="action-menu-item">
+                                <i class="fa-solid fa-file-signature"></i> Descargar autorización
+                            </a>
+                            {% endif %}
+                            <a href="{{ url_for('web_rrhh.recurring_edit', movement_id=m.id) }}" class="action-menu-item">
+                                <i class="fa-solid fa-pen-to-square"></i> Editar
+                            </a>
+                            {% if m.status in ('active', 'scheduled') %}
+                            <form method="POST" action="{{ url_for('web_rrhh.recurring_toggle_status', movement_id=m.id) }}" style="display:contents;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="new_status" value="paused">
+                                <button type="submit" class="action-menu-item"><i class="fa-solid fa-pause"></i> Pausar</button>
+                            </form>
+                            {% elif m.status == 'paused' %}
+                            <form method="POST" action="{{ url_for('web_rrhh.recurring_toggle_status', movement_id=m.id) }}" style="display:contents;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="new_status" value="active">
+                                <button type="submit" class="action-menu-item"><i class="fa-solid fa-play"></i> Reanudar</button>
+                            </form>
+                            {% endif %}
+                            <a href="{{ url_for('web_rrhh.recurring_applications', movement_id=m.id) }}" class="action-menu-item">
+                                <i class="fa-solid fa-clock-rotate-left"></i> Historial de aplicación
+                            </a>
+                            {% if m.status in ('completed', 'cancelled') %}
+                            <form method="POST" action="{{ url_for('web_rrhh.recurring_delete', movement_id=m.id) }}" style="display:contents;" onsubmit="return confirm('¿Eliminar este movimiento?')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="action-menu-item text-danger"><i class="fa-solid fa-trash-can"></i> Eliminar</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </td>
             </tr>
             {% else %}
-            <tr><td colspan="10" class="text-center text-muted" style="padding:32px;">
+            <tr><td colspan="8" class="text-center text-muted" style="padding:32px;">
                 <i class="fa-solid fa-rotate" style="font-size:1.5rem; display:block; margin-bottom:8px; opacity:0.3;"></i>
                 No hay movimientos recurrentes configurados.
                 <br><a href="{{ url_for('web_rrhh.recurring_new') }}" class="btn btn-sm btn-primary" style="margin-top:8px;">Crear primer movimiento</a>
