@@ -97,7 +97,7 @@ class TestParseTabCsv:
         result = parse_tab_csv(content, EMPLOYEES, TAB_COMISIONES)
         assert result["errors"] == []
         assert len(result["rows"]) == 2
-        assert all(r["conceptField"] == "comisiones" for r in result["rows"])
+        assert all(r["conceptField"] == "COMISION" for r in result["rows"])
         assert result["rows"][0]["employeeId"] == "E1"
         assert result["rows"][0]["amount"] == 2500.0
 
@@ -177,3 +177,23 @@ class TestGetPeriodManualVariables:
         rows = PayrollService.get_period_manual_variables("P1", "C1")
         assert len(rows) == 1
         assert rows[0]["amount"] == 5000.0
+
+    @patch("app.services.hr_data_service.get_payroll_transactions")
+    def test_concepto_custom_var_se_conserva_con_codigo_crudo(self, get_tx_mock):
+        get_tx_mock.return_value = [
+            self._tx("BONO_EXTRA", "var:BONO_EXTRA", 1200.0),
+        ]
+        rows = PayrollService.get_period_manual_variables("P1", "C1")
+        assert len(rows) == 1
+        assert rows[0]["conceptField"] == "BONO_EXTRA"
+
+    @patch("app.services.hr_data_service.get_payroll_transactions")
+    def test_var_con_underscore_mapea_catalogo(self, get_tx_mock):
+        get_tx_mock.return_value = [
+            self._tx("INGRESO_VARIABLE", "var:INGRESO_VARIABLE", 2500.0),
+            self._tx("OTRAS_DEDUCCIONES", "var:OTRAS_DEDUCCIONES", 400.0),
+        ]
+        rows = PayrollService.get_period_manual_variables("P1", "C1")
+        fields = {(r["employeeId"], r["conceptField"], r["amount"]) for r in rows}
+        assert ("E1", "INGRESO_VARIABLE", 2500.0) in fields
+        assert ("E1", "OTRAS_DEDUCCIONES", 400.0) in fields

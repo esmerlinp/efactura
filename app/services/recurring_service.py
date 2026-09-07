@@ -217,6 +217,25 @@ def get_applications_by_period(company_id: str, period_id: str,
         return []
 
 
+def get_applications_by_employee(company_id: str, employee_id: str,
+                                 sandbox: bool = True) -> list:
+    """Lista todas las aplicaciones (pagos) de un empleado, ordenadas
+    por fecha descendente. Usado en la ficha del empleado (tab de
+    movimientos recurrentes)."""
+    if not firebase_initialized or db_firestore is None:
+        return []
+    try:
+        coll = _application_collection(company_id, sandbox)
+        docs = db_firestore.collection(coll)\
+            .where("employeeId", "==", employee_id).get()
+        apps = [_doc_to_dict(d) for d in docs]
+        apps.sort(key=lambda a: a.get("appliedAt", "") or "", reverse=True)
+        return apps
+    except Exception as e:
+        print(f"⚠️ RecurringService.get_applications_by_employee: {e}")
+        return []
+
+
 def delete_applications_by_period(company_id: str, period_id: str,
                                   sandbox: bool = True):
     """Elimina todas las aplicaciones de un período (usado en recálculos)."""
@@ -368,6 +387,14 @@ def apply_recurring_for_employee(company_id: str, employee_id: str,
 
         if amount <= 0:
             continue
+
+        # Promoción automática: al aplicarse por primera vez, scheduled → active.
+        # (Los préstamos se persisten más abajo en su branch isLoan; los
+        #  no-préstamo solo se guardan aquí, una única vez.)
+        if mv.get("status") == "scheduled":
+            mv["status"] = "active"
+            if not mv.get("isLoan"):
+                save_recurring_movement(company_id, mv_id, mv, sandbox=sandbox)
 
         transaction_id = str(uuid.uuid4())
 

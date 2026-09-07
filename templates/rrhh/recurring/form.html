@@ -140,7 +140,7 @@
             <div id="regularAmountFields" class="hr-form-grid" style="margin-top:16px; display:none;">
                 <div class="form-group">
                     <label>Tipo de Monto</label>
-                    <select name="amountType" class="form-select" id="deductionAmountType" onchange="toggleDeductionAmountFields()">
+                    <select name="dedAmountType" class="form-select" id="deductionAmountType" onchange="toggleDeductionAmountFields()">
                         {% for k, v in AMOUNT_TYPES.items() %}
                         <option value="{{ k }}" {% if movement and movement.amountType == k %}selected{% endif %}>{{ v }}</option>
                         {% endfor %}
@@ -148,15 +148,15 @@
                 </div>
                 <div class="form-group" id="dedFixedAmountGroup">
                     <label>Monto Fijo (RD$)</label>
-                    <input type="number" step="0.01" name="amount" class="form-input" value="{{ movement.amount if movement else '0' }}" placeholder="0.00">
+                    <input type="number" step="0.01" name="dedAmount" class="form-input" value="{{ movement.amount if movement else '0' }}" placeholder="0.00">
                 </div>
                 <div class="form-group" id="dedPercentageGroup" style="display:none;">
                     <label>Porcentaje (%)</label>
-                    <input type="number" step="0.0001" name="percentage" class="form-input" value="{{ "%.4f"|format(movement.percentage) if movement and movement.percentage else 0 }}" placeholder="0.00">
+                    <input type="number" step="0.0001" name="dedPercentage" class="form-input" value="{{ "%.4f"|format(movement.percentage) if movement and movement.percentage else 0 }}" placeholder="0.00">
                 </div>
                 <div class="form-group" id="dedFormulaGroup" style="display:none; grid-column:1/-1;">
                     <label>Fórmula</label>
-                    <input type="text" name="formula" class="form-input" value="{{ movement.formula if movement else '' }}" placeholder="Ej. baseSalary * 0.10">
+                    <input type="text" name="dedFormula" class="form-input" value="{{ movement.formula if movement else '' }}" placeholder="Ej. baseSalary * 0.10">
                     <span style="font-size:0.75rem; color:var(--text-muted);">Usa <code>baseSalary</code> como variable del salario base.</span>
                 </div>
             </div>
@@ -255,7 +255,7 @@
                         <div class="multiselect-options" id="multiselect-options">
                             {% for g in payroll_groups %}
                             <label class="multiselect-option" data-value="{{ g.id }}">
-                                <input type="checkbox" value="{{ g.id }}"
+                                <input type="checkbox" name="payrollGroupIds" value="{{ g.id }}"
                                     {% if (movement and g.id in movement.get('payrollGroupIds', [])) or (not movement and preset_group is defined and preset_group == g.id) %}checked{% endif %}>
                                 <span>{{ g.name }} <small>({{ g.frequency or 'mensual' }})</small></span>
                             </label>
@@ -333,7 +333,15 @@
         </div>
     </div>
 
+    <div class="hr-section-card hr-actions-card hr-actions-bar">
+        <a href="{{ url_for('web_rrhh.recurring_list') }}" class="btn btn-ghost">Cancelar</a>
+        <button type="submit" class="btn btn-primary">{{ 'Guardar' if movement else 'Crear Movimiento' }}</button>
+    </div>
+</form>
+
     {# ── SECCIÓN 7: Documentos y Firmas (solo deducción regular/préstamo) ── #}
+    {# Fuera del formulario principal: los <form> anidados son HTML inválido y
+       rompían el DOM (el botón Guardar quedaba fuera del form al editar). #}
     {% if movement and can_authorize %}
     <div class="hr-section-card">
         <h3><i class="fa-solid fa-file-signature"></i> Documentos y Firmas — Autorización de Descuento</h3>
@@ -374,12 +382,6 @@
         </form>
     </div>
     {% endif %}
-
-    <div class="hr-section-card hr-actions-card hr-actions-bar">
-        <a href="{{ url_for('web_rrhh.recurring_list') }}" class="btn btn-ghost">Cancelar</a>
-        <button type="submit" class="btn btn-primary">{{ 'Guardar' if movement else 'Crear Movimiento' }}</button>
-    </div>
-</form>
 
 <style>
 .multiselect-container {

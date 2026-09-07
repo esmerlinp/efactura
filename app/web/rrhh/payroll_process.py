@@ -152,15 +152,26 @@ def _load_existing_period_variables(company_id: str, period_key: str, group_id: 
     return []
 
 
-def _extract_variable_values(form, emp_ids):
+def _extract_variable_values(form, emp_ids, valid_codes=None):
     """Extrae variables de nómina del formulario.
 
     Acepta entradas genéricas `var_<CONCEPTO>_<empId>` y los nombres legacy
     (overtime_, commission_, bonus_, other_income_, other_ded_).
     Retorna {emp_id: {conceptCode: float}}.
+
+    Los códigos de concepto contienen underscores (INGRESO_VARIABLE,
+    HORAS_EXTRA, ...), por lo que el split se hace por prefijo conocido más
+    largo (no por el primer underscore). Si el código no está en la lista
+    conocida (concepto custom), se usa como fallback el split por la derecha
+    validando que el sufijo sea un employeeId conocido.
     """
     from app.services.payroll_variable_catalog import VARIABLE_CONCEPT_CODES, LEGACY_INPUT_MAP
-    valid_codes = set(VARIABLE_CONCEPT_CODES)
+    if valid_codes:
+        valid_set = set(VARIABLE_CONCEPT_CODES) | set(valid_codes)
+    else:
+        valid_set = set(VARIABLE_CONCEPT_CODES)
+    sorted_codes = sorted(valid_set, key=len, reverse=True)
+    emp_id_set = set(emp_ids or [])
     result = {}
 
     def _add(emp_id, code, raw):
@@ -172,12 +183,23 @@ def _extract_variable_values(form, emp_ids):
             return
         result.setdefault(emp_id, {})[code] = round(val, 2)
 
+    def _split_var_key(rest):
+        for c in sorted_codes:
+            if rest == c:
+                return c, ""
+            if rest.startswith(c + "_"):
+                return c, rest[len(c) + 1:]
+        head, sep, tail = rest.rpartition("_")
+        if sep and tail in emp_id_set:
+            return head, tail
+        return None, None
+
     for key in form:
         val = form.get(key)
         if key.startswith("var_"):
             rest = key[4:]
-            code, _, emp_id = rest.partition("_")
-            if code in valid_codes and emp_id:
+            code, emp_id = _split_var_key(rest)
+            if code and emp_id:
                 _add(emp_id, code, val)
             continue
         for prefix, code in LEGACY_INPUT_MAP.items():
@@ -500,7 +522,7 @@ def payroll_new():
     except Exception:
         recurring_movements = []
 
-    # ── Líneas del período existente (sección Empleados: Resumen/Completo) ──
+    # ── Líneas del período existente (sección Empleados: Resumen/Detalle) ──
     period_lines = []
     if request.method == "GET" and selected_period_key:
         try:
@@ -769,7 +791,10 @@ def payroll_new():
         dependents_by_employee = hr.get_dependents_for_employees(company_id, all_emp_ids, sandbox=sandbox)
 
         # ── Extraer valores del formulario para el thread background ──
-        emp_form_values = _extract_variable_values(request.form, [e["id"] for e in period_employees])
+        emp_form_values = _extract_variable_values(
+            request.form, [e["id"] for e in period_employees],
+            valid_codes=[t.get("concept", "") for t in variable_tabs],
+        )
         period_sub_type_val = request.form.get("periodSubType", "regular")
         include_christmas_bonus_val = (request.form.get("include_christmas_bonus") == "1"
                                        or period_sub_type_val == "christmas_bonus")
@@ -1810,7 +1835,11 @@ def payroll_simulate():
         except Exception:
             pass
 
-        emp_var_map = _extract_variable_values(request.form, [e["id"] for e in period_employees])
+        emp_var_map = _extract_variable_values(
+            request.form, [e["id"] for e in period_employees],
+            valid_codes=[code for code, c in concept_map.items()
+                         if c.get("isManualEntry") and c.get("type") in ("earning", "deduction")],
+        )
 
         for emp in period_employees:
             emp_id = emp["id"]

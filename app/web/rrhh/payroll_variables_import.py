@@ -230,7 +230,7 @@ def parse_tab_csv(content: str, employees_by_cedula: dict, tab_def: dict) -> dic
             "cedula": cedula,
             "employeeId": emp.get("id", ""),
             "employeeName": emp.get("fullName", "") or emp.get("name", ""),
-            "conceptField": tab_def["tab"],
+            "conceptField": tab_def["concept"],
             "conceptLabel": tab_def["label"],
             "amount": round(amount, 2),
         })
