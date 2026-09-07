@@ -112,6 +112,20 @@ class OffboardingService:
             return "Debe desactivar los accesos del empleado antes de completar la solicitud"
         return None
 
+    def _check_guard_payment_registered(self, req: dict) -> Optional[str]:
+        """Exige al menos un pago registrado antes de salir de pending_payment.
+
+        Evita cerrar el circuito de pago sin evidencia. Si la persistencia no
+        está disponible no se bloquea (comportamiento degradado, como antes).
+        """
+        try:
+            payments = self.get_payments(req.get("id", ""))
+        except Exception:
+            return None
+        if not payments:
+            return "Debe registrar el pago de la liquidación antes de continuar"
+        return None
+
     def transition(self, request_id: str, new_status: str,
                    user_email: str, user_role: str, comment: str = "") -> dict:
         req_data = self.get_request(request_id)
@@ -179,6 +193,8 @@ class OffboardingService:
     def _check_guards(self, current: str, new_status: str, req: dict) -> Optional[str]:
         if current == "pending_assets" and new_status == "pending_payment":
             return self._check_guard_assets_completed(req)
+        if current == "pending_payment" and new_status == "pending_documents":
+            return self._check_guard_payment_registered(req)
         if new_status == "completed":
             guard = self._check_guard_tss_notified(req)
             if guard:
@@ -561,6 +577,11 @@ class OffboardingService:
         settlement = self.get_settlement(settlement_id)
         if not settlement:
             raise ValueError(f"Liquidación {settlement_id} no encontrada")
+        try:
+            existing_payments = self.get_payments(settlement.get("requestId", ""))
+        except Exception:
+            existing_payments = []
+        check_payment_idempotency(settlement, existing_payments)
         settlement["status"] = SettlementStatus.PAGADA.value
         settlement["paidAt"] = self._now()
         settlement["paidBy"] = user_email
@@ -568,6 +589,9 @@ class OffboardingService:
                  self.company_id, self.sandbox)
         payment = TerminationPayment(
             requestId=settlement.get("requestId", ""),
+            settlementId=settlement_id,
+            employeeId=settlement.get("employeeId", ""),
+            contractId=settlement.get("contractId", ""),
             settlementVersion=settlement.get("version", 1),
             paymentMethod=PaymentMethod.PAYROLL,
             paymentDate=payment_data.get("paymentDate", self._now()[:10]),
@@ -740,3 +764,39 @@ class OffboardingService:
             "completed": 5,
         }
         return step_map.get(current, 1)
+
+
+def check_payment_idempotency(settlement: dict, payments: list | None) -> None:
+    """Valida que una liquidación pueda marcarse como pagada.
+
+    Lanza ``ValueError`` si ya está pagada o si ya existe un pago para la
+    misma liquidación/versión. Función pura para facilitar pruebas.
+
+    Nota: solo los pagos con ``settlementId`` participan del match exacto,
+    para no bloquear el flujo de nómina (el paso de pago registra primero
+    un pago de método y luego el pago contra período).
+    """
+    settlement = settlement or {}
+    try:
+        paid_value = SettlementStatus.PAGADA.value
+    except Exception:
+        paid_value = "pagada"
+    if (settlement.get("status") or "") == paid_value:
+        raise ValueError(
+            f"La liquidación {settlement.get('id', '')} ya está pagada.")
+    sid = settlement.get("id", "")
+    try:
+        version = int(settlement.get("version", 1) or 1)
+    except Exception:
+        version = 1
+    for p in (payments or []):
+        if not isinstance(p, dict):
+            continue
+        if p.get("settlementId") and sid and p.get("settlementId") == sid:
+            try:
+                pver = int(p.get("settlementVersion", version) or version)
+            except Exception:
+                pver = version
+            if pver == version:
+                raise ValueError(
+                    "Ya existe un pago registrado para esta liquidación/versión.")

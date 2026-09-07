@@ -754,8 +754,16 @@ def _build_anniversary_data(company_id, sandbox, owner_uid):
     today = date.today()
     results = []
     for emp in employees:
+        # Antigüedad: preferir seniorityBaseDate del contrato activo (reset=startDate).
+        _base = emp.get("hireDate", "")
         try:
-            hd = date.fromisoformat(emp["hireDate"][:10])
+            _ac = hr.get_active_contract_for_employee(company_id, emp.get("id", ""), sandbox=sandbox)
+            if _ac:
+                _base = hr.get_employment_context(emp, _ac).get("seniorityBaseDate") or _base
+        except Exception:
+            pass
+        try:
+            hd = date.fromisoformat((_base or "")[:10])
         except (ValueError, TypeError):
             continue
 

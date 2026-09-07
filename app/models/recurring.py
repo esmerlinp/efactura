@@ -65,6 +65,9 @@ class RecurringMovement(BaseModel):
     priority: int = 50
     status: str = "active"            # scheduled | active | paused | completed | cancelled
     autoComplete: bool = True
+    # Trazabilidad de reincorporación: nuevo movimiento copiado desde otro período.
+    sourceMovementId: str = ""  # id del movimiento origen ("" = creado directamente)
+    carryToRehire: bool = False  # sugerencia: ofrecer este concepto en rehire (no auto-copia)
 
     # ── Auditoría ──
     notes: str = ""
@@ -93,6 +96,7 @@ class RecurringApplication(BaseModel):
     id: str = ""
     recurringMovementId: str = ""
     employeeId: str = ""
+    contractId: str = ""  # Período laboral (snapshot del movimiento aplicado)
     periodId: str = ""
     periodKey: str = ""
     periodRevision: int = 1

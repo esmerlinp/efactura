@@ -254,6 +254,18 @@ class Totales(BaseModel):
 class TerminationSettlement(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     requestId: str = ""
+    employeeId: str = ""
+
+    # Vínculo con el período laboral liquidado ("" = legacy)
+    contractId: str = ""
+    contractPeriodNumber: int = 0
+    employmentStartDate: str = ""
+    employmentEndDate: str = ""
+    seniorityBaseDate: str = ""
+    vacationBaseDate: str = ""
+    contractSnapshot: dict = {}
+    salaryTransactionsUsed: list = []
+    calculationVersion: int = 1
 
     hireDate: str = ""
     terminationDate: str = ""
@@ -368,6 +380,9 @@ class TerminationDocument(BaseModel):
 class TerminationPayment(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     requestId: str = ""
+    settlementId: str = ""
+    employeeId: str = ""
+    contractId: str = ""
     settlementVersion: int = 1
     paymentMethod: PaymentMethod = PaymentMethod.PAYROLL
     paymentDate: str = ""

@@ -719,6 +719,18 @@ def payroll_new():
             if has_unassigned:
                 flash("Aviso: hay liquidaciones sin asignar a un grupo de nómina. Asígnalas para incluirlas en una nómina de liquidación.", "warning")
 
+        # ── Elegibilidad por relación laboral: no incluir retroactivamente ──
+        # Un reincorporado solo entra si contract.startDate (snapshot hireDate) <= fin del período.
+        try:
+            _pe = (end_date or "")[:10]
+            if _pe:
+                period_employees = [
+                    e for e in period_employees
+                    if not (e.get("hireDate") or "")[:10] or (e.get("hireDate") or "")[:10] <= _pe
+                ]
+        except Exception:
+            pass
+
         # Pre-validación: bloquear si hay errores antes de calcular
         period_incidencias = PayrollService.validate_employees_before_payroll(period_employees)
         if period_incidencias.get("errors"):
@@ -1004,7 +1016,7 @@ def payroll_new():
                             concept=salario_concept,
                             context={"baseSalary": base, "proratedSalary": prorated, "isQuincenal": emp_is_quincenal},
                             params=params, period_id=period_id, period_key=period_key,
-                            employee_id=emp_id, contract_id=emp.get("contractId", ""),
+                            employee_id=emp_id, contract_id=hr.resolve_employee_contract_id(emp),
                             payroll_line_id=line_id, period_revision=1,
                             legal_entity_id="", group_id=selected_group_id,
                         )
@@ -1144,7 +1156,7 @@ def payroll_new():
                     # ── Recurring movements ──
                     from app.services.recurring_service import apply_recurring_for_employee
                     recurring_txs, recurring_apps = apply_recurring_for_employee(
-                        company_id, emp_id, emp.get("contractId", ""), base,
+                        company_id, emp_id, hr.resolve_employee_contract_id(emp), base,
                         period_id, period_key, start_date, end_date, 1,
                         recurring_by_employee,
                         legal_entity_id="", group_id=selected_group_id, sandbox=sandbox,
@@ -1186,7 +1198,7 @@ def payroll_new():
                             concept=concept,
                             context={"baseSalary": base, "grossIncome": cotizable_income, "isQuincenal": emp_is_quincenal},
                             params=params, period_id=period_id, period_key=period_key,
-                            employee_id=emp_id, contract_id=emp.get("contractId", ""),
+                            employee_id=emp_id, contract_id=hr.resolve_employee_contract_id(emp),
                             payroll_line_id=line_id, period_revision=1,
                             legal_entity_id="", group_id=selected_group_id,
                         )
@@ -1210,7 +1222,7 @@ def payroll_new():
                                      "isQuincenal": emp_is_quincenal, "ytd_isr": ytd_isr,
                                      "afpDeduction": afp_ded, "sfsDeduction": sfs_ded},
                             params=params, period_id=period_id, period_key=period_key,
-                            employee_id=emp_id, contract_id=emp.get("contractId", ""),
+                            employee_id=emp_id, contract_id=hr.resolve_employee_contract_id(emp),
                             payroll_line_id=line_id, period_revision=1,
                         )
                         if tx:
@@ -1298,7 +1310,9 @@ def payroll_new():
                     )
 
                     line = {
-                        "employeeId": emp_id, "employeeName": emp.get("fullName", ""),
+                        "employeeId": emp_id,
+                        "contractId": hr.resolve_employee_contract_id(emp),
+                        "employeeName": emp.get("fullName", ""),
                         "cedula": emp.get("cedula", ""), "position": emp.get("position", ""),
                         "department": emp.get("department", ""), "baseSalary": base, "grossSalary": base,
                         "overtimePay": round(sum(overtime_breakdown.values()) + overtime, 2),
@@ -1330,10 +1344,11 @@ def payroll_new():
 
                     try:
                         from app.services.payroll_ytd_service import get_ytd, save_ytd, accumulate_ytd
-                        ytd = get_ytd(company_id, emp_id, year, sandbox=sandbox)
+                        _ctr_id = hr.resolve_employee_contract_id(emp)
+                        ytd = get_ytd(company_id, emp_id, year, contract_id=_ctr_id, sandbox=sandbox)
                         ytd = accumulate_ytd(ytd, line, period_factor=24 if emp_is_quincenal else 12,
                                              period_key=period_key, period_id=period_id)
-                        save_ytd(company_id, emp_id, year, ytd, sandbox=sandbox)
+                        save_ytd(company_id, emp_id, year, ytd, contract_id=_ctr_id, sandbox=sandbox)
                     except Exception:
                         pass
 
@@ -1964,7 +1979,7 @@ def payroll_simulate():
                     context={"baseSalary": base, "proratedSalary": prorated, "isQuincenal": emp_is_quincenal},
                     params=params,
                     period_id=sim_period_id, period_key=period_key,
-                    employee_id=emp_id, contract_id=emp.get("contractId", ""),
+                    employee_id=emp_id, contract_id=hr.resolve_employee_contract_id(emp),
                     payroll_line_id=line_id, period_revision=1,
                     legal_entity_id="", group_id=selected_group_id,
                 )
@@ -2133,7 +2148,7 @@ def payroll_simulate():
                     periodKey=period_key,
                     payrollLineId=line_id,
                     employeeId=emp_id,
-                    contractId=emp.get("contractId", ""),
+                    contractId=hr.resolve_employee_contract_id(emp),
                     legalEntityId="",
                     groupId=selected_group_id,
                     conceptCode=concept_code,
@@ -2200,7 +2215,7 @@ def payroll_simulate():
                     context={"baseSalary": base, "grossIncome": cotizable_income, "isQuincenal": emp_is_quincenal},
                     params=params,
                     period_id=sim_period_id, period_key=period_key,
-                    employee_id=emp_id, contract_id=emp.get("contractId", ""),
+                    employee_id=emp_id, contract_id=hr.resolve_employee_contract_id(emp),
                     payroll_line_id=line_id, period_revision=1,
                     legal_entity_id="", group_id=selected_group_id,
                 )
@@ -2231,7 +2246,7 @@ def payroll_simulate():
                     },
                     params=params,
                     period_id=sim_period_id, period_key=period_key,
-                    employee_id=emp_id, contract_id=emp.get("contractId", ""),
+                    employee_id=emp_id, contract_id=hr.resolve_employee_contract_id(emp),
                     payroll_line_id=line_id, period_revision=1,
                 )
                 if tx:

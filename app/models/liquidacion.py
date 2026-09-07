@@ -112,6 +112,15 @@ class Totales(BaseModel):
 class LiquidacionOutput(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     employeeId: str = ""
+    contractId: str = ""  # Período laboral liquidado ("" = legacy)
+    contractPeriodNumber: int = 0
+    employmentStartDate: str = ""
+    employmentEndDate: str = ""
+    seniorityBaseDate: str = ""
+    vacationBaseDate: str = ""
+    contractSnapshot: dict = Field(default_factory=dict)
+    salaryTransactionsUsed: List[str] = Field(default_factory=list)
+    calculationVersion: int = 1
     employeeName: str = ""
     cedula: str = ""
     hireDate: str = ""

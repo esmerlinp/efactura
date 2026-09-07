@@ -1,0 +1,493 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Reincorporar — {{ employee.fullName }}{% endblock %}
+{% block extra_head %}
+<style>
+.fd-combo { position: relative; width: 100%; }
+.fd-combo-search {
+    width: 100%; padding-right: 30px; cursor: pointer;
+    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='M21 21l-4.35-4.35'/%3E%3C/svg%3E") no-repeat right 10px center;
+}
+.fd-combo-search:focus { cursor: text; }
+.fd-combo-list {
+    display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.10); z-index: 200;
+    max-height: 220px; overflow-y: auto;
+}
+.fd-combo-list.open { display: block; }
+.fd-opt {
+    padding: 9px 12px; cursor: pointer; font-size: 0.875rem;
+    color: var(--text-primary); border-bottom: 1px solid #f8fafc;
+}
+.fd-opt:last-child { border-bottom: none; }
+.fd-opt:hover, .fd-opt.active { background: rgba(30,58,138,0.06); }
+.fd-opt.selected { font-weight: 700; }
+.fd-empty { padding: 12px; text-align: center; color: var(--text-muted); font-size: 0.85rem; }
+</style>
+{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+
+<div class="hr-page-header">
+    <div>
+        <h1><i class="fa-solid fa-user-plus"></i> Reincorporar empleado</h1>
+        <p>Se creará una <strong>nueva relación laboral</strong> del mismo empleado. La relación anterior queda cerrada e intacta.</p>
+    </div>
+    <a href="{{ url_for('web_rrhh.employee_view', employee_id=employee.id) }}" class="btn btn-ghost">
+        <i class="fa-solid fa-arrow-left"></i> Volver a la ficha
+    </a>
+</div>
+
+<div class="hr-section-card" style="margin-top:16px;">
+    <h3><i class="fa-solid fa-clock-rotate-left"></i> Última relación laboral (histórica, no editable)</h3>
+    <div class="hr-form-grid">
+        <div><strong>Empleado:</strong> {{ employee.fullName }} (código {{ employee.code or '—' }})</div>
+        <div><strong>Identificación:</strong> {{ employee.cedula or employee.idNumber or '—' }}</div>
+        <div><strong>Ingreso anterior:</strong> {{ previous.startDate or previous.hireDate or employee.hireDate or '—' }}</div>
+        <div><strong>Salida anterior:</strong> {{ previous.endDate or previous.terminationDate or employee.terminationDate or '—' }}</div>
+        <div><strong>Puesto:</strong> {{ previous.position or employee.position or '—' }}</div>
+        <div><strong>Departamento:</strong> {{ previous.department or previous.departmentId or employee.department or employee.departmentId or '—' }}</div>
+        <div><strong>Salario:</strong> RD$ {{ '%.2f'|format((previous.salary or employee.baseSalary or employee.salary or 0)|float) }}</div>
+        <div><strong>Tipo de salida:</strong> {{ previous.terminationType or employee.terminationType or '—' }}</div>
+    </div>
+    {% if contracts and contracts|length > 0 %}
+    <h4 style="margin-top:12px;">Historial de períodos</h4>
+    <table class="table-premium" style="width:100%;">
+        <thead><tr><th>#</th><th>Inicio</th><th>Fin</th><th>Puesto</th><th>Salario</th><th>Estado</th></tr></thead>
+        <tbody>
+        {% for c in contracts %}
+            <tr>
+                <td>{{ c.periodNumber or loop.index }}</td>
+                <td>{{ c.startDate or '—' }}</td>
+                <td>{{ c.endDate or 'Actualidad' }}</td>
+                <td>{{ c.position or '—' }}</td>
+                <td>RD$ {{ '%.2f'|format((c.salary or 0)|float) }}</td>
+                <td>{{ c.status or '—' }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>
+
+<form method="POST" action="{{ url_for('web_rrhh.employee_rehire', employee_id=employee.id) }}" onsubmit="return confirmRehire(this);" style="margin-top:16px;" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="rehireRequestId" value="reh_{{ employee.id[:8] }}_{{ previous.startDate or employee.hireDate or '' }}_{{ previous.endDate or employee.terminationDate or '' }}">
+
+    <div class="hr-section-card">
+        <h3><i class="fa-solid fa-user"></i> Nueva relación laboral</h3>
+        <div style="margin-bottom:12px;">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="copyPrevious()">
+                <i class="fa-solid fa-copy"></i> Restablecer valores de la relación anterior
+            </button>
+            <small style="color:var(--text-secondary); margin-left:8px;">El formulario inicia con los datos anteriores; modifique lo necesario. No modifica la relación anterior.</small>
+        </div>
+        <div class="hr-form-grid">
+            <div class="form-group">
+                <label>Fecha de reincorporación <span class="text-danger">*</span></label>
+                <input type="date" name="startDate" id="startDate" required class="form-input" style="width:100%;">
+            </div>
+            <div class="form-group">
+                <label>Tipo de contrato</label>
+                <select name="contractType" id="contractType" class="form-select" style="width:100%;">
+                    <option value="">Seleccionar tipo</option>
+                    {% for ct in contract_types %}
+                    <option value="{{ ct.value }}" {% if (previous.contractType or employee.contractType) == ct.value %}selected{% endif %}>{{ ct.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Cargo</label>
+                <div class="fd-combo" data-combo="positionId">
+                    <input type="text" class="form-input fd-combo-search" id="search-positionId" placeholder="Buscar y seleccionar cargo…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="list-positionId" style="width:100%;">
+                    <input type="hidden" name="positionId" id="positionId" value="{{ prev_position_id }}">
+                    <div class="fd-combo-list" id="list-positionId" role="listbox"></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Departamento</label>
+                <div class="fd-combo" data-combo="departmentCatalog">
+                    <input type="text" class="form-input fd-combo-search" id="search-departmentCatalog" placeholder="Buscar y seleccionar departamento…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="list-departmentCatalog" style="width:100%;">
+                    <input type="hidden" name="department_catalog" id="departmentCatalog" value="{{ prev_department }}">
+                    <div class="fd-combo-list" id="list-departmentCatalog" role="listbox"></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Área</label>
+                <div class="fd-combo" data-combo="area">
+                    <input type="text" class="form-input fd-combo-search" id="search-area" placeholder="Buscar y seleccionar área…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="list-area" style="width:100%;">
+                    <input type="hidden" name="area" id="area" value="{{ prev_area }}">
+                    <div class="fd-combo-list" id="list-area" role="listbox"></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Supervisor directo</label>
+                <div class="fd-combo" data-combo="reportsTo">
+                    <input type="text" class="form-input fd-combo-search" id="search-reportsTo" placeholder="Buscar y seleccionar supervisor…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="list-reportsTo" style="width:100%;">
+                    <input type="hidden" name="reportsTo" id="reportsTo" value="{{ previous.reportsTo or employee.reportsTo or '' }}">
+                    <div class="fd-combo-list" id="list-reportsTo" role="listbox"></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Centro de costo</label>
+                <input type="text" name="costCenter" id="costCenter" class="form-input" style="width:100%;" value="{{ previous.costCenter or employee.costCenter or '' }}">
+            </div>
+            <div class="form-group">
+                <label>Salario base mensual (RD$) <span class="text-danger">*</span></label>
+                <input type="number" name="newSalary" id="newSalary" required class="form-input" style="width:100%;" step="0.01" min="0" value="{{ previous.salary or employee.baseSalary or employee.salary or '' }}">
+            </div>
+            <div class="form-group">
+                <label>Jornada</label>
+                <select name="workday" id="workday" class="form-select" style="width:100%;">
+                    <option value="">Seleccionar jornada</option>
+                    {% for w in workdays %}
+                    <option value="{{ w.value }}" {% if (previous.workday or employee.workday) == w.value %}selected{% endif %}>{{ w.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Sucursal</label>
+                <select name="branchId" id="branchId" class="form-select" style="width:100%;">
+                    <option value="">Seleccionar sucursal</option>
+                    {% for b in branches %}
+                    <option value="{{ b.id }}" {% if (previous.branchId or employee.branchId) == b.id %}selected{% endif %}>{{ b.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Ubicación</label>
+                <input type="text" name="workLocation" id="workLocation" class="form-input" style="width:100%;" value="{{ previous.workLocation or '' }}">
+            </div>
+            <div class="form-group">
+                <label>Forma de pago</label>
+                <select name="paymentMethod" id="paymentMethod" class="form-select" style="width:100%;">
+                    <option value="">Seleccionar método</option>
+                    {% for m in payment_methods %}
+                    <option value="{{ m.value }}" {% if (previous.paymentMethod or employee.paymentMethod) == m.value %}selected{% endif %}>{{ m.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Banco</label>
+                <select name="bank" id="bank" class="form-select" style="width:100%;">
+                    <option value="">Seleccionar banco</option>
+                    {% for b in bancos %}
+                    <option value="{{ b }}" {% if (previous.bank or employee.bank) == b %}selected{% endif %}>{{ b }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Cuenta</label>
+                <input type="text" name="accountNumber" id="accountNumber" class="form-input" style="width:100%;" value="{{ previous.accountNumber or employee.accountNumber or '' }}">
+            </div>
+            <div class="form-group">
+                <label>Tipo de cuenta</label>
+                <select name="accountType" id="accountType" class="form-select" style="width:100%;">
+                    <option value="">Seleccionar tipo</option>
+                    {% for a in account_types %}
+                    <option value="{{ a.value }}" {% if (previous.accountType or employee.accountType) == a.value %}selected{% endif %}>{{ a.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" style="grid-column:1 / -1;">
+                <label>Grupos de nómina</label>
+                <small style="color:var(--text-secondary);">Solo se muestran grupos activos.</small>
+                <div style="display:flex; flex-direction:column; gap:4px; padding:6px 0;">
+                    {% for g in payroll_groups %}
+                    <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
+                        <input type="checkbox" name="payrollGroupIds" value="{{ g.id }}"
+                               style="width:16px; height:16px; accent-color:var(--accent-emerald);"
+                               {% if g.id in (previous.payrollGroupIds or employee.payrollGroupIds or []) %}checked{% endif %}>
+                        <strong>{{ g.name }}</strong>
+                    </label>
+                    {% else %}
+                    <p style="font-size:0.78rem; color:var(--text-muted); margin:0;">No hay grupos de nómina.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="hr-form-grid" style="margin-top:12px;">
+            <div class="form-group">
+                <label>Antigüedad legal</label>
+                <select name="seniorityPolicy" id="seniorityPolicy" class="form-select" style="width:100%;" onchange="toggleBase('seniority')">
+                    <option value="reset" selected>Reiniciar (desde nueva fecha)</option>
+                    <option value="preserve">Preservar (fecha negociada)</option>
+                </select>
+            </div>
+            <div class="form-group" id="seniorityBaseDiv" style="display:none;">
+                <label>Fecha base de antigüedad <span class="text-danger">*</span></label>
+                <input type="date" name="seniorityBaseDate" id="seniorityBaseDate" class="form-input" style="width:100%;">
+            </div>
+            <div class="form-group">
+                <label>Vacaciones</label>
+                <select name="vacationPolicy" id="vacationPolicy" class="form-select" style="width:100%;" onchange="toggleBase('vacation')">
+                    <option value="reset" selected>Reiniciar (nuevo período)</option>
+                    <option value="preserve">Preservar (fecha negociada)</option>
+                </select>
+            </div>
+            <div class="form-group" id="vacationBaseDiv" style="display:none;">
+                <label>Fecha base de vacaciones <span class="text-danger">*</span></label>
+                <input type="date" name="vacationBaseDate" id="vacationBaseDate" class="form-input" style="width:100%;">
+            </div>
+        </div>
+    </div>
+
+    <div class="hr-section-card" style="margin-top:16px;">
+        <h3><i class="fa-solid fa-repeat"></i> Movimientos a iniciar con la nueva relación</h3>
+        <p style="color:var(--text-secondary);">No se copian automáticamente. Seleccione solo los que deben comenzar de nuevo. Los préstamos nunca se copian.</p>
+        {% if suggest_movements and suggest_movements|length > 0 %}
+        <table class="table-premium" style="width:100%;">
+            <thead><tr><th></th><th>Concepto</th><th>Tipo</th><th>Monto</th><th>Contrato anterior</th></tr></thead>
+            <tbody>
+            {% for m in suggest_movements %}
+                <tr>
+                    <td><input type="checkbox" name="selectedMovements" value="{{ m.id }}"></td>
+                    <td>{{ m.conceptCode or m.description or '—' }}</td>
+                    <td>{{ m.movementType or '—' }}</td>
+                    <td>RD$ {{ '%.2f'|format((m.amount or 0)|float) }}</td>
+                    <td>{{ m.contractId or 'legacy' }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p>No hay movimientos sugeridos (o solo existen préstamos/legados cerrados).</p>
+        {% endif %}
+    </div>
+
+    <div class="hr-section-card" style="margin-top:16px;">
+        <h3><i class="fa-solid fa-paperclip"></i> Documentos de la reincorporación</h3>
+        <p style="color:var(--text-secondary);">Opcional. Se guardan vinculados al <strong>nuevo período laboral</strong> y quedan visibles en la ficha del empleado (pestaña Documentos).</p>
+        <div class="hr-form-grid">
+            <div class="form-group" style="grid-column:1 / -1;">
+                <label>Adjuntar archivos (contrato firmado, cédula, etc.)</label>
+                <input type="file" name="rehireDocs" id="rehireDocs" class="form-input" style="width:100%;" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx">
+                <small style="color:var(--text-secondary);">Máximo 10MB por archivo.</small>
+            </div>
+            <div class="form-group" style="grid-column:1 / -1;">
+                <label>Notas de los documentos</label>
+                <input type="text" name="rehireDocNotes" class="form-input" style="width:100%;" placeholder="Ej. Contrato firmado 2026-2027">
+            </div>
+        </div>
+    </div>
+
+    <div class="hr-section-card" style="margin-top:16px;">
+        <h3><i class="fa-solid fa-circle-check"></i> Confirmación</h3>
+        <div id="rehireSummary" style="color:var(--text-secondary);">Complete la fecha, puesto y salario para ver el resumen.</div>
+        <label class="checkbox-label" style="margin-top:8px;">
+            <input type="checkbox" id="confirmCheck" required> Confirmo que se creará una <strong>nueva relación laboral</strong> sin modificar la anterior.
+        </label>
+    </div>
+
+    <div class="hr-actions-bar" style="margin-top:16px;">
+        <button type="submit" class="btn btn-success">
+            <i class="fa-solid fa-user-plus"></i> Confirmar reincorporación
+        </button>
+        <a href="{{ url_for('web_rrhh.employee_view', employee_id=employee.id) }}" class="btn btn-ghost">Cancelar</a>
+    </div>
+</form>
+
+<script>
+function toggleBase(kind) {
+  if (kind === 'seniority') {
+    var v = document.getElementById('seniorityPolicy').value;
+    document.getElementById('seniorityBaseDiv').style.display = (v === 'preserve') ? 'block' : 'none';
+  } else {
+    var v2 = document.getElementById('vacationPolicy').value;
+    document.getElementById('vacationBaseDiv').style.display = (v2 === 'preserve') ? 'block' : 'none';
+  }
+  updateSummary();
+}
+/* ── Filter-dropdown: un solo componente buscar+seleccionar por campo ── */
+var FD_DATA = {
+  positionId: [
+    {% for p in positions %}{ value: {{ p.id|tojson }}, label: {{ p.name|tojson }} },{% endfor %}
+  ],
+  departmentCatalog: [
+    {% for d in departments %}{ value: {{ d.name|tojson }}, label: {{ d.name|tojson }} },{% endfor %}
+  ],
+  area: [
+    {% for a in areas %}{ value: {{ a.value|tojson }}, label: {{ a.label|tojson }} },{% endfor %}
+  ],
+  reportsTo: [
+    { value: '', label: '— Sin supervisor —' },
+    {% for s in supervisors %}{ value: {{ s.id|tojson }}, label: {{ s.fullName|tojson }} },{% endfor %}
+  ]
+};
+function fdLabel(key, value) {
+  if (!value) return '';
+  var opts = FD_DATA[key] || [];
+  for (var i = 0; i < opts.length; i++) {
+    if (opts[i].value === value) return opts[i].label;
+  }
+  return '';
+}
+function fdCloseAll(except) {
+  document.querySelectorAll('.fd-combo-list.open').forEach(function(list) {
+    if (list.id !== except) {
+      list.classList.remove('open');
+      var inp = document.querySelector('.fd-combo-search[aria-controls="' + list.id + '"]');
+      if (inp) inp.setAttribute('aria-expanded', 'false');
+    }
+  });
+}
+function fdRender(key, query) {
+  var list = document.getElementById('list-' + key);
+  if (!list) return;
+  var q = (query || '').trim().toLowerCase();
+  var hidden = document.getElementById(key);
+  var current = hidden ? hidden.value : '';
+  var opts = FD_DATA[key] || [];
+  var html = '';
+  var shown = 0;
+  for (var i = 0; i < opts.length; i++) {
+    if (q && opts[i].value && opts[i].label.toLowerCase().indexOf(q) === -1) continue;
+    shown++;
+    html += '<div class="fd-opt' + (opts[i].value === current ? ' selected' : '') + '" role="option" data-key="' + key + '" data-value="' + opts[i].value.replace(/"/g, '&quot;') + '">' + opts[i].label.replace(/</g, '&lt;') + '</div>';
+  }
+  list.innerHTML = html || '<div class="fd-empty">Sin coincidencias</div>';
+}
+function fdSelect(key, value) {
+  var hidden = document.getElementById(key);
+  var search = document.getElementById('search-' + key);
+  if (hidden) hidden.value = value;
+  if (search) search.value = fdLabel(key, value);
+  fdCloseAll();
+  updateSummary();
+}
+function fdCommit(key) {
+  /* Al salir: si el texto coincide exactamente con una opción, tomarla;
+     si está vacío, limpiar; si no, revertir a la selección guardada. */
+  var hidden = document.getElementById(key);
+  var search = document.getElementById('search-' + key);
+  if (!hidden || !search) return;
+  var txt = (search.value || '').trim();
+  if (!txt) {
+    hidden.value = '';
+    fdCloseAll();
+    updateSummary();
+    return;
+  }
+  var opts = FD_DATA[key] || [];
+  for (var i = 0; i < opts.length; i++) {
+    if (opts[i].label.toLowerCase() === txt.toLowerCase()) {
+      hidden.value = opts[i].value;
+      search.value = opts[i].label;
+      fdCloseAll();
+      updateSummary();
+      return;
+    }
+  }
+  search.value = fdLabel(key, hidden.value);
+  fdCloseAll();
+}
+document.querySelectorAll('.fd-combo').forEach(function(box) {
+  var key = box.getAttribute('data-combo');
+  var search = box.querySelector('.fd-combo-search');
+  var list = box.querySelector('.fd-combo-list');
+  search.addEventListener('focus', function() {
+    fdRender(key, search.value);
+    fdCloseAll(list.id);
+    list.classList.add('open');
+    search.setAttribute('aria-expanded', 'true');
+  });
+  search.addEventListener('click', function() {
+    fdRender(key, search.value);
+    fdCloseAll(list.id);
+    list.classList.add('open');
+    search.setAttribute('aria-expanded', 'true');
+  });
+  search.addEventListener('input', function() {
+    fdRender(key, search.value);
+    list.classList.add('open');
+    search.setAttribute('aria-expanded', 'true');
+  });
+  search.addEventListener('keydown', function(ev) {
+    if (ev.key === 'Escape') { fdCommit(key); search.blur(); }
+    else if (ev.key === 'Enter') {
+      ev.preventDefault();
+      var first = list.querySelector('.fd-opt');
+      if (first && list.classList.contains('open')) fdSelect(key, first.getAttribute('data-value'));
+    }
+    else if (ev.key === 'ArrowDown') {
+      ev.preventDefault();
+      list.classList.add('open');
+      var f = list.querySelector('.fd-opt');
+      if (f) f.classList.add('active');
+    }
+  });
+  search.addEventListener('blur', function() { setTimeout(function() { fdCommit(key); }, 150); });
+  list.addEventListener('mousedown', function(ev) {
+    var opt = ev.target.closest('.fd-opt');
+    if (opt) { ev.preventDefault(); fdSelect(key, opt.getAttribute('data-value')); }
+  });
+});
+document.addEventListener('click', function(ev) {
+  if (!ev.target.closest('.fd-combo')) fdCloseAll();
+});
+function fdInit() {
+  ['positionId', 'departmentCatalog', 'area', 'reportsTo'].forEach(function(key) {
+    var hidden = document.getElementById(key);
+    var search = document.getElementById('search-' + key);
+    if (hidden && search) search.value = fdLabel(key, hidden.value);
+  });
+}
+function selectedText(id) {
+  var search = document.getElementById('search-' + id);
+  if (search) return search.value || '—';
+  var el = document.getElementById(id);
+  return (el && el.value) || '—';
+}
+function copyPrevious() {
+  fdSelect('positionId', {{ prev_position_id|tojson }});
+  fdSelect('departmentCatalog', {{ prev_department|tojson }});
+  fdSelect('area', {{ prev_area|tojson }});
+  document.getElementById('newSalary').value = {{ (previous.salary or employee.baseSalary or employee.salary or 0)|tojson }};
+  document.getElementById('costCenter').value = {{ (previous.costCenter or employee.costCenter or '')|tojson }};
+  document.getElementById('contractType').value = {{ (previous.contractType or employee.contractType or '')|tojson }};
+  fdSelect('reportsTo', {{ (previous.reportsTo or employee.reportsTo or '')|tojson }});
+  document.getElementById('workday').value = {{ (previous.workday or employee.workday or '')|tojson }};
+  document.getElementById('branchId').value = {{ (previous.branchId or employee.branchId or '')|tojson }};
+  document.getElementById('workLocation').value = {{ (previous.workLocation or '')|tojson }};
+  document.getElementById('paymentMethod').value = {{ (previous.paymentMethod or employee.paymentMethod or '')|tojson }};
+  document.getElementById('bank').value = {{ (previous.bank or employee.bank or '')|tojson }};
+  document.getElementById('accountNumber').value = {{ (previous.accountNumber or employee.accountNumber or '')|tojson }};
+  document.getElementById('accountType').value = {{ (previous.accountType or employee.accountType or '')|tojson }};
+  updateSummary();
+}
+document.addEventListener('DOMContentLoaded', function() { fdInit(); updateSummary(); });
+function updateSummary() {
+  var s = document.getElementById('startDate').value || '—';
+  var p = selectedText('positionId');
+  var sal = document.getElementById('newSalary').value || '0';
+  var checked = document.querySelectorAll('input[name="selectedMovements"]:checked').length;
+  var sp = document.getElementById('seniorityPolicy').value;
+  var vp = document.getElementById('vacationPolicy').value;
+  document.getElementById('rehireSummary').innerHTML =
+    '<strong>Empleado:</strong> {{ employee.fullName }}<br>' +
+    '<strong>Relación anterior:</strong> {{ previous.startDate or employee.hireDate or "—" }} → {{ previous.endDate or employee.terminationDate or "—" }}<br>' +
+    '<strong>Nueva relación:</strong> ' + s + ' → Actualidad<br>' +
+    '<strong>Puesto:</strong> ' + p + '<br>' +
+    '<strong>Salario:</strong> RD$ ' + sal + '<br>' +
+    '<strong>Movimientos seleccionados:</strong> ' + checked + '<br>' +
+    '<strong>Vacaciones:</strong> ' + (vp === 'reset' ? 'Nuevo período' : 'Preservar según fecha base') + '<br>' +
+    '<strong>Antigüedad:</strong> ' + (sp === 'reset' ? 'Reinicia en ' + s : 'Preservada según fecha base');
+}
+document.addEventListener('input', updateSummary);
+document.addEventListener('change', updateSummary);
+function confirmRehire(form) {
+  var s = document.getElementById('startDate').value;
+  if (!s) { alert('Indique la fecha de reincorporación.'); return false; }
+  var sp = document.getElementById('seniorityPolicy').value;
+  var vp = document.getElementById('vacationPolicy').value;
+  if (sp === 'preserve' && !document.getElementById('seniorityBaseDate').value) {
+    alert('Con antigüedad preservada debe indicar la fecha base.'); return false;
+  }
+  if (vp === 'preserve' && !document.getElementById('vacationBaseDate').value) {
+    alert('Con vacaciones preservadas debe indicar la fecha base.'); return false;
+  }
+  return confirm('¿Confirmar reincorporación?\n\nSe creará una NUEVA relación laboral sin modificar la anterior.');
+}
+</script>
+{% endblock %}

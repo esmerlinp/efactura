@@ -84,13 +84,32 @@ def vacation_new():
             r for r in hr.get_vacation_requests(company_id, sandbox=sandbox)
             if r.get("employeeId") == emp_id
         ]
+        # Frontera Fase 2.5: si hay contrato activo, el saldo nace de vacationBaseDate
+        # y solo cuenta solicitudes del período actual (histórico intacto, no mezclado).
+        _active_ctr = None
+        _vac_base = employee.get("hireDate", "")
+        try:
+            _active_ctr = hr.get_active_contract_for_employee(company_id, emp_id, sandbox=sandbox)
+        except Exception:
+            _active_ctr = None
+        if _active_ctr:
+            _ctx = hr.get_employment_context(employee, _active_ctr)
+            _vac_base = _ctx.get("vacationBaseDate") or _vac_base
+            if (_active_ctr.get("vacationPolicy", "reset") == "reset"):
+                _cid = _active_ctr.get("id", "")
+                emp_vac_requests = [
+                    r for r in emp_vac_requests
+                    if (r.get("contractId") or "") == _cid
+                    or (not (r.get("contractId") or "") and (r.get("startDate", "") or "") >= (_vac_base or ""))
+                ]
         taken_days = EmployeeStatusService.taken_vacation_days(emp_vac_requests)
-        remaining = PayrollService.calculate_vacation_days(employee.get("hireDate", ""), taken_days=taken_days)
+        remaining = PayrollService.calculate_vacation_days(_vac_base, taken_days=taken_days)
 
         req_id = str(uuid.uuid4())
         hr.save_vacation_request(company_id, req_id, {
             "id": req_id,
             "employeeId": emp_id,
+            "contractId": (_active_ctr.get("id", "") if _active_ctr else hr.resolve_employee_contract_id(employee)),
             "employeeName": employee.get("fullName", ""),
             "startDate": start_date,
             "endDate": end_date,

@@ -76,9 +76,16 @@ def leave_new():
         days = (datetime.strptime(end_date, "%Y-%m-%d") - datetime.strptime(start_date, "%Y-%m-%d")).days + 1
 
         req_id = str(uuid.uuid4())
+        _ctr_id = ""
+        try:
+            _act = hr.get_active_contract_for_employee(company_id, emp_id, sandbox=sandbox)
+            _ctr_id = (_act.get("id", "") if _act else hr.resolve_employee_contract_id(employee))
+        except Exception:
+            _ctr_id = hr.resolve_employee_contract_id(employee)
         hr.save_leave_request(company_id, req_id, {
             "id": req_id,
             "employeeId": emp_id,
+            "contractId": _ctr_id,
             "employeeName": employee.get("fullName", ""),
             "leaveType": request.form.get("leaveType", "otro"),
             "startDate": start_date,

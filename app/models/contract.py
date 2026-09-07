@@ -47,6 +47,31 @@ class EmploymentContract(BaseModel):
     terminationReason: Optional[str] = None
     terminationType: str = ""  # "renuncia" | "despido" | "mutuo_acuerdo" | "fin_contrato" | "otro"
 
+    # Período laboral (reincorporación — múltiples períodos por empleado)
+    # Employee = identidad + snapshot operativo; EmploymentContract = cada relación.
+    periodNumber: int = 1  # 1, 2, 3... incremental por empleado
+    origin: str = ""  # "initial_hire" | "rehire" | "contract_change" | "legacy" | ""
+    previousContractId: str = ""  # contrato anterior (solo origin=rehire/contract_change)
+    rehireRequestId: str = ""  # idempotency key / solicitud de rehire asociada
+    closedAt: str = ""  # ISO datetime de cierre del período
+
+    # Políticas explícitas de la relación (determinísticas, nunca inferidas)
+    seniorityPolicy: str = "reset"  # "reset" | "preserve"
+    seniorityBaseDate: str = ""  # YYYY-MM-DD; reset → startDate, preserve → fecha explícita
+    vacationPolicy: str = "reset"  # "reset" | "preserve"
+    vacationBaseDate: str = ""  # YYYY-MM-DD inicio del período de vacaciones de ESTA relación
+
+    # Snapshot operativo extendido de la relación (para no perder historia en Employee)
+    positionId: str = ""
+    departmentId: str = ""
+    reportsTo: str = ""  # Employee ID del supervisor en esta relación
+    paymentMethod: str = ""  # "transferencia" | "cheque" | "efectivo" | "deposito"
+    bank: str = ""
+    accountNumber: str = ""
+    accountType: str = ""  # "ahorro" | "corriente"
+    variableSalary: float = 0.0  # salario variable mensual pactado (si aplica)
+    workLocation: str = ""  # ubicación / sucursal textual libre
+
     # Grupos de nómina donde participa este contrato
     payrollGroupIds: List[str] = []
 

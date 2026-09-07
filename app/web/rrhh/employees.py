@@ -895,6 +895,29 @@ def employee_view(employee_id):
     except Exception:
         pass
 
+    # Períodos laborales (EmploymentContract) para historial de reincorporaciones
+    employment_contracts = []
+    active_contract = None
+    try:
+        employment_contracts = hr.get_contracts_for_employee(company_id, employee_id, sandbox=sandbox)
+        active_contract = hr.get_active_contract_for_employee(company_id, employee_id, sandbox=sandbox)
+    except Exception:
+        pass
+
+    # Enlazar documentos con su período laboral: los adjuntos de una
+    # reincorporación traen contractId (+ nota "Reincorporación…") y deben
+    # distinguirse en el tab Documentos sin filtrar ningún registro.
+    try:
+        _ctr_by_id = {c.get("id"): c for c in (employment_contracts or []) if c.get("id")}
+        for _d in (docs or []):
+            _cid = (_d.get("contractId") or "").strip()
+            _c = _ctr_by_id.get(_cid) if _cid else None
+            _d["_periodNumber"] = (_c or {}).get("periodNumber", "")
+            _d["_periodStatus"] = (_c or {}).get("status", "")
+            _d["_isRehireDoc"] = bool(_cid and _c) or (_d.get("notes") or "").startswith("Reincorporación")
+    except Exception:
+        pass
+
     branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id)
     employee_work_days = PayrollService.resolve_employee_work_days(company_id, employee, sandbox=sandbox)
     from app.data.education_catalog import get_education_label
@@ -920,6 +943,8 @@ def employee_view(employee_id):
                            herramientas_asignadas=herramientas_asignadas,
                            recurring_movements=recurring_movements,
                            offboarding_requests=offboarding_requests,
+                           employment_contracts=employment_contracts,
+                           active_contract=active_contract,
                            states=offboarding_states,
                            sirla_education_label=get_education_label(employee.get("sirlaEducationCode", "")),
                            sirla_nationality_name=get_nationality_name(employee.get("nationality", 1)),
@@ -994,61 +1019,250 @@ def employee_actions_export_pdf(employee_id):
         return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
 
 
-@web_rrhh_bp.route("/rrhh/employees/<employee_id>/rehire", methods=["POST"])
-def employee_rehire(employee_id):
+@web_rrhh_bp.route("/rrhh/employees/<employee_id>/rehire", methods=["GET"])
+def employee_rehire_form(employee_id):
+    """Formulario de reincorporación: muestra relación anterior + nueva relación + movimientos."""
     if _login_required():
         return redirect(url_for("web_auth.login"))
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
-    hr_serv = hr
-    employee = hr_serv.get_employee(company_id, employee_id, sandbox=sandbox)
+    employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
     if not employee:
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_list"))
-
     if is_active_equivalent(employee.get("status", "")):
-        flash("El empleado ya está activo.", "warning")
+        flash("No es posible reincorporar un empleado que ya posee una relación laboral activa.", "warning")
         return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
 
-    new_hire_date = request.form.get("newHireDate", "").strip()
-    new_position = request.form.get("newPosition", "").strip()
-    new_department = request.form.get("newDepartment", "").strip()
-    new_salary = float(request.form.get("newSalary", "0") or 0)
-    preserves_seniority = request.form.get("preservesSeniority") == "1"
-    reset_vacation = request.form.get("resetVacation") == "1"
+    previous = None
+    contracts = []
+    try:
+        contracts = hr.get_contracts_for_employee(company_id, employee_id, sandbox=sandbox)
+        previous = hr.get_last_terminated_contract(company_id, employee_id, sandbox=sandbox)
+    except Exception:
+        pass
+    if not previous:
+        # Previous virtual desde snapshot legacy (no crea registros)
+        previous = {
+            "id": "", "periodNumber": 0, "startDate": employee.get("hireDate", "") or "",
+            "endDate": employee.get("terminationDate", "") or "",
+            "position": employee.get("position", ""), "department": employee.get("department", employee.get("departmentId", "")),
+            "salary": employee.get("baseSalary", employee.get("salary", 0)),
+            "terminationType": employee.get("terminationType", ""),
+        }
+    try:
+        from app.services.recurring_service import get_recurring_movements
+        prev_movements = get_recurring_movements(company_id, employee_id=employee_id, sandbox=sandbox)
+    except Exception:
+        prev_movements = []
+    # Sugerir carry: no-préstamos activos/programados (préstamos nunca se copian)
+    suggest = [m for m in prev_movements
+               if not m.get("isLoan") and (m.get("status") or "") in ("active", "scheduled")]
+    try:
+        from app.services import hr_data_service as _hr2
+        liquidaciones = [l for l in _hr2._get_all(company_id, "liquidaciones", sandbox)
+                         if l.get("employeeId") == employee_id]
+    except Exception:
+        liquidaciones = []
+    # Catálogos (mismos que employee_new/edit para evitar inputs libres)
+    from app.services.payroll_static_data import (
+        CONTRACT_TYPES, AREAS, WORKDAYS, PAYMENT_METHODS, ACCOUNT_TYPES,
+    )
+    ref_data = hr.get_reference_data(company_id, sandbox=sandbox)
+    contract_types = ref_data.get("contractTypes", CONTRACT_TYPES)
+    areas = ref_data.get("areas", AREAS)
+    supervisors = [e for e in hr.get_employees(company_id, sandbox=sandbox)
+                   if is_active_equivalent(e.get("status", "")) and e.get("id") != employee_id]
+    positions = hr.get_catalog(company_id, "positions", sandbox=sandbox)
+    departments = hr.get_catalog(company_id, "departments", sandbox=sandbox)
+    # Solo grupos activos: un inactivo no puede recibir la nueva relación laboral.
+    payroll_groups = [g for g in hr.get_payroll_groups(company_id, sandbox=sandbox)
+                      if g.get("isActive", True)]
+    payroll_groups.sort(key=lambda g: g.get("name", ""))
+    from app.services.db_service import DatabaseService
+    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id)
+    bank_entities_list = DatabaseService.get_bank_entities(owner_uid, sandbox=sandbox, company_id=company_id)
+    bank_names = [be["name"] for be in bank_entities_list if be.get("active")]
+    # Defaults de preselección desde la relación anterior (fallback a snapshot del empleado)
+    prev_position_id = (previous.get("positionId") or employee.get("positionId") or "")
+    prev_position_name = (previous.get("position") or employee.get("position") or "")
+    if not prev_position_id and prev_position_name:
+        try:
+            prev_position_id, _ = _resolve_position(company_id, "", prev_position_name, sandbox)
+        except Exception:
+            pass
+    prev_department = (previous.get("department") or previous.get("departmentId")
+                       or employee.get("department") or employee.get("area") or "")
+    prev_area = (previous.get("area") or employee.get("area") or prev_department or "")
+    # Pre-llenado "Copiar datos de la relación anterior" (solo llena el formulario)
+    return render_template("rrhh/employee_rehire.html", active_page="rrhh_employees",
+                           employee=_sanitize_for_role(employee),
+                           previous=previous, contracts=contracts,
+                           prev_movements=prev_movements, suggest_movements=suggest,
+                           liquidaciones=liquidaciones,
+                           contract_types=contract_types, areas=areas,
+                           workdays=WORKDAYS, payment_methods=PAYMENT_METHODS,
+                           bancos=bank_names, account_types=ACCOUNT_TYPES,
+                           supervisors=supervisors,
+                           positions=positions, departments=departments,
+                           payroll_groups=payroll_groups, branches=branches,
+                           prev_position_id=prev_position_id,
+                           prev_position_name=prev_position_name,
+                           prev_department=prev_department, prev_area=prev_area)
 
-    employee["status"] = "activo"
-    employee["hireDate"] = new_hire_date or employee.get("hireDate", "")
 
-    if not preserves_seniority:
-        employee["originalHireDate"] = employee.get("hireDate", "")
-        employee["hireDate"] = new_hire_date or employee.get("hireDate", "")
-        employee["rehireAdjustedSeniority"] = False
+@web_rrhh_bp.route("/rrhh/employees/<employee_id>/rehire", methods=["POST"])
+def employee_rehire(employee_id):
+    """Ejecuta la reincorporación delegando al dominio (RehireService). Conserva endpoint legacy."""
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    from app.services.rehire_service import RehireService, RehireValidationError
 
-    if new_position:
-        employee["position"] = new_position
-    if new_department:
-        employee["departmentId"] = new_department
-    if new_salary > 0:
-        employee["baseSalary"] = new_salary
-        employee["salary"] = new_salary
+    # Compatibilidad: formulario legacy (newHireDate/preservesSeniority/resetVacation)
+    # y formulario nuevo (startDate/seniorityPolicy/vacationPolicy/baseDates).
+    start_date = (request.form.get("startDate") or request.form.get("newHireDate") or "").strip()
+    seniority_policy = (request.form.get("seniorityPolicy") or "").strip()
+    vacation_policy = (request.form.get("vacationPolicy") or "").strip()
+    if not seniority_policy:
+        seniority_policy = "preserve" if request.form.get("preservesSeniority") == "1" else "reset"
+    if not vacation_policy:
+        # legacy: resetVacation=1 → reset; ausencia → preserve (conservar) para no borrar sin aviso
+        vacation_policy = "reset" if request.form.get("resetVacation") == "1" else (
+            request.form.get("vacationPolicy", "reset").strip() or "reset")
+    seniority_base = (request.form.get("seniorityBaseDate")
+                      or request.form.get("continuousSeniorityDate") or "").strip()
+    vacation_base = (request.form.get("vacationBaseDate") or "").strip()
 
-    employee.pop("terminationDate", None)
-    employee.pop("terminationReason", None)
-    employee["rehireDate"] = datetime.now(timezone.utc).isoformat()
-    employee["rehireCount"] = employee.get("rehireCount", 0) + 1
+    def _f(key, default=""):
+        return (request.form.get(key) or default or "").strip()
 
-    if reset_vacation:
-        employee["vacationGranted"] = 0
+    try:
+        new_salary = float(request.form.get("newSalary", request.form.get("salary", "0")) or 0)
+    except Exception:
+        new_salary = 0
+    # Resolver puesto contra catálogo (igual que employee_new/edit): acepta
+    # positionId (select) o nombres legacy (newPosition/position).
+    _pos_id = _f("positionId")
+    _pos_name = _f("newPosition") or _f("position")
+    try:
+        _pos_id, _pos_name = _resolve_position(company_id, _pos_id, _pos_name, sandbox)
+    except Exception:
+        pass
+    # Departamento/área (igual que employee_new/edit): department_catalog o legacy.
+    _dept = _f("department_catalog") or _f("newDepartment") or _f("department")
+    _area = _f("area") or _dept
+    contract_data = {
+        "contractType": _f("contractType"),
+        "position": _pos_name,
+        "positionId": _pos_id,
+        "department": _dept or _area,
+        "departmentId": _dept or _f("departmentId"),
+        "area": _area,
+        "costCenter": _f("costCenter"),
+        "branchId": _f("branchId"),
+        "salary": new_salary,
+        "salaryType": _f("salaryType", "fijo"),
+        "hourlyRate": _f("hourlyRate", "0"),
+        "workday": _f("workday", "completa"),
+        "weeklyHours": _f("weeklyHours", "44"),
+        "workShift": _f("workShift", "1"),
+        "tssKey": _f("tssKey"),
+        "afpProvider": _f("afpProvider"),
+        "reportsTo": _f("reportsTo") or _f("supervisorId"),
+        "paymentMethod": _f("paymentMethod"),
+        "bank": _f("bank"),
+        "accountNumber": _f("accountNumber"),
+        "accountType": _f("accountType"),
+        "workLocation": _f("workLocation") or _f("location"),
+        "payrollGroupIds": request.form.getlist("payrollGroupIds") or None,
+        "occupationCode": _f("occupationCode"),
+        "probationEndDate": _f("probationEndDate"),
+        "notes": _f("notes"),
+        "_copyFromPrevious": request.form.get("copyFromPrevious") == "1",
+    }
+    # Limpiar vacíos para que el servicio aplique copia explícita solo si se pidió
+    contract_data = {k: v for k, v in contract_data.items()
+                     if v not in ("", None) or k in ("salary", "_copyFromPrevious")}
+    if contract_data.get("payrollGroupIds") is None:
+        contract_data.pop("payrollGroupIds", None)
 
-    hr_serv.save_employee(company_id, employee_id, employee, sandbox=sandbox)
+    selected = request.form.getlist("selectedMovements") or request.form.getlist("selected_movement_ids") or []
+    rehire_request_id = (_f("rehireRequestId") or _f("rehire_request_id") or "").strip()
+    actor = session.get("user", {}).get("email", "")
 
-    from app.services.payroll_audit_service import log_action
-    log_action(company_id, "rehire", "employee", employee_id,
-               session.get("user", {}).get("email", ""),
-               changes={"status": "activo", "rehireDate": employee["rehireDate"]},
-               sandbox=sandbox)
+    try:
+        svc = RehireService(company_id, sandbox)
+        res = svc.rehire_employee(
+            employee_id=employee_id, start_date=start_date, contract_data=contract_data,
+            selected_movement_ids=selected, seniority_policy=seniority_policy,
+            vacation_policy=vacation_policy, seniority_base_date=seniority_base,
+            vacation_base_date=vacation_base, rehire_request_id=rehire_request_id,
+            actor_email=actor,
+        )
+    except RehireValidationError as e:
+        flash(str(e), "error")
+        return redirect(url_for("web_rrhh.employee_rehire_form", employee_id=employee_id))
+    except Exception as e:
+        print(f"⚠️ employee_rehire: {e}")
+        flash(f"No se pudo completar la reincorporación: {e}", "error")
+        return redirect(url_for("web_rrhh.employee_rehire_form", employee_id=employee_id))
 
-    flash(f"Empleado {employee.get('fullName', '')} recontratado exitosamente.", "success")
+    contract = res.get("contract", {})
+    new_contract_id = contract.get("id", "")
+
+    # ── Documentos adjuntos a la reincorporación (contrato, cédula, etc.) ──
+    # Se guardan como documentos del empleado vinculados al NUEVO contractId,
+    # por lo que aparecen en la ficha y conservan el histórico por período.
+    saved_docs = 0
+    try:
+        from werkzeug.utils import secure_filename
+        from app.services.db_service import DatabaseService
+        _files = request.files.getlist("rehireDocs") or []
+        _doc_notes = request.form.get("rehireDocNotes", "").strip()
+        for _f in _files:
+            if not _f or not getattr(_f, "filename", ""):
+                continue
+            _data = _f.read()
+            if not _data:
+                continue
+            if len(_data) > 10 * 1024 * 1024:
+                flash(f"Documento {_f.filename} excede 10MB y fue omitido.", "warning")
+                continue
+            _safe = secure_filename(_f.filename) or "documento"
+            _dest = f"users/{owner_uid}/employee_documents/{employee_id}/{uuid.uuid4().hex[:8]}_{_safe}"
+            _url = DatabaseService.upload_file_to_storage(
+                _data, _dest, _f.content_type or "application/octet-stream")
+            hr.save_employee_document(company_id, {
+                "id": str(uuid.uuid4()),
+                "employeeId": employee_id,
+                "contractId": new_contract_id,
+                "name": _f.filename,
+                "category": "contract",
+                "notes": (f"Reincorporación {start_date} "
+                          f"(período {contract.get('periodNumber','')}). " + _doc_notes).strip(),
+                "size": len(_data),
+                "contentType": _f.content_type or "application/octet-stream",
+                "url": _url,
+                "storagePath": _dest,
+                "uploadedBy": actor,
+                "uploadedAt": datetime.now(timezone.utc).isoformat(),
+            }, sandbox=sandbox)
+            saved_docs += 1
+    except Exception as e:
+        print(f"⚠️ employee_rehire docs: {e}")
+        flash("La reincorporación se completó, pero un documento no pudo guardarse.", "warning")
+
+    if res.get("reused"):
+        _msg = f"Esta reincorporación ya había sido procesada (contrato {new_contract_id}). No se duplicó."
+        if saved_docs:
+            _msg += f" Se adjuntaron {saved_docs} documento(s) al período."
+        flash(_msg, "info")
+    else:
+        _msg = (f"Empleado reincorporado exitosamente "
+                f"(período {contract.get('periodNumber','')} desde {contract.get('startDate','')}).")
+        if saved_docs:
+            _msg += f" {saved_docs} documento(s) adjuntado(s)."
+        flash(_msg, "success")
     return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
 
 @web_rrhh_bp.route("/rrhh/employees/<employee_id>/photo", methods=["POST"])
