@@ -166,7 +166,7 @@
     </div>
 </div>
 
-<!-- Workflow Status -->
+<!-- Workflow (estado + siguiente paso) -->
 {% set simple_wf = simple_workflow if simple_workflow is defined else true %}
 {% if simple_wf %}
     {% set statuses = ['borrador','calculada','aprobada','pagada','contabilizada','cerrada'] %}
@@ -175,58 +175,49 @@
 {% endif %}
 {% set status_labels = {'borrador':'Borrador','calculada':'Calculada','validada':'Validada','aprobada':'Aprobada','contabilizada':'Contabilizada','pagada':'Pagada','cerrada':'Cerrada'} %}
 {% set current_idx = statuses.index(period.get('status','borrador')) if period.get('status','borrador') in statuses else 0 %}
-<div class="card-table-wrapper" style="padding:16px 24px; margin-bottom:16px;">
-    <div style="display:flex; align-items:center; gap:0; flex-wrap:wrap;">
+<div class="card-table-wrapper" style="padding:10px 16px; margin-bottom:16px;">
+    <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+    <div style="display:flex; align-items:center; gap:0; flex:1 1 320px; min-width:0; overflow-x:auto; padding:2px 0;">
     {% for s in statuses %}
-        <div style="display:flex; align-items:center; gap:0;">
-            <div style="display:flex; flex-direction:column; align-items:center; min-width:70px;">
-                <div style="width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+        <div style="display:flex; align-items:center; gap:0; flex:0 0 auto;">
+            <div style="display:flex; flex-direction:column; align-items:center; min-width:48px;">
+                <div style="width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center;
                     {% if statuses.index(s) < current_idx %}
                         background:var(--accent-emerald); color:#fff;
                     {% elif statuses.index(s) == current_idx %}
-                        background:var(--accent-emerald); color:#fff; box-shadow:0 0 0 4px rgba(16,185,129,0.2);
+                        background:var(--accent-emerald); color:#fff; box-shadow:0 0 0 3px rgba(16,185,129,0.2);
                     {% else %}
                         background:var(--bg-nav-hover); color:var(--text-muted);
                     {% endif %}
-                    font-size:0.72rem; font-weight:700;">
+                    font-size:0.62rem; font-weight:700;">
                     {% if statuses.index(s) < current_idx %}<i class="fa-solid fa-check"></i>{% else %}{{ loop.index }}{% endif %}
                 </div>
-                <div style="font-size:0.65rem; font-weight:600; margin-top:4px; color:
+                <div style="font-size:0.58rem; font-weight:600; margin-top:3px; white-space:nowrap; color:
                     {% if statuses.index(s) <= current_idx %}var(--text-primary){% else %}var(--text-muted){% endif %};">
                     {{ status_labels[s] }}
                 </div>
             </div>
             {% if not loop.last %}
-            <div style="width:24px; height:2px; background:
+            <div style="width:14px; height:2px; flex:0 0 auto; background:
                 {% if statuses.index(s) < current_idx %}var(--accent-emerald){% else %}var(--border-color){% endif %};
-                margin:0 4px; margin-bottom:18px;"></div>
+                margin:0 3px; margin-bottom:15px;"></div>
             {% endif %}
         </div>
     {% endfor %}
     </div>
-</div>
-
-
-<!-- Workflow Actions -->
-{% set s = period.get('status','borrador') %}
-<div class="card-table-wrapper" style="padding:12px 20px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; border-left:4px solid var(--primary-color); background:var(--bg-nav-hover);">
-    <div style="display:flex; align-items:center; gap:12px;">
-        <i class="fa-solid fa-wand-magic-sparkles" style="color:var(--primary-color); font-size:1.2rem;"></i>
-        <div>
-            <div style="font-weight:600; font-size:0.9rem; color:var(--text-primary); margin-bottom:2px;">Siguiente paso requerido</div>
-            <div style="font-size:0.75rem; color:var(--text-muted);">
-                {% if s == 'calculada' %}{% if simple_wf %}Revisa los valores y aprueba la nómina para continuar con el pago.{% else %}Verifica que los datos de la nómina son correctos antes de validarla.{% endif %}
-                {% elif s == 'validada' %}Aprueba formalmente la nómina para proceder con su pago.
-                {% elif s == 'aprobada' %}Registra el pago de la nómina y la fecha de pago.
-                {% elif s == 'pagada' %}Genera el asiento contable y registra la nómina en contabilidad.
-                {% elif s == 'contabilizada' %}Cierra definitivamente el período. No se permitirán modificaciones.
-                {% elif s == 'cerrada' %}Período cerrado. Sin acciones disponibles.
-                {% elif s == 'borrador' %}Este período está en borrador. Procesa la nómina para actualizarlo.
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+    {% set s = period.get('status','borrador') %}
+    {% set step_desc = {
+        'calculada': ('Revisa los valores y aprueba la nómina para continuar con el pago.' if simple_wf else 'Verifica que los datos de la nómina son correctos antes de validarla.'),
+        'validada': 'Aprueba formalmente la nómina para proceder con su pago.',
+        'aprobada': 'Registra el pago de la nómina y la fecha de pago.',
+        'pagada': 'Genera el asiento contable y registra la nómina en contabilidad.',
+        'contabilizada': 'Cierra definitivamente el período. No se permitirán modificaciones.',
+        'cerrada': 'Período cerrado. Sin acciones disponibles.',
+        'borrador': 'Este período está en borrador. Procesa la nómina para actualizarlo.'
+    }.get(s, '') %}
+    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; flex:0 0 auto;">
+        <span class="badge" style="background:rgba(16,185,129,0.12); color:var(--accent-emerald); font-size:0.7rem; text-transform:capitalize;" title="{{ step_desc }}">{{ status_labels[s] }}</span>
+        <span style="font-size:0.72rem; color:var(--text-muted); max-width:280px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="{{ step_desc }}">{{ step_desc }}</span>
     {% if s == 'calculada' %}
         {% if simple_wf %}
         <form method="POST" action="{{ url_for('web_rrhh.payroll_approve', period_id=period.id) }}" style="margin:0;">
@@ -326,6 +317,7 @@
             </button>
         </form>
     {% endif %}
+    </div>
     </div>
 </div>
 
