@@ -431,8 +431,25 @@ def offboarding_settlement_calculate(request_id):
         return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id))
 
     termination_date = req.get("effectiveDate", "")
-    hire_date = employee.get("hireDate", "")
-    base_salary = float(employee.get("baseSalary", 0) or 0)
+    employee_id = req.get("employeeId", "")
+
+    # Contexto laboral del contrato que se liquida (no el snapshot actual).
+    from app.services.employment_context_service import (
+        EmploymentContextError, build_context, filter_movements,
+        get_transactions_for_context, resolve_for_employee,
+    )
+    try:
+        _s_ctx = resolve_for_employee(company_id, employee, termination_date, sandbox=sandbox)
+    except EmploymentContextError as e:
+        flash(str(e), "error")
+        return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id))
+    except Exception:
+        _s_ctx = None
+    if _s_ctx is None:
+        _s_ctx = build_context(employee, None)
+    _s_cid = _s_ctx.get("contractId", "")
+    hire_date = _s_ctx.get("seniorityBaseDate") or employee.get("hireDate", "")
+    base_salary = float(_s_ctx.get("salary", 0) or employee.get("baseSalary", 0) or 0)
     salary_frequency = employee.get("paymentFrequency", "") or "mensual"
     termination_type = req.get("terminationType", "renuncia_voluntaria")
 
@@ -440,15 +457,17 @@ def offboarding_settlement_calculate(request_id):
     vacation_pending_complete = int(request.form.get("vacationPendingCompleteYears", "0") or 0)
     vacation_taken_current = int(request.form.get("vacationTakenCurrentPeriod", "0") or 0)
 
-    employee_id = req.get("employeeId", "")
 
-    # Salario promedio real (base + conceptos que cotizan TSS) desde transacciones de nómina
+    # Salario promedio real aislado al contrato que se liquida.
     promedio_mensual = float(employee.get("averageSalary", 0) or 0)
     salaries_12 = [base_salary]
     salaries_ytd = [base_salary]
+    _s_txs = []
     try:
-        txs = hr.get_payroll_transactions(company_id, employee_id=employee_id, sandbox=sandbox)
-        prom = LiquidacionService.calcular_salario_promedio_mensual(txs)
+        _s_txs = get_transactions_for_context(company_id, employee_id, _s_ctx, sandbox=sandbox)
+        prom = LiquidacionService.calcular_salario_promedio_mensual(
+            _s_txs, contract_id=_s_cid,
+            start_date=_s_ctx.get("startDate", ""), end_date=_s_ctx.get("endDate", ""))
         if prom.get("promedio_mensual", 0) > 0:
             promedio_mensual = prom["promedio_mensual"]
             salaries_12 = prom.get("monthly_totals_last_12") or [promedio_mensual]
@@ -461,7 +480,8 @@ def offboarding_settlement_calculate(request_id):
         promedio_mensual = base_salary
         salaries_12 = [base_salary]
 
-    recurring_movements = get_recurring_movements(company_id, employee_id=employee_id, sandbox=sandbox)
+    recurring_movements = filter_movements(get_recurring_movements(
+        company_id, employee_id=employee_id, sandbox=sandbox), _s_ctx)
 
     from app.web.rrhh.liquidacion import _parse_additional_concepts, _parse_deductions
     additional_rows = _parse_additional_concepts(request.form)
@@ -476,6 +496,9 @@ def offboarding_settlement_calculate(request_id):
         termination_date=termination_date,
         termination_type=termination_type,
         last_base_salary=base_salary,
+        contract_id=_s_cid,
+        employment_context=_s_ctx,
+        salary_transactions_used=_s_txs,
         salary_frequency=salary_frequency,
         is_variable_salary=employee.get("isVariableSalary", False),
         monthly_salaries_last_12=salaries_12,
@@ -496,6 +519,12 @@ def offboarding_settlement_calculate(request_id):
     settlement_data = {
         "requestId": request_id,
         "employeeId": employee_id,
+        "contractId": _s_cid,
+        "contractPeriodNumber": _s_ctx.get("periodNumber", 0),
+        "employmentStartDate": _s_ctx.get("startDate", ""),
+        "employmentEndDate": _s_ctx.get("endDate", "") or termination_date,
+        "seniorityBaseDate": _s_ctx.get("seniorityBaseDate", ""),
+        "vacationBaseDate": _s_ctx.get("vacationBaseDate", ""),
         "hireDate": hire_date,
         "terminationDate": termination_date,
         "terminationType": termination_type,
@@ -767,11 +796,15 @@ def offboarding_rehire(request_id):
         return redirect(url_for("web_rrhh.offboarding_list"))
 
     if request.method == "POST":
-        new_employee_id = request.form.get("newEmployeeId", "").strip()
+        # Entrada compatible: delegar al dominio único (RehireService).
+        # Si no se elige otro empleado, se reincorpora el mismo de la solicitud.
+        from app.services.rehire_service import RehireService, RehireValidationError
+        new_employee_id = request.form.get("newEmployeeId", "").strip() or req.get("employeeId", "")
         new_hire_date = request.form.get("newHireDate", "").strip()
-        new_position = request.form.get("newPosition", "").strip()
-        new_department = request.form.get("newDepartment", "").strip()
-        new_salary = float(request.form.get("newSalary", "0") or 0)
+        try:
+            new_salary = float(request.form.get("newSalary", "0") or 0)
+        except Exception:
+            new_salary = 0
         preserves_seniority = request.form.get("preservesSeniority") == "1"
         continuous_date = request.form.get("continuousSeniorityDate", "").strip()
 
@@ -780,8 +813,8 @@ def offboarding_rehire(request_id):
             "originalEmployeeId": req.get("employeeId", ""),
             "newEmployeeId": new_employee_id,
             "newHireDate": new_hire_date,
-            "newPosition": new_position,
-            "newDepartment": new_department,
+            "newPosition": request.form.get("newPosition", "").strip(),
+            "newDepartment": request.form.get("newDepartment", "").strip(),
             "newSalary": new_salary,
             "preservesSeniority": preserves_seniority,
             "previousSeniorityDays": 0,
@@ -790,24 +823,35 @@ def offboarding_rehire(request_id):
             "approvedBy": _email(),
             "approvedAt": datetime.now(timezone.utc).isoformat(),
         }
-
         rehire_id = svc.save_rehire(data, _email())
         req["rehireId"] = rehire_id
         svc.save_request_raw(request_id, req, _email())
 
         if new_employee_id:
-            new_emp = hr.get_employee(company_id, new_employee_id, sandbox=sandbox)
-            if new_emp:
-                new_emp["status"] = "activo"
-                new_emp["hireDate"] = new_hire_date or new_emp.get("hireDate", "")
-                new_emp["position"] = new_position or new_emp.get("position", "")
-                new_emp["departmentId"] = new_department or new_emp.get("departmentId", "")
-                if new_salary > 0:
-                    new_emp["baseSalary"] = new_salary
-                hr.save_employee(company_id, new_employee_id, new_emp, sandbox=sandbox)
-                log_action(company_id, "rehire", "employee", new_employee_id,
-                           _email(), {"offboardingId": request_id}, sandbox=sandbox)
-                flash("Empleado recontratado exitosamente.", "success")
+            try:
+                rehire_svc = RehireService(company_id, sandbox)
+                rehire_svc.rehire_employee(
+                    employee_id=new_employee_id, start_date=new_hire_date,
+                    contract_data={
+                        "position": request.form.get("newPosition", "").strip(),
+                        "department": request.form.get("newDepartment", "").strip(),
+                        "departmentId": request.form.get("newDepartment", "").strip(),
+                        "salary": new_salary,
+                    },
+                    selected_movement_ids=[],
+                    seniority_policy="preserve" if preserves_seniority else "reset",
+                    vacation_policy="reset",
+                    seniority_base_date=continuous_date if preserves_seniority else "",
+                    vacation_base_date="",
+                    rehire_request_id=rehire_id,
+                    actor_email=_email(),
+                )
+                flash("Empleado recontratado exitosamente (nuevo período laboral).", "success")
+            except RehireValidationError as ve:
+                flash(str(ve), "error")
+            except Exception as e:
+                print(f"⚠️ offboarding_rehire: {e}")
+                flash(f"No se pudo completar la reincorporación: {e}", "error")
         return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id, tab="overview"))
 
     employees = hr.get_employees(company_id, sandbox=sandbox)
@@ -1283,16 +1327,38 @@ def offboarding_wizard_step1(request_id):
     if req.get("keepInCurrentPayroll"):
         dias_adeudados = 0
 
-    base_salary = float(employee.get("baseSalary", 0) or 0)
+    # Contexto laboral del contrato que se liquida (no el snapshot actual).
+    # Ambigüedad → se bloquea; sin contrato → fallback legacy.
+    from app.services.employment_context_service import (
+        EmploymentContextError, build_context, filter_movements,
+        get_transactions_for_context, resolve_for_employee,
+    )
+    try:
+        _off_ctx = resolve_for_employee(company_id, employee, termination_date, sandbox=sandbox)
+    except EmploymentContextError as e:
+        return jsonify({"success": False, "message": str(e)}), 400
+    except Exception:
+        _off_ctx = None
+    if _off_ctx is None:
+        _off_ctx = build_context(employee, None)
+    _off_contract_id = _off_ctx.get("contractId", "")
+    _off_start = _off_ctx.get("startDate", "")
+    _off_end = _off_ctx.get("endDate", "")
+    _off_hire = _off_ctx.get("seniorityBaseDate") or employee.get("hireDate", "")
+
+    base_salary = float(_off_ctx.get("salary", 0) or employee.get("baseSalary", 0) or 0)
     salary_frequency = employee.get("paymentFrequency", "") or "mensual"
 
-    # Salario promedio real (base + conceptos que cotizan TSS) desde transacciones de nómina
+    # Salario promedio real aislado al contrato que se liquida.
     promedio_mensual = float(employee.get("averageSalary", 0) or 0)
     salaries_12 = [base_salary]
     salaries_ytd = [base_salary]
+    scoped_txs = []
     try:
-        txs = hr.get_payroll_transactions(company_id, employee_id=employee["id"], sandbox=sandbox)
-        prom = LiquidacionService.calcular_salario_promedio_mensual(txs)
+        scoped_txs = get_transactions_for_context(
+            company_id, employee["id"], _off_ctx, sandbox=sandbox)
+        prom = LiquidacionService.calcular_salario_promedio_mensual(
+            scoped_txs, contract_id=_off_contract_id, start_date=_off_start, end_date=_off_end)
         if prom.get("promedio_mensual", 0) > 0:
             promedio_mensual = prom["promedio_mensual"]
             salaries_12 = prom.get("monthly_totals_last_12") or [promedio_mensual]
@@ -1310,18 +1376,21 @@ def offboarding_wizard_step1(request_id):
     additional_rows = _parse_additional_concepts(request.form)
     dd_present = request.form.get("dd_present") == "1"
     deduction_rows = _parse_deductions(request.form)
-    recurring_movements = get_recurring_movements(
+    recurring_movements = filter_movements(get_recurring_movements(
         company_id, employee_id=employee["id"], sandbox=sandbox
-    )
+    ), _off_ctx)
 
     calc_kwargs = dict(
         employee_id=employee["id"],
         employee_name=employee.get("fullName", ""),
         cedula=employee.get("cedula", ""),
-        hire_date=employee.get("hireDate", ""),
+        hire_date=_off_hire,
         termination_date=termination_date,
         termination_type=termination_type,
         last_base_salary=base_salary,
+        contract_id=_off_contract_id,
+        employment_context=_off_ctx,
+        salary_transactions_used=scoped_txs,
         salary_frequency=salary_frequency,
         is_variable_salary=employee.get("isVariableSalary", False),
         monthly_salaries_last_12=salaries_12,
@@ -1361,6 +1430,7 @@ def offboarding_wizard_step1(request_id):
     if existing:
         result["id"] = existing["id"]
         result["version"] = existing.get("version", 1) + 1
+        result["previousVersionId"] = existing["id"]
         for field in ("assignedGroupId", "assignedGroupName", "assignedAt"):
             if existing.get(field):
                 result[field] = existing[field]

@@ -120,10 +120,46 @@ def employee_liquidacion(employee_id):
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_list"))
 
-    hire_date = employee.get("hireDate", "")
+    # Contexto laboral único: contrato correspondiente a la fecha de referencia
+    # (terminación informada o hoy). Ambigüedad → se bloquea; sin contrato → legacy.
+    from app.services.employment_context_service import (
+        EmploymentContextError, build_context, filter_movements,
+        filter_transactions, get_transactions_for_context,
+    )
+    if request.method == "POST":
+        _ref_date = request.form.get("terminationDate", "").strip()
+    else:
+        _ref_date = request.args.get("terminationDate", "").strip()
+    _liq_ctx = None
+    try:
+        from app.services.employment_context_service import resolve_for_employee
+        _liq_ctx = resolve_for_employee(company_id, employee, _ref_date, sandbox=sandbox)
+    except EmploymentContextError as e:
+        flash(str(e), "error")
+        return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
+    except Exception:
+        _liq_ctx = None
+    if _liq_ctx is None:
+        _liq_ctx = build_context(employee, None)
+    # Antigüedad legal: seniorityBaseDate del contrato (reset=startDate, preserve=fecha explícita).
+    hire_date = _liq_ctx.get("seniorityBaseDate") or employee.get("hireDate", "")
+    _liq_contract_id = _liq_ctx.get("contractId", "")
+    _liq_start = _liq_ctx.get("startDate", "")
+    _liq_end = _liq_ctx.get("endDate", "")
     vac_requests = hr.get_vacation_requests(company_id, sandbox=sandbox)
     emp_vacs = [v for v in vac_requests
                 if v.get("employeeId") == employee_id and v.get("status") == "aprobada"]
+    if not _liq_ctx.get("isLegacy"):
+        # Solo vacaciones del período (legacy dentro del rango por fecha).
+        _scoped_vacs = []
+        for _v in emp_vacs:
+            _vcid = (_v.get("contractId") or "").strip()
+            if _vcid:
+                if _vcid == _liq_contract_id:
+                    _scoped_vacs.append(_v)
+            elif (_v.get("startDate", "") or "") >= (_liq_ctx.get("vacationBaseDate") or ""):
+                _scoped_vacs.append(_v)
+        emp_vacs = _scoped_vacs
 
     def _auto_vacation(calc_date_str: str):
         ant_approx = LiquidacionService.calcular_antiguedad(hire_date, calc_date_str)
@@ -178,23 +214,26 @@ def employee_liquidacion(employee_id):
     resultado = None
 
     concepts_available = _concepts_available(company_id, sandbox)
-    recurring_movements = recurring_svc.get_recurring_movements(
-        company_id, employee_id=employee_id, sandbox=sandbox
-    )
+    recurring_movements = filter_movements(
+        recurring_svc.get_recurring_movements(
+            company_id, employee_id=employee_id, sandbox=sandbox
+        ), _liq_ctx)
     deduction_rows = LiquidacionService.build_recurring_deductions(recurring_movements)
     additional_rows = []
 
-    # Salario promedio (base + conceptos que cotizan TSS) para la card de datos
+    # Salario promedio (base + conceptos que cotizan TSS) para la card de datos.
+    # Aislado al contrato: no mezcla salarios de otros períodos del empleado.
     salario_promedio = float(employee.get("averageSalary", 0) or 0)
     try:
-        txs = hr.get_payroll_transactions(company_id, employee_id=employee_id, sandbox=sandbox)
-        prom = LiquidacionService.calcular_salario_promedio_mensual(txs)
+        txs = get_transactions_for_context(company_id, employee_id, _liq_ctx, sandbox=sandbox)
+        prom = LiquidacionService.calcular_salario_promedio_mensual(
+            txs, contract_id=_liq_contract_id, start_date=_liq_start, end_date=_liq_end)
         if prom.get("promedio_mensual", 0) > 0:
             salario_promedio = prom["promedio_mensual"]
     except Exception:
         pass
     if salario_promedio <= 0:
-        salario_promedio = float(employee.get("baseSalary", 0) or 0)
+        salario_promedio = float(_liq_ctx.get("salary", 0) or employee.get("baseSalary", 0) or 0)
 
     if request.method == "POST":
         termination_type = request.form.get("terminationType", "renuncia").strip()
@@ -207,19 +246,21 @@ def employee_liquidacion(employee_id):
         notes = request.form.get("notes", "").strip()
         keep_in_current_payroll = request.form.get("keepInCurrentPayroll") == "1"
 
-        base_salary = float(employee.get("baseSalary", 0) or 0)
+        base_salary = float(_liq_ctx.get("salary", 0) or employee.get("baseSalary", 0) or 0)
         salary_frequency = employee.get("paymentFrequency", "") or "mensual"
         dias_adeudados = int(request.form.get("diasAdeudados", "0") or 0)
         if keep_in_current_payroll:
             dias_adeudados = 0
 
-        # Salario promedio real (base + conceptos que cotizan TSS) desde transacciones de nómina
+        # Salario promedio real aislado al contrato que se liquida.
         promedio_mensual = float(employee.get("averageSalary", 0) or 0)
         salaries_12 = [base_salary]
         salaries_ytd = [base_salary]
+        scoped_txs = []
         try:
-            txs = hr.get_payroll_transactions(company_id, employee_id=employee_id, sandbox=sandbox)
-            prom = LiquidacionService.calcular_salario_promedio_mensual(txs)
+            scoped_txs = get_transactions_for_context(company_id, employee_id, _liq_ctx, sandbox=sandbox)
+            prom = LiquidacionService.calcular_salario_promedio_mensual(
+                scoped_txs, contract_id=_liq_contract_id, start_date=_liq_start, end_date=_liq_end)
             if prom.get("promedio_mensual", 0) > 0:
                 promedio_mensual = prom["promedio_mensual"]
                 salaries_12 = prom.get("monthly_totals_last_12") or [promedio_mensual]
@@ -252,10 +293,13 @@ def employee_liquidacion(employee_id):
             employee_id=employee_id,
             employee_name=employee.get("fullName", ""),
             cedula=employee.get("cedula", ""),
-            hire_date=employee.get("hireDate", ""),
+            hire_date=hire_date,
             termination_date=termination_date,
             termination_type=nt,
             last_base_salary=base_salary,
+            contract_id=_liq_contract_id,
+            employment_context=_liq_ctx,
+            salary_transactions_used=scoped_txs,
             salary_frequency=salary_frequency,
             is_variable_salary=employee.get("isVariableSalary", False),
             monthly_salaries_last_12=salaries_12,

@@ -26,6 +26,7 @@ AUTHORIZATION_DOC_TYPES = {
     "supervisor_change": "Cambio de Supervisor",
     "absence": "Ausencia / Licencia",
     "termination": "Desvinculación",
+    "rehire": "Reincorporación de empleado",
     "payroll_approval": "Aprobación de Nómina",
     "payroll_post_accounting": "Contabilización de Nómina",
     "payroll_member_change": "Cambio de Miembro de Nómina",

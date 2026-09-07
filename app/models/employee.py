@@ -92,6 +92,11 @@ class Employee(BaseModel):
     # Nóminas múltiples
     payrollGroupIds: List[str] = []  # IDs de grupos de nómina a los que pertenece
 
+    # Relación laboral activa (migración progresiva hacia EmploymentContract).
+    # Employee = identidad + snapshot operativo; EmploymentContract = período laboral.
+    # "" = legacy / sin contrato asociado (fallback a hireDate/salary de Employee).
+    currentEmploymentContractId: str = ""
+
     notes: str = ""
 
     @property
@@ -148,6 +153,7 @@ class VacationRequest(BaseModel):
     """Solicitud de vacaciones."""
     id: str = ""
     employeeId: str = ""
+    contractId: str = ""  # Período laboral ("" = legacy / no asignado, nunca inventar)
     employeeName: str = ""
     startDate: str = ""  # YYYY-MM-DD
     endDate: str = ""  # YYYY-MM-DD
@@ -164,6 +170,7 @@ class LeaveRequest(BaseModel):
     """Permiso o licencia laboral."""
     id: str = ""
     employeeId: str = ""
+    contractId: str = ""  # Período laboral ("" = legacy)
     employeeName: str = ""
     leaveType: str = "otro"  # "maternidad" | "enfermedad" | "sindical" | "luto" | "voluntaria" | "discapacidad" | "otro"
     startDate: str = ""
@@ -178,6 +185,7 @@ class LeaveRequest(BaseModel):
 class PayrollLine(BaseModel):
     """Línea de nómina por empleado en un período."""
     employeeId: str = ""
+    contractId: str = ""  # Período laboral ("" = legacy; obligatorio en registros nuevos con contrato)
     employeeName: str = ""
     cedula: str = ""
     position: str = ""
@@ -317,6 +325,7 @@ class SalaryHistory(BaseModel):
     """Historial de cambios salariales de un empleado."""
     id: str = ""
     employeeId: str = ""
+    contractId: str = ""  # Período laboral ("" = legacy)
     amount: float = 0.0
     previousAmount: float = 0.0
     effectiveDate: str = ""  # YYYY-MM-DD

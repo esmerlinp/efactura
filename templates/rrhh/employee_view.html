@@ -18,6 +18,13 @@
             <div id="actionMenu" style="display:none; position:absolute; top:100%; right:0; z-index:50;
                  background:#ffffff; border:1px solid #d1d5db; border-radius:8px; min-width:220px;
                  box-shadow:0 4px 16px rgba(0,0,0,0.15); overflow:hidden;">
+                {% if employee.status == 'inactivo' %}
+                <a href="{{ url_for('web_rrhh.employee_rehire_form', employee_id=employee.id) }}"
+                   style="display:flex; align-items:center; gap:8px; padding:10px 14px; text-decoration:none; color:var(--text-primary); font-size:0.85rem; border-bottom:1px solid var(--border-color); transition:background 0.15s;"
+                   onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
+                    <i class="fa-solid fa-user-plus" style="color:#047857; width:16px; text-align:center;"></i> Reincorporación
+                </a>
+                {% endif %}
                 <a href="{{ url_for('web_rrhh.mass_action_wizard', ids=employee.id, action_type='salary_change') }}"
                    style="display:flex; align-items:center; gap:8px; padding:10px 14px; text-decoration:none; color:var(--text-primary); font-size:0.85rem; border-bottom:1px solid var(--border-color); transition:background 0.15s;"
                    onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
@@ -66,6 +73,11 @@
         <a href="{{ url_for('web_rrhh.employee_certificate', employee_id=employee.id) }}" class="btn btn-ghost btn-sm employee-header-btn">
             <i class="fa-solid fa-file-signature"></i> Carta de Trabajo
         </a>
+        {% if employee.status == 'inactivo' %}
+        <a href="{{ url_for('web_rrhh.employee_rehire_form', employee_id=employee.id) }}" class="btn btn-success btn-sm employee-header-btn">
+            <i class="fa-solid fa-user-plus"></i> Reincorporar empleado
+        </a>
+        {% endif %}
     </div>
 </div>
 
@@ -269,6 +281,29 @@
                 </div>
             </div>
         </div>
+        {% if employment_contracts and employment_contracts|length > 0 %}
+        <div class="hr-section-card" style="margin-top:16px;">
+            <h3><i class="fa-solid fa-briefcase"></i> Historial laboral ({{ employment_contracts|length }} período(s))</h3>
+            <p style="color:var(--text-secondary); font-size:0.85rem;">Cada reincorporación crea un nuevo período. La relación anterior permanece intacta.</p>
+            <table class="table-premium" style="width:100%;">
+                <thead><tr><th>#</th><th>Ingreso</th><th>Salida</th><th>Puesto</th><th>Salario</th><th>Estado</th><th>Antigüedad</th><th>Vacaciones</th></tr></thead>
+                <tbody>
+                {% for c in employment_contracts %}
+                    <tr {% if active_contract and c.id == active_contract.id %}style="background:var(--bg-secondary); font-weight:600;"{% endif %}>
+                        <td>{{ c.periodNumber or loop.index }}</td>
+                        <td>{{ c.startDate or '—' }}</td>
+                        <td>{{ c.endDate or 'Actualidad' }}</td>
+                        <td>{{ c.position or '—' }}</td>
+                        <td>RD$ {{ '%.2f'|format((c.salary or 0)|float) }}</td>
+                        <td>{{ c.status or '—' }}{% if active_contract and c.id == active_contract.id %} (activa){% endif %}</td>
+                        <td>{{ c.seniorityPolicy or 'reset' }}: {{ c.seniorityBaseDate or c.startDate or '—' }}</td>
+                        <td>{{ c.vacationPolicy or 'reset' }}: {{ c.vacationBaseDate or c.startDate or '—' }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
     </div>
 
     <!-- Tab: Documentos -->
@@ -286,6 +321,14 @@
                             {{ d.name }}
                         </a>
                         <div style="font-size:0.7rem; color:var(--text-muted);">{{ _cat_labels.get(d.category, d.category) }} · {{ d.uploadedAt[:10] if d.uploadedAt else '' }} · {{ (d.size|int // 1024) if d.size else 0 }}KB</div>
+                        {% if d._isRehireDoc %}
+                        <div style="font-size:0.7rem; color:var(--accent-emerald); font-weight:700;">
+                            <i class="fa-solid fa-user-plus"></i> Reincorporación{% if d._periodNumber %} · Período {{ d._periodNumber }}{% endif %}{% if d._periodStatus %} ({{ d._periodStatus }}){% endif %}
+                        </div>
+                        {% endif %}
+                        {% if d.notes %}
+                        <div style="font-size:0.72rem; color:var(--text-secondary);">{{ d.notes }}</div>
+                        {% endif %}
                     </div>
                     <form method="POST" action="{{ url_for('web_rrhh.employee_document_delete', employee_id=employee.id, doc_id=d.id) }}"
                           onsubmit="return confirm('¿Eliminar?')" style="display:contents;">

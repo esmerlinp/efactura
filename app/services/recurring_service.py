@@ -351,9 +351,17 @@ def apply_recurring_for_employee(company_id: str, employee_id: str,
     now_iso = datetime.now(timezone.utc).isoformat()
 
     # Obtener movimientos del empleado
+    # Frontera Fase 2.5: movimientos con contractId solo aplican a su contrato;
+    # movimientos legacy (contractId="") aplican como antes (fallback por employeeId).
     movements = grouped_movements.get(employee_id, []) if grouped_movements else []
 
     for mv in movements:
+        mv_contract = (mv.get("contractId") or "").strip()
+        if mv_contract and contract_id and mv_contract != contract_id:
+            continue
+        if mv_contract and not contract_id:
+            # Empleado legacy sin contrato activo: no aplicar movimientos de otro período.
+            continue
         if not is_applicable(mv, period_start, period_end):
             continue
 
@@ -368,6 +376,7 @@ def apply_recurring_for_employee(company_id: str, employee_id: str,
                 "id": str(uuid.uuid4()),
                 "recurringMovementId": mv_id,
                 "employeeId": employee_id,
+                "contractId": mv_contract or (contract_id or ""),
                 "periodId": period_id,
                 "periodKey": period_key,
                 "periodRevision": period_revision,
@@ -452,11 +461,12 @@ def apply_recurring_for_employee(company_id: str, employee_id: str,
                 mv["status"] = "completed"
             save_recurring_movement(company_id, mv_id, mv, sandbox=sandbox)
 
-        # Crear RecurringApplication
+        # Crear RecurringApplication (con contractId para trazabilidad del período)
         app = {
             "id": str(uuid.uuid4()),
             "recurringMovementId": mv_id,
             "employeeId": employee_id,
+            "contractId": (mv.get("contractId") or contract_id or ""),
             "periodId": period_id,
             "periodKey": period_key,
             "periodRevision": period_revision,

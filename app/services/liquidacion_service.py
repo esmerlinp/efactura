@@ -78,20 +78,55 @@ class LiquidacionService:
     # ─────────────────────────────────────────────────────────────────
 
     @classmethod
-    def calcular_salario_promedio_mensual(cls, transactions: list) -> dict:
+    def calcular_salario_promedio_mensual(cls, transactions: list,
+                                          contract_id: str = "",
+                                          start_date: str = "",
+                                          end_date: str = "") -> dict:
         """
         Calcula el salario ordinario promedio mensual a partir de transacciones
         de nómina. Solo se consideran conceptos tipo 'earning' con estado
         applied/adjusted cuyo concepto cotiza TSS (conceptSnapshot.affectsTSS),
         excluyendo implícitamente la regalía pascual y otros no-salariales.
 
+        Aislamiento contractual: con ``contract_id`` solo se usan transacciones
+        de ese período (+ legacy dentro del rango de fechas); sin él se usa
+        todo lo recibido (comportamiento legacy intacto).
+
         Returns:
             {"promedio_mensual": float, "monthly_salaries_ytd": list,
              "monthly_totals_last_12": list, "months": int}
         """
+        scoped = transactions or []
+        if contract_id or start_date or end_date:
+            try:
+                from app.services.employment_context_service import filter_transactions
+                scoped = filter_transactions(scoped, {
+                    "contractId": contract_id or "",
+                    "startDate": start_date or "",
+                    "endDate": end_date or "",
+                })
+            except Exception:
+                scoped = transactions or []
+            if not (contract_id or "").strip() and (start_date or end_date):
+                # Sin contrato pero con rango explícito (fallback legacy):
+                # acotar por mes del periodKey.
+                start_m = (start_date or "")[:7]
+                end_m = (end_date or "")[:7]
+                bounded = []
+                for tx in scoped:
+                    month = (tx.get("periodKey", "") or "")[:7]
+                    if not month:
+                        bounded.append(tx)
+                        continue
+                    if start_m and month < start_m:
+                        continue
+                    if end_m and month > end_m:
+                        continue
+                    bounded.append(tx)
+                scoped = bounded
         # Filtrar solo lo relevante (earning, aplicado/ajustado, cotiza TSS)
         eligible = []
-        for tx in (transactions or []):
+        for tx in scoped:
             if tx.get("type") != "earning":
                 continue
             if tx.get("status") not in ("applied", "adjusted"):
@@ -108,6 +143,7 @@ class LiquidacionService:
             key = (
                 tx.get("periodId") or tx.get("periodKey", ""),
                 tx.get("employeeId", ""),
+                tx.get("contractId", ""),
                 tx.get("conceptCode", ""),
                 tx.get("source", ""),
                 tx.get("sourceId", ""),
@@ -724,6 +760,9 @@ class LiquidacionService:
         additional_concepts: list = None,
         notes: str = "",
         created_by: str = "",
+        contract_id: str = "",
+        employment_context: dict | None = None,
+        salary_transactions_used: list | None = None,
     ) -> dict:
         """
         Calcula la liquidación laboral completa según el Código de Trabajo RD.
@@ -1025,9 +1064,39 @@ class LiquidacionService:
         if len(monthly_salaries_ytd) <= 1 and len(monthly_salaries_last_12) > 1:
             notes = (notes or "") + " [⚠ Sin detalle YTD: regalía estimada con último salario base.]"
 
+        # Snapshot del período liquidado: permite auditar exactamente qué
+        # relación, salario y transacciones originaron el cálculo.
+        _ctx = employment_context or {}
+        try:
+            from app.services.employment_context_service import contract_snapshot
+            _contract_snapshot = contract_snapshot(_ctx.get("contract")) \
+                if _ctx.get("contract") else {}
+        except Exception:
+            _contract_snapshot = {}
+        _tx_used = salary_transactions_used or []
+        try:
+            _tx_ids = [t.get("id", "") for t in _tx_used if t.get("id")]
+        except Exception:
+            _tx_ids = []
+
+        def _ctx_num(key: str, default=0):
+            try:
+                return int(_ctx.get(key) or default)
+            except Exception:
+                return default
+
         return {
             "id": str(uuid4()),
             "employeeId": employee_id,
+            "contractId": contract_id or _ctx.get("contractId", ""),
+            "contractPeriodNumber": _ctx_num("periodNumber"),
+            "employmentStartDate": _ctx.get("startDate", ""),
+            "employmentEndDate": _ctx.get("endDate", "") or termination_date,
+            "seniorityBaseDate": _ctx.get("seniorityBaseDate", ""),
+            "vacationBaseDate": _ctx.get("vacationBaseDate", ""),
+            "contractSnapshot": _contract_snapshot,
+            "salaryTransactionsUsed": _tx_ids,
+            "calculationVersion": 1,
             "employeeName": employee_name,
             "cedula": cedula,
             "hireDate": hire_date,

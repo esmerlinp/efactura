@@ -42,6 +42,9 @@ def calculate_settlement():
             employeeId:
               type: string
               description: ID del empleado
+            contractId:
+              type: string
+              description: Período laboral a liquidar. Si se omite y no se envían salarios, se resuelve por la fecha de terminación
             employeeName:
               type: string
               description: Nombre del empleado
@@ -140,6 +143,47 @@ def calculate_settlement():
         additional_concepts = data.get("additionalConcepts", []) or []
         notes = data.get("notes", "")
         created_by = data.get("createdBy", "api")
+        contract_id = (data.get("contractId", "") or "").strip()
+
+        # Si no se envían salarios y hay empleado + contexto, resolver el
+        # contrato y aislar sus transacciones (no mezclar períodos).
+        employment_context = None
+        salary_transactions_used = []
+        if not monthly_salaries_last_12 and employee_id:
+            try:
+                owner_uid, sandbox = _get_owner()
+                from app.services import hr_data_service as hr
+                from app.services.employment_context_service import (
+                    build_context, get_transactions_for_context,
+                    resolve_by_contract_id, resolve_for_employee,
+                )
+                _emp = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
+                _ctr = None
+                if contract_id:
+                    _ctr = resolve_by_contract_id(owner_uid, contract_id, sandbox=sandbox)
+                if _ctr is None and _emp:
+                    _ctr = resolve_for_employee(
+                        owner_uid, _emp, termination_date, sandbox=sandbox).get("contract")
+                if _emp is not None or _ctr is not None:
+                    employment_context = build_context(_emp or {}, _ctr)
+                    if not contract_id:
+                        contract_id = employment_context.get("contractId", "")
+                    if not hire_date:
+                        hire_date = employment_context.get("seniorityBaseDate", "")
+                    if not last_base_salary:
+                        last_base_salary = float(employment_context.get("salary", 0) or 0)
+                    salary_transactions_used = get_transactions_for_context(
+                        owner_uid, employee_id, employment_context, sandbox=sandbox)
+                    prom = LiquidacionService.calcular_salario_promedio_mensual(
+                        salary_transactions_used,
+                        contract_id=contract_id,
+                        start_date=employment_context.get("startDate", ""),
+                        end_date=employment_context.get("endDate", ""))
+                    if prom.get("promedio_mensual", 0) > 0:
+                        monthly_salaries_last_12 = prom.get("monthly_totals_last_12") or []
+                        monthly_salaries_ytd = prom.get("monthly_salaries_ytd") or []
+            except Exception:
+                pass
 
         resultado = LiquidacionService.calcular_liquidacion(
             employee_id=employee_id,
@@ -162,6 +206,9 @@ def calculate_settlement():
             additional_concepts=additional_concepts,
             notes=notes,
             created_by=created_by,
+            contract_id=contract_id,
+            employment_context=employment_context,
+            salary_transactions_used=salary_transactions_used,
         )
 
         # Persistir si se solicita

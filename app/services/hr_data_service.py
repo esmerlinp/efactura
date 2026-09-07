@@ -387,6 +387,132 @@ def get_contracts_for_group(company_id: str, group_id: str, sandbox: bool = True
         return []
 
 
+def get_contracts_for_employee(company_id: str, employee_id: str, sandbox: bool = True) -> list:
+    """Todos los períodos laborales de un empleado, ordenados por periodNumber/startDate asc.
+
+    Fuente histórica para la vista de historial (Período 1, 2, ...). No filtra por estado.
+    """
+    if not firebase_initialized or db_firestore is None:
+        return []
+    try:
+        coll_path = _hr_company_path(company_id, "employment_contracts", sandbox)
+        docs = db_firestore.collection(coll_path) \
+            .where("employeeId", "==", employee_id) \
+            .get()
+        items = [{"id": d.id, **d.to_dict()} for d in docs]
+        items.sort(key=lambda c: (int(c.get("periodNumber") or 0), c.get("startDate", "") or ""))
+        return items
+    except Exception as e:
+        print(f"⚠️ HRDataService.get_contracts_for_employee: {e}")
+        return []
+
+
+def get_last_terminated_contract(company_id: str, employee_id: str, sandbox: bool = True) -> dict | None:
+    """Último contrato terminado (por startDate descendente). None si no existe."""
+    contracts = get_contracts_for_employee(company_id, employee_id, sandbox=sandbox)
+    terminated = [c for c in contracts if (c.get("status") or "") == "terminado"]
+    if not terminated:
+        return None
+    terminated.sort(key=lambda c: (c.get("startDate", "") or "", int(c.get("periodNumber") or 0)), reverse=True)
+    return terminated[0]
+
+
+def get_next_contract_period_number(company_id: str, employee_id: str, sandbox: bool = True) -> int:
+    """Siguiente periodNumber (max existente + 1, mínimo 1)."""
+    contracts = get_contracts_for_employee(company_id, employee_id, sandbox=sandbox)
+    if not contracts:
+        return 1
+    try:
+        return max(int(c.get("periodNumber") or 0) for c in contracts) + 1
+    except Exception:
+        return len(contracts) + 1
+
+
+def get_contract_by_rehire_request(company_id: str, rehire_request_id: str, sandbox: bool = True) -> dict | None:
+    """Idempotencia: contrato ya creado para una solicitud de rehire (rehireRequestId único)."""
+    if not rehire_request_id:
+        return None
+    if not firebase_initialized or db_firestore is None:
+        return None
+    try:
+        coll_path = _hr_company_path(company_id, "employment_contracts", sandbox)
+        docs = db_firestore.collection(coll_path) \
+            .where("rehireRequestId", "==", rehire_request_id) \
+            .limit(1).get()
+        for d in docs:
+            return {"id": d.id, **d.to_dict()}
+        return None
+    except Exception as e:
+        print(f"⚠️ HRDataService.get_contract_by_rehire_request: {e}")
+        return None
+
+
+def get_active_contract_for_employee(company_id: str, employee_id: str, sandbox: bool = True) -> dict | None:
+    """Contrato activo único del empleado, o None. Si hay >1, el llamador debe bloquear."""
+    active = get_active_contracts_for_employee(company_id, employee_id, sandbox=sandbox)
+    if not active:
+        return None
+    # Preferir el de mayor periodNumber ante datos legacy inconsistentes (el servicio valida y bloquea).
+    active.sort(key=lambda c: int(c.get("periodNumber") or 0), reverse=True)
+    return active[0]
+
+
+def resolve_employee_contract_id(employee: dict) -> str:
+    """Frontera Fase 2.5: contractId del snapshot operativo.
+
+    Orden: currentEmploymentContractId (nuevo) → contractId (dinámico legacy) → "".
+    "" significa legacy y los consumidores deben usar fallback a employeeId.
+    """
+    if not employee:
+        return ""
+    return (
+        (employee.get("currentEmploymentContractId") or "").strip()
+        or (employee.get("contractId") or "").strip()
+        or ""
+    )
+
+
+def get_employment_context(employee: dict, active_contract: dict | None = None) -> dict:
+    """Contexto de relación laboral para cálculos (antigüedad/vacaciones/salario/nómina).
+
+    Responde: ¿esto representa al empleado (identidad) o a una relación laboral?
+    - Identidad → Employee (id, code, nombre, documentos personales).
+    - Relación  → EmploymentContract (fechas, salario, puesto, políticas).
+
+    Retorna dict con contractId, startDate, seniorityBaseDate, vacationBaseDate, salary, etc.
+    con fallback legacy a Employee.hireDate/baseSalary cuando no hay contrato.
+    """
+    emp = employee or {}
+    contract = active_contract or {}
+    contract_id = (contract.get("id", "") or resolve_employee_contract_id(emp) or "").strip()
+    start = (contract.get("startDate", "") or emp.get("hireDate", "") or "")[:10]
+    salary = contract.get("salary", "") if contract else ""
+    try:
+        salary = float(salary) if salary not in (None, "") else float(emp.get("baseSalary", emp.get("salary", 0)) or 0)
+    except Exception:
+        salary = float(emp.get("baseSalary", emp.get("salary", 0)) or 0)
+    seniority_policy = (contract.get("seniorityPolicy", "") or "reset") if contract else "reset"
+    seniority_base = (contract.get("seniorityBaseDate", "") or "")[:10] if contract else ""
+    if not seniority_base:
+        seniority_base = start
+    vacation_policy = (contract.get("vacationPolicy", "") or "reset") if contract else "reset"
+    vacation_base = (contract.get("vacationBaseDate", "") or "")[:10] if contract else ""
+    if not vacation_base:
+        vacation_base = start
+    return {
+        "contractId": contract_id,
+        "isLegacy": not bool(contract_id and contract),
+        "startDate": start,
+        "salary": salary,
+        "position": contract.get("position", emp.get("position", "")) if contract else emp.get("position", ""),
+        "department": contract.get("department", contract.get("departmentId", "")) if contract else emp.get("department", emp.get("departmentId", "")),
+        "seniorityPolicy": seniority_policy,
+        "seniorityBaseDate": seniority_base,
+        "vacationPolicy": vacation_policy,
+        "vacationBaseDate": vacation_base,
+    }
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # PAYROLL
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1487,23 +1613,67 @@ def delete_legal_parameter(company_id: str, param_id: str, sandbox: bool = True)
 
 def get_payroll_transactions(company_id: str, sandbox: bool = True,
                               period_id: str = "", employee_id: str = "",
-                              concept_code: str = "", limit: int = None) -> list:
-    """Obtiene transacciones con filtros opcionales."""
+                              concept_code: str = "", limit: int = None,
+                              contract_id: str = "",
+                              start_date: str = "", end_date: str = "") -> list:
+    """Obtiene transacciones con filtros opcionales.
+
+    Aislamiento contractual (Fase 2.5+):
+      - ``contract_id`` filtra por período laboral. Como el índice compuesto
+        puede no existir, se intenta en servidor y se cae a filtrado en memoria.
+      - ``start_date``/``end_date`` (YYYY-MM-DD) acotan por ``periodKey`` y
+        sirven de fallback legacy para transacciones sin ``contractId``.
+      - Sin ``contract_id`` ni fechas → comportamiento legacy intacto.
+    """
     if not firebase_initialized or db_firestore is None:
         return []
     try:
         coll_path = _hr_company_path(company_id, "payroll_transactions", sandbox)
-        query = db_firestore.collection(coll_path)
-        if period_id:
-            query = query.where("periodId", "==", period_id)
-        if employee_id:
-            query = query.where("employeeId", "==", employee_id)
-        if concept_code:
-            query = query.where("conceptCode", "==", concept_code)
+        try:
+            query = db_firestore.collection(coll_path)
+            if period_id:
+                query = query.where("periodId", "==", period_id)
+            if employee_id:
+                query = query.where("employeeId", "==", employee_id)
+            if concept_code:
+                query = query.where("conceptCode", "==", concept_code)
+            if contract_id:
+                query = query.where("contractId", "==", contract_id)
+            if limit and not (start_date or end_date):
+                query = query.limit(limit)
+            docs = query.get()
+            txs = [{"id": d.id, **d.to_dict()} for d in docs]
+        except Exception:
+            # Sin índice compuesto u otro fallo: traer por empleado y filtrar aquí.
+            query = db_firestore.collection(coll_path)
+            if period_id:
+                query = query.where("periodId", "==", period_id)
+            if employee_id:
+                query = query.where("employeeId", "==", employee_id)
+            if concept_code:
+                query = query.where("conceptCode", "==", concept_code)
+            docs = query.get()
+            txs = [{"id": d.id, **d.to_dict()} for d in docs]
+            if contract_id:
+                txs = [t for t in txs if (t.get("contractId") or "") == contract_id]
+        if start_date or end_date:
+            start_m = (start_date or "")[:7]
+            end_m = (end_date or "")[:7]
+            scoped = []
+            for t in txs:
+                month = (t.get("periodKey", "") or "")[:7]
+                if not month:
+                    scoped.append(t)
+                    continue
+                if start_m and month < start_m:
+                    continue
+                if end_m and month > end_m:
+                    continue
+                scoped.append(t)
+            txs = scoped
         if limit:
-            query = query.limit(limit)
-        docs = query.get()
-        return [{"id": d.id, **d.to_dict()} for d in docs]
+            txs = txs[:limit]
+        return txs
     except Exception as e:
         print(f"⚠️ HRDataService.get_payroll_transactions: {e}")
         return []
