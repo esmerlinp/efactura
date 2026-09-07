@@ -99,12 +99,19 @@
                     {% endif %}
                 </td>
                 <td style="text-align:right; font-weight:600; white-space:nowrap; font-variant-numeric:tabular-nums;">
-                    {% if m.amountType == 'fixed' %}
-                    RD$ {{ "{:,.2f}".format(m.amount) }}
+                    {% if m.isLoan %}
+                    RD$ {{ "{:,.2f}".format(m.installmentAmount or m.amount or 0) }}
+                    {% elif m.isGarnishment %}
+                    {% if m.deductionType == 'percentage' %}{{ "%.2f"|format((m.deductionPercent or 0)|float) }}%
+                    {% elif m.deductionType == 'max_of_legal' %}Máx. legal ({{ "%.2f"|format((m.maxLegalRate or 0)|float) }}%)
+                    {% else %}RD$ {{ "{:,.2f}".format(m.amount or 0) }}
+                    {% endif %}
                     {% elif m.amountType == 'percentage' %}
-                    {{ "%.2f"|format(m.percentage * 100) }}%
-                    {% else %}
+                    {{ "%.2f"|format((m.percentage or 0) * 100) }}%
+                    {% elif m.amountType == 'formula' %}
                     Fórmula
+                    {% else %}
+                    RD$ {{ "{:,.2f}".format(m.amount or 0) }}
                     {% endif %}
                 </td>
                 <td style="font-size:0.75rem; white-space:nowrap;">

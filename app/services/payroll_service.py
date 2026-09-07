@@ -296,20 +296,28 @@ class PayrollService:
             else:
                 continue
             tab = VARIABLE_TAB_BY_CONCEPT.get(code)
-            if not tab:
+            if tab:
+                concept_field = tab["concept"]
+                concept_label = tab["label"]
+            elif src.startswith("var:"):
+                # Concepto custom (fuera del catálogo estático): igual es un
+                # tab válido del editor, se devuelve con su código crudo.
+                concept_field = code
+                concept_label = code
+            else:
                 continue
             amount = float(tx.get("amount", 0) or 0)
             if amount <= 0:
                 continue
-            key = (tx.get("employeeId", ""), tab["concept"])
+            key = (tx.get("employeeId", ""), concept_field)
             if key in seen:
                 continue
             seen.add(key)
             rows.append({
                 "employeeId": tx.get("employeeId", ""),
                 "employeeName": "",
-                "conceptField": tab["concept"],
-                "conceptLabel": tab["label"],
+                "conceptField": concept_field,
+                "conceptLabel": concept_label,
                 "amount": amount,
             })
         return rows

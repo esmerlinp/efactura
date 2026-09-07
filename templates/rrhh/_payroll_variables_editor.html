@@ -30,7 +30,7 @@
     {% for _c in _v %}{% if _c not in _rec_codes %}{% set _ = _rec_codes.append(_c) %}{% endif %}{% endfor %}
 {% endfor %}
 
-    <!-- Nómina: Resumen · Completo · Ingresos · Descuentos -->
+    <!-- Nómina: Resumen · Detalle · Ingresos · Descuentos · Recurrentes -->
     <div class="card-table-wrapper" style="margin-bottom:var(--space-4); padding:16px 24px;">
         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
             <span style="font-family:var(--font-heading); font-weight:700; font-size:0.95rem; color:var(--text-primary);">
@@ -61,9 +61,10 @@
         <!-- Pestañas -->
         <div class="pv-tabs" style="margin-top:12px;">
             <button class="pv-tab {% if not pv_editable %}active{% endif %}" data-tab="resumen">Resumen</button>
-            <button class="pv-tab" data-tab="completo">Completo</button>
+            <button class="pv-tab" data-tab="detalle">Detalle</button>
             <button class="pv-tab {% if pv_editable %}active{% endif %}" data-tab="ingresos">Ingresos variables <span class="pv-badge" id="pv-badge-ingresos" style="display:none;"></span></button>
             <button class="pv-tab" data-tab="descuentos">Descuentos variables <span class="pv-badge" id="pv-badge-descuentos" style="display:none;"></span></button>
+            <button class="pv-tab" data-tab="recurrentes">Recurrentes</button>
         </div>
 
         <!-- Tab: Resumen -->
@@ -71,7 +72,7 @@
             {% if period_lines %}
             <div class="table-responsive">
             <table class="data-grid pv-summary-grid">
-                <thead><tr><th title="Empleado">Emp.</th><th class="num" title="Total ingresos">T. Ing.</th><th class="num" title="Total descuentos">T. Desc.</th><th class="num" title="Neto a pagar">Neto</th><th class="num" title="Costo del empleador">Costo Emp.</th></tr></thead>
+                <thead><tr><th title="Empleado">Emp.</th><th class="num" title="Total de ingresos del período: salario base + variables + recurrentes">T. Ing.</th><th class="num" title="Total de descuentos: TSS, ISR, variables y recurrentes">T. Desc.</th><th class="num" title="Neto a pagar al empleado (ingresos − descuentos)">Neto</th><th class="num" title="Costo total para la empresa (ingresos + aportes patronales TSS)">Costo Emp.</th></tr></thead>
                 <tbody>
                     {% for l in period_lines %}
                     <tr>
@@ -92,28 +93,29 @@
             {% endif %}
         </div>
 
-        <!-- Tab: Completo -->
-        <div id="pv-tab-completo" class="pv-tab-panel">
+        <!-- Tab: Detalle -->
+        <div id="pv-tab-detalle" class="pv-tab-panel">
             {% if period_lines %}
             <div class="pv-complete-caption">Montos en RD$ · H.E. representa el pago de horas extras</div>
             <div class="table-responsive">
             <table class="data-grid pv-complete-grid">
                 <thead><tr>
                     <th title="Empleado">Emp.</th>
-                    <th title="Salario base">Sal. Base</th>
-                    <th title="Pago de horas extras">H.E.</th>
-                    <th title="Comisión">Com.</th>
-                    <th title="Bonificación">Bon.</th>
-                    <th title="Otros ingresos">O. Ing.</th>
+                    <th title="Salario base del período">Sal. Base</th>
+                    <th title="Pago por horas extras">H.E.</th>
+                    <th title="Comisiones del período">Com.</th>
+                    <th title="Bonificaciones del período">Bon.</th>
+                    <th title="Otros ingresos (incluye ingresos recurrentes)">O. Ing.</th>
                     <th title="Regalía pascual">Reg.</th>
-                    <th title="Otras deducciones">O. Desc.</th>
-                    <th title="AFP empleado">AFP</th>
-                    <th title="SFS empleado">SFS</th>
-                    <th title="Impuesto sobre la renta">ISR</th>
-                    <th title="Licencia no pagada">Lic. No Pag.</th>
-                    <th class="num" title="Total ingresos">T. Ing.</th>
-                    <th class="num" title="Total descuentos">T. Desc.</th>
-                    <th class="num" title="Neto a pagar">Neto</th>
+                    <th title="Otras deducciones variables y manuales (no incluye recurrentes)">O. Desc.</th>
+                    <th class="num" title="Descuentos recurrentes: préstamos, cooperativas, embargos y reglas. Pasa el cursor sobre cada monto para ver el detalle">Rec.</th>
+                    <th title="Aporte AFP del empleado">AFP</th>
+                    <th title="Seguro Familiar de Salud (ARS) del empleado">SFS</th>
+                    <th title="Impuesto Sobre la Renta retenido al empleado">ISR</th>
+                    <th title="Descuento por días de licencia no pagada">Lic. No Pag.</th>
+                    <th class="num" title="Total de ingresos del período: salario base + variables + recurrentes">T. Ing.</th>
+                    <th class="num" title="Total de descuentos: TSS, ISR, variables y recurrentes">T. Desc.</th>
+                    <th class="num" title="Neto a pagar al empleado (ingresos − descuentos)">Neto</th>
                 </tr></thead>
                 <tbody>
                     {% for l in period_lines %}
@@ -126,6 +128,7 @@
                         <td class="num">{{ "{:,.2f}".format(l.get('otherIncome', 0)|float) if l.get('otherIncome', 0)|float else '—' }}</td>
                         <td class="num">{{ "{:,.2f}".format(l.get('christmasBonus', 0)|float) if l.get('christmasBonus', 0)|float else '—' }}</td>
                         <td class="num">{{ "{:,.2f}".format(l.get('otherDeductions', 0)|float) if l.get('otherDeductions', 0)|float else '—' }}</td>
+                        <td class="num" title="{% for d in (l.get('recurringDeductionsBreakdown') or []) %}{{ d.description }}: RD$ {{ "{:,.2f}".format(d.amount|float) }}{% if not loop.last %} · {% endif %}{% endfor %}">{{ "{:,.2f}".format((l.get('recurringDeductionsBreakdown') or [])|sum(attribute='amount')) if (l.get('recurringDeductionsBreakdown') or [])|sum(attribute='amount') else '—' }}</td>
                         <td class="num">{{ "{:,.2f}".format(l.get('afpEmployee', 0)|float) if l.get('afpEmployee', 0)|float else '—' }}</td>
                         <td class="num">{{ "{:,.2f}".format(l.get('sfsEmployee', 0)|float) if l.get('sfsEmployee', 0)|float else '—' }}</td>
                         <td class="num">{{ "{:,.2f}".format(l.get('isrRetention', 0)|float) if l.get('isrRetention', 0)|float else '—' }}</td>
@@ -168,9 +171,9 @@
             <div class="table-responsive">
             <table class="data-grid data-grid--editable pv-table pv-input-grid" data-section="ingresos">
                 <thead><tr>
-                    <th title="Empleado">Emp.</th>
-                    <th title="Concepto de ingreso">Concepto</th>
-                    <th title="Valor en pesos dominicanos">Valor</th>
+                    <th title="Empleado al que se aplica el ingreso">Emp.</th>
+                    <th title="Concepto de ingreso variable (comisiones, horas, bonos, etc.)">Concepto</th>
+                    <th title="Monto del ingreso (RD$ u horas según el concepto)">Valor</th>
                     <th style="width:36px;"></th>
                 </tr></thead>
                 <tbody id="pv-tbody-ingresos"></tbody>
@@ -185,45 +188,6 @@
                 <i class="fa-regular fa-circle-info"></i>
                 <strong>AFP, SFS (ARS), ISR e INFOTEP</strong> se calculan automáticamente según los ingresos del período. Aquí solo capturas descuentos variables o recurrentes (préstamos, seguros, cooperativas, etc.).
             </p>
-            {% if recurring_movements %}
-            <details class="pv-recurring" style="margin:10px 0 6px; border:1px dashed var(--border-color); border-radius:8px; padding:10px 14px;">
-                <summary style="cursor:pointer; font-weight:700; font-size:0.8rem;"><i class="fa-solid fa-repeat"></i> Movimientos recurrentes del grupo</summary>
-                <div class="table-responsive" style="margin-top:8px;">
-                <table class="data-grid data-grid--compact">
-                    <thead><tr><th>Empleado</th><th>Concepto</th><th style="text-align:right;">Monto</th><th>Frecuencia</th><th>Estado</th><th style="width:90px;"></th></tr></thead>
-                    <tbody>
-                        {% for mv in recurring_movements %}
-                            {% if mv.conceptCode in _rec_codes %}
-                            <tr>
-                                <td>{{ mv.employeeName or mv.employeeId }}</td>
-                                <td>{{ mv.conceptCode }}</td>
-                                <td style="text-align:right;">RD$ {{ "{:,.2f}".format(mv.amount|float) }}</td>
-                                <td>{{ mv.applyFrequency or 'every_period' }}</td>
-                                <td>{{ mv.status }}</td>
-                                <td>
-                                    {% if pv_editable %}
-                                    <a href="{{ url_for('web_rrhh.recurring_edit', movement_id=mv.id, next=pv_return_url) }}" class="btn btn-sm btn-ghost" title="Editar"><i class="fa-solid fa-pen"></i></a>
-                                    <form method="POST" action="{{ url_for('web_rrhh.recurring_toggle_status', movement_id=mv.id) }}" style="display:inline; margin:0;">
-                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                        <input type="hidden" name="next" value="{{ pv_return_url }}">
-                                        <input type="hidden" name="new_status" value="{{ 'paused' if mv.status == 'active' else 'active' }}">
-                                        <button type="submit" class="btn btn-sm btn-ghost" title="{{ 'Pausar' if mv.status == 'active' else 'Reactivar' }}"><i class="fa-solid {{ 'fa-pause' if mv.status == 'active' else 'fa-play' }}"></i></button>
-                                    </form>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endif %}
-                        {% endfor %}
-                    </tbody>
-                </table>
-                </div>
-                {% if pv_editable %}
-                <div style="margin-top:8px;">
-                    <a href="{{ url_for('web_rrhh.recurring_new', next=pv_return_url) }}" class="btn btn-sm btn-ghost"><i class="fa-solid fa-plus"></i> Nuevo movimiento recurrente</a>
-                </div>
-                {% endif %}
-            </details>
-            {% endif %}
             <div class="pv-toolbar">
                 <label class="pv-search-box">
                     <i class="fa-solid fa-search"></i>
@@ -243,15 +207,99 @@
             <div class="table-responsive">
             <table class="data-grid data-grid--editable pv-table pv-input-grid" data-section="descuentos">
                 <thead><tr>
-                    <th title="Empleado">Emp.</th>
-                    <th title="Concepto de descuento">Concepto</th>
-                    <th title="Valor en pesos dominicanos">Valor</th>
+                    <th title="Empleado al que se aplica el descuento">Emp.</th>
+                    <th title="Concepto de descuento variable (seguros, cooperativas, etc.)">Concepto</th>
+                    <th title="Monto del descuento (RD$ u horas según el concepto)">Valor</th>
                     <th style="width:36px;"></th>
                 </tr></thead>
                 <tbody id="pv-tbody-descuentos"></tbody>
             </table>
             </div>
             <div id="pv-totals-descuentos" class="pv-concept-totals" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;"></div>
+        </div>
+
+        <!-- Tab: Movimientos recurrentes -->
+        <div id="pv-tab-recurrentes" class="pv-tab-panel">
+            <p style="font-size:0.75rem; color:var(--text-muted); padding:10px 0 0; margin:0;">
+                <i class="fa-regular fa-circle-info"></i>
+                Los <strong>movimientos recurrentes</strong> se aplican automáticamente cada período (asignaciones, préstamos, cooperativas, seguros, etc.). Se gestionan aquí y <strong>no</strong> se capturan en Ingresos/Descuentos variables.
+            </p>
+            {% set _has_earning_rec = namespace(found=false) %}
+            {% for _mv in recurring_movements %}{% if _mv.movementType == 'earning' %}{% set _has_earning_rec.found = true %}{% endif %}{% endfor %}
+            {% set _has_ded_rec = namespace(found=false) %}
+            {% for _mv in recurring_movements %}{% if _mv.conceptCode in _rec_codes %}{% set _has_ded_rec.found = true %}{% endif %}{% endfor %}
+            {% if _has_earning_rec.found %}
+            <h4 style="font-size:0.85rem; margin:14px 0 8px 0;"><i class="fa-solid fa-plus" style="color:var(--accent-emerald);"></i> Ingresos recurrentes</h4>
+            <div class="table-responsive">
+            <table class="data-grid data-grid--compact">
+                <thead><tr><th title="Empleado con el movimiento recurrente">Empleado</th><th title="Concepto de nómina del movimiento">Concepto</th><th style="text-align:right;" title="Monto por período que se aplicará">Monto</th><th title="Cada cuánto se aplica el movimiento">Frecuencia</th><th title="Estado actual del movimiento">Estado</th><th style="width:90px;"></th></tr></thead>
+                <tbody>
+                    {% for mv in recurring_movements %}
+                        {% if mv.movementType == 'earning' %}
+                        <tr>
+                            <td>{{ mv.employeeName or mv.employeeId }}</td>
+                            <td>{{ mv.conceptCode }}</td>
+                            <td style="text-align:right;">{% if mv.amountType == 'percentage' %}{{ "%.2f"|format((mv.percentage or 0)|float * 100) }}%{% elif mv.amountType == 'formula' %}Fórmula{% else %}RD$ {{ "{:,.2f}".format((mv.amount or 0)|float) }}{% endif %}</td>
+                            <td>{{ mv.applyFrequency or 'every_period' }}</td>
+                            <td>{{ mv.status }}</td>
+                            <td>
+                                {% if pv_editable %}
+                                <a href="{{ url_for('web_rrhh.recurring_edit', movement_id=mv.id, next=pv_return_url) }}" class="btn btn-sm btn-ghost" title="Editar"><i class="fa-solid fa-pen"></i></a>
+                                <form method="POST" action="{{ url_for('web_rrhh.recurring_toggle_status', movement_id=mv.id) }}" style="display:inline; margin:0;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="next" value="{{ pv_return_url }}">
+                                    <input type="hidden" name="new_status" value="{{ 'paused' if mv.status == 'active' else 'active' }}">
+                                    <button type="submit" class="btn btn-sm btn-ghost" title="{{ 'Pausar' if mv.status == 'active' else 'Reactivar' }}"><i class="fa-solid {{ 'fa-pause' if mv.status == 'active' else 'fa-play' }}"></i></button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            {% endif %}
+            {% if _has_ded_rec.found %}
+            <h4 style="font-size:0.85rem; margin:14px 0 8px 0;"><i class="fa-solid fa-minus" style="color:var(--danger);"></i> Descuentos recurrentes</h4>
+            <div class="table-responsive">
+            <table class="data-grid data-grid--compact">
+                <thead><tr><th title="Empleado con el movimiento recurrente">Empleado</th><th title="Concepto de nómina del movimiento">Concepto</th><th style="text-align:right;" title="Monto por período que se aplicará (cuota en préstamos)">Monto</th><th title="Cada cuánto se aplica el movimiento">Frecuencia</th><th title="Estado actual del movimiento">Estado</th><th style="width:90px;"></th></tr></thead>
+                <tbody>
+                    {% for mv in recurring_movements %}
+                        {% if mv.conceptCode in _rec_codes %}
+                        <tr>
+                            <td>{{ mv.employeeName or mv.employeeId }}</td>
+                            <td>{{ mv.conceptCode }}</td>
+                            <td style="text-align:right;">RD$ {{ "{:,.2f}".format((mv.installmentAmount if mv.isLoan else mv.amount)|float) }}</td>
+                            <td>{{ mv.applyFrequency or 'every_period' }}</td>
+                            <td>{{ mv.status }}</td>
+                            <td>
+                                {% if pv_editable %}
+                                <a href="{{ url_for('web_rrhh.recurring_edit', movement_id=mv.id, next=pv_return_url) }}" class="btn btn-sm btn-ghost" title="Editar"><i class="fa-solid fa-pen"></i></a>
+                                <form method="POST" action="{{ url_for('web_rrhh.recurring_toggle_status', movement_id=mv.id) }}" style="display:inline; margin:0;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="next" value="{{ pv_return_url }}">
+                                    <input type="hidden" name="new_status" value="{{ 'paused' if mv.status == 'active' else 'active' }}">
+                                    <button type="submit" class="btn btn-sm btn-ghost" title="{{ 'Pausar' if mv.status == 'active' else 'Reactivar' }}"><i class="fa-solid {{ 'fa-pause' if mv.status == 'active' else 'fa-play' }}"></i></button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            {% endif %}
+            {% if not _has_earning_rec.found and not _has_ded_rec.found %}
+            <p class="text-muted" style="padding:18px; font-size:0.85rem; margin:0;">No hay movimientos recurrentes en este grupo.</p>
+            {% endif %}
+            {% if pv_editable %}
+            <div style="margin:12px 0 4px;">
+                <a href="{{ url_for('web_rrhh.recurring_new', next=pv_return_url) }}" class="btn btn-sm btn-ghost"><i class="fa-solid fa-plus"></i> Nuevo movimiento recurrente</a>
+            </div>
+            {% endif %}
         </div>
 
         <datalist id="pvEmpDatalist">
@@ -421,11 +469,25 @@ var PV_EMP_LOOKUP = {};
         var val = e.name;
         if (nameCount[e.name] > 1) val = e.name + ' — ' + (e.code || e.id);
         PV_EMP_LOOKUP[val] = e.id;
+        // El datalist muestra "nombre — código" cuando el empleado tiene código;
+        // indexar esa variante para que la selección resuelva correctamente.
+        if (e.code) PV_EMP_LOOKUP[e.name + ' — ' + e.code] = e.id;
         e._pvValue = val;
     });
 })();
 function pvEmpValue(empId) { var e = PV_EMP_BY_ID[empId]; return e ? (e._pvValue || e.name) : ''; }
-function pvResolveEmp(val) { if (!val) return ''; return PV_EMP_LOOKUP[val] || (PV_EMP_BY_ID[val] ? val : ''); }
+function pvResolveEmp(val) {
+    if (!val) return '';
+    if (PV_EMP_LOOKUP[val]) return PV_EMP_LOOKUP[val];
+    if (PV_EMP_BY_ID[val]) return val;
+    // Fallback: el valor del datalist puede traer " — código"; reintentar solo con el nombre.
+    var idx = val.lastIndexOf(' — ');
+    if (idx > 0) {
+        var namePart = val.slice(0, idx);
+        if (PV_EMP_LOOKUP[namePart]) return PV_EMP_LOOKUP[namePart];
+    }
+    return '';
+}
 
 var pvChipFilter = { ingresos: '', descuentos: '' };
 

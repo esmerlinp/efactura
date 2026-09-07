@@ -131,14 +131,14 @@
 
     <!-- Tab nav -->
     <div class="employee-tabs" role="tablist" aria-label="Secciones del perfil">
-        <button class="tab-btn active" role="tab" aria-selected="true" data-tab="tab-personal" onclick="switchTab('tab-personal', this)">
-            <i class="fa-solid fa-user"></i> Información
+        <button class="tab-btn active" role="tab" aria-selected="true" data-tab="tab-personal" onclick="switchTab('tab-personal', this)" title="Información">
+            <i class="fa-solid fa-user"></i> Info
         </button>
         <button class="tab-btn" role="tab" aria-selected="false" data-tab="tab-laboral" onclick="switchTab('tab-laboral', this)">
             <i class="fa-solid fa-briefcase"></i> Laboral
         </button>
-        <button class="tab-btn" role="tab" aria-selected="false" data-tab="tab-docs" onclick="switchTab('tab-docs', this)">
-            <i class="fa-solid fa-folder-open"></i> Documentos
+        <button class="tab-btn" role="tab" aria-selected="false" data-tab="tab-docs" onclick="switchTab('tab-docs', this)" title="Documentos">
+            <i class="fa-solid fa-folder-open"></i> Docs
         </button>
         <button class="tab-btn" role="tab" aria-selected="false" data-tab="tab-dependents" onclick="switchTab('tab-dependents', this)">
             <i class="fa-solid fa-people-group"></i> Dependientes
@@ -147,8 +147,8 @@
         <button class="tab-btn" role="tab" aria-selected="false" data-tab="tab-evals" onclick="switchTab('tab-evals', this)">
             <i class="fa-solid fa-star"></i> Evals & Cap
         </button>
-        <button class="tab-btn" role="tab" aria-selected="false" data-tab="tab-history" onclick="switchTab('tab-history', this)">
-            <i class="fa-solid fa-clock-rotate-left"></i> Historial de pago
+        <button class="tab-btn" role="tab" aria-selected="false" data-tab="tab-history" onclick="switchTab('tab-history', this)" title="Historial de pago">
+            <i class="fa-solid fa-clock-rotate-left"></i> Historial
         </button>
         <button class="tab-btn" role="tab" aria-selected="false" data-tab="tab-actions" onclick="switchTab('tab-actions', this)">
             <i class="fa-solid fa-people-arrows"></i> Acciones
@@ -156,6 +156,10 @@
         <button class="tab-btn" role="tab" aria-selected="false" data-tab="tab-herramientas" onclick="switchTab('tab-herramientas', this)">
             <i class="fa-solid fa-toolbox"></i> Herramientas
             {% if herramientas_asignadas %}<span class="badge badge-info" style="font-size:0.65rem;">{{ herramientas_asignadas|length }}</span>{% endif %}
+        </button>
+        <button class="tab-btn" role="tab" aria-selected="false" data-tab="tab-recurring" onclick="switchTab('tab-recurring', this)" title="Movimientos recurrentes">
+            <i class="fa-solid fa-repeat"></i> Recurrentes
+            {% if recurring_movements %}<span class="badge badge-info" style="font-size:0.65rem;">{{ recurring_movements|length }}</span>{% endif %}
         </button>
     </div>
 
@@ -705,6 +709,102 @@
         </div>
     </div>
 
+    <!-- Tab: Movimientos Recurrentes -->
+    <div id="tab-recurring" class="tab-content" style="display:none;">
+        <div class="card-table-wrapper" style="margin-bottom:0;">
+            <div class="table-header-row">
+                <div>
+                    <h3 style="font-size:1rem; font-family:var(--font-heading);">
+                        <i class="fa-solid fa-repeat" style="color:var(--accent-emerald); margin-right:8px;"></i>
+                        Movimientos Recurrentes
+                    </h3>
+                    <p style="color:var(--text-secondary); font-size:0.85rem; margin:4px 0 0 0;">
+                        Descuentos, préstamos, embargos e ingresos aplicados período a período, con saldos y pagos.
+                    </p>
+                </div>
+                <a href="{{ url_for('web_rrhh.recurring_list', employee_id=employee.id) }}" class="btn btn-sm btn-ghost">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Ver todos
+                </a>
+            </div>
+            {% for mv in recurring_movements %}
+            <div class="hr-section-card" style="margin:0 16px 12px 16px;">
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+                    <strong style="font-size:0.95rem;">{{ mv.description or mv.conceptCode or '—' }}</strong>
+                    {% if mv.conceptCode %}<code style="font-size:0.7rem;">{{ mv.conceptCode }}</code>{% endif %}
+                    {% if mv.movementType == 'earning' %}
+                    <span style="font-weight:600; font-size:0.75rem; color:var(--accent-emerald);">Ingreso</span>
+                    {% elif mv.movementType == 'deduction' %}
+                    <span style="font-weight:600; font-size:0.75rem; color:var(--danger);">Deducción</span>
+                    {% else %}
+                    <span style="font-weight:600; font-size:0.75rem; color:var(--accent-purple);">Aporte Emp.</span>
+                    {% endif %}
+                    {% if mv.status == 'active' %}<span class="badge badge-success">Activo</span>
+                    {% elif mv.status == 'scheduled' %}<span class="badge badge-info">Programado</span>
+                    {% elif mv.status == 'paused' %}<span class="badge badge-secondary">Pausado</span>
+                    {% elif mv.status == 'completed' %}<span class="badge badge-secondary">Completado</span>
+                    {% elif mv.status == 'cancelled' %}<span class="badge badge-secondary">Cancelado</span>
+                    {% else %}<span class="badge badge-secondary">{{ mv.status }}</span>{% endif %}
+                    <span style="flex:1;"></span>
+                    <a href="{{ url_for('web_rrhh.recurring_edit', movement_id=mv.id) }}" class="btn btn-sm btn-ghost" title="Editar movimiento">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                    </a>
+                </div>
+                <div class="hr-info-grid">
+                    <div class="hr-info-item"><span class="hr-info-label">Monto por período</span><span class="hr-info-value" style="font-weight:700;">{% if mv.isLoan %}RD$ {{ "{:,.2f}".format(mv.installmentAmount or mv.amount or 0) }}{% elif mv.isGarnishment %}{% if mv.deductionType == 'percentage' %}{{ "%.2f"|format((mv.deductionPercent or 0)|float) }}%{% elif mv.deductionType == 'max_of_legal' %}Máx. legal ({{ "%.2f"|format((mv.maxLegalRate or 0)|float) }}%){% else %}RD$ {{ "{:,.2f}".format(mv.amount or 0) }}{% endif %}{% elif mv.amountType == 'percentage' %}{{ "%.2f"|format((mv.percentage or 0) * 100) }}%{% elif mv.amountType == 'formula' %}Fórmula{% else %}RD$ {{ "{:,.2f}".format(mv.amount or 0) }}{% endif %}</span></div>
+                    {% if mv.isLoan %}
+                    <div class="hr-info-item"><span class="hr-info-label">Monto total</span><span class="hr-info-value">RD$ {{ "{:,.2f}".format(mv.totalAmount or 0) }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Saldo restante</span><span class="hr-info-value" style="font-weight:700; color:var(--danger);">RD$ {{ "{:,.2f}".format(mv.remainingBalance or 0) }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Cuotas pagadas</span><span class="hr-info-value">{{ mv.paidInstallments or 0 }}/{{ mv.totalInstallments or 0 }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Total aplicado</span><span class="hr-info-value">RD$ {{ "{:,.2f}".format(mv._totalApplied or 0) }}</span></div>
+                    {% endif %}
+                    <div class="hr-info-item"><span class="hr-info-label">Inicio</span><span class="hr-info-value">{{ mv.startDate[:10] if mv.startDate else '—' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Fin</span><span class="hr-info-value">{% if mv.indefinite %}Indefinido{% elif mv.endDate %}{{ mv.endDate[:10] }}{% else %}—{% endif %}</span></div>
+                </div>
+                <h4 style="font-size:0.82rem; margin:14px 0 8px 0;">Pagos aplicados ({{ mv._applications|length }})</h4>
+                {% if mv._applications %}
+                <div class="table-responsive">
+                    <table class="data-grid">
+                        <thead>
+                            <tr>
+                                <th>Período</th>
+                                <th>Fecha</th>
+                                <th style="text-align:right;">Monto aplicado</th>
+                                <th style="text-align:right;">Saldo después</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ap in mv._applications %}
+                            <tr>
+                                <td style="white-space:nowrap;"><strong>{{ ap.periodKey or '—' }}</strong></td>
+                                <td style="white-space:nowrap;">{{ ap.appliedAt[:10] if ap.appliedAt else '—' }}</td>
+                                <td style="text-align:right; white-space:nowrap; font-weight:600;">RD$ {{ "{:,.2f}".format(ap.appliedAmount or 0) }}</td>
+                                <td style="text-align:right; white-space:nowrap;">RD$ {{ "{:,.2f}".format(ap.remainingAfter or 0) }}</td>
+                                <td>
+                                    {% if ap.action == 'applied' %}<span class="badge badge-success">Aplicado</span>
+                                    {% elif ap.action == 'skipped' %}<span class="badge badge-secondary">Omitido</span>
+                                    {% elif ap.action == 'modify' %}<span class="badge badge-info">Modificado</span>
+                                    {% else %}<span class="badge badge-secondary">{{ ap.action }}</span>{% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted" style="font-size:0.8rem; margin:0;">Sin pagos aplicados aún. Aparecerán aquí cuando el movimiento se aplique en una corrida de nómina.</p>
+                {% endif %}
+            </div>
+            {% else %}
+            <div style="text-align:center; padding:60px 0; color:var(--text-secondary);">
+                <i class="fa-solid fa-repeat" style="font-size:3rem; color:var(--text-muted); margin-bottom:16px; opacity:0.5; display:block;"></i>
+                Este empleado no tiene movimientos recurrentes.
+                <br><a href="{{ url_for('web_rrhh.recurring_new') }}" class="btn btn-sm btn-primary" style="margin-top:8px;">Crear movimiento</a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
 </div>
 
 <!-- Modal: Agregar dependiente -->
@@ -892,7 +992,8 @@
  .employee-quick-facts div { min-width:0; }
  .employee-quick-facts span { display:block; margin-bottom:4px; color:var(--text-muted); font-size:.68rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
  .employee-quick-facts strong { display:block; overflow:hidden; color:var(--text-primary); font-size:.84rem; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
- .employee-tabs { display:flex; gap:2px; margin:0 -30px 18px; padding:0 30px; overflow-x:auto; border-bottom:1px solid var(--border-color); scrollbar-width:thin; }
+  .employee-tabs { display:flex; gap:2px; margin:0 -30px 18px; padding:0 30px; overflow-x:auto; border-bottom:1px solid var(--border-color); scrollbar-width:thin; }
+  .employee-tabs::after { content:""; flex:0 0 8px; }
  .tab-btn { flex:0 0 auto; min-height:44px; background:none; border:none; padding:9px 14px; cursor:pointer; font-weight:600; font-size:.82rem; color:var(--text-muted); border-bottom:2px solid transparent; margin-bottom:-1px; transition:color .2s, border-color .2s; display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
  .tab-btn.active { color:var(--accent-emerald); border-bottom-color:var(--accent-emerald); }
  .tab-btn:hover, .tab-btn:focus-visible { color:var(--text-primary); }

@@ -869,6 +869,21 @@ def employee_view(employee_id):
 
     herramientas_asignadas = get_asignaciones_por_empleado(owner_uid, employee_id, sandbox=sandbox)
 
+    # ── Movimientos recurrentes del empleado (tab de la ficha) ──
+    from app.services.recurring_service import get_applications_by_employee
+    recurring_movements = hr.get_recurring_movements(
+        company_id, employee_id=employee_id, sandbox=sandbox)
+    recurring_movements.sort(
+        key=lambda m: (m.get("status") != "active", m.get("priority", 50)))
+    _apps_by_mv = {}
+    for _app in get_applications_by_employee(company_id, employee_id, sandbox=sandbox):
+        _apps_by_mv.setdefault(_app.get("recurringMovementId", ""), []).append(_app)
+    for _mv in recurring_movements:
+        _mv["_applications"] = _apps_by_mv.get(_mv.get("id", ""), [])
+        _mv["_totalApplied"] = sum(
+            float(_a.get("appliedAmount", 0) or 0)
+            for _a in _mv["_applications"] if _a.get("action") == "applied")
+
     offboarding_requests = []
     offboarding_states = {}
     try:
@@ -903,6 +918,7 @@ def employee_view(employee_id):
                            dep_financial=dep_financial, dep_student=dep_student,
                            relationship_catalog=RELATIONSHIP_CATALOG,
                            herramientas_asignadas=herramientas_asignadas,
+                           recurring_movements=recurring_movements,
                            offboarding_requests=offboarding_requests,
                            states=offboarding_states,
                            sirla_education_label=get_education_label(employee.get("sirlaEducationCode", "")),

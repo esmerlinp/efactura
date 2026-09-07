@@ -39,6 +39,30 @@ class TestExtractVariableValues:
         assert result["E2"] == {"HORAS_EXTRA": 8.0}
         assert "E3" not in result
 
+    def test_var_conceptos_con_underscore(self):
+        form = {
+            "var_INGRESO_VARIABLE_E1": "2500",
+            "var_HORAS_EXTRA_E1": "8",
+            "var_OTRAS_DEDUCCIONES_E1": "400",
+            "var_DESCUENTO_RECURRENTE_E2": "1000",
+            "var_REGALIA_PASCUAL_E2": "5000",
+        }
+        result = _extract_variable_values(form, ["E1", "E2"])
+        assert result["E1"] == {
+            "INGRESO_VARIABLE": 2500.0,
+            "HORAS_EXTRA": 8.0,
+            "OTRAS_DEDUCCIONES": 400.0,
+        }
+        assert result["E2"] == {
+            "DESCUENTO_RECURRENTE": 1000.0,
+            "REGALIA_PASCUAL": 5000.0,
+        }
+
+    def test_var_concepto_custom_por_emp_conocido(self):
+        form = {"var_BONO_EXTRA_E1": "1200"}
+        result = _extract_variable_values(form, ["E1"])
+        assert result == {"E1": {"BONO_EXTRA": 1200.0}}
+
     def test_formulario_vacio(self):
         assert _extract_variable_values({}, ["E1"]) == {}
 

@@ -435,6 +435,31 @@ def _parse_recurring_form(form, existing=None):
         sub_type = "regular"
     is_loan = (sub_type == "loan")
     is_garnishment = (sub_type == "garnishment")
+    is_deduction_regular = (movement_type == "deduction" and sub_type == "regular")
+
+    # ── Monto: leer la sección visible según tipo/subtipo ──
+    # El formulario envía ambas secciones (ingresos + deducción); los inputs de la
+    # sección oculta (display:none) también se envían y form.get() devolvería la
+    # primera ocurrencia del DOM → monto 0. Por eso la sección de deducción
+    # regular usa nombres dedicados (ded*).
+    if is_deduction_regular:
+        amount_type = form.get("dedAmountType", "fixed")
+        amount = float(form.get("dedAmount", 0) or 0)
+        percentage = float(form.get("dedPercentage", 0) or 0)
+        formula = form.get("dedFormula", "")
+    elif is_loan:
+        # El monto por período de un préstamo es la cuota; se refleja en "amount"
+        # para que listas y consumidores genéricos lo muestren correctamente.
+        installment = float(form.get("installmentAmount", 0) or 0)
+        amount_type = "fixed"
+        amount = installment
+        percentage = 0.0
+        formula = ""
+    else:
+        amount_type = form.get("amountType", "fixed")
+        amount = float(form.get("amount", 0) or 0)
+        percentage = float(form.get("percentage", 0) or 0)
+        formula = form.get("formula", "")
 
     data = {
         "employeeId": emp_id,
@@ -444,10 +469,10 @@ def _parse_recurring_form(form, existing=None):
         "movementType": form.get("movementType", "deduction"),
         "description": form.get("description", ""),
         "payrollGroupIds": form.getlist("payrollGroupIds"),
-        "amountType": form.get("amountType", "fixed"),
-        "amount": float(form.get("amount", 0) or 0),
-        "percentage": float(form.get("percentage", 0) or 0),
-        "formula": form.get("formula", ""),
+        "amountType": amount_type,
+        "amount": amount,
+        "percentage": percentage,
+        "formula": formula,
         "isLoan": is_loan,
         "isGarnishment": is_garnishment,
         "startDate": form.get("startDate", ""),
