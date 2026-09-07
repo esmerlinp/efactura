@@ -148,27 +148,28 @@
 
         <!-- Tab: Ingresos -->
         <div id="pv-tab-ingresos" class="pv-tab-panel {% if pv_editable %}active{% endif %}">
-            <p style="font-size:0.75rem; color:var(--text-muted); padding:10px 0 0; margin:0;">
+            <p style="font-size:0.75rem; color:var(--text-muted); padding:10px 0 16px; margin:0;">
                 <i class="fa-regular fa-circle-info"></i>
                 El <strong>salario base</strong> se toma automáticamente de la ficha de cada empleado. Aquí solo capturas los <strong>ingresos variables</strong> (comisiones, horas, bonos, etc.).
             </p>
+            {% if pv_editable %}
             <div class="pv-toolbar">
                 <label class="pv-search-box">
                     <i class="fa-solid fa-search"></i>
                     <input type="text" class="form-input pv-search" data-section="ingresos" placeholder="Buscar..." aria-label="Buscar ingresos">
                 </label>
                 <div class="pv-action-group">
-                {% if pv_editable %}
                 <button type="button" class="btn btn-sm btn-ghost pv-action-btn" onclick="pvAddRow('ingresos')" title="Agrega una fila de ingreso"><i class="fa-solid fa-plus"></i> Fila</button>
                 <a href="{{ url_for('web_rrhh.payroll_variables_import_page') }}" class="btn btn-sm btn-secondary pv-action-btn" title="Importa ingresos desde un CSV"><i class="fa-solid fa-file-csv"></i> Importar</a>
                 <button type="button" class="btn btn-sm btn-outline pv-action-btn" onclick="openBulkModal('ingresos')" title="Aplica un monto o porcentaje a varios empleados"><i class="fa-solid fa-layer-group"></i> Lote</button>
                 <button type="button" class="btn btn-sm btn-ghost pv-action-btn pv-danger-action" onclick="pvClearSection('ingresos')" title="Limpia todas las filas de ingresos"><i class="fa-solid fa-eraser"></i> Limpiar</button>
                 <a href="{{ url_for('web_rrhh.concept_new', type='earning', category='variable', next=pv_return_url) }}" class="btn btn-sm btn-ghost pv-action-btn pv-new-action" title="Crea un nuevo concepto de ingreso"><i class="fa-solid fa-plus"></i> Concepto</a>
-                {% endif %}
                 </div>
                 <div class="pv-chips" data-section="ingresos"></div>
             </div>
+            {% endif %}
             <div class="table-responsive">
+            {% if pv_editable %}
             <table class="data-grid data-grid--editable pv-table pv-input-grid" data-section="ingresos">
                 <thead><tr>
                     <th title="Empleado al que se aplica el ingreso">Emp.</th>
@@ -178,33 +179,46 @@
                 </tr></thead>
                 <tbody id="pv-tbody-ingresos"></tbody>
             </table>
+            {% else %}
+            <table class="data-grid pv-summary-grid" data-section="ingresos">
+                <thead><tr>
+                    <th title="Empleado al que se aplica el ingreso">Emp.</th>
+                    <th title="Concepto de ingreso variable (comisiones, horas, bonos, etc.)">Concepto</th>
+                    <th class="num" title="Monto del ingreso (RD$ u horas según el concepto)">Valor</th>
+                </tr></thead>
+                <tbody id="pv-tbody-ingresos"></tbody>
+            </table>
+            {% endif %}
             </div>
+            {% if pv_editable %}
             <div id="pv-totals-ingresos" class="pv-concept-totals" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;"></div>
+            {% endif %}
         </div>
 
         <!-- Tab: Descuentos -->
         <div id="pv-tab-descuentos" class="pv-tab-panel">
-            <p style="font-size:0.75rem; color:var(--text-muted); padding:10px 0 0; margin:0;">
+            <p style="font-size:0.75rem; color:var(--text-muted); padding:10px 0 16px; margin:0;">
                 <i class="fa-regular fa-circle-info"></i>
                 <strong>AFP, SFS (ARS), ISR e INFOTEP</strong> se calculan automáticamente según los ingresos del período. Aquí solo capturas descuentos variables o recurrentes (préstamos, seguros, cooperativas, etc.).
             </p>
+            {% if pv_editable %}
             <div class="pv-toolbar">
                 <label class="pv-search-box">
                     <i class="fa-solid fa-search"></i>
                     <input type="text" class="form-input pv-search" data-section="descuentos" placeholder="Buscar..." aria-label="Buscar descuentos">
                 </label>
                 <div class="pv-action-group">
-                {% if pv_editable %}
                 <button type="button" class="btn btn-sm btn-ghost pv-action-btn" onclick="pvAddRow('descuentos')" title="Agrega una fila de descuento"><i class="fa-solid fa-plus"></i> Fila</button>
                 <a href="{{ url_for('web_rrhh.payroll_variables_import_page') }}" class="btn btn-sm btn-secondary pv-action-btn" title="Importa descuentos desde un CSV"><i class="fa-solid fa-file-csv"></i> Importar</a>
                 <button type="button" class="btn btn-sm btn-outline pv-action-btn" onclick="openBulkModal('descuentos')" title="Aplica un monto o porcentaje a varios empleados"><i class="fa-solid fa-layer-group"></i> Lote</button>
                 <button type="button" class="btn btn-sm btn-ghost pv-action-btn pv-danger-action" onclick="pvClearSection('descuentos')" title="Limpia todas las filas de descuentos"><i class="fa-solid fa-eraser"></i> Limpiar</button>
                 <a href="{{ url_for('web_rrhh.concept_new', type='deduction', category='variable', next=pv_return_url) }}" class="btn btn-sm btn-ghost pv-action-btn pv-new-action" title="Crea un nuevo concepto de descuento"><i class="fa-solid fa-plus"></i> Concepto</a>
-                {% endif %}
                 </div>
                 <div class="pv-chips" data-section="descuentos"></div>
             </div>
+            {% endif %}
             <div class="table-responsive">
+            {% if pv_editable %}
             <table class="data-grid data-grid--editable pv-table pv-input-grid" data-section="descuentos">
                 <thead><tr>
                     <th title="Empleado al que se aplica el descuento">Emp.</th>
@@ -214,8 +228,20 @@
                 </tr></thead>
                 <tbody id="pv-tbody-descuentos"></tbody>
             </table>
+            {% else %}
+            <table class="data-grid pv-summary-grid" data-section="descuentos">
+                <thead><tr>
+                    <th title="Empleado al que se aplica el descuento">Emp.</th>
+                    <th title="Concepto de descuento variable (seguros, cooperativas, etc.)">Concepto</th>
+                    <th class="num" title="Monto del descuento (RD$ u horas según el concepto)">Valor</th>
+                </tr></thead>
+                <tbody id="pv-tbody-descuentos"></tbody>
+            </table>
+            {% endif %}
             </div>
+            {% if pv_editable %}
             <div id="pv-totals-descuentos" class="pv-concept-totals" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;"></div>
+            {% endif %}
         </div>
 
         <!-- Tab: Movimientos recurrentes -->
@@ -417,7 +443,7 @@
 .pv-complete-grid { font-size:0.72rem; min-width:1180px; }
 .pv-complete-grid th,
 .pv-complete-grid td { padding:5px 7px; white-space:nowrap; line-height:1.15; font-weight:400; }
-.pv-complete-grid th { font-size:0.66rem; font-weight:500; text-transform:uppercase; letter-spacing:0.02em; color:var(--text-muted); }
+.pv-complete-grid th { font-size:0.66rem; font-weight:700; text-transform:uppercase; letter-spacing:0.02em; color:var(--text-muted); }
 .pv-complete-grid .num { text-align:right; font-variant-numeric:tabular-nums; }
 .pv-complete-grid .emp { max-width:180px; overflow:hidden; text-overflow:ellipsis; }
 .pv-complete-grid .net { color:var(--accent-emerald); }
@@ -428,7 +454,9 @@
 .pv-input-grid th,
 .pv-input-grid td { padding:5px 7px; white-space:nowrap; line-height:1.15; font-weight:400; }
 .pv-summary-grid th,
-.pv-input-grid th { font-size:0.66rem; font-weight:500; text-transform:uppercase; letter-spacing:0.02em; color:var(--text-muted); }
+.pv-input-grid th { font-size:0.66rem; font-weight:700; text-transform:uppercase; letter-spacing:0.02em; color:var(--text-muted); }
+#pv-tab-recurrentes .data-grid th,
+#pvPreviewModal .data-grid th { font-weight:700; }
 .pv-summary-grid .num,
 .pv-input-grid .num { text-align:right; font-variant-numeric:tabular-nums; }
 .pv-summary-grid .emp { max-width:220px; overflow:hidden; text-overflow:ellipsis; }
@@ -441,6 +469,23 @@
 .pv-input-grid .pv-unit { font-size:0.65rem; }
 .pv-tab-panel .table-responsive { max-height:480px; overflow-y:auto; }
 .pv-tab-panel .table-responsive thead th { position:sticky; top:0; background:var(--bg-card); z-index:2; }
+/* Columna de empleado fija al hacer scroll horizontal */
+.pv-summary-grid th:first-child,
+.pv-summary-grid td:first-child,
+.pv-input-grid th:first-child,
+.pv-input-grid td:first-child,
+.pv-complete-grid th:first-child,
+.pv-complete-grid td:first-child,
+#pv-tab-recurrentes .data-grid th:first-child,
+#pv-tab-recurrentes .data-grid td:first-child,
+#pvPreviewModal .data-grid th:first-child,
+#pvPreviewModal .data-grid td:first-child {
+    position:sticky; left:0; z-index:1;
+    background:var(--bg-card);
+    box-shadow:1px 0 0 var(--border-color);
+}
+.pv-tab-panel .table-responsive thead th:first-child,
+#pvPreviewModal .data-grid thead th:first-child { z-index:3; }
 </style>
 <script>
 var PV_EMPLOYEES = {{ pv_emps | tojson }};
@@ -516,6 +561,25 @@ function pvAddRow(sectionKey, empId, conceptCode, amount, auto) {
     var tr = document.createElement('tr');
     tr.className = 'pv-row';
     if (auto) tr.setAttribute('data-auto', '1');
+
+    if (!PV_EDITABLE) {
+        // Solo-lectura (estilo grilla estándar): celdas de texto plano.
+        var roEmp = PV_EMP_BY_ID[empId];
+        var roDef = PV_CONCEPT_BY_CODE[conceptCode] || {label: conceptCode};
+        var roName = roEmp ? (roEmp._pvValue || roEmp.name) : (empId || '');
+        var roAmt = parseFloat(amount) || 0;
+        tr.setAttribute('data-concept', conceptCode || '');
+        tr.setAttribute('data-amount', roAmt);
+        tr.setAttribute('data-emp', roName);
+        tr.title = roName;
+        tr.innerHTML =
+            '<td class="emp">' + roName + '</td>' +
+            '<td>' + roDef.label + '</td>' +
+            '<td class="num">' + ((roDef && roDef.hours) ? roAmt.toLocaleString('es-DO', {maximumFractionDigits: 2}) + ' h' : roAmt.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})) + '</td>';
+        tbody.appendChild(tr);
+        return tr;
+    }
+
     tr.innerHTML =
         '<td>' +
             '<input class="form-input pv-emp" list="pvEmpDatalist" placeholder="Buscar empleado..." autocomplete="off">' +
@@ -524,12 +588,6 @@ function pvAddRow(sectionKey, empId, conceptCode, amount, auto) {
         '<td><input type="number" step="0.01" min="0" class="form-input pv-amount" value="' + (amount !== undefined && amount !== null && amount !== '' ? amount : '0') + '" oninput="this.closest(\'tr\').removeAttribute(\'data-auto\'); pvRender();"> <span class="pv-unit">RD$</span></td>' +
         '<td><button type="button" class="btn btn-sm btn-danger" onclick="this.closest(\'tr\').remove(); pvRender();"><i class="fa-solid fa-xmark"></i></button></td>';
     tbody.appendChild(tr);
-
-    if (!PV_EDITABLE) {
-        tr.querySelectorAll('select, input').forEach(function(el) { el.disabled = true; });
-        var delBtn = tr.querySelector('button');
-        if (delBtn) delBtn.style.display = 'none';
-    }
 
     var empSel = tr.querySelector('.pv-emp');
     var conSel = tr.querySelector('.pv-concept');
@@ -568,14 +626,31 @@ function pvSectionRows(sectionKey) {
     return tbody ? Array.from(tbody.querySelectorAll('.pv-row')) : [];
 }
 
+/* Lectura agnóstica al modo: inputs en edición, data-* en solo-lectura. */
+function pvRowCode(tr) {
+    var el = tr.querySelector('.pv-concept');
+    if (el) return el.value;
+    return tr.getAttribute('data-concept') || '';
+}
+function pvRowAmount(tr) {
+    var el = tr.querySelector('.pv-amount');
+    if (el) return parseFloat(el.value) || 0;
+    return parseFloat(tr.getAttribute('data-amount')) || 0;
+}
+function pvRowEmpText(tr) {
+    var el = tr.querySelector('.pv-emp');
+    if (el) return el.value || '';
+    return tr.getAttribute('data-emp') || '';
+}
+
 function pvRender() {
     ['ingresos', 'descuentos'].forEach(function(section) {
         var rows = pvSectionRows(section);
         var sums = {};
         var count = 0;
         rows.forEach(function(tr) {
-            var code = tr.querySelector('.pv-concept').value;
-            var amt = parseFloat(tr.querySelector('.pv-amount').value) || 0;
+            var code = pvRowCode(tr);
+            var amt = pvRowAmount(tr);
             if (amt > 0) {
                 count++;
                 sums[code] = (sums[code] || 0) + amt;
@@ -608,9 +683,9 @@ function pvRender() {
         }
 
         rows.forEach(function(tr) {
-            var code = tr.querySelector('.pv-concept').value;
+            var code = pvRowCode(tr);
             var matchChip = !pvChipFilter[section] || pvChipFilter[section] === code;
-            var empText = (tr.querySelector('.pv-emp').value || '') + ' ' + ((PV_CONCEPT_BY_CODE[code] || {}).label || '');
+            var empText = (pvRowEmpText(tr) || '') + ' ' + ((PV_CONCEPT_BY_CODE[code] || {}).label || '');
             var q = (document.querySelector('.pv-search[data-section="' + section + '"]') || {}).value || '';
             var matchSearch = !q || empText.toLowerCase().indexOf(q.toLowerCase()) !== -1;
             tr.style.display = (matchChip && matchSearch) ? '' : 'none';
@@ -624,14 +699,14 @@ function pvRender() {
     var salary = 0, incMoney = 0, decMoney = 0;
     PV_EMPLOYEES.forEach(function(e) { salary += (e.salary || 0) / salaryDivisor; });
     pvSectionRows('ingresos').forEach(function(tr) {
-        var amt = parseFloat(tr.querySelector('.pv-amount').value) || 0;
-        var def = PV_CONCEPT_BY_CODE[tr.querySelector('.pv-concept').value];
+        var amt = pvRowAmount(tr);
+        var def = PV_CONCEPT_BY_CODE[pvRowCode(tr)];
         if (def && def.hours) return;
         incMoney += amt;
     });
     pvSectionRows('descuentos').forEach(function(tr) {
-        var amt = parseFloat(tr.querySelector('.pv-amount').value) || 0;
-        var def = PV_CONCEPT_BY_CODE[tr.querySelector('.pv-concept').value];
+        var amt = pvRowAmount(tr);
+        var def = PV_CONCEPT_BY_CODE[pvRowCode(tr)];
         if (def && def.hours) return;
         decMoney += amt;
     });
@@ -702,6 +777,7 @@ function pvSaveDraft() {
 }
 
 function pvLoadDraft() {
+    if (!PV_EDITABLE) return false;
     var raw = null;
     try { raw = localStorage.getItem(pvDraftKey()); } catch(e) {}
     if (!raw) return false;
