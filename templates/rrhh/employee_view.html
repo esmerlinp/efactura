@@ -8,6 +8,9 @@
         <h1 class="page-title"><i class="fa-solid fa-id-card"></i> Perfil del empleado</h1>
     </div>
     <div class="hr-page-actions">
+        <button type="button" class="btn btn-ghost employee-header-btn" title="Generar ficha del empleado en PDF (estilo CV)" onclick="document.getElementById('pdfModal').style.display='flex'">
+            <i class="fa-solid fa-file-pdf"></i> Imprimir ficha
+        </button>
         <a href="{{ url_for('web_rrhh.employee_edit', employee_id=employee.id) }}" class="btn btn-ghost employee-header-btn">
             <i class="fa-solid fa-pen-to-square"></i> Editar
         </a>
@@ -1204,5 +1207,37 @@ document.addEventListener('click', function(e) {
         menu.style.display = 'none';
     }
 });
+</script>
+
+<!-- Modal: Imprimir ficha en PDF -->
+<div id="pdfModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.55); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); align-items:center; justify-content:center;" onclick="if(event.target===this)this.style.display='none'">
+    <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-xl); width:100%; max-width:440px; max-height:90vh; display:flex; flex-direction:column; box-shadow:var(--shadow-xl); animation:fadeInUp 0.3s ease;" onclick="event.stopPropagation()">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--border-color);">
+            <h2 style="margin:0; font-size:1rem; font-weight:700;"><i class="fa-solid fa-file-pdf" style="color:var(--accent-emerald);"></i> Imprimir ficha</h2>
+            <button type="button" class="btn btn-sm btn-ghost" onclick="document.getElementById('pdfModal').style.display='none'">
+                <i class="fa-solid fa-times" style="font-size:1.1rem;"></i>
+            </button>
+        </div>
+        <div style="padding:20px; display:flex; flex-direction:column; gap:16px;">
+            <p style="margin:0; font-size:0.88rem; color:var(--text-secondary);">¿Deseas incluir el historial de pagos de nómina en la ficha?</p>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-primary" style="flex:1; min-width:150px;" onclick="openProfilePdf(true)">
+                    <i class="fa-solid fa-file-pdf"></i> Sí, incluir pagos
+                </button>
+                <button type="button" class="btn btn-secondary" style="flex:1; min-width:150px;" onclick="openProfilePdf(false)">
+                    <i class="fa-solid fa-eye-slash"></i> No, omitir pagos
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+(function () {
+    var pdfBaseUrl = "{{ url_for('web_rrhh.employee_profile_pdf', employee_id=employee.id) }}";
+    window.openProfilePdf = function (includePayments) {
+        document.getElementById('pdfModal').style.display = 'none';
+        window.open(pdfBaseUrl + '?include_payments=' + (includePayments ? '1' : '0'), '_blank', 'noopener');
+    };
+})();
 </script>
 {% endblock %}

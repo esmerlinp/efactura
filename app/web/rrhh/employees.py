@@ -795,19 +795,22 @@ def employee_edit(employee_id):
                            sirla_disabilities=SIRLA_DISABILITIES)
 
 
-@web_rrhh_bp.route("/rrhh/employees/<employee_id>/view")
-def employee_view(employee_id):
-    if _login_required():
-        return redirect(url_for("web_auth.login"))
-    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+def _load_employee_context(company_id: str, employee_id: str, owner_uid: str,
+                           sandbox: bool = True) -> dict | None:
+    """Carga todo el contexto de la ficha del empleado.
+
+    Compartido por la vista HTML (`employee_view`) y la ficha en PDF, para que
+    ambas muestren exactamente la misma información. Retorna None si el
+    empleado no existe. Las claves del dict coinciden con las variables que
+    espera el template `rrhh/employee_view.html`.
+    """
     from app.services import hr_data_service as hr
     from app.services.payroll_service import PayrollService
     from app.services.db_service import DatabaseService
 
     employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
     if not employee:
-        flash("Empleado no encontrado.", "error")
-        return redirect(url_for("web_rrhh.employee_list"))
+        return None
 
     from app.services.employee_status_service import EmployeeStatusService
     EmployeeStatusService.sync_employee(
@@ -928,28 +931,49 @@ def employee_view(employee_id):
         for c in normalize_disability(employee.get("disability")).split(",")
         if get_disability_name(c)
     ]
-    return render_template("rrhh/employee_view.html", active_page="rrhh_employees",
-                           employee=_sanitize_for_role(employee), vacation_days=vacation_days,
-                           severance=severance, evaluations=evals, trainings=trainings,
-                           documents=docs, payment_history=payment_history,
-                           timeline=timeline,
-                           active_requests=active_requests,
-                           average_salary=average_salary,
-                           payroll_groups=hr.get_payroll_groups(company_id, sandbox=sandbox),
-                           branches=branches,
-                           dependents=dependents, dep_minor=dep_minor, dep_adult=dep_adult,
-                           dep_financial=dep_financial, dep_student=dep_student,
-                           relationship_catalog=RELATIONSHIP_CATALOG,
-                           herramientas_asignadas=herramientas_asignadas,
-                           recurring_movements=recurring_movements,
-                           offboarding_requests=offboarding_requests,
-                           employment_contracts=employment_contracts,
-                           active_contract=active_contract,
-                           states=offboarding_states,
-                           sirla_education_label=get_education_label(employee.get("sirlaEducationCode", "")),
-                           sirla_nationality_name=get_nationality_name(employee.get("nationality", 1)),
-                           sirla_disability_names=", ".join(_dis_names),
-                           employee_work_days=employee_work_days)
+    return {
+        "employee": employee,
+        "vacation_days": vacation_days,
+        "severance": severance,
+        "evaluations": evals,
+        "trainings": trainings,
+        "documents": docs,
+        "payment_history": payment_history,
+        "timeline": timeline,
+        "active_requests": active_requests,
+        "average_salary": average_salary,
+        "payroll_groups": hr.get_payroll_groups(company_id, sandbox=sandbox),
+        "branches": branches,
+        "dependents": dependents,
+        "dep_minor": dep_minor,
+        "dep_adult": dep_adult,
+        "dep_financial": dep_financial,
+        "dep_student": dep_student,
+        "relationship_catalog": RELATIONSHIP_CATALOG,
+        "herramientas_asignadas": herramientas_asignadas,
+        "recurring_movements": recurring_movements,
+        "offboarding_requests": offboarding_requests,
+        "employment_contracts": employment_contracts,
+        "active_contract": active_contract,
+        "states": offboarding_states,
+        "sirla_education_label": get_education_label(employee.get("sirlaEducationCode", "")),
+        "sirla_nationality_name": get_nationality_name(employee.get("nationality", 1)),
+        "sirla_disability_names": ", ".join(_dis_names),
+        "employee_work_days": employee_work_days,
+    }
+
+
+@web_rrhh_bp.route("/rrhh/employees/<employee_id>/view")
+def employee_view(employee_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    ctx = _load_employee_context(company_id, employee_id, owner_uid, sandbox=sandbox)
+    if not ctx:
+        flash("Empleado no encontrado.", "error")
+        return redirect(url_for("web_rrhh.employee_list"))
+    ctx["employee"] = _sanitize_for_role(ctx["employee"])
+    return render_template("rrhh/employee_view.html", active_page="rrhh_employees", **ctx)
 
 
 def _timeline_export_query() -> dict:
