@@ -5,9 +5,11 @@
 <div class="page-header hr-page-header">
     <h1 class="page-title"><i class="fa-solid fa-list-check"></i> Liquidaciones de {{ employee.fullName or (employee.firstName ~ ' ' ~ employee.lastName) }}</h1>
     <div style="display:flex; gap:8px; margin-left:auto;">
+        {% if employee.status != 'inactivo' %}
         <a href="{{ url_for('web_rrhh.employee_liquidacion', employee_id=employee.id) }}" class="btn btn-primary">
             <i class="fa-solid fa-plus"></i> Nueva liquidación
         </a>
+        {% endif %}
         <a href="{{ url_for('web_rrhh.employee_view', employee_id=employee.id) }}" class="btn btn-secondary">
             <i class="fa-solid fa-arrow-left"></i> Volver
         </a>
@@ -69,9 +71,11 @@
     <p style="color:var(--text-secondary); margin:8px 0 0;">
         No se han registrado cálculos de liquidación para este empleado.
     </p>
+    {% if employee.status != 'inactivo' %}
     <a href="{{ url_for('web_rrhh.employee_liquidacion', employee_id=employee.id) }}" class="btn btn-primary" style="margin-top:16px;">
         <i class="fa-solid fa-calculator"></i> Calcular liquidación
     </a>
+    {% endif %}
 </div>
 {% endif %}
 {% endblock %}

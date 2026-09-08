@@ -11,9 +11,11 @@
         <button type="button" class="btn btn-ghost employee-header-btn" title="Generar ficha del empleado en PDF (estilo CV)" onclick="document.getElementById('pdfModal').style.display='flex'">
             <i class="fa-solid fa-file-pdf"></i> Imprimir ficha
         </button>
+        {% if employee.status != 'inactivo' %}
         <a href="{{ url_for('web_rrhh.employee_edit', employee_id=employee.id) }}" class="btn btn-ghost employee-header-btn">
             <i class="fa-solid fa-pen-to-square"></i> Editar
         </a>
+        {% endif %}
         <div class="dropdown employee-actions-dropdown" style="position:relative; display:inline-block;">
             <button class="btn btn-ghost employee-header-btn" aria-label="Acciones de personal" onclick="event.stopPropagation(); document.getElementById('actionMenu').style.display='block'">
                 <i class="fa-solid fa-ellipsis"></i> Acciones de personal
@@ -27,7 +29,7 @@
                    onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
                     <i class="fa-solid fa-user-plus" style="color:#047857; width:16px; text-align:center;"></i> Reincorporación
                 </a>
-                {% endif %}
+                {% else %}
                 <a href="{{ url_for('web_rrhh.mass_action_wizard', ids=employee.id, action_type='salary_change') }}"
                    style="display:flex; align-items:center; gap:8px; padding:10px 14px; text-decoration:none; color:var(--text-primary); font-size:0.85rem; border-bottom:1px solid var(--border-color); transition:background 0.15s;"
                    onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
@@ -68,14 +70,17 @@
                    onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
                     <i class="fa-solid fa-calculator" style="color:#2563eb; width:16px; text-align:center;"></i> Liquidación (cálculo)
                 </a>
+                {% endif %}
             </div>
         </div>
         <a href="{{ url_for('web_rrhh.employee_checklist', employee_id=employee.id, checklist_type='onboarding') }}" class="btn btn-ghost btn-sm employee-header-btn">
             <i class="fa-solid fa-clipboard-check"></i> Onboarding
         </a>
+        {% if employee.status != 'inactivo' %}
         <a href="{{ url_for('web_rrhh.employee_certificate', employee_id=employee.id) }}" class="btn btn-ghost btn-sm employee-header-btn">
             <i class="fa-solid fa-file-signature"></i> Carta de Trabajo
         </a>
+        {% endif %}
         {% if employee.status == 'inactivo' %}
         <a href="{{ url_for('web_rrhh.employee_rehire_form', employee_id=employee.id) }}" class="btn btn-success btn-sm employee-header-btn">
             <i class="fa-solid fa-user-plus"></i> Reincorporar empleado
@@ -85,7 +90,7 @@
 </div>
 
 <!-- Header -->
-<div class="card-table-wrapper hr-document-sheet employee-profile" style="padding:30px; margin-bottom:0;">
+<div class="card-table-wrapper hr-document-sheet employee-profile{% if employee.status == 'inactivo' %} employee-profile-inactive{% endif %}" style="padding:30px; margin-bottom:0;">
     <div class="employee-summary">
         <div class="employee-identity">
             <div class="employee-photo" style="position:relative;">
@@ -212,9 +217,11 @@
                     {% endif %}
                 </div>
                 <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+                    {% if employee.status != 'inactivo' %}
                     <a href="{{ url_for('web_rrhh.employee_liquidacion', employee_id=employee.id) }}" class="btn btn-primary" style="font-size:0.85rem;">
                         <i class="fa-solid fa-calculator"></i> Calcular liquidación
                     </a>
+                    {% endif %}
                     <a href="{{ url_for('web_rrhh.employee_liquidaciones_list', employee_id=employee.id) }}" class="btn btn-secondary" style="font-size:0.85rem;">
                         <i class="fa-solid fa-list-check"></i> Ver historial
                     </a>
@@ -845,7 +852,9 @@
             <div style="text-align:center; padding:60px 0; color:var(--text-secondary);">
                 <i class="fa-solid fa-repeat" style="font-size:3rem; color:var(--text-muted); margin-bottom:16px; opacity:0.5; display:block;"></i>
                 Este empleado no tiene movimientos recurrentes.
+                {% if employee.status != 'inactivo' %}
                 <br><a href="{{ url_for('web_rrhh.recurring_new') }}" class="btn btn-sm btn-primary" style="margin-top:8px;">Crear movimiento</a>
+                {% endif %}
             </div>
             {% endfor %}
         </div>
@@ -1011,6 +1020,7 @@
  .employee-breadcrumb a { color:var(--text-secondary); text-decoration:none; }
  .employee-breadcrumb a:hover { color:var(--accent-emerald); }
  .employee-profile { border-top:0; }
+ .employee-profile-inactive::before { background: var(--danger); }
  .employee-summary { display:flex; align-items:flex-start; justify-content:space-between; gap:24px; padding-bottom:22px; border-bottom:1px solid var(--border-color); }
  .employee-identity { display:flex; align-items:center; gap:18px; min-width:0; }
  .employee-photo { width:88px; height:88px; flex:0 0 88px; }

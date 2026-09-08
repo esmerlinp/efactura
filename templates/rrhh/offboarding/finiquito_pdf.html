@@ -10,20 +10,37 @@
     .fecha { margin: 12px 0 20px; text-align: justify; }
     .partes { margin: 0 0 20px; text-align: justify; }
     .partes p { margin: 4px 0; }
-    .clausula { margin: 18px 0; text-align: justify; }
-    .clausula-title { font-weight: 700; margin-bottom: 4px; }
-    .option { margin: 3px 0 3px 22px; text-indent: -22px; }
+    .clausula { margin: 18px 0; text-align: justify; break-inside: avoid; page-break-inside: avoid; }
+    .clausula-title { font-weight: 700; margin-bottom: 4px; break-after: avoid; page-break-after: avoid; }
+    .option { margin: 3px 0; }
+    .check { display: inline-block; width: 12px; height: 12px; border: 1px solid #333; text-align: center; line-height: 11px; font-size: 8pt; font-weight: 700; margin-right: 4px; vertical-align: -1px; }
+    .company-header { display: flex; align-items: center; gap: 14px; margin: 0 0 8px; padding-bottom: 10px; border-bottom: 2px solid #1e40af; }
+    .company-logo { width: 64px; height: 64px; object-fit: contain; }
+    .company-info { display: flex; flex-direction: column; font-size: 9pt; color: #333; line-height: 1.4; }
+    .company-info .company-name { font-size: 11.5pt; font-weight: 700; color: #111; }
     .monto-line { display: flex; justify-content: space-between; margin: 3px 0; }
     .monto-line .valor { text-align: right; font-family: monospace; }
     .monto-total { font-weight: 700; border-top: 1px solid #999; padding-top: 6px; margin-top: 8px; }
-    .firmas { margin-top: 40px; display: flex; justify-content: space-between; gap: 30px; }
+    .firmas { margin-top: 40px; display: flex; justify-content: space-between; gap: 30px; break-inside: avoid; page-break-inside: avoid; }
     .firma { flex: 1; text-align: center; }
     .firma .linea { border-top: 1px solid #333; margin-top: 55px; padding-top: 6px; font-size: 8.5pt; color: #333; }
-    .testigos { margin-top: 30px; display: flex; justify-content: space-between; gap: 30px; }
+    .testigos { margin-top: 30px; display: flex; justify-content: space-between; gap: 30px; break-inside: avoid; page-break-inside: avoid; }
     .sello { margin-top: 30px; text-align: center; font-size: 8pt; color: #888; }
-    .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 7pt; color: #999; border-top: 1px solid #ddd; padding-top: 4px; display: flex; align-items: center; justify-content: center; gap: 10px; }
-    .footer-qr { width: 40px; height: 40px; }
+    .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 7pt; color: #999; border-top: 1px solid #ddd; padding-top: 4px; }
     .negrita { font-weight: 700; }
+    .ref-line { text-align: right; font-size: 8pt; color: #666; margin: 2px 0 10px; }
+    .status-badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 8pt; font-weight: 600; }
+    .status-paid { background: #d1fae5; color: #065f46; }
+    .status-pending { background: #fef3c7; color: #92400e; }
+    .datos-grid { display: table; width: 100%; margin: 6px 0 2px; }
+    .datos-row { display: table-row; }
+    .datos-cell { display: table-cell; width: 33%; padding: 3px 8px 3px 0; font-size: 9.5pt; vertical-align: top; }
+    .datos-label { display: block; font-size: 7.5pt; color: #666; text-transform: uppercase; }
+    .datos-value { font-weight: 600; }
+    .fiscal-table { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 9.5pt; }
+    .fiscal-table td { padding: 3px 0; }
+    .fiscal-table .f-valor { text-align: right; font-family: monospace; }
+    .fiscal-table .f-desc { text-align: right; color: #b91c1c; font-family: monospace; }
 </style>
 </head>
 <body>
@@ -41,7 +58,29 @@
 {% set m_descuentos = (totales.get('montoDescuentos', 0) or 0) | float %}
 {% set m_neto = (totales.get('montoNetoAPagar', 0) or 0) | float %}
 
+{% set logo = company.logoBase64 or '' %}
+{% if logo %}
+<div class="company-header">
+    <img src="{{ logo if logo.startswith('data:') else 'data:image/png;base64,' + logo }}" class="company-logo">
+    <div class="company-info">
+        <span class="company-name">{{ company.companyName }}</span>
+        <span>RNC {{ company.rnc }}</span>
+        {% if company.address %}<span>{{ company.address }}</span>{% endif %}
+        {% if company.phone or company.email %}<span>{{ company.phone or '' }}{% if company.phone and company.email %} · {% endif %}{{ company.email or '' }}</span>{% endif %}
+    </div>
+</div>
+{% endif %}
+
 <div class="title">Acta de Finiquito y Liquidación Laboral</div>
+
+<div class="ref-line">
+    Ref: {{ request_data.requestNumber or request_data.id[:8] }} · Fecha: {{ today_es }} · Estado:
+    {% if settlement_completed %}
+    <span class="status-badge status-paid">Pagada</span>
+    {% else %}
+    <span class="status-badge status-pending">Pendiente de pago</span>
+    {% endif %}
+</div>
 
 <div class="fecha">
     En la ciudad de {{ company.city or 'Santo Domingo' }}, República Dominicana, a los {{ today_es }}.
@@ -59,17 +98,34 @@
 <div class="clausula">
     <div class="clausula-title">PRIMERO. &ndash; ANTECEDENTES</div>
     <p>EL TRABAJADOR ingresó a laborar para EL EMPLEADOR el día {{ format_date_es(employee.hireDate) }}, desempeñando el cargo de {{ employee.position or employee.jobTitle or '—' }}, hasta la fecha de terminación de la relación laboral, que fue el {{ format_date_es(settlement.terminationDate if settlement else request_data.effectiveDate) }}.</p>
+    <div class="datos-grid">
+        <div class="datos-row">
+            <div class="datos-cell"><span class="datos-label">Salario base mensual</span><span class="datos-value">RD$ {{ "{:,.2f}".format((settlement.get('baseSalary', 0) if settlement else 0) | float) }}</span></div>
+            <div class="datos-cell"><span class="datos-label">Salario promedio mensual</span><span class="datos-value">{% if settlement and settlement.get('salarioPromedioMensual') %}RD$ {{ "{:,.2f}".format(settlement.get('salarioPromedioMensual') | float) }}{% else %}—{% endif %}</span></div>
+            <div class="datos-cell"><span class="datos-label">Tipo de salida</span><span class="datos-value">{{ ((settlement.get('terminationType', '') if settlement else '') or request_data.terminationType or '') | replace('_', ' ') | title }}</span></div>
+        </div>
+    </div>
 </div>
 
 <div class="clausula">
     <div class="clausula-title">SEGUNDO. &ndash; MOTIVO DE TERMINACIÓN</div>
     <p>La presente relación laboral termina por: (marcar lo que corresponda)</p>
     {% set tt = request_data.terminationType or '' %}
-    <div class="option">[{{ 'x' if tt == 'renuncia_voluntaria' else '&nbsp;&nbsp;' }}] Renuncia voluntaria del trabajador.</div>
-    <div class="option">[{{ 'x' if tt == 'despido_justificado' else '&nbsp;&nbsp;' }}] Despido justificado.</div>
-    <div class="option">[{{ 'x' if tt == 'despido_injustificado' else '&nbsp;&nbsp;' }}] Despido injustificado.</div>
-    <div class="option">[{{ 'x' if tt == 'mutuo_acuerdo' else '&nbsp;&nbsp;' }}] Mutuo acuerdo.</div>
-    <div class="option">[{{ 'x' if tt not in ('renuncia_voluntaria', 'despido_justificado', 'despido_injustificado', 'mutuo_acuerdo') else '&nbsp;&nbsp;' }}] Otro: {{ request_data.terminationReason or request_data.detailedReason or '' }}</div>
+    {% set tt_labels = {
+        'desahucio_empleador': 'Desahucio del empleador',
+        'dimision_justificada': 'Dimisión justificada',
+        'fin_contrato_temporal': 'Fin de contrato temporal',
+        'abandono': 'Abandono de trabajo',
+        'jubilacion': 'Jubilación',
+        'fallecimiento': 'Fallecimiento',
+        'otro': 'Otro',
+    } %}
+    {% set tt_other = tt not in ('renuncia_voluntaria', 'despido_justificado', 'despido_injustificado', 'mutuo_acuerdo') %}
+    <div class="option"><span class="check">{{ 'X' if tt == 'renuncia_voluntaria' else '' }}</span> Renuncia voluntaria del trabajador.</div>
+    <div class="option"><span class="check">{{ 'X' if tt == 'despido_justificado' else '' }}</span> Despido justificado.</div>
+    <div class="option"><span class="check">{{ 'X' if tt == 'despido_injustificado' else '' }}</span> Despido injustificado.</div>
+    <div class="option"><span class="check">{{ 'X' if tt == 'mutuo_acuerdo' else '' }}</span> Mutuo acuerdo.</div>
+    <div class="option"><span class="check">{{ 'X' if tt_other and tt else '' }}</span> Otro{% if tt_other and tt %} ({{ tt_labels.get(tt, tt | replace('_', ' ') | title) }}){% endif %}: {{ request_data.terminationReason or request_data.detailedReason or '' }}</div>
 </div>
 
 <div class="clausula">
@@ -94,15 +150,45 @@
     <div class="monto-line monto-total"><span>SUBTOTAL BRUTO:</span><span class="valor">RD$ {{ "{:,.2f}".format(m_subtotal) }}</span></div>
     <div class="monto-line"><span>MENOS DESCUENTOS LEGALES (TSS, ISR, otros):</span><span class="valor">RD$ {{ "{:,.2f}".format(m_descuentos) }}</span></div>
     <div class="monto-line monto-total"><span>TOTAL NETO A PAGAR:</span><span class="valor">RD$ {{ "{:,.2f}".format(m_neto) }}</span></div>
+
+    <p style="margin:12px 0 4px;"><strong>Resumen fiscal y descuentos:</strong></p>
+    <table class="fiscal-table">
+        <tbody>
+            <tr><td>Monto exento (ISR/TSS):</td><td class="f-valor">RD$ {{ "{:,.2f}".format((totales.get('montoExento', 0) or 0) | float) }}</td></tr>
+            <tr><td>Monto gravable TSS:</td><td class="f-valor">RD$ {{ "{:,.2f}".format((totales.get('montoGravableTSS', 0) or 0) | float) }}</td></tr>
+            <tr><td>Monto gravable ISR:</td><td class="f-valor">RD$ {{ "{:,.2f}".format((totales.get('montoGravableISR', 0) or 0) | float) }}</td></tr>
+            {% if settlement and (settlement.loanDeductions | default(0) | float) > 0 %}
+            <tr><td>Deducción préstamos:</td><td class="f-desc">− RD$ {{ "{:,.2f}".format(settlement.loanDeductions | float) }}</td></tr>
+            {% endif %}
+            {% if settlement and (settlement.advanceDeductions | default(0) | float) > 0 %}
+            <tr><td>Deducción adelantos:</td><td class="f-desc">− RD$ {{ "{:,.2f}".format(settlement.advanceDeductions | float) }}</td></tr>
+            {% endif %}
+            {% if settlement and (settlement.otherDeductions | default(0) | float) > 0 %}
+            <tr><td>Otras deducciones:</td><td class="f-desc">− RD$ {{ "{:,.2f}".format(settlement.otherDeductions | float) }}</td></tr>
+            {% endif %}
+            {% for d in settlement.get('descuentosDetalle', []) if settlement %}
+            <tr><td>{{ d.get('name', 'Descuento') }}:</td><td class="f-desc">− RD$ {{ "{:,.2f}".format((d.get('monto', 0) or 0) | float) }}</td></tr>
+            {% endfor %}
+            {% for ac in settlement.get('conceptosAdicionales', []) if settlement %}
+            {% if ac.get('type') == 'deduction' %}
+            <tr><td>{{ ac.get('name', 'Descuento adicional') }}:</td><td class="f-desc">− RD$ {{ "{:,.2f}".format((ac.get('monto', 0) or 0) | float) }}</td></tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 
 <div class="clausula">
     <div class="clausula-title">CUARTO. &ndash; FORMA DE PAGO</div>
     {% set pm = payment.get('paymentMethod', '') if payment else '' %}
     <p>EL TRABAJADOR declara haber recibido el pago arriba indicado el día {{ format_date_es(payment.paymentDate) if payment and payment.get('paymentDate') else today_es }}, mediante: (marcar lo que corresponda)</p>
-    <div class="option">[{{ 'x' if pm in ('transfer', 'payroll') else '&nbsp;&nbsp;' }}] Transferencia bancaria a la cuenta No. {{ (payment.get('accountNumber') or '') if payment else '' }} del banco {{ (payment.get('bankName') or '') if payment else '' }}.</div>
-    <div class="option">[{{ 'x' if pm == 'check' else '&nbsp;&nbsp;' }}] Cheque No. {{ (payment.get('paymentReference') or '') if payment else '' }} del banco {{ (payment.get('bankName') or '') if payment else '' }}.</div>
-    <div class="option">[{{ 'x' if pm in ('cash', 'mixed') else '&nbsp;&nbsp;' }}] Efectivo.</div>
+    <div class="option"><span class="check">{{ 'X' if pm == 'transfer' else '' }}</span> Transferencia bancaria a la cuenta No. {{ (payment.get('accountNumber') or '') if payment else '' }} del banco {{ (payment.get('bankName') or '') if payment else '' }}.</div>
+    <div class="option"><span class="check">{{ 'X' if pm == 'payroll' else '' }}</span> Nómina (pago junto a la nómina de liquidados).</div>
+    <div class="option"><span class="check">{{ 'X' if pm == 'check' else '' }}</span> Cheque No. {{ (payment.get('paymentReference') or '') if payment else '' }} del banco {{ (payment.get('bankName') or '') if payment else '' }}.</div>
+    <div class="option"><span class="check">{{ 'X' if pm in ('cash', 'mixed') else '' }}</span> Efectivo.</div>
+    {% if payment and (payment.get('paymentReference') or payment.get('payrollPeriodKey') or payment.get('payrollPeriodId')) %}
+    <p style="margin:8px 0 0;">Referencia: {{ payment.get('paymentReference') or '—' }}{% if payment.get('payrollPeriodKey') or payment.get('payrollPeriodId') %} · Período de nómina: {{ payment.get('payrollPeriodKey') or payment.get('payrollPeriodId') }}{% endif %}{% if payment.get('totalAmount') %} · Monto pagado: RD$ {{ "{:,.2f}".format(payment.get('totalAmount') | float) }}{% endif %}</p>
+    {% endif %}
 </div>
 
 <div class="clausula">
@@ -151,10 +237,7 @@
 <div class="sello">(ESPACIO PARA SELLO NOTARIAL, SI APLICA)</div>
 
 <div class="footer">
-    Código de verificación: {{ verification_code }} | Documento generado electrónicamente
-    {% if qr_base64 %}
-    <img src="data:image/png;base64,{{ qr_base64 }}" class="footer-qr">
-    {% endif %}
+    Documento generado electrónicamente
 </div>
 
 </body>

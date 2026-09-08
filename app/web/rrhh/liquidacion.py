@@ -120,6 +120,32 @@ def employee_liquidacion(employee_id):
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_list"))
 
+    # Ver detalle de una liquidación guardada (solo lectura, GET). Permitido
+    # también para empleados inactivos: su salida ya quedó registrada.
+    _view_id = request.args.get("view", "").strip()
+    if _view_id and request.method == "GET":
+        saved = hr.get_liquidacion(company_id, _view_id, sandbox=sandbox)
+        if not saved:
+            flash("Liquidación no encontrada.", "error")
+            return redirect(url_for("web_rrhh.employee_liquidaciones_list", employee_id=employee_id))
+        return render_template("rrhh/employee_liquidacion.html",
+                               active_page="rrhh_employees",
+                               employee=_sanitize_for_role(employee),
+                               resultado=saved,
+                               concepts_available=[],
+                               additional_rows=[],
+                               deduction_rows=[],
+                               salario_promedio=saved.get("salarioPromedioMensual", 0),
+                               vacation_auto_pending_complete=0,
+                               vacation_auto_taken_current=0,
+                               vacation_auto_total_accrued=0,
+                               vacation_auto_total_taken=0,
+                               vacation_auto_dias_pendientes=0)
+
+    if (employee.get("status") or "") == "inactivo":
+        flash("El empleado está inactivo. La única acción permitida es la reincorporación.", "warning")
+        return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
+
     # Contexto laboral único: contrato correspondiente a la fecha de referencia
     # (terminación informada o hoy). Ambigüedad → se bloquea; sin contrato → legacy.
     from app.services.employment_context_service import (
@@ -357,7 +383,6 @@ def employee_liquidacion(employee_id):
             }
             req = svc.create_request(req_data, user_email)
             svc.init_checklist(req.id, employee_id)
-            svc.deactivate_employee(req.model_dump())
 
             result_copy = dict(resultado)
             result_copy["requestId"] = req.id
@@ -365,13 +390,25 @@ def employee_liquidacion(employee_id):
             result_copy["terminationDate"] = termination_date
             svc.save_settlement(result_copy, user_email)
 
-            if svc.is_simple:
-                try:
-                    svc.wizard_transition(req.id, "pending_settlement", user_email)
-                except Exception:
-                    pass
-
-            flash("Liquidación guardada y solicitud de desvinculación creada.", "success")
+            # Gate de autorización (modo simple): con regla de desvinculación
+            # activa, la solicitud queda en borrador esperando el quórum.
+            # Aquí la liquidación YA está calculada, así que viaja como
+            # metadata para que el aprobador vea el esquema completo.
+            from app.web.rrhh.offboarding import _termination_auth_gate, _prestaciones_metadata
+            gate = _termination_auth_gate(
+                svc, req.id, company_id, owner_uid, sandbox,
+                metadata=_prestaciones_metadata(result_copy, req_data))
+            if gate["approved"]:
+                svc.deactivate_employee(req.model_dump())
+                if svc.is_simple:
+                    try:
+                        svc.wizard_transition(req.id, "pending_settlement", user_email)
+                    except Exception:
+                        pass
+                flash("Liquidación guardada y solicitud de desvinculación creada.", "success")
+            else:
+                flash("Liquidación guardada y solicitud enviada a autorización. "
+                      "Quedará en espera hasta alcanzar el quórum de firmas.", "success")
             return redirect(url_for("web_rrhh.offboarding_wizard", request_id=req.id))
 
     return render_template("rrhh/employee_liquidacion.html",

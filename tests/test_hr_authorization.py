@@ -374,7 +374,7 @@ class TestOffboardingHook:
 
     def test_sod_blocks_settlement_without_authorization(self):
         from app.services.offboarding_service import OffboardingService
-        svc = OffboardingService(COMPANY, True)
+        svc = OffboardingService(COMPANY, True, offboarding_mode="advanced")
         req = self._off_request()
         req["authorizationRequestId"] = "req-1"
         with patch("app.services.hr_data_service.get_authorization_request",
@@ -385,7 +385,7 @@ class TestOffboardingHook:
 
     def test_sod_allows_settlement_when_authorized(self):
         from app.services.offboarding_service import OffboardingService
-        svc = OffboardingService(COMPANY, True)
+        svc = OffboardingService(COMPANY, True, offboarding_mode="advanced")
         req = self._off_request()
         req["authorizationRequestId"] = "req-1"
         with patch("app.services.hr_data_service.get_authorization_request",
@@ -418,6 +418,90 @@ class TestOffboardingHook:
         with patch("app.services.offboarding_service.OffboardingService",
                    return_value=mock_svc):
             _stamp_entity(COMPANY, "offboarding", "off-1", self._stamp_request("approved"))
+        mock_svc.transition.assert_not_called()
+        mock_svc.save_request_raw.assert_called_once()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Gate modo simple — hold en draft y auto-avance al aprobar
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestSimpleModeAuthGate:
+    def _svc(self):
+        from app.services.offboarding_service import OffboardingService
+        return OffboardingService(COMPANY, True)  # simple por defecto
+
+    def _draft(self, auth_id="req-1"):
+        d = {"id": "off-1", "employeeId": "emp-1", "status": "draft"}
+        if auth_id:
+            d["authorizationRequestId"] = auth_id
+        return d
+
+    def _stamp(self, status):
+        return {
+            "id": "req-1",
+            "status": status,
+            "approvalHistory": [{"action": status, "comment": "comentario"}],
+            "approvedBy": "Jefe HR",
+        }
+
+    def test_hold_blocks_draft_advance_when_auth_pending(self):
+        svc = self._svc()
+        with patch("app.services.hr_data_service.get_authorization_request",
+                   return_value={"status": "pending"}):
+            assert svc._check_auth_hold(self._draft()) is not None
+
+    def test_hold_lifts_when_auth_approved(self):
+        svc = self._svc()
+        with patch("app.services.hr_data_service.get_authorization_request",
+                   return_value={"status": "approved"}):
+            assert svc._check_auth_hold(self._draft()) is None
+
+    def test_hold_ignores_missing_auth_doc(self):
+        svc = self._svc()
+        with patch("app.services.hr_data_service.get_authorization_request",
+                   return_value=None):
+            assert svc._check_auth_hold(self._draft()) is None
+
+    def test_hold_ignores_without_auth_id(self):
+        svc = self._svc()
+        assert svc._check_auth_hold(self._draft(auth_id=None)) is None
+
+    def test_hold_ignores_non_draft(self):
+        svc = self._svc()
+        req = self._draft()
+        req["status"] = "pending_settlement"
+        with patch("app.services.hr_data_service.get_authorization_request",
+                   return_value={"status": "pending"}):
+            assert svc._check_auth_hold(req) is None
+
+    def test_stamp_approved_from_draft_advances(self):
+        mock_svc = MagicMock()
+        mock_svc.get_request.return_value = self._draft()
+        with patch("app.services.offboarding_service.OffboardingService",
+                   return_value=mock_svc):
+            _stamp_entity(COMPANY, "offboarding", "off-1", self._stamp("approved"))
+        mock_svc.transition.assert_called_once_with(
+            "off-1", "pending_settlement", user_email="Sistema", user_role="owner",
+            comment="Quórum de autorización alcanzado")
+        mock_svc.deactivate_employee.assert_called_once()
+
+    def test_stamp_rejected_from_draft_cancels(self):
+        mock_svc = MagicMock()
+        mock_svc.get_request.return_value = self._draft()
+        with patch("app.services.offboarding_service.OffboardingService",
+                   return_value=mock_svc):
+            _stamp_entity(COMPANY, "offboarding", "off-1", self._stamp("rejected"))
+        mock_svc.transition.assert_called_once_with(
+            "off-1", "cancelled", user_email="Sistema", user_role="owner",
+            comment="comentario")
+
+    def test_stamp_returned_from_draft_stays(self):
+        mock_svc = MagicMock()
+        mock_svc.get_request.return_value = self._draft()
+        with patch("app.services.offboarding_service.OffboardingService",
+                   return_value=mock_svc):
+            _stamp_entity(COMPANY, "offboarding", "off-1", self._stamp("returned"))
         mock_svc.transition.assert_not_called()
         mock_svc.save_request_raw.assert_called_once()
 

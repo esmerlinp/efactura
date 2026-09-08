@@ -317,11 +317,11 @@
             </form>
             {% endif %}
             <div style="display:flex; gap:6px; margin-left:auto;">
-                <a href="{{ url_for('web_rrhh.offboarding_pdf_settlement', request_id=req.id) }}" class="btn btn-primary btn-sm" target="_blank">
-                    <i class="fa-solid fa-file-pdf"></i> Acta liquidación
+                <a href="{{ url_for('web_rrhh.offboarding_pdf_finiquito', request_id=req.id) }}" class="btn btn-primary btn-sm" target="_blank">
+                    <i class="fa-solid fa-file-pdf"></i> Acta de finiquito
                 </a>
                 <a href="{{ url_for('web_rrhh.offboarding_pdf_letter', request_id=req.id) }}" class="btn btn-outline btn-sm" target="_blank">
-                    <i class="fa-solid fa-file-pdf"></i> Carta desvinculación
+                    <i class="fa-solid fa-file-pdf"></i> Carta Ministerio de Trabajo
                 </a>
                 {% if settlement.status != 'aprobada' %}
                 <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('recalc-form').style.display=document.getElementById('recalc-form').style.display==='none'?'block':'none'">
@@ -498,12 +498,9 @@
         <h3><i class="fa-solid fa-file-lines"></i> Documentos generados</h3>
         <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
             <a href="{{ url_for('web_rrhh.offboarding_pdf_letter', request_id=req.id) }}" class="btn btn-primary btn-sm" target="_blank">
-                <i class="fa-solid fa-file-pdf"></i> Carta de desvinculación
+                <i class="fa-solid fa-file-pdf"></i> Carta Ministerio de Trabajo
             </a>
             {% if req.settlementId %}
-            <a href="{{ url_for('web_rrhh.offboarding_pdf_settlement', request_id=req.id) }}" class="btn btn-primary btn-sm" target="_blank">
-                <i class="fa-solid fa-file-pdf"></i> Acta de liquidación
-            </a>
             <a href="{{ url_for('web_rrhh.offboarding_pdf_finiquito', request_id=req.id) }}" class="btn btn-primary btn-sm" target="_blank">
                 <i class="fa-solid fa-file-pdf"></i> Acta de finiquito
             </a>
@@ -519,8 +516,7 @@
                 <div class="form-group">
                     <label>Tipo de documento</label>
                     <select name="documentType" class="form-select" style="width:100%;">
-                        <option value="termination_letter">Carta de desvinculación firmada</option>
-                        <option value="settlement_acta">Acta de liquidación firmada</option>
+                        <option value="termination_letter">Carta Ministerio de Trabajo firmada</option>
                         <option value="finiquito">Acta de finiquito firmada</option>
                         <option value="payment_receipt">Recibo de pago firmado</option>
                         <option value="asset_return_acta">Acta de devolución de activos</option>

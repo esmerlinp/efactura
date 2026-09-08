@@ -114,6 +114,7 @@ def recurring_new():
     next_url = _safe_next(request)
 
     employees = hr.get_employees(company_id, sandbox=sandbox)
+    employees = [e for e in employees if (e.get("status") or "") != "inactivo"]
     employees.sort(key=lambda e: e.get("fullName", e.get("firstName", "")))
 
     from app.services.payroll_concept_engine import get_concepts
@@ -124,6 +125,10 @@ def recurring_new():
 
     if request.method == "POST":
         data = _parse_recurring_form(request.form)
+        _emp = hr.get_employee(company_id, data.get("employeeId", ""), sandbox=sandbox)
+        if _emp and (_emp.get("status") or "") == "inactivo":
+            flash("No se pueden crear movimientos recurrentes para un empleado inactivo.", "warning")
+            return redirect(url_for("web_rrhh.recurring_list"))
         data["id"] = str(uuid.uuid4())
         data["createdBy"] = session.get("user", {}).get("email", "")
         data["status"] = data.get("status", "active")

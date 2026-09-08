@@ -146,9 +146,9 @@ def generate_finiquito(
 ) -> bytes:
     from weasyprint import HTML as WeasyprintHTML
 
-    verification_code = _verification_code()
-    qr_data = f"offboarding-finiquito-{request_data.get('id', '')}-{verification_code}"
-    qr_b64 = _generate_qr_base64(qr_data)
+    # El finiquito no lleva QR ni código de verificación.
+    verification_code = ""
+    qr_b64 = None
 
     representative_name = company_data.get("representativeName", "")
     representative_position = company_data.get("representativePosition", "") or "Representante Legal"
