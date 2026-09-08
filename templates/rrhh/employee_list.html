@@ -23,6 +23,17 @@
 .employee-list-page .status-suspendido { color: var(--accent-orange); }
 .employee-list-page .status-inactivo { color: var(--accent-red); }
 .employee-list-page .col-right { text-align: right; font-variant-numeric: tabular-nums; }
+/* ── Compact stats bar: single-line strip with clickable filter chips + quick actions ── */
+.employee-list-page .emp-stats-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.employee-list-page .emp-stats { display: flex; align-items: stretch; flex-wrap: wrap; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); box-shadow: var(--shadow-sm); padding: 2px; }
+.employee-list-page .emp-stat { display: inline-flex; align-items: center; gap: 7px; padding: 6px 13px; border-radius: 5px; text-decoration: none; color: inherit; transition: background-color .15s ease; }
+.employee-list-page .emp-stat + .emp-stat { border-left: 1px solid var(--border-color); border-radius: 0 5px 5px 0; }
+.employee-list-page a.emp-stat:hover { background: rgba(100, 116, 139, 0.10); }
+.employee-list-page a.emp-stat.active { background: rgba(16, 185, 129, 0.12); }
+.employee-list-page .emp-stat-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.employee-list-page .emp-stat-label { font-size: 0.70rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+.employee-list-page .emp-stat-value { font-size: 0.95rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
+.employee-list-page .emp-stats-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 </style>
 <div class="employee-list-page">
 <div class="page-header hr-page-header">
@@ -40,53 +51,57 @@
     </div>
 </div>
 
-<div class="card-table-wrapper hr-document-sheet" style="padding:24px; margin-bottom:24px;">
-    <div class="hr-summary-grid">
-        <div class="stat-box">
-            <span class="stat-label">Total Empleados</span>
-            <span class="stat-value">{{ total }}</span>
-        </div>
-        <div class="stat-box">
-            <span class="stat-label">Activos</span>
-            <span class="stat-value" style="color:var(--accent-emerald);">{{ active_count }}</span>
-        </div>
-        <div class="stat-box">
-            <span class="stat-label">Vacaciones</span>
-            <span class="stat-value" style="color:var(--accent-blue);">{{ vacation_count }}</span>
-        </div>
-        <div class="stat-box">
-            <span class="stat-label">Licencia</span>
-            <span class="stat-value" style="color:#7c3aed;">{{ leave_count }}</span>
-        </div>
-        <div class="stat-box">
-            <span class="stat-label">Ex-empleados</span>
-            <span class="stat-value" style="color:var(--accent-red);">{{ inactive_count }}</span>
-        </div>
+<!-- Compact stats + quick actions bar (single line) -->
+<div class="emp-stats-bar">
+    <div class="emp-stats">
+        <a class="emp-stat {% if not filter_status %}active{% endif %}" href="{{ url_for('web_rrhh.employee_list') }}" title="Ver todos">
+            <span class="emp-stat-label">Total</span>
+            <span class="emp-stat-value">{{ total }}</span>
+        </a>
+        <a class="emp-stat {% if filter_status=='activo' %}active{% endif %}" href="{{ url_for('web_rrhh.employee_list', status='activo') }}" title="Filtrar activos">
+            <span class="emp-stat-dot" style="background:var(--accent-emerald);"></span>
+            <span class="emp-stat-label">Activos</span>
+            <span class="emp-stat-value" style="color:var(--accent-emerald);">{{ active_count }}</span>
+        </a>
+        <a class="emp-stat {% if filter_status=='vacaciones' %}active{% endif %}" href="{{ url_for('web_rrhh.employee_list', status='vacaciones') }}" title="Filtrar en vacaciones">
+            <span class="emp-stat-dot" style="background:var(--accent-blue);"></span>
+            <span class="emp-stat-label">Vacaciones</span>
+            <span class="emp-stat-value" style="color:var(--accent-blue);">{{ vacation_count }}</span>
+        </a>
+        <a class="emp-stat {% if filter_status=='licencia' %}active{% endif %}" href="{{ url_for('web_rrhh.employee_list', status='licencia') }}" title="Filtrar en licencia">
+            <span class="emp-stat-dot" style="background:var(--accent-purple);"></span>
+            <span class="emp-stat-label">Licencia</span>
+            <span class="emp-stat-value" style="color:var(--accent-purple);">{{ leave_count }}</span>
+        </a>
+        <a class="emp-stat {% if filter_status=='inactivo' %}active{% endif %}" href="{{ url_for('web_rrhh.employee_list', status='inactivo') }}" title="Filtrar ex-empleados">
+            <span class="emp-stat-dot" style="background:var(--accent-red);"></span>
+            <span class="emp-stat-label">Ex-empleados</span>
+            <span class="emp-stat-value" style="color:var(--accent-red);">{{ inactive_count }}</span>
+        </a>
         {% if filter_status == 'inactivo' %}
-        <div class="stat-box">
-            <span class="stat-label">Renuncias</span>
-            <span class="stat-value" style="color:var(--accent-orange);">{{ employees|selectattr('terminationType', 'equalto', 'renuncia')|list|length }}</span>
-        </div>
-        <div class="stat-box">
-            <span class="stat-label">Despidos</span>
-            <span class="stat-value" style="color:var(--accent-red);">{{ employees|selectattr('terminationType', 'equalto', 'despido')|list|length }}</span>
-        </div>
+        <span class="emp-stat">
+            <span class="emp-stat-dot" style="background:var(--accent-orange);"></span>
+            <span class="emp-stat-label">Renuncias</span>
+            <span class="emp-stat-value" style="color:var(--accent-orange);">{{ employees|selectattr('terminationType', 'equalto', 'renuncia')|list|length }}</span>
+        </span>
+        <span class="emp-stat">
+            <span class="emp-stat-dot" style="background:var(--accent-red);"></span>
+            <span class="emp-stat-label">Despidos</span>
+            <span class="emp-stat-value" style="color:var(--accent-red);">{{ employees|selectattr('terminationType', 'equalto', 'despido')|list|length }}</span>
+        </span>
         {% endif %}
     </div>
-</div>
-
-<!-- Quick-access toolbar -->
-<div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:20px;">
-    <a href="{{ url_for('web_rrhh.employee_export') }}" class="btn btn-secondary btn-sm">
-        <i class="fa-solid fa-download"></i> Exportar XLSX
-    </a>
-    <span style="border-left:1px solid var(--border-color); height:24px; margin:0 4px;"></span>
-    <a href="{{ url_for('web_rrhh.org_chart') }}" class="btn btn-ghost btn-sm">
-        <i class="fa-solid fa-sitemap"></i> Organigrama
-    </a>
-    <a href="{{ url_for('web_rrhh.team_calendar') }}" class="btn btn-ghost btn-sm">
-        <i class="fa-solid fa-calendar-days"></i> Calendario
-    </a>
+    <div class="emp-stats-actions">
+        <a href="{{ url_for('web_rrhh.employee_export') }}" class="btn btn-secondary btn-sm">
+            <i class="fa-solid fa-download"></i> Exportar XLSX
+        </a>
+        <a href="{{ url_for('web_rrhh.org_chart') }}" class="btn btn-ghost btn-sm">
+            <i class="fa-solid fa-sitemap"></i> Organigrama
+        </a>
+        <a href="{{ url_for('web_rrhh.team_calendar') }}" class="btn btn-ghost btn-sm">
+            <i class="fa-solid fa-calendar-days"></i> Calendario
+        </a>
+    </div>
 </div>
 
 <div class="card-table-wrapper hr-table-card">
