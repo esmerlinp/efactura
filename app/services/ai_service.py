@@ -744,3 +744,138 @@ Facturas recientes ({len(recent_invoices)}):
             return {"success": False, "message": "La respuesta de la IA no fue JSON válido."}
         except Exception as e:
             return {"success": False, "message": str(e)}
+
+    # ─────────────────────────────────────────────────────────────────────
+    # FICHA DE EMPLEADO (perfil profesional estilo CV)
+    # ─────────────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _format_bio_lines(bio: dict) -> str:
+        """Convierte el dict de contexto en líneas legibles para el prompt."""
+        lines = [
+            f"Nombre: {bio.get('fullName', 'N/D')}",
+            f"Cargo actual: {bio.get('position') or 'N/D'}",
+            f"Departamento/área: {bio.get('department') or 'N/D'}",
+            f"Empresa: {bio.get('companyName') or 'N/D'}",
+            f"Fecha de ingreso: {bio.get('hireDate') or 'N/D'}",
+            f"Antigüedad: {bio.get('tenure') or 'N/D'}",
+            f"Tipo de contrato: {bio.get('contractType') or 'N/D'}",
+            f"Estado: {bio.get('statusLabel') or 'N/D'}",
+            f"Formación académica: {bio.get('education') or 'N/D'}",
+            f"Ocupación (código): {bio.get('occupationCode') or 'N/D'}",
+        ]
+        trainings = bio.get("trainings") or []
+        if trainings:
+            shown = ", ".join(trainings[:5])
+            extra = f" (+{len(trainings) - 5} más)" if len(trainings) > 5 else ""
+            lines.append(f"Capacitaciones ({len(trainings)}): {shown}{extra}")
+        else:
+            lines.append("Capacitaciones: ninguna registrada")
+        avg = bio.get("avgEvaluation")
+        n_eval = bio.get("evaluationsCount", 0)
+        if avg:
+            lines.append(f"Evaluaciones de desempeño: {n_eval} registrada(s), promedio {avg}/5")
+        else:
+            lines.append("Evaluaciones de desempeño: sin registros")
+        milestones = bio.get("milestones") or []
+        if milestones:
+            lines.append("Hitos de su trayectoria (más recientes primero):")
+            for m in milestones[:8]:
+                lines.append(f"  - {m}")
+        else:
+            lines.append("Hitos de su trayectoria: sin movimientos registrados")
+        if bio.get("dependentsCount"):
+            lines.append(f"Dependientes registrados: {bio.get('dependentsCount')}")
+        return "\n".join(lines)
+
+    @classmethod
+    def generate_employee_bio(cls, owner_uid, bio: dict, company_id=None):
+        """
+        Redacta con IA un perfil profesional de 1-2 párrafos estilo CV,
+        en tercera persona y español neutro, a partir del contexto del empleado.
+        El dict `bio` NO debe incluir PII sensible (cédula, salarios, banco).
+        Retorna {"success": bool, "text": str} o {"success": False, "message": str}.
+        """
+        api_key = cls._get_api_key(owner_uid, company_id=company_id)
+        if not api_key or api_key == "YOUR_OPENAI_API_KEY_HERE":
+            return {"success": False, "message": "API Key de OpenAI no configurada."}
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}"
+        }
+
+        system_prompt = """Eres un redactor experto en recursos humanos de República Dominicana.
+Tu tarea es redactar un PERFIL PROFESIONAL de 1 a 2 párrafos, estilo currículum ejecutivo, en tercera persona y español neutro.
+Reglas estrictas:
+- Usa SOLO los datos proporcionados; no inventes cargos, fechas, empresas ni logros.
+- Párrafo 1: rol actual, empresa, antigüedad y modalidad contractual, más formación académica si está disponible.
+- Párrafo 2 (si hay datos): desarrollo y trayectoria (hitos), capacitación y desempeño.
+- Si faltan datos, redacta con lo disponible sin mencionar la ausencia de información.
+- Tono profesional y sobrio. Sin listas, sin viñetas, sin encabezados, sin comillas envolventes.
+- Retorna ÚNICAMENTE los párrafos del perfil."""
+
+        payload = {
+            "model": "gpt-4o-mini",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": "Redacta el perfil profesional con estos datos:\n\n" + cls._format_bio_lines(bio or {})}
+            ],
+            "temperature": 0.4,
+            "max_tokens": 450
+        }
+
+        try:
+            url = "https://api.openai.com/v1/chat/completions"
+            response = requests.post(url, headers=headers, json=payload, timeout=20)
+            if response.status_code == 200:
+                text = response.json()["choices"][0]["message"]["content"].strip().strip('"')
+                if not text:
+                    return {"success": False, "message": "La IA devolvió un texto vacío."}
+                return {"success": True, "text": text}
+            return {"success": False, "message": f"Error API OpenAI: {response.text}"}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+    @classmethod
+    def build_employee_bio_template(cls, bio: dict) -> str:
+        """Resumen determinístico (sin IA) como respaldo garantizado para la ficha."""
+        bio = bio or {}
+        name = (bio.get("fullName") or "La persona colaboradora").strip()
+        position = (bio.get("position") or "un cargo dentro de la organización").strip()
+        dept = (bio.get("department") or "").strip()
+        company = (bio.get("companyName") or "la empresa").strip()
+        tenure = (bio.get("tenure") or "").strip()
+        hire = (bio.get("hireDate") or "").strip()
+        contract = (bio.get("contractType") or "").strip()
+        education = (bio.get("education") or "").strip()
+
+        p1 = f"{name} se desempeña como {position}"
+        p1 += f" en {dept}" if dept else ""
+        p1 += f" de {company}"
+        if hire:
+            p1 += f" desde {hire}"
+            p1 += f" ({tenure} de antigüedad)" if tenure else ""
+        elif tenure:
+            p1 += f", con {tenure} de antigüedad"
+        p1 += f", bajo modalidad de contrato {contract}" if contract else ""
+        p1 += f". Cuenta con formación académica de nivel {education}" if education else ""
+        p1 += "."
+
+        parts = []
+        trainings = bio.get("trainings") or []
+        if trainings:
+            shown = ", ".join(trainings[:3])
+            more = f" y {len(trainings) - 3} más" if len(trainings) > 3 else ""
+            parts.append(f"ha completado {len(trainings)} capacitación(es), entre ellas {shown}{more}")
+        avg = bio.get("avgEvaluation")
+        n_eval = bio.get("evaluationsCount", 0)
+        if avg and n_eval:
+            parts.append(f"mantiene un desempeño promedio de {avg}/5 en {n_eval} evaluación(es)")
+        milestones = bio.get("milestones") or []
+        if milestones:
+            parts.append("y en su trayectoria destacan: " + "; ".join(milestones[:3]))
+        p2 = ""
+        if parts:
+            p2 = "En su desarrollo profesional " + ", ".join(parts) + "."
+        return (p1 + ("\n\n" + p2 if p2 else "")).strip()
