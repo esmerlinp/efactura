@@ -387,10 +387,12 @@ def validate_action(owner_uid: str, action_type: str, employee_ids: list,
                            "field": "employeeId", "message": "Empleado no encontrado."})
             continue
 
-        if action_type in ("salary_change", "position_change", "supervisor_change", "promotion"):
-            if emp.get("status") != "activo":
+        # Regla de estado: solo "inactivo" bloquea acciones de personal.
+        # vacaciones / suspendido / licencia siguen vigentes en la empresa.
+        if action_type in ("salary_change", "position_change", "supervisor_change", "promotion", "mass_absence"):
+            if (emp.get("status") or "") == "inactivo":
                 errors.append({"employeeId": eid, "employeeName": emp.get("fullName", ""),
-                               "field": "status", "message": "El empleado no está activo."})
+                               "field": "status", "message": "El empleado está inactivo. La única acción permitida es la reincorporación."})
 
     if action_type == "salary_change":
         amt = payload.get("amount", 0)
@@ -412,8 +414,8 @@ def validate_action(owner_uid: str, action_type: str, employee_ids: list,
             errors.append({"field": "newSupervisorId", "message": "Debe seleccionar un supervisor."})
         else:
             sup = emp_map.get(new_sup_id)
-            if not sup or sup.get("status") != "activo":
-                errors.append({"field": "newSupervisorId", "message": "El supervisor no existe o no está activo."})
+            if not sup or (sup.get("status") or "") == "inactivo":
+                errors.append({"field": "newSupervisorId", "message": "El supervisor no existe o está inactivo."})
             for eid in employee_ids:
                 if eid == new_sup_id:
                     errors.append({"employeeId": eid, "employeeName": sup.get("fullName", ""),
@@ -490,6 +492,25 @@ def execute_action(owner_uid: str, action_id: str,
         if not emp:
             error_log.append({"employeeId": eid, "employeeName": "Desconocido",
                                "field": "employeeId", "message": "Empleado no encontrado."})
+            error_count += 1
+            continue
+
+        # Defensa en profundidad: solo "inactivo" bloquea (vacaciones /
+        # suspendido / licencia siguen vigentes). Cubre ejecuciones que no
+        # pasaron por validate_action (p. ej. borrador existente actualizado).
+        if action_type in ("salary_change", "position_change", "supervisor_change",
+                           "promotion", "mass_absence") and (emp.get("status") or "") == "inactivo":
+            _inactive_msg = "El empleado está inactivo. La única acción permitida es la reincorporación."
+            error_log.append({"employeeId": eid, "employeeName": emp.get("fullName", ""),
+                              "field": "status", "message": _inactive_msg})
+            results.append({
+                "employeeId": eid,
+                "employeeName": emp.get("fullName", ""),
+                "status": "error",
+                "errorMessage": _inactive_msg,
+                "changes": {},
+                "processedAt": _now(),
+            })
             error_count += 1
             continue
 

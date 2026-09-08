@@ -196,6 +196,86 @@
         </div>
         {% endif %}
 
+        <!-- Settlement (desvinculación): prestaciones calculadas en el wizard.
+             Esquema completo para quien autoriza; si algo no cuadra puede
+             devolver para corrección. -->
+        {% set pmeta = meta if request_data.docType == 'termination' else {} %}
+        {% if request_data.docType == 'termination' and (pmeta.montoTotal or pmeta.conceptos) %}
+        {% set plabels = {
+            'preaviso':'Preaviso','cesantia':'Cesantía','vacaciones':'Vacaciones',
+            'salarioNavidad':'Salario de Navidad','salarioProporcional':'Salario proporcional',
+            'asistenciaEconomica':'Asistencia económica'
+        } %}
+        <div class="card-table-wrapper hr-table-card" style="margin-bottom:0;">
+            <div class="table-header-row" style="padding:8px 16px;cursor:pointer;" onclick="toggleSection('sec-settlement')">
+                <h3 style="font-size:0.88rem;margin:0;"><i class="fa-solid fa-chevron-down" id="sec-settlement-arrow" style="font-size:0.7rem;margin-right:2px;"></i> Prestaciones · RD$ {{ "{:,.2f}".format(pmeta.montoTotal|float) }}</h3>
+            </div>
+            <div id="sec-settlement" style="padding:6px 16px 14px;">
+                {% if pmeta.correction %}
+                <div style="padding:10px 12px; margin-bottom:10px; border:1px solid rgba(245,158,11,0.3); border-radius:var(--radius-sm); background:rgba(249,115,22,0.05); font-size:0.76rem; color:var(--text-secondary); line-height:1.5;">
+                    <i class="fa-solid fa-pen-to-square" style="color:var(--accent-orange,#f59e0b);"></i>
+                    <strong>Corrección solicitada por {{ pmeta.correction.by or '—' }}:</strong> {{ pmeta.correction.reason or '—' }}
+                    <span style="color:var(--text-muted);">Versión anterior (v{{ pmeta.correction.previousVersion }}): RD$ {{ "{:,.2f}".format(pmeta.correction.previousTotal|float) }}.</span>
+                </div>
+                {% endif %}
+                <div style="display:flex;flex-wrap:wrap;gap:6px 18px;margin-bottom:10px;font-size:0.78rem;color:var(--text-secondary);">
+                    <span><strong style="color:var(--text-primary);">{{ pmeta.employeeName or '—' }}</strong></span>
+                    <span>{{ (pmeta.terminationType or '')|replace('_',' ')|title }}</span>
+                    <span>Sale {{ pmeta.terminationDate or '—' }}</span>
+                    <span>Antigüedad {{ (pmeta.antiguedad or {}).years or 0 }}a {{ (pmeta.antiguedad or {}).months or 0 }}m</span>
+                    <span>SDP RD$ {{ "{:,.2f}".format(pmeta.salarioDiarioPromedio|float) }}</span>
+                </div>
+                <table class="data-grid" style="width:100%;">
+                    <thead>
+                        <tr><th style="text-align:left;">Concepto</th><th style="text-align:right;">Días</th><th style="text-align:right;">Monto</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for c in pmeta.conceptos or [] %}
+                        <tr>
+                            <td>{{ plabels.get(c.key, c.key|replace('_',' ')|title) }}<span style="font-size:0.68rem;color:var(--text-muted);"> · {{ c.baseLegal }}</span></td>
+                            <td style="text-align:right;">{{ c.dias }}</td>
+                            <td style="text-align:right;font-weight:600;white-space:nowrap;">RD$ {{ "{:,.2f}".format(c.monto|float) }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% for ac in pmeta.conceptosAdicionales or [] %}
+                        <tr>
+                            <td>{{ ac.name }}<span style="font-size:0.68rem;color:var(--text-muted);"> · {{ ac.comment or 'adicional' }}</span></td>
+                            <td style="text-align:right;">—</td>
+                            <td style="text-align:right;font-weight:600;white-space:nowrap;">{{ '+' if ac.type != 'deduction' else '−' }} RD$ {{ "{:,.2f}".format(ac.monto|float) }}</td>
+                        </tr>
+                        {% endfor %}
+                        <tr style="border-top:2px solid var(--border-color);">
+                            <td style="font-weight:700;text-align:right;" colspan="2">Total</td>
+                            <td style="text-align:right;font-weight:700;color:var(--accent-emerald);white-space:nowrap;">RD$ {{ "{:,.2f}".format(pmeta.montoTotal|float) }}</td>
+                        </tr>
+                        <tr>
+                            <td style="font-size:0.7rem;color:var(--text-muted);text-align:right;" colspan="2">Prestaciones</td>
+                            <td style="text-align:right;font-size:0.75rem;white-space:nowrap;">RD$ {{ "{:,.2f}".format(pmeta.montoPrestaciones|float) }}</td>
+                        </tr>
+                        <tr>
+                            <td style="font-size:0.7rem;color:var(--text-muted);text-align:right;" colspan="2">Derechos adquiridos</td>
+                            <td style="text-align:right;font-size:0.75rem;white-space:nowrap;">RD$ {{ "{:,.2f}".format(pmeta.montoDerechosAdquiridos|float) }}</td>
+                        </tr>
+                        {% for d in pmeta.descuentos or [] %}
+                        <tr>
+                            <td style="font-size:0.7rem;color:var(--text-muted);text-align:right;" colspan="2">Descuento: {{ d.name }}</td>
+                            <td style="text-align:right;font-size:0.75rem;color:var(--danger);white-space:nowrap;">− RD$ {{ "{:,.2f}".format(d.monto|float) }}</td>
+                        </tr>
+                        {% endfor %}
+                        <tr style="border-top:2px solid var(--border-color);">
+                            <td style="font-weight:700;text-align:right;" colspan="2">Neto a pagar</td>
+                            <td style="text-align:right;font-weight:700;color:var(--accent-emerald);white-space:nowrap;">RD$ {{ "{:,.2f}".format(pmeta.montoNetoAPagar|float) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div style="font-size:0.68rem;color:var(--text-muted);margin-top:6px;">
+                    Exento RD$ {{ "{:,.2f}".format(pmeta.montoExento|float) }}
+                    {% if entity_link %} · <a href="{{ entity_link }}">Ver desvinculación en el wizard</a>{% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Comments -->
         <div class="card-table-wrapper hr-table-card" style="margin-bottom:0;">
             <div class="table-header-row" style="padding:8px 16px;cursor:pointer;" onclick="toggleSection('sec-comments')">

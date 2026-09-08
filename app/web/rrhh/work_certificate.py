@@ -97,6 +97,10 @@ def employee_certificate(employee_id):
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_list"))
 
+    if (employee.get("status") or "") == "inactivo":
+        flash("No se pueden generar cartas de trabajo para un empleado inactivo.", "warning")
+        return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
+
     company = _get_company_data(owner_uid, company_id)
     certificates = [c for c in hr.get_work_certificates(company_id, sandbox=sandbox)
                     if c.get("employeeId") == employee_id]
@@ -122,6 +126,10 @@ def certificate_generate(employee_id):
     if not employee:
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_list"))
+
+    if (employee.get("status") or "") == "inactivo":
+        flash("No se pueden generar cartas de trabajo para un empleado inactivo.", "warning")
+        return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
 
     purpose = request.form.get("purpose", "general").strip()
     addressee = request.form.get("addressee", "A QUIEN PUEDA INTERESAR").strip()

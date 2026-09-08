@@ -90,6 +90,7 @@ class SettlementStatus(str, Enum):
     APROBADA       = "aprobada"
     PENDIENTE_PAGO = "pendiente_pago"
     PAGADA         = "pagada"
+    REEMPLAZADA    = "reemplazada"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

@@ -132,6 +132,10 @@ class OffboardingService:
         if not req_data:
             raise ValueError(f"Solicitud {request_id} no encontrada")
 
+        hold = self._check_auth_hold(req_data)
+        if hold and new_status != "cancelled":
+            raise ValueError(hold)
+
         current = self._get_status_value(req_data)
         self.sm.validate_transition(current, new_status, "offboarding")
 
@@ -344,6 +348,29 @@ class OffboardingService:
 
     # ── SOD Rules ───────────────────────────────────────────────────────────
 
+    def _check_auth_hold(self, req: dict) -> Optional[str]:
+        """Bloquea el avance de una desvinculación en borrador con autorización pendiente.
+
+        Gate del modo simple: mientras exista una solicitud de autorización
+        vinculada sin aprobar, solo se permite cancelar. Al aprobarse, el hold
+        se levanta solo (la solicitud vinculada queda en "approved").
+        """
+        if self._get_status_value(req) != "draft":
+            return None
+        auth_id = req.get("authorizationRequestId", "")
+        if not auth_id:
+            return None
+        try:
+            from app.services import hr_data_service as _hr
+            auth = _hr.get_authorization_request(self.company_id, auth_id, sandbox=self.sandbox)
+        except Exception:
+            return None
+        if not auth or auth.get("status") == "approved":
+            return None
+        return ("La desvinculación está pendiente de autorización "
+                f"({auth.get('docTypeLabel') or 'Desvinculación'}). "
+                "Debe alcanzar el quórum de firmas antes de continuar.")
+
     def _check_sod(self, current: str, new_status: str, req: dict,
                    user_email: str, user_role: str) -> Optional[str]:
         if self.is_simple or user_role == "owner":
@@ -431,6 +458,162 @@ class OffboardingService:
         log_action(self.company_id, "settlement_approved", "offboarding_settlement",
                    settlement_id, approved_by, sandbox=self.sandbox)
         return settlement
+
+    # ── Corrección post-autorización ─────────────────────────────────────
+
+    def request_settlement_correction(self, request_id: str, reason: str,
+                                      user_email: str) -> dict:
+        """Invalida una liquidación autorizada para corregir y reautorizar.
+
+        La versión aprobada NUNCA se edita: se preserva como snapshot
+        histórico (``reemplazada``), se invalida la autorización vinculada,
+        la solicitud vuelve a ``draft`` sin vínculo de autorización y el
+        settlement live queda en ``calculada`` para recalcular y reenviar.
+        El empleado no se toca.
+
+        Lanza ``ValueError`` si no hay nada que reabrir, si ya fue pagada
+        (requiere ajuste separado) o si la autorización sigue en la cola
+        (usar "Retirar de la cola").
+        """
+        reason = (reason or "").strip()
+        if not reason:
+            raise ValueError("Debe indicar el motivo de la corrección.")
+        req_data = self.get_request(request_id)
+        if not req_data:
+            raise ValueError(f"Solicitud {request_id} no encontrada")
+        current = self._get_status_value(req_data)
+        if current in ("completed", "cancelled", "rejected"):
+            raise ValueError(
+                "No se puede corregir una solicitud en estado terminal.")
+        settlement_id = req_data.get("settlementId", "")
+        settlement = self.get_settlement(settlement_id) if settlement_id else None
+        if not settlement:
+            raise ValueError("No hay liquidación vinculada para corregir.")
+        if (settlement.get("status") or "") == SettlementStatus.PAGADA.value:
+            raise ValueError(
+                "La liquidación ya fue pagada. Requiere un proceso de ajuste "
+                "separado (contable/nómina), no una corrección.")
+
+        from app.services import hr_data_service as _hr
+        auth = None
+        auth_id = req_data.get("authorizationRequestId", "")
+        if auth_id:
+            try:
+                auth = _hr.get_authorization_request(
+                    self.company_id, auth_id, sandbox=self.sandbox)
+            except Exception:
+                auth = None
+        auth_status = (auth or {}).get("status", "")
+        if auth_status in ("pending", "returned"):
+            raise ValueError(
+                "La autorización aún está en la cola. Utilice 'Retirar de "
+                "la cola' para corregir y reenviar.")
+        locked = (
+            auth_status == "approved"
+            or (settlement.get("status") or "") in (
+                SettlementStatus.APROBADA.value,
+                SettlementStatus.PENDIENTE_PAGO.value,
+            )
+        )
+        if not locked:
+            raise ValueError(
+                "No hay nada que reabrir: la liquidación aún puede "
+                "recalcularse directamente.")
+
+        timestamp = self._now()
+        live_id = settlement.get("id", settlement_id)
+        try:
+            version = int(settlement.get("version", 1) or 1)
+        except (TypeError, ValueError):
+            version = 1
+        totales = settlement.get("totales", {}) or {}
+        try:
+            prev_total = float(totales.get("montoTotal", 0) or 0)
+            prev_neto = float(totales.get("montoNetoAPagar", prev_total) or 0)
+        except (TypeError, ValueError):
+            prev_total = prev_neto = 0.0
+
+        # 1. Snapshot histórico de la versión aprobada (inmutable).
+        snapshot = dict(settlement)
+        snapshot_id = f"{live_id}-v{version}"
+        snapshot["id"] = snapshot_id
+        snapshot["isSnapshot"] = True
+        snapshot["snapshotOf"] = live_id
+        snapshot["snapshotVersion"] = version
+        snapshot["status"] = SettlementStatus.REEMPLAZADA.value
+        snapshot["replacedBy"] = user_email
+        snapshot["replacedAt"] = timestamp
+        snapshot["replaceReason"] = reason
+        ods.save("offboarding_settlements", snapshot_id, snapshot,
+                 self.company_id, self.sandbox)
+
+        # 2. Invalidar la autorización aprobada (si existe).
+        if auth:
+            auth["status"] = "cancelled"
+            auth["cancelledBy"] = user_email
+            auth["cancelledAt"] = timestamp
+            auth["correctionReason"] = reason
+            auth["correctionRequestedBy"] = user_email
+            auth["correctionRequestedAt"] = timestamp
+            history = auth.get("approvalHistory")
+            if not isinstance(history, list):
+                auth["approvalHistory"] = history = []
+            history.append({
+                "action": "cancelled",
+                "by": user_email,
+                "at": timestamp,
+                "comment": f"Invalidada por solicitud de corrección: {reason}",
+            })
+            _hr.save_authorization_request(
+                self.company_id, auth.get("id", auth_id), auth,
+                sandbox=self.sandbox)
+
+        # 3. Reabrir: live a calculada + solicitud a draft sin vínculo.
+        settlement["status"] = SettlementStatus.CALCULADA.value
+        settlement["correctionRequestedBy"] = user_email
+        settlement["correctionRequestedAt"] = timestamp
+        settlement["correctionReason"] = reason
+        ods.save("offboarding_settlements", live_id, settlement,
+                 self.company_id, self.sandbox)
+
+        last_correction = {
+            "reason": reason,
+            "by": user_email,
+            "at": timestamp,
+            "previousSettlementId": snapshot_id,
+            "previousVersion": version,
+            "previousTotal": round(prev_total, 2),
+            "previousNeto": round(prev_neto, 2),
+            "fromStatus": current,
+        }
+        for k in ("authorizationRequestId", "authorizationStatus",
+                  "authorizationComment", "authorizationStampedAt",
+                  "authorizationApprovedBy", "authorizationApprovedAt",
+                  "authorizationRejectedBy", "authorizationRejectedAt"):
+            req_data.pop(k, None)
+        req_data["lastCorrection"] = last_correction
+        req_data["status"] = "draft"
+        hist = req_data.get("statusHistory")
+        if not isinstance(hist, list):
+            req_data["statusHistory"] = hist = []
+        hist.append(StatusChange(
+            fromStatus=current,
+            toStatus="draft",
+            changedBy=user_email,
+            changedAt=timestamp,
+            comment=f"Reapertura para corrección: {reason}",
+        ).model_dump())
+        self.save_request_raw(request_id, req_data, user_email)
+
+        log_action(self.company_id, "settlement_correction_requested", "offboarding",
+                   request_id, user_email,
+                   {"settlementId": live_id, "snapshotId": snapshot_id,
+                    "previousVersion": version, "previousTotal": prev_total,
+                    "authorizationId": auth_id, "reason": reason},
+                   sandbox=self.sandbox)
+        return {"snapshotId": snapshot_id,
+                "settlementId": live_id,
+                "lastCorrection": last_correction}
 
     # ── Checklist ──────────────────────────────────────────────────────────
 

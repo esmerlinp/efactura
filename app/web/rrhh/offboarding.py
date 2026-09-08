@@ -49,6 +49,221 @@ def _ctx(**kw):
     return kw
 
 
+# ── Gate de autorización (modo simple) ────────────────────────────────────
+
+def _has_termination_rule(company_id: str, sandbox: bool) -> bool:
+    """True si existe una regla de autorización activa para desvinculación."""
+    try:
+        rules = hr.get_authorization_rules(company_id, sandbox=sandbox)
+    except Exception:
+        return False
+    return any(
+        r.get("docType") == "termination"
+        and r.get("isActive", True)
+        and r.get("approvers")
+        for r in (rules or [])
+    )
+
+
+def _prestaciones_metadata(settlement: dict, req: dict) -> dict:
+    """Construye el resumen de prestaciones para la solicitud de autorización.
+
+    El metadata viaja con la autorización para que quien apruebe tenga el
+    esquema completo (totales, conceptos que aplican, antigüedad) sin tener
+    que abrir el wizard, y pueda devolver para corrección si es necesario.
+    """
+    settlement = settlement or {}
+    req = req or {}
+    totales = settlement.get("totales", {}) or {}
+    antigen = settlement.get("antiguedad", {}) or {}
+    conceptos_src = settlement.get("conceptos", {}) or {}
+    conceptos = []
+    for key, c in (conceptos_src.items() if isinstance(conceptos_src, dict) else []):
+        if not isinstance(c, dict) or not c.get("aplica"):
+            continue
+        try:
+            conceptos.append({
+                "key": key,
+                "monto": float(c.get("monto", 0) or 0),
+                "dias": c.get("dias", 0) or 0,
+                "baseLegal": c.get("baseLegal", "") or "",
+            })
+        except (TypeError, ValueError):
+            continue
+    adicionales = []
+    for ac in (settlement.get("conceptosAdicionales", []) or []):
+        if not isinstance(ac, dict):
+            continue
+        try:
+            adicionales.append({
+                "name": ac.get("name", "") or "",
+                "type": ac.get("type", "") or "",
+                "monto": float(ac.get("monto", 0) or 0),
+                "comment": ac.get("comment", "") or "",
+            })
+        except (TypeError, ValueError):
+            continue
+    descuentos = []
+    for d in (settlement.get("descuentosDetalle", []) or []):
+        if not isinstance(d, dict):
+            continue
+        try:
+            descuentos.append({
+                "name": d.get("name", "") or "",
+                "monto": float(d.get("monto", 0) or 0),
+            })
+        except (TypeError, ValueError):
+            continue
+    try:
+        monto_total = float(totales.get("montoTotal", 0) or 0)
+        monto_neto = float(totales.get("montoNetoAPagar", monto_total) or 0)
+        monto_prest = float(totales.get("montoPrestaciones", 0) or 0)
+        monto_der = float(totales.get("montoDerechosAdquiridos", 0) or 0)
+        monto_desc = float(totales.get("montoDescuentos", 0) or 0)
+        monto_exento = float(totales.get("montoExento", 0) or 0)
+    except (TypeError, ValueError):
+        monto_total = monto_neto = monto_prest = monto_der = monto_desc = monto_exento = 0.0
+    try:
+        sdp = float(settlement.get("salarioDiarioPromedio", 0) or 0)
+    except (TypeError, ValueError):
+        sdp = 0.0
+    # Bloque de corrección: si esta versión nace de una reapertura, el
+    # aprobador ve el motivo y los montos de la versión invalidada.
+    correction = None
+    corr = req.get("lastCorrection") or {}
+    if isinstance(corr, dict) and corr:
+        try:
+            correction = {
+                "reason": corr.get("reason", "") or "",
+                "by": corr.get("by", "") or "",
+                "at": corr.get("at", "") or "",
+                "previousVersion": int(corr.get("previousVersion", 0) or 0),
+                "previousTotal": float(corr.get("previousTotal", 0) or 0),
+                "previousNeto": float(corr.get("previousNeto", 0) or 0),
+            }
+        except (TypeError, ValueError):
+            correction = None
+    return {
+        "employeeName": req.get("employeeName", "") or "",
+        "terminationType": settlement.get("terminationType", "") or req.get("terminationType", "") or "",
+        "terminationDate": settlement.get("terminationDate", "") or req.get("effectiveDate", "") or "",
+        "montoTotal": round(monto_total, 2),
+        "montoNetoAPagar": round(monto_neto, 2),
+        "montoPrestaciones": round(monto_prest, 2),
+        "montoDerechosAdquiridos": round(monto_der, 2),
+        "montoDescuentos": round(monto_desc, 2),
+        "montoExento": round(monto_exento, 2),
+        "antiguedad": {
+            "years": antigen.get("years", 0) or 0,
+            "months": antigen.get("months", 0) or 0,
+            "days": antigen.get("days", 0) or 0,
+        },
+        "salarioDiarioPromedio": round(sdp, 2),
+        "conceptos": conceptos,
+        "conceptosAdicionales": adicionales,
+        "descuentos": descuentos,
+        "correction": correction,
+    }
+
+
+def _termination_auth_gate(svc, request_id: str, company_id: str,
+                           owner_uid: str, sandbox: bool,
+                           metadata: dict | None = None) -> dict:
+    """Aplica el gate de autorización de desvinculación (modo simple).
+
+    Sin regla activa -> {"approved": True, "isFallback": True}: el llamador
+    sigue el flujo actual (inactivar + avanzar a liquidación).
+    Con regla -> crea la solicitud de autorización (pending) y retorna
+    {"approved": False, ...}: el llamador NO debe inactivar ni avanzar.
+    El ``metadata`` (resumen de prestaciones) viaja en la solicitud para
+    que el aprobador vea el esquema completo.
+    """
+    user = _user()
+    if not _has_termination_rule(company_id, sandbox):
+        return {"approved": True, "isFallback": True, "request": None}
+    from app.services.hr_authorization_service import create_authorization_request
+    req = svc.get_request(request_id) or {}
+    result = create_authorization_request(
+        company_id, "termination", request_id,
+        doc_number=req.get("employeeName", "") or req.get("employeeId", "") or request_id,
+        entity_type="offboarding",
+        created_by_uid=user.get("uid", ""),
+        created_by_email=user.get("email", ""),
+        created_by_name=user.get("name", ""),
+        sandbox=sandbox,
+        link=url_for("web_rrhh.offboarding_wizard", request_id=request_id),
+        owner_uid=owner_uid,
+        metadata=metadata or {},
+    )
+    auth_req = result.get("request", {}) or {}
+    # Respaldo: el estampado del motor ya guarda authorizationRequestId,
+    # pero se asegura aquí por si el estampado falló silenciosamente.
+    req = svc.get_request(request_id) or {}
+    if auth_req.get("id") and not req.get("authorizationRequestId"):
+        req["authorizationRequestId"] = auth_req["id"]
+        svc.save_request_raw(request_id, req, user.get("email", ""))
+    return {"approved": bool(result.get("approved")),
+            "isFallback": bool(result.get("isFallback")),
+            "request": auth_req}
+
+
+# ── Inmutabilidad de la liquidación autorizada ─────────────────────────────
+
+# Estados de liquidación que congelan los montos.
+LOCKED_SETTLEMENT_STATUSES = frozenset({"aprobada", "pendiente_pago", "pagada"})
+
+# Estados de autorización que congelan los montos.
+LOCKED_AUTH_STATUSES = frozenset({"approved", "rejected"})
+
+
+def _settlement_recalc_blocked(req: dict | None, settlement: dict | None,
+                               company_id: str, sandbox: bool) -> str | None:
+    """Retorna el motivo de bloqueo si NO se permite recalcular, o None si sí.
+
+    Regla central: una liquidación autorizada es inmutable. Solo se puede
+    recalcular cuando no hay autorización aprobada/rechazada y el settlement
+    no está en estado final (aprobada/pendiente_pago/pagada).
+    """
+    req = req or {}
+    auth_id = req.get("authorizationRequestId", "")
+    if auth_id:
+        try:
+            auth = hr.get_authorization_request(company_id, auth_id, sandbox=sandbox)
+        except Exception:
+            auth = None
+        if auth and auth.get("status") in LOCKED_AUTH_STATUSES:
+            return ("La liquidación ya fue autorizada y sus montos están "
+                    "congelados. Para modificarlos debe retirarse la "
+                    "autorización y enviarse nuevamente a revisión.")
+    if (settlement or {}).get("status", "") in LOCKED_SETTLEMENT_STATUSES:
+        return ("La liquidación está en estado "
+                f"'{(settlement or {}).get('status', '')}' y sus montos están "
+                "congelados. No se puede recalcular.")
+    return None
+
+
+def _refresh_pending_auth_metadata(company_id: str, auth_id: str,
+                                   settlement: dict, req: dict,
+                                   sandbox: bool) -> bool:
+    """Refresca el metadata de una autorización pendiente con el último cálculo.
+
+    Evita que el aprobador vea cifras distintas a las guardadas cuando se
+    recalcula mientras la solicitud sigue en la cola. Retorna True si se
+    actualizó.
+    """
+    if not auth_id or not settlement:
+        return False
+    try:
+        auth = hr.get_authorization_request(company_id, auth_id, sandbox=sandbox)
+    except Exception:
+        return False
+    if not auth or auth.get("status") != "pending":
+        return False
+    auth["metadata"] = _prestaciones_metadata(settlement, req or {})
+    hr.save_authorization_request(company_id, auth["id"], auth, sandbox=sandbox)
+    return True
+
+
 # ── Dashboard ───────────────────────────────────────────────────────────────
 
 @web_rrhh_bp.route("/rrhh/offboarding/dashboard")
@@ -209,16 +424,13 @@ def offboarding_new():
 
         req = svc.create_request(data, _email())
         svc.init_checklist(req.id, employee_id)
-        svc.deactivate_employee(req.model_dump())
 
-        user_email = _email()
-        if svc.is_simple:
-            try:
-                svc.wizard_transition(req.id, "pending_settlement", user_email)
-            except Exception:
-                pass
-
-        flash("Solicitud de desvinculación creada exitosamente.", "success")
+        # La autorización se solicita EXPLÍCITAMENTE desde el Paso 1 del
+        # wizard (botón "Enviar a autorización"), una vez calculadas las
+        # prestaciones. Aquí solo se crea el borrador y se redirige al
+        # wizard para completar los datos y el cálculo.
+        flash("Solicitud de desvinculación creada. Complete el Paso 1 "
+              "(cálculo de prestaciones) para enviarla a autorización.", "success")
         return redirect(url_for("web_rrhh.offboarding_wizard", request_id=req.id))
 
     employees = hr.get_employees(company_id, sandbox=sandbox)
@@ -297,11 +509,104 @@ def offboarding_cancel(request_id):
     reason = request.form.get("reason", "").strip() or "Cancelación solicitada"
     try:
         svc.transition(request_id, "cancelled", _email(), _role(), reason)
+        # Si había una autorización pendiente/devuelta, cancelarla también
+        # para no dejar solicitudes huérfanas en la cola.
+        auth_id = (svc.get_request(request_id) or {}).get("authorizationRequestId", "")
+        if auth_id:
+            try:
+                from app.services.hr_authorization_service import cancel_authorization
+                cancel_authorization(company_id, auth_id, cancelled_by=_email(), sandbox=sandbox)
+            except Exception:
+                pass
         flash("Solicitud cancelada.", "success")
     except ValueError as e:
         flash(str(e), "error")
 
     return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id))
+
+
+# ── Withdraw from authorization queue ─────────────────────────────────────
+
+@web_rrhh_bp.route("/rrhh/offboarding/<request_id>/authorization/withdraw", methods=["POST"])
+def offboarding_authorization_withdraw(request_id):
+    """Retira la autorización de la cola para corregir y reenviar.
+
+    Solo el creador (u owner) puede retirarla y solo si aún no fue
+    resuelta (pending/returned). La desvinculación sigue en borrador con
+    su liquidación calculada; el vínculo se limpia vía _stamp_offboarding
+    (rama cancelled+draft), levantando el hold del wizard.
+    Las firmas parciales ya registradas se descartan (se reenvía desde cero).
+    """
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    svc, owner_uid, sandbox, company_id = _service()
+    req = svc.get_request(request_id)
+    if not req:
+        flash("Solicitud no encontrada.", "error")
+        return redirect(url_for("web_rrhh.offboarding_list"))
+
+    back = url_for("web_rrhh.offboarding_wizard", request_id=request_id)
+    auth_id = req.get("authorizationRequestId", "")
+    if not auth_id:
+        flash("No hay ninguna solicitud en la cola de autorizaciones.", "info")
+        return redirect(back)
+
+    auth = hr.get_authorization_request(company_id, auth_id, sandbox=sandbox)
+    if not auth or auth.get("status") not in ("pending", "returned"):
+        flash("La solicitud ya fue resuelta y no puede retirarse de la cola.", "error")
+        return redirect(back)
+
+    user = _user()
+    is_creator = (
+        (auth.get("createdByUid") and auth.get("createdByUid") == user.get("uid", "")) or
+        (auth.get("createdByEmail") and auth.get("createdByEmail") == user.get("email", ""))
+    )
+    if not is_creator and user.get("role") != "owner":
+        flash("Solo el creador de la solicitud puede retirarla de la cola.", "error")
+        return redirect(back)
+
+    try:
+        from app.services.hr_authorization_service import cancel_authorization
+        result = cancel_authorization(
+            company_id, auth_id, cancelled_by=_email(), sandbox=sandbox)
+        if not result.get("success"):
+            raise ValueError(result.get("error", "No se pudo retirar."))
+    except ValueError as e:
+        flash(str(e), "error")
+        return redirect(back)
+
+    flash("Solicitud retirada de la cola de autorizaciones. "
+          "Corrige lo necesario y vuelve a enviar.", "success")
+    return redirect(back)
+
+
+# ── Request correction of an authorized settlement ─────────────────────────
+
+@web_rrhh_bp.route("/rrhh/offboarding/<request_id>/settlement/request-correction", methods=["POST"])
+def offboarding_settlement_request_correction(request_id):
+    """Solicita corrección de una liquidación ya autorizada.
+
+    Solo owner/RRHH. La versión aprobada se preserva como snapshot
+    histórico (``reemplazada``), se invalida la autorización y la solicitud
+    vuelve a borrador para recalcular y reenviar a una NUEVA autorización.
+    Si ya fue pagada, se rechaza (requiere ajuste separado).
+    """
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    back = url_for("web_rrhh.offboarding_wizard", request_id=request_id)
+    if not _is_hr_role():
+        flash("Solo RRHH puede solicitar correcciones de liquidación.", "error")
+        return redirect(back)
+    svc, owner_uid, sandbox, company_id = _service()
+    reason = request.form.get("reason", "").strip()
+    try:
+        svc.request_settlement_correction(request_id, reason, _email())
+    except ValueError as e:
+        flash(str(e), "error")
+        return redirect(back)
+    flash("Autorización invalidada para corrección. Recalcule los montos y "
+          "vuelva a enviar a autorización.", "success")
+    return redirect(back)
 
 
 # ── Detail ─────────────────────────────────────────────────────────────────
@@ -429,6 +734,24 @@ def offboarding_settlement_calculate(request_id):
     if not employee:
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id))
+
+    # Inmutabilidad: una liquidación autorizada no puede recalcularse
+    # (misma regla que el wizard; esta es la ruta legacy/alterna).
+    _existing_legacy = (svc.get_settlement(req.get("settlementId", ""))
+                        if req.get("settlementId") else None)
+    _locked_legacy = _settlement_recalc_blocked(
+        req, _existing_legacy, company_id, sandbox)
+    if _locked_legacy:
+        try:
+            log_action(company_id, "settlement_recalc_blocked", "offboarding",
+                       request_id, _email(),
+                       changes={"reason": _locked_legacy,
+                                "route": "offboarding_settlement_calculate"},
+                       sandbox=sandbox)
+        except Exception:
+            pass
+        flash(_locked_legacy, "error")
+        return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id, tab="settlement"))
 
     termination_date = req.get("effectiveDate", "")
     employee_id = req.get("employeeId", "")
@@ -566,6 +889,10 @@ def offboarding_settlement_approve(request_id):
         return redirect(url_for("web_auth.login"))
     svc, owner_uid, sandbox, company_id = _service()
     req = svc.get_request(request_id)
+    hold = svc._check_auth_hold(req or {})
+    if hold:
+        flash(hold, "error")
+        return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id, tab="settlement"))
     s_id = request.form.get("settlementId", "")
     comment = request.form.get("comment", "")
     if s_id:
@@ -860,6 +1187,32 @@ def offboarding_rehire(request_id):
                                   active_page="rrhh_offboarding"))
 
 
+def _select_settlement_payment(payments: list, settlement: dict | None) -> dict | None:
+    """Elige el pago vinculado a la liquidación/versión vigente.
+
+    Prefiere el pago con ``settlementId`` (+ versión) coincidente; si no hay
+    coincidencia, cae al último registro genérico.
+    """
+    payments = payments or []
+    if not payments:
+        return None
+    if settlement:
+        sid = settlement.get("id", "")
+        try:
+            sver = int(settlement.get("version", 0) or 0)
+        except (TypeError, ValueError):
+            sver = 0
+        linked = [p for p in payments if sid and p.get("settlementId") == sid]
+        if linked and sver:
+            ver_match = [p for p in linked
+                         if str(p.get("settlementVersion", "")) == str(sver)]
+            if ver_match:
+                linked = ver_match
+        if linked:
+            return linked[-1]
+    return payments[-1]
+
+
 # ── PDF Generation ─────────────────────────────────────────────────────────
 
 @web_rrhh_bp.route("/rrhh/offboarding/<request_id>/pdf/letter")
@@ -966,6 +1319,14 @@ def offboarding_pdf_finiquito(request_id):
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.offboarding_detail", request_id=request_id))
 
+    # Fallback solo-visual para liquidaciones viejas guardadas sin baseSalary
+    # (el wizard no lo persistía). No se escribe en Firestore.
+    try:
+        if settlement and not float(settlement.get("baseSalary", 0) or 0):
+            settlement["baseSalary"] = float(employee.get("baseSalary", 0) or 0)
+    except (TypeError, ValueError):
+        pass
+
     try:
         from app.services.offboarding_document_service import generate_finiquito, _company_data
         from app.models.offboarding import SettlementStatus
@@ -973,8 +1334,8 @@ def offboarding_pdf_finiquito(request_id):
 
         settlement_completed = settlement.get("status") == SettlementStatus.PAGADA.value if settlement else False
 
-        payments = svc.get_payments(request_id)
-        payment = payments[-1] if payments else None
+        payments = svc.get_payments(request_id) or []
+        payment = _select_settlement_payment(payments, settlement)
 
         pdf_bytes = generate_finiquito(
             req, settlement, employee, company, request.host_url,
@@ -1224,6 +1585,57 @@ def offboarding_wizard(request_id):
     payroll_groups = hr.get_payroll_groups(company_id, sandbox=sandbox)
     payroll_groups.sort(key=lambda g: g.get("name", ""))
 
+    # ── Autorización vinculada (gate modo simple): aprobadores y firmas ──
+    auth_request = None
+    if req.get("authorizationRequestId"):
+        try:
+            auth_request = hr.get_authorization_request(
+                company_id, req["authorizationRequestId"], sandbox=sandbox)
+        except Exception:
+            auth_request = None
+
+    # ── Estado visual del encabezado: refleja la autorización vinculada ──
+    # req.status sigue siendo la verdad operativa (draft permite editar y
+    # retirar de la cola); el encabezado muestra el estado de autorización.
+    _auth_status = (auth_request or {}).get("status", "")
+    if _auth_status == "pending":
+        header_status = {"key": "pending_authorization",
+                         "label": "Pendiente de autorización",
+                         "color": "warning"}
+    elif _auth_status == "returned":
+        header_status = {"key": "returned",
+                         "label": "Devuelta para corrección",
+                         "color": "warning"}
+    else:
+        header_status = None
+
+    # ── Retiro de la cola: solo el creador (u owner) puede retirar una
+    # autorización aún no resuelta para corregir y reenviar ──
+    can_withdraw_auth = False
+    if auth_request and auth_request.get("status") in ("pending", "returned"):
+        _wu = _user()
+        can_withdraw_auth = bool(
+            (auth_request.get("createdByUid") and
+             auth_request.get("createdByUid") == _wu.get("uid", "")) or
+            (auth_request.get("createdByEmail") and
+             auth_request.get("createdByEmail") == _wu.get("email", "")) or
+            _wu.get("role") == "owner")
+
+    # ── Solicitud de corrección: solo si hay algo autorizado que reabrir,
+    # sin pago registrado y fuera de estados terminales. El permiso se
+    # revalida en el endpoint POST. ──
+    _corr_settlement = settlement or {}
+    _corr_locked = (
+        (_auth_status == "approved")
+        or _corr_settlement.get("status") in ("aprobada", "pendiente_pago")
+    )
+    _corr_terminal = (
+        req.get("status") in ("completed", "cancelled", "rejected")
+        or _corr_settlement.get("status") == "pagada"
+    )
+    can_request_correction = bool(
+        _corr_locked and not _corr_terminal and _is_hr_role())
+
     # ── Auto-calcular vacaciones pendientes ──
     vacation_pending = 0
     vacation_taken = 0
@@ -1293,6 +1705,12 @@ def offboarding_wizard(request_id):
                                   documents=documents, payments=payments,
                                   current_step=current_step,
                                   payroll_groups=payroll_groups, is_simple=svc.is_simple,
+                                   auth_request=auth_request,
+                                   header_status=header_status,
+                                   can_withdraw_auth=can_withdraw_auth,
+                                   can_request_correction=can_request_correction,
+                                   has_termination_rule=_has_termination_rule(company_id, sandbox),
+                                  current_user_uid=_user().get("uid", ""),
                                   vacation_pending=vacation_pending,
                                   vacation_taken=vacation_taken,
                                   vacation_total_pendientes=vacation_total_pendientes,
@@ -1417,6 +1835,9 @@ def offboarding_wizard_step1(request_id):
     result["terminationDate"] = termination_date
 
     # Poblar campos legados (floats) para compatibilidad con la vista de detalle/PDF
+    # baseSalary: calcular_liquidacion no lo devuelve; sin esto el acta sale en cero.
+    result["baseSalary"] = float(base_salary or 0.0)
+    result["salaryFrequency"] = salary_frequency
     _t = result.get("totales", {})
     result["descuentos"] = float(_t.get("montoDescuentos", 0.0))
     result["loanDeductions"] = float(_t.get("loanDeductions", 0.0))
@@ -1437,12 +1858,84 @@ def offboarding_wizard_step1(request_id):
 
     wizard_action = request.form.get("wizard_action", "").strip()
 
+    if wizard_action == "submit_authorization":
+        # Envío EXPLÍCITO a autorización: la liquidación ya está calculada
+        # y visible en el wizard. No se aprueba ni se avanza; la solicitud
+        # queda en borrador bloqueada hasta alcanzar el quórum.
+        existing_settlement = existing or (
+            svc.get_settlement(req.get("settlementId", ""))
+            if req.get("settlementId") else None)
+        if not existing_settlement:
+            return jsonify({"success": False,
+                            "message": "Debe calcular la liquidación antes de enviar a autorización."}), 400
+        auth_id = req.get("authorizationRequestId", "")
+        existing_auth = None
+        if auth_id:
+            try:
+                existing_auth = hr.get_authorization_request(
+                    company_id, auth_id, sandbox=sandbox)
+            except Exception:
+                existing_auth = None
+        meta = _prestaciones_metadata(existing_settlement, req)
+        if existing_auth and existing_auth.get("status") == "returned":
+            # Devuelta para corrección: refrescar prestaciones y reenviar.
+            existing_auth["metadata"] = meta
+            hr.save_authorization_request(
+                company_id, existing_auth["id"], existing_auth, sandbox=sandbox)
+            from app.services.hr_authorization_service import resubmit_authorization
+            res = resubmit_authorization(
+                company_id, existing_auth["id"],
+                resubmitted_by=user_email, sandbox=sandbox)
+            if not res.get("success"):
+                return jsonify({"success": False,
+                                "message": res.get("error", "No se pudo reenviar.")}), 400
+            return jsonify({"success": True, "resubmitted": True})
+        if existing_auth and existing_auth.get("status") == "pending":
+            # Ya enviada: refrescar prestaciones con el último cálculo.
+            existing_auth["metadata"] = meta
+            hr.save_authorization_request(
+                company_id, existing_auth["id"], existing_auth, sandbox=sandbox)
+            return jsonify({"success": True, "already_submitted": True})
+        gate = _termination_auth_gate(
+            svc, request_id, company_id, owner_uid, sandbox, metadata=meta)
+        if gate["approved"]:
+            # Sin regla activa: no hay nada que enviar; el flujo normal
+            # continúa con "Aprobar liquidación y continuar".
+            return jsonify({"success": True, "authorization": "fallback"})
+        return jsonify({"success": True,
+                        "authorization": (gate.get("request") or {}).get("id", "")})
+
     if wizard_action == "approve":
         if not existing:
             return jsonify({"success": False, "message": "No hay liquidación que aprobar."}), 400
+        hold = svc._check_auth_hold(req or {})
+        if hold:
+            return jsonify({"success": False, "message": hold}), 400
         svc.approve_settlement(existing["id"], user_email)
     else:
+        # Inmutabilidad: una liquidación autorizada no puede recalcularse.
+        locked = _settlement_recalc_blocked(req, existing, company_id, sandbox)
+        if locked:
+            try:
+                log_action(company_id, "settlement_recalc_blocked", "offboarding",
+                           request_id, user_email,
+                           changes={"reason": locked,
+                                    "settlementId": (existing or {}).get("id", ""),
+                                    "settlementStatus": (existing or {}).get("status", ""),
+                                    "authorizationRequestId": req.get("authorizationRequestId", "")},
+                           sandbox=sandbox)
+            except Exception:
+                pass
+            return jsonify({"success": False, "message": locked}), 400
         svc.save_settlement(result, user_email)
+        # Si la autorización sigue pendiente, sincronizar sus prestaciones
+        # con el último cálculo para que el aprobador vea los números reales.
+        try:
+            _refresh_pending_auth_metadata(
+                company_id, req.get("authorizationRequestId", ""),
+                result, req, sandbox)
+        except Exception:
+            pass
         should_approve = (
             wizard_action == ""
             or (wizard_action != "" and prev_status == "pendiente_pago")

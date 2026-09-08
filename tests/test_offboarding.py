@@ -456,3 +456,353 @@ class TestFiniquitoDocument:
         assert "TERCERO" in html
         assert "TOTAL NETO A PAGAR" in html
         assert "18,000.00" in html
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ACTA DE FINIQUITO — checkboxes, logo, sin QR, saltos de página
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestFiniquitoActaFixes:
+    def _render(self, request_data=None, settlement=None, employee=None,
+                company=None, payment=None, qr_base64=None,
+                verification_code=""):
+        import os
+        from jinja2 import Environment, FileSystemLoader
+        from app.utils.spanish_numbers import numero_a_letras
+        from app.web.rrhh.work_certificate import _format_date_es, _today_es
+
+        env = Environment(loader=FileSystemLoader(os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates"
+        )))
+        template = env.get_template("rrhh/offboarding/finiquito_pdf.html")
+        return template.render(
+            request_data=request_data or {
+                "id": "req123",
+                "terminationType": "despido_injustificado",
+                "terminationReason": "",
+                "detailedReason": "",
+            },
+            settlement=settlement if settlement is not None else {
+                "conceptos": {
+                    "salarioProporcional": {"monto": 10000.0, "aplica": True},
+                    "vacaciones": {"monto": 5000.0, "aplica": True},
+                    "salarioNavidad": {"monto": 3000.0, "aplica": True},
+                    "cesantia": {"monto": 20000.0, "aplica": True},
+                    "preaviso": {"monto": 7000.0, "aplica": True},
+                    "asistenciaEconomica": {"monto": 0.0, "aplica": False},
+                },
+                "totales": {
+                    "montoTotal": 42000.0,
+                    "montoDescuentos": 2000.0,
+                    "montoNetoAPagar": 40000.0,
+                    "montoOtrosIngresos": 0.0,
+                },
+                "conceptosAdicionales": [],
+                "terminationDate": "2025-06-30",
+            },
+            employee=employee or {
+                "fullName": "Juan Pérez",
+                "cedula": "001-2345678-9",
+                "address": "Calle 1, Santo Domingo",
+                "position": "Analista",
+                "hireDate": "2020-01-15",
+            },
+            company=company or {
+                "companyName": "Empresa SA",
+                "rnc": "132000001",
+                "address": "Av. Winston Churchill 1012",
+                "city": "Santo Domingo",
+                "representativeName": "Ana Rodríguez",
+                "representativePosition": "Gerente General",
+            },
+            payment=payment,
+            qr_base64=qr_base64,
+            verification_code=verification_code,
+            format_date_es=_format_date_es,
+            today_es=_today_es(),
+            numero_a_letras=numero_a_letras,
+            representative_name="Ana Rodríguez",
+            representative_position="Gerente General",
+            settlement_completed=False,
+        )
+
+    def test_sin_nbsp_en_salida(self):
+        html = self._render()
+        assert "&nbsp" not in html
+
+    def test_motivo_marcado_con_checkbox(self):
+        html = self._render()
+        assert ">X</span> Despido injustificado." in html
+        assert ">X</span> Renuncia voluntaria" not in html
+        assert ">X</span> Despido justificado." not in html
+        assert ">X</span> Mutuo acuerdo." not in html
+
+    def test_tipo_extra_se_marca_en_otro(self):
+        html = self._render(request_data={
+            "id": "req123",
+            "terminationType": "dimision_justificada",
+            "terminationReason": "",
+            "detailedReason": "",
+        })
+        assert "Dimisión justificada" in html
+        assert ">X</span> Otro" in html
+
+    def test_forma_pago_nomina_marcada(self):
+        html = self._render(payment={"paymentMethod": "payroll"})
+        assert ">X</span> Nómina" in html
+        assert ">X</span> Transferencia bancaria" not in html
+
+    def test_forma_pago_transferencia_marcada(self):
+        html = self._render(payment={
+            "paymentMethod": "transfer",
+            "accountNumber": "123",
+            "bankName": "Popular",
+        })
+        assert ">X</span> Transferencia bancaria" in html
+        assert ">X</span> Nómina" not in html
+
+    def test_logo_presente_cuando_existe(self):
+        company = {
+            "companyName": "Empresa SA",
+            "rnc": "132000001",
+            "address": "Av. Winston Churchill 1012",
+            "city": "Santo Domingo",
+            "logoBase64": "data:image/png;base64,iVBORw0KGgo=",
+        }
+        html = self._render(company=company)
+        assert 'class="company-logo"' in html
+        assert "iVBORw0KGgo=" in html
+        assert "Empresa SA" in html
+
+    def test_logo_raw_sin_prefijo(self):
+        company = {
+            "companyName": "Empresa SA",
+            "rnc": "132000001",
+            "logoBase64": "iVBORw0KGgo=",
+        }
+        html = self._render(company=company)
+        assert "data:image/png;base64,iVBORw0KGgo=" in html
+
+    def test_sin_logo_no_hay_img(self):
+        html = self._render()
+        assert 'class="company-logo"' not in html
+
+    def test_sin_qr_ni_codigo(self):
+        html = self._render(qr_base64="iVBORw0KGgo=", verification_code="ABC123")
+        assert "footer-qr" not in html
+        assert "Código de verificación" not in html
+        assert "Documento generado electrónicamente" in html
+
+    def test_reglas_salto_de_pagina(self):
+        html = self._render()
+        assert "break-inside: avoid" in html
+        assert "page-break-inside: avoid" in html
+        assert "page-break-after: avoid" in html
+
+    def test_generate_finiquito_no_genera_qr(self):
+        import sys
+        from unittest.mock import MagicMock, patch
+        fake_weasy = MagicMock()
+        with patch.dict(sys.modules, {"weasyprint": fake_weasy}):
+            import app.services.offboarding_document_service as ods_mod
+            with patch.object(ods_mod, "render_template",
+                              return_value="<html></html>") as mock_render, \
+                 patch.object(ods_mod, "_generate_qr_base64") as mock_qr, \
+                 patch.object(ods_mod, "_verification_code") as mock_vcode:
+                ods_mod.generate_finiquito(
+                    {"id": "req123", "terminationType": "renuncia_voluntaria"},
+                    {"conceptos": {}, "totales": {}},
+                    {"fullName": "Juan Pérez"},
+                    {"companyName": "Empresa SA"},
+                    "http://localhost/",
+                )
+        mock_qr.assert_not_called()
+        mock_vcode.assert_not_called()
+        assert mock_render.call_args.kwargs["qr_base64"] is None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# FINIQUITO COMO DOCUMENTO INTEGRAL (sustituye al Acta de Liquidación)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestFiniquitoDocumentoIntegral:
+    def _base_ctx(self):
+        return {
+            "request_data": {
+                "id": "req123",
+                "requestNumber": "OFF-2026-0001",
+                "terminationType": "despido_injustificado",
+                "terminationReason": "",
+                "detailedReason": "",
+                "effectiveDate": "2025-06-30",
+            },
+            "settlement": {
+                "id": "set-1",
+                "version": 2,
+                "baseSalary": 60000.0,
+                "salarioPromedioMensual": 62500.0,
+                "terminationType": "despido_injustificado",
+                "terminationDate": "2025-06-30",
+                "loanDeductions": 5000.0,
+                "advanceDeductions": 2000.0,
+                "otherDeductions": 0.0,
+                "conceptos": {
+                    "salarioProporcional": {"monto": 10000.0, "aplica": True},
+                    "vacaciones": {"monto": 5000.0, "aplica": True},
+                    "salarioNavidad": {"monto": 3000.0, "aplica": True},
+                    "cesantia": {"monto": 20000.0, "aplica": True},
+                    "preaviso": {"monto": 7000.0, "aplica": True},
+                    "asistenciaEconomica": {"monto": 0.0, "aplica": False},
+                },
+                "totales": {
+                    "montoTotal": 45000.0,
+                    "montoDescuentos": 9000.0,
+                    "montoNetoAPagar": 36000.0,
+                    "montoOtrosIngresos": 0.0,
+                    "montoExento": 27000.0,
+                    "montoGravableTSS": 15000.0,
+                    "montoGravableISR": 18000.0,
+                },
+                "descuentosDetalle": [
+                    {"name": "Préstamo cooperativa", "monto": 2000.0},
+                ],
+                "conceptosAdicionales": [
+                    {"name": "Descuento uniforme", "type": "deduction",
+                     "monto": 500.0},
+                ],
+            },
+            "employee": {
+                "fullName": "Juan Pérez",
+                "cedula": "001-2345678-9",
+                "address": "Calle 1, Santo Domingo",
+                "position": "Analista",
+                "hireDate": "2020-01-15",
+            },
+            "company": {
+                "companyName": "Empresa SA",
+                "rnc": "132000001",
+                "address": "Av. Winston Churchill 1012",
+                "city": "Santo Domingo",
+                "logoBase64": "data:image/png;base64,iVBORw0KGgo=",
+            },
+            "payment": {
+                "paymentMethod": "payroll",
+                "paymentDate": "2025-07-05",
+                "payrollPeriodKey": "2025-07-LIQ",
+                "totalAmount": 36000.0,
+            },
+        }
+
+    def _render(self, **overrides):
+        import os
+        from jinja2 import Environment, FileSystemLoader
+        from app.utils.spanish_numbers import numero_a_letras
+        from app.web.rrhh.work_certificate import _format_date_es, _today_es
+
+        env = Environment(loader=FileSystemLoader(os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates"
+        )))
+        ctx = self._base_ctx()
+        ctx.update(overrides)
+        settlement_completed = ctx.pop("settlement_completed", True)
+        return env.get_template("rrhh/offboarding/finiquito_pdf.html").render(
+            qr_base64=None,
+            verification_code="",
+            format_date_es=_format_date_es,
+            today_es=_today_es(),
+            numero_a_letras=numero_a_letras,
+            representative_name="Ana Rodríguez",
+            representative_position="Gerente General",
+            settlement_completed=settlement_completed,
+            **ctx,
+        )
+
+    def test_bloque_referencia_y_estado(self):
+        html = self._render()
+        assert "OFF-2026-0001" in html
+        assert "Pagada" in html
+
+    def test_estado_pendiente_sin_pago_confirmado(self):
+        html = self._render(settlement_completed=False)
+        assert "Pendiente de pago" in html
+
+    def test_datos_laborales_base_promedio_tipo(self):
+        html = self._render()
+        assert "60,000.00" in html
+        assert "62,500.00" in html
+        assert "Despido Injustificado" in html
+
+    def test_resumen_fiscal(self):
+        html = self._render()
+        assert "27,000.00" in html
+        assert "15,000.00" in html
+        assert "18,000.00" in html
+
+    def test_deducciones_detalladas(self):
+        html = self._render()
+        assert "5,000.00" in html
+        assert "2,000.00" in html
+        assert "Préstamo cooperativa" in html
+        assert "Descuento uniforme" in html
+
+    def test_referencia_pago_nomina(self):
+        html = self._render()
+        assert "2025-07-LIQ" in html
+        assert "36,000.00" in html
+
+    def test_botones_wizard_actualizados(self):
+        import os
+        path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "templates", "rrhh", "offboarding_wizard.html")
+        with open(path, encoding="utf-8") as f:
+            content = f.read()
+        assert "Carta Ministerio de Trabajo" in content
+        assert "Acta de finiquito" in content
+        assert "offboarding_pdf_settlement" not in content
+        assert "Acta de liquidación" not in content
+        assert "Carta de desvinculación" not in content
+
+    def test_botones_detalle_actualizados(self):
+        import os
+        path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "templates", "rrhh", "offboarding_detail.html")
+        with open(path, encoding="utf-8") as f:
+            content = f.read()
+        assert "Carta Ministerio de Trabajo" in content
+        assert "offboarding_pdf_settlement" not in content
+
+
+class TestSelectSettlementPayment:
+    def _payments(self):
+        return [
+            {"id": "p-old", "settlementId": "set-1", "settlementVersion": 1,
+             "totalAmount": 100.0},
+            {"id": "p-other", "settlementId": "set-9", "settlementVersion": 1,
+             "totalAmount": 200.0},
+            {"id": "p-new", "settlementId": "set-1", "settlementVersion": 2,
+             "totalAmount": 300.0},
+        ]
+
+    def test_prefiere_version_vigente(self):
+        from app.web.rrhh.offboarding import _select_settlement_payment
+        p = _select_settlement_payment(
+            self._payments(), {"id": "set-1", "version": 2})
+        assert p["id"] == "p-new"
+
+    def test_fallback_ultimo_sin_coincidencia(self):
+        from app.web.rrhh.offboarding import _select_settlement_payment
+        p = _select_settlement_payment(
+            self._payments(), {"id": "set-404", "version": 1})
+        assert p["id"] == "p-new"
+
+    def test_sin_pagos_retorna_none(self):
+        from app.web.rrhh.offboarding import _select_settlement_payment
+        assert _select_settlement_payment([], {"id": "set-1"}) is None
+        assert _select_settlement_payment(None, None) is None
+
+    def test_sin_settlement_retorna_ultimo(self):
+        from app.web.rrhh.offboarding import _select_settlement_payment
+        p = _select_settlement_payment(self._payments(), None)
+        assert p["id"] == "p-new"

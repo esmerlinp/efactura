@@ -81,6 +81,8 @@
                     </form>
                     {% elif r.status == 'aprobada' and r.endDate >= today %}
                     <button type="button" class="btn btn-sm btn-warning" onclick="openCancelModal('{{ r.id }}', '{{ r.employeeName }}', '{{ r.startDate }}', '{{ r.endDate }}')">Anular</button>
+                    {% else %}
+                    <span class="text-muted" title="Sin acciones disponibles">—</span>
                     {% endif %}
                 </div></td>
             </tr>

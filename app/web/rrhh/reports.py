@@ -633,6 +633,10 @@ def employee_retroactive_pay(employee_id):
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_list"))
 
+    if (employee.get("status") or "") == "inactivo":
+        flash("El empleado está inactivo. La única acción permitida es la reincorporación.", "warning")
+        return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
+
     result = None
     if request.method == "POST":
         new_salary = float(request.form.get("new_salary", 0) or 0)

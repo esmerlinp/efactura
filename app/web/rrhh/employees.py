@@ -651,6 +651,10 @@ def employee_edit(employee_id):
         flash("Empleado no encontrado.", "error")
         return redirect(url_for("web_rrhh.employee_list"))
 
+    if (employee.get("status") or "") == "inactivo":
+        flash("El empleado está inactivo. La única acción permitida es la reincorporación.", "warning")
+        return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
+
     if request.method == "POST":
         first_name = request.form.get("firstName", "").strip()
         first_last_name = request.form.get("firstLastName", "").strip()

@@ -1009,15 +1009,49 @@ def _stamp_mass_action(action, doc_id, request, stamp, status, company_id, sandb
 def _stamp_offboarding(off, doc_id, stamp, status, company_id, sandbox):
     from app.services.offboarding_service import OffboardingService
     off_svc = OffboardingService(company_id, sandbox)
+    off_status = off.get("status", "")
+    if status == "cancelled" and off_status == "draft":
+        # Retiro de la cola de autorizaciones: limpiar el vínculo para que
+        # el creador pueda corregir y reenviar. La solicitud sigue en
+        # borrador (espejo de la rama cancelled de _stamp_mass_action).
+        # Sin esto, _check_auth_hold seguiría bloqueando el wizard.
+        cleaned = {k: v for k, v in off.items()
+                   if k not in ("authorizationRequestId", "authorizationStatus",
+                                "authorizationComment", "authorizationStampedAt",
+                                "authorizationApprovedBy", "authorizationApprovedAt",
+                                "authorizationRejectedBy", "authorizationRejectedAt")}
+        off_svc.save_request_raw(doc_id, cleaned, user_email="Sistema")
+        return
     off_svc.save_request_raw(doc_id, {**off, **stamp},
                              user_email=stamp.get("authorizationApprovedBy", "Sistema"))
-    off_status = off.get("status", "")
-    if status == "rejected" and off_status in ("pending_hr_approval", "pending_supervisor_approval"):
+    if status == "approved" and off_status == "draft":
+        # Gate modo simple: al alcanzar el quórum, avanza a liquidación
+        # e inactiva al empleado (equivale al fast-track del modo simple).
+        try:
+            off_svc.transition(doc_id, "pending_settlement", user_email="Sistema",
+                               user_role="owner",
+                               comment="Quórum de autorización alcanzado")
+            updated = off_svc.get_request(doc_id)
+            if updated:
+                off_svc.deactivate_employee(updated)
+        except Exception:
+            logger.exception("_stamp_offboarding: auto-advance failed for %s", doc_id)
+    elif status == "rejected" and off_status in ("pending_hr_approval", "pending_supervisor_approval"):
         off_svc.transition(doc_id, "rejected", user_email="Sistema", user_role="owner",
                            comment=stamp.get("authorizationComment", "Rechazada en cola de autorizaciones"))
+    elif status == "rejected" and off_status == "draft":
+        # Gate modo simple: el rechazo cancela la solicitud
+        # (transition reactiva al empleado automáticamente).
+        try:
+            off_svc.transition(doc_id, "cancelled", user_email="Sistema", user_role="owner",
+                               comment=stamp.get("authorizationComment", "Rechazada en cola de autorizaciones"))
+        except Exception:
+            logger.exception("_stamp_offboarding: cancel-on-reject failed for %s", doc_id)
     elif status == "returned" and off_status in ("pending_hr_approval", "pending_supervisor_approval"):
         off_svc.transition(doc_id, "returned", user_email="Sistema", user_role="owner",
                            comment=stamp.get("authorizationComment", "Devuelta para correccion"))
+    # Nota: returned + draft se queda en borrador (sin transición válida en la
+    # máquina de estados); el creador reenvía con resubmit y al aprobar avanza solo.
 
 
 def _stamp_payroll(period, doc_id, stamp, status, request, company_id, sandbox):
