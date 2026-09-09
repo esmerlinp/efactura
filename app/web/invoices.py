@@ -2309,7 +2309,8 @@ def process_comment_mentions(owner_uid, content, entity_id, entity_name, entity_
                 "link": f"{entity_url_path}",
                 "createdAt": datetime.now(timezone.utc).isoformat(),
                 "read": False,
-                "type": "mention"
+                "type": "mention",
+                "sandbox": bool(sandbox)
             }
             DatabaseService.create_user_notification(uid, notif_dict)
             
@@ -3442,7 +3443,8 @@ def approve_payment_proof(invoice_id):
                     "documentNumber": invoice.get('invoiceNumber', invoice_id),
                     "documentUrl": f"/invoices/{invoice_id}",
                     "createdAt": datetime.now(timezone.utc).isoformat(),
-                    "read": False
+                    "read": False,
+                    "sandbox": bool(sandbox)
                 })
         except Exception as _ne:
             print(f"⚠️ Error al notificar al cliente sobre aprobación de pago: {_ne}")
@@ -3552,7 +3554,8 @@ def reject_payment_proof(invoice_id):
                     "documentNumber": invoice.get('invoiceNumber', invoice_id),
                     "documentUrl": f"/invoices/{invoice_id}",
                     "createdAt": datetime.now(timezone.utc).isoformat(),
-                    "read": False
+                    "read": False,
+                    "sandbox": bool(sandbox)
                 })
         except Exception as _ne2:
             print(f"⚠️ Error al notificar al cliente sobre rechazo de pago: {_ne2}")
@@ -11634,7 +11637,8 @@ def process_resource_comment_mentions(owner_uid, content, resource_type, resourc
                 "link": link,
                 "createdAt": datetime.now(timezone.utc).isoformat(),
                 "read": False,
-                "type": "mention"
+                "type": "mention",
+                "sandbox": bool(sandbox)
             }
             DatabaseService.create_user_notification(uid, notif_dict)
             

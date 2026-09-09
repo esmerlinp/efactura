@@ -22,7 +22,7 @@
             </div>
             <div class="form-group">
                 <label>Tipo de Permiso</label>
-                <select name="leaveType" class="form-select">
+                <select name="leaveType" id="leaveType" class="form-select">
                     <option value="licencia_medica">Licencia Médica</option>
                     <option value="permiso_personal">Permiso Personal</option>
                     <option value="maternidad">Maternidad</option>
@@ -36,11 +36,17 @@
             </div>
             <div class="form-group">
                 <label>Fecha de Inicio</label>
-                <input type="date" name="startDate" class="form-input" required>
+                <input type="date" name="startDate" id="startDate" class="form-input" required>
             </div>
             <div class="form-group">
                 <label>Fecha de Fin</label>
-                <input type="date" name="endDate" class="form-input" required>
+                <input type="date" name="endDate" id="endDate" class="form-input" required>
+            </div>
+            <div class="form-group">
+                <label>Días</label>
+                <input type="text" id="daysDisplay" class="form-input" readonly
+                       placeholder="Se calcula al indicar inicio y fin">
+                <small class="form-text" id="maternidadHint" style="display:none;">Maternidad calcula la fecha de fin como inicio + 14 semanas; puedes cambiarla manualmente.</small>
             </div>
             <div class="form-group">
                 <label>Notas</label>
@@ -65,4 +71,107 @@
             <button type="submit" class="btn btn-primary">Registrar Permiso</button>
     </div>
 </form>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var MATERNIDAD_WEEKS = 14;
+    var typeEl = document.getElementById('leaveType');
+    var startEl = document.getElementById('startDate');
+    var endEl = document.getElementById('endDate');
+    var daysEl = document.getElementById('daysDisplay');
+    var hintEl = document.getElementById('maternidadHint');
+
+    function pad(n) { return (n < 10 ? '0' : '') + n; }
+
+    function parseISO(s) {
+        if (!s) return null;
+        var parts = s.split('-');
+        if (parts.length !== 3) return null;
+        return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    }
+
+    function toISO(d) {
+        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    }
+
+    function dayCountInclusive(start, end) {
+        var d1 = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
+        var d2 = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
+        return Math.round((d2 - d1) / 86400000) + 1;
+    }
+
+    function recalcDays() {
+        var start = parseISO(startEl.value);
+        var end = parseISO(endEl.value);
+        if (start && end) {
+            var diff = dayCountInclusive(start, end);
+            daysEl.value = diff > 0 ? String(diff) : '';
+        } else {
+            daysEl.value = '';
+        }
+    }
+
+    function setEndDateValue(dateObj) {
+        var fp = endEl._flatpickr;
+        if (fp) {
+            fp.setDate(dateObj, false);
+        } else {
+            endEl.value = toISO(dateObj);
+        }
+    }
+
+    function autoFillMaternidad() {
+        if (typeEl.value !== 'maternidad') return;
+        var start = parseISO(startEl.value);
+        if (!start) return;
+        var end = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+        end.setDate(end.getDate() + MATERNIDAD_WEEKS * 7);
+        setEndDateValue(end);
+        recalcDays();
+    }
+
+    function recompute() {
+        if (hintEl) hintEl.style.display = (typeEl.value === 'maternidad') ? '' : 'none';
+        autoFillMaternidad();
+        recalcDays();
+    }
+
+    // 1) Eventos nativos (fallback si no hay Flatpickr)
+    typeEl.addEventListener('change', recompute);
+    startEl.addEventListener('input', recompute);
+    startEl.addEventListener('change', recompute);
+    endEl.addEventListener('input', recalcDays);
+    endEl.addEventListener('change', recalcDays);
+
+    // 2) Delegación global en fase de captura (por si Flatpickr dispara el evento
+    //    en el input original oculto o en su input alternativo visible)
+    function isRelevant(target) {
+        if (!target) return false;
+        if (target === startEl || target === endEl || target === typeEl) return true;
+        var startFp = startEl._flatpickr;
+        var endFp = endEl._flatpickr;
+        if (startFp && target === startFp.altInput) return true;
+        if (endFp && target === endFp.altInput) return true;
+        return false;
+    }
+    ['change', 'input', 'focusout'].forEach(function (evt) {
+        document.addEventListener(evt, function (e) {
+            if (isRelevant(e.target)) recompute();
+        }, true);
+    });
+
+    // 3) Hook a Flatpickr (inicializado en layout.html después de este script)
+    setTimeout(function () {
+        [startEl, endEl].forEach(function (el) {
+            var fp = el && el._flatpickr;
+            if (!fp || !fp.config) return;
+            var hooks = fp.config.onChange || [];
+            if (!Array.isArray(hooks)) hooks = [hooks];
+            if (hooks.indexOf(recompute) === -1) hooks.push(recompute);
+            fp.config.onChange = hooks;
+        });
+    }, 0);
+
+    recompute();
+});
+</script>
 {% endblock %}

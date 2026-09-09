@@ -602,7 +602,7 @@ def create_app():
                     sandbox = session.get('is_sandbox_mode', False)
                     
                     if user_uid:
-                        user_notifications = DatabaseService.get_user_notifications(user_uid, limit=10)
+                        user_notifications = DatabaseService.get_user_notifications(user_uid, limit=10, sandbox=sandbox)
                         
                     crm_contacts = DatabaseService.get_crm_contacts(company.owner_uid, sandbox=sandbox, company_id=company.company_id)
                 except Exception as e:

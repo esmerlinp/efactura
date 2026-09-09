@@ -670,6 +670,32 @@ def _config_collection(company_id: str, sandbox: bool = True) -> str:
     return f"companies/{company_id}/{prefix}hr_config"
 
 
+def get_status_sync_state(company_id: str, sandbox: bool = True) -> dict:
+    """Estado de la cache diaria del motor de estados transitorios
+    (doc 'employee_status_sync' en hr_config, con {'lastSyncDate': 'YYYY-MM-DD'})."""
+    if not firebase_initialized or db_firestore is None:
+        return {}
+    try:
+        coll = _config_collection(company_id, sandbox)
+        doc = db_firestore.collection(coll).document("employee_status_sync").get()
+        if doc.exists:
+            return doc.to_dict()
+    except Exception as e:
+        print(f"⚠️ HRDataService.get_status_sync_state: {e}")
+    return {}
+
+
+def save_status_sync_state(company_id: str, data: dict, sandbox: bool = True):
+    """Guarda el estado de la cache diaria del motor de estados transitorios."""
+    if not firebase_initialized or db_firestore is None:
+        return
+    try:
+        coll = _config_collection(company_id, sandbox)
+        db_firestore.collection(coll).document("employee_status_sync").set(data)
+    except Exception as e:
+        print(f"⚠️ HRDataService.save_status_sync_state: {e}")
+
+
 def get_payroll_config(company_id: str, sandbox: bool = True) -> dict:
     if not firebase_initialized or db_firestore is None:
         return {}

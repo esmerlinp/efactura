@@ -5995,10 +5995,37 @@ class DatabaseService:
         return False
 
     @classmethod
-    def get_user_notifications(cls, user_uid, limit=10):
-        """Obtiene las últimas notificaciones del usuario de Firestore."""
+    def get_user_notifications(cls, user_uid, limit=10, sandbox=None):
+        """Obtiene las últimas notificaciones del usuario de Firestore.
+
+        Si se especifica `sandbox` (bool), solo retorna las notificaciones de ese
+        entorno. Las notificaciones sin campo `sandbox` se infieren desde su link
+        (?sandbox=true/false); si tampoco tienen dato, se tratan como sandbox.
+        """
         import copy
-        return copy.deepcopy(_cached_user_notifications(user_uid, limit))
+        notifications = copy.deepcopy(_cached_user_notifications(user_uid, limit))
+        if sandbox is None:
+            return notifications
+        sandbox = bool(sandbox)
+        return [n for n in notifications if cls._notification_matches_sandbox(n, sandbox)]
+
+    @staticmethod
+    def _notification_matches_sandbox(notification, sandbox):
+        """Determina si una notificación pertenece al entorno `sandbox` dado."""
+        if "sandbox" in notification and notification["sandbox"] is not None:
+            return bool(notification["sandbox"]) == sandbox
+        for key in ("link", "documentUrl"):
+            value = notification.get(key) or ""
+            if "sandbox=" in value:
+                try:
+                    from urllib.parse import urlparse, parse_qs
+                    params = parse_qs(urlparse(value).query)
+                    vals = params.get("sandbox")
+                    if vals:
+                        return (vals[0].lower() == "true") == sandbox
+                except Exception:
+                    pass
+        return sandbox is True
 
     @classmethod
     def mark_user_notifications_read(cls, user_uid):
