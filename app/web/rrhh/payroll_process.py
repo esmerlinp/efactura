@@ -1006,6 +1006,7 @@ def payroll_new():
                         hire_date=emp.get("hireDate", ""),
                         termination_date=emp.get("lastWorkDate", "") or emp.get("terminationDate", ""),
                         salary_history=salary_history,
+                        company_id=company_id, sandbox=sandbox,
                     )
 
                     # ── Salario base ──
@@ -1923,6 +1924,7 @@ def payroll_simulate():
                 hire_date=emp.get("hireDate", ""),
                 termination_date=emp.get("lastWorkDate", "") or emp.get("terminationDate", ""),
                 salary_history=salary_history,
+                company_id=company_id, sandbox=sandbox,
             )
 
             sim_period_id = f"sim_{uuid.uuid4()}"

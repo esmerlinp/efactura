@@ -841,6 +841,9 @@ class PayrollService:
         hire_date: str = "",
         termination_date: str = "",
         salary_history: list = None,
+        company_id: str = "",
+        sandbox: bool = True,
+        work_days: Optional[set] = None,
     ) -> float | None:
         try:
             ps = datetime.strptime(period_start, "%Y-%m-%d").date()
@@ -866,7 +869,19 @@ class PayrollService:
                 pass
         if emp_start > emp_end:
             return 0.0
-        emp_days = (emp_end - emp_start).days + 1
+
+        holidays = set()
+        try:
+            from app.services.holiday_service import HolidayService
+            holidays = HolidayService.get_holiday_dates(
+                company_id, ps.isoformat(), pe.isoformat(), sandbox=sandbox) or set()
+        except Exception:
+            holidays = set()
+
+        emp_days = cls.calculate_business_days(
+            emp_start.isoformat(), emp_end.isoformat(),
+            holidays=holidays, work_days=work_days,
+        )
 
         # Si el empleado trabajó el período completo y no hay cambios salariales,
         # retorna None para que calculate_payroll_line use la fórmula estándar
@@ -901,7 +916,12 @@ class PayrollService:
                 seg_start = max(eff, emp_start)
                 seg_end = min(end_d, emp_end)
                 if seg_start <= seg_end:
-                    seg_days = (seg_end - seg_start).days + 1
+                    seg_days = cls.calculate_business_days(
+                        seg_start.isoformat(), seg_end.isoformat(),
+                        holidays=holidays, work_days=work_days,
+                    )
+                    if seg_days <= 0:
+                        continue
                     seg_amount = h.get("amount", monthly_salary)
                     seg_daily = seg_amount / 23.83
                     total += round(seg_daily * seg_days, 2)

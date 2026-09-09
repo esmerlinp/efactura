@@ -134,6 +134,19 @@ class TestProrateSalary:
         assert r is not None
         assert r < 50000.00
 
+    def test_nuevo_ingreso_cuenta_dias_habiles(self):
+        # Ingreso 2026-09-02 → 21 días hábiles (L-V) hasta el 30-sep
+        with patch("app.services.holiday_service.HolidayService.get_holiday_dates", return_value=set()):
+            r = PayrollService.prorate_salary(30000.00, "2026-09-01", "2026-09-30", hire_date="2026-09-02")
+        assert r == round(30000.00 / 23.83 * 21, 2)
+
+    def test_nuevo_ingreso_no_paga_periodo_completo(self):
+        # Un empleado que entra a mitad de mes nunca debe cobrar el salario completo
+        with patch("app.services.holiday_service.HolidayService.get_holiday_dates", return_value=set()):
+            r = PayrollService.prorate_salary(30000.00, "2026-09-01", "2026-09-30", hire_date="2026-09-02")
+        assert r is not None
+        assert r < 30000.00
+
     def test_salida_mitad_periodo(self):
         r = PayrollService.prorate_salary(50000.00, "2026-07-01", "2026-07-31", termination_date="2026-07-15")
         assert r is not None
