@@ -43,6 +43,9 @@ def employee_document_upload(employee_id):
 
     category = request.form.get("category", "other")
     notes = request.form.get("notes", "").strip()
+    custom_category = request.form.get("customCategory", "").strip()
+    if category == "other" and custom_category:
+        notes = f"{custom_category}: {notes}".strip() if notes else custom_category
     file = request.files.get("file")
     if not file or not file.filename:
         flash("Debes seleccionar un archivo.", "error")

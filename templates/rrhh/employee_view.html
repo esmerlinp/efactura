@@ -319,7 +319,7 @@
     <!-- Tab: Documentos -->
     <div id="tab-docs" class="tab-content" style="display:none;">
         <div class="hr-section-card" style="border:none; box-shadow:none; padding:0;">
-            {% set _cat_labels = {'contract':'Contrato','id':'Identificación','certificate':'Certificado','medical':'Médico','disciplinary':'Disciplinario','academic':'Académico','authorization':'Autorización','other':'Otro'} %}
+            {% set _cat_labels = {'contract':'Contrato','id':'Identificación','certificate':'Certificado','medical':'Médico','disciplinary':'Disciplinario','academic':'Académico','authorization':'Autorización','autorizacion_descuento':'Autorización de Descuento','carta_cambio_puesto':'Carta Cambio de Puesto','carta_cambio_compania':'Carta Cambio de Compañía','carta_amonestacion':'Carta de Amonestación','finiquito':'Finiquito','carta_ministerio_trabajo':'Carta Ministerio de Trabajo','carta_trabajo':'Carta de Trabajo','carta_desvinculacion':'Carta de Desvinculación','acta_devolucion_activos':'Acta Devolución de Activos','recibo_liquidacion':'Recibo de Pago / Liquidación','other':'Otros'} %}
             <h3>Documentos ({{ documents|length }})</h3>
             {% if documents %}
             <div style="display:flex; flex-direction:column; gap:6px;">
@@ -352,17 +352,64 @@
             <form method="POST" action="{{ url_for('web_rrhh.employee_document_upload', employee_id=employee.id) }}"
                   enctype="multipart/form-data" style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <select name="category" class="form-select" style="width:auto;">
+                <select name="category" class="form-select" style="width:auto;" id="docCategorySelect"
+                        onchange="updateDocTemplateBtn()">
                     <option value="contract">Contrato</option>
                     <option value="id">Identificación</option>
                     <option value="certificate">Certificado</option>
                     <option value="medical">Médico</option>
+                    <option value="disciplinary">Disciplinario</option>
                     <option value="academic">Académico</option>
-                    <option value="authorization">Autorización</option>
+                    <option value="authorization" {% if 'authorization' in doc_template_categories %}data-template="1"{% endif %}>Autorización</option>
+                    <option value="autorizacion_descuento" {% if 'autorizacion_descuento' in doc_template_categories %}data-template="1"{% endif %}>Autorización de Descuento</option>
+                    <option value="carta_cambio_puesto">Carta Cambio de Puesto</option>
+                    <option value="carta_cambio_compania">Carta Cambio de Compañía</option>
+                    <option value="carta_amonestacion">Carta de Amonestación</option>
+                    <option value="finiquito">Finiquito</option>
+                    <option value="carta_ministerio_trabajo" {% if 'carta_ministerio_trabajo' in doc_template_categories %}data-template="1"{% endif %}>Carta Ministerio de Trabajo</option>
+                    <option value="carta_trabajo">Carta de Trabajo</option>
+                    <option value="carta_desvinculacion" {% if 'carta_desvinculacion' in doc_template_categories %}data-template="1"{% endif %}>Carta de Desvinculación</option>
+                    <option value="acta_devolucion_activos">Acta Devolución de Activos</option>
+                    <option value="recibo_liquidacion">Recibo de Pago / Liquidación</option>
+                    <option value="other">Otros</option>
                 </select>
+                <a id="docTemplateBtn" class="btn btn-sm btn-ghost" href="#" target="_blank" rel="noopener"
+                   title="Descargar plantilla" aria-disabled="true"
+                   data-base-url="{{ url_for('web_rrhh.employee_document_template', employee_id=employee.id, category='__CAT__') }}"
+                   style="pointer-events:none; opacity:0.45;">
+                    <i class="fa-solid fa-file-download"></i> Plantilla
+                </a>
+                <div id="customCategoryGroup" style="display:none; flex:1 1 100%;">
+                    <input type="text" name="customCategory" class="form-input" placeholder="Especificar tipo de documento" style="width:100%;">
+                </div>
+                <input type="text" name="notes" class="form-input" placeholder="Notas (opcional)" style="flex:1; min-width:150px;">
                 <input type="file" name="file" class="form-input" style="flex:1; min-width:150px;" required>
                 <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-upload"></i> Subir</button>
             </form>
+            <script>
+                function updateDocTemplateBtn() {
+                    var sel = document.getElementById('docCategorySelect');
+                    var btn = document.getElementById('docTemplateBtn');
+                    var opt = sel.options[sel.selectedIndex];
+                    var hasTemplate = !!(opt && opt.dataset.template);
+                    document.getElementById('customCategoryGroup').style.display = (sel.value === 'other') ? 'flex' : 'none';
+                    if (hasTemplate) {
+                        btn.href = btn.dataset.baseUrl.replace('__CAT__', sel.value);
+                        btn.style.pointerEvents = '';
+                        btn.style.opacity = '1';
+                        btn.classList.remove('btn-ghost');
+                        btn.classList.add('btn-primary');
+                        btn.removeAttribute('aria-disabled');
+                    } else {
+                        btn.href = '#';
+                        btn.style.pointerEvents = 'none';
+                        btn.style.opacity = '0.45';
+                        btn.classList.add('btn-ghost');
+                        btn.classList.remove('btn-primary');
+                        btn.setAttribute('aria-disabled', 'true');
+                    }
+                }
+            </script>
         </div>
     </div>
 

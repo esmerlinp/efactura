@@ -799,6 +799,11 @@ def employee_edit(employee_id):
                            sirla_disabilities=SIRLA_DISABILITIES)
 
 
+def _doc_template_categories() -> set:
+    from app.web.rrhh.document_templates import DOC_TEMPLATE_CATEGORIES
+    return DOC_TEMPLATE_CATEGORIES
+
+
 def _load_employee_context(company_id: str, employee_id: str, owner_uid: str,
                            sandbox: bool = True) -> dict | None:
     """Carga todo el contexto de la ficha del empleado.
@@ -964,6 +969,7 @@ def _load_employee_context(company_id: str, employee_id: str, owner_uid: str,
         "sirla_nationality_name": get_nationality_name(employee.get("nationality", 1)),
         "sirla_disability_names": ", ".join(_dis_names),
         "employee_work_days": employee_work_days,
+        "doc_template_categories": _doc_template_categories(),
     }
 
 

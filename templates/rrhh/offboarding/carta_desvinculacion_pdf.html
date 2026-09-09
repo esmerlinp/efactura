@@ -30,7 +30,7 @@
 <div class="content">
     <p>Estimados señores:</p>
 
-    <p>En cumplimiento a lo dispuesto por el Artículo 77 del Código de Trabajo, por medio de la presente tenemos a bien notificarles que en fecha <strong>{{ format_date_es(request_data.effectiveDate) }}</strong>, nuestra empresa dio por terminado el contrato de trabajo que le unía con la señora <strong>{{ employee.fullName or '' }}</strong>, portador de la Cédula de Identidad y Electoral No. <strong>{{ employee.cedula or employee.idNumber or '' }}</strong> quien ocupaba la posición de <strong>{{ employee.position or employee.jobTitle or '' }}</strong> en nuestra empresa desde el <strong>{{ format_date_es(employee.hireDate) }}</strong>, mediante el ejercicio del desahucio previsto por el Artículo 75 del Código de Trabajo.</p>
+    <p>En cumplimiento a lo dispuesto por el Artículo 77 del Código de Trabajo, por medio de la presente tenemos a bien notificarles que en fecha <strong>{% if request_data.effectiveDate %}{{ format_date_es(request_data.effectiveDate) }}{% else %}_________________{% endif %}</strong>, nuestra empresa dio por terminado el contrato de trabajo que le unía con la señora <strong>{{ employee.fullName or '' }}</strong>, portador de la Cédula de Identidad y Electoral No. <strong>{{ employee.cedula or employee.idNumber or '_________________' }}</strong> quien ocupaba la posición de <strong>{{ employee.position or employee.jobTitle or '_________________' }}</strong> en nuestra empresa desde el <strong>{{ format_date_es(employee.hireDate) or '_________________' }}</strong>, mediante el ejercicio del desahucio previsto por el Artículo 75 del Código de Trabajo.</p>
 
     <p>Sin otro particular por el momento, y agradeciendo de antemano su atención a la presente, queda de ustedes.</p>
 

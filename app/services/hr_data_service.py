@@ -779,7 +779,12 @@ def close_previous_salary(company_id: str, employee_id: str, new_effective_date:
 # ═══════════════════════════════════════════════════════════════════════════
 
 DOC_CATEGORIES = [
-    "contract", "id", "certificate", "medical", "disciplinary", "academic", "authorization", "other"
+    "contract", "id", "certificate", "medical", "disciplinary", "academic",
+    "authorization", "autorizacion_descuento",
+    "carta_cambio_puesto", "carta_cambio_compania", "carta_amonestacion",
+    "finiquito", "carta_ministerio_trabajo", "carta_trabajo",
+    "carta_desvinculacion", "acta_devolucion_activos", "recibo_liquidacion",
+    "other",
 ]
 
 def get_employee_documents(company_id: str, employee_id: str, sandbox: bool = True,
