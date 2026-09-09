@@ -28,14 +28,19 @@
         identificada(o) con la cédula <strong>{{ employee.idNumber or employee.cedula or '_________________' }}</strong>,
         autorizo a <strong>{{ company.companyName or '________________________________' }}</strong>
         a descontar de mi salario, un valor (en pesos y en letras) de
+        {% if ctx.valor_total %}
         <strong>(${{ '{:,.2f}'.format(ctx.valor_total) }})</strong>
         <span class="letras">{{ ctx.valor_en_letras }}</span>,
+        {% else %}
+        <strong>(___________________)</strong>
+        <span class="letras">______________________________________________</span>,
+        {% endif %}
         {% if ctx.periodo_adj %}
         por {{ ctx.n_cuotas }} cuota{% if ctx.n_cuotas != 1 %}s{% endif %} {{ ctx.periodo_adj }}
         de <strong>${{ '{:,.2f}'.format(ctx.valor_cuota) }}</strong>
         {% else %}
-        por cuotas (dependiendo de mi periodo de pago) <strong>{{ ctx.n_cuotas }}</strong>
-        de <strong>${{ '{:,.2f}'.format(ctx.valor_cuota) }}</strong>
+        por cuotas (dependiendo de mi periodo de pago) <strong>{{ ctx.n_cuotas or '______' }}</strong>
+        de <strong>${{ '{:,.2f}'.format(ctx.valor_cuota) if ctx.valor_cuota else '___________' }}</strong>
         {% endif %}
         por concepto de:
         <strong>{{ ctx.concepto or '______________________________________________' }}</strong>.

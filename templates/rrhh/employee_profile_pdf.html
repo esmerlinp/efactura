@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page {
+            size: letter;
+            margin: 1.3cm 1.4cm 1.9cm 1.4cm;
+            @bottom-left {
+                content: "Ficha confidencial — {{ company.tradeName or company.companyName or '' }}";
+                font-size: 7pt; color: #9ca3af;
+            }
+            @bottom-right {
+                content: "Página " counter(page) " de " counter(pages);
+                font-size: 7pt; color: #9ca3af;
+            }
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            font-size: 8.8pt; color: #1f2937; line-height: 1.45;
+        }
+        /* ── Cabecera estilo CV ── */
+        .cv-header { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+        .cv-header td { vertical-align: middle; }
+        .photo-cell { width: 104px; }
+        .photo-cell img {
+            width: 92px; height: 92px; border-radius: 50%;
+            object-fit: cover; border: 2px solid #047857;
+        }
+        .avatar-initials {
+            width: 92px; height: 92px; border-radius: 50%;
+            background: #d1fae5; color: #065f46;
+            font-size: 26pt; font-weight: bold; text-align: center; line-height: 92px;
+        }
+        .name-cell { padding-left: 14px; }
+        .cv-name { font-size: 21pt; font-weight: bold; color: #111827; line-height: 1.15; }
+        .cv-role { font-size: 11pt; color: #047857; font-weight: bold; margin-top: 2px; }
+        .cv-contact { font-size: 8pt; color: #4b5563; margin-top: 5px; }
+        .cv-contact span.sep { color: #9ca3af; padding: 0 4px; }
+        .status-pill {
+            display: inline-block; font-size: 7.5pt; font-weight: bold;
+            padding: 2px 10px; border-radius: 999px; margin-top: 6px;
+            text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        .st-activo { background: #d1fae5; color: #065f46; }
+        .st-otro { background: #e0e7ff; color: #3730a3; }
+        .st-inactivo { background: #fee2e2; color: #991b1b; }
+        .logo-cell { width: 190px; text-align: right; }
+        .logo-cell img { max-height: 46px; max-width: 180px; }
+        .logo-cell .company-name { font-size: 9pt; font-weight: bold; color: #111827; }
+        .logo-cell .company-sub { font-size: 7.5pt; color: #6b7280; }
+        .gen-line {
+            font-size: 7.5pt; color: #6b7280; text-align: right;
+            border-bottom: 2px solid #047857; padding-bottom: 6px; margin-bottom: 12px;
+        }
+        /* ── Secciones ── */
+        h2.sec {
+            font-size: 9pt; font-weight: bold; text-transform: uppercase;
+            letter-spacing: 0.09em; color: #065f46;
+            border-bottom: 1px solid #d1d5db; padding-bottom: 3px;
+            margin: 14px 0 8px 0;
+        }
+        /* ── Perfil profesional (IA) ── */
+        .bio {
+            border-left: 3px solid #047857; background: #f9fafb;
+            padding: 8px 12px; margin-bottom: 4px;
+        }
+        .bio p {
+            font-size: 9.3pt; color: #1f2937; text-align: justify;
+            white-space: pre-line; margin: 0;
+        }
+        /* ── Rejilla etiqueta/valor ── */
+        .grid { margin-bottom: 2px; }
+        .fi {
+            display: inline-block; width: 32.5%; vertical-align: top;
+            padding: 3px 8px 3px 0;
+        }
+        .fi.half { width: 49%; }
+        .fi .lbl {
+            display: block; font-size: 7pt; text-transform: uppercase;
+            letter-spacing: 0.05em; color: #6b7280;
+        }
+        .fi .val { display: block; font-size: 9pt; color: #111827; font-weight: 600; }
+        .fi .val.money { color: #065f46; }
+        .card {
+            border: 1px solid #e5e7eb; border-radius: 6px;
+            padding: 8px 10px; margin-bottom: 8px;
+            page-break-inside: avoid;
+        }
+        /* ── Tablas compactas ── */
+        table.data { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+        table.data th {
+            text-align: left; font-size: 7.5pt; text-transform: uppercase;
+            letter-spacing: 0.04em; color: #6b7280;
+            border-bottom: 2px solid #d1d5db; padding: 4px 6px;
+        }
+        table.data td {
+            font-size: 8.5pt; padding: 4px 6px;
+            border-bottom: 1px solid #f0f0f0; vertical-align: top;
+        }
+        table.data tr:last-child td { border-bottom: none; }
+        td.num, th.num { text-align: right; white-space: nowrap; }
+        td.neto { font-weight: bold; color: #065f46; }
+        /* ── Timeline ── */
+        .tl-year {
+            font-size: 10pt; font-weight: bold; color: #111827;
+            margin: 10px 0 5px 0; padding-top: 4px;
+            border-top: 1px dashed #d1d5db;
+        }
+        .tl-year:first-of-type { border-top: none; margin-top: 2px; padding-top: 0; }
+        .tl-item { margin: 0 0 6px 4px; page-break-inside: avoid; }
+        .tl-head { font-size: 8.5pt; margin-bottom: 1px; }
+        .tl-badge {
+            display: inline-block; font-size: 7pt; font-weight: bold;
+            padding: 1px 8px; border-radius: 999px; white-space: nowrap;
+        }
+        .tl-date { color: #6b7280; font-size: 7.8pt; }
+        .tl-actor { color: #9ca3af; font-size: 7.8pt; }
+        .tl-detail { font-size: 8.3pt; color: #374151; margin-left: 2px; }
+        /* ── Listas ── */
+        .li-row { padding: 4px 0; border-bottom: 1px solid #f0f0f0; font-size: 8.5pt; page-break-inside: avoid; }
+        .li-row:last-child { border-bottom: none; }
+        .li-title { font-weight: bold; color: #111827; }
+        .li-sub { font-size: 7.8pt; color: #6b7280; }
+        .pill {
+            display: inline-block; font-size: 7pt; font-weight: bold;
+            padding: 1px 7px; border-radius: 999px;
+            background: #f3f4f6; color: #4b5563;
+        }
+        .pill.ok { background: #d1fae5; color: #065f46; }
+        .pill.warn { background: #fef3c7; color: #92400e; }
+        .pill.bad { background: #fee2e2; color: #991b1b; }
+        .pill.info { background: #dbeafe; color: #1e40af; }
+        .empty { color: #9ca3af; font-size: 8.5pt; font-style: italic; }
+        .notes { font-size: 9pt; color: #374151; white-space: pre-line; }
+        .mv-head { font-size: 9pt; margin-bottom: 4px; }
+    </style>
+</head>
+<body>
+
+{# ── Colores de badges del timeline (misma paleta de la UI) ── #}
+{% macro tl_colors(it) -%}
+{%- set cat = it.category -%}
+{%- if cat == 'accion_masiva' and it.action == 'salary_change' -%}background:#dbeafe;color:#1d4ed8;
+{%- elif cat == 'accion_masiva' and it.action == 'position_change' -%}background:#fae8ff;color:#a21caf;
+{%- elif cat == 'accion_masiva' and it.action == 'supervisor_change' -%}background:#fef3c7;color:#b45309;
+{%- elif cat == 'accion_masiva' and it.action == 'promotion' -%}background:#d1fae5;color:#047857;
+{%- elif cat == 'accion_masiva' and it.action == 'mass_absence' -%}background:#e0e7ff;color:#4338ca;
+{%- elif cat == 'accion_masiva' and it.action == 'desvinculacion' -%}background:#fee2e2;color:#dc2626;
+{%- elif cat == 'carta' or cat == 'vacaciones' -%}background:#dbeafe;color:#1d4ed8;
+{%- elif cat == 'hora_extra' -%}background:#fef3c7;color:#b45309;
+{%- elif cat == 'recurrente_ingreso' -%}background:#d1fae5;color:#047857;
+{%- elif cat == 'recurrente_deduccion' -%}background:#fee2e2;color:#dc2626;
+{%- elif cat == 'pago' -%}background:#e0e7ff;color:#4338ca;
+{%- elif cat == 'evaluacion' -%}background:#fae8ff;color:#a21caf;
+{%- elif cat == 'capacitacion' -%}background:#cffafe;color:#0e7490;
+{%- elif cat == 'licencia' -%}background:#ede9fe;color:#6d28d9;
+{%- elif cat == 'herramienta' -%}background:#fef9c3;color:#a16207;
+{%- elif cat == 'baja' -%}background:#fee2e2;color:#dc2626;
+{%- elif cat == 'alta' -%}background:#d1fae5;color:#047857;
+{%- else -%}background:#f3f4f6;color:#4b5563;
+{%- endif -%}
+{%- endmacro %}
+
+{# ═══════════ CABECERA CV ═══════════ #}
+<table class="cv-header">
+    <tr>
+        <td class="photo-cell">
+            {% if employee.photoUrl %}
+            <img src="{{ employee.photoUrl }}" alt="Foto">
+            {% elif employee.photoBase64 %}
+            <img src="{{ employee.photoBase64 }}" alt="Foto">
+            {% else %}
+            <div class="avatar-initials">{{ (employee.firstName or '')[:1] }}{{ (employee.firstLastName or employee.lastName or '')[:1] }}</div>
+            {% endif %}
+        </td>
+        <td class="name-cell">
+            <div class="cv-name">{{ employee.fullName or ((employee.firstName or '') + ' ' + (employee.lastName or '')) }}</div>
+            <div class="cv-role">{{ employee.position or 'Sin cargo asignado' }}{% if employee.department or employee.area %} · {{ employee.department or employee.area }}{% endif %}</div>
+            <div class="cv-contact">
+                {% if employee.code %}<span>Cód. {{ employee.code }}</span><span class="sep">|</span>{% endif %}
+                {% if employee.email %}<span>{{ employee.email }}</span><span class="sep">|</span>{% endif %}
+                {% if employee.phone %}<span>{{ employee.phone }}</span><span class="sep">|</span>{% endif %}
+                <span>{{ employee.idType or 'Cédula' }}: {{ employee.idNumber or employee.cedula or '—' }}</span>
+            </div>
+            <div>
+                {% if employee.status == 'activo' %}
+                <span class="status-pill st-activo">Activo</span>
+                {% elif employee.status == 'inactivo' %}
+                <span class="status-pill st-inactivo">Inactivo</span>
+                {% else %}
+                <span class="status-pill st-otro">{{ status_label or employee.status }}</span>
+                {% endif %}
+            </div>
+        </td>
+        <td class="logo-cell">
+            {% if company.logoBase64 %}
+            <img src="data:image/png;base64,{{ company.logoBase64 }}" alt="Logo"><br>
+            {% elif company.logoUrl %}
+            <img src="{{ company.logoUrl }}" alt="Logo"><br>
+            {% endif %}
+            <div class="company-name">{{ company.tradeName or company.companyName or '' }}</div>
+            {% if company.companyRNC %}<div class="company-sub">RNC {{ company.companyRNC }}</div>{% endif %}
+        </td>
+    </tr>
+</table>
+<div class="gen-line">Ficha de empleado · Generada el {{ now }}{% if employee.code %} · Código {{ employee.code }}{% endif %}</div>
+
+{# ═══════════ PERFIL PROFESIONAL (IA) ═══════════ #}
+<h2 class="sec">Perfil profesional</h2>
+<div class="bio"><p>{{ bio }}</p></div>
+
+{# ═══════════ DATOS PERSONALES ═══════════ #}
+<h2 class="sec">Datos personales</h2>
+<div class="grid">
+    <div class="fi"><span class="lbl">Código empleado</span><span class="val">{{ employee.code or '—' }}</span></div>
+    <div class="fi"><span class="lbl">Tipo identificación</span><span class="val">{{ employee.idType or 'Cédula' }}</span></div>
+    <div class="fi"><span class="lbl">No. identificación</span><span class="val">{{ employee.idNumber or employee.cedula or '—' }}</span></div>
+    <div class="fi"><span class="lbl">Fecha de nacimiento</span><span class="val">{{ employee.birthDate or '—' }}</span></div>
+    <div class="fi"><span class="lbl">Género</span><span class="val">{{ employee.gender or '—' }}</span></div>
+    <div class="fi"><span class="lbl">Estado civil</span><span class="val">{{ marital_label or '—' }}</span></div>
+    <div class="fi"><span class="lbl">Nacionalidad (SIRLA)</span><span class="val">{{ sirla_nationality_name or '—' }}</span></div>
+    <div class="fi"><span class="lbl">Discapacidad (SIRLA)</span><span class="val">{{ sirla_disability_names or '—' }}</span></div>
+    <div class="fi"><span class="lbl">Nivel educativo SIRLA</span><span class="val">{% if employee.sirlaEducationCode %}{{ employee.sirlaEducationCode }} — {{ sirla_education_label }}{% else %}—{% endif %}</span></div>
+    <div class="fi half"><span class="lbl">Correo electrónico</span><span class="val">{{ employee.email or '—' }}</span></div>
+    <div class="fi half"><span class="lbl">Teléfono</span><span class="val">{{ employee.phone or '—' }}</span></div>
+    <div class="fi half"><span class="lbl">Dirección</span><span class="val">{{ employee.address or '—' }}</span></div>
+    <div class="fi half"><span class="lbl">Municipio</span><span class="val">{{ employee.municipality or '—' }}</span></div>
+    <div class="fi half"><span class="lbl">Contacto de emergencia</span><span class="val">{{ employee.emergencyContact or '—' }}</span></div>
+    <div class="fi half"><span class="lbl">Tel. emergencia</span><span class="val">{{ employee.emergencyPhone or '—' }}</span></div>
+</div>
+
+{# ═══════════ DATOS LABORALES ═══════════ #}
+<h2 class="sec">Datos laborales</h2>
+<div class="grid">
+    <div class="fi"><span class="lbl">Cargo</span><span class="val">{{ employee.position or '—' }}</span></div>
+    <div class="fi"><span class="lbl">Departamento</span><span class="val">{{ employee.department or employee.area or '—' }}</span></div>
+    <div class="fi"><span class="lbl">Sucursal</span><span class="val">{% set branch = branches|selectattr("id", "equalto", employee.branchId)|first %}{{ branch.name if branch else '—' }}</span></div>
+    <div class="fi"><span class="lbl">Tipo de contrato</span><span class="val">{{ employee.contractType or '—' }}</span></div>
+    <div class="fi"><span class="lbl">Fecha de ingreso</span><span class="val">{{ employee.hireDate or '—' }}</span></div>
+    <div class="fi"><span class="lbl">Antigüedad</span><span class="val">{{ tenure or '—' }}</span></div>
+    <div class="fi"><span class="lbl">Estado</span><span class="val">{{ status_label or employee.status or '—' }}</span></div>
+    <div class="fi"><span class="lbl">Jornada</span><span class="val">{{ employee.workday or '—' }}</span></div>
+    <div class="fi"><span class="lbl">Turno</span><span class="val">{{ shift_label or '—' }}</span></div>
+    <div class="fi"><span class="lbl">Días laborables</span><span class="val">{% set _dl = ['L','M','X','J','V','S','D'] %}{% for d in range(7) %}{% if d in employee_work_days %}{{ _dl[d] }}{% endif %}{% endfor %}</span></div>
+    <div class="fi"><span class="lbl">Horas semanales</span><span class="val">{{ employee.weeklyHours or 44 }}</span></div>
+    <div class="fi"><span class="lbl">Vigilante</span><span class="val">{{ 'Sí' if employee.isVigilante else 'No' }}</span></div>
+    <div class="fi"><span class="lbl">TSS Clave</span><span class="val">{{ employee.tssKey or '—' }}</span></div>
+    <div class="fi"><span class="lbl">Fin período prueba</span><span class="val">{{ employee.probationEndDate or '—' }}</span></div>
+    <div class="fi"><span class="lbl">Código ocupación</span><span class="val">{{ employee.occupationCode or '—' }}</span></div>
+    <div class="fi"><span class="lbl">Instrucción</span><span class="val">{{ education_label or '—' }}</span></div>
+    <div class="fi"><span class="lbl">Centro de costo</span><span class="val">{{ employee.costCenter or '—' }}</span></div>
+    <div class="fi"><span class="lbl">Grupos de nómina</span><span class="val">{% set emp_groups = employee.payrollGroupIds or [] %}{% if emp_groups %}{% for gid in emp_groups %}{% set g = payroll_groups|selectattr("id", "equalto", gid)|first %}{{ g.name if g else gid[:8] }}{{ ', ' if not loop.last }}{% endfor %}{% else %}—{% endif %}</span></div>
+</div>
+{% if active_requests and (active_requests.vacation or active_requests.leave) %}
+<div class="card">
+    {% if active_requests.vacation %}<div class="li-sub">Vacaciones vigentes: <strong>{{ active_requests.vacation.startDate }} → {{ active_requests.vacation.endDate }}</strong></div>{% endif %}
+    {% if active_requests.leave %}<div class="li-sub">Licencia vigente: <strong>{{ active_requests.leave.startDate }} → {{ active_requests.leave.endDate }}</strong></div>{% endif %}
+</div>
+{% endif %}
+
+{# ═══════════ COMPENSACIÓN ═══════════ #}
+<h2 class="sec">Compensación</h2>
+<div class="grid">
+    <div class="fi"><span class="lbl">Salario base</span><span class="val money">{{ fmt_rd(employee.baseSalary) if employee.baseSalary else '—' }}</span></div>
+    <div class="fi"><span class="lbl">Salario promedio</span><span class="val money">{{ fmt_rd(average_salary) if average_salary else '—' }}</span></div>
+    <div class="fi"><span class="lbl">AFP</span><span class="val">{{ employee.afpProvider or '—' }}</span></div>
+    <div class="fi"><span class="lbl">Método de pago</span><span class="val">{{ employee.paymentMethod or '—' }}</span></div>
+    <div class="fi"><span class="lbl">Banco</span><span class="val">{{ employee.bank or '—' }}</span></div>
+    <div class="fi"><span class="lbl">Cuenta</span><span class="val">{{ employee.accountNumber or '—' }} ({{ employee.accountType or '—' }})</span></div>
+</div>
+
+{# ═══════════ VACACIONES Y PRESTACIONES ═══════════ #}
+<h2 class="sec">Vacaciones y prestaciones</h2>
+<div class="grid">
+    <div class="fi"><span class="lbl">Días de vacaciones disponibles</span><span class="val">{{ vacation_days }} días</span></div>
+    {% if severance %}
+    <div class="fi"><span class="lbl">Preaviso</span><span class="val money">{{ "RD$ {:,.2f}".format(severance.preaviso|float) }}</span></div>
+    <div class="fi"><span class="lbl">Cesantía</span><span class="val money">{{ "RD$ {:,.2f}".format(severance.cesantia|float) }}</span></div>
+    <div class="fi"><span class="lbl">Vacaciones pendientes</span><span class="val money">{{ "RD$ {:,.2f}".format(severance.vacaciones_pendientes|float) }}</span></div>
+    <div class="fi"><span class="lbl">Total liquidación estimada</span><span class="val money">RD$ {{ "{:,.2f}".format(severance.total|float) }}</span></div>
+    {% endif %}
+</div>
+
+{# ═══════════ HISTORIAL LABORAL (PERÍODOS) ═══════════ #}
+{% if employment_contracts and employment_contracts|length > 0 %}
+<h2 class="sec">Historial laboral ({{ employment_contracts|length }} período(s))</h2>
+<table class="data">
+    <thead><tr><th>#</th><th>Ingreso</th><th>Salida</th><th>Puesto</th><th class="num">Salario</th><th>Estado</th></tr></thead>
+    <tbody>
+    {% for c in employment_contracts %}
+        <tr>
+            <td>{{ c.periodNumber or loop.index }}</td>
+            <td>{{ c.startDate or '—' }}</td>
+            <td>{{ c.endDate or 'Actualidad' }}</td>
+            <td>{{ c.position or '—' }}</td>
+            <td class="num">RD$ {{ '%.2f'|format((c.salary or 0)|float) }}</td>
+            <td>{{ c.status or '—' }}{% if active_contract and c.id == active_contract.id %} (activa){% endif %}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+{# ═══════════ TRAYECTORIA / ACCIONES ═══════════ #}
+<h2 class="sec">Trayectoria profesional — historial de acciones ({{ timeline|length }})</h2>
+{% if timeline %}
+{% set ns = namespace(year='') %}
+{% for it in timeline %}
+{% set _y = (it._date or '')[:4] %}
+{% if _y and _y != ns.year %}
+{% set ns.year = _y %}
+<div class="tl-year">{{ _y }}</div>
+{% endif %}
+<div class="tl-item">
+    <div class="tl-head">
+        <span class="tl-badge" style="{{ tl_colors(it) }}">{{ it.label }}</span>
+        <span class="tl-date">{{ it._date }}{% if it._time %} · {{ it._time }}{% endif %}</span>
+        {% if it.actor %}<span class="tl-actor">· {{ it.actor }}</span>{% endif %}
+    </div>
+    {% if it.detail and it.detail != '—' %}<div class="tl-detail">{{ it.detail }}</div>{% endif %}
+</div>
+{% endfor %}
+{% else %}
+<p class="empty">Sin acciones registradas para este empleado.</p>
+{% endif %}
+
+{# ═══════════ EVALUACIONES ═══════════ #}
+<h2 class="sec">Evaluaciones de desempeño ({{ evaluations|length }})</h2>
+{% if evaluations %}
+<table class="data">
+    <thead><tr><th>Fecha</th><th>Tipo</th><th>Puntaje</th><th>Evaluador</th><th>Fortalezas</th></tr></thead>
+    <tbody>
+    {% for ev in evaluations %}
+        <tr>
+            <td>{{ ev.date or '—' }}</td>
+            <td>{{ ev.evalType or '—' }}</td>
+            <td><strong>{{ ev.score }}/5</strong>{% if avg_evaluation %} <span class="li-sub">(prom. {{ avg_evaluation }})</span>{% endif %}</td>
+            <td>{{ ev.evaluatorName or '—' }}</td>
+            <td>{{ (ev.strengths or '')[:120] }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="empty">Sin evaluaciones registradas.</p>
+{% endif %}
+
+{# ═══════════ CAPACITACIONES ═══════════ #}
+<h2 class="sec">Capacitaciones ({{ trainings|length }})</h2>
+{% if trainings %}
+<table class="data">
+    <thead><tr><th>Fecha</th><th>Capacitación</th><th>Institución</th><th class="num">Horas</th><th>Certificado</th></tr></thead>
+    <tbody>
+    {% for t in trainings %}
+        <tr>
+            <td>{{ t.date or '—' }}</td>
+            <td>{{ t.trainingName or '—' }}</td>
+            <td>{{ t.institution or '—' }}</td>
+            <td class="num">{{ t.hours or '—' }}</td>
+            <td>{% if t.hasCertificate %}<span class="pill ok">Sí</span>{% else %}No{% endif %}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="empty">Sin capacitaciones registradas.</p>
+{% endif %}
+
+{# ═══════════ HISTORIAL DE PAGOS ═══════════ #}
+{% if show_payments|default(true) %}
+<h2 class="sec">Historial de pagos ({{ payment_history|length }})</h2>
+{% if payment_history %}
+<table class="data">
+    <thead><tr><th>Período</th><th class="num">Salario base</th><th class="num">Total ingresos</th><th class="num">Deducciones</th><th class="num">Neto</th></tr></thead>
+    <tbody>
+    {% for ph in payment_history %}
+    {% set pl = ph.line %}{% set pp = ph.period %}
+        <tr>
+            <td><strong>{{ pp.get('periodRange') or pp.get('periodKey','') }}</strong><br><span class="li-sub">{{ pp.get('periodType','')|capitalize }}{% if pp.get('processedDate') %} · {{ pp.processedDate[:10] }}{% endif %}</span></td>
+            <td class="num">{{ fmt_rd(pl.grossSalary) if pl.grossSalary else '—' }}</td>
+            <td class="num">{{ fmt_rd(pl.totalIncome) }}</td>
+            <td class="num">{{ fmt_rd(pl.totalDeductions) }}</td>
+            <td class="num neto">{{ fmt_rd(pl.netSalary) }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="empty">Sin pagos de nómina registrados.</p>
+{% endif %}
+{% endif %}
+
+{# ═══════════ MOVIMIENTOS RECURRENTES ═══════════ #}
+<h2 class="sec">Movimientos recurrentes ({{ recurring_movements|length }})</h2>
+{% if recurring_movements %}
+{% for mv in recurring_movements %}
+<div class="card">
+    <div class="mv-head">
+        <strong>{{ mv.description or mv.conceptCode or '—' }}</strong>
+        {% if mv.movementType == 'earning' %}<span class="pill ok">Ingreso</span>
+        {% elif mv.movementType == 'deduction' %}<span class="pill bad">Deducción</span>
+        {% else %}<span class="pill info">Aporte Emp.</span>{% endif %}
+        {% if mv.status == 'active' %}<span class="pill ok">Activo</span>
+        {% elif mv.status == 'scheduled' %}<span class="pill info">Programado</span>
+        {% elif mv.status == 'paused' %}<span class="pill">Pausado</span>
+        {% elif mv.status == 'completed' %}<span class="pill">Completado</span>
+        {% elif mv.status == 'cancelled' %}<span class="pill">Cancelado</span>
+        {% else %}<span class="pill">{{ mv.status }}</span>{% endif %}
+    </div>
+    <div class="grid">
+        <div class="fi"><span class="lbl">Monto por período</span><span class="val">{% if mv.isLoan %}{{ fmt_rd(mv.installmentAmount or mv.amount or 0) }}{% elif mv.isGarnishment %}{% if mv.deductionType == 'percentage' %}{{ "%.2f"|format((mv.deductionPercent or 0)|float) }}%{% elif mv.deductionType == 'max_of_legal' %}Máx. legal ({{ "%.2f"|format((mv.maxLegalRate or 0)|float) }}%){% else %}{{ fmt_rd(mv.amount or 0) }}{% endif %}{% elif mv.amountType == 'percentage' %}{{ "%.2f"|format((mv.percentage or 0) * 100) }}%{% elif mv.amountType == 'formula' %}Fórmula{% else %}{{ fmt_rd(mv.amount or 0) }}{% endif %}</span></div>
+        {% if mv.isLoan %}
+        <div class="fi"><span class="lbl">Monto total</span><span class="val">{{ fmt_rd(mv.totalAmount or 0) }}</span></div>
+        <div class="fi"><span class="lbl">Saldo restante</span><span class="val">{{ fmt_rd(mv.remainingBalance or 0) }}</span></div>
+        <div class="fi"><span class="lbl">Cuotas pagadas</span><span class="val">{{ mv.paidInstallments or 0 }}/{{ mv.totalInstallments or 0 }}</span></div>
+        {% endif %}
+        <div class="fi"><span class="lbl">Inicio</span><span class="val">{{ mv.startDate[:10] if mv.startDate else '—' }}</span></div>
+        <div class="fi"><span class="lbl">Fin</span><span class="val">{% if mv.indefinite %}Indefinido{% elif mv.endDate %}{{ mv.endDate[:10] }}{% else %}—{% endif %}</span></div>
+    </div>
+    {% if mv._applications %}
+    <table class="data" style="margin-top:6px;">
+        <thead><tr><th>Período</th><th>Fecha</th><th class="num">Monto aplicado</th><th class="num">Saldo después</th><th>Acción</th></tr></thead>
+        <tbody>
+        {% for ap in mv._applications %}
+            <tr>
+                <td><strong>{{ ap.periodKey or '—' }}</strong></td>
+                <td>{{ ap.appliedAt[:10] if ap.appliedAt else '—' }}</td>
+                <td class="num">{{ fmt_rd(ap.appliedAmount or 0) }}</td>
+                <td class="num">{{ fmt_rd(ap.remainingAfter or 0) }}</td>
+                <td>{% if ap.action == 'applied' %}<span class="pill ok">Aplicado</span>{% elif ap.action == 'skipped' %}<span class="pill">Omitido</span>{% elif ap.action == 'modify' %}<span class="pill info">Modificado</span>{% else %}<span class="pill">{{ ap.action }}</span>{% endif %}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>
+{% endfor %}
+{% else %}
+<p class="empty">Sin movimientos recurrentes.</p>
+{% endif %}
+
+{# ═══════════ HERRAMIENTAS ═══════════ #}
+<h2 class="sec">Herramientas asignadas ({{ herramientas_asignadas|length }})</h2>
+{% if herramientas_asignadas %}
+<table class="data">
+    <thead><tr><th>Herramienta</th><th>Código</th><th>Fecha asignación</th><th>Estado</th></tr></thead>
+    <tbody>
+    {% for ha in herramientas_asignadas %}
+        <tr>
+            <td><strong>{{ ha.herramientaName or '—' }}</strong></td>
+            <td>{{ ha.herramientaCode or '—' }}</td>
+            <td>{{ ha.assignedDate[:10] if ha.assignedDate else '—' }}</td>
+            <td>{% if ha.status == 'activa' %}<span class="pill ok">Asignada</span>{% else %}<span class="pill">Devuelta</span>{% endif %}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="empty">Sin herramientas asignadas.</p>
+{% endif %}
+
+{# ═══════════ DEPENDIENTES ═══════════ #}
+<h2 class="sec">Dependientes ({{ dependents|length }})</h2>
+{% if dependents %}
+{% for d in dependents %}
+<div class="li-row">
+    <span class="li-title">{{ d.firstName }} {{ d.middleName }} {{ d.firstLastName }} {{ d.secondLastName }}</span>
+    {% if not d.active %}<span class="pill">Inactivo</span>{% endif %}
+    {% if d.isStudent %}<span class="pill info">Estudiante</span>{% endif %}
+    {% if d.isFinancialDependent %}<span class="pill warn">Dependencia económica</span>{% endif %}
+    <div class="li-sub">
+        Parentesco: {{ d.relationshipName or d.relationshipCode or '—' }}
+        {% if d._age and d._age > 0 %} · Edad: {{ d._age }} año(s){% endif %}
+        {% if d.gender %} · {{ d.gender }}{% endif %}
+        {% if d.idNumber %} · Cédula: {{ d.idNumber }}{% endif %}
+        {% if d.birthDate %} · Nac.: {{ d.birthDate }}{% endif %}
+    </div>
+    {% if d.notes %}<div class="li-sub">{{ d.notes }}</div>{% endif %}
+</div>
+{% endfor %}
+{% else %}
+<p class="empty">Sin dependientes registrados.</p>
+{% endif %}
+
+{# ═══════════ DOCUMENTOS ═══════════ #}
+<h2 class="sec">Documentos ({{ documents|length }})</h2>
+{% if documents %}
+{% set _cat_labels = {'contract':'Contrato','id':'Identificación','certificate':'Certificado','medical':'Médico','disciplinary':'Disciplinario','academic':'Académico','authorization':'Autorización','autorizacion_descuento':'Autorización de Descuento','carta_cambio_puesto':'Carta Cambio de Puesto','carta_cambio_compania':'Carta Cambio de Compañía','carta_amonestacion':'Carta de Amonestación','finiquito':'Finiquito','carta_ministerio_trabajo':'Carta Ministerio de Trabajo','carta_trabajo':'Carta de Trabajo','carta_desvinculacion':'Carta de Desvinculación','acta_devolucion_activos':'Acta Devolución de Activos','recibo_liquidacion':'Recibo de Pago / Liquidación','other':'Otros'} %}
+{% for d in documents %}
+<div class="li-row">
+    <span class="li-title">{{ d.name }}</span>
+    {% if d._isRehireDoc %}<span class="pill ok">Reincorporación{% if d._periodNumber %} · Período {{ d._periodNumber }}{% endif %}</span>{% endif %}
+    <div class="li-sub">{{ _cat_labels.get(d.category, d.category) }}{% if d.uploadedAt %} · {{ d.uploadedAt[:10] }}{% endif %}{% if d.size %} · {{ (d.size|int // 1024) }}KB{% endif %}</div>
+    {% if d.notes %}<div class="li-sub">{{ d.notes }}</div>{% endif %}
+</div>
+{% endfor %}
+{% else %}
+<p class="empty">Sin documentos.</p>
+{% endif %}
+
+{# ═══════════ NOTAS ═══════════ #}
+{% if employee.notes %}
+<h2 class="sec">Notas</h2>
+<div class="notes">{{ employee.notes }}</div>
+{% endif %}
+
+</body>
+</html>
