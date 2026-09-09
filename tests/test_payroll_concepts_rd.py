@@ -348,6 +348,20 @@ class TestConceptEngine:
         assert tx.type == "earning"
         assert tx.conceptCode == "SALARIO_BASE"
 
+    def test_salario_base_respeta_prorated_salary(self):
+        """SALARIO_BASE usa proratedSalary cuando viene (entrada a mitad de período)"""
+        concept = self._concept("SALARIO_BASE", category="fixed", ctype="earning")
+        context = {"baseSalary": 50000.00, "proratedSalary": 26437.26}
+
+        class _FakeTx:
+            def __init__(self, **kwargs):
+                self.__dict__.update(kwargs)
+
+        with patch("app.services.concept_engine.PayrollTransaction", _FakeTx):
+            tx = ConceptEngine.evaluate(concept, context, RD_PARAMS)
+        assert tx is not None
+        assert tx.amount == 26437.26
+
     def test_afp_empleado_concepto(self):
         """Evaluación de AFP_EMPLEADO produce transacción con deducción calculada (topada)"""
         concept = self._concept("AFP_EMPLEADO", ctype="deduction", category="tss", priority=1)

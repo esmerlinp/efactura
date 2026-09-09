@@ -304,7 +304,8 @@ class ConceptEngine:
 
         # ── Conceptos fijos (salario base) ──
         elif category == "fixed" and code == "SALARIO_BASE":
-            amount = context.get("baseSalary", 0)
+            prorated = context.get("proratedSalary")
+            amount = prorated if prorated is not None else context.get("baseSalary", 0)
             source = "system"
 
         # ── Conceptos recurrentes (incenivos, asignaciones, descuentos) ──
