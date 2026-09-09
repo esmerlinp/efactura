@@ -15,7 +15,8 @@ def notification_poll():
 
     user_uid = session['user']['uid']
     try:
-        notifs = DatabaseService.get_user_notifications(user_uid, limit=5)
+        sandbox = session.get('is_sandbox_mode', False)
+        notifs = DatabaseService.get_user_notifications(user_uid, limit=5, sandbox=sandbox)
         return jsonify(success=True, notifications=notifs)
     except Exception as e:
         logger.error(f"Poll check error: {e}")

@@ -73,6 +73,10 @@ def leave_new():
 
         start_date = request.form.get("startDate", "")
         end_date = request.form.get("endDate", "")
+        leave_type = request.form.get("leaveType", "otro")
+        if leave_type == "maternidad" and start_date and not end_date:
+            from datetime import timedelta
+            end_date = (datetime.strptime(start_date, "%Y-%m-%d") + timedelta(weeks=14)).strftime("%Y-%m-%d")
         days = (datetime.strptime(end_date, "%Y-%m-%d") - datetime.strptime(start_date, "%Y-%m-%d")).days + 1
 
         req_id = str(uuid.uuid4())

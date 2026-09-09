@@ -187,9 +187,11 @@ class EmployeeStatusService:
     # ═══════════════════════════════════════════════════════════════════════
 
     @classmethod
-    def sync_employee(cls, company_id: str, employee_id: str, sandbox: bool = True,
-                      today: date | None = None, actor: str = "Sistema") -> dict | None:
-        """Sincroniza el estado de UN empleado con sus solicitudes vigentes.
+    def _sync_employee_internal(cls, company_id: str, employee: dict,
+                                vacations: list, leaves: list, today: date,
+                                actor: str, sandbox: bool) -> dict | None:
+        """Core de la sincronización de un empleado a partir de sus solicitudes
+        aprobadas ya cargadas (listas filtradas por employeeId + status aprobada).
 
         Reglas:
         - inactivo/suspendido nunca se toca.
@@ -197,19 +199,11 @@ class EmployeeStatusService:
         - vacaciones aprobadas vigentes → "vacaciones".
         - sin solicitud vigente → "activo".
         """
-        if today is None:
-            today = cls._today()
-        employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
-        if not employee:
-            return None
-
         current = employee.get("status", "activo")
         if current not in ACTIVE_EQUIVALENT_STATUSES:
             # inactivo / suspendido / desconocido: no transicionar
             return None
 
-        vacations = cls._approved_vacations_for(company_id, employee_id, sandbox)
-        leaves = cls._approved_leaves_for(company_id, employee_id, sandbox)
         vac_active = next((v for v in vacations if cls._in_range(v, today)), None)
         leave_active = next((l for l in leaves if cls._in_range(l, today)), None)
 
@@ -246,23 +240,80 @@ class EmployeeStatusService:
                                actor, reason, sandbox)
 
     @classmethod
-    def sync_employee_statuses(cls, company_id: str, sandbox: bool = True,
-                               today: date | None = None,
-                               actor: str = "Sistema (APScheduler)") -> list:
-        """Barrido completo de todos los empleados de la empresa."""
+    def sync_employee(cls, company_id: str, employee_id: str, sandbox: bool = True,
+                      today: date | None = None, actor: str = "Sistema") -> dict | None:
+        """Sincroniza el estado de UN empleado con sus solicitudes vigentes."""
         if today is None:
             today = cls._today()
+        employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
+        if not employee:
+            return None
+
+        vacations = cls._approved_vacations_for(company_id, employee_id, sandbox)
+        leaves = cls._approved_leaves_for(company_id, employee_id, sandbox)
+        return cls._sync_employee_internal(company_id, employee, vacations, leaves,
+                                           today, actor, sandbox)
+
+    @classmethod
+    def _is_synced_today(cls, company_id: str, sandbox: bool, today: date) -> bool:
+        """True si el barrido ya corrió hoy (cache diaria en hr_config)."""
+        state = hr.get_status_sync_state(company_id, sandbox=sandbox)
+        return state.get("lastSyncDate") == today.isoformat()
+
+    @classmethod
+    def _mark_synced_today(cls, company_id: str, sandbox: bool, today: date):
+        hr.save_status_sync_state(company_id, {"lastSyncDate": today.isoformat()},
+                                  sandbox=sandbox)
+
+    @classmethod
+    def invalidate_status_sync(cls, company_id: str, sandbox: bool = True):
+        """Fuerza el próximo barrido (borra la marca del día). Útil para debug
+        o para casos donde un cambio externo requiera re-sincronizar de inmediato."""
+        hr.save_status_sync_state(company_id, {"lastSyncDate": ""}, sandbox=sandbox)
+
+    @classmethod
+    def sync_employee_statuses(cls, company_id: str, sandbox: bool = True,
+                               today: date | None = None,
+                               actor: str = "Sistema (APScheduler)",
+                               force: bool = False) -> list:
+        """Barrido completo de todos los empleados de la empresa.
+
+        Carga cada colección una sola vez y agrupa en memoria (O(N+M) en vez
+        de O(N×M)). Si ya se sincronizó hoy, salta el barrido salvo `force`.
+        """
+        if today is None:
+            today = cls._today()
+        if not force and cls._is_synced_today(company_id, sandbox, today):
+            return []
+
+        employees = hr.get_employees(company_id, sandbox=sandbox)
+        vacations = hr.get_vacation_requests(company_id, sandbox=sandbox)
+        leaves = hr.get_leave_requests(company_id, sandbox=sandbox)
+
+        vac_by_emp: dict = {}
+        for v in vacations:
+            if v.get("status") == "aprobada":
+                vac_by_emp.setdefault(v.get("employeeId"), []).append(v)
+        leave_by_emp: dict = {}
+        for l in leaves:
+            if l.get("status") == "aprobada":
+                leave_by_emp.setdefault(l.get("employeeId"), []).append(l)
+
         transitions = []
-        for emp in hr.get_employees(company_id, sandbox=sandbox):
+        for emp in employees:
             try:
-                res = cls.sync_employee(company_id, emp.get("id", ""),
-                                        sandbox=sandbox, today=today,
-                                        actor=actor)
+                res = cls._sync_employee_internal(
+                    company_id, emp,
+                    vac_by_emp.get(emp.get("id", ""), []),
+                    leave_by_emp.get(emp.get("id", ""), []),
+                    today, actor, sandbox)
                 if res:
                     transitions.append(res)
             except Exception as e:
                 print(f"⚠️ EmployeeStatusService.sync_employee_statuses"
                       f"({emp.get('id')}): {e}")
+
+        cls._mark_synced_today(company_id, sandbox, today)
         return transitions
 
     # ═══════════════════════════════════════════════════════════════════════

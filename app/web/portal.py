@@ -757,7 +757,8 @@ def _notify_portal_action(owner_uid, action, document_type, document_number, cli
                     "clientName": client_name,
                     "documentUrl": document_url,
                     "createdAt": signed_at,
-                    "read": False
+                    "read": False,
+                    "sandbox": bool(sandbox)
                 })
             except Exception as ex:
                 print(f"⚠️ [Portal Notification] Error al guardar notificación in-app: {ex}")

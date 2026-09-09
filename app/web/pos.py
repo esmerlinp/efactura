@@ -1296,7 +1296,8 @@ def process_shift_comment_mentions(owner_uid, content, shift_id, shift_label, sa
                 "link": f"/pos/admin/shift/{shift_id}",
                 "createdAt": datetime.now(timezone.utc).isoformat(),
                 "read": False,
-                "type": "mention"
+                "type": "mention",
+                "sandbox": bool(sandbox)
             }
             DatabaseService.create_user_notification(uid, notif_dict)
             

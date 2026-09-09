@@ -753,7 +753,8 @@ def process_resource_comment_mentions(owner_uid, content, resource_type, resourc
                 "link": link,
                 "createdAt": datetime.now(timezone.utc).isoformat(),
                 "read": False,
-                "type": "mention"
+                "type": "mention",
+                "sandbox": bool(sandbox)
             }
             DatabaseService.create_user_notification(uid, notif_dict)
             

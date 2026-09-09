@@ -320,7 +320,7 @@ def run_hr_status_transitions(company_id=None):
         for is_sandbox in (True, False):
             try:
                 transitions = EmployeeStatusService.sync_employee_statuses(
-                    owner_uid, sandbox=is_sandbox)
+                    owner_uid, sandbox=is_sandbox, force=True)
                 if transitions:
                     total_transitions += len(transitions)
                     logger.info(
