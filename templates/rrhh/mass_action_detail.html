@@ -4,37 +4,51 @@
 {% include "rrhh/_styles.html" %}
 
 {% set status_badge = {'completed':'success','partial':'warning','processing':'info','failed':'danger','pending_approval':'warning','approved':'primary','rejected':'danger','returned':'warning','draft':'secondary'} %}
-{% set status_label = {'completed':'Completada','partial':'Parcial','processing':'Procesando','failed':'Fallida','pending_approval':'Pendiente','approved':'Aprobada','rejected':'Rechazada','returned':'Devuelta','draft':'Borrador'} %}
+{% set status_label = {'completed':'Completada','partial':'Parcial','processing':'Procesando','failed':'Fallida','pending_approval':'Pendiente de aprobación','approved':'Aprobada','rejected':'Rechazada','returned':'Devuelta para corregir','draft':'Borrador'} %}
 {% set is_executed = action.status in ('completed','partial','processing','failed') %}
 {% set payload = action.payload or {} %}
+{% set success_count = action.successCount or 0 %}
+{% set error_count = action.errorCount or 0 %}
 
 <!-- ═══════════════ HEADER ──── -->
-<div class="page-header hr-page-header" style="margin-bottom:12px;">
+<div class="mass-action-header">
     <div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-            <h1 class="page-title" style="margin:0;">{{ action_type_label }}</h1>
-            <span class="badge badge-{{ status_badge.get(action.status,'secondary') }}" style="font-size:0.78rem;padding:3px 10px;">{{ status_label.get(action.status,action.status) }}</span>
-            <span style="font-size:0.78rem;color:var(--text-muted);">{{ action.totalEmployees }} empleado(s)</span>
-        </div>
-        <div style="font-size:0.78rem;color:var(--text-muted);margin-top:3px;">
-            {{ action.createdBy or '—' }} · {{ (action.createdAt or '')[:16]|replace('T',' ') }}
+        <div class="mass-action-eyebrow"><a href="{{ url_for('web_rrhh.mass_action_pending_list') }}">RRHH</a><span>/</span><span>Historial de solicitudes</span></div>
+        <div class="mass-action-title-row">
+            <div class="mass-action-title-icon"><i class="fa-solid fa-layer-group" aria-hidden="true"></i></div>
+            <div>
+                <div class="mass-action-title-line">
+                    <h1 class="page-title">{{ action_type_label }}</h1>
+                    <span class="badge badge-{{ status_badge.get(action.status,'secondary') }} mass-action-status">{{ status_label.get(action.status,action.status) }}</span>
+                </div>
+                <div class="mass-action-meta"><span><i class="fa-solid fa-users" aria-hidden="true"></i> {{ action.totalEmployees }} empleado(s)</span><span><i class="fa-regular fa-user" aria-hidden="true"></i> {{ action.createdBy or '—' }}</span><span><i class="fa-regular fa-calendar" aria-hidden="true"></i> {{ (action.createdAt or '')[:16]|replace('T',' ') }}</span></div>
+            </div>
         </div>
     </div>
-    <div class="hr-page-actions">
+    <div class="mass-action-header-actions">
         <a href="{{ url_for('web_rrhh.mass_action_pending_list') }}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i> Volver</a>
     </div>
 </div>
 
+{% if is_executed %}
+<div class="mass-action-summary" aria-label="Resumen de la acción">
+    <div class="mass-action-stat"><span class="mass-action-stat-icon neutral"><i class="fa-solid fa-users" aria-hidden="true"></i></span><div><span class="mass-action-stat-label">Empleados</span><strong>{{ action.totalEmployees }}</strong></div></div>
+    <div class="mass-action-stat"><span class="mass-action-stat-icon success"><i class="fa-solid fa-check" aria-hidden="true"></i></span><div><span class="mass-action-stat-label">Aplicados</span><strong>{{ success_count }}</strong></div></div>
+    <div class="mass-action-stat"><span class="mass-action-stat-icon danger"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></span><div><span class="mass-action-stat-label">Errores</span><strong>{{ error_count }}</strong></div></div>
+    {% if payload.effectiveDate %}<div class="mass-action-stat"><span class="mass-action-stat-icon info"><i class="fa-regular fa-calendar-check" aria-hidden="true"></i></span><div><span class="mass-action-stat-label">Fecha efectiva</span><strong>{{ payload.effectiveDate }}</strong></div></div>{% endif %}
+</div>
+{% endif %}
+
 <!-- ═══════════════ WORKFLOW BAR ──── -->
 {% if action.status in ('draft','pending_approval','approved','returned') %}
-<div class="card-table-wrapper hr-table-card" style="padding:10px 18px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-    <span style="font-size:0.82rem;color:var(--text-secondary);">
+<div class="mass-action-workflow card-table-wrapper hr-table-card">
+    <span class="mass-action-workflow-copy">
         {% if action.status == 'draft' %}Borrador — aún no enviada a aprobación.
         {% elif action.status == 'pending_approval' %}En cola de autorización — la decisión se toma en la página de autorizaciones.
         {% elif action.status == 'returned' %}Esperando corrección del creador.
         {% elif action.status == 'approved' %}Lista para ejecutar.{% endif %}
     </span>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+    <div class="mass-action-workflow-actions">
         {% if action.status == 'draft' %}
         <form method="POST" action="{{ url_for('web_rrhh.mass_action_submit',action_id=action.id) }}" style="display:inline;" onsubmit="return confirm('¿Enviar esta acción a aprobación?')">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -68,6 +82,7 @@
         </form>
         {% endif %}
     </div>
+    </div>
 </div>
 {% endif %}
 
@@ -78,16 +93,14 @@
 {% endif %}
 
 <!-- ═══════════════ MAIN GRID ──── -->
-<div id="ma-detail-grid" style="display:grid;grid-template-columns:1fr 320px;gap:12px;align-items:start;">
+<div id="ma-detail-grid" class="mass-action-detail-grid">
 
     <!-- ── LEFT ──────────────────────────────────────────── -->
-    <div style="display:flex;flex-direction:column;gap:12px;">
+    <div class="mass-action-column">
 
         <!-- Details -->
-        <div class="card-table-wrapper hr-table-card" style="margin-bottom:0;">
-            <div class="table-header-row" style="padding:8px 16px;cursor:pointer;" onclick="toggleSection('sec-details')">
-                <h3 style="font-size:0.88rem;margin:0;"><i class="fa-solid fa-chevron-down" id="sec-details-arrow" style="font-size:0.7rem;margin-right:2px;"></i> Detalles</h3>
-            </div>
+        <div class="mass-action-card card-table-wrapper hr-table-card">
+            <button type="button" class="mass-action-section-toggle" aria-expanded="true" aria-controls="sec-details" onclick="toggleSection(this, 'sec-details')"><span><i class="fa-solid fa-sliders" aria-hidden="true"></i> Detalles</span><i class="fa-solid fa-chevron-down section-arrow" id="sec-details-arrow" aria-hidden="true"></i></button>
             <div id="sec-details" style="padding:6px 16px 14px;">
                 {% set just = (payload.get('reason') or '')|trim %}
                 {% if just %}
@@ -95,57 +108,86 @@
                     <strong style="color:var(--accent-orange,#f59e0b);">Justificación:</strong> {{ just }}
                 </div>
                 {% endif %}
-                <div style="display:flex;flex-wrap:wrap;gap:5px;">
-                    {% if payload.changeType %}<span class="badge badge-secondary" style="font-size:0.72rem;padding:2px 7px;">{{ 'Porcentaje' if payload.changeType=='percentage' else 'Monto fijo' }}</span>{% endif %}
-                    {% if payload.amount %}<span class="badge badge-secondary" style="font-size:0.72rem;padding:2px 7px;">RD$ {{ "{:,.0f}".format(payload.amount|float) }}</span>{% endif %}
-                    {% if payload.percentage %}<span class="badge badge-secondary" style="font-size:0.72rem;padding:2px 7px;">{{ payload.percentage }}%</span>{% endif %}
-                    {% if payload.newPosition %}<span class="badge badge-secondary" style="font-size:0.72rem;padding:2px 7px;">Puesto: {{ payload.newPosition }}</span>{% endif %}
+                <div class="mass-action-detail-fields">
+                    {% if payload.changeType %}<div><span>Tipo de cambio</span><strong>{{ 'Porcentaje' if payload.changeType=='percentage' else 'Monto fijo' }}</strong></div>{% endif %}
+                    {% if payload.amount %}<div><span>Monto</span><strong>RD$ {{ "{:,.0f}".format(payload.amount|float) }}</strong></div>{% endif %}
+                    {% if payload.percentage %}<div><span>Incremento</span><strong>{{ payload.percentage }}%</strong></div>{% endif %}
+                    {% if payload.newPosition %}<div><span>Puesto</span><strong>{{ payload.newPosition }}</strong></div>{% endif %}
                     {% set nd = payload.newDepartment or payload.newArea %}
-                    {% if nd %}<span class="badge badge-secondary" style="font-size:0.72rem;padding:2px 7px;">Depto: {{ nd }}</span>{% endif %}
-                    {% if payload.newSupervisorId %}<span class="badge badge-secondary" style="font-size:0.72rem;padding:2px 7px;">Nuevo supervisor</span>{% endif %}
-                    {% if payload.effectiveDate %}<span class="badge badge-secondary" style="font-size:0.72rem;padding:2px 7px;">Efectivo: {{ payload.effectiveDate }}</span>{% endif %}
+                    {% if nd %}<div><span>Departamento</span><strong>{{ nd }}</strong></div>{% endif %}
+                    {% if payload.newSupervisorId %}<div><span>Supervisor</span><strong>Nuevo supervisor</strong></div>{% endif %}
+                    {% if payload.effectiveDate %}<div><span>Fecha efectiva</span><strong>{{ payload.effectiveDate }}</strong></div>{% endif %}
                 </div>
             </div>
         </div>
 
-        <!-- Employees -->
-        {% if selected_employees %}
-        <div class="card-table-wrapper hr-table-card" style="margin-bottom:0;">
-            <div class="table-header-row" style="padding:8px 16px;cursor:pointer;" onclick="toggleSection('sec-employees')">
-                <h3 style="font-size:0.88rem;margin:0;"><i class="fa-solid fa-chevron-down" id="sec-employees-arrow" style="font-size:0.7rem;margin-right:2px;"></i> Empleados ({{ selected_employees|length }})</h3>
-            </div>
-            <div id="sec-employees">
-                <div class="table-responsive" style="max-height:260px;overflow-y:auto;">
+        <!-- Cambios realizados (unificado) -->
+        {% if change_rows %}
+        <div class="mass-action-card card-table-wrapper hr-table-card">
+            <button type="button" class="mass-action-section-toggle" aria-expanded="true" aria-controls="sec-changes" onclick="toggleSection(this, 'sec-changes')"><span><i class="fa-solid fa-list-check" aria-hidden="true"></i> Cambios realizados <em>{{ change_rows|length }}</em></span><i class="fa-solid fa-chevron-down section-arrow" id="sec-changes-arrow" aria-hidden="true"></i></button>
+            <div id="sec-changes" class="mass-action-section-body">
+                <div class="mass-action-table-toolbar"><span>Detalle por empleado</span><div class="mass-action-filters" role="group" aria-label="Filtrar empleados"><button type="button" class="is-active" data-filter="all">Todos</button><button type="button" data-filter="success">Aplicados</button><button type="button" data-filter="error">Errores</button></div></div>
+                <div class="table-responsive" style="max-height:400px;overflow-y:auto;">
                     <table class="data-grid">
                         <thead>
                             <tr>
                                 <th>Empleado</th>
-                                {% if action.actionType == 'salary_change' %}<th>Salario actual → propuesto</th>
-                                {% elif action.actionType == 'position_change' %}<th>Puesto</th><th>Depto</th>
-                                {% elif action.actionType == 'promotion' %}<th>Salario</th><th>Puesto</th>
-                                {% elif action.actionType == 'supervisor_change' %}<th>Supervisor</th>
+                                {% if action.actionType == 'salary_change' or action.actionType == 'promotion' %}
+                                <th>Salario anterior</th><th>Salario nuevo</th><th>Diferencia</th>
+                                {% elif action.actionType == 'position_change' %}
+                                <th>Puesto</th><th>Departamento</th>
+                                {% elif action.actionType == 'supervisor_change' %}
+                                <th>Supervisor</th>
+                                {% elif action.actionType == 'mass_absence' %}
+                                <th>Ausencia</th>
                                 {% else %}<th>Cambio</th>{% endif %}
+                                <th style="width:90px;">Estado</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for emp in selected_employees %}
-                            {% set p = emp.proposed or {} %}
-                            <tr>
-                                <td><strong>{{ emp.fullName or emp.id }}</strong></td>
-                                {% if action.actionType == 'salary_change' %}
-                                <td>RD$ {{ "{:,.0f}".format(emp.baseSalary or 0) }}{% if p.salary %} → <strong style="color:var(--accent-emerald);">RD$ {{ "{:,.0f}".format(p.salary) }}</strong>{% endif %}</td>
+                            {% for r in change_rows %}
+                            {% set is_salary = action.actionType in ('salary_change','promotion') %}
+                            <tr data-row-status="{{ r.status }}">
+                                <td>
+                                    <strong>{{ r.fullName or r.id }}</strong>
+                                    {% if r.cedula %}<div style="color:var(--text-muted);font-size:0.75rem;">{{ r.cedula }}</div>{% endif %}
+                                </td>
+
+                                {% if is_salary %}
+                                <td>{% if r.before.salary is not none %}RD$ {{ "{:,.2f}".format(r.before.salary) }}{% else %}—{% endif %}</td>
+                                <td>
+                                    {% if r.after.salary is not none %}
+                                        {% if r.before.salary is not none and r.after.salary != r.before.salary %}<strong style="color:var(--accent-emerald);">{% endif %}RD$ {{ "{:,.2f}".format(r.after.salary) }}{% if r.before.salary is not none and r.after.salary != r.before.salary %}</strong>{% endif %}
+                                    {% else %}—{% endif %}
+                                </td>
+                                <td>
+                                    {% if r.diff is not none %}
+                                    <span class="ma-row-diff {{ r.diffClass }}">{% if r.diff >= 0 %}+{% endif %}RD$ {{ "{:,.2f}".format(r.diff) }}</span>
+                                    {% else %}—{% endif %}
+                                </td>
                                 {% elif action.actionType == 'position_change' %}
-                                <td>{{ emp.position or '—' }}{% if p.position %} → <strong style="color:var(--accent-emerald);">{{ p.position }}</strong>{% endif %}</td>
-                                <td>{{ emp.department or '—' }}{% if p.department %} → <strong style="color:var(--accent-emerald);">{{ p.department }}</strong>{% endif %}</td>
-                                {% elif action.actionType == 'promotion' %}
-                                <td>RD$ {{ "{:,.0f}".format(emp.baseSalary or 0) }}{% if p.salary %} → <strong style="color:var(--accent-emerald);">RD$ {{ "{:,.0f}".format(p.salary) }}</strong>{% endif %}</td>
-                                <td>{{ emp.position or '—' }}{% if p.position %} → <strong style="color:var(--accent-emerald);">{{ p.position }}</strong>{% endif %}</td>
+                                <td>{% if r.after.position and r.after.position != r.before.position %}{{ r.before.position or '—' }} → <strong style="color:var(--accent-emerald);">{{ r.after.position }}</strong>{% else %}{{ r.before.position or '—' }}{% endif %}</td>
+                                <td>{% if r.after.department and r.after.department != r.before.department %}{{ r.before.department or '—' }} → <strong style="color:var(--accent-emerald);">{{ r.after.department }}</strong>{% else %}{{ r.before.department or '—' }}{% endif %}</td>
                                 {% elif action.actionType == 'supervisor_change' %}
-                                <td>{{ emp.reportsTo or '—' }}{% if p.reportsTo %} → <strong style="color:var(--accent-emerald);">{{ p.reportsTo }}</strong>{% endif %}</td>
+                                <td>{% if r.after.reportsTo and r.after.reportsTo != r.before.reportsTo %}{{ r.before.reportsTo or '—' }} → <strong style="color:var(--accent-emerald);">{{ r.after.reportsTo }}</strong>{% else %}{{ r.before.reportsTo or '—' }}{% endif %}</td>
+                                {% elif action.actionType == 'mass_absence' %}
+                                <td style="font-size:0.8rem;">
+                                    {% set p = action.payload or {} %}
+                                    {{ p.startDate or '—' }} → {{ p.endDate or '—' }} · {{ p.days or 0 }} día(s) · {{ 'Vacaciones' if p.absenceType == 'vacation' else 'Licencia' }}
+                                </td>
                                 {% else %}
-                                <td>{{ emp.department or '—' }}</td>
+                                <td>—</td>
                                 {% endif %}
+
+                                <td>
+                                    {% if r.status == 'success' %}<span class="badge badge-success btn-xs">Aplicado</span>
+                                    {% elif r.status == 'error' %}<span class="badge badge-danger btn-xs" title="{{ r.errorMessage }}">Error</span>
+                                    {% else %}<span class="badge badge-secondary btn-xs">Propuesto</span>{% endif %}
+                                </td>
                             </tr>
+                            {% if r.status == 'error' and r.errorMessage %}
+                            <tr><td colspan="7" style="color:var(--danger);font-size:0.78rem;padding:2px 10px;">{{ r.errorMessage }}</td></tr>
+                            {% endif %}
                             {% endfor %}
                         </tbody>
                     </table>
@@ -154,42 +196,11 @@
         </div>
         {% endif %}
 
-        <!-- Results (executed) -->
-        {% if action.results %}
-        <div class="card-table-wrapper hr-table-card" style="margin-bottom:0;">
-            <div class="table-header-row" style="padding:8px 16px;">
-                <h3 style="font-size:0.88rem;margin:0;">Resultados</h3>
-            </div>
-            <div class="table-responsive" style="max-height:260px;overflow-y:auto;">
-                <table class="data-grid">
-                    <thead><tr><th>Empleado</th><th style="width:36px;"></th><th>Cambios</th></tr></thead>
-                    <tbody>
-                        {% for r in action.results %}
-                        <tr>
-                            <td><strong>{{ r.employeeName or '—' }}</strong></td>
-                            <td>{% if r.status=='success' %}<span class="badge badge-success btn-xs">✓</span>{% else %}<span class="badge badge-danger btn-xs">✗</span>{% endif %}</td>
-                            <td style="font-size:0.78rem;">
-                                {% if r.status=='error' %}<span style="color:var(--danger);">{{ r.errorMessage or '' }}</span>
-                                {% elif r.changes and r.changes.before and r.changes.after %}
-                                {% set b=r.changes.before %}{% set a=r.changes.after %}
-                                {% if b.salary!=a.salary %}Salario: RD$ {{ "{:,.0f}".format(b.salary or 0) }} → <strong>RD$ {{ "{:,.0f}".format(a.salary or 0) }}</strong>{% endif %}
-                                {% if b.position!=a.position %}{% if b.salary!=a.salary %}<br>{% endif %}Puesto: {{ b.position or '—' }} → <strong>{{ a.position or '—' }}</strong>{% endif %}
-                                {% else %}—{% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        {% endif %}
 
         <!-- Comments -->
-        <div class="card-table-wrapper hr-table-card" style="margin-bottom:0;">
-            <div class="table-header-row" style="padding:8px 16px;cursor:pointer;" onclick="toggleSection('sec-comments')">
-                <h3 style="font-size:0.88rem;margin:0;"><i class="fa-solid fa-chevron-down" id="sec-comments-arrow" style="font-size:0.7rem;margin-right:2px;"></i> Comentarios ({{ comments|length }})</h3>
-            </div>
-            <div id="sec-comments" style="padding:0 16px 16px;">
+        <div class="mass-action-card card-table-wrapper hr-table-card">
+            <button type="button" class="mass-action-section-toggle" aria-expanded="true" aria-controls="sec-comments" onclick="toggleSection(this, 'sec-comments')"><span><i class="fa-regular fa-comments" aria-hidden="true"></i> Comentarios <em>{{ comments|length }}</em></span><i class="fa-solid fa-chevron-down section-arrow" id="sec-comments-arrow" aria-hidden="true"></i></button>
+            <div id="sec-comments" class="mass-action-section-body" style="padding-bottom:16px;">
                 {% set submit_url = "/rrhh/mass-actions/" ~ action.id ~ "/comments/new" %}
                 {% set edit_url_prefix = "/rrhh/mass-actions/" ~ action.id ~ "/comments" %}
                 {% set delete_url_prefix = "/rrhh/mass-actions/" ~ action.id ~ "/comments" %}
@@ -199,15 +210,13 @@
     </div>
 
     <!-- ── RIGHT ──────────────────────────────────────────── -->
-    <div style="display:flex;flex-direction:column;gap:12px;">
+    <div class="mass-action-column mass-action-sidebar">
 
         <!-- Assigned to -->
         {% set adata = assigned_to or {} %}
         {% if adata.get('id') %}
-        <div class="card-table-wrapper hr-table-card" style="margin-bottom:0;">
-            <div class="table-header-row" style="padding:8px 14px;">
-                <h3 style="font-size:0.82rem;margin:0;">Asignado a</h3>
-            </div>
+        <div class="mass-action-card card-table-wrapper hr-table-card">
+            <div class="mass-action-card-heading"><i class="fa-solid fa-user-check" aria-hidden="true"></i><h3>Asignado a</h3></div>
             <div style="padding:4px 14px 12px;">
                 <div style="display:flex;align-items:center;gap:8px;">
                     <span style="width:28px;height:28px;border-radius:50%;background:rgba(124,58,237,0.1);color:var(--accent-purple);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.75rem;"><i class="fa-solid fa-user"></i></span>
@@ -219,18 +228,16 @@
 
         <!-- Stats (if executed) -->
         {% if is_executed %}
-        <div class="card-table-wrapper hr-table-card" style="margin-bottom:0;">
-            <div class="table-header-row" style="padding:8px 14px;">
-                <h3 style="font-size:0.82rem;margin:0;">Resultado</h3>
-            </div>
+        <div class="mass-action-card card-table-wrapper hr-table-card">
+            <div class="mass-action-card-heading"><i class="fa-solid fa-chart-simple" aria-hidden="true"></i><h3>Resultado</h3></div>
             <div style="padding:4px 14px 12px;display:flex;gap:8px;">
                 <div class="hr-info-item" style="flex:1;padding:6px 8px;text-align:center;">
                     <span class="hr-info-label">Éxito</span>
-                    <span class="hr-info-value" style="font-size:1rem;color:var(--accent-emerald);">{{ action.successCount or 0 }}</span>
+                    <span class="hr-info-value mass-action-success">{{ success_count }}</span>
                 </div>
                 <div class="hr-info-item" style="flex:1;padding:6px 8px;text-align:center;">
                     <span class="hr-info-label">Errores</span>
-                    <span class="hr-info-value" style="font-size:1rem;color:var(--danger);">{{ action.errorCount or 0 }}</span>
+                    <span class="hr-info-value mass-action-error">{{ error_count }}</span>
                 </div>
             </div>
         </div>
@@ -238,11 +245,9 @@
 
         <!-- History -->
         {% if action.statusHistory %}
-        <div class="card-table-wrapper hr-table-card" style="margin-bottom:0;">
-            <div class="table-header-row" style="padding:8px 14px;cursor:pointer;" onclick="toggleSection('sec-history')">
-                <h3 style="font-size:0.82rem;margin:0;"><i class="fa-solid fa-chevron-down" id="sec-history-arrow" style="font-size:0.65rem;margin-right:2px;"></i> Historial ({{ action.statusHistory|length }})</h3>
-            </div>
-            <div id="sec-history" style="position:relative;padding:6px 14px 14px;">
+        <div class="mass-action-card card-table-wrapper hr-table-card">
+            <button type="button" class="mass-action-section-toggle" aria-expanded="true" aria-controls="sec-history" onclick="toggleSection(this, 'sec-history')"><span><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Historial <em>{{ action.statusHistory|length }}</em></span><i class="fa-solid fa-chevron-down section-arrow" id="sec-history-arrow" aria-hidden="true"></i></button>
+            <div id="sec-history" class="mass-action-section-body mass-action-history" style="position:relative;">
                 <div style="position:absolute;left:18px;top:10px;bottom:10px;width:1px;background:var(--border-color);"></div>
                 {% for h in action.statusHistory|reverse %}
                 <div style="display:flex;gap:8px;align-items:flex-start;padding:3px 0;position:relative;">
@@ -262,16 +267,75 @@
 </div>
 
 <style>
-@media screen and (max-width:800px){[id="ma-detail-grid"]{grid-template-columns:1fr!important;}}
+.mass-action-detail-grid { display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:16px; align-items:start; }
+.mass-action-column { display:flex; flex-direction:column; gap:16px; min-width:0; }
+.mass-action-header { display:flex; justify-content:space-between; align-items:flex-end; gap:20px; margin:0 0 16px; }
+.mass-action-eyebrow { display:flex; gap:7px; color:var(--text-muted); font-size:.75rem; margin-bottom:10px; }
+.mass-action-eyebrow a { color:var(--color-primary); text-decoration:none; font-weight:600; }
+.mass-action-title-row { display:flex; align-items:center; gap:12px; }
+.mass-action-title-icon { width:42px; height:42px; border-radius:12px; display:grid; place-items:center; color:var(--color-primary); background:var(--color-primary-light); font-size:1.1rem; }
+.mass-action-title-line { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+.mass-action-title-line .page-title { margin:0; font-size:1.35rem; }
+.mass-action-status { padding:5px 10px; font-size:.72rem; }
+.mass-action-meta { display:flex; flex-wrap:wrap; gap:12px; margin-top:5px; color:var(--text-muted); font-size:.76rem; }
+.mass-action-meta i { margin-right:4px; }
+.mass-action-header-actions { display:flex; gap:8px; }
+.mass-action-workflow { padding:10px 18px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+.mass-action-workflow-copy { color:var(--text-secondary); font-size:.8rem; }
+.mass-action-workflow-actions { display:flex; gap:6px; flex-wrap:wrap; }
+.mass-action-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-bottom:16px; }
+.mass-action-stat { display:flex; align-items:center; gap:10px; min-width:0; padding:12px 14px; border:1px solid var(--border-color); border-radius:var(--radius-md); background:var(--bg-card); box-shadow:var(--shadow-xs); }
+.mass-action-stat-icon { width:32px; height:32px; flex:0 0 32px; display:grid; place-items:center; border-radius:9px; font-size:.8rem; }
+.mass-action-stat-icon.neutral { color:var(--text-secondary); background:var(--bg-nav-hover); }
+.mass-action-stat-icon.success { color:var(--accent-emerald); background:rgba(5,150,105,.1); }
+.mass-action-stat-icon.danger { color:var(--danger); background:rgba(220,38,38,.1); }
+.mass-action-stat-icon.info { color:var(--accent-blue); background:rgba(37,99,235,.1); }
+.mass-action-stat-label { display:block; color:var(--text-muted); font-size:.68rem; text-transform:uppercase; letter-spacing:.04em; font-weight:700; }
+.mass-action-stat strong { display:block; margin-top:2px; color:var(--text-primary); font-size:1.05rem; }
+.mass-action-card { margin-bottom:0; overflow:hidden; }
+.mass-action-section-toggle { width:100%; display:flex; align-items:center; justify-content:space-between; padding:13px 16px; border:0; border-bottom:1px solid var(--border-color); background:transparent; color:var(--text-primary); cursor:pointer; text-align:left; font:inherit; }
+.mass-action-section-toggle:hover { background:var(--bg-nav-hover); }
+.mass-action-section-toggle:focus-visible { outline:2px solid var(--color-ring); outline-offset:-2px; }
+.mass-action-section-toggle > span { display:flex; align-items:center; gap:8px; font-size:.88rem; font-weight:700; }
+.mass-action-section-toggle > span > i, .mass-action-card-heading > i { color:var(--color-primary); }
+.mass-action-section-toggle em { padding:2px 7px; border-radius:99px; color:var(--text-secondary); background:var(--bg-nav-hover); font-size:.7rem; font-style:normal; }
+.mass-action-section-body { padding:6px 16px 14px; }
+.mass-action-detail-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; }
+.mass-action-detail-fields > div { padding:9px 10px; border:1px solid var(--border-color); border-radius:var(--radius-sm); background:var(--bg-nav-hover); }
+.mass-action-detail-fields span { display:block; color:var(--text-muted); font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.03em; }
+.mass-action-detail-fields strong { display:block; margin-top:3px; font-size:.8rem; }
+.mass-action-table-toolbar { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:4px 0 10px; color:var(--text-secondary); font-size:.76rem; }
+.mass-action-filters { display:flex; gap:4px; flex-wrap:wrap; }
+.mass-action-filters button { padding:4px 8px; border:1px solid var(--border-color); border-radius:var(--radius-xs); background:var(--bg-card); color:var(--text-secondary); cursor:pointer; font-size:.7rem; }
+.mass-action-filters button:hover, .mass-action-filters button.is-active { color:var(--color-primary); border-color:var(--color-primary); background:var(--color-primary-light); }
+.mass-action-card-heading { display:flex; align-items:center; gap:8px; padding:13px 14px; border-bottom:1px solid var(--border-color); }
+.mass-action-card-heading h3 { margin:0; font-size:.82rem; }
+.mass-action-success { color:var(--accent-emerald); font-size:1rem; }
+.mass-action-error { color:var(--danger); font-size:1rem; }
+.mass-action-history { padding:8px 14px 14px; }
+.ma-row-diff.pos { color: var(--accent-emerald); font-weight: 600; }
+.ma-row-diff.neg { color: var(--danger); font-weight: 600; }
+@media screen and (max-width:1000px){ .mass-action-detail-grid { grid-template-columns:1fr; } .mass-action-sidebar { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; } }
+@media screen and (max-width:680px){ .mass-action-header { align-items:flex-start; flex-direction:column; gap:12px; } .mass-action-header-actions, .mass-action-header-actions .btn { width:100%; } .mass-action-header-actions .btn { justify-content:center; } .mass-action-summary { grid-template-columns:repeat(2,minmax(0,1fr)); } .mass-action-sidebar { grid-template-columns:1fr; } .mass-action-table-toolbar { align-items:flex-start; flex-direction:column; } .mass-action-section-body { padding-left:10px; padding-right:10px; } }
+@media (prefers-reduced-motion: reduce){ .mass-action-card *, .mass-action-summary * { transition:none!important; animation:none!important; } }
 </style>
 
 <script>
-function toggleSection(id){
+function toggleSection(button, id){
     var el=document.getElementById(id), arrow=document.getElementById(id+'-arrow');
     if(!el||!arrow)return;
     var open=el.style.display!=='none';
     el.style.display=open?'none':'';
     arrow.className=open?'fa-solid fa-chevron-right':'fa-solid fa-chevron-down';
+    button.setAttribute('aria-expanded', String(!open));
 }
+
+document.querySelectorAll('.mass-action-filters button').forEach(function(button){
+    button.addEventListener('click', function(){
+        var filter = button.dataset.filter;
+        document.querySelectorAll('.mass-action-filters button').forEach(function(item){ item.classList.toggle('is-active', item === button); });
+        document.querySelectorAll('[data-row-status]').forEach(function(row){ row.style.display = filter === 'all' || row.dataset.rowStatus === filter ? '' : 'none'; });
+    });
+});
 </script>
 {% endblock %}

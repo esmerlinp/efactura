@@ -1,0 +1,108 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Importar Asistencia — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+
+<div class="page-header hr-page-header">
+    <div style="display:flex; align-items:center; gap:12px;">
+        <a href="{{ url_for('web_rrhh.attendance') }}" class="btn btn-ghost btn-sm" style="padding:6px 10px;">
+            <i class="fa-solid fa-arrow-left"></i>
+        </a>
+        <h1 class="page-title"><i class="fa-solid fa-file-csv"></i> Importar Asistencia</h1>
+    </div>
+</div>
+
+<p style="color:var(--text-secondary); margin:-12px 0 20px 52px; font-size:0.88rem;">
+    Carga masiva de asistencia desde un CSV con plantilla fija. Las filas se guardan como registros de
+    asistencia y, si ya existe el mismo empleado y fecha, se <strong>actualiza</strong> en vez de duplicarse.
+</p>
+
+<div class="card-table-wrapper hr-document-sheet" style="max-width:760px; margin:0 auto; padding:28px;">
+    <div style="margin-bottom:16px;">
+        <h3 style="margin:0 0 6px;"><i class="fa-solid fa-table"></i> Plantilla</h3>
+        <p style="color:var(--text-muted); font-size:0.84rem; margin:0;">
+            Descarga la plantilla y completa una fila por cada registro de asistencia.
+            Los campos <strong>empleadoCedula</strong>, <strong>fecha</strong> y <strong>estado</strong> son obligatorios.
+        </p>
+        <div style="overflow-x:auto; margin-top:12px;">
+            <table class="table-premium" style="font-size:0.8rem;">
+                <thead>
+                    <tr>
+                        {% for h in headers %}
+                        <th>{{ h }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>40212345678</td>
+                        <td>2026-03-02</td>
+                        <td>presente</td>
+                        <td>08:00</td>
+                        <td>17:00</td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p style="color:var(--text-muted); font-size:0.78rem; margin:8px 0 0;">
+            Estado válido: <code>presente</code>, <code>ausente</code>, <code>tarde</code> o <code>permiso</code>.
+        </p>
+        <a href="{{ url_for('web_rrhh.attendance_import_template') }}" class="btn btn-secondary btn-sm" style="margin-top:12px;">
+            <i class="fa-solid fa-download"></i> Descargar plantilla CSV
+        </a>
+    </div>
+
+    <hr style="border:none; border-top:1px solid var(--border-color); margin:20px 0;">
+
+    <form method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+            <label class="form-label">Archivo CSV</label>
+            <input type="file" name="file" accept=".csv" class="form-input" required>
+            <small class="form-hint" style="display:block; color:var(--text-muted);">Formato .csv — separado por coma, punto y coma o tabulación.</small>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-upload"></i> Importar
+            </button>
+        </div>
+    </form>
+
+    {% if results %}
+    <div style="margin-top:20px;">
+        {% if results.error %}
+        <div class="alert alert-danger"><i class="fa-solid fa-circle-exclamation"></i> {{ results.error }}</div>
+        {% else %}
+        <div class="alert alert-success" style="margin-bottom:12px;">
+            <i class="fa-solid fa-circle-check"></i>
+            Importación finalizada: <strong>{{ results.imported }}</strong> importado(s),
+            <strong>{{ results.skipped }}</strong> omitido(s) de <strong>{{ results.total }}</strong> fila(s).
+        </div>
+        {% if results.errors %}
+        <div class="table-responsive" style="max-height:260px; overflow-y:auto; border:1px solid var(--border-color); border-radius:var(--radius-sm);">
+            <table class="table-premium" style="font-size:0.8rem;">
+                <thead>
+                    <tr><th>Fila</th><th>Motivo</th></tr>
+                </thead>
+                <tbody>
+                    {% for e in results.errors %}
+                    <tr>
+                        <td style="width:60px;">{{ e.row }}</td>
+                        <td style="color:var(--danger);">{{ e.reason }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        <div style="display:flex; justify-content:flex-end; margin-top:12px;">
+            <a href="{{ url_for('web_rrhh.attendance') }}" class="btn btn-ghost btn-sm">
+                <i class="fa-solid fa-calendar-check"></i> Ir a asistencia
+            </a>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

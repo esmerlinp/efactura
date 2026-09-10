@@ -13,32 +13,27 @@
 </div>
 
 <script>
-window.MASS_ACTION_EMPLOYEES = {{ employees | tojson }};
+window.ALL_EMPLOYEES = {{ all_employees | default([]) | tojson }};
 window.MASS_ACTION_PRE_TYPE = {{ action_type | tojson }};
+window.MASS_ACTION_PRESELECTED_IDS = {{ employee_ids | default([]) | tojson }};
 {% if edit_action %}
 window.MASS_ACTION_EDIT_ID = {{ edit_action.id | tojson }};
 window.MASS_ACTION_EDIT_PAYLOAD = {{ (edit_action.payload or {}) | tojson }};
+window.MASS_ACTION_EDIT_CHANGES = {{ (edit_action.employeeChanges or {}) | tojson }};
+window.MASS_ACTION_WIZARD_STEP = {{ edit_action.wizardStep or (edit_action.wizard or {}).get('step', 1) }};
 {% else %}
 window.MASS_ACTION_EDIT_ID = null;
 window.MASS_ACTION_EDIT_PAYLOAD = null;
+window.MASS_ACTION_EDIT_CHANGES = {};
+window.MASS_ACTION_WIZARD_STEP = 1;
 {% endif %}
 </script>
 
-{% if employees %}
 {% include "rrhh/_mass_action_modal.html" %}
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     maOpen(window.MASS_ACTION_PRE_TYPE || '');
 });
 </script>
-{% else %}
-<div class="card-table-wrapper hr-document-sheet" style="padding:40px;">
-    <div class="text-center" style="padding:40px;">
-        <i class="fa-solid fa-users-slash" style="font-size:3rem; color:var(--text-muted); margin-bottom:16px;"></i>
-        <h3>No hay empleados seleccionados</h3>
-        <p class="text-muted">Selecciona empleados desde la lista de empleados y vuelve a intentarlo.</p>
-        <a href="{{ url_for('web_rrhh.employee_list') }}" class="btn btn-primary"><i class="fa-solid fa-arrow-left"></i> Volver a empleados</a>
-    </div>
-</div>
-{% endif %}
 {% endblock %}

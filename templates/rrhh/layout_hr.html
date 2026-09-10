@@ -80,27 +80,6 @@
                             data-tooltip="Asistencia">
                             <a href="{{ url_for('web_rrhh.attendance') }}"><span>Asistencia</span></a>
                         </li>
-                        <li class="nav-item {% if active_page == 'rrhh_mass_actions' %}active{% endif %}"
-                            data-tooltip="Historial de solicitudes">
-                            <a href="{{ url_for('web_rrhh.mass_action_pending_list') }}"><span>Historial de Solicitudes</span></a>
-                        </li>
-                        <li class="nav-item {% if active_page == 'rrhh_offboarding' %}active{% endif %}"
-                            data-tooltip="Desvinculaciones">
-                            <a href="{{ url_for('web_rrhh.offboarding_dashboard') }}"><span>Desvinculaciones</span></a>
-                        </li>
-                    </ul>
-                </div>
-
-                <!-- ── Ausencias ── -->
-                <div class="sidebar-section" id="sidebar-section-rrhh-ausencias">
-                    <div class="sidebar-section-header">
-                        <div class="header-left">
-                            <i class="fa-solid fa-clock section-icon"></i>
-                            <span>Ausencias</span>
-                        </div>
-                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
-                    </div>
-                    <ul class="sidebar-section-content">
                         <li class="nav-item {% if active_page == 'rrhh_vacations' %}active{% endif %}"
                             data-tooltip="Vacaciones">
                             <a href="{{ url_for('web_rrhh.vacation_list') }}"><span>Vacaciones</span></a>
@@ -108,6 +87,14 @@
                         <li class="nav-item {% if active_page == 'rrhh_leaves' %}active{% endif %}"
                             data-tooltip="Permisos">
                             <a href="{{ url_for('web_rrhh.leave_list') }}"><span>Permisos / Licencias</span></a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'rrhh_mass_actions' %}active{% endif %}"
+                            data-tooltip="Historial de solicitudes">
+                            <a href="{{ url_for('web_rrhh.mass_action_pending_list') }}"><span>Historial de Solicitudes</span></a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'rrhh_offboarding' %}active{% endif %}"
+                            data-tooltip="Desvinculaciones">
+                            <a href="{{ url_for('web_rrhh.offboarding_dashboard') }}"><span>Desvinculaciones</span></a>
                         </li>
                     </ul>
                 </div>
@@ -235,7 +222,7 @@
 
                 <!-- Collapse init -->
                 <script>
-                    const hrSections = ['sidebar-section-rrhh-personal', 'sidebar-section-rrhh-ausencias',
+                    const hrSections = ['sidebar-section-rrhh-personal',
                         'sidebar-section-rrhh-nomina', 'sidebar-section-rrhh-desarrollo',
                         'sidebar-section-rrhh-reportes', 'sidebar-section-rrhh-config'];
                     hrSections.forEach(id => {
