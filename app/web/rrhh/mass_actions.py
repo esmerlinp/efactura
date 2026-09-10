@@ -1,6 +1,9 @@
 """RRHH module — auto-extracted."""
 
 import uuid
+import csv
+import io
+import json
 from datetime import date, datetime, timezone
 
 from flask import render_template, request, redirect, url_for, session, flash, send_file
@@ -11,6 +14,42 @@ from app.web.rrhh import (
 from app.services import hr_data_service as hr
 from app.utils.hr_utils import is_active_equivalent
 from app.services.state_machine import MASS_ACTION_STATES
+
+
+def _action_payload(action):
+    payload = dict(action.get("payload") or {})
+    if action.get("employeeChanges"):
+        payload["perEmployee"] = action["employeeChanges"]
+    return payload
+
+
+def _csv_field_config(action_type):
+    configs = {
+        "salary_change": [("nuevo_salario", "amount")],
+        "position_change": [("nuevo_puesto", "newPosition"), ("nuevo_departamento", "newDepartment")],
+        "supervisor_change": [("nuevo_supervisor_id", "newSupervisorId")],
+        "promotion": [("nuevo_salario", "amount"), ("nuevo_puesto", "newPosition"), ("nuevo_departamento", "newDepartment")],
+        "mass_absence": [("fecha_inicio", "startDate"), ("fecha_fin", "endDate"), ("dias", "days"), ("tipo_ausencia", "absenceType"), ("tipo_licencia", "leaveType")],
+    }
+    return configs.get(action_type, [])
+
+
+def _norm_change(raw: dict, emp_map: dict) -> dict:
+    """Normaliza un snapshot (before/after) a campos de visualización."""
+    salary = raw.get("baseSalary") if "baseSalary" in raw else raw.get("salary")
+    reports_to = (raw.get("reportsTo") or "")
+    reports_to_name = ""
+    if reports_to:
+        sup = emp_map.get(reports_to)
+        if sup:
+            reports_to_name = (sup.get("fullName") or f"{sup.get('firstName', '')} {sup.get('lastName', '')}".strip()).strip()
+        reports_to_name = reports_to_name or reports_to
+    return {
+        "salary": salary,
+        "position": raw.get("position") or "",
+        "department": (raw.get("department") or raw.get("area") or ""),
+        "reportsTo": reports_to_name,
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -76,7 +115,21 @@ def mass_action_wizard():
                     "vacationDays": vac_days,
                 })
 
-    all_employees = hr.get_employees(company_id, sandbox=sandbox)
+    all_employees = [e for e in hr.get_employees(company_id, sandbox=sandbox)
+                     if (e.get("status") or "") != "inactivo"]
+    all_employees_data = [
+        {
+            "id": e.get("id", ""),
+            "fullName": e.get("fullName", ""),
+            "cedula": e.get("cedula", ""),
+            "position": e.get("position", ""),
+            "department": e.get("department", ""),
+            "area": e.get("area", ""),
+            "baseSalary": e.get("baseSalary", 0),
+            "status": e.get("status", ""),
+        }
+        for e in all_employees
+    ]
     supervisors = [e for e in all_employees
                    if is_active_equivalent(e.get("status", "")) and e.get("id") not in employee_ids]
     positions = hr.get_catalog(company_id, "positions", sandbox=sandbox)
@@ -100,6 +153,7 @@ def mass_action_wizard():
         action_type=action_type,
         action_types=MASS_ACTION_TYPES,
         employees=employees_data,
+        all_employees=all_employees_data,
         employee_ids=employee_ids,
         supervisors=supervisors,
         positions=positions,
@@ -123,6 +177,8 @@ def mass_action_preview():
     action_type = data.get("actionType", "")
     employee_ids = data.get("employeeIds", [])
     payload = data.get("payload", {})
+    payload = dict(payload or {})
+    payload["perEmployee"] = data.get("employeeChanges") or payload.get("perEmployee") or {}
 
     from app.services.mass_action_service import validate_action
     errors = validate_action(owner_uid, action_type, employee_ids, payload, sandbox=sandbox, company_id=company_id)
@@ -171,7 +227,8 @@ def mass_action_execute():
 
     action_type = data.get("actionType", "")
     employee_ids = data.get("employeeIds", [])
-    payload = data.get("payload", {})
+    payload = dict(data.get("payload", {}) or {})
+    payload["perEmployee"] = data.get("employeeChanges") or payload.get("perEmployee") or {}
     submit_for_approval = bool(data.get("submitForApproval", False))
     existing_action_id = data.get("actionId") or None
 
@@ -231,6 +288,124 @@ def mass_action_execute():
     }
 
 
+@web_rrhh_bp.route("/rrhh/employees/mass-action/save-draft", methods=["POST"])
+def mass_action_save_draft():
+    if _login_required():
+        return {"error": "No autorizado"}, 401
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    user = session.get("user", {})
+    try:
+        data = request.get_json(force=True)
+    except Exception:
+        return {"error": "JSON inválido"}, 400
+
+    action_type = data.get("actionType", "")
+    employee_ids = data.get("employeeIds", [])
+    payload = dict(data.get("payload") or {})
+    payload["perEmployee"] = data.get("employeeChanges") or payload.get("perEmployee") or {}
+    step = max(1, min(6, int(data.get("wizardStep", 1) or 1)))
+    action_id = data.get("actionId")
+
+    from app.services.mass_action_service import create_mass_action, update_mass_action
+    try:
+        if action_id:
+            action = update_mass_action(company_id, action_id, action_type, employee_ids, payload,
+                                        user.get("email", ""), sandbox=sandbox)
+        else:
+            action = create_mass_action(owner_uid, action_type, employee_ids, payload,
+                                        user.get("email", ""), sandbox=sandbox, company_id=company_id)
+        action["wizard"] = {"step": step, "lastSavedAt": datetime.now(timezone.utc).isoformat()}
+        action["wizardStep"] = step
+        action["employeeChanges"] = payload.get("perEmployee", {})
+        action["payload"].pop("perEmployee", None)
+        hr.save_mass_action(company_id, action["id"], action, sandbox=sandbox)
+        return {"actionId": action["id"], "status": "draft", "wizardStep": step}
+    except ValueError as exc:
+        return {"error": str(exc)}, 400
+    except Exception as exc:
+        return {"error": f"No se pudo guardar el borrador: {exc}"}, 500
+
+
+@web_rrhh_bp.route("/rrhh/employees/mass-action/export-csv", methods=["POST"])
+def mass_action_export_csv():
+    if _login_required():
+        return {"error": "No autorizado"}, 401
+    _, sandbox, company_id = _get_owner_uid_and_sandbox()
+    try:
+        data = request.get_json(force=True)
+    except Exception:
+        return {"error": "JSON inválido"}, 400
+
+    action_type = data.get("actionType", "")
+    payload = dict(data.get("payload") or {})
+    changes = data.get("employeeChanges") or payload.get("perEmployee") or {}
+    employees = {e.get("id"): e for e in hr.get_employees(company_id, sandbox=sandbox)}
+    headers = ["employee_id", "cedula", "nombre", "salario_actual"] + [h for h, _ in _csv_field_config(action_type)]
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(headers)
+    for eid in data.get("employeeIds", []):
+        emp = employees.get(eid)
+        if not emp:
+            continue
+        row_changes = changes.get(eid) or {}
+        row = [eid, emp.get("cedula", ""), emp.get("fullName", ""), emp.get("baseSalary", 0)]
+        row.extend(row_changes.get(field, payload.get(field, "")) for _, field in _csv_field_config(action_type))
+        writer.writerow(row)
+    buf = io.BytesIO(output.getvalue().encode("utf-8-sig"))
+    return send_file(buf, mimetype="text/csv", as_attachment=True,
+                     download_name=f"accion_masiva_{action_type or 'empleados'}.csv")
+
+
+@web_rrhh_bp.route("/rrhh/employees/mass-action/import-csv", methods=["POST"])
+def mass_action_import_csv():
+    if _login_required():
+        return {"error": "No autorizado"}, 401
+    _, sandbox, company_id = _get_owner_uid_and_sandbox()
+    action_type = request.form.get("actionType", "")
+    file = request.files.get("file")
+    if not file or not file.filename:
+        return {"error": "Debes seleccionar un archivo CSV."}, 400
+    try:
+        text = file.read().decode("utf-8-sig")
+        rows = list(csv.DictReader(io.StringIO(text)))
+    except Exception as exc:
+        return {"error": f"No se pudo leer el CSV: {exc}"}, 400
+
+    employees = {e.get("id"): e for e in hr.get_employees(company_id, sandbox=sandbox)}
+    by_cedula = {str(e.get("cedula", "")).replace("-", "").strip(): e for e in employees.values() if e.get("cedula")}
+    changes, errors, seen = {}, [], set()
+    configs = _csv_field_config(action_type)
+    for line, row in enumerate(rows, 2):
+        eid = (row.get("employee_id") or "").strip()
+        cedula = (row.get("cedula") or "").replace("-", "").strip()
+        emp = employees.get(eid) or by_cedula.get(cedula)
+        if not emp:
+            errors.append({"line": line, "message": "Empleado no encontrado por employee_id o cédula."})
+            continue
+        eid = emp.get("id")
+        if eid in seen:
+            errors.append({"line": line, "message": "Empleado duplicado en el archivo."})
+            continue
+        seen.add(eid)
+        values = {}
+        for header, field in configs:
+            value = (row.get(header) or "").strip()
+            if value == "":
+                continue
+            if field in ("amount", "days"):
+                try:
+                    values[field] = float(value.replace(",", "."))
+                except ValueError:
+                    errors.append({"line": line, "field": header, "message": "Debe ser numérico."})
+            else:
+                values[field] = value
+        if values:
+            changes[eid] = values
+    return {"valid": not errors, "employeeChanges": changes, "errors": errors,
+            "importedCount": len(changes)}
+
+
 @web_rrhh_bp.route("/rrhh/mass-actions/<action_id>", methods=["GET"])
 def mass_action_detail(action_id):
     """Detalle de una acción masiva específica."""
@@ -244,17 +419,14 @@ def mass_action_detail(action_id):
         flash("Acción masiva no encontrada.", "error")
         return redirect(url_for("web_rrhh.employee_list"))
 
-    auth_id = action.get("authorizationRequestId")
-    if auth_id and action.get("status") != "draft":
-        return redirect(url_for("web_rrhh.authorization_detail", request_id=auth_id))
-
     selected_employees = []
     employee_ids = (action.get("selectionCriteria") or {}).get("employeeIds", [])
     if employee_ids:
         all_emps = hr.get_employees(company_id, sandbox=sandbox)
         emp_map = {e.get("id"): e for e in all_emps}
         atype = action.get("actionType", "")
-        payload = action.get("payload") or {}
+        payload = _action_payload(action)
+        per_employee = payload.get("perEmployee") or {}
 
         for eid in employee_ids:
             emp = emp_map.get(eid)
@@ -266,25 +438,30 @@ def mass_action_detail(action_id):
 
                 propsed = {}
 
+                row_payload = dict(payload)
+                row_payload.update(per_employee.get(eid) or {})
+
                 if atype in ("salary_change", "promotion"):
-                    if payload.get("changeType") == "percentage":
+                    if row_payload.get("amount") not in (None, "", 0):
+                        new_sal = float(row_payload.get("amount"))
+                    elif payload.get("changeType") == "percentage":
                         pct = float(payload.get("percentage", 0) or 0)
                         new_sal = round(cur_salary * (1 + pct / 100), 2)
                     else:
-                        new_sal = float(payload.get("amount", 0) or 0)
+                        new_sal = float(row_payload.get("amount", 0) or 0)
                     if new_sal and new_sal != cur_salary:
                         propsed["salary"] = new_sal
 
                 if atype in ("position_change", "promotion"):
-                    if payload.get("newPosition") and payload["newPosition"] != cur_position:
-                        propsed["position"] = payload["newPosition"]
-                    if payload.get("newDepartment") and payload["newDepartment"] != cur_dept:
-                        propsed["department"] = payload["newDepartment"]
-                    elif payload.get("newArea") and payload["newArea"] != cur_dept:
-                        propsed["department"] = payload["newArea"]
+                    if row_payload.get("newPosition") and row_payload["newPosition"] != cur_position:
+                        propsed["position"] = row_payload["newPosition"]
+                    if row_payload.get("newDepartment") and row_payload["newDepartment"] != cur_dept:
+                        propsed["department"] = row_payload["newDepartment"]
+                    elif row_payload.get("newArea") and row_payload["newArea"] != cur_dept:
+                        propsed["department"] = row_payload["newArea"]
 
                 if atype == "supervisor_change":
-                    new_sup_id = payload.get("newSupervisorId", "")
+                    new_sup_id = row_payload.get("newSupervisorId", "")
                     if new_sup_id and new_sup_id != cur_sup:
                         sup_emp = emp_map.get(new_sup_id, {})
                         sup_name = sup_emp.get("fullName") or sup_emp.get("firstName", "") + " " + sup_emp.get("lastName", "")
@@ -300,6 +477,80 @@ def mass_action_detail(action_id):
                     "status": emp.get("status"),
                     "proposed": propsed,
                 })
+
+    # ── Tabla unificada de cambios (antes → después) ──────────────────────
+    emp_map = {e.get("id"): e for e in hr.get_employees(company_id, sandbox=sandbox)}
+    atype = action.get("actionType", "")
+    payload = _action_payload(action)
+    per_employee = payload.get("perEmployee") or {}
+    results_by_eid = {r.get("employeeId"): r for r in (action.get("results") or [])}
+
+    change_rows = []
+    for eid in employee_ids:
+        emp = emp_map.get(eid)
+        name = (emp or {}).get("fullName") or eid
+        cedula = (emp or {}).get("cedula", "")
+        result = results_by_eid.get(eid)
+
+        if result and result.get("status") == "success":
+            changes = result.get("changes") or {}
+            before = _norm_change(changes.get("before") or {}, emp_map)
+            after = _norm_change(changes.get("after") or {}, emp_map)
+            row = {"id": eid, "fullName": name, "cedula": cedula,
+                   "status": "success", "errorMessage": "",
+                   "before": before, "after": after}
+        elif result and result.get("status") == "error":
+            snap = _norm_change(emp or {}, emp_map)
+            row = {"id": eid, "fullName": name, "cedula": cedula,
+                   "status": "error", "errorMessage": result.get("errorMessage", ""),
+                   "before": snap, "after": {}}
+        else:
+            if not emp:
+                continue
+            before = _norm_change(emp, emp_map)
+            after_raw = dict(emp)
+            row_payload = dict(payload)
+            row_payload.update(per_employee.get(eid) or {})
+
+            if atype in ("salary_change", "promotion"):
+                cur_salary = emp.get("baseSalary") or 0
+                if row_payload.get("amount") not in (None, "", 0):
+                    new_sal = float(row_payload.get("amount"))
+                elif payload.get("changeType") == "percentage":
+                    pct = float(payload.get("percentage", 0) or 0)
+                    new_sal = round(cur_salary * (1 + pct / 100), 2)
+                else:
+                    new_sal = float(row_payload.get("amount", 0) or 0)
+                if new_sal and new_sal != cur_salary:
+                    after_raw["baseSalary"] = new_sal
+                    after_raw["salary"] = new_sal
+            if atype in ("position_change", "promotion"):
+                if row_payload.get("newPosition"):
+                    after_raw["position"] = row_payload["newPosition"]
+                if row_payload.get("newDepartment"):
+                    after_raw["department"] = row_payload["newDepartment"]
+                elif row_payload.get("newArea"):
+                    after_raw["department"] = row_payload["newArea"]
+            if atype == "supervisor_change":
+                if row_payload.get("newSupervisorId"):
+                    after_raw["reportsTo"] = row_payload["newSupervisorId"]
+
+            after = _norm_change(after_raw, emp_map)
+            row = {"id": eid, "fullName": name, "cedula": cedula,
+                   "status": "pending", "errorMessage": "",
+                   "before": before, "after": after}
+
+        if atype in ("salary_change", "promotion"):
+            bs = row["before"].get("salary")
+            as_ = row["after"].get("salary")
+            if isinstance(bs, (int, float)) and isinstance(as_, (int, float)):
+                d = round(as_ - bs, 2)
+                row["diff"] = d
+                row["diffClass"] = "pos" if d >= 0 else "neg"
+            else:
+                row["diff"] = None
+                row["diffClass"] = ""
+        change_rows.append(row)
 
     assigned_to = {}
     auth_req = None
@@ -325,12 +576,16 @@ def mass_action_detail(action_id):
     except Exception:
         pass
 
+    action["wizardStep"] = action.get("wizardStep") or (action.get("wizard") or {}).get("step", 1)
+    action["employeeChanges"] = action.get("employeeChanges") or (action.get("payload") or {}).get("perEmployee", {})
+
     return render_template(
         "rrhh/mass_action_detail.html",
         active_page="rrhh_mass_actions",
         action=action,
         action_type_label=MASS_ACTION_TYPES.get(action.get("actionType", ""), {}).get("label", action.get("actionType", "")),
         selected_employees=selected_employees,
+        change_rows=change_rows,
         assigned_to=assigned_to,
         auth_req=auth_req,
         comments=comments,
@@ -532,16 +787,43 @@ def mass_action_edit(action_id):
         return redirect(url_for("web_rrhh.mass_action_detail", action_id=action_id))
 
     employee_ids = (action.get("selectionCriteria") or {}).get("employeeIds", [])
-    employees = [e for e in hr.get_employees(company_id, sandbox=sandbox) if e.get("id") in employee_ids]
+    raw_employees = [e for e in hr.get_employees(company_id, sandbox=sandbox) if e.get("id") in employee_ids]
+    from app.services.payroll_service import PayrollService
+    employees = []
+    for emp in raw_employees:
+        employees.append({
+            "id": emp.get("id", ""), "fullName": emp.get("fullName", ""),
+            "cedula": emp.get("cedula", ""), "position": emp.get("position", ""),
+            "department": emp.get("department", ""), "area": emp.get("area", ""),
+            "baseSalary": emp.get("baseSalary", 0), "status": emp.get("status", ""),
+            "reportsTo": emp.get("reportsTo", ""),
+            "vacationDays": PayrollService.calculate_vacation_days(emp.get("hireDate", "")),
+        })
+    all_employees = [{
+        "id": e.get("id", ""), "fullName": e.get("fullName", ""),
+        "cedula": e.get("cedula", ""), "position": e.get("position", ""),
+        "department": e.get("department", ""), "area": e.get("area", ""),
+        "baseSalary": e.get("baseSalary", 0), "status": e.get("status", ""),
+    } for e in hr.get_employees(company_id, sandbox=sandbox)
+        if (e.get("status") or "") != "inactivo"]
+    config = hr.get_payroll_config(company_id, sandbox=sandbox)
+    frequency = config.get("payrollFrequency") or config.get("payroll", {}).get("frequency", "mensual")
+    try:
+        payroll_periods = _generate_periods(frequency, date.today().year)
+    except Exception:
+        payroll_periods = []
 
     return render_template(
         "rrhh/mass_action_wizard.html",
         active_page="rrhh_mass_actions",
         employees=employees,
+        all_employees=all_employees,
+        employee_ids=employee_ids,
         action_types=MASS_ACTION_TYPES,
         positions=hr.get_catalog(company_id, "positions", sandbox=sandbox),
-        supervisors=[e for e in employees if e.get("status") != "inactivo"],
-        payroll_periods=[],
+        supervisors=[e for e in all_employees if is_active_equivalent(e.get("status", "")) and e.get("id") not in employee_ids],
+        departments=hr.get_catalog(company_id, "departments", sandbox=sandbox),
+        payroll_periods=payroll_periods,
         action_type=action.get("actionType", ""),
         edit_action=action,
     )

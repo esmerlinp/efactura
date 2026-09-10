@@ -26,6 +26,14 @@ ACTION_TYPE_MAP = {
     "mass_absence": "Ausencia Masiva",
 }
 
+ACTION_PER_EMPLOYEE_FIELDS = {
+    "salary_change": ("amount",),
+    "position_change": ("newPosition", "newDepartment"),
+    "supervisor_change": ("newSupervisorId",),
+    "promotion": ("amount", "newPosition", "newDepartment"),
+    "mass_absence": ("startDate", "endDate", "days", "absenceType", "leaveType"),
+}
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -105,16 +113,43 @@ def _build_employee_map(owner_uid: str, sandbox: bool, company_id=None) -> dict:
     return {e["id"]: e for e in employees}
 
 
+def resolve_employee_payload(action_type: str, payload: dict, employee_id: str) -> dict:
+    """Combina parámetros globales con los valores específicos de una fila."""
+    resolved = dict(payload or {})
+    overrides = (payload or {}).get("perEmployee") or {}
+    row = overrides.get(employee_id) or {}
+    for field in ACTION_PER_EMPLOYEE_FIELDS.get(action_type, ()):
+        if field in row and row[field] not in (None, ""):
+            resolved[field] = row[field]
+    return resolved
+
+
 def create_mass_action(owner_uid: str, action_type: str, employee_ids: list,
                        payload: dict, created_by: str, sandbox: bool = True, company_id=None) -> dict:
     action_id = str(uuid.uuid4())
     now = _now()
+    payload = dict(payload or {})
+    employee_changes = payload.pop("perEmployee", {}) or {}
 
     payroll_period_key = payload.get("payrollPeriodKey")
     if not payroll_period_key and payload.get("effectiveDate"):
         payroll_period_key = _detect_period(owner_uid, payload.get("effectiveDate", ""), sandbox, company_id=company_id)
         if payroll_period_key:
             payload["payrollPeriodKey"] = payroll_period_key
+
+    employee_map = _build_employee_map(owner_uid, sandbox, company_id=company_id)
+    snapshots = {
+        eid: {
+            "id": employee_map[eid].get("id", eid),
+            "fullName": employee_map[eid].get("fullName", ""),
+            "cedula": employee_map[eid].get("cedula", ""),
+            "baseSalary": employee_map[eid].get("baseSalary", 0),
+            "position": employee_map[eid].get("position", ""),
+            "department": employee_map[eid].get("department") or employee_map[eid].get("area", ""),
+            "reportsTo": employee_map[eid].get("reportsTo", ""),
+        }
+        for eid in employee_ids if eid in employee_map
+    }
 
     data = {
         "id": action_id,
@@ -130,6 +165,9 @@ def create_mass_action(owner_uid: str, action_type: str, employee_ids: list,
         "successCount": 0,
         "errorCount": 0,
         "payload": payload,
+        "employeeChanges": employee_changes,
+        "employeeSnapshots": snapshots,
+        "wizard": {"step": 1, "lastSavedAt": now},
         "results": [],
         "errorLog": [],
         "statusHistory": [
@@ -153,7 +191,8 @@ def update_mass_action(company_id: str, action_id: str, action_type: str,
 
     now = _now()
     action["actionType"] = action_type
-    action["payload"] = payload
+    action["payload"] = dict(payload or {})
+    action["employeeChanges"] = action["payload"].pop("perEmployee", {})
     action["selectionCriteria"] = {"employeeIds": employee_ids}
     action["totalEmployees"] = len(employee_ids)
     action["results"] = []
@@ -380,12 +419,16 @@ def validate_action(owner_uid: str, action_type: str, employee_ids: list,
 
     emp_map = _build_employee_map(owner_uid, sandbox, company_id=company_id)
 
+    per_employee = payload.get("perEmployee") or {}
+
     for eid in employee_ids:
         emp = emp_map.get(eid)
         if not emp:
             errors.append({"employeeId": eid, "employeeName": "Desconocido",
                            "field": "employeeId", "message": "Empleado no encontrado."})
             continue
+
+        row_payload = resolve_employee_payload(action_type, payload, eid)
 
         # Regla de estado: solo "inactivo" bloquea acciones de personal.
         # vacaciones / suspendido / licencia siguen vigentes en la empresa.
@@ -395,17 +438,25 @@ def validate_action(owner_uid: str, action_type: str, employee_ids: list,
                                "field": "status", "message": "El empleado está inactivo. La única acción permitida es la reincorporación."})
 
     if action_type == "salary_change":
-        amt = payload.get("amount", 0)
-        pct = payload.get("percentage")
-        if pct is None and amt <= 0:
-            errors.append({"field": "amount", "message": "Debe especificar un monto o porcentaje válido."})
-        if pct is not None and (pct < -50 or pct > 200):
-            errors.append({"field": "percentage", "message": "El porcentaje debe estar entre -50% y 200%."})
+        for eid in employee_ids:
+            row = resolve_employee_payload(action_type, payload, eid)
+            amt = row.get("amount", 0)
+            pct = row.get("percentage")
+            try:
+                invalid_amount = pct is None and float(amt or 0) <= 0
+                invalid_pct = pct is not None and not -50 <= float(pct) <= 200
+            except (TypeError, ValueError):
+                invalid_amount = pct is None
+                invalid_pct = pct is not None
+            if invalid_amount:
+                errors.append({"employeeId": eid, "employeeName": emp_map.get(eid, {}).get("fullName", ""), "field": "amount", "message": "Debe especificar un monto o porcentaje válido."})
+            if invalid_pct:
+                errors.append({"employeeId": eid, "employeeName": emp_map.get(eid, {}).get("fullName", ""), "field": "percentage", "message": "El porcentaje debe estar entre -50% y 200%."})
         if not payload.get("effectiveDate"):
             errors.append({"field": "effectiveDate", "message": "La fecha efectiva es obligatoria."})
 
     elif action_type == "position_change":
-        if not payload.get("newPosition"):
+        if not payload.get("newPosition") and not all((per_employee.get(eid) or {}).get("newPosition") for eid in employee_ids):
             errors.append({"field": "newPosition", "message": "El nuevo puesto es obligatorio."})
 
     elif action_type == "supervisor_change":
@@ -423,11 +474,9 @@ def validate_action(owner_uid: str, action_type: str, employee_ids: list,
                     break
 
     elif action_type == "promotion":
-        if not payload.get("newPosition"):
+        if not payload.get("newPosition") and not all((per_employee.get(eid) or {}).get("newPosition") for eid in employee_ids):
             errors.append({"field": "newPosition", "message": "El nuevo puesto es obligatorio."})
-        amt = payload.get("amount", 0)
-        pct = payload.get("percentage")
-        if pct is None and amt <= 0:
+        if not payload.get("amount") and not payload.get("percentage") and not all((per_employee.get(eid) or {}).get("amount") for eid in employee_ids):
             errors.append({"field": "amount", "message": "Debe especificar un nuevo salario o porcentaje."})
 
     elif action_type == "mass_absence":
@@ -478,7 +527,8 @@ def execute_action(owner_uid: str, action_id: str,
     hr.save_mass_action(company_id, action_id, action, sandbox=sandbox)
 
     action_type = action["actionType"]
-    payload = action["payload"]
+    payload = dict(action.get("payload") or {})
+    payload["perEmployee"] = action.get("employeeChanges") or {}
     employee_ids = action["selectionCriteria"]["employeeIds"]
     emp_map = _build_employee_map(owner_uid, sandbox, company_id=company_id)
 
@@ -516,7 +566,8 @@ def execute_action(owner_uid: str, action_id: str,
 
         try:
             before = _snapshot_employee(emp, action_type)
-            _apply_action_to_employee(owner_uid, emp, action_type, payload, created_by, sandbox, company_id=company_id)
+            employee_payload = resolve_employee_payload(action_type, payload, eid)
+            _apply_action_to_employee(owner_uid, emp, action_type, employee_payload, created_by, sandbox, company_id=company_id)
             after = _snapshot_employee(emp_map.get(eid) or emp, action_type)
 
             results.append({

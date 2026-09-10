@@ -1,6 +1,8 @@
 """RRHH module — auto-extracted."""
 
 import calendar
+import csv
+import io
 import uuid
 from datetime import date, datetime, timezone
 from flask import render_template, request, redirect, url_for, session, flash, jsonify, send_file
@@ -102,5 +104,108 @@ def attendance():
                            search=request.args.get("search", ""),
                            filter_area=filter_area, filter_position=filter_position,
                            areas_set=areas_set, positions_set=positions_set)
+
+
+STATUS_ABBREV = {"presente": "P", "ausente": "A", "tarde": "T", "permiso": "PE"}
+
+
+def _active_attendance_employees(company_id, sandbox):
+    all_employees = [e for e in hr.get_employees(company_id, sandbox=sandbox) if is_active_equivalent(e.get("status", ""))]
+    search = request.args.get("search", "").strip().lower()
+    filter_area = request.args.get("area", "").strip()
+    filter_position = request.args.get("position", "").strip()
+    if search:
+        all_employees = [e for e in all_employees if
+                         search in (e.get("fullName", "") + " " +
+                                    e.get("cedula", "") + " " +
+                                    e.get("idNumber", "") + " " +
+                                    e.get("position", "")).lower()]
+    if filter_area:
+        all_employees = [e for e in all_employees if e.get("area", "") == filter_area or e.get("department", "") == filter_area]
+    if filter_position:
+        all_employees = [e for e in all_employees if e.get("position", "") == filter_position]
+    return all_employees
+
+
+def _write_xlsx(headers, rows, download_name):
+    try:
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Asistencia"
+        ws.append(headers)
+        for row in rows:
+            ws.append(row)
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        return send_file(output, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                         as_attachment=True, download_name=download_name)
+    except ImportError:
+        csv_out = io.StringIO()
+        writer = csv.writer(csv_out)
+        writer.writerow(headers)
+        writer.writerows(rows)
+        buf = io.BytesIO(csv_out.getvalue().encode("utf-8-sig"))
+        return send_file(buf, mimetype="text/csv", as_attachment=True, download_name=download_name.replace(".xlsx", ".csv"))
+
+
+@web_rrhh_bp.route("/rrhh/attendance/export")
+def attendance_export():
+    """Exporta la asistencia en formato grilla (empleado × día) o listado largo."""
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+
+    now = datetime.now(timezone.utc)
+    try:
+        sel_month = int(request.args.get("month", now.month))
+        sel_year = int(request.args.get("year", now.year))
+    except ValueError:
+        sel_month, sel_year = now.month, now.year
+
+    records = hr.get_attendance_records(company_id, sandbox=sandbox)
+    month_prefix = f"{sel_year}-{sel_month:02d}"
+    month_records = [r for r in records if (r.get("date", "") or "").startswith(month_prefix)]
+
+    export_format = request.args.get("format", "grid")
+
+    if export_format == "long":
+        headers = ["Empleado", "Cédula", "Fecha", "Entrada", "Salida", "Estado", "Notas"]
+        rows = []
+        for r in month_records:
+            rows.append([
+                r.get("employeeName", ""),
+                r.get("cedula", "") or r.get("employeeCedula", ""),
+                r.get("date", ""),
+                r.get("checkIn", ""),
+                r.get("checkOut", ""),
+                r.get("status", ""),
+                r.get("notes", ""),
+            ])
+        return _write_xlsx(headers, rows, f"asistencia_registros_{sel_year}-{sel_month:02d}.xlsx")
+
+    # Grid: empleados × días del mes
+    employees = _active_attendance_employees(company_id, sandbox)
+    by_date = {}
+    for r in month_records:
+        d = r.get("date", "")
+        if d not in by_date:
+            by_date[d] = {}
+        by_date[d][r.get("employeeId", "")] = r
+
+    num_days = calendar.monthrange(sel_year, sel_month)[1]
+    days_list = [f"{sel_year}-{sel_month:02d}-{d:02d}" for d in range(1, num_days + 1)]
+
+    headers = ["Empleado", "Cédula"] + [d[-2:] for d in days_list]
+    rows = []
+    for emp in employees:
+        row = [emp.get("fullName", ""), emp.get("cedula", "") or emp.get("idNumber", "")]
+        for d in days_list:
+            rec = by_date.get(d, {}).get(emp.get("id", ""), {})
+            row.append(STATUS_ABBREV.get(rec.get("status", ""), rec.get("status", "")))
+        rows.append(row)
+
+    return _write_xlsx(headers, rows, f"asistencia_{sel_year}-{sel_month:02d}.xlsx")
 
 

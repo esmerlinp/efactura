@@ -55,7 +55,10 @@
                     <td><span style="font-size:0.8rem;">{{ a.totalEmployees or (a.selectionCriteria.employeeIds|length if a.selectionCriteria else '—') }}</span></td>
                     <td><span class="badge badge-{{ status_badge.get(a.status,'secondary') }} btn-xs">{{ states.get(a.status,{}).get('label',a.status) }}</span></td>
                     <td><span style="font-size:0.78rem;color:var(--text-muted);">{{ (a.createdAt or '')[:10] }}</span></td>
-                    <td><a href="{{ url_for('web_rrhh.mass_action_detail',action_id=a.id) }}" class="btn btn-ghost btn-xs" title="Ver detalle"><i class="fa-regular fa-eye"></i></a></td>
+                    <td style="white-space:nowrap;">
+                        {% if a.status == 'draft' %}<a href="{{ url_for('web_rrhh.mass_action_edit',action_id=a.id) }}" class="btn btn-primary btn-xs" title="Continuar"><i class="fa-solid fa-play"></i></a>{% endif %}
+                        <a href="{{ url_for('web_rrhh.mass_action_detail',action_id=a.id) }}" class="btn btn-ghost btn-xs" title="Ver detalle"><i class="fa-regular fa-eye"></i></a>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
