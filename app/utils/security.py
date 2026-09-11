@@ -57,7 +57,8 @@ def generate_portal_token(owner_uid, client_id, sandbox=True, company_id=None):
     data = {
         'owner_uid': owner_uid,
         'client_id': client_id,
-        'sandbox': bool(sandbox)
+        'sandbox': bool(sandbox),
+        'company_id': company_id
     }
     return s.dumps(data)
 
@@ -69,7 +70,8 @@ def decode_portal_token(token):
         return {
             'owner_uid': data.get('owner_uid'),
             'client_id': data.get('client_id'),
-            'sandbox': data.get('sandbox', True)
+            'sandbox': data.get('sandbox', True),
+            'company_id': data.get('company_id')
         }
     except Exception as e:
         print(f"Error decodificando token de portal: {e}")

@@ -407,7 +407,7 @@ def contact_detail(contact_id):
         client_insight = {"type": "success", "text": "Contacto sin anomalías detectadas. Perfil estable."}
 
     from app.utils.security import generate_portal_token
-    token = generate_portal_token(owner_uid, contact_id, sandbox=sandbox)
+    token = generate_portal_token(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
     portal_url = url_for('portal.portal_entry', token=token, _external=True)
 
     missing_fields = []
@@ -667,7 +667,7 @@ def send_contact_portal_credentials(contact_id):
         return jsonify({"success": False, "error": "El contacto no tiene una clave de acceso asignada."}), 400
 
     from app.utils.security import generate_portal_token
-    token = generate_portal_token(owner_uid, contact_id, sandbox=sandbox)
+    token = generate_portal_token(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
     portal_url = url_for('portal.portal_entry', token=token, _external=True)
 
     company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}

@@ -11,15 +11,15 @@ class ContactRepository(BaseRepository):
     """Repositorio para gestión de contactos (clientes y proveedores)."""
 
     def _coll_name(self, sandbox: bool) -> str:
-        return "sandbox_clients" if sandbox else "clients"
+        return "sandbox_contacts" if sandbox else "contacts"
 
-    # ── Clients ─────────────────────────────────────────────────────────
+    # ── Clients (fuente canónica: contacts) ─────────────────────────────
     def get_clients(self, sandbox: bool = True) -> list:
-        self.collection_prefix = "clients"
+        self.collection_prefix = "contacts"
         return self._get_all(sandbox=sandbox)
 
     def get_client(self, client_id: str, sandbox: bool = True) -> Optional[dict]:
-        self.collection_prefix = "clients"
+        self.collection_prefix = "contacts"
         return self._get_one(client_id, sandbox=sandbox)
 
     def get_client_by_rnc(self, rnc: str, sandbox: bool = True) -> Optional[dict]:
@@ -42,11 +42,11 @@ class ContactRepository(BaseRepository):
         return None
 
     def save_client(self, client_id: str, data: dict, sandbox: bool = True) -> str:
-        self.collection_prefix = "clients"
+        self.collection_prefix = "contacts"
         return self._save(client_id, data, sandbox=sandbox)
 
     def delete_client(self, client_id: str, sandbox: bool = True) -> bool:
-        self.collection_prefix = "clients"
+        self.collection_prefix = "contacts"
         return self._delete(client_id, sandbox=sandbox)
 
     def update_client_pipeline(self, client_id: str, pipeline_stage: str, sandbox: bool = True) -> None:

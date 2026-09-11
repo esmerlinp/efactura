@@ -137,15 +137,15 @@ def _run_query_clients(owner_uid, sandbox, args, company_id=None):
     search = (args.get("search") or "").strip().lower()
     limit = min(int(args.get("limit", 50)), 100)
     results = []
-    for doc in _coll(owner_uid, sandbox, "clients", company_id=company_id).get():
-        d = _serialize_doc(doc)
+    all_clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox, company_id=company_id)
+    for d in all_clients:
         if search:
             name = (d.get("razonSocial") or d.get("name") or "").lower()
             rnc = (d.get("rnc") or "").lower()
             if search not in name and search not in rnc:
                 continue
         results.append({
-            "id": d["id"],
+            "id": d.get("id"),
             "nombre": d.get("razonSocial") or d.get("name") or "N/A",
             "rnc": d.get("rnc", ""),
             "email": d.get("email", ""),
@@ -154,7 +154,7 @@ def _run_query_clients(owner_uid, sandbox, args, company_id=None):
         })
         if len(results) >= limit:
             break
-    return json.dumps({"total": len(DatabaseService.get_clients(owner_uid, sandbox=sandbox, company_id=company_id)), "results": results}, ensure_ascii=False)
+    return json.dumps({"total": len(all_clients), "results": results}, ensure_ascii=False)
 
 
 def _run_query_invoices(owner_uid, sandbox, args, company_id=None):
@@ -316,8 +316,7 @@ def _run_get_financial_summary(owner_uid, sandbox, args, company_id=None):
             continue
         expense_total += d.get("amount", 0)
         expense_count += 1
-    for _ in _coll(owner_uid, sandbox, "clients", company_id=company_id).get():
-        client_count += 1
+    client_count = len(DatabaseService.get_clients(owner_uid, sandbox=sandbox, company_id=company_id))
     return json.dumps({
         "periodo": {"desde": date_from, "hasta": date_to},
         "ventas": {"total": total_sales, "cantidad_facturas": invoice_count},
@@ -334,16 +333,15 @@ def _run_query_client_debt(owner_uid, sandbox, args, company_id=None):
     # 1. Find matching clients
     matched_client_ids = set()
     client_names_map = {}
-    for doc in _coll(owner_uid, sandbox, "clients", company_id=company_id).get():
-        d = _serialize_doc(doc)
+    for d in DatabaseService.get_clients(owner_uid, sandbox=sandbox, company_id=company_id):
         name = (d.get("razonSocial") or d.get("name") or "").lower()
         rnc = (d.get("rnc") or "").lower()
         if client_name and client_name not in name:
             continue
         if client_rnc and client_rnc != rnc:
             continue
-        matched_client_ids.add(d["id"])
-        client_names_map[d["id"]] = d.get("razonSocial") or d.get("name") or "N/A"
+        matched_client_ids.add(d.get("id"))
+        client_names_map[d.get("id")] = d.get("razonSocial") or d.get("name") or "N/A"
 
     if not matched_client_ids:
         return json.dumps({"total_deuda": 0, "cantidad_facturas": 0, "mensaje": f"No se encontró ningún cliente que coincida con '{args.get('client_name', '')}'."}, ensure_ascii=False)
