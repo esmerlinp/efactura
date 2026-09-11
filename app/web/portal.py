@@ -1833,9 +1833,7 @@ def portal_add_comment(invoice_id):
 
 @portal_bp.route('/portal/documento/<invoice_id>/pdf')
 def portal_document_pdf(invoice_id):
-    owner_uid = session.get('portal_owner_uid')
-    client_id = session.get('portal_client_id')
-    sandbox = session.get('portal_sandbox', True)
+    owner_uid, client_id, sandbox, company_id = _portal_context()
     
     if not owner_uid or not client_id:
         return "Sesión de autogestión no válida o expirada.", 403
@@ -1844,7 +1842,7 @@ def portal_document_pdf(invoice_id):
     if session.get(session_key) != True:
         return "No verificado", 401
         
-    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id)
     if not invoice or invoice.get('clientId') != client_id:
         return "Documento no encontrado o acceso denegado.", 404
         
@@ -1972,9 +1970,7 @@ def portal_admin():
 
 @portal_bp.route('/portal/pago/<invoice_id>')
 def payment_page(invoice_id):
-    owner_uid = session.get('portal_owner_uid')
-    client_id = session.get('portal_client_id')
-    sandbox = session.get('portal_sandbox', True)
+    owner_uid, client_id, sandbox, company_id = _portal_context()
 
     if not owner_uid or not client_id:
         return "Sesión de autogestión no válida o expirada.", 403
@@ -1987,7 +1983,7 @@ def payment_page(invoice_id):
     if method not in ('paypal', 'proof'):
         return redirect(url_for('portal.portal_document_detail', invoice_id=invoice_id))
 
-    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id)
     if not invoice or invoice.get('clientId') != client_id:
         return "Documento no encontrado o acceso denegado.", 404
 
@@ -1998,7 +1994,7 @@ def payment_page(invoice_id):
     invoice = _enrich_invoice_totals(invoice)
 
     company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
-    client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox)
+    client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
 
     today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 

@@ -557,14 +557,14 @@
         {% endif %}
 
         <!-- Encabezado de Empresa y Número de Documento -->
-        {% if company.logoUrl %}
+        {% if company.logoUrl or company.logoBase64 %}
         <div style="padding: 6px 20px 4px;">
-            <img src="{{ company.logoUrl }}" alt="{{ company.tradeName or company.companyName }}"
+            <img src="{% if company.logoBase64 %}data:image/png;base64,{{ company.logoBase64 }}{% else %}{{ company.logoUrl }}{% endif %}" alt="{{ company.tradeName or company.companyName }}"
                 style="max-height: 80px; max-width: 180px; object-fit: contain; border-radius: 4px;">
         </div>
         {% endif %}
         <div class="header"
-            style="border-bottom: none; padding-top: {% if company.logoUrl %}6px{% else %}8px{% endif %}; padding-bottom: 8px; margin-bottom: 12px;">
+            style="border-bottom: none; padding-top: {% if company.logoUrl or company.logoBase64 %}6px{% else %}8px{% endif %}; padding-bottom: 8px; margin-bottom: 12px;">
             <div class="company-block">
                 <h1 style="color: {{ current_color }}; font-size: 18px; margin-bottom: 2px;">{{
                     company.tradeName or company.companyName }}</h1>
