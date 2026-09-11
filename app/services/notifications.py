@@ -32,7 +32,7 @@ class NotificationService:
             except Exception:
                 base_url = os.environ.get("PORTAL_BASE_URL", "http://localhost:5001").rstrip('/')
             from app.utils.security import generate_portal_token
-            token = generate_portal_token(owner_uid, client_id, sandbox=sandbox)
+            token = generate_portal_token(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
             portal_url = f"{base_url}/portal/p/{token}"
 
         client_pin = ""
@@ -570,7 +570,7 @@ class NotificationService:
         
         if client_id:
             from app.utils.security import generate_portal_token
-            token = generate_portal_token(owner_uid, client_id, sandbox=sandbox)
+            token = generate_portal_token(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
             portal_link = f"{base_url}/portal/p/{token}"
 
         is_approved = action == 'aprobado'

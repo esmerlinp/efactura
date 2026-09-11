@@ -65,15 +65,20 @@
     /* Layout responsivo del detalle: 2 columnas en desktop, 1 columna en mobile */
     .detail-grid {
         display: grid;
-        grid-template-columns: 3fr 1fr;
+        grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
         gap: 30px;
         max-width: 100%;
         margin: 0 auto;
     }
 
+    .detail-grid > * {
+        min-width: 0;
+        max-width: 100%;
+    }
+
     @media screen and (max-width: 1024px) {
         .detail-grid {
-            grid-template-columns: 1fr;
+            grid-template-columns: minmax(0, 1fr);
             gap: 20px;
         }
     }
@@ -1381,6 +1386,12 @@
             {% endif %}
 
             {% if invoice.isQuotation %}
+            <a href="{{ url_for('web_invoices.invoice_pdf_download', invoice_id=invoice.id) }}"
+                target="_blank" class="btn btn-secondary"
+                style="width: 100%; border-color: var(--accent-red); color: var(--accent-red); display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                <i class="fa-solid fa-file-pdf"></i>
+                <span>Descargar PDF</span>
+            </a>
             <a href="{% if invoice.get('isProfessional') %}{{ url_for('web_invoices.professional_quotation_route') }}?clone={{ invoice.id }}{% else %}{{ url_for('web_invoices.new_quotation_route') }}?clone={{ invoice.id }}{% endif %}"
                 class="btn btn-secondary" style="width: 100%; border-color: var(--accent-purple); color: var(--accent-purple); display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
                 <i class="fa-solid fa-copy"></i>
@@ -1768,7 +1779,7 @@ function closeDraftPaymentModal() {
      MODAL PARA ENVIAR RECIBO POR EMAIL
      ========================================================================= -->
 <div class="search-modal" id="email-receipt-modal"
-    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1200; align-items: center; justify-content: center;">
+    style="display: none; position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 1200; align-items: center; justify-content: center;">
     <div class="modal-backdrop" onclick="closeEmailReceiptModal()"
         style="position: absolute; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px);">
     </div>
@@ -1834,7 +1845,7 @@ function closeDraftPaymentModal() {
      MODAL PARA NOTIFICAR FACTURA ELECTRÓNICA POR EMAIL
      ========================================================================= -->
 <div class="search-modal" id="notify-email-modal"
-    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1200; align-items: center; justify-content: center;">
+    style="display: none; position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 1200; align-items: center; justify-content: center;">
     <div class="modal-backdrop" onclick="closeNotifyEmailModal()"
         style="position: absolute; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px);">
     </div>
@@ -1905,7 +1916,7 @@ function closeDraftPaymentModal() {
 
 <!-- Modal: Enviar Carta de Retención por Correo -->
 <div class="search-modal" id="retention-email-modal"
-    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1200; align-items: center; justify-content: center;">
+    style="display: none; position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 1200; align-items: center; justify-content: center;">
     <div class="modal-backdrop" onclick="closeRetentionEmailModal()"
         style="position: absolute; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px);">
     </div>
@@ -1955,7 +1966,7 @@ function closeDraftPaymentModal() {
          MODAL PARA ENVIAR COTIZACIÓN POR EMAIL AL CLIENTE
          ========================================================================= -->
         <div class="search-modal" id="send-quotation-modal"
-            style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1200; align-items: center; justify-content: center;">
+            style="display: none; position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 1200; align-items: center; justify-content: center;">
             <div class="modal-backdrop" onclick="closeSendQuotationModal()"
                 style="position: absolute; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px);">
             </div>
@@ -2017,7 +2028,7 @@ function closeDraftPaymentModal() {
 
         <!-- Modal: Clave de Acceso No Asignada -->
         <div class="search-modal" id="pin-missing-modal"
-            style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1300; align-items: center; justify-content: center;">
+            style="display: none; position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 1300; align-items: center; justify-content: center;">
             <div class="modal-backdrop" onclick="closePinMissingModal()"
                 style="position: absolute; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px);"></div>
             <div class="modal-content"
@@ -2067,7 +2078,7 @@ function closeDraftPaymentModal() {
 
         {% if invoice.status == 'Revisión de Pago' and invoice.pendingPaymentProof %}
         <!-- Modal Aprobar Comprobante de Pago -->
-        <div id="approve-proof-modal" class="search-modal" style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000;">
+        <div id="approve-proof-modal" class="search-modal" style="display: none; justify-content: center; align-items: center; position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 2000;">
             <div class="modal-backdrop" onclick="closeApproveProofModal()" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);"></div>
             <div class="modal-content" style="max-width: 500px; width: 90%; padding: 24px; border-radius: var(--radius-md); position: relative; z-index: 2001; background: #ffffff; box-shadow: var(--shadow-lg);">
                 <h3 style="margin-top: 0; margin-bottom: 16px; font-family: var(--font-heading); color: var(--text-primary); font-weight: 800; display: flex; align-items: center; gap: 8px;">
@@ -2127,7 +2138,7 @@ function closeDraftPaymentModal() {
         </div>
 
         <!-- Modal Rechazar Comprobante de Pago -->
-        <div id="reject-proof-modal" class="search-modal" style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000;">
+        <div id="reject-proof-modal" class="search-modal" style="display: none; justify-content: center; align-items: center; position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 2000;">
             <div class="modal-backdrop" onclick="closeRejectProofModal()" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);"></div>
             <div class="modal-content" style="max-width: 450px; width: 90%; padding: 24px; border-radius: var(--radius-md); position: relative; z-index: 2001; background: #ffffff; box-shadow: var(--shadow-lg);">
                 <h3 style="margin-top: 0; margin-bottom: 16px; font-family: var(--font-heading); color: var(--text-primary); font-weight: 800; display: flex; align-items: center; gap: 8px;">

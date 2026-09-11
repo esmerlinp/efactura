@@ -12082,6 +12082,58 @@ def professional_quotation_route():
     data = request.json or {}
     user_display = session['user'].get('displayName', session['user'].get('email', 'Usuario'))
 
+    from app.services.contact_service import ContactService
+
+    client_id = str(data.get('clientId') or '').strip()
+    client_name = str(data.get('clientName') or '').strip()
+    client_rnc = str(data.get('clientRNC') or '').strip()
+    client_email = str(data.get('clientEmail') or '').strip()
+    client_phone = str(data.get('clientPhone') or '').strip()
+    client_address = str(data.get('clientAddress') or '').strip()
+
+    # A professional quotation must have a CRM client so portal approval can work.
+    if client_id:
+        existing_contact = ContactService.get_contact(
+            owner_uid, client_id, sandbox=sandbox, company_id=company_id
+        )
+        existing_client = DatabaseService.get_client(
+            owner_uid, client_id, company_id=company_id, sandbox=sandbox
+        )
+        if not existing_contact and not existing_client:
+            client_id = ''
+
+    if not client_id and client_name:
+        existing_contact = None
+        if client_rnc:
+            existing_contact = ContactService.get_contact_by_rnc(
+                owner_uid, client_rnc, sandbox=sandbox, company_id=company_id
+            )
+
+        if existing_contact:
+            client_id = existing_contact['id']
+        else:
+            import random
+
+            client_id = str(uuid.uuid4())
+            contact_dict = {
+                "types": ["cliente"],
+                "rnc": client_rnc,
+                "razonSocial": client_name,
+                "email": client_email,
+                "telefono": client_phone,
+                "direccion": client_address,
+                "accessPin": "".join(str(random.randint(0, 9)) for _ in range(6)),
+                "pipelineStage": "Cliente Activo",
+                "crmNotes": "Cliente creado automáticamente desde cotización profesional",
+            }
+            ContactService.save_contact(
+                owner_uid,
+                client_id,
+                contact_dict,
+                sandbox=sandbox,
+                company_id=company_id,
+            )
+
     items = []
     for item in data.get('items', []):
         price = float(item.get('price', 0))
@@ -12144,13 +12196,13 @@ def professional_quotation_route():
         "isQuotation": True,
         "isProfessional": True,
         "professionalData": professional_data,
-        "clientId": data.get('clientId', ''),
-        "clientName": data.get('clientName', 'Cliente'),
-        "clientRNC": data.get('clientRNC', ''),
+        "clientId": client_id,
+        "clientName": client_name or 'Cliente',
+        "clientRNC": client_rnc,
         "clientContact": data.get('clientContact', ''),
-        "clientEmail": data.get('clientEmail', ''),
-        "clientPhone": data.get('clientPhone', ''),
-        "clientAddress": data.get('clientAddress', ''),
+        "clientEmail": client_email,
+        "clientPhone": client_phone,
+        "clientAddress": client_address,
         "items": items,
         "subtotal": round(subtotal, 2),
         "totalITBIS": round(total_itbis, 2),

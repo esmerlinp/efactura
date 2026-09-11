@@ -19,26 +19,39 @@ from app.utils.module_gate import module_enabled
 
 portal_bp = Blueprint('portal', __name__, template_folder='templates')
 
+def _portal_context():
+    return (
+        session.get('portal_owner_uid'),
+        session.get('portal_client_id'),
+        session.get('portal_sandbox', True),
+        session.get('portal_company_id'),
+    )
+
 class PortalDbService:
     @classmethod
-    def get_client_by_id(cls, owner_uid, client_id, sandbox=True):
+    def get_client_by_id(cls, owner_uid, client_id, sandbox=True, company_id=None):
         try:
-            coll_name = "sandbox_clients" if sandbox else "clients"
-            doc = db_firestore.collection('users').document(owner_uid).collection(coll_name).document(client_id).get()
-            if doc.exists:
-                data = doc.to_dict()
-                data['id'] = doc.id
-                return data
+            ref = DatabaseService.get_client(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
+            if ref:
+                return ref
+            # Fallback users-scoped (owner sin company): consulta contacts y clients.
+            for coll_name in (("sandbox_contacts" if sandbox else "contacts"), ("sandbox_clients" if sandbox else "clients")):
+                doc = db_firestore.collection('users').document(owner_uid).collection(coll_name).document(client_id).get()
+                if doc.exists:
+                    data = doc.to_dict()
+                    data['id'] = doc.id
+                    return data
         except Exception as e:
             print(f"Error en PortalDbService.get_client_by_id: {e}")
         return None
 
     @classmethod
-    def get_client_contracts(cls, owner_uid, client_id, sandbox=True):
+    def get_client_contracts(cls, owner_uid, client_id, sandbox=True, company_id=None):
         contracts = []
         try:
             coll_name = "sandbox_contracts" if sandbox else "contracts"
-            docs = db_firestore.collection('users').document(owner_uid).collection(coll_name)\
+            base = db_firestore.collection('users').document(owner_uid).collection(coll_name) if not company_id else db_firestore.collection('companies').document(company_id).collection(coll_name)
+            docs = base\
                 .where(filter=firestore.FieldFilter('clientId', '==', client_id)).get()
             for doc in docs:
                 data = doc.to_dict()
@@ -51,10 +64,11 @@ class PortalDbService:
         return contracts
 
     @classmethod
-    def get_contract(cls, owner_uid, contract_id, sandbox=True):
+    def get_contract(cls, owner_uid, contract_id, sandbox=True, company_id=None):
         try:
             coll_name = "sandbox_contracts" if sandbox else "contracts"
-            doc = db_firestore.collection('users').document(owner_uid).collection(coll_name).document(contract_id).get()
+            base = db_firestore.collection('users').document(owner_uid).collection(coll_name) if not company_id else db_firestore.collection('companies').document(company_id).collection(coll_name)
+            doc = base.document(contract_id).get()
             if doc.exists:
                 data = doc.to_dict()
                 data['id'] = doc.id
@@ -65,21 +79,23 @@ class PortalDbService:
         return None
 
     @classmethod
-    def save_contract(cls, owner_uid, contract_id, contract_dict, sandbox=True):
+    def save_contract(cls, owner_uid, contract_id, contract_dict, sandbox=True, company_id=None):
         try:
             coll_name = "sandbox_contracts" if sandbox else "contracts"
-            db_firestore.collection('users').document(owner_uid).collection(coll_name).document(contract_id).set(contract_dict)
+            base = db_firestore.collection('users').document(owner_uid).collection(coll_name) if not company_id else db_firestore.collection('companies').document(company_id).collection(coll_name)
+            base.document(contract_id).set(contract_dict)
             return True
         except Exception as e:
             print(f"Error en PortalDbService.save_contract: {e}")
         return False
 
     @classmethod
-    def get_client_invoices(cls, owner_uid, client_id, sandbox=True):
+    def get_client_invoices(cls, owner_uid, client_id, sandbox=True, company_id=None):
         invoices = []
         try:
             coll_name = "sandbox_invoices" if sandbox else "invoices"
-            docs = db_firestore.collection('users').document(owner_uid).collection(coll_name)\
+            base = db_firestore.collection('users').document(owner_uid).collection(coll_name) if not company_id else db_firestore.collection('companies').document(company_id).collection(coll_name)
+            docs = base\
                 .where(filter=firestore.FieldFilter('clientId', '==', client_id)).get()
             for doc in docs:
                 data = doc.to_dict()
@@ -113,10 +129,11 @@ class PortalDbService:
         return invoices
 
     @classmethod
-    def get_invoice(cls, owner_uid, invoice_id, sandbox=True):
+    def get_invoice(cls, owner_uid, invoice_id, sandbox=True, company_id=None):
         try:
             coll_name = "sandbox_invoices" if sandbox else "invoices"
-            doc = db_firestore.collection('users').document(owner_uid).collection(coll_name).document(invoice_id).get()
+            base = db_firestore.collection('users').document(owner_uid).collection(coll_name) if not company_id else db_firestore.collection('companies').document(company_id).collection(coll_name)
+            doc = base.document(invoice_id).get()
             if doc.exists:
                 data = doc.to_dict()
                 data['id'] = doc.id
@@ -130,22 +147,24 @@ class PortalDbService:
         return None
 
     @classmethod
-    def save_invoice(cls, owner_uid, invoice_id, inv_dict, sandbox=True):
+    def save_invoice(cls, owner_uid, invoice_id, inv_dict, sandbox=True, company_id=None):
         try:
             coll_name = "sandbox_invoices" if sandbox else "invoices"
-            db_firestore.collection('users').document(owner_uid).collection(coll_name).document(invoice_id).set(inv_dict)
+            base = db_firestore.collection('users').document(owner_uid).collection(coll_name) if not company_id else db_firestore.collection('companies').document(company_id).collection(coll_name)
+            base.document(invoice_id).set(inv_dict)
             return True
         except Exception as e:
             print(f"Error en PortalDbService.save_invoice: {e}")
         return False
 
     @classmethod
-    def get_invoice_comments(cls, owner_uid, invoice_id, sandbox=True):
+    def get_invoice_comments(cls, owner_uid, invoice_id, sandbox=True, company_id=None):
         """Retorna los comentarios visibles para el cliente de una factura/cotización."""
         comments = []
         try:
             coll_name = "sandbox_invoices" if sandbox else "invoices"
-            docs = db_firestore.collection('users').document(owner_uid).collection(coll_name).document(invoice_id).collection("comments").get()
+            base = db_firestore.collection('users').document(owner_uid).collection(coll_name) if not company_id else db_firestore.collection('companies').document(company_id).collection(coll_name)
+            docs = base.document(invoice_id).collection("comments").get()
             for doc in docs:
                 data = doc.to_dict()
                 if data.get("visibleToClient", False):
@@ -164,11 +183,12 @@ class PortalDbService:
         return comments
 
     @classmethod
-    def save_invoice_comment(cls, owner_uid, invoice_id, comment_id, comment_dict, sandbox=True):
+    def save_invoice_comment(cls, owner_uid, invoice_id, comment_id, comment_dict, sandbox=True, company_id=None):
         """Guarda un comentario del cliente en la factura."""
         try:
             coll_name = "sandbox_invoices" if sandbox else "invoices"
-            db_firestore.collection('users').document(owner_uid).collection(coll_name).document(invoice_id).collection("comments").document(comment_id).set(comment_dict)
+            base = db_firestore.collection('users').document(owner_uid).collection(coll_name) if not company_id else db_firestore.collection('companies').document(company_id).collection(coll_name)
+            base.document(invoice_id).collection("comments").document(comment_id).set(comment_dict)
             return True
         except Exception as e:
             print(f"Error en PortalDbService.save_invoice_comment: {e}")
@@ -184,20 +204,19 @@ def portal_entry(token):
     session['portal_owner_uid'] = data['owner_uid']
     session['portal_client_id'] = data['client_id']
     session['portal_sandbox'] = data['sandbox']
+    session['portal_company_id'] = data.get('company_id')
     
     return redirect(url_for('portal.client_portal_main'))
 
 @portal_bp.route('/portal')
 def client_portal_main():
-    owner_uid = session.get('portal_owner_uid')
-    client_id = session.get('portal_client_id')
-    sandbox = session.get('portal_sandbox', True)
+    owner_uid, client_id, sandbox, company_id = _portal_context()
     
     if not owner_uid or not client_id:
         return "Sesión de autogestión no válida o expirada. Por favor use el enlace oficial enviado a su correo.", 403
         
-    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
-    client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox)
+    company = DatabaseService.get_company_profile(owner_uid)
+    client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
     if not client:
         return "Cliente no encontrado.", 404
         
@@ -212,8 +231,8 @@ def client_portal_main():
             sandbox=sandbox
         )
         
-    invoices = PortalDbService.get_client_invoices(owner_uid, client_id, sandbox=sandbox)
-    contracts = PortalDbService.get_client_contracts(owner_uid, client_id, sandbox=sandbox)
+    invoices = PortalDbService.get_client_invoices(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
+    contracts = PortalDbService.get_client_contracts(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
     
     # Calcular saldos consolidados
     total_invoiced = 0.0
@@ -239,9 +258,7 @@ def client_portal_main():
 
 @portal_bp.route('/portal/verify', methods=['POST'])
 def client_portal_verify_main():
-    owner_uid = session.get('portal_owner_uid')
-    client_id = session.get('portal_client_id')
-    sandbox = session.get('portal_sandbox', True)
+    owner_uid, client_id, sandbox, company_id = _portal_context()
     
     if not owner_uid or not client_id:
         return "Sesión de autogestión no válida o expirada.", 403
@@ -249,8 +266,8 @@ def client_portal_verify_main():
     input_rnc = request.form.get('rnc', '').strip()
     input_pin = request.form.get('accessPin', '').strip()
     
-    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
-    client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox)
+    company = DatabaseService.get_company_profile(owner_uid)
+    client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
     if not client:
         return "Cliente no encontrado.", 404
         
@@ -259,7 +276,7 @@ def client_portal_verify_main():
         import random
         db_pin = "".join([str(random.randint(0, 9)) for _ in range(6)])
         client['accessPin'] = db_pin
-        DatabaseService.save_client(owner_uid, client_id, client, company_id=company_id, sandbox=sandbox)
+        DatabaseService.save_client(owner_uid, client_id, client, sandbox=sandbox, company_id=company_id)
         
     if clean_rnc(input_rnc) == clean_rnc(client.get('rnc', '')) and input_pin == db_pin:
         session[f'verified_client_{client_id}'] = True
@@ -288,17 +305,21 @@ def clean_rnc(rnc_str):
 @portal_bp.route('/portal/cliente/<owner_uid>/<client_id>')
 def client_portal(owner_uid, client_id):
     sandbox = request.args.get('sandbox', 'true').lower() == 'true'
+    company_id = request.args.get('company_id')
     session['portal_owner_uid'] = owner_uid
     session['portal_client_id'] = client_id
     session['portal_sandbox'] = sandbox
+    session['portal_company_id'] = company_id
     return redirect(url_for('portal.client_portal_main'))
 
 @portal_bp.route('/portal/cliente/<owner_uid>/<client_id>/verify', methods=['POST'])
 def client_portal_verify(owner_uid, client_id):
     sandbox = request.args.get('sandbox', 'true').lower() == 'true'
+    company_id = request.args.get('company_id')
     session['portal_owner_uid'] = owner_uid
     session['portal_client_id'] = client_id
     session['portal_sandbox'] = sandbox
+    session['portal_company_id'] = company_id
     return redirect(url_for('portal.client_portal_verify_main'), code=307)
 
 
@@ -383,9 +404,7 @@ def validate_certificate_signature(cert_file, password, client_rnc):
 
 @portal_bp.route('/portal/cotizacion/<invoice_id>/firmar', methods=['POST'])
 def sign_quotation(invoice_id):
-    owner_uid = session.get('portal_owner_uid')
-    client_id = session.get('portal_client_id')
-    sandbox = session.get('portal_sandbox', True)
+    owner_uid, client_id, sandbox, company_id = _portal_context()
     if not owner_uid or not client_id:
         return jsonify({"success": False, "error": "Sesión no válida o expirada."}), 403
     
@@ -400,11 +419,11 @@ def sign_quotation(invoice_id):
     if not cert_file:
         return jsonify({"success": False, "error": "No se recibió el archivo del certificado digital."}), 400
         
-    client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox)
+    client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
     if not client:
         return jsonify({"success": False, "error": "Cliente no encontrado."}), 404
         
-    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id)
     if not invoice or not invoice.get('isQuotation'):
         return jsonify({"success": False, "error": "Cotización no encontrada."}), 404
         
@@ -424,7 +443,7 @@ def sign_quotation(invoice_id):
     invoice['signatureInfo'] = result
     invoice['signedAt'] = result['signedAt']
     
-    PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+    PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox, company_id=company_id)
 
     # Registrar evento de auditoría
     try:
@@ -543,9 +562,7 @@ def sign_contract(contract_id):
 
 @portal_bp.route('/portal/cotizacion/<invoice_id>/rechazar', methods=['POST'])
 def reject_quotation(invoice_id):
-    owner_uid = session.get('portal_owner_uid')
-    client_id = session.get('portal_client_id')
-    sandbox = session.get('portal_sandbox', True)
+    owner_uid, client_id, sandbox, company_id = _portal_context()
     if not owner_uid or not client_id:
         return jsonify({"success": False, "error": "Sesión no válida o expirada."}), 403
 
@@ -553,11 +570,11 @@ def reject_quotation(invoice_id):
     if session.get(session_key) != True:
         return jsonify({"success": False, "error": "Acceso no autorizado."}), 403
 
-    client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox)
+    client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
     if not client:
         return jsonify({"success": False, "error": "Cliente no encontrado."}), 404
 
-    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id)
     if not invoice or not invoice.get('isQuotation'):
         return jsonify({"success": False, "error": "Cotización no encontrada."}), 404
         
@@ -572,7 +589,7 @@ def reject_quotation(invoice_id):
     invoice['status'] = 'Rechazada'
     invoice['rejectedAt'] = rejected_at
     invoice['rejectedBy'] = client.get('name', client.get('rnc', 'Cliente'))
-    PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+    PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox, company_id=company_id)
 
     # Registrar evento de auditoría
     try:
@@ -1712,9 +1729,7 @@ def _capturar_paypal_pendiente(owner_uid, client_id, invoice_id, sandbox):
 
 @portal_bp.route('/portal/documento/<invoice_id>')
 def portal_document_detail(invoice_id):
-    owner_uid = session.get('portal_owner_uid')
-    client_id = session.get('portal_client_id')
-    sandbox = session.get('portal_sandbox', True)
+    owner_uid, client_id, sandbox, company_id = _portal_context()
     
     if not owner_uid or not client_id:
         return "Sesión de autogestión no válida o expirada. Por favor use el enlace oficial enviado a su correo.", 403
@@ -1726,7 +1741,7 @@ def portal_document_detail(invoice_id):
     # Capturar pago PayPal pendiente si el usuario llegó aquí sin pasar por paypal_return
     _capturar_paypal_pendiente(owner_uid, client_id, invoice_id, sandbox)
         
-    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id)
     if not invoice or invoice.get('clientId') != client_id:
         return "Documento no encontrado o acceso denegado.", 404
         
@@ -1740,7 +1755,7 @@ def portal_document_detail(invoice_id):
     invoice = _enrich_invoice_totals(invoice)
     
     company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
-    client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox)
+    client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
     
     # Obtener sucursal
     branches = DatabaseService.get_branches(owner_uid, company_id=company_id, sandbox=sandbox)
@@ -1750,7 +1765,7 @@ def portal_document_detail(invoice_id):
         
     today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-    comments = PortalDbService.get_invoice_comments(owner_uid, invoice_id, sandbox=sandbox)
+    comments = PortalDbService.get_invoice_comments(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id)
         
     paypal_client_id = (company.get('paypalClientId') or '').strip()
     paypal_secret_enc = (company.get('paypalClientSecretEncrypted') or '').strip()
@@ -1776,14 +1791,12 @@ def portal_document_detail(invoice_id):
 
 @portal_bp.route('/portal/documento/<invoice_id>/comentario', methods=['POST'])
 def portal_add_comment(invoice_id):
-    owner_uid = session.get('portal_owner_uid')
-    client_id = session.get('portal_client_id')
-    sandbox = session.get('portal_sandbox', True)
+    owner_uid, client_id, sandbox, company_id = _portal_context()
 
     if not owner_uid or not client_id:
         return jsonify({"success": False, "error": "Sesión de autogestión no válida o expirada."}), 403
 
-    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox, company_id=company_id)
     if not invoice or invoice.get('clientId') != client_id:
         return jsonify({"success": False, "error": "Documento no encontrado o acceso denegado."}), 404
 
@@ -1805,7 +1818,7 @@ def portal_add_comment(invoice_id):
         "visibleToClient": True
     }
 
-    PortalDbService.save_invoice_comment(owner_uid, invoice_id, comment_id, comment_dict, sandbox=sandbox)
+    PortalDbService.save_invoice_comment(owner_uid, invoice_id, comment_id, comment_dict, sandbox=sandbox, company_id=company_id)
 
     return jsonify({
         "success": True,
@@ -1940,7 +1953,7 @@ def portal_admin():
     for c in clients:
         if c.get('accessPin'):
             from app.utils.security import generate_portal_token
-            token = generate_portal_token(owner_uid, c['id'], sandbox=sandbox)
+            token = generate_portal_token(owner_uid, c['id'], sandbox=sandbox, company_id=company_id)
             portal_url = url_for('portal.portal_entry', token=token, _external=True)
             portal_clients.append({
                 'id': c['id'],
@@ -2037,5 +2050,3 @@ def payment_page(invoice_id):
         paypal_amount=paypal_amount,
         exchange_rate=exchange_rate,
     )
-
-

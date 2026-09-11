@@ -230,7 +230,6 @@ class ContactService:
             except Exception as e:
                 print(f"⚠️ Error al guardar contacto en Firestore: {e}")
 
-        _sync_to_legacy_clients(owner_uid=owner_uid, contact=contact_dict, sandbox=sandbox, company_id=company_id)
         _sync_to_legacy_suppliers(owner_uid=owner_uid, contact=contact_dict, sandbox=sandbox, company_id=company_id)
 
         return contact_dict

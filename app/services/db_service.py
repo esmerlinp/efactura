@@ -162,38 +162,109 @@ def _cached_user_profile(uid):
     return None
 
 
+# =========================================================================
+# Client storage — single source of truth is the `contacts` collection.
+# The legacy `clients` collection is read as a transition fallback only so
+# that records not yet migrated keep appearing everywhere.
+# =========================================================================
+
+def _client_coll_name(sandbox):
+    return "sandbox_contacts" if sandbox else "contacts"
+
+
+def _client_legacy_coll_name(sandbox):
+    return "sandbox_clients" if sandbox else "clients"
+
+
+def _contact_to_client(doc_id, data, owner_uid):
+    """Convierte un documento de `contacts` a la forma legacy de cliente."""
+    client = {
+        "id": doc_id,
+        "branchId": data.get("branchId", "default-sucursal-principal"),
+        "projectId": data.get("projectId"),
+        "ownerUID": owner_uid,
+        "rnc": data.get("rnc", ""),
+        "razonSocial": data.get("razonSocial", ""),
+        "email": data.get("email", ""),
+        "telefono": data.get("telefono", ""),
+        "direccion": data.get("direccion", ""),
+        "crmNotes": data.get("crmNotes") or data.get("notes", ""),
+        "nextContactDate": serialize_field(data.get("nextContactDate")),
+        "pipelineStage": data.get("pipelineStage", "Prospecto"),
+        "responsibleId": data.get("responsibleId", ""),
+        "createdAt": serialize_field(data.get("createdAt")),
+        "imageUrl": data.get("imageUrl", ""),
+        "accessPin": data.get("accessPin", ""),
+        "disableAutoReminders": data.get("disableAutoReminders", False),
+    }
+    for k, v in data.items():
+        if k in client:
+            continue
+        if k == "types" and isinstance(v, list):
+            client[k] = v
+        else:
+            client[k] = serialize_field(v)
+    return client
+
+
+def _client_to_contact(client_dict):
+    """Convierte un dict legacy de cliente a la forma de `contacts`."""
+    contact = dict(client_dict)
+    contact.pop("id", None)
+    contact.pop("ownerUID", None)
+    types = contact.get("types")
+    if not isinstance(types, list):
+        types = []
+    if "cliente" not in types:
+        types = list(types) + ["cliente"]
+    contact["types"] = types
+    if "crmNotes" in contact and not contact.get("notes"):
+        contact["notes"] = contact["crmNotes"]
+    return contact
+
+
 @cache.memoize(timeout=60)
 def _cached_clients(owner_uid, sandbox, company_id=None):
     clients = []
+    seen_ids = set()
     if firebase_initialized:
         try:
-            coll_name = "sandbox_clients" if sandbox else "clients"
-            docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).limit(Config.FIRESTORE_MAX_CLIENTS).get()
-            for doc in docs:
-                data = doc.to_dict()
-                client_dict = {
-                    "id": doc.id,
-                    "branchId": data.get("branchId", "default-sucursal-principal"),
-                    "projectId": data.get("projectId"),
-                    "ownerUID": owner_uid,
-                    "rnc": data.get("rnc", ""),
-                    "razonSocial": data.get("razonSocial", ""),
-                    "email": data.get("email", ""),
-                    "telefono": data.get("telefono", ""),
-                    "direccion": data.get("direccion", ""),
-                    "crmNotes": data.get("crmNotes", ""),
-                    "nextContactDate": serialize_field(data.get("nextContactDate")),
-                    "pipelineStage": data.get("pipelineStage", "Prospecto"),
-                    "responsibleId": data.get("responsibleId", ""),
-                    "createdAt": serialize_field(data.get("createdAt")),
-                    "imageUrl": data.get("imageUrl", ""),
-                    "accessPin": data.get("accessPin", ""),
-                    "disableAutoReminders": data.get("disableAutoReminders", False)
-                }
-                for k, v in data.items():
-                    if k not in client_dict:
-                        client_dict[k] = serialize_field(v)
-                clients.append(client_dict)
+            canonical = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=_client_coll_name(sandbox))
+            if canonical is not None:
+                docs = canonical.where(filter=firestore.FieldFilter("types", "array_contains", "cliente")).limit(Config.FIRESTORE_MAX_CLIENTS).get()
+                for doc in docs:
+                    clients.append(_contact_to_client(doc.id, doc.to_dict(), owner_uid))
+                    seen_ids.add(doc.id)
+
+            legacy = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=_client_legacy_coll_name(sandbox))
+            if legacy is not None:
+                for doc in legacy.limit(Config.FIRESTORE_MAX_CLIENTS).get():
+                    if doc.id in seen_ids:
+                        continue
+                    data = doc.to_dict()
+                    client_dict = {
+                        "id": doc.id,
+                        "branchId": data.get("branchId", "default-sucursal-principal"),
+                        "projectId": data.get("projectId"),
+                        "ownerUID": owner_uid,
+                        "rnc": data.get("rnc", ""),
+                        "razonSocial": data.get("razonSocial", ""),
+                        "email": data.get("email", ""),
+                        "telefono": data.get("telefono", ""),
+                        "direccion": data.get("direccion", ""),
+                        "crmNotes": data.get("crmNotes", ""),
+                        "nextContactDate": serialize_field(data.get("nextContactDate")),
+                        "pipelineStage": data.get("pipelineStage", "Prospecto"),
+                        "responsibleId": data.get("responsibleId", ""),
+                        "createdAt": serialize_field(data.get("createdAt")),
+                        "imageUrl": data.get("imageUrl", ""),
+                        "accessPin": data.get("accessPin", ""),
+                        "disableAutoReminders": data.get("disableAutoReminders", False)
+                    }
+                    for k, v in data.items():
+                        if k not in client_dict:
+                            client_dict[k] = serialize_field(v)
+                    clients.append(client_dict)
             clients.sort(key=lambda x: x["razonSocial"].lower())
         except Exception as e:
             print(f"⚠️ Error al obtener clientes desde Firestore: {e}")
@@ -1961,102 +2032,98 @@ class DatabaseService:
 
     @classmethod
     def get_client(cls, owner_uid, client_id, sandbox=True, company_id=None):
-        """Retorna un cliente específico por su ID."""
+        """Retorna un cliente específico por su ID (fuente canónica: contacts)."""
         if firebase_initialized:
             try:
-                coll_name = "sandbox_clients" if sandbox else "clients"
-                doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(client_id).get()
-                if doc.exists:
-                    data = doc.to_dict()
-                    client_dict = {
-                        "id": doc.id,
-                        "ownerUID": owner_uid,
-                        "rnc": data.get("rnc", ""),
-                        "razonSocial": data.get("razonSocial", ""),
-                        "email": data.get("email", ""),
-                        "telefono": data.get("telefono", ""),
-                        "direccion": data.get("direccion", ""),
-                        "crmNotes": data.get("crmNotes", ""),
-                        "responsibleId": data.get("responsibleId", ""),
-                        "nextContactDate": data.get("nextContactDate", ""),
-                        "pipelineStage": data.get("pipelineStage", "Prospecto"),
-                        "createdAt": serialize_field(data.get("createdAt")),
-                        "imageUrl": data.get("imageUrl", ""),
-                        "accessPin": data.get("accessPin", ""),
-                        "disableAutoReminders": data.get("disableAutoReminders", False),
-                        "priceListId": data.get("priceListId", "")
-                    }
-                    for k, v in data.items():
-                        if k not in client_dict:
-                            client_dict[k] = v
-                    return client_dict
+                canonical = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=_client_coll_name(sandbox))
+                if canonical is not None:
+                    doc = canonical.document(client_id).get()
+                    if doc.exists:
+                        data = doc.to_dict()
+                        if "cliente" in (data.get("types") or []):
+                            return _contact_to_client(doc.id, data, owner_uid)
+                legacy = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=_client_legacy_coll_name(sandbox))
+                if legacy is not None:
+                    doc = legacy.document(client_id).get()
+                    if doc.exists:
+                        data = doc.to_dict()
+                        client_dict = {
+                            "id": doc.id,
+                            "ownerUID": owner_uid,
+                            "rnc": data.get("rnc", ""),
+                            "razonSocial": data.get("razonSocial", ""),
+                            "email": data.get("email", ""),
+                            "telefono": data.get("telefono", ""),
+                            "direccion": data.get("direccion", ""),
+                            "crmNotes": data.get("crmNotes", ""),
+                            "responsibleId": data.get("responsibleId", ""),
+                            "nextContactDate": data.get("nextContactDate", ""),
+                            "pipelineStage": data.get("pipelineStage", "Prospecto"),
+                            "createdAt": serialize_field(data.get("createdAt")),
+                            "imageUrl": data.get("imageUrl", ""),
+                            "accessPin": data.get("accessPin", ""),
+                            "disableAutoReminders": data.get("disableAutoReminders", False),
+                            "priceListId": data.get("priceListId", "")
+                        }
+                        for k, v in data.items():
+                            if k not in client_dict:
+                                client_dict[k] = v
+                        return client_dict
             except Exception as e:
                 print(f"⚠️ Error al obtener cliente específico desde Firestore: {e}")
         return None
 
     @classmethod
     def get_client_by_rnc(cls, owner_uid, rnc, sandbox=True, company_id=None):
-        """Busca un cliente por su RNC localmente en Firestore."""
-        if firebase_initialized:
-            try:
-                coll_name = "sandbox_clients" if sandbox else "clients"
-                clean_rnc = str(rnc).replace("-", "").strip()
-                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).where(filter=firestore.FieldFilter("rnc", "==", clean_rnc)).get()
+        """Busca un cliente por su RNC localmente en Firestore (fuente canónica: contacts)."""
+        if not firebase_initialized:
+            return None
+        clean_rnc = str(rnc).replace("-", "").strip()
+        if not clean_rnc:
+            return None
+        try:
+            canonical = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=_client_coll_name(sandbox))
+            if canonical is not None:
+                docs = canonical.where(filter=firestore.FieldFilter("rnc", "==", clean_rnc)).limit(1).get()
                 for doc in docs:
                     data = doc.to_dict()
-                    client_dict = {
-                        "id": doc.id,
-                        "ownerUID": owner_uid,
-                        "rnc": data.get("rnc", ""),
-                        "razonSocial": data.get("razonSocial", ""),
-                        "email": data.get("email", ""),
-                        "telefono": data.get("telefono", ""),
-                        "direccion": data.get("direccion", ""),
-                        "crmNotes": data.get("crmNotes", ""),
-                        "responsibleId": data.get("responsibleId", ""),
-                        "nextContactDate": data.get("nextContactDate", ""),
-                        "pipelineStage": data.get("pipelineStage", "Prospecto"),
-                        "createdAt": serialize_field(data.get("createdAt")),
-                        "imageUrl": data.get("imageUrl", ""),
-                        "accessPin": data.get("accessPin", ""),
-                        "disableAutoReminders": data.get("disableAutoReminders", False)
-                    }
-                    for k, v in data.items():
-                        if k not in client_dict:
-                            client_dict[k] = v
-                    return client_dict
-                # Intentar también con guiones por si acaso
-                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).where(filter=firestore.FieldFilter("rnc", "==", rnc)).get()
-                for doc in docs:
-                    data = doc.to_dict()
-                    client_dict = {
-                        "id": doc.id,
-                        "ownerUID": owner_uid,
-                        "rnc": data.get("rnc", ""),
-                        "razonSocial": data.get("razonSocial", ""),
-                        "email": data.get("email", ""),
-                        "telefono": data.get("telefono", ""),
-                        "direccion": data.get("direccion", ""),
-                        "crmNotes": data.get("crmNotes", ""),
-                        "responsibleId": data.get("responsibleId", ""),
-                        "nextContactDate": data.get("nextContactDate", ""),
-                        "pipelineStage": data.get("pipelineStage", "Prospecto"),
-                        "createdAt": serialize_field(data.get("createdAt")),
-                        "imageUrl": data.get("imageUrl", ""),
-                        "accessPin": data.get("accessPin", ""),
-                        "disableAutoReminders": data.get("disableAutoReminders", False)
-                    }
-                    for k, v in data.items():
-                        if k not in client_dict:
-                            client_dict[k] = v
-                    return client_dict
-            except Exception as e:
-                print(f"⚠️ Error al obtener cliente por RNC desde Firestore: {e}")
+                    if "cliente" in (data.get("types") or []):
+                        return _contact_to_client(doc.id, data, owner_uid)
+
+            legacy = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=_client_legacy_coll_name(sandbox))
+            if legacy is not None:
+                for rnc_variant in (clean_rnc, str(rnc).strip()):
+                    docs = legacy.where(filter=firestore.FieldFilter("rnc", "==", rnc_variant)).limit(1).get()
+                    for doc in docs:
+                        data = doc.to_dict()
+                        client_dict = {
+                            "id": doc.id,
+                            "ownerUID": owner_uid,
+                            "rnc": data.get("rnc", ""),
+                            "razonSocial": data.get("razonSocial", ""),
+                            "email": data.get("email", ""),
+                            "telefono": data.get("telefono", ""),
+                            "direccion": data.get("direccion", ""),
+                            "crmNotes": data.get("crmNotes", ""),
+                            "responsibleId": data.get("responsibleId", ""),
+                            "nextContactDate": data.get("nextContactDate", ""),
+                            "pipelineStage": data.get("pipelineStage", "Prospecto"),
+                            "createdAt": serialize_field(data.get("createdAt")),
+                            "imageUrl": data.get("imageUrl", ""),
+                            "accessPin": data.get("accessPin", ""),
+                            "disableAutoReminders": data.get("disableAutoReminders", False)
+                        }
+                        for k, v in data.items():
+                            if k not in client_dict:
+                                client_dict[k] = v
+                        return client_dict
+        except Exception as e:
+            print(f"⚠️ Error al obtener cliente por RNC desde Firestore: {e}")
         return None
 
     @classmethod
     def save_client(cls, owner_uid=None, client_id=None, client_dict=None, sandbox=True, company_id=None):
-        """Guarda o actualiza un cliente en Firestore."""
+        """Guarda o actualiza un cliente en Firestore (fuente canónica: contacts)."""
         client_dict["id"] = client_id
         client_dict["ownerUID"] = owner_uid
         client_dict["branchId"] = client_dict.get("branchId", "default-sucursal-principal")
@@ -2070,9 +2137,8 @@ class DatabaseService:
 
         if firebase_initialized:
             try:
-                coll_name = "sandbox_clients" if sandbox else "clients"
-                ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name) if company_id else _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name)
-                ref.document(client_id).set(client_dict)
+                contact_dict = _client_to_contact(client_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=_client_coll_name(sandbox)).document(client_id).set(contact_dict)
                 _invalidate_clients(owner_uid, company_id=company_id)
                 _invalidate_crm_contacts(owner_uid)
             except Exception as e:
@@ -2085,12 +2151,17 @@ class DatabaseService:
         """Actualiza la etapa del pipeline CRM de un cliente."""
         if firebase_initialized:
             try:
-                coll_name = "sandbox_clients" if sandbox else "clients"
-                ref = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name) if company_id else _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name)
-                ref.document(client_id).update({
-                    "pipelineStage": pipeline_stage, 
+                canonical = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=_client_coll_name(sandbox))
+                canonical.document(client_id).update({
+                    "pipelineStage": pipeline_stage,
                     "updatedAt": firestore.SERVER_TIMESTAMP
                 })
+                legacy = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=_client_legacy_coll_name(sandbox))
+                if legacy is not None and legacy.document(client_id).get().exists:
+                    legacy.document(client_id).update({
+                        "pipelineStage": pipeline_stage,
+                        "updatedAt": firestore.SERVER_TIMESTAMP
+                    })
                 _invalidate_clients(owner_uid, company_id=company_id)
                 _invalidate_crm_contacts(owner_uid)
             except Exception as e:
@@ -2101,8 +2172,10 @@ class DatabaseService:
         """Elimina un cliente en Firestore."""
         if firebase_initialized:
             try:
-                coll_name = "sandbox_clients" if sandbox else "clients"
-                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(client_id).delete()
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=_client_coll_name(sandbox)).document(client_id).delete()
+                legacy = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=_client_legacy_coll_name(sandbox))
+                if legacy is not None:
+                    legacy.document(client_id).delete()
                 _invalidate_clients(owner_uid, company_id=company_id)
                 _invalidate_crm_contacts(owner_uid)
             except Exception as e:
@@ -2112,24 +2185,32 @@ class DatabaseService:
     def get_client_interactions(cls, owner_uid, client_id, sandbox=True, company_id=None):
         """Retorna la lista de comentarios e interacciones de un cliente, ordenados por fecha."""
         interactions = []
+        seen_ids = set()
         if firebase_initialized:
             try:
-                coll_name = "sandbox_clients" if sandbox else "clients"
-                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(client_id).collection("interactions").get()
-                for doc in docs:
-                    data = doc.to_dict()
-                    interactions.append({
-                        "id": doc.id,
-                        "type": data.get("type", "Nota"),
-                        "content": data.get("content", ""),
-                        "date": serialize_field(data.get("date")),
-                        "nextContactDate": serialize_field(data.get("nextContactDate")),
-                        "completed": bool(data.get("completed", False)),
-                        "createdBy": data.get("createdBy", ""),
-                        "attachmentUrl": data.get("attachmentUrl", ""),
-                        "attachmentName": data.get("attachmentName", ""),
-                        "createdAt": serialize_field(data.get("createdAt"))
-                    })
+                def _collect(coll_name):
+                    docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(client_id).collection("interactions").get()
+                    for doc in docs:
+                        if doc.id in seen_ids:
+                            continue
+                        seen_ids.add(doc.id)
+                        data = doc.to_dict()
+                        interactions.append({
+                            "id": doc.id,
+                            "type": data.get("type", "Nota"),
+                            "content": data.get("content", ""),
+                            "date": serialize_field(data.get("date")),
+                            "nextContactDate": serialize_field(data.get("nextContactDate")),
+                            "completed": bool(data.get("completed", False)),
+                            "createdBy": data.get("createdBy", ""),
+                            "attachmentUrl": data.get("attachmentUrl", ""),
+                            "attachmentName": data.get("attachmentName", ""),
+                            "createdAt": serialize_field(data.get("createdAt"))
+                        })
+
+                _collect(_client_coll_name(sandbox))
+                _collect(_client_legacy_coll_name(sandbox))
+
                 # Ordenar por fecha o createdAt descendente (el más nuevo primero)
                 interactions.sort(key=lambda x: x["createdAt"] or x["date"] or "", reverse=True)
             except Exception as e:
@@ -2149,15 +2230,15 @@ class DatabaseService:
 
         if firebase_initialized:
             try:
-                coll_name = "sandbox_clients" if sandbox else "clients"
+                canonical = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=_client_coll_name(sandbox))
                 # Guardar en la subcolección
-                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(client_id).collection("interactions").document(interaction_id).set(interaction_dict)
+                canonical.document(client_id).collection("interactions").document(interaction_id).set(interaction_dict)
                 
                 # Si es un seguimiento programado, o si se especificó nextContactDate, actualizar la ficha principal del cliente
                 if interaction_dict.get("nextContactDate") and not interaction_dict.get("completed"):
-                    _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(client_id).update({
+                    canonical.document(client_id).update({
                         "nextContactDate": interaction_dict["nextContactDate"],
-                        "crmNotes": interaction_dict.get("content", "")[:100]  # Resumen breve
+                        "notes": interaction_dict.get("content", "")[:100]  # Resumen breve
                     })
             except Exception as e:
                 print(f"⚠️ Fallo al respaldar interacción en Firestore: {e}")
@@ -2169,8 +2250,10 @@ class DatabaseService:
         """Elimina una interacción de un cliente."""
         if firebase_initialized:
             try:
-                coll_name = "sandbox_clients" if sandbox else "clients"
-                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(client_id).collection("interactions").document(interaction_id).delete()
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=_client_coll_name(sandbox)).document(client_id).collection("interactions").document(interaction_id).delete()
+                legacy = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=_client_legacy_coll_name(sandbox))
+                if legacy is not None:
+                    legacy.document(client_id).collection("interactions").document(interaction_id).delete()
             except Exception as e:
                 print(f"⚠️ Fallo al borrar interacción de Firestore: {e}")
 
@@ -5869,21 +5952,29 @@ class DatabaseService:
     def get_client_documents(cls, owner_uid, client_id, sandbox=True, company_id=None):
         """Obtiene el historial documental de un cliente."""
         docs_list = []
+        seen_ids = set()
         if firebase_initialized:
             try:
-                coll_name = "sandbox_clients" if sandbox else "clients"
-                docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(client_id).collection("documents").get()
-                for doc in docs:
-                    data = doc.to_dict()
-                    docs_list.append({
-                        "id": doc.id,
-                        "documentType": data.get("documentType", "Contrato Legal"),
-                        "name": data.get("name", ""),
-                        "url": data.get("url", ""),
-                        "uploadedBy": data.get("uploadedBy", "Sistema"),
-                        "createdAt": data.get("createdAt", ""),
-                        "notes": data.get("notes", "")
-                    })
+                def _collect(coll_name):
+                    docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(client_id).collection("documents").get()
+                    for doc in docs:
+                        if doc.id in seen_ids:
+                            continue
+                        seen_ids.add(doc.id)
+                        data = doc.to_dict()
+                        docs_list.append({
+                            "id": doc.id,
+                            "documentType": data.get("documentType", "Contrato Legal"),
+                            "name": data.get("name", ""),
+                            "url": data.get("url", ""),
+                            "uploadedBy": data.get("uploadedBy", "Sistema"),
+                            "createdAt": data.get("createdAt", ""),
+                            "notes": data.get("notes", "")
+                        })
+
+                _collect(_client_coll_name(sandbox))
+                _collect(_client_legacy_coll_name(sandbox))
+
                 docs_list.sort(key=lambda x: x["createdAt"] or "", reverse=True)
             except Exception as e:
                 print(f"⚠️ Error al obtener documentos del cliente: {e}")
@@ -5898,8 +5989,7 @@ class DatabaseService:
         
         if firebase_initialized:
             try:
-                coll_name = "sandbox_clients" if sandbox else "clients"
-                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(client_id).collection("documents").document(doc_id).set(doc_dict)
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=_client_coll_name(sandbox)).document(client_id).collection("documents").document(doc_id).set(doc_dict)
             except Exception as e:
                 print(f"⚠️ Fallo al respaldar documento de cliente: {e}")
         return doc_dict
@@ -5909,8 +5999,10 @@ class DatabaseService:
         """Elimina un documento del cliente."""
         if firebase_initialized:
             try:
-                coll_name = "sandbox_clients" if sandbox else "clients"
-                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(client_id).collection("documents").document(doc_id).delete()
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=_client_coll_name(sandbox)).document(client_id).collection("documents").document(doc_id).delete()
+                legacy = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=_client_legacy_coll_name(sandbox))
+                if legacy is not None:
+                    legacy.document(client_id).collection("documents").document(doc_id).delete()
             except Exception as e:
                 print(f"⚠️ Fallo al borrar documento de cliente de Firestore: {e}")
 

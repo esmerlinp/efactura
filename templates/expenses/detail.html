@@ -7,14 +7,18 @@
 <style>
     .detail-grid {
         display: grid;
-        grid-template-columns: 3fr 1fr;
+        grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
         gap: 30px;
         max-width: 100%;
         margin: 0 auto;
     }
+    .detail-grid > * {
+        min-width: 0;
+        max-width: 100%;
+    }
     @media screen and (max-width: 1024px) {
         .detail-grid {
-            grid-template-columns: 1fr;
+            grid-template-columns: minmax(0, 1fr);
             gap: 20px;
         }
     }

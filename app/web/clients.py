@@ -4,6 +4,7 @@ import html
 from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, g
 from app.services.db_service import DatabaseService
+from app.services.contact_service import ContactService
 from app.services.mailer import Mailer
 from app.services.dgii import DGIIService
 from app.services.ai_service import AIService
@@ -444,7 +445,7 @@ def send_portal_credentials(client_id):
 
     # Construir URL del portal segura y encriptada
     from app.utils.security import generate_portal_token
-    token = generate_portal_token(owner_uid, client_id, sandbox=sandbox)
+    token = generate_portal_token(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
     portal_url = url_for('portal.portal_entry', token=token, _external=True)
 
     company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
@@ -640,7 +641,7 @@ def client_detail(client_id):
         client_insight = {"type": "success", "text": "Cliente sin anomalías detectadas. Perfil de compras estable."}
 
     from app.utils.security import generate_portal_token
-    token = generate_portal_token(owner_uid, client_id, sandbox=sandbox)
+    token = generate_portal_token(owner_uid, client_id, sandbox=sandbox, company_id=company_id)
     portal_url = url_for('portal.portal_entry', token=token, _external=True)
 
     # Detectar campos relevantes faltantes para operaciones
@@ -946,18 +947,49 @@ def api_clients_list():
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
-    clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    legacy_clients = DatabaseService.get_clients(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+    crm_contacts = [
+        c for c in ContactService.get_contacts(owner_uid, sandbox=sandbox, company_id=company_id)
+        if 'cliente' in c.get('types', [])
+    ]
+
     result = []
-    for c in clients:
-        name = c.get('name') or c.get('tradeName') or c.get('companyName') or c.get('razonSocial') or c.get('businessName') or ''
-        rnc = c.get('rnc') or c.get('companyRNC') or ''
+    seen_ids = set()
+    seen_rncs = set()
+
+    def add_client(record, is_contact=False):
+        client_id = record.get('id', '')
+        if not client_id:
+            return
+
+        rnc = record.get('rnc') or record.get('companyRNC') or ''
+        normalized_rnc = ''.join(filter(str.isdigit, str(rnc)))
+        if client_id in seen_ids or (normalized_rnc and normalized_rnc in seen_rncs):
+            return
+
+        name = (
+            record.get('razonSocial') if is_contact else
+            record.get('name') or record.get('tradeName') or record.get('companyName') or
+            record.get('razonSocial') or record.get('businessName')
+        ) or ''
         result.append({
-            "id": c['id'],
+            "id": client_id,
             "name": name,
             "rnc": rnc,
-            "email": c.get('email', ''),
-            "phone": c.get('phone') or c.get('telefono') or '',
-            "address": c.get('address', ''),
-            "contactPerson": c.get('contactPerson') or c.get('contactName', '')
+            "email": record.get('email', ''),
+            "phone": record.get('telefono') or record.get('celular') or record.get('phone') or '',
+            "address": record.get('direccion') or record.get('address') or '',
+            "contactPerson": record.get('contactPerson') or record.get('contactName', '')
         })
+        seen_ids.add(client_id)
+        if normalized_rnc:
+            seen_rncs.add(normalized_rnc)
+
+    # CRM is preferred; legacy records fill in clients not yet migrated.
+    for contact in crm_contacts:
+        add_client(contact, is_contact=True)
+    for client in legacy_clients:
+        add_client(client)
+
+    result.sort(key=lambda client: client['name'].lower())
     return jsonify({"success": True, "clients": result})
