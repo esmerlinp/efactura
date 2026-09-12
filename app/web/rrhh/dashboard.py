@@ -31,6 +31,11 @@ def payroll_dashboard():
 
     employees = hr.get_employees(company_id, sandbox=sandbox)
     periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
+    try:
+        from app.web.rrhh.payroll_history_import import get_imported_period_summaries
+        periods = periods + get_imported_period_summaries(company_id, sandbox=sandbox)
+    except Exception:
+        pass
     user_name = session.get("user", {}).get("displayName", "")
 
     now = datetime.now()

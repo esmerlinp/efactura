@@ -14,24 +14,36 @@
         <a href="{{ url_for('web_rrhh.payroll_groups_list') }}" class="btn btn-secondary">
             <i class="fa-solid fa-layer-group"></i> Grupos
         </a>
+        <a href="{{ url_for('web_rrhh.payroll_history_import_page') }}" class="btn btn-ghost">
+            <i class="fa-solid fa-file-import"></i> Importar histórico
+        </a>
     </div>
 </div>
 
 {% if payroll_groups is defined and payroll_groups %}
 <div style="margin-bottom:16px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
     <span style="font-size:0.85rem; color:var(--text-secondary); font-weight:600;">Filtrar por grupo:</span>
-    <a href="{{ url_for('web_rrhh.payroll_list') }}" class="btn btn-sm {% if not filter_group %}btn-primary{% else %}btn-ghost{% endif %}">Todos</a>
+    <a href="{{ url_for('web_rrhh.payroll_list', year=filter_year) if filter_year else url_for('web_rrhh.payroll_list') }}" class="btn btn-sm {% if not filter_group %}btn-primary{% else %}btn-ghost{% endif %}">Todos</a>
     {% for g in payroll_groups %}
-    <a href="{{ url_for('web_rrhh.payroll_list', group=g.id) }}" class="btn btn-sm {% if filter_group == g.id %}btn-primary{% else %}btn-ghost{% endif %}">{{ g.name }} ({{ group_employee_counts.get(g.id, 0) }})</a>
+    <a href="{{ url_for('web_rrhh.payroll_list', group=g.id, year=filter_year) if filter_year else url_for('web_rrhh.payroll_list', group=g.id) }}" class="btn btn-sm {% if filter_group == g.id %}btn-primary{% else %}btn-ghost{% endif %}">{{ g.name }} ({{ group_employee_counts.get(g.id, 0) }})</a>
     {% endfor %}
 </div>
 {% endif %}
 
-{% set status_color = {'borrador':'var(--text-muted)','calculada':'var(--accent-blue)','validada':'var(--accent-purple)','aprobada':'var(--accent-amber)','contabilizada':'var(--accent-blue)','pagada':'var(--accent-emerald)','cerrada':'var(--text-muted)'} %}
+<div style="margin-bottom:16px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+    <span style="font-size:0.85rem; color:var(--text-secondary); font-weight:600;">Filtrar por año:</span>
+    <a href="{{ url_for('web_rrhh.payroll_list', group=filter_group) if filter_group else url_for('web_rrhh.payroll_list') }}" class="btn btn-sm {% if not filter_year %}btn-primary{% else %}btn-ghost{% endif %}">Todos</a>
+    {% for y in all_years %}
+    <a href="{{ url_for('web_rrhh.payroll_list', year=y, group=filter_group) if filter_group else url_for('web_rrhh.payroll_list', year=y) }}" class="btn btn-sm {% if filter_year == y %}btn-primary{% else %}btn-ghost{% endif %}">{{ y }}</a>
+    {% endfor %}
+</div>
+
+{% set status_color = {'borrador':'var(--text-muted)','calculada':'var(--accent-blue)','validada':'var(--accent-purple)','aprobada':'var(--accent-amber)','contabilizada':'var(--accent-blue)','pagada':'var(--accent-emerald)','cerrada':'var(--text-muted)','importado':'var(--accent-purple)'} %}
 
 <style>
 .hr-compact-table th { padding: 7px 12px; }
 .hr-compact-table td { padding: 6px 12px; }
+.imported-badge { display:inline-block; padding:1px 7px; border-radius:10px; background:rgba(139,92,246,0.12); color:var(--accent-purple); font-size:0.68rem; font-weight:700; margin-left:6px; }
 </style>
 
 <div class="card-table-wrapper hr-table-card">
@@ -52,22 +64,34 @@
         </thead>
         <tbody>
             {% for p in periods %}
+            {% set is_imported = p.get('source') == 'import' %}
             <tr>
                 {% if payroll_groups is defined and payroll_groups %}<td style="white-space:nowrap; color:var(--text-muted);">{{ group_map.get(p.payrollGroupId, '—') }}</td>{% endif %}
-                <td style="white-space:nowrap;"><a href="{{ url_for('web_rrhh.payroll_view', period_id=p.id) }}" style="color:var(--text-primary); text-decoration:none; font-weight:600;">{{ (p.get('periodRange') or p.periodKey)|upper }}</a></td>
+                <td style="white-space:nowrap;">
+                    {% if is_imported %}
+                    <span style="color:var(--text-primary); font-weight:600;">{{ (p.get('periodRange') or p.periodKey)|upper }}</span>
+                    <span class="imported-badge">Importado</span>
+                    {% else %}
+                    <a href="{{ url_for('web_rrhh.payroll_view', period_id=p.id) }}" style="color:var(--text-primary); text-decoration:none; font-weight:600;">{{ (p.get('periodRange') or p.periodKey)|upper }}</a>
+                    {% endif %}
+                </td>
                 <td style="white-space:nowrap; color:var(--accent-blue); font-weight:600;">{{ p.get('periodType', 'mensual')|upper }}</td>
-                <td style="text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums;">{{ p.lines|length }}</td>
+                <td style="text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums;">{{ p.get('lineCount', p.lines|length if p.lines is defined else 0) }}</td>
                 <td style="text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums;">{{ "RD$ {:,.2f}".format(p.totalGross|float) }}</td>
                 <td style="text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums;">{{ "RD$ {:,.2f}".format(p.totalNet|float) }}</td>
                 <td style="text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums;">{{ "RD$ {:,.2f}".format(p.totalEmployerContrib|float) }}</td>
                 <td style="white-space:nowrap; font-weight:600; color:{{ status_color.get(p.status, 'var(--text-muted)') }};">{{ p.status|capitalize }}</td>
                 <td style="white-space:nowrap; text-align:right;">
+                    {% if is_imported %}
+                    <span title="Período importado (solo lectura)" style="color:var(--text-muted); font-size:0.85rem;"><i class="fa-solid fa-lock"></i></span>
+                    {% else %}
                     <a href="{{ url_for('web_rrhh.payroll_view', period_id=p.id) }}" title="Ver Detalle"
                        style="color:var(--text-muted); text-decoration:none; font-size:0.85rem; padding:2px 6px;"
                        onmouseover="this.style.color='var(--accent-emerald)'" onmouseout="this.style.color='var(--text-muted)'"><i class="fa-solid fa-eye"></i></a>
                     <a href="{{ url_for('web_rrhh.payroll_tss_export', period_id=p.id) }}" title="Exportar TSS"
                        style="color:var(--text-muted); text-decoration:none; font-size:0.85rem; padding:2px 6px;"
                        onmouseover="this.style.color='var(--accent-emerald)'" onmouseout="this.style.color='var(--text-muted)'"><i class="fa-solid fa-file-csv"></i></a>
+                    {% endif %}
                 </td>
             </tr>
             {% else %}
