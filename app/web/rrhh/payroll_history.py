@@ -22,9 +22,31 @@ def payroll_list():
     from app.services import hr_data_service as hr
 
     periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
+    try:
+        from app.web.rrhh.payroll_history_import import get_imported_period_summaries
+        periods = periods + get_imported_period_summaries(company_id, sandbox=sandbox)
+    except Exception:
+        pass
     periods.sort(key=lambda p: p.get("periodKey", ""))
 
-    # Filtrar por grupo si se especifica
+    def _period_year(p):
+        y = p.get("year")
+        if y:
+            return int(y)
+        return int((p.get("periodKey", "") or "")[:4] or 0)
+
+    # Años disponibles (de mayor a menor) para el filtro
+    all_years = sorted({_period_year(p) for p in periods if _period_year(p)}, reverse=True)
+
+    # Filtrar por año si se especifica
+    filter_year = request.args.get("year", "").strip()
+    if filter_year.isdigit():
+        filter_year = int(filter_year)
+        periods = [p for p in periods if _period_year(p) == filter_year]
+    else:
+        filter_year = None
+
+    # Filtrar por grupo si se especifica (los importados no tienen grupo)
     filter_group = request.args.get("group", "").strip()
     if filter_group:
         periods = [p for p in periods if p.get("payrollGroupId", "") == filter_group]
@@ -42,7 +64,8 @@ def payroll_list():
 
     return render_template("rrhh/payroll_list.html", active_page="rrhh_payroll_history",
                            periods=periods, payroll_groups=payroll_groups,
-                           filter_group=filter_group, group_map=group_map,
+                           filter_group=filter_group, filter_year=filter_year,
+                           all_years=all_years, group_map=group_map,
                            group_employee_counts=group_employee_counts)
 
 
