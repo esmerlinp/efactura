@@ -151,12 +151,12 @@ class ISRResolver:
     def resolve(context: ISRContext, params: dict) -> dict:
         """Calcula el ISR a retener en este período.
 
-        Método: retención acumulada DGII Norma 08-04.
+        Método mensual: anualiza el ingreso del período, aplica la tabla
+        progresiva y divide entre el número de períodos del año.
         Consistente con PayrollService._calculate_isr_monthly.
         """
         gross_income = context.gross_income
         is_q = context.is_quincenal
-        ytd_isr = context.ytd_isr
 
         period_factor = 24 if is_q else 12
         education_ded = params.get("education_deduction", 50000.0)
@@ -180,11 +180,8 @@ class ISRResolver:
         # Calcular ISR anual según tabla progresiva (bracket-by-bracket)
         annual_isr = ISRResolver._calculate_isr_by_bracket(isr_table, taxable_annual)
 
-        # ISR del período = ISR anual / períodos - ISR ya retenido YTD
-        isr_period = round((annual_isr / period_factor) - ytd_isr, 2)
-
-        if isr_period < 0:
-            isr_period = 0.0
+        # ISR del período = ISR anual / períodos
+        isr_period = round(annual_isr / period_factor, 2)
 
         return {
             "amount": isr_period,

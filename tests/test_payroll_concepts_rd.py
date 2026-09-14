@@ -221,6 +221,20 @@ class TestISRResolver:
         expected = round(annual_isr / 12, 2)
         assert result["amount"] == pytest.approx(expected, abs=0.01)
 
+    def test_isr_no_se_anula_por_ytd_previo(self):
+        """Con ISR ya retenido YTD, el período sigue reteniendo (método mensual).
+
+        Regresión: la fórmula anterior restaba ytd_isr y anulaba el ISR
+        a partir del segundo período/recalculo.
+        """
+        ctx_sin_ytd = ISRContext(gross_income=50000.00, is_quincenal=False)
+        base = ISRResolver.resolve(ctx_sin_ytd, RD_PARAMS)["amount"]
+        assert base > 0
+
+        ctx_con_ytd = ISRContext(gross_income=50000.00, is_quincenal=False, ytd_isr=base)
+        result = ISRResolver.resolve(ctx_con_ytd, RD_PARAMS)["amount"]
+        assert result == pytest.approx(base, abs=0.01)
+
     def test_isr_tabla_dict_format(self):
         """Asegura que funcione con formato dict y lista"""
         from app.services.concept_engine import ISRResolver as IR
