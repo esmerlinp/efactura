@@ -1,6 +1,6 @@
 """RRHH module — auto-extracted."""
 
-from flask import render_template, request, redirect, url_for, session, flash, jsonify, send_file
+from flask import render_template, request, redirect, url_for, session, flash, jsonify, send_file, current_app
 from app.web.rrhh import (
     web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
     _is_hr_role, _sanitize_for_role, MONTHS_ES,
@@ -10,6 +10,7 @@ from app.services import hr_data_service as hr
 from app.services.payroll_service import PayrollService
 from app.utils.pdf import pdf_write_options
 import os
+import io
 
 
 
