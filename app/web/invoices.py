@@ -9204,6 +9204,9 @@ def get_report_categories():
                 {"title": "Períodos de Vacaciones", "url": "web_invoices.report_vacation_periods",
                  "enabled": module_enabled('nomina'),
                  "desc": "Períodos de vacaciones aprobados por año y mes."},
+                {"title": "Acumulado de Vacaciones por Año", "url": "web_invoices.report_vacation_yearly",
+                 "enabled": module_enabled('nomina'),
+                 "desc": "Desglose por año de servicio del saldo de vacaciones de un empleado."},
             ]
         },
         {

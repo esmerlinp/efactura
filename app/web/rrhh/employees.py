@@ -336,6 +336,64 @@ def _filter_timeline(timeline: list, category: str = "", actor: str = "",
     return result
 
 
+def _collect_entity_documents(company_id: str, employee_id: str, sandbox: bool = True,
+                              vacation_requests: list | None = None,
+                              leave_requests: list | None = None) -> list:
+    """Documentos adjuntos en otras entidades del empleado (vacaciones,
+    permisos/licencias y prestaciones/liquidación), normalizados a la forma de
+    employee_documents para mostrarlos en el tab Documentos (solo lectura)."""
+    docs: list = []
+    vacation_ids = {r.get("id") for r in (vacation_requests or []) if r.get("id")}
+    leave_ids = {r.get("id") for r in (leave_requests or []) if r.get("id")}
+
+    # Vacaciones y permisos/licencias → request_attachments
+    try:
+        for a in hr.get_request_attachments(company_id, sandbox=sandbox):
+            rid = a.get("requestId", "")
+            rtype = a.get("requestType", "")
+            if rtype == "vacation" and rid in vacation_ids:
+                source = "vacation"
+            elif rtype == "leave" and rid in leave_ids:
+                source = "leave"
+            else:
+                continue
+            docs.append({
+                "id": a.get("id", ""),
+                "requestId": rid,
+                "name": a.get("name", "Adjunto"),
+                "size": a.get("size", 0),
+                "uploadedAt": a.get("uploadedAt", ""),
+                "category": source,
+                "notes": a.get("notes", ""),
+                "_source": source,
+            })
+    except Exception as e:
+        print(f"⚠️ _collect_entity_documents (request_attachments): {e}")
+
+    # Prestaciones / liquidación → offboarding_documents
+    try:
+        from app.services import offboarding_data_service as ods
+        from app.services.offboarding_service import OffboardingService
+        svc = OffboardingService(company_id, sandbox)
+        for req in ods.list_requests_by_employee(company_id, employee_id, sandbox=sandbox):
+            rid = req.get("id", "")
+            for d in svc.get_documents(rid):
+                docs.append({
+                    "id": d.get("id", ""),
+                    "requestId": rid,
+                    "name": d.get("title") or d.get("name") or "Documento",
+                    "size": d.get("fileSize", 0) or d.get("size", 0),
+                    "uploadedAt": d.get("uploadedAt") or d.get("generatedAt", ""),
+                    "category": "offboarding",
+                    "notes": d.get("notes", ""),
+                    "_source": "offboarding",
+                })
+    except Exception as e:
+        print(f"⚠️ _collect_entity_documents (offboarding): {e}")
+
+    return docs
+
+
 # Días de la semana para el editor de horario: (código, índice 0=Lun..6=Dom)
 SCHEDULE_DAYS = [("L", 0), ("M", 1), ("X", 2), ("J", 3), ("V", 4), ("S", 5), ("D", 6)]
 
@@ -831,6 +889,10 @@ def _load_employee_context(company_id: str, employee_id: str, owner_uid: str,
         r for r in hr.get_vacation_requests(company_id, sandbox=sandbox)
         if r.get("employeeId") == employee_id
     ]
+    emp_leave_requests = [
+        r for r in hr.get_leave_requests(company_id, sandbox=sandbox)
+        if r.get("employeeId") == employee_id
+    ]
     taken_days = EmployeeStatusService.taken_vacation_days(emp_vac_requests)
     vacation_days = PayrollService.calculate_vacation_days(
         employee.get("hireDate", ""), taken_days=taken_days)
@@ -929,6 +991,13 @@ def _load_employee_context(company_id: str, employee_id: str, owner_uid: str,
             _d["_isRehireDoc"] = bool(_cid and _c) or (_d.get("notes") or "").startswith("Reincorporación")
     except Exception:
         pass
+
+    # ── Documentos adjuntos en otras entidades (vacaciones, permisos/licencias,
+    #    prestaciones/liquidación). Se normalizan a la misma forma que los
+    #    employee_documents para mostrarlos en el tab Documentos (solo lectura). ──
+    docs = docs + _collect_entity_documents(
+        company_id, employee_id, sandbox=sandbox,
+        vacation_requests=emp_vac_requests, leave_requests=emp_leave_requests)
 
     branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id)
     employee_work_days = PayrollService.resolve_employee_work_days(company_id, employee, sandbox=sandbox)
