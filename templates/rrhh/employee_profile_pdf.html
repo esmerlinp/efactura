@@ -487,7 +487,7 @@
 {# ═══════════ DOCUMENTOS ═══════════ #}
 <h2 class="sec">Documentos ({{ documents|length }})</h2>
 {% if documents %}
-{% set _cat_labels = {'contract':'Contrato','id':'Identificación','certificate':'Certificado','medical':'Médico','disciplinary':'Disciplinario','academic':'Académico','authorization':'Autorización','autorizacion_descuento':'Autorización de Descuento','carta_cambio_puesto':'Carta Cambio de Puesto','carta_cambio_compania':'Carta Cambio de Compañía','carta_amonestacion':'Carta de Amonestación','finiquito':'Finiquito','carta_ministerio_trabajo':'Carta Ministerio de Trabajo','carta_trabajo':'Carta de Trabajo','carta_desvinculacion':'Carta de Desvinculación','acta_devolucion_activos':'Acta Devolución de Activos','recibo_liquidacion':'Recibo de Pago / Liquidación','other':'Otros'} %}
+{% set _cat_labels = {'contract':'Contrato','id':'Identificación','certificate':'Certificado','medical':'Médico','disciplinary':'Disciplinario','academic':'Académico','authorization':'Autorización','autorizacion_descuento':'Autorización de Descuento','carta_cambio_puesto':'Carta Cambio de Puesto','carta_cambio_compania':'Carta Cambio de Compañía','carta_amonestacion':'Carta de Amonestación','finiquito':'Finiquito','carta_ministerio_trabajo':'Carta Ministerio de Trabajo','carta_trabajo':'Carta de Trabajo','carta_desvinculacion':'Carta de Desvinculación','acta_devolucion_activos':'Acta Devolución de Activos','recibo_liquidacion':'Recibo de Pago / Liquidación','vacation':'Vacaciones','leave':'Permiso / Licencia','offboarding':'Prestaciones / Liquidación','other':'Otros'} %}
 {% for d in documents %}
 <div class="li-row">
     <span class="li-title">{{ d.name }}</span>

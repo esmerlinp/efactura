@@ -319,7 +319,7 @@
     <!-- Tab: Documentos -->
     <div id="tab-docs" class="tab-content" style="display:none;">
         <div class="hr-section-card" style="border:none; box-shadow:none; padding:0;">
-            {% set _cat_labels = {'contract':'Contrato','id':'Identificación','certificate':'Certificado','medical':'Médico','disciplinary':'Disciplinario','academic':'Académico','authorization':'Autorización','autorizacion_descuento':'Autorización de Descuento','carta_cambio_puesto':'Carta Cambio de Puesto','carta_cambio_compania':'Carta Cambio de Compañía','carta_amonestacion':'Carta de Amonestación','finiquito':'Finiquito','carta_ministerio_trabajo':'Carta Ministerio de Trabajo','carta_trabajo':'Carta de Trabajo','carta_desvinculacion':'Carta de Desvinculación','acta_devolucion_activos':'Acta Devolución de Activos','recibo_liquidacion':'Recibo de Pago / Liquidación','other':'Otros'} %}
+            {% set _cat_labels = {'contract':'Contrato','id':'Identificación','certificate':'Certificado','medical':'Médico','disciplinary':'Disciplinario','academic':'Académico','authorization':'Autorización','autorizacion_descuento':'Autorización de Descuento','carta_cambio_puesto':'Carta Cambio de Puesto','carta_cambio_compania':'Carta Cambio de Compañía','carta_amonestacion':'Carta de Amonestación','finiquito':'Finiquito','carta_ministerio_trabajo':'Carta Ministerio de Trabajo','carta_trabajo':'Carta de Trabajo','carta_desvinculacion':'Carta de Desvinculación','acta_devolucion_activos':'Acta Devolución de Activos','recibo_liquidacion':'Recibo de Pago / Liquidación','vacation':'Vacaciones','leave':'Permiso / Licencia','offboarding':'Prestaciones / Liquidación','other':'Otros'} %}
             <h3>Documentos ({{ documents|length }})</h3>
             {% if documents %}
             <div style="display:flex; flex-direction:column; gap:6px;">
@@ -327,7 +327,7 @@
                 <div style="display:flex; align-items:center; gap:10px; padding:8px 12px; border:1px solid var(--border-color); border-radius:var(--radius-sm);">
                     <i class="fa-solid fa-file-lines" style="color:var(--accent-blue); font-size:1.1rem;"></i>
                     <div style="flex:1;">
-                        <a href="{{ url_for('web_rrhh.employee_document_download', employee_id=employee.id, doc_id=d.id) }}" style="font-weight:600; font-size:0.85rem; text-decoration:none;">
+                        <a href="{% if d._source == 'vacation' %}{{ url_for('web_rrhh.vacation_attachment_download', request_id=d.requestId, doc_id=d.id) }}{% elif d._source == 'leave' %}{{ url_for('web_rrhh.leave_attachment_download', request_id=d.requestId, doc_id=d.id) }}{% elif d._source == 'offboarding' %}{{ url_for('web_rrhh.offboarding_download_document', request_id=d.requestId, doc_id=d.id) }}{% else %}{{ url_for('web_rrhh.employee_document_download', employee_id=employee.id, doc_id=d.id) }}{% endif %}" style="font-weight:600; font-size:0.85rem; text-decoration:none;">
                             {{ d.name }}
                         </a>
                         <div style="font-size:0.7rem; color:var(--text-muted);">{{ _cat_labels.get(d.category, d.category) }} · {{ d.uploadedAt[:10] if d.uploadedAt else '' }} · {{ (d.size|int // 1024) if d.size else 0 }}KB</div>
@@ -340,11 +340,13 @@
                         <div style="font-size:0.72rem; color:var(--text-secondary);">{{ d.notes }}</div>
                         {% endif %}
                     </div>
+                    {% if not d._source %}
                     <form method="POST" action="{{ url_for('web_rrhh.employee_document_delete', employee_id=employee.id, doc_id=d.id) }}"
                           onsubmit="return confirm('¿Eliminar?')" style="display:contents;">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn btn-sm btn-ghost" style="color:var(--danger);"><i class="fa-solid fa-trash-can"></i></button>
                     </form>
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>

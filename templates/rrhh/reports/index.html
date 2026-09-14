@@ -98,7 +98,7 @@
     <div class="report-category-card">
         <div class="card-header">
             <div class="icon empleados"><i class="fa-solid fa-users"></i></div>
-            <span class="badge">7 reportes</span>
+            <span class="badge">8 reportes</span>
         </div>
         <div class="card-title">Empleados</div>
         <div class="card-desc">Información y exportación de datos del personal.</div>
@@ -114,6 +114,9 @@
             </li>
             <li class="done">
                 <a href="{{ url_for('web_invoices.report_vacation_periods') }}"><i class="fa-solid fa-calendar-check" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Períodos de Vacaciones</a>
+            </li>
+            <li class="done">
+                <a href="{{ url_for('web_invoices.report_vacation_yearly') }}"><i class="fa-solid fa-chart-simple" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Acumulado de Vacaciones por Año</a>
             </li>
             <li class="done">
                 <a href="{{ url_for('web_rrhh.employee_export') }}"><i class="fa-solid fa-download" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Exportar empleados (XLSX)</a>

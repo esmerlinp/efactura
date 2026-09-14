@@ -1601,3 +1601,320 @@ def report_vacation_periods_pdf():
     filename = f"periodos_vacaciones_{year}_{month:02d}.pdf" if month > 0 else f"periodos_vacaciones_{year}.pdf"
     response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Reporte: Acumulado de Vacaciones por Año (por empleado)
+# ═══════════════════════════════════════════════════════════════
+
+
+def _add_years(d, years):
+    try:
+        return d.replace(year=d.year + years)
+    except ValueError:
+        return d.replace(year=d.year + years, day=28)
+
+
+def _vacation_period_accrual(period_number: int) -> int:
+    """Días ganados por período de servicio según Ley 16-92.
+
+    14 días/año los primeros 5 años, 18 días/año a partir del 6to año.
+    """
+    return 14 if period_number <= 5 else 18
+
+
+def _resolve_logo_src(company: dict) -> str:
+    """Devuelve un `src` listo para <img> con el logo de la empresa.
+
+    Prioriza el base64 (embebido, no depende de red). Si solo hay `logoUrl`,
+    intenta descargarlo y embebarlo como data URI para que WeasyPrint no falle
+    al no poder alcanzar la URL remota durante la generación del PDF.
+    """
+    b64 = (company or {}).get("logoBase64") or ""
+    url = (company or {}).get("logoUrl") or ""
+    if b64:
+        return b64 if b64.startswith("data:") else "data:image/png;base64," + b64
+    if url:
+        try:
+            import base64 as _b64
+            from urllib.request import Request, urlopen
+            req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urlopen(req, timeout=8) as resp:
+                raw = resp.read()
+                mime = (resp.headers.get("Content-Type", "") or "").split(";")[0].strip()
+                if mime not in ("image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"):
+                    mime = "image/png"
+                return f"data:{mime};base64,{_b64.b64encode(raw).decode('utf-8')}"
+        except Exception:
+            return url
+    return ""
+
+
+def _vacation_request_days(r: dict) -> int:
+    """Días efectivamente descontados de una solicitud (misma regla que
+    EmployeeStatusService.taken_vacation_days)."""
+    status = r.get("status", "")
+    if status == "aprobada":
+        return int(r.get("days", 0) or 0)
+    if status in ("anulada", "revocada"):
+        return int(r.get("consumedDays", 0) or 0)
+    return 0
+
+
+def _build_vacation_yearly_periods(base_date_str, requests, today=None):
+    """Desglosa el acumulado de vacaciones por año de servicio (aniversario).
+
+    Retorna una lista de dicts por período, con días ganados, tomados,
+    pendientes y saldo corrido. Función pura (testeable).
+    """
+    if today is None:
+        today = date.today()
+    try:
+        base = date.fromisoformat((base_date_str or "")[:10])
+    except (ValueError, TypeError):
+        return []
+
+    req_items = []
+    for r in requests or []:
+        days = _vacation_request_days(r)
+        if days <= 0:
+            continue
+        req_items.append({
+            "startDate": (r.get("startDate") or "")[:10],
+            "days": days,
+        })
+
+    periods = []
+    period_number = 1
+    period_start = base
+    running_accrued = 0
+    running_taken = 0
+
+    while period_start < today:
+        full_end = _add_years(base, period_number)
+        is_current = full_end > today
+        period_end = today if is_current else full_end
+
+        if is_current:
+            elapsed = (today - period_start).days
+            accrued = max(0, round((elapsed / 365.0) * _vacation_period_accrual(period_number)))
+        else:
+            accrued = _vacation_period_accrual(period_number)
+
+        taken = sum(
+            it["days"] for it in req_items
+            if it["startDate"] and period_start.isoformat() <= it["startDate"] < period_end.isoformat()
+        )
+
+        running_accrued += accrued
+        running_taken += taken
+
+        periods.append({
+            "year": period_number,
+            "startDate": period_start,
+            "endDate": period_end,
+            "accruedDays": accrued,
+            "takenDays": taken,
+            "pendingDays": accrued - taken,
+            "runningBalance": running_accrued - running_taken,
+            "isCurrent": is_current,
+        })
+
+        period_start = full_end
+        period_number += 1
+
+    return periods
+
+
+def _build_vacation_yearly_data(company_id, sandbox, owner_uid, employee_id):
+    from app.services.db_service import DatabaseService
+
+    employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
+    if not employee:
+        return None
+
+    active_contract = None
+    try:
+        active_contract = hr.get_active_contract_for_employee(company_id, employee_id, sandbox=sandbox)
+    except Exception:
+        active_contract = None
+    ctx = hr.get_employment_context(employee, active_contract)
+    base_date = ctx.get("vacationBaseDate") or employee.get("hireDate", "")
+
+    requests = [
+        r for r in hr.get_vacation_requests(company_id, sandbox=sandbox)
+        if r.get("employeeId") == employee_id
+    ]
+
+    periods = _build_vacation_yearly_periods(base_date, requests)
+
+    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id)
+    branch_map = {b["id"]: b.get("name", b.get("code", b["id"])) for b in branches}
+
+    totals = {
+        "accrued": sum(p["accruedDays"] for p in periods),
+        "taken": sum(p["takenDays"] for p in periods),
+        "pending": sum(p["pendingDays"] for p in periods),
+    }
+
+    return {
+        "employee": {
+            "id": employee_id,
+            "code": employee.get("code", ""),
+            "fullName": employee.get("fullName", ""),
+            "branchName": branch_map.get(employee.get("branchId", ""), ""),
+            "department": employee.get("department", "") or employee.get("area", ""),
+            "position": employee.get("position", ""),
+            "hireDate": employee.get("hireDate", ""),
+            "vacationBaseDate": base_date,
+        },
+        "periods": periods,
+        "totals": totals,
+    }
+
+
+def _vacation_yearly_employee_options(company_id, sandbox):
+    employees = hr.get_employees(company_id, sandbox=sandbox)
+    employees.sort(key=lambda e: (
+        not is_active_equivalent(e.get("status", "")),
+        (e.get("fullName", "") or "").lower(),
+    ))
+    return employees
+
+
+@web_invoices_bp.route('/reports/empleados/vacation-yearly')
+@web_rrhh_bp.route("/rrhh/reports/empleados/vacation-yearly")
+@require_module('nomina')
+def report_vacation_yearly():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+
+    employees = _vacation_yearly_employee_options(company_id, sandbox)
+    employee_id = request.args.get("employee", "").strip()
+
+    data = None
+    if employee_id:
+        data = _build_vacation_yearly_data(company_id, sandbox, owner_uid, employee_id)
+        if data is None:
+            flash("Empleado no encontrado.", "error")
+
+    return render_template(
+        "rrhh/reports/vacation_yearly.html",
+        active_page="rrhh_reports",
+        employees=employees,
+        employee_id=employee_id,
+        data=data,
+        today=date.today(),
+    )
+
+
+@web_invoices_bp.route('/reports/empleados/vacation-yearly/export')
+@web_rrhh_bp.route("/rrhh/reports/empleados/vacation-yearly/export")
+@require_module('nomina')
+def report_vacation_yearly_export():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+
+    employee_id = request.args.get("employee", "").strip()
+    if not employee_id:
+        return redirect(url_for("web_invoices.report_vacation_yearly"))
+
+    data = _build_vacation_yearly_data(company_id, sandbox, owner_uid, employee_id)
+    if data is None:
+        flash("Empleado no encontrado.", "error")
+        return redirect(url_for("web_invoices.report_vacation_yearly"))
+
+    emp = data["employee"]
+    periods = data["periods"]
+    slug = (emp["fullName"] or "empleado").replace(" ", "_")
+    today = date.today()
+
+    try:
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Acumulado Vacaciones"
+        ws.append(["Empleado", emp["fullName"]])
+        ws.append(["Código", emp["code"]])
+        ws.append(["Sucursal", emp["branchName"]])
+        ws.append(["Departamento", emp["department"]])
+        ws.append(["Puesto", emp["position"]])
+        ws.append(["Fecha base", emp["vacationBaseDate"]])
+        ws.append([])
+        ws.append(["Año", "Desde", "Hasta", "Días Ganados", "Días Tomados",
+                   "Días Pendientes", "Saldo Acumulado"])
+        for p in periods:
+            ws.append([
+                p["year"],
+                p["startDate"].strftime("%d/%m/%Y"),
+                p["endDate"].strftime("%d/%m/%Y"),
+                p["accruedDays"], p["takenDays"], p["pendingDays"], p["runningBalance"],
+            ])
+        ws.append([])
+        ws.append(["Totales", "", "", data["totals"]["accrued"],
+                   data["totals"]["taken"], data["totals"]["pending"], ""])
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        filename = f"acumulado_vacaciones_{slug}_{today.strftime('%Y%m%d')}.xlsx"
+        return send_file(output,
+                         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                         as_attachment=True, download_name=filename)
+    except ImportError:
+        csv_out = io.StringIO()
+        csv_out.write("Empleado,Codigo,Sucursal,Departamento,Puesto,Fecha base\n")
+        csv_out.write(f"{emp['fullName']},{emp['code']},{emp['branchName']},"
+                      f"{emp['department']},{emp['position']},{emp['vacationBaseDate']}\n\n")
+        csv_out.write("Ano,Desde,Hasta,Dias Ganados,Dias Tomados,Dias Pendientes,Saldo Acumulado\n")
+        for p in periods:
+            csv_out.write(
+                f"{p['year']},{p['startDate'].strftime('%d/%m/%Y')},{p['endDate'].strftime('%d/%m/%Y')},"
+                f"{p['accruedDays']},{p['takenDays']},{p['pendingDays']},{p['runningBalance']}\n"
+            )
+        buf = io.BytesIO()
+        buf.write(b"\xef\xbb\xbf")
+        buf.write(csv_out.getvalue().encode("utf-8"))
+        buf.seek(0)
+        filename = f"acumulado_vacaciones_{slug}_{today.strftime('%Y%m%d')}.csv"
+        return send_file(buf, mimetype="text/csv", as_attachment=True, download_name=filename)
+
+
+@web_invoices_bp.route('/reports/empleados/vacation-yearly/pdf')
+@web_rrhh_bp.route("/rrhh/reports/empleados/vacation-yearly/pdf")
+@require_module('nomina')
+def report_vacation_yearly_pdf():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    from app.services.db_service import DatabaseService
+    from app.utils.pdf import pdf_write_options
+    from weasyprint import HTML as WeasyprintHTML
+
+    employee_id = request.args.get("employee", "").strip()
+    if not employee_id:
+        return redirect(url_for("web_invoices.report_vacation_yearly"))
+
+    data = _build_vacation_yearly_data(company_id, sandbox, owner_uid, employee_id)
+    if data is None:
+        flash("Empleado no encontrado.", "error")
+        return redirect(url_for("web_invoices.report_vacation_yearly"))
+
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+    today = date.today()
+    slug = (data["employee"]["fullName"] or "empleado").replace(" ", "_")
+
+    rendered = render_template(
+        "rrhh/reports/vacation_yearly_pdf.html",
+        data=data,
+        today=today,
+        company=company,
+        logo_src=_resolve_logo_src(company),
+    )
+
+    pdf_bytes = WeasyprintHTML(string=rendered, base_url=request.host_url).write_pdf(**pdf_write_options())
+    response = make_response(pdf_bytes)
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'attachment; filename="acumulado_vacaciones_{slug}_{today.strftime("%Y%m%d")}.pdf"'
+    return response
