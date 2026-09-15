@@ -179,13 +179,10 @@
         <p>{{ company.get('companyAddress', '') }}</p>
         <p>Tel: {{ company.get('companyPhone', '') }} | Email: {{ company.get('companyEmail', '') }}</p>
     </div>
-    {% if company.get('logoBase64') %}
+    {% set _logo = logo_src(company) %}
+    {% if _logo %}
     <div class="logo">
-        <img src="data:image/png;base64,{{ company.get('logoBase64') }}" alt="Logo">
-    </div>
-    {% elif company.get('logoUrl') %}
-    <div class="logo">
-        <img src="{{ company.get('logoUrl') }}" alt="Logo">
+        <img src="{{ _logo }}" alt="Logo">
     </div>
     {% endif %}
 </div>

@@ -47,6 +47,7 @@ class CompanyContext:
     gradient_enabled: bool = False
     logo_url: str = ''
     logo_base64: str = ''
+    logo_storage_path: str = ''
     theme: str = 'moderno'
     apply_color_marca_ui: bool = True
     apply_color_marca_reports: bool = True
@@ -81,6 +82,7 @@ class CompanyContext:
             'gradientEnabled': self.gradient_enabled,
             'logoUrl': self.logo_url,
             'logoBase64': self.logo_base64,
+            'logoStoragePath': self.logo_storage_path,
             'theme': self.theme,
             'applyColorMarcaUI': self.apply_color_marca_ui,
             'applyColorMarcaReports': self.apply_color_marca_reports,
@@ -178,6 +180,7 @@ def _load_company(company_id: str) -> Optional[CompanyContext]:
                     'gradient_enabled': legacy_data.get('gradientEnabled', False),
                     'logo_url': legacy_data.get('logoUrl', ''),
                     'logo_base64': legacy_data.get('logoBase64', ''),
+                    'logo_storage_path': legacy_data.get('logoStoragePath', ''),
                     'theme': legacy_data.get('theme', 'moderno'),
                     'apply_color_marca_ui': legacy_data.get('applyColorMarcaUI', True),
                     'apply_color_marca_reports': legacy_data.get('applyColorMarcaReports', True),
@@ -215,6 +218,7 @@ def _load_company(company_id: str) -> Optional[CompanyContext]:
             gradient_enabled=data.get('gradient_enabled', False),
             logo_url=data.get('logo_url', ''),
             logo_base64=data.get('logo_base64', ''),
+            logo_storage_path=data.get('logo_storage_path', ''),
             theme=data.get('theme', 'moderno'),
             apply_color_marca_ui=data.get('apply_color_marca_ui', True),
             apply_color_marca_reports=data.get('apply_color_marca_reports', True),

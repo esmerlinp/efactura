@@ -1617,28 +1617,14 @@ def report_vacation_periods_pdf():
 def _resolve_logo_src(company: dict) -> str:
     """Devuelve un `src` listo para <img> con el logo de la empresa.
 
-    Prioriza el base64 (embebido, no depende de red). Si solo hay `logoUrl`,
-    intenta descargarlo y embebarlo como data URI para que WeasyPrint no falle
-    al no poder alcanzar la URL remota durante la generación del PDF.
+    Delega en el resolver compartido ``app.utils.logo.resolve_logo_data_uri``,
+    que prioriza el base64 (embebido, no depende de red), descarga por SDK de
+    Firebase Storage si solo hay ``logoStoragePath``, y como último recurso
+    intenta bajar la URL remota para que WeasyPrint no falle al no poder
+    alcanzarla durante la generación del PDF.
     """
-    b64 = (company or {}).get("logoBase64") or ""
-    url = (company or {}).get("logoUrl") or ""
-    if b64:
-        return b64 if b64.startswith("data:") else "data:image/png;base64," + b64
-    if url:
-        try:
-            import base64 as _b64
-            from urllib.request import Request, urlopen
-            req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
-            with urlopen(req, timeout=8) as resp:
-                raw = resp.read()
-                mime = (resp.headers.get("Content-Type", "") or "").split(";")[0].strip()
-                if mime not in ("image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"):
-                    mime = "image/png"
-                return f"data:{mime};base64,{_b64.b64encode(raw).decode('utf-8')}"
-        except Exception:
-            return url
-    return ""
+    from app.utils.logo import resolve_logo_data_uri
+    return resolve_logo_data_uri(company)
 
 
 def _build_vacation_yearly_data(company_id, sandbox, owner_uid, employee_id):

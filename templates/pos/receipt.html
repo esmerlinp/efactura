@@ -189,9 +189,10 @@
     {% endif %}
 
     <div class="header-section text-center">
-        {% if company.logoUrl %}
+        {% set _logo = logo_src(company) %}
+        {% if _logo %}
         <div style="margin-bottom: 6px;">
-            <img src="{{ company.logoUrl }}" alt="Logo"
+            <img src="{{ _logo }}" alt="Logo"
                 style="max-height: 50px; max-width: 150px; object-fit: contain;">
         </div>
         {% endif %}

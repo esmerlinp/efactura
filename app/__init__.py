@@ -588,6 +588,12 @@ def create_app():
         )
 
     @app.context_processor
+    def inject_logo_resolver():
+        """Inyecta ``logo_src(company)`` para resolver el logo a una data URI en PDFs."""
+        from app.utils.logo import resolve_logo_data_uri, resolve_image_data_uri
+        return dict(logo_src=resolve_logo_data_uri, image_src=resolve_image_data_uri)
+
+    @app.context_processor
     def inject_crm_commitments():
         """Inyecta los compromisos CRM agendados para hoy y las notificaciones del usuario para todos los templates."""
         from flask import has_request_context

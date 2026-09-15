@@ -1649,6 +1649,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            if (ecfLogoFileInput.files[0].size > 5 * 1024 * 1024) {
+                if (ecfLogoAlert) { ecfLogoAlert.textContent = 'La imagen excede el límite de 5 MB. Usa una imagen más pequeña.'; ecfLogoAlert.style.display = 'block'; ecfLogoAlert.style.background = 'rgba(239,68,68,0.12)'; ecfLogoAlert.style.color = '#dc2626'; }
+                return;
+            }
+
             var saveBtn = document.getElementById('btn-save-ecf-logo');
             saveBtn.disabled = true;
             var origText = saveBtn.textContent;

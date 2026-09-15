@@ -34,6 +34,14 @@ def mini_app():
         return "login", 200
 
     app.register_blueprint(auth_stub)
+
+    # Helper global de logo usado por los templates de PDF (inyectado en create_app)
+    from app.utils.logo import resolve_logo_data_uri
+
+    @app.context_processor
+    def _inject_logo_resolver():
+        return {"logo_src": resolve_logo_data_uri}
+
     return app
 
 

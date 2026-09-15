@@ -195,10 +195,9 @@
             </div>
         </td>
         <td class="logo-cell">
-            {% if company.logoBase64 %}
-            <img src="data:image/png;base64,{{ company.logoBase64 }}" alt="Logo"><br>
-            {% elif company.logoUrl %}
-            <img src="{{ company.logoUrl }}" alt="Logo"><br>
+            {% set _logo = logo_src(company) %}
+            {% if _logo %}
+            <img src="{{ _logo }}" alt="Logo"><br>
             {% endif %}
             <div class="company-name">{{ company.tradeName or company.companyName or '' }}</div>
             {% if company.companyRNC %}<div class="company-sub">RNC {{ company.companyRNC }}</div>{% endif %}

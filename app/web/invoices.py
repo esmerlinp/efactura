@@ -7872,12 +7872,15 @@ def company_settings():
         existing_profile = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
 
         # ── Validar cambios en RNC, Razón Social o Nombre Comercial si ya hay documentos emitidos ──
-        new_rnc = request.form.get('companyRNC', '').strip()
-        new_name = request.form.get('companyName', '').strip()
-        new_trade = request.form.get('tradeName', '').strip()
         old_rnc = (existing_profile.get('companyRNC') or '').strip()
         old_name = (existing_profile.get('companyName') or '').strip()
         old_trade = (existing_profile.get('tradeName') or '').strip()
+        # Los campos RNC/razón social/nombre comercial se deshabilitan en el frontend
+        # cuando la empresa ya emitió documentos, por lo que llegan vacíos al POST.
+        # Un valor vacío se interpreta como "sin cambios" para no disparar falsos positivos.
+        new_rnc = request.form.get('companyRNC', '').strip() or old_rnc
+        new_name = request.form.get('companyName', '').strip() or old_name
+        new_trade = request.form.get('tradeName', '').strip() or old_trade
         if (new_rnc != old_rnc or new_name != old_name or new_trade != old_trade) and _company_has_issued_documents(owner_uid, sandbox=session.get('is_sandbox_mode', True), company_id=company_id):
             flash(
                 'No es posible modificar el RNC ni la Razón Social porque la empresa ya tiene documentos '
@@ -7908,12 +7911,12 @@ def company_settings():
 
         profile_dict = dict(existing_profile or {})
         profile_dict.update({
-            "companyName": request.form['companyName'],
-            "companyRNC": request.form['companyRNC'],
+            "companyName": new_name,
+            "companyRNC": new_rnc,
             "companyAddress": request.form.get('companyAddress', ''),
             "companyPhone": request.form.get('companyPhone', ''),
             "companyEmail": request.form.get('companyEmail', ''),
-            "tradeName": request.form.get('tradeName', ''),
+            "tradeName": new_trade,
             "companyType": "associated",
             "province": request.form.get('province', ''),
             "municipality": request.form.get('municipality', ''),
@@ -8290,19 +8293,34 @@ def save_company_brand_settings():
         if logo_file and logo_file.filename:
             import base64
             file_data = logo_file.read()
-            mime_type = logo_file.content_type or "image/png"
-            ext = logo_file.filename.rsplit('.', 1)[-1].lower() if '.' in logo_file.filename else 'png'
+            content_type = logo_file.content_type or "image/png"
+            original_ext = logo_file.filename.rsplit('.', 1)[-1].lower() if '.' in logo_file.filename else 'png'
+
+            # Normalizar el logo (re-escalar + optimizar) para que sea liviano y
+            # siempre quepa en el base64 / Firestore.
+            try:
+                from app.utils.images import normalize_logo_image
+                file_data, mime_type, ext = normalize_logo_image(file_data, content_type)
+            except ValueError:
+                return jsonify({"success": False, "error": "La imagen no es válida o excede 5 MB."}), 400
+            except Exception:
+                # Si la normalización falla, usar el archivo original sin bloquear el flujo.
+                mime_type = content_type
+                ext = original_ext
+
             dest_path = f"users/{owner_uid}/company/logo_{uuid.uuid4().hex[:8]}.{ext}"
+            existing_profile['logoStoragePath'] = dest_path
             existing_profile['logoUrl'] = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type)
             b64 = base64.b64encode(file_data).decode('utf-8')
             if len(b64) < 800000:
                 existing_profile['logoBase64'] = b64
             else:
                 existing_profile['logoBase64'] = ''
-            
+
         if request.form.get('removeLogo') == 'true':
             existing_profile['logoUrl'] = ''
             existing_profile['logoBase64'] = ''
+            existing_profile['logoStoragePath'] = ''
 
         saved = DatabaseService.save_company_profile(owner_uid, existing_profile, company_id=company_id)
         if not saved:
@@ -8352,9 +8370,14 @@ def save_certification_settings():
             ext = stamp_file.filename.rsplit('.', 1)[-1].lower() if '.' in stamp_file.filename else 'png'
             dest_path = f"users/{owner_uid}/company/stamp_{uuid.uuid4().hex[:8]}.{ext}"
             existing_profile['stampUrl'] = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type)
+            existing_profile['stampStoragePath'] = dest_path
+            b64 = base64.b64encode(file_data).decode('utf-8')
+            existing_profile['stampBase64'] = b64 if len(b64) < 800000 else ''
 
         if request.form.get('removeStamp') == 'true':
             existing_profile['stampUrl'] = ''
+            existing_profile['stampStoragePath'] = ''
+            existing_profile['stampBase64'] = ''
 
         signature_file = request.files.get('signatureFile')
         if signature_file and signature_file.filename:
@@ -8364,9 +8387,14 @@ def save_certification_settings():
             ext = signature_file.filename.rsplit('.', 1)[-1].lower() if '.' in signature_file.filename else 'png'
             dest_path = f"users/{owner_uid}/company/signature_{uuid.uuid4().hex[:8]}.{ext}"
             existing_profile['signatureUrl'] = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type)
+            existing_profile['signatureStoragePath'] = dest_path
+            b64 = base64.b64encode(file_data).decode('utf-8')
+            existing_profile['signatureBase64'] = b64 if len(b64) < 800000 else ''
 
         if request.form.get('removeSignature') == 'true':
             existing_profile['signatureUrl'] = ''
+            existing_profile['signatureStoragePath'] = ''
+            existing_profile['signatureBase64'] = ''
 
         saved = DatabaseService.save_company_profile(owner_uid, existing_profile, company_id=company_id)
         if not saved:

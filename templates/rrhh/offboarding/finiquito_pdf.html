@@ -58,10 +58,10 @@
 {% set m_descuentos = (totales.get('montoDescuentos', 0) or 0) | float %}
 {% set m_neto = (totales.get('montoNetoAPagar', 0) or 0) | float %}
 
-{% set logo = company.logoBase64 or '' %}
+{% set logo = logo_src(company) %}
 {% if logo %}
 <div class="company-header">
-    <img src="{{ logo if logo.startswith('data:') else 'data:image/png;base64,' + logo }}" class="company-logo">
+    <img src="{{ logo }}" class="company-logo">
     <div class="company-info">
         <span class="company-name">{{ company.companyName }}</span>
         <span>RNC {{ company.rnc }}</span>
