@@ -13,6 +13,12 @@ from app.services import hr_data_service as hr
 from app.utils.hr_utils import is_active_equivalent
 from app.services.payroll_ytd_service import get_ytd
 from app.services.payroll_service import PayrollService
+from app.services.vacation_balance_service import (
+    _add_years,
+    vacation_period_accrual as _vacation_period_accrual,
+    vacation_request_days as _vacation_request_days,
+    build_vacation_yearly_periods as _build_vacation_yearly_periods,
+)
 import csv, io
 
 
@@ -1608,21 +1614,6 @@ def report_vacation_periods_pdf():
 # ═══════════════════════════════════════════════════════════════
 
 
-def _add_years(d, years):
-    try:
-        return d.replace(year=d.year + years)
-    except ValueError:
-        return d.replace(year=d.year + years, day=28)
-
-
-def _vacation_period_accrual(period_number: int) -> int:
-    """Días ganados por período de servicio según Ley 16-92.
-
-    14 días/año los primeros 5 años, 18 días/año a partir del 6to año.
-    """
-    return 14 if period_number <= 5 else 18
-
-
 def _resolve_logo_src(company: dict) -> str:
     """Devuelve un `src` listo para <img> con el logo de la empresa.
 
@@ -1648,82 +1639,6 @@ def _resolve_logo_src(company: dict) -> str:
         except Exception:
             return url
     return ""
-
-
-def _vacation_request_days(r: dict) -> int:
-    """Días efectivamente descontados de una solicitud (misma regla que
-    EmployeeStatusService.taken_vacation_days)."""
-    status = r.get("status", "")
-    if status == "aprobada":
-        return int(r.get("days", 0) or 0)
-    if status in ("anulada", "revocada"):
-        return int(r.get("consumedDays", 0) or 0)
-    return 0
-
-
-def _build_vacation_yearly_periods(base_date_str, requests, today=None):
-    """Desglosa el acumulado de vacaciones por año de servicio (aniversario).
-
-    Retorna una lista de dicts por período, con días ganados, tomados,
-    pendientes y saldo corrido. Función pura (testeable).
-    """
-    if today is None:
-        today = date.today()
-    try:
-        base = date.fromisoformat((base_date_str or "")[:10])
-    except (ValueError, TypeError):
-        return []
-
-    req_items = []
-    for r in requests or []:
-        days = _vacation_request_days(r)
-        if days <= 0:
-            continue
-        req_items.append({
-            "startDate": (r.get("startDate") or "")[:10],
-            "days": days,
-        })
-
-    periods = []
-    period_number = 1
-    period_start = base
-    running_accrued = 0
-    running_taken = 0
-
-    while period_start < today:
-        full_end = _add_years(base, period_number)
-        is_current = full_end > today
-        period_end = today if is_current else full_end
-
-        if is_current:
-            elapsed = (today - period_start).days
-            accrued = max(0, round((elapsed / 365.0) * _vacation_period_accrual(period_number)))
-        else:
-            accrued = _vacation_period_accrual(period_number)
-
-        taken = sum(
-            it["days"] for it in req_items
-            if it["startDate"] and period_start.isoformat() <= it["startDate"] < period_end.isoformat()
-        )
-
-        running_accrued += accrued
-        running_taken += taken
-
-        periods.append({
-            "year": period_number,
-            "startDate": period_start,
-            "endDate": period_end,
-            "accruedDays": accrued,
-            "takenDays": taken,
-            "pendingDays": accrued - taken,
-            "runningBalance": running_accrued - running_taken,
-            "isCurrent": is_current,
-        })
-
-        period_start = full_end
-        period_number += 1
-
-    return periods
 
 
 def _build_vacation_yearly_data(company_id, sandbox, owner_uid, employee_id):

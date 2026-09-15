@@ -79,31 +79,10 @@ def vacation_new():
         holidays = HolidayService.get_holiday_dates(company_id, start_date, end_date, sandbox=sandbox)
         work_days = PayrollService.resolve_employee_work_days(company_id, employee, sandbox=sandbox)
         business_days = PayrollService.calculate_business_days(start_date, end_date, holidays=holidays, work_days=work_days)
-        from app.services.employee_status_service import EmployeeStatusService
-        emp_vac_requests = [
-            r for r in hr.get_vacation_requests(company_id, sandbox=sandbox)
-            if r.get("employeeId") == emp_id
-        ]
-        # Frontera Fase 2.5: si hay contrato activo, el saldo nace de vacationBaseDate
-        # y solo cuenta solicitudes del período actual (histórico intacto, no mezclado).
-        _active_ctr = None
-        _vac_base = employee.get("hireDate", "")
-        try:
-            _active_ctr = hr.get_active_contract_for_employee(company_id, emp_id, sandbox=sandbox)
-        except Exception:
-            _active_ctr = None
-        if _active_ctr:
-            _ctx = hr.get_employment_context(employee, _active_ctr)
-            _vac_base = _ctx.get("vacationBaseDate") or _vac_base
-            if (_active_ctr.get("vacationPolicy", "reset") == "reset"):
-                _cid = _active_ctr.get("id", "")
-                emp_vac_requests = [
-                    r for r in emp_vac_requests
-                    if (r.get("contractId") or "") == _cid
-                    or (not (r.get("contractId") or "") and (r.get("startDate", "") or "") >= (_vac_base or ""))
-                ]
-        taken_days = EmployeeStatusService.taken_vacation_days(emp_vac_requests)
-        remaining = PayrollService.calculate_vacation_days(_vac_base, taken_days=taken_days)
+        from app.services.vacation_balance_service import build_vacation_summary
+        _summary = build_vacation_summary(company_id, employee, sandbox=sandbox)
+        _active_ctr = _summary.get("active_contract")
+        remaining = _summary.get("availableDays", 0)
 
         req_id = str(uuid.uuid4())
         hr.save_vacation_request(company_id, req_id, {
@@ -141,6 +120,50 @@ def vacation_new():
         return redirect(url_for("web_rrhh.vacation_list"))
 
     return render_template("rrhh/vacation_form.html", active_page="rrhh_vacations", employees=employees)
+
+
+@web_rrhh_bp.route("/rrhh/vacations/employee/<employee_id>/summary")
+def vacation_employee_summary(employee_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+
+    employee = hr.get_employee(company_id, employee_id, sandbox=sandbox)
+    if not employee:
+        return jsonify({"success": False, "error": "Empleado no encontrado."}), 404
+
+    from app.services.vacation_balance_service import build_vacation_summary
+    summary = build_vacation_summary(company_id, employee, sandbox=sandbox)
+
+    periods = []
+    for p in summary["periods"]:
+        periods.append({
+            "year": p["year"],
+            "startDate": p["startDate"].isoformat(),
+            "endDate": p["endDate"].isoformat(),
+            "accruedDays": p["accruedDays"],
+            "takenDays": p["takenDays"],
+            "pendingDays": p["pendingDays"],
+            "runningBalance": p["runningBalance"],
+            "isCurrent": p["isCurrent"],
+        })
+
+    return jsonify({
+        "success": True,
+        "employee": {
+            "id": employee_id,
+            "code": employee.get("code", ""),
+            "fullName": employee.get("fullName", ""),
+            "position": employee.get("position", ""),
+            "department": employee.get("department", "") or employee.get("area", ""),
+            "hireDate": employee.get("hireDate", ""),
+            "vacationBaseDate": summary["base_date"],
+        },
+        "periods": periods,
+        "totals": summary["totals"],
+        "availableDays": summary["availableDays"],
+    })
 
 
 @web_rrhh_bp.route("/rrhh/vacations/<request_id>/<action>", methods=["POST"])

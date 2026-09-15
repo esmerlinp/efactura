@@ -1,0 +1,275 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Acumulado de Vacaciones por Año — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<style>
+    .yearly-container { max-width: 1300px; margin: 0 auto; font-family: 'Segoe UI', Arial, sans-serif; }
+    .yearly-info-bar {
+        display: flex; justify-content: space-between; align-items: center;
+        background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+        padding: 10px 16px; margin-bottom: 14px; font-size: 0.82rem; gap: 12px; flex-wrap: wrap;
+    }
+    .yearly-info-bar .info-text strong { color: var(--accent-emerald, #10b981); }
+    .yearly-summary { display: flex; gap: 16px; flex-wrap: wrap; }
+    .yearly-summary .mini-stat { font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; }
+    .yearly-summary .mini-stat span { font-weight: 700; color: var(--text-primary); }
+    .yearly-table-wrap { overflow-x: auto; }
+    .yearly-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+    .yearly-table th {
+        background: #f1f5f9; border-bottom: 2px solid #e2e8f0; padding: 6px 6px;
+        text-align: left; font-weight: 700; font-size: 0.7rem; text-transform: uppercase;
+        letter-spacing: 0.2px; color: #475569; white-space: nowrap;
+    }
+    .yearly-table td { border-bottom: 1px solid #f1f5f9; padding: 5px 6px; white-space: nowrap; }
+    .yearly-table tbody tr:hover { background: #f8fafc; }
+    .yearly-table td.text-right { text-align: right; }
+    .yearly-table td.text-center { text-align: center; }
+    .yearly-table .pending-low { color: #ef4444; font-weight: 700; }
+    .yearly-table .pending-ok { color: #10b981; font-weight: 600; }
+    .yearly-table .current-row { background: #f0fdf4; }
+    .yearly-empty { text-align: center; padding: 48px 20px; color: var(--text-muted); }
+    .yearly-empty i { font-size: 2.5rem; display: block; margin-bottom: 12px; opacity: 0.4; }
+    .yearly-empty p { font-size: 0.88rem; margin: 0; }
+    .yearly-employee-card {
+        display: flex; justify-content: space-between; align-items: center;
+        gap: 12px; flex-wrap: wrap; padding: 12px 16px; margin-bottom: 14px;
+        border: 1px solid #e2e8f0; border-radius: 8px; background: #fff;
+    }
+    .yearly-employee-card .name { font-weight: 700; font-size: 0.95rem; }
+    .yearly-employee-card .meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+
+    .fd-combo { position: relative; width: 320px; }
+    .fd-combo-search {
+        width: 100%; padding-right: 30px; cursor: pointer;
+        background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='M21 21l-4.35-4.35'/%3E%3C/svg%3E") no-repeat right 10px center;
+    }
+    .fd-combo-search:focus { cursor: text; }
+    .fd-combo-list {
+        display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.10); z-index: 200;
+        max-height: 240px; overflow-y: auto;
+    }
+    .fd-combo-list.open { display: block; }
+    .fd-opt {
+        padding: 9px 12px; cursor: pointer; font-size: 0.85rem;
+        color: var(--text-primary); border-bottom: 1px solid #f8fafc;
+    }
+    .fd-opt:last-child { border-bottom: none; }
+    .fd-opt:hover, .fd-opt.active { background: rgba(30,58,138,0.06); }
+    .fd-opt.selected { font-weight: 700; }
+    .fd-opt.inactive { color: var(--text-muted); font-style: italic; }
+    .fd-empty { padding: 12px; text-align: center; color: var(--text-muted); font-size: 0.85rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% include "rrhh/_styles.html" %}
+
+<div class="yearly-container">
+
+    <div class="breadcrumb">
+        <a href="{{ url_for('web_invoices.reports_category', category_key='empleados') }}">Empleados</a>
+        <span class="sep">›</span>
+        <span>Acumulado de Vacaciones por Año</span>
+    </div>
+
+    <div class="page-header hr-page-header">
+        <h1 class="page-title"><i class="fa-solid fa-umbrella-beach"></i> Acumulado de Vacaciones por Año</h1>
+        <div class="hr-page-actions">
+            {% if data and data.periods %}
+            <a href="{{ url_for('web_invoices.report_vacation_yearly_export', employee=employee_id) }}"
+               class="btn btn-primary">
+                <i class="fa-solid fa-file-excel"></i> Excel
+            </a>
+            <a href="{{ url_for('web_invoices.report_vacation_yearly_pdf', employee=employee_id) }}"
+               class="btn btn-primary" style="background:var(--accent-blue,#2563eb);border-color:var(--accent-blue,#2563eb);">
+                <i class="fa-solid fa-file-pdf"></i> PDF
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <form method="GET" id="yearly-filter" style="display:flex; gap:8px; align-items:flex-end; margin-bottom:16px;">
+        <div class="form-group" style="margin:0;">
+            <label>Empleado <span style="color:var(--danger);">*</span></label>
+            <div class="fd-combo" data-combo="employee">
+                <input type="text" class="form-input fd-combo-search" id="search-employee"
+                       placeholder="Buscar empleado por nombre o código…" autocomplete="off"
+                       role="combobox" aria-expanded="false" aria-controls="list-employee">
+                <input type="hidden" id="employee" name="employee" value="{{ employee_id or '' }}">
+                <div class="fd-combo-list" id="list-employee" role="listbox"></div>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-filter"></i> Ver reporte
+        </button>
+        {% if employee_id %}
+        <a href="{{ url_for('web_invoices.report_vacation_yearly') }}" class="btn btn-ghost">
+            <i class="fa-solid fa-xmark"></i> Limpiar
+        </a>
+        {% endif %}
+    </form>
+
+    {% if data %}
+    <div class="yearly-employee-card">
+        <div>
+            <div class="name">{{ data.employee.fullName }}</div>
+            <div class="meta">
+                {% if data.employee.code %}Código {{ data.employee.code }} · {% endif %}
+                {{ data.employee.position or '—' }} · {{ data.employee.department or '—' }}
+                {% if data.employee.branchName %} · {{ data.employee.branchName }}{% endif %}
+                · Fecha base: {{ data.employee.vacationBaseDate }}
+            </div>
+        </div>
+        <div class="yearly-summary">
+            <div class="mini-stat">Ganados: <span>{{ data.totals.accrued }}</span></div>
+            <div class="mini-stat">Tomados: <span>{{ data.totals.taken }}</span></div>
+            <div class="mini-stat">Pendientes: <span>{{ data.totals.pending }}</span></div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if data and data.periods %}
+    <div class="card-table-wrapper hr-table-card">
+        <div class="table-header-row">
+            <h3>Desglose por año de servicio</h3>
+        </div>
+        <div class="table-responsive">
+            <table class="data-grid yearly-table">
+                <thead>
+                    <tr>
+                        <th class="text-center">Año</th>
+                        <th>Desde</th>
+                        <th>Hasta</th>
+                        <th class="text-right">D. Ganados</th>
+                        <th class="text-right">D. Tomados</th>
+                        <th class="text-right">Pendiente</th>
+                        <th class="text-right">Saldo Acum.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in data.periods %}
+                    <tr class="{% if p.isCurrent %}current-row{% endif %}">
+                        <td class="text-center">{{ p.year }}</td>
+                        <td>{{ p.startDate.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ p.endDate.strftime('%d/%m/%Y') }}</td>
+                        <td class="text-right">{{ p.accruedDays }}</td>
+                        <td class="text-right">{{ p.takenDays }}</td>
+                        <td class="text-right">
+                            {% if p.pendingDays < 0 %}
+                            <span class="pending-low">{{ p.pendingDays }}</span>
+                            {% else %}
+                            <span class="pending-ok">{{ p.pendingDays }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-right">{{ p.runningBalance }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="card-table-wrapper hr-table-card">
+        <div class="yearly-empty">
+            <i class="fa-solid fa-umbrella-beach"></i>
+            {% if employee_id %}
+            <p>No se encontraron datos de vacaciones para este empleado.</p>
+            {% else %}
+            <p>Seleccione un empleado para ver su acumulado de vacaciones por año.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+(function () {
+    var FD_DATA = [
+        {% for e in employees %}
+        { value: {{ e.id|tojson }}, inactive: {{ (not e.status or e.status == 'inactivo')|tojson }}, label: {{ (e.fullName + ((' (' ~ e.code ~ ')') if e.code else '') + ((' — inactivo') if (not e.status or e.status == 'inactivo') else ''))|tojson }} },
+        {% endfor %}
+    ];
+
+    var hidden = document.getElementById('employee');
+    var search = document.getElementById('search-employee');
+    var list = document.getElementById('list-employee');
+
+    function labelFor(value) {
+        for (var i = 0; i < FD_DATA.length; i++) {
+            if (FD_DATA[i].value === value) return FD_DATA[i].label;
+        }
+        return '';
+    }
+    function close() {
+        list.classList.remove('open');
+        search.setAttribute('aria-expanded', 'false');
+    }
+    function render(query) {
+        var q = (query || '').trim().toLowerCase();
+        var current = hidden.value;
+        var html = '';
+        var shown = 0;
+        for (var i = 0; i < FD_DATA.length; i++) {
+            var o = FD_DATA[i];
+            if (q && o.label.toLowerCase().indexOf(q) === -1) continue;
+            shown++;
+            var cls = 'fd-opt' + (o.value === current ? ' selected' : '') + (o.inactive ? ' inactive' : '');
+            html += '<div class="' + cls + '" role="option" data-value="' + o.value.replace(/"/g, '&quot;') + '">' + o.label.replace(/</g, '&lt;') + '</div>';
+        }
+        list.innerHTML = html || '<div class="fd-empty">Sin coincidencias</div>';
+    }
+    function select(value) {
+        hidden.value = value;
+        search.value = labelFor(value);
+        close();
+    }
+    function commit() {
+        var txt = (search.value || '').trim();
+        if (!txt) {
+            hidden.value = '';
+            return;
+        }
+        for (var i = 0; i < FD_DATA.length; i++) {
+            if (FD_DATA[i].label.toLowerCase() === txt.toLowerCase()) {
+                hidden.value = FD_DATA[i].value;
+                search.value = FD_DATA[i].label;
+                return;
+            }
+        }
+        search.value = labelFor(hidden.value);
+    }
+
+    search.addEventListener('focus', function () { render(search.value); list.classList.add('open'); search.setAttribute('aria-expanded', 'true'); });
+    search.addEventListener('click', function () { render(search.value); list.classList.add('open'); search.setAttribute('aria-expanded', 'true'); });
+    search.addEventListener('input', function () { render(search.value); list.classList.add('open'); search.setAttribute('aria-expanded', 'true'); });
+    search.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape') { commit(); search.blur(); }
+        else if (ev.key === 'Enter') {
+            ev.preventDefault();
+            var first = list.querySelector('.fd-opt');
+            if (first && list.classList.contains('open')) select(first.getAttribute('data-value'));
+        }
+        else if (ev.key === 'ArrowDown') {
+            ev.preventDefault();
+            list.classList.add('open');
+            var f = list.querySelector('.fd-opt');
+            if (f) f.classList.add('active');
+        }
+    });
+    search.addEventListener('blur', function () { setTimeout(commit, 150); });
+    list.addEventListener('mousedown', function (ev) {
+        var opt = ev.target.closest('.fd-opt');
+        if (opt) { ev.preventDefault(); select(opt.getAttribute('data-value')); }
+    });
+    document.addEventListener('click', function (ev) {
+        if (!ev.target.closest('.fd-combo')) close();
+    });
+
+    document.getElementById('yearly-filter').addEventListener('submit', function () { commit(); });
+
+    if (hidden.value) search.value = labelFor(hidden.value);
+})();
+</script>
+{% endblock %}

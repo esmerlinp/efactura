@@ -1,5 +1,26 @@
 {% extends "rrhh/layout_hr.html" %}
 {% block title %}Nueva Solicitud de Vacaciones — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<style>
+    .vac-summary { grid-column: 1 / -1; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; background: #fff; }
+    .vac-summary.is-hidden { display: none; }
+    .vac-balance-bar { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+    .vac-balance-bar .vac-label { font-weight: 600; font-size: 0.85rem; color: var(--text-muted, #64748b); }
+    .vac-balance-bar .vac-value { font-weight: 800; font-size: 1.35rem; color: var(--accent-emerald, #10b981); }
+    .vac-meta { font-size: 0.75rem; color: var(--text-muted, #64748b); margin-bottom: 8px; }
+    .vac-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; margin-top: 8px; }
+    .vac-table th { background: #f1f5f9; border-bottom: 2px solid #e2e8f0; padding: 6px; text-align: left; font-size: 0.7rem; text-transform: uppercase; color: #475569; white-space: nowrap; }
+    .vac-table td { border-bottom: 1px solid #f1f5f9; padding: 5px 6px; white-space: nowrap; }
+    .vac-table td.text-right { text-align: right; }
+    .vac-table td.text-center { text-align: center; }
+    .vac-table .pending-low { color: #ef4444; font-weight: 700; }
+    .vac-table .current-row { background: #f0fdf4; }
+    .vac-empty { text-align: center; padding: 16px; color: var(--text-muted, #64748b); font-size: 0.82rem; }
+    .vac-msg { font-size: 0.8rem; margin-top: 8px; }
+    .vac-msg.error { color: #ef4444; }
+</style>
+{% endblock %}
+
 {% block content %}
 {% include "rrhh/_styles.html" %}
 <div class="page-header hr-page-header">
@@ -13,7 +34,7 @@
         <div class="hr-form-grid">
             <div class="form-group">
                 <label>Empleado</label>
-                <select name="employeeId" class="form-select" required>
+                <select name="employeeId" id="employeeId" class="form-select" required>
                     <option value="">Seleccione...</option>
                     {% for emp in employees %}
                     <option value="{{ emp.id }}">{{ emp.fullName }} — {{ emp.position }}</option>
@@ -28,9 +49,33 @@
                 <label>Fecha de Fin</label>
                 <input type="date" name="endDate" class="form-input" required>
             </div>
-            <div class="form-group">
+            <div class="form-group" style="grid-column:1/-1;">
                 <label>Notas</label>
                 <textarea name="notes" class="form-textarea" rows="2"></textarea>
+            </div>
+            <div class="vac-summary is-hidden" id="vac-summary">
+                <div class="vac-balance-bar">
+                    <span class="vac-label"><i class="fa-solid fa-umbrella-beach"></i> Días disponibles:</span>
+                    <span class="vac-value" id="vac-available">—</span>
+                </div>
+                <div class="vac-meta" id="vac-meta"></div>
+                <div class="table-responsive">
+                    <table class="vac-table">
+                        <thead>
+                            <tr>
+                                <th class="text-center">Año</th>
+                                <th>Desde</th>
+                                <th>Hasta</th>
+                                <th class="text-right">Ganados</th>
+                                <th class="text-right">Tomados</th>
+                                <th class="text-right">Pendiente</th>
+                                <th class="text-right">Saldo acum.</th>
+                            </tr>
+                        </thead>
+                        <tbody id="vac-periods"></tbody>
+                    </table>
+                </div>
+                <div class="vac-msg" id="vac-msg"></div>
             </div>
             <div class="form-group" style="grid-column:1/-1;">
                 <label>Documentos de aval</label>
@@ -44,4 +89,95 @@
             <button type="submit" class="btn btn-primary">Enviar Solicitud</button>
     </div>
 </form>
+
+<script>
+(function () {
+    var endpoint = {{ url_for('web_rrhh.vacation_employee_summary', employee_id='__ID__')|tojson }};
+    var select = document.getElementById('employeeId');
+    var summary = document.getElementById('vac-summary');
+    var availableEl = document.getElementById('vac-available');
+    var metaEl = document.getElementById('vac-meta');
+    var periodsEl = document.getElementById('vac-periods');
+    var msgEl = document.getElementById('vac-msg');
+
+    function fmtDate(iso) {
+        if (!iso) return '—';
+        var parts = iso.split('-');
+        if (parts.length !== 3) return iso;
+        return parts[2] + '/' + parts[1] + '/' + parts[0];
+    }
+
+    function esc(s) {
+        return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function reset() {
+        summary.classList.add('is-hidden');
+        availableEl.textContent = '—';
+        metaEl.textContent = '';
+        periodsEl.innerHTML = '';
+        msgEl.textContent = '';
+        msgEl.classList.remove('error');
+    }
+
+    function render(data) {
+        if (!data || !data.success) {
+            msgEl.textContent = (data && data.error) || 'No se pudo cargar el saldo de vacaciones.';
+            msgEl.classList.add('error');
+            summary.classList.remove('is-hidden');
+            return;
+        }
+        summary.classList.remove('is-hidden');
+        availableEl.textContent = data.availableDays + ' días';
+        var emp = data.employee || {};
+        var metaParts = [];
+        if (emp.fullName) metaParts.push(emp.fullName);
+        if (emp.position) metaParts.push(emp.position);
+        metaParts.push('Fecha base: ' + (emp.vacationBaseDate ? fmtDate(emp.vacationBaseDate) : '—'));
+        metaEl.textContent = metaParts.join(' · ');
+
+        var periods = data.periods || [];
+        if (!periods.length) {
+            periodsEl.innerHTML = '<tr><td colspan="7" class="vac-empty">Sin acumulado de vacaciones para este empleado.</td></tr>';
+            return;
+        }
+        var html = '';
+        for (var i = 0; i < periods.length; i++) {
+            var p = periods[i];
+            var pendingCls = p.pendingDays < 0 ? 'pending-low' : '';
+            html += '<tr class="' + (p.isCurrent ? 'current-row' : '') + '">'
+                + '<td class="text-center">' + p.year + '</td>'
+                + '<td>' + fmtDate(p.startDate) + '</td>'
+                + '<td>' + fmtDate(p.endDate) + '</td>'
+                + '<td class="text-right">' + p.accruedDays + '</td>'
+                + '<td class="text-right">' + p.takenDays + '</td>'
+                + '<td class="text-right ' + pendingCls + '">' + p.pendingDays + '</td>'
+                + '<td class="text-right">' + p.runningBalance + '</td>'
+                + '</tr>';
+        }
+        periodsEl.innerHTML = html;
+    }
+
+    select.addEventListener('change', function () {
+        var empId = select.value;
+        if (!empId) {
+            reset();
+            return;
+        }
+        reset();
+        msgEl.textContent = 'Cargando saldo…';
+        summary.classList.remove('is-hidden');
+        fetch(endpoint.replace('__ID__', encodeURIComponent(empId)))
+            .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
+            .then(render)
+            .catch(function () {
+                msgEl.textContent = 'Error al cargar el saldo de vacaciones.';
+                msgEl.classList.add('error');
+            });
+    });
+})();
+</script>
 {% endblock %}
