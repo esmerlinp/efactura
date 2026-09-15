@@ -1417,6 +1417,18 @@ def delete_mass_action(company_id: str, action_id: str, sandbox: bool = True):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# EDICIÓN MASIVA DE EMPLEADOS (jobs con progreso)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_bulk_edit_job(company_id: str, job_id: str, sandbox: bool = True) -> dict | None:
+    return _get_one(company_id, "bulk_edit_jobs", job_id, sandbox)
+
+
+def save_bulk_edit_job(company_id: str, job_id: str, data: dict, sandbox: bool = True):
+    _save(company_id, "bulk_edit_jobs", job_id, data, sandbox)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # COLA DE AUTORIZACIÓN (reglas y solicitudes genéricas)
 # ═══════════════════════════════════════════════════════════════════════════
 

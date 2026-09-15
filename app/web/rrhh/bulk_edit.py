@@ -172,10 +172,11 @@ def bulk_edit_execute():
 def bulk_edit_progress(job_id):
     if _login_required():
         return {"error": "No autorizado"}, 401
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     from app.services.bulk_edit_service import get_job_progress
 
-    job = get_job_progress(job_id)
+    job = get_job_progress(job_id, company_id=company_id, sandbox=sandbox)
     if not job:
         return {"status": "not_found", "error": "Job no encontrado"}, 404
 
@@ -186,10 +187,11 @@ def bulk_edit_progress(job_id):
 def bulk_edit_result(job_id):
     if _login_required():
         return {"error": "No autorizado"}, 401
+    owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
     from app.services.bulk_edit_service import get_job_result
 
-    result = get_job_result(job_id)
+    result = get_job_result(job_id, company_id=company_id, sandbox=sandbox)
     if not result:
         return {"error": "Job no encontrado"}, 404
 
