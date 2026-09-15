@@ -1,0 +1,32 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Afiliación de Seguro — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="breadcrumb">
+    <a href="{{ url_for('web_rrhh.employee_list') }}">Empleados</a><span class="sep">/</span>
+    <a href="{{ url_for('web_rrhh.employee_view', employee_id=employee_id) }}">{{ employee.fullName or employee.firstName }}</a><span class="sep">/</span>
+    <span>Seguros</span>
+</div>
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-shield-halved"></i> Afiliaciones de seguro</h1>
+    <div class="hr-page-actions"><a href="{{ url_for('web_rrhh.employee_view', employee_id=employee_id, tab='insurance') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Volver al empleado</a></div>
+</div>
+<form method="post" class="hr-main-col" style="max-width:720px; margin-left:0;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="hr-section-card">
+        <h3><i class="fa-solid fa-user-plus"></i> Nueva afiliación</h3>
+        <div class="form-group"><label>Beneficiario</label><select name="dependentId" class="form-select"><option value="">Titular: {{ employee.fullName or employee.firstName }}</option>{% for dependent in dependents %}<option value="{{ dependent.id }}">Dependiente: {{ dependent.fullName or dependent.firstName }}</option>{% endfor %}</select></div>
+        <div class="form-group"><label>Plan</label><select name="planId" class="form-select" required>{% for plan in plans %}<option value="{{ plan.id }}">{{ plan.name }} — RD$ {{ plan.baseAmount }}</option>{% endfor %}</select></div>
+        <div class="form-group"><label>Fecha de inicio</label><input name="startDate" class="form-input" type="date" required></div>
+        <button class="btn btn-primary" type="submit"><i class="fa-solid fa-check"></i> Crear afiliación</button>
+    </div>
+</form>
+<div class="card-table-wrapper hr-table-card"><div class="table-responsive"><table class="data-grid hr-compact-table">
+    <thead><tr><th>Plan</th><th>Proveedor</th><th>Beneficiario</th><th>Inicio</th><th>Aporte empleado</th><th>Estado</th><th></th></tr></thead>
+    <tbody>
+    {% for enrollment in enrollments %}
+    <tr><td><strong>{{ plan_names.get(enrollment.planId, 'Plan no encontrado') }}</strong></td><td>{{ provider_names.get(enrollment.providerId, 'Proveedor no encontrado') }}</td><td>{{ 'Dependiente' if enrollment.dependentId else 'Titular' }}</td><td>{{ enrollment.startDate or '—' }}</td><td>RD$ {{ "{:,.2f}".format(enrollment.employeeContributionAmount|float) }}</td><td>{% if enrollment.status == 'active' %}<span class="badge badge-success">Activo</span>{% else %}<span class="badge badge-secondary">{{ enrollment.status|capitalize }}</span>{% endif %}</td><td>{% if enrollment.status == 'active' %}<form method="post" action="{{ url_for('web_rrhh.insurance_enrollment_cancel', enrollment_id=enrollment.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="employeeId" value="{{ employee_id }}"><button class="btn btn-sm btn-ghost" type="submit">Cancelar</button></form>{% endif %}</td></tr>
+    {% else %}<tr><td colspan="7" class="text-center text-muted">No hay afiliaciones registradas.</td></tr>{% endfor %}
+    </tbody>
+</table></div></div>
+{% endblock %}

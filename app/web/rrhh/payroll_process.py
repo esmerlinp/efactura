@@ -1167,6 +1167,15 @@ def payroll_new():
                     employee_transactions.extend(recurring_txs)
                     all_applications.extend(recurring_apps)
 
+                    # ── Afiliaciones de seguro (snapshot economico) ──
+                    from app.services.insurance_enrollment_service import build_payroll_transactions
+                    employee_transactions.extend(build_payroll_transactions(
+                        company_id, emp_id, period_id, period_key, start_date, end_date,
+                        payroll_line_id=line_id,
+                        contract_id=hr.resolve_employee_contract_id(emp),
+                        group_id=selected_group_id, period_revision=1, sandbox=sandbox,
+                    ))
+
                     # ── Licencia no pagada (descuento) ──
                     if leave_deduction > 0:
                         lic_concept = concept_map.get("DESC_LICENCIA")
@@ -1281,6 +1290,7 @@ def payroll_new():
                     recurring_details = []
                     recurring_additions_details = []
                     tx_summary = []
+                    insurance_deduction = 0.0
                     for tx in employee_transactions:
                         if isinstance(tx, dict):
                             ccode = tx.get("conceptCode", "")
@@ -1290,6 +1300,8 @@ def payroll_new():
                             tx_summary.append({"conceptCode": ccode, "amount": tx.get("amount", 0),
                                                "type": tx.get("type", ""), "isRecurring": is_rec,
                                                "isRuleGenerated": is_rule, "conceptName": cname})
+                            if tx.get("source", "").startswith("insurance:") and tx.get("type") == "deduction":
+                                insurance_deduction += float(tx.get("amount", 0) or 0)
                             if (is_rec or is_rule) and tx.get("type") == "deduction":
                                 desc = tx.get("ruleGeneratedDescription", cname) if is_rule else cname
                                 recurring_details.append({"description": desc, "amount": float(tx.get("amount", 0))})
@@ -1333,7 +1345,8 @@ def payroll_new():
                         "sfsEmployer": sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("conceptCode") == "SFS_EMPLEADOR"),
                         "srlEmployer": sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("conceptCode") == "SRL_EMPLEADOR"),
                         "infotepEmployer": sum(float(t.get("amount", 0)) for t in employee_transactions if t.get("conceptCode") == "INFOTEP_EMPLEADOR"),
-                        "otherDeductions": build_manual_other_deductions(employee_transactions),
+                         "otherDeductions": round(build_manual_other_deductions(employee_transactions) - insurance_deduction, 2),
+                         "insuranceDeduction": round(insurance_deduction, 2),
                         "leaveDeduction": round(leave_deduction, 2),
                         "leaveDeductionDays": leave_deduction_days,
                         "recurringDeductionsBreakdown": recurring_details,
@@ -2295,6 +2308,11 @@ def payroll_simulate():
                     desc = t.get("ruleGeneratedDescription", cname) if t.get("isRuleGenerated") else cname
                     recurring_deductions_details.append({"description": desc, "amount": float(t.get("amount", 0))})
 
+            insurance_deduction = sum(
+                float(t.get("amount", 0)) for t in employee_transactions
+                if t.get("source", "").startswith("insurance:") and t.get("type") == "deduction"
+            )
+
             line = {
                 "employeeId": emp_id,
                 "employeeName": emp.get("fullName", ""),
@@ -2315,7 +2333,8 @@ def payroll_simulate():
                 "afpEmployee": sum_by_concept(employee_transactions, "AFP_EMPLEADO"),
                 "sfsEmployee": sum_by_concept(employee_transactions, "SFS_EMPLEADO"),
                 "isrRetention": sum_by_concept(employee_transactions, "ISR_RETENCION"),
-                "otherDeductions": build_manual_other_deductions(employee_transactions),
+                "otherDeductions": round(build_manual_other_deductions(employee_transactions) - insurance_deduction, 2),
+                "insuranceDeduction": round(insurance_deduction, 2),
                 "leaveDeduction": round(leave_deduction, 2),
                 "leaveDeductionDays": leave_deduction_days,
                 "recurringDeductionsBreakdown": recurring_deductions_details,

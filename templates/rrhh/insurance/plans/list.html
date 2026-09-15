@@ -1,0 +1,35 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Planes de Seguro — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-file-medical"></i> Planes de seguro</h1>
+    <div class="hr-page-actions">
+        <a href="{{ url_for('web_rrhh.insurance_plan_new') }}" class="btn btn-primary">
+            <i class="fa-solid fa-plus"></i> Nuevo plan
+        </a>
+        <a href="{{ url_for('web_rrhh.insurance_provider_list') }}" class="btn btn-ghost">
+            <i class="fa-solid fa-shield-halved"></i> Proveedores
+        </a>
+    </div>
+</div>
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-responsive">
+        <table class="data-grid hr-compact-table">
+            <thead><tr><th>Plan</th><th>Proveedor</th><th>Tarifa base</th><th>Estado</th></tr></thead>
+            <tbody>
+            {% for plan in plans %}
+            <tr>
+                <td><strong>{{ plan.name }}</strong></td>
+                <td>{{ provider_names.get(plan.providerId, 'Proveedor no encontrado') }}</td>
+                <td>RD$ {{ plan.baseAmount }}</td>
+                <td>{{ 'Activo' if plan.status == 'active' else 'Inactivo' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center text-muted">No hay planes registrados.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

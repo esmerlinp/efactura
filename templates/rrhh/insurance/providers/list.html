@@ -1,0 +1,35 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Proveedores de Seguro — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-shield-halved"></i> Proveedores de seguro</h1>
+    <div class="hr-page-actions">
+        <a href="{{ url_for('web_rrhh.insurance_provider_new') }}" class="btn btn-primary">
+            <i class="fa-solid fa-plus"></i> Nuevo proveedor
+        </a>
+        <a href="{{ url_for('web_rrhh.insurance_plan_list') }}" class="btn btn-ghost">
+            <i class="fa-solid fa-file-medical"></i> Ver planes
+        </a>
+    </div>
+</div>
+
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-responsive">
+        <table class="data-grid hr-compact-table">
+            <thead><tr><th>Nombre</th><th>Descripción</th><th>Estado</th></tr></thead>
+            <tbody>
+            {% for provider in providers %}
+            <tr>
+                <td><strong>{{ provider.name }}</strong></td>
+                <td>{{ provider.description or '—' }}</td>
+                <td>{{ 'Activo' if provider.status == 'active' else 'Inactivo' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="3" class="text-center text-muted">No hay proveedores registrados.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
