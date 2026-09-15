@@ -14,6 +14,7 @@ from app.services import hr_data_service as hr
 from app.services.db_service import DatabaseService
 from app.utils.spanish_numbers import numero_a_letras
 from app.utils.pdf import pdf_write_options
+from app.web.rrhh.reports import _resolve_logo_src
 
 
 MONTHS_ES_FULL = [
@@ -75,8 +76,13 @@ def _get_company_data(owner_uid, company_id=None):
         "companyEmail": profile.get("companyEmail", ""),
         "logoUrl": profile.get("logoUrl", ""),
         "logoBase64": profile.get("logoBase64", ""),
+        "logoStoragePath": profile.get("logoStoragePath", ""),
         "stampUrl": profile.get("stampUrl", ""),
+        "stampStoragePath": profile.get("stampStoragePath", ""),
+        "stampBase64": profile.get("stampBase64", ""),
         "signatureUrl": profile.get("signatureUrl", ""),
+        "signatureStoragePath": profile.get("signatureStoragePath", ""),
+        "signatureBase64": profile.get("signatureBase64", ""),
         "certificateSignerName": profile.get("certificateSignerName", ""),
         "certificateSignerPosition": profile.get("certificateSignerPosition", ""),
     }
@@ -179,7 +185,11 @@ def certificate_generate(employee_id):
         "signerName": signer_name,
         "signerPosition": signer_position,
         "signatureUrl": company.get("signatureUrl", ""),
+        "signatureStoragePath": company.get("signatureStoragePath", ""),
+        "signatureBase64": company.get("signatureBase64", ""),
         "stampUrl": company.get("stampUrl", ""),
+        "stampStoragePath": company.get("stampStoragePath", ""),
+        "stampBase64": company.get("stampBase64", ""),
         "logoUrl": company.get("logoUrl", ""),
         "logoBase64": company.get("logoBase64", ""),
         "verificationCode": verification_code,
@@ -238,6 +248,7 @@ def certificate_pdf(employee_id, cert_id):
         rendered = render_template("rrhh/certificado_trabajo_pdf.html",
                                    employee=employee, cert=cert,
                                    company=company,
+                                   logo_src=_resolve_logo_src(company),
                                    qr_base64=qr_b64,
                                    format_date_es=_format_date_es)
         pdf_bytes = WeasyprintHTML(string=rendered, base_url=request.host_url).write_pdf(**pdf_write_options())
@@ -286,6 +297,7 @@ def certificate_email(employee_id, cert_id):
         rendered = render_template("rrhh/certificado_trabajo_pdf.html",
                                    employee=employee, cert=cert,
                                    company=company,
+                                   logo_src=_resolve_logo_src(company),
                                    qr_base64=qr_b64,
                                    format_date_es=_format_date_es)
         pdf_bytes = WeasyprintHTML(string=rendered, base_url=request.host_url).write_pdf(**pdf_write_options())

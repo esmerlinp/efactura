@@ -141,9 +141,9 @@
 
     <div class="header-section">
         <div class="header-left">
-            {% if company.logoUrl or company.logoBase64 %}
+            {% if logo_src %}
             <div class="logo">
-                <img src="{% if company.logoBase64 %}data:image/png;base64,{{ company.logoBase64 }}{% else %}{{ company.logoUrl }}{% endif %}" alt="Logo">
+                <img src="{{ logo_src }}" alt="Logo">
             </div>
             {% endif %}
             <div class="company-name">{{ company.companyName or company.tradeName }}</div>
@@ -190,11 +190,11 @@
 
     <div class="signature-area">
         <div class="signature-images">
-            {% if cert.signatureUrl %}
-            <img src="{{ cert.signatureUrl }}" class="signature-img" alt="Firma">
+            {% if cert.signatureUrl or cert.signatureStoragePath or cert.signatureBase64 %}
+            <img src="{{ image_src(cert.signatureUrl, cert.signatureStoragePath, cert.signatureBase64) }}" class="signature-img" alt="Firma">
             {% endif %}
-            {% if cert.stampUrl %}
-            <img src="{{ cert.stampUrl }}" class="stamp-img" alt="Sello">
+            {% if cert.stampUrl or cert.stampStoragePath or cert.stampBase64 %}
+            <img src="{{ image_src(cert.stampUrl, cert.stampStoragePath, cert.stampBase64) }}" class="stamp-img" alt="Sello">
             {% endif %}
         </div>
         <div class="signer-name">{{ cert.signerName or company.certificateSignerName }}</div>

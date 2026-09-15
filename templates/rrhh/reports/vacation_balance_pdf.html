@@ -46,10 +46,9 @@
 
 <div class="header">
     <div class="header-left">
-        {% if company.get("logoBase64") %}
-        <div class="logo"><img src="data:image/png;base64,{{ company.logoBase64 }}" alt="Logo"></div>
-        {% elif company.get("logoUrl") %}
-        <div class="logo"><img src="{{ company.logoUrl }}" alt="Logo"></div>
+        {% set _logo = logo_src(company) %}
+        {% if _logo %}
+        <div class="logo"><img src="{{ _logo }}" alt="Logo"></div>
         {% endif %}
         <div class="company-name">{{ company.get("companyName") or company.get("tradeName") or '' }}</div>
         <div class="company-rnc">RNC: {{ company.get("companyRNC") or company.get("rnc") or '' }}</div>

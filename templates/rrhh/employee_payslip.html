@@ -18,8 +18,9 @@
 <div class="card-table-wrapper" style="max-width:680px; margin:0 auto; padding:32px;">
     <!-- Encabezado -->
     <div style="text-align:center; margin-bottom:24px; padding-bottom:16px; border-bottom:2px solid var(--accent-emerald);">
-        {% if company_logo_url %}
-        <img src="{{ company_logo_url }}" alt="Logo" style="max-height:48px; margin-bottom:12px;">
+        {% set _logo = logo_src(company) %}
+        {% if _logo %}
+        <img src="{{ _logo }}" alt="Logo" style="max-height:48px; margin-bottom:12px;">
         {% endif %}
         <h2 style="margin:0 0 4px; font-size:1.2rem; font-weight:800;">VOLANTE DE PAGO</h2>
         <p style="margin:0; color:var(--text-muted); font-size:0.82rem;">{{ period.get('periodRange') or period.periodKey }}</p>

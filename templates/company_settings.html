@@ -2139,8 +2139,8 @@
                         const file = e.target.files[0];
                         if (!file) return;
 
-                        if (file.size > 4 * 1024 * 1024) {
-                            alert("La imagen excede el límite de 4 MB.");
+                        if (file.size > 5 * 1024 * 1024) {
+                            alert("La imagen excede el límite de 5 MB. Se optimizará automáticamente a un tamaño menor.");
                             this.value = '';
                             return;
                         }

@@ -13,6 +13,7 @@ from app.models.offboarding import (
     TERMINATION_TYPE_RISK_MAP,
 )
 from app.services.state_machine import StateMachineValidator, OFFBOARDING_STATES as SM_STATES
+from app.utils.logo import resolve_logo_data_uri
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -390,6 +391,7 @@ class TestFiniquitoDocument:
         env = Environment(loader=FileSystemLoader(os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates"
         )))
+        env.globals["logo_src"] = resolve_logo_data_uri
         template = env.get_template("rrhh/offboarding/finiquito_pdf.html")
 
         settlement = {
@@ -474,6 +476,7 @@ class TestFiniquitoActaFixes:
         env = Environment(loader=FileSystemLoader(os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates"
         )))
+        env.globals["logo_src"] = resolve_logo_data_uri
         template = env.get_template("rrhh/offboarding/finiquito_pdf.html")
         return template.render(
             request_data=request_data or {
@@ -702,6 +705,7 @@ class TestFiniquitoDocumentoIntegral:
         env = Environment(loader=FileSystemLoader(os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates"
         )))
+        env.globals["logo_src"] = resolve_logo_data_uri
         ctx = self._base_ctx()
         ctx.update(overrides)
         settlement_completed = ctx.pop("settlement_completed", True)

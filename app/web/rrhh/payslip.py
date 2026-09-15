@@ -13,6 +13,15 @@ import os
 import io
 
 
+def _get_payslip_company(owner_uid, company_id):
+    """Perfil de empresa (para logo/encabezado del volante)."""
+    try:
+        from app.services.db_service import DatabaseService
+        return DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+    except Exception:
+        return {}
+
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # VOLANTE DE PAGO — Ver, Descargar PDF, Enviar por Email
@@ -42,7 +51,8 @@ def employee_payslip(employee_id, period_id):
         return redirect(url_for("web_rrhh.employee_view", employee_id=employee_id))
 
     return render_template("rrhh/employee_payslip.html", active_page="rrhh_employees",
-                           employee=employee, period=period, line=line)
+                           employee=employee, period=period, line=line,
+                           company=_get_payslip_company(owner_uid, company_id))
 
 
 @web_rrhh_bp.route("/rrhh/employees/<employee_id>/payslip/<period_id>/pdf")
@@ -65,7 +75,8 @@ def employee_payslip_pdf(employee_id, period_id):
     try:
         from weasyprint import HTML as WeasyprintHTML
         rendered = render_template("rrhh/employee_payslip.html",
-                                   employee=employee, period=period, line=line)
+                                   employee=employee, period=period, line=line,
+                                   company=_get_payslip_company(owner_uid, company_id))
         pdf_bytes = WeasyprintHTML(string=rendered, base_url=request.host_url).write_pdf(**pdf_write_options())
         filename = f"volante_{period.get('periodKey','')}_{employee.get('fullName','empleado')}.pdf"
         return send_file(io.BytesIO(pdf_bytes), mimetype="application/pdf",

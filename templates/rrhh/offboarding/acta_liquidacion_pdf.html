@@ -39,8 +39,9 @@
 
 <div class="header">
     <div>
-        {% if company.logoBase64 %}
-        <img src="data:image/png;base64,{{ company.logoBase64 }}" class="logo-img" alt="Logo">
+        {% set _logo = logo_src(company) %}
+        {% if _logo %}
+        <img src="{{ _logo }}" class="logo-img" alt="Logo">
         {% endif %}
     </div>
     <div class="company-info">

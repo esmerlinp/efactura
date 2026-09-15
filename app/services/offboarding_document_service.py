@@ -40,6 +40,8 @@ def _company_data(owner_uid: str, sandbox: bool = True, company_id=None) -> dict
             "phone": profile.get("companyPhone", ""),
             "email": profile.get("companyEmail", ""),
             "logoBase64": profile.get("logoBase64", ""),
+            "logoUrl": profile.get("logoUrl", ""),
+            "logoStoragePath": profile.get("logoStoragePath", ""),
             "representativeName": profile.get("representativeName", ""),
             "representativePosition": profile.get("representativePosition", ""),
         }
