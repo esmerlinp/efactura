@@ -32,7 +32,7 @@
 
 <div style="margin-bottom:16px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
     <span style="font-size:0.85rem; color:var(--text-secondary); font-weight:600;">Filtrar por año:</span>
-    <a href="{{ url_for('web_rrhh.payroll_list', group=filter_group) if filter_group else url_for('web_rrhh.payroll_list') }}" class="btn btn-sm {% if not filter_year %}btn-primary{% else %}btn-ghost{% endif %}">Todos</a>
+    <a href="{{ url_for('web_rrhh.payroll_list', year='all', group=filter_group) if filter_group else url_for('web_rrhh.payroll_list', year='all') }}" class="btn btn-sm {% if not filter_year %}btn-primary{% else %}btn-ghost{% endif %}">Todos</a>
     {% for y in all_years %}
     <a href="{{ url_for('web_rrhh.payroll_list', year=y, group=filter_group) if filter_group else url_for('web_rrhh.payroll_list', year=y) }}" class="btn btn-sm {% if filter_year == y %}btn-primary{% else %}btn-ghost{% endif %}">{{ y }}</a>
     {% endfor %}

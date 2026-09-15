@@ -1,5 +1,7 @@
 """RRHH module — auto-extracted."""
 
+from datetime import date
+
 from flask import render_template, request, redirect, url_for, session, flash, jsonify, send_file
 from app.web.rrhh import (
     web_rrhh_bp, _get_owner_uid_and_sandbox, _login_required,
@@ -38,13 +40,17 @@ def payroll_list():
     # Años disponibles (de mayor a menor) para el filtro
     all_years = sorted({_period_year(p) for p in periods if _period_year(p)}, reverse=True)
 
-    # Filtrar por año si se especifica
+    # Filtrar por año si se especifica; por defecto el año en curso
     filter_year = request.args.get("year", "").strip()
     if filter_year.isdigit():
         filter_year = int(filter_year)
-        periods = [p for p in periods if _period_year(p) == filter_year]
-    else:
+    elif filter_year == "all":
         filter_year = None
+    else:
+        filter_year = date.today().year
+
+    if filter_year is not None:
+        periods = [p for p in periods if _period_year(p) == filter_year]
 
     # Filtrar por grupo si se especifica (los importados no tienen grupo)
     filter_group = request.args.get("group", "").strip()

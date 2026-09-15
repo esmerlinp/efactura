@@ -958,6 +958,15 @@ def _load_employee_context(company_id: str, employee_id: str, owner_uid: str,
             float(_a.get("appliedAmount", 0) or 0)
             for _a in _mv["_applications"] if _a.get("action") == "applied")
 
+    from app.services.insurance_enrollment_service import list_enrollments
+    insurance_enrollments = list_enrollments(company_id, employee_id, sandbox=sandbox)
+    from app.services.insurance_provider_service import list_providers
+    from app.services.insurance_plan_service import list_plans
+    insurance_providers = list_providers(company_id, sandbox=sandbox)
+    insurance_provider_names = {p.get("id"): p.get("name", "") for p in insurance_providers}
+    insurance_plan_list = list_plans(company_id, sandbox=sandbox)
+    insurance_plan_names = {p.get("id"): p.get("name", "") for p in insurance_plan_list}
+
     offboarding_requests = []
     offboarding_states = {}
     try:
@@ -1030,6 +1039,10 @@ def _load_employee_context(company_id: str, employee_id: str, owner_uid: str,
         "relationship_catalog": RELATIONSHIP_CATALOG,
         "herramientas_asignadas": herramientas_asignadas,
         "recurring_movements": recurring_movements,
+        "insurance_enrollments": insurance_enrollments,
+        "insurance_plans": insurance_plan_list,
+        "insurance_plan_names": insurance_plan_names,
+        "insurance_provider_names": insurance_provider_names,
         "offboarding_requests": offboarding_requests,
         "employment_contracts": employment_contracts,
         "active_contract": active_contract,

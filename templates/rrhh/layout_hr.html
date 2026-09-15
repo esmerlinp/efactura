@@ -186,6 +186,14 @@
                             data-tooltip="Departamentos">
                             <a href="{{ url_for('web_rrhh.department_list') }}"><span>Departamentos</span></a>
                         </li>
+                        <li class="nav-item {% if active_page == 'rrhh_insurance_providers' %}active{% endif %}"
+                            data-tooltip="Proveedores de seguro">
+                            <a href="{{ url_for('web_rrhh.insurance_provider_list') }}"><span>Proveedores de seguro</span></a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'rrhh_insurance_plans' %}active{% endif %}"
+                            data-tooltip="Planes de seguro">
+                            <a href="{{ url_for('web_rrhh.insurance_plan_list') }}"><span>Planes de seguro</span></a>
+                        </li>
                         <li class="nav-item {% if active_page == 'rrhh_audit' %}active{% endif %}"
                             data-tooltip="Auditoría">
                             <a href="{{ url_for('web_rrhh.audit_log') }}"><span>Auditoría</span></a>

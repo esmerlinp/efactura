@@ -1,0 +1,38 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Nuevo Plan de Seguro — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-file-medical"></i> Nuevo plan de seguro</h1>
+    <div class="hr-page-actions"><a href="{{ url_for('web_rrhh.insurance_plan_list') }}" class="btn btn-ghost">Volver</a></div>
+</div>
+<form method="post" class="hr-main-col" style="max-width:900px; margin-left:0;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="hr-section-card">
+    <h3><i class="fa-solid fa-file-medical"></i> Datos del plan</h3>
+    <div class="hr-form-grid">
+      <div class="form-group"><label for="providerId">Proveedor <span style="color:var(--danger);">*</span></label><select id="providerId" name="providerId" class="form-select" required>{% for provider in providers %}<option value="{{ provider.id }}">{{ provider.name }}</option>{% endfor %}</select></div>
+      <div class="form-group"><label for="name">Nombre del plan <span style="color:var(--danger);">*</span></label><input id="name" name="name" class="form-input" required placeholder="Ej. Plan Familiar Premium"></div>
+      <div class="form-group"><label for="baseAmount">Tarifa base mensual <span style="color:var(--danger);">*</span></label><input id="baseAmount" name="baseAmount" class="form-input" type="number" min="0" step="0.01" required placeholder="0.00"></div>
+      <div class="form-group"><label for="payrollConceptId">Concepto de nómina <span style="color:var(--danger);">*</span></label><select id="payrollConceptId" name="payrollConceptId" class="form-select" required>
+        <option value="">Seleccione un concepto</option>
+        {% for concept in concepts %}
+        <option value="{{ concept.code }}" {% if (plan and plan.get('payrollConceptId') == concept.code) or (not plan and concept.code == 'SEGURO') %}selected{% endif %}>{{ concept.code }} — {{ concept.name }}</option>
+        {% endfor %}
+      </select><span style="font-size:0.75rem;color:var(--text-muted);">Solo se muestran conceptos activos.</span></div>
+    </div>
+  </div>
+  <div class="hr-section-card">
+    <h3><i class="fa-solid fa-scale-balanced"></i> Distribución del costo</h3>
+    <div class="hr-form-grid">
+      <fieldset class="insurance-rule-card"><legend>Aporte de la empresa</legend><select name="companyContributionType" class="form-select"><option value="percentage">Porcentaje</option><option value="fixed_amount">Monto fijo</option><option value="remainder">Restante</option></select><input name="companyContributionValue" class="form-input" value="0" type="number" min="0" step="0.01" placeholder="Valor"></fieldset>
+      <fieldset class="insurance-rule-card"><legend>Aporte del empleado</legend><select name="employeeContributionType" class="form-select"><option value="percentage">Porcentaje</option><option value="fixed_amount">Monto fijo</option><option value="remainder">Restante</option></select><input name="employeeContributionValue" class="form-input" value="0" type="number" min="0" step="0.01" placeholder="Valor"></fieldset>
+    </div>
+  </div>
+  <div class="hr-section-card hr-actions-card hr-actions-bar"><a href="{{ url_for('web_rrhh.insurance_plan_list') }}" class="btn btn-ghost">Cancelar</a><button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Guardar plan</button></div>
+</form>
+<style>
+    .insurance-rule-card { border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px; display: grid; gap: 10px; }
+    .insurance-rule-card legend { color: var(--text-primary); font-weight: 700; padding: 0 6px; }
+</style>
+{% endblock %}

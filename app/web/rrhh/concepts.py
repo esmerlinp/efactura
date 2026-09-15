@@ -55,6 +55,7 @@ def concept_new():
             "priority": int(request.form.get("priority", 99) or 99),
             "active": True,
             "isManualEntry": request.form.get("is_manual_entry") == "on",
+            "isRecurringCapable": request.form.get("is_recurring_capable") == "on",
         }, sandbox=sandbox)
         flash("Concepto creado exitosamente.", "success")
         if _safe_next(request):
@@ -88,6 +89,7 @@ def concept_edit(concept_code):
             "account_credit": request.form.get("account_credit", ""),
             "priority": int(request.form.get("priority", 99) or 99),
             "isManualEntry": request.form.get("is_manual_entry") == "on",
+            "isRecurringCapable": request.form.get("is_recurring_capable") == "on",
         })
         save_concept(company_id, concept, sandbox=sandbox)
         flash("Concepto actualizado.", "success")

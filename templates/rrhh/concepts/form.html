@@ -44,6 +44,7 @@
                     <option value="variable" {% if (concept and concept.category=='variable') or (not concept and preset_category=='variable') %}selected{% endif %}>Variable (por período)</option>
                     <option value="fixed" {% if (concept and concept.category=='fixed') or (not concept and preset_category=='fixed') %}selected{% endif %}>Fijo</option>
                     <option value="formula" {% if (concept and concept.category=='formula') or (not concept and preset_category=='formula') %}selected{% endif %}>Fórmula</option>
+                    <option value="recurring" {% if (concept and concept.category=='recurring') or (not concept and preset_category=='recurring') %}selected{% endif %}>Recurrente</option>
                 </select>
             </div>
             <div class="form-group">
@@ -68,6 +69,13 @@
                     Mostrar en el editor de nómina
                 </label>
                 <span style="font-size:0.75rem; color:var(--text-muted);">Si lo marcas, aparecerá como tab en la sección Ingresos o Descuentos del procesamiento.</span>
+            </div>
+            <div class="form-group" style="grid-column:1/-1; display:flex; gap:20px; flex-wrap:wrap; align-items:center;">
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600;">
+                    <input type="checkbox" name="is_recurring_capable" {% if concept and concept.isRecurringCapable %}checked{% elif not concept and preset_category=='recurring' %}checked{% endif %}>
+                    Permitir movimientos recurrentes
+                </label>
+                <span style="font-size:0.75rem; color:var(--text-muted);">Habilita este concepto para descuentos o ingresos con vigencia y aplicación por período.</span>
             </div>
             <div class="form-group" style="grid-column:1/-1; display:flex; gap:20px; flex-wrap:wrap;">
                 <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">

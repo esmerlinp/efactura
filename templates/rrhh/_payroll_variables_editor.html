@@ -107,7 +107,8 @@
                     <th title="Bonificaciones del período">Bon.</th>
                     <th title="Otros ingresos (incluye ingresos recurrentes)">O. Ing.</th>
                     <th title="Regalía pascual">Reg.</th>
-                    <th title="Otras deducciones variables y manuales (no incluye recurrentes)">O. Desc.</th>
+                    <th title="Otras deducciones variables y manuales (no incluye recurrentes ni seguros)">O. Desc.</th>
+                    <th title="Descuento de planes de seguro del empleado">Seguro</th>
                     <th class="num" title="Descuentos recurrentes: préstamos, cooperativas, embargos y reglas. Pasa el cursor sobre cada monto para ver el detalle">Rec.</th>
                     <th title="Aporte AFP del empleado">AFP</th>
                     <th title="Seguro Familiar de Salud (ARS) del empleado">SFS</th>
@@ -128,6 +129,7 @@
                         <td class="num">{{ "{:,.2f}".format(l.get('otherIncome', 0)|float) if l.get('otherIncome', 0)|float else '—' }}</td>
                         <td class="num">{{ "{:,.2f}".format(l.get('christmasBonus', 0)|float) if l.get('christmasBonus', 0)|float else '—' }}</td>
                         <td class="num">{{ "{:,.2f}".format(l.get('otherDeductions', 0)|float) if l.get('otherDeductions', 0)|float else '—' }}</td>
+                        <td class="num">{{ "{:,.2f}".format(l.get('insuranceDeduction', 0)|float) if l.get('insuranceDeduction', 0)|float else '—' }}</td>
                         <td class="num" title="{% for d in (l.get('recurringDeductionsBreakdown') or []) %}{{ d.description }}: RD$ {{ "{:,.2f}".format(d.amount|float) }}{% if not loop.last %} · {% endif %}{% endfor %}">{{ "{:,.2f}".format((l.get('recurringDeductionsBreakdown') or [])|sum(attribute='amount')) if (l.get('recurringDeductionsBreakdown') or [])|sum(attribute='amount') else '—' }}</td>
                         <td class="num">{{ "{:,.2f}".format(l.get('afpEmployee', 0)|float) if l.get('afpEmployee', 0)|float else '—' }}</td>
                         <td class="num">{{ "{:,.2f}".format(l.get('sfsEmployee', 0)|float) if l.get('sfsEmployee', 0)|float else '—' }}</td>
@@ -1001,6 +1003,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     var form = document.getElementById('pvProcessForm') || document.querySelector('form[method="POST"]');
     if (form) form.addEventListener('submit', function() {
+        if (!PV_EDITABLE) return;
         pvSerialize(form);
         try { localStorage.removeItem(pvDraftKey()); } catch(e) {}
     });
