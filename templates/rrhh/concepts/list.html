@@ -31,6 +31,8 @@
                 <th>Nombre</th>
                 <th>Tipo</th>
                 <th>Cat.</th>
+                <th>Cuenta débito</th>
+                <th>Cuenta crédito</th>
                 <th style="text-align:right;">Prio.</th>
                 <th style="text-align:center;">Imp.</th>
                 <th>Estado</th>
@@ -53,6 +55,8 @@
                     {% else %}{{ c.type }}{% endif %}
                 </td>
                 <td style="white-space:nowrap; color:var(--text-muted);">{{ c.category }}</td>
+                <td style="white-space:nowrap; color:var(--text-muted);">{{ c.accountDebit or c.account_debit or 'Fallback' }}</td>
+                <td style="white-space:nowrap; color:var(--text-muted);">{{ c.accountCredit or c.account_credit or 'Fallback' }}</td>
                 <td style="text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums;">{{ c.priority }}</td>
                 <td style="text-align:center; white-space:nowrap; color:var(--text-muted);">{{ 'Sí' if c.taxable else 'No' }}</td>
                 <td style="white-space:nowrap; font-weight:600; color:{{ 'var(--accent-emerald)' if c.active else 'var(--accent-amber)' }};">{{ 'Activo' if c.active else 'Inactivo' }}</td>
@@ -72,7 +76,7 @@
                 </td>
             </tr>
             {% else %}
-            <tr><td colspan="8" class="text-center text-muted">No hay conceptos configurados.</td></tr>
+            <tr><td colspan="10" class="text-center text-muted">No hay conceptos configurados.</td></tr>
             {% endfor %}
         </tbody>
         </table>

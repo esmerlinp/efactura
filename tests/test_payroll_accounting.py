@@ -203,6 +203,34 @@ class TestBuildPayrollAccountingLines:
         assert len(residual_lines) == 1
         assert residual_lines[0]["credit"] == pytest.approx(3699.33, abs=0.02)
 
+    def test_usa_cuentas_del_snapshot_de_conceptos(self):
+        line = _make_payroll_line()
+        period = self._make_period([line])
+        period["id"] = "period-001"
+        transactions = [
+            {"type": "earning", "conceptCode": "BONO", "amount": 2500,
+             "status": "applied", "conceptSnapshot": {
+                 "name": "Bono escolar", "accountDebit": "6.2.9.01",
+                 "accountCredit": "2.1.1.20",
+             }},
+            {"type": "deduction", "conceptCode": "PRESTAMO", "amount": 1000,
+             "status": "applied", "conceptSnapshot": {
+                 "name": "Préstamo", "accountDebit": "2.1.3.01",
+                 "accountCredit": "2.1.1.21",
+             }},
+        ]
+        with patch.object(PayrollService, 'get_period_lines', return_value=[line]):
+            with patch.object(hr_data_service, 'get_tax_rates_snapshot', return_value=TAX_RATES_SNAPSHOT):
+                with patch('app.services.hr_data_service.get_payroll_transactions', return_value=transactions):
+                    result = PayrollService.build_payroll_accounting_lines(
+                        period, employees={"emp-001": {}}
+                    )
+        codes = [row["accountCode"] for row in result]
+        assert "6.2.9.01" in codes
+        assert "2.1.1.20" in codes
+        assert "2.1.3.01" in codes
+        assert "2.1.1.21" in codes
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # FISCAL CLOSING VALIDATION

@@ -4,7 +4,18 @@
 {% include "rrhh/_styles.html" %}
 {% set next_url = next_url if next_url is defined else '' %}
 <div class="page-header hr-page-header">
-    <h1 class="page-title"><i class="fa-solid fa-cube"></i> {{ 'Editar' if concept else 'Nuevo' }} Concepto</h1>
+    <div>
+        <h1 class="page-title"><i class="fa-solid fa-cube"></i> {{ 'Editar' if concept else 'Nuevo' }} Concepto</h1>
+        {% if concept %}
+        <div class="concept-header-meta">
+            <code>{{ concept.code }}</code>
+            <span class="concept-status {{ 'is-active' if concept.active else 'is-inactive' }}">
+                <i class="fa-solid fa-circle"></i> {{ 'Activo' if concept.active else 'Inactivo' }}
+            </span>
+            {% if concept.isSystem %}<span class="concept-status is-system"><i class="fa-solid fa-lock"></i> Sistema</span>{% endif %}
+        </div>
+        {% endif %}
+    </div>
     <div class="hr-page-actions">
         {% if next_url %}
         <a href="{{ next_url }}" class="btn btn-primary"><i class="fa-solid fa-arrow-left"></i> Volver a la nómina</a>
@@ -13,14 +24,26 @@
     </div>
 </div>
 
+{% if concept and concept.isSystem %}
+<div class="concept-system-banner">
+    <div class="concept-system-icon"><i class="fa-solid fa-shield-halved"></i></div>
+    <div>
+        <strong>Concepto protegido por el sistema</strong>
+        <p>El código, tipo y categoría se mantienen bloqueados para preservar la lógica de nómina.</p>
+        {% if concept.isLegalMandatory %}<small><i class="fa-solid fa-scale-balanced"></i> Este concepto es obligatorio por ley.</small>{% endif %}
+    </div>
+</div>
+{% endif %}
+
 <form method="POST" class="hr-main-col">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
     <div class="hr-section-card">
-        <h3><i class="fa-solid fa-gear"></i> Datos del concepto</h3>
+        <h3><i class="fa-solid fa-id-card"></i> Identificación</h3>
+        <p class="concept-section-desc">Define cómo se reconoce y en qué orden se procesa este concepto.</p>
         <div class="hr-form-grid">
             <div class="form-group">
-                <label>Código <span style="color:var(--danger);">*</span></label>
+                <label>Código <span style="color:var(--danger);">*</span>{% if concept %}<span class="field-lock"><i class="fa-solid fa-lock"></i> Protegido</span>{% endif %}</label>
                 <input type="text" name="code" class="form-input" required {% if concept %}readonly{% endif %}
                        value="{{ concept.code if concept else '' }}" placeholder="Ej. BONO_ESCOLAR">
                 {% if not concept %}<span style="font-size:0.75rem; color:var(--text-muted);">Sin espacios, mayúsculas.</span>{% endif %}
@@ -31,21 +54,33 @@
                        value="{{ concept.name if concept else '' }}" placeholder="Ej. Bono escolar">
             </div>
             <div class="form-group">
-                <label>Tipo <span style="color:var(--danger);">*</span></label>
-                <select name="type" class="form-select" required>
-                    <option value="earning" {% if (concept and concept.type=='earning') or (not concept and preset_type=='earning') %}selected{% endif %}>Ingreso</option>
-                    <option value="deduction" {% if (concept and concept.type=='deduction') or (not concept and preset_type=='deduction') %}selected{% endif %}>Deducción</option>
-                    <option value="employer_contrib" {% if (concept and concept.type=='employer_contrib') or (not concept and preset_type=='employer_contrib') %}selected{% endif %}>Aporte empleador</option>
-                </select>
+                <label>Tipo <span style="color:var(--danger);">*</span>{% if concept and concept.isSystem %}<span class="field-lock"><i class="fa-solid fa-lock"></i> Protegido</span>{% endif %}</label>
+                <div class="concept-type-pills{% if concept and concept.isSystem %} is-locked{% endif %}">
+                    {% set selected_type = concept.type if concept else preset_type or 'earning' %}
+                    <label class="concept-type-pill type-earning {% if selected_type == 'earning' %}is-selected{% endif %}">
+                        <input type="radio" name="type" value="earning" {% if selected_type == 'earning' %}checked{% endif %} {% if concept and concept.isSystem %}disabled{% endif %}>
+                        <i class="fa-solid fa-arrow-trend-up"></i><span>Ingreso</span>
+                    </label>
+                    <label class="concept-type-pill type-deduction {% if selected_type == 'deduction' %}is-selected{% endif %}">
+                        <input type="radio" name="type" value="deduction" {% if selected_type == 'deduction' %}checked{% endif %} {% if concept and concept.isSystem %}disabled{% endif %}>
+                        <i class="fa-solid fa-arrow-trend-down"></i><span>Deducción</span>
+                    </label>
+                    <label class="concept-type-pill type-employer {% if selected_type == 'employer_contrib' %}is-selected{% endif %}">
+                        <input type="radio" name="type" value="employer_contrib" {% if selected_type == 'employer_contrib' %}checked{% endif %} {% if concept and concept.isSystem %}disabled{% endif %}>
+                        <i class="fa-solid fa-building"></i><span>Aporte empleador</span>
+                    </label>
+                </div>
+                {% if concept and concept.isSystem %}<input type="hidden" name="type" value="{{ concept.type }}">{% endif %}
             </div>
             <div class="form-group">
-                <label>Categoría</label>
-                <select name="category" class="form-select">
+                <label>Categoría{% if concept and concept.isSystem %}<span class="field-lock"><i class="fa-solid fa-lock"></i> Protegido</span>{% endif %}</label>
+                <select name="category" class="form-select" {% if concept and concept.isSystem %}disabled{% endif %}>
                     <option value="variable" {% if (concept and concept.category=='variable') or (not concept and preset_category=='variable') %}selected{% endif %}>Variable (por período)</option>
                     <option value="fixed" {% if (concept and concept.category=='fixed') or (not concept and preset_category=='fixed') %}selected{% endif %}>Fijo</option>
                     <option value="formula" {% if (concept and concept.category=='formula') or (not concept and preset_category=='formula') %}selected{% endif %}>Fórmula</option>
                     <option value="recurring" {% if (concept and concept.category=='recurring') or (not concept and preset_category=='recurring') %}selected{% endif %}>Recurrente</option>
                 </select>
+                {% if concept and concept.isSystem %}<input type="hidden" name="category" value="{{ concept.category }}">{% endif %}
             </div>
             <div class="form-group">
                 <label>Prioridad</label>
@@ -53,44 +88,71 @@
                        value="{{ concept.priority if concept else 99 }}" placeholder="99">
                 <span style="font-size:0.75rem; color:var(--text-muted);">Orden de cálculo. Menor = primero.</span>
             </div>
+        </div>
+    </div>
+
+    <div class="hr-section-card">
+        <h3><i class="fa-solid fa-scale-balanced"></i> Contabilidad</h3>
+        <p class="concept-section-desc">Asocia las cuentas que se utilizarán al generar el asiento de nómina para este concepto.</p>
+        <div class="hr-form-grid">
             <div class="form-group">
                 <label>Cuenta débito</label>
-                <input type="text" name="account_debit" class="form-input"
-                       value="{{ concept.account_debit if concept else '' }}" placeholder="6.2.1.01">
+                <select name="account_debit" class="form-select">
+                    <option value="">Sin cuenta específica</option>
+                    {% for account in accounts|default([]) %}
+                    <option value="{{ account.code }}" {% if concept and (concept.accountDebit or concept.account_debit) == account.code %}selected{% endif %}>{{ account.code }} — {{ account.name }}</option>
+                    {% endfor %}
+                </select>
+                <span class="field-help">Gasto, costo o activo que recibe el importe.</span>
             </div>
             <div class="form-group">
                 <label>Cuenta crédito</label>
-                <input type="text" name="account_credit" class="form-input"
-                       value="{{ concept.account_credit if concept else '' }}" placeholder="2.1.2.1.02">
+                <select name="account_credit" class="form-select">
+                    <option value="">Sin cuenta específica</option>
+                    {% for account in accounts|default([]) %}
+                    <option value="{{ account.code }}" {% if concept and (concept.accountCredit or concept.account_credit) == account.code %}selected{% endif %}>{{ account.code }} — {{ account.name }}</option>
+                    {% endfor %}
+                </select>
+                <span class="field-help">Obligación, retención o cuenta por pagar.</span>
             </div>
-            <div class="form-group" style="grid-column:1/-1; display:flex; gap:20px; flex-wrap:wrap; align-items:center;">
-                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600;">
-                    <input type="checkbox" name="is_manual_entry" {% if concept and concept.isManualEntry %}checked{% elif not concept and (preset_category=='variable' or not preset_category) %}checked{% endif %}>
-                    Mostrar en el editor de nómina
-                </label>
-                <span style="font-size:0.75rem; color:var(--text-muted);">Si lo marcas, aparecerá como tab en la sección Ingresos o Descuentos del procesamiento.</span>
-            </div>
-            <div class="form-group" style="grid-column:1/-1; display:flex; gap:20px; flex-wrap:wrap; align-items:center;">
-                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600;">
-                    <input type="checkbox" name="is_recurring_capable" {% if concept and concept.isRecurringCapable %}checked{% elif not concept and preset_category=='recurring' %}checked{% endif %}>
-                    Permitir movimientos recurrentes
-                </label>
-                <span style="font-size:0.75rem; color:var(--text-muted);">Habilita este concepto para descuentos o ingresos con vigencia y aplicación por período.</span>
-            </div>
-            <div class="form-group" style="grid-column:1/-1; display:flex; gap:20px; flex-wrap:wrap;">
-                <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
-                    <input type="checkbox" name="taxable" {% if concept and concept.taxable %}checked{% endif %}> Imponible ISR
-                </label>
-                <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
-                    <input type="checkbox" name="affects_afp" {% if concept and concept.affects_afp %}checked{% endif %}> Afecta AFP
-                </label>
-                <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
-                    <input type="checkbox" name="affects_sfs" {% if concept and concept.affects_sfs %}checked{% endif %}> Afecta SFS
-                </label>
-                <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
-                    <input type="checkbox" name="affects_isr" {% if concept and concept.affects_isr %}checked{% endif %}> Afecta ISR
-                </label>
-            </div>
+        </div>
+    </div>
+
+    <div class="hr-section-card">
+        <h3><i class="fa-solid fa-sliders"></i> Comportamiento en nómina</h3>
+        <p class="concept-section-desc">Controla dónde puede utilizarse el concepto durante el procesamiento.</p>
+        <div class="concept-options-grid">
+            <label class="concept-option-card">
+                <span class="concept-option-copy"><strong>Mostrar en el editor</strong><small>Aparece como campo en el procesamiento de nómina.</small></span>
+                <span class="toggle-switch"><input type="checkbox" name="is_manual_entry" {% if concept and concept.isManualEntry %}checked{% elif not concept and (preset_category=='variable' or not preset_category) %}checked{% endif %}><span class="toggle-slider"></span></span>
+            </label>
+            <label class="concept-option-card">
+                <span class="concept-option-copy"><strong>Movimientos recurrentes</strong><small>Permite aplicarlo automáticamente por período.</small></span>
+                <span class="toggle-switch"><input type="checkbox" name="is_recurring_capable" {% if concept and concept.isRecurringCapable %}checked{% elif not concept and preset_category=='recurring' %}checked{% endif %}><span class="toggle-slider"></span></span>
+            </label>
+        </div>
+    </div>
+
+    <div class="hr-section-card">
+        <h3><i class="fa-solid fa-percent"></i> Impacto fiscal</h3>
+        <p class="concept-section-desc">Indica cómo participa el concepto en los cálculos legales de ISR y seguridad social.</p>
+        <div class="concept-options-grid concept-options-grid--fiscal">
+            <label class="concept-option-card">
+                <span class="concept-option-copy"><strong>Imponible ISR</strong><small>Se considera ingreso gravado.</small></span>
+                <span class="toggle-switch"><input type="checkbox" name="taxable" {% if concept and concept.taxable %}checked{% endif %}><span class="toggle-slider"></span></span>
+            </label>
+            <label class="concept-option-card">
+                <span class="concept-option-copy"><strong>Afecta AFP</strong><small>Forma parte de la base AFP.</small></span>
+                <span class="toggle-switch"><input type="checkbox" name="affects_afp" {% if concept and concept.affects_afp %}checked{% endif %}><span class="toggle-slider"></span></span>
+            </label>
+            <label class="concept-option-card">
+                <span class="concept-option-copy"><strong>Afecta SFS</strong><small>Forma parte de la base SFS.</small></span>
+                <span class="toggle-switch"><input type="checkbox" name="affects_sfs" {% if concept and concept.affects_sfs %}checked{% endif %}><span class="toggle-slider"></span></span>
+            </label>
+            <label class="concept-option-card">
+                <span class="concept-option-copy"><strong>Afecta ISR</strong><small>Se incluye en el cálculo de ISR.</small></span>
+                <span class="toggle-switch"><input type="checkbox" name="affects_isr" {% if concept and concept.affects_isr %}checked{% endif %}><span class="toggle-slider"></span></span>
+            </label>
         </div>
     </div>
     <div class="hr-section-card hr-actions-card hr-actions-bar">
@@ -98,4 +160,43 @@
         <button type="submit" class="btn btn-primary">{{ 'Guardar' if concept else 'Crear Concepto' }}</button>
     </div>
 </form>
+<style>
+    .concept-header-meta { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:6px; color:var(--text-muted); font-size:.78rem; }
+    .concept-header-meta code { padding:3px 7px; border:1px solid var(--border-color); border-radius:5px; color:var(--text-secondary); background:var(--bg-nav-hover); }
+    .concept-status { display:inline-flex; align-items:center; gap:5px; padding:3px 8px; border-radius:999px; font-size:.7rem; font-weight:700; background:rgba(100,116,139,.12); color:var(--text-muted); }
+    .concept-status i { font-size:.45rem; }
+    .concept-status.is-active { color:var(--accent-emerald); background:rgba(16,185,129,.1); }
+    .concept-status.is-system { color:var(--accent-purple); background:rgba(139,92,246,.1); }
+    .concept-system-banner { max-width:960px; margin:0 auto 16px; display:flex; gap:12px; align-items:flex-start; padding:14px 16px; border:1px solid rgba(245,158,11,.3); border-left:4px solid var(--accent-amber,#f59e0b); border-radius:var(--radius-md); background:rgba(245,158,11,.07); color:var(--text-primary); }
+    .concept-system-icon { color:var(--accent-amber,#f59e0b); font-size:1.15rem; padding-top:2px; }
+    .concept-system-banner strong { font-size:.88rem; }
+    .concept-system-banner p { margin:3px 0 5px; color:var(--text-secondary); font-size:.78rem; }
+    .concept-system-banner small { color:var(--accent-amber,#b45309); font-size:.74rem; }
+    .concept-section-desc { margin:-8px 0 16px; color:var(--text-muted); font-size:.8rem; }
+    .field-lock { display:inline-flex; align-items:center; gap:3px; margin-left:6px; color:var(--accent-purple); font-size:.68rem; font-weight:600; }
+    .field-help { display:block; margin-top:5px; color:var(--text-muted); font-size:.72rem; }
+    .concept-type-pills { display:flex; gap:8px; flex-wrap:wrap; }
+    .concept-type-pill { display:flex; align-items:center; gap:7px; padding:10px 12px; border:1px solid var(--border-color); border-radius:var(--radius-sm); background:var(--bg-card); color:var(--text-secondary); cursor:pointer; font-size:.78rem; font-weight:600; transition:all var(--transition-fast); }
+    .concept-type-pill input { position:absolute; opacity:0; pointer-events:none; }
+    .concept-type-pill:hover { border-color:var(--accent-emerald); }
+    .concept-type-pill.is-selected.type-earning { color:var(--accent-emerald); border-color:var(--accent-emerald); background:rgba(16,185,129,.08); }
+    .concept-type-pill.is-selected.type-deduction { color:var(--danger); border-color:var(--danger); background:rgba(239,68,68,.07); }
+    .concept-type-pill.is-selected.type-employer { color:var(--accent-purple); border-color:var(--accent-purple); background:rgba(139,92,246,.08); }
+    .concept-type-pills.is-locked .concept-type-pill { cursor:not-allowed; opacity:.72; }
+    .concept-type-pills.is-locked .concept-type-pill.is-selected { opacity:1; }
+    .concept-options-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+    .concept-options-grid--fiscal { grid-template-columns:repeat(4,minmax(0,1fr)); }
+    .concept-option-card { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:70px; padding:12px 14px; border:1px solid var(--border-color); border-radius:var(--radius-sm); background:rgba(255,255,255,.01); cursor:pointer; }
+    .concept-option-card:hover { border-color:rgba(16,185,129,.4); background:rgba(16,185,129,.035); }
+    .concept-option-copy { display:flex; flex-direction:column; gap:4px; }
+    .concept-option-copy strong { color:var(--text-primary); font-size:.8rem; }
+    .concept-option-copy small { color:var(--text-muted); font-size:.7rem; line-height:1.35; }
+    .toggle-switch { position:relative; display:inline-block; width:42px; height:22px; flex:0 0 auto; }
+    .toggle-switch input { opacity:0; width:0; height:0; }
+    .toggle-slider { position:absolute; inset:0; cursor:pointer; background:var(--border-color); border-radius:22px; transition:.25s; }
+    .toggle-slider:before { content:""; position:absolute; width:16px; height:16px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:.25s; box-shadow:0 1px 2px rgba(0,0,0,.18); }
+    .toggle-switch input:checked + .toggle-slider { background:var(--accent-emerald); }
+    .toggle-switch input:checked + .toggle-slider:before { transform:translateX(20px); }
+    @media screen and (max-width:768px) { .concept-system-banner { margin-left:0; margin-right:0; } .concept-options-grid,.concept-options-grid--fiscal { grid-template-columns:1fr; } .concept-type-pill { flex:1 1 140px; } }
+</style>
 {% endblock %}
