@@ -38,8 +38,10 @@ def concept_new():
         return redirect(url_for("web_auth.login"))
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services.payroll_concept_engine import save_concept
+    from app.services.db_service import DatabaseService
     preset_type = request.args.get("type", "")
     preset_category = request.args.get("category", "")
+    accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id) or []
     if request.method == "POST":
         save_concept(company_id, {
             "code": request.form.get("code", "").strip().upper(),
@@ -52,6 +54,8 @@ def concept_new():
             "affects_isr": request.form.get("affects_isr") == "on",
             "account_debit": request.form.get("account_debit", ""),
             "account_credit": request.form.get("account_credit", ""),
+            "accountDebit": request.form.get("account_debit", ""),
+            "accountCredit": request.form.get("account_credit", ""),
             "priority": int(request.form.get("priority", 99) or 99),
             "active": True,
             "isManualEntry": request.form.get("is_manual_entry") == "on",
@@ -63,7 +67,7 @@ def concept_new():
         return redirect(url_for("web_rrhh.concept_list"))
     return render_template("rrhh/concepts/form.html", active_page="rrhh_concepts", concept=None,
                            preset_type=preset_type, preset_category=preset_category,
-                           next_url=_safe_next(request))
+                           next_url=_safe_next(request), accounts=accounts)
 
 
 @web_rrhh_bp.route("/rrhh/concepts/<concept_code>/edit", methods=["GET", "POST"])
@@ -72,10 +76,12 @@ def concept_edit(concept_code):
         return redirect(url_for("web_auth.login"))
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services.payroll_concept_engine import get_concept, save_concept
+    from app.services.db_service import DatabaseService
     concept = get_concept(company_id, concept_code, sandbox=sandbox)
     if not concept:
         flash("Concepto no encontrado.", "error")
         return redirect(url_for("web_rrhh.concept_list"))
+    accounts = DatabaseService.get_chart_of_accounts(owner_uid, company_id=company_id) or []
     if request.method == "POST":
         concept.update({
             "name": request.form.get("name", "").strip(),
@@ -87,6 +93,8 @@ def concept_edit(concept_code):
             "affects_isr": request.form.get("affects_isr") == "on",
             "account_debit": request.form.get("account_debit", ""),
             "account_credit": request.form.get("account_credit", ""),
+            "accountDebit": request.form.get("account_debit", ""),
+            "accountCredit": request.form.get("account_credit", ""),
             "priority": int(request.form.get("priority", 99) or 99),
             "isManualEntry": request.form.get("is_manual_entry") == "on",
             "isRecurringCapable": request.form.get("is_recurring_capable") == "on",
@@ -97,7 +105,7 @@ def concept_edit(concept_code):
             return redirect(_safe_next(request))
         return redirect(url_for("web_rrhh.concept_list"))
     return render_template("rrhh/concepts/form.html", active_page="rrhh_concepts", concept=concept,
-                           preset_type="", preset_category="", next_url=_safe_next(request))
+                            preset_type="", preset_category="", next_url=_safe_next(request), accounts=accounts)
 
 
 @web_rrhh_bp.route("/rrhh/concepts/<concept_code>/toggle", methods=["POST"])

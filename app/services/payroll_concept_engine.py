@@ -496,6 +496,11 @@ def save_concept(company_id: str, data: dict, sandbox: bool = True):
             data["createdAt"] = now_iso
         data["updatedAt"] = now_iso
         data["code"] = concept_id
+        # Mantener una única representación canónica y aceptar datos legacy.
+        data["accountDebit"] = data.get("accountDebit") or data.get("account_debit", "")
+        data["accountCredit"] = data.get("accountCredit") or data.get("account_credit", "")
+        data["account_debit"] = data["accountDebit"]
+        data["account_credit"] = data["accountCredit"]
 
         db_firestore.collection(coll).document(concept_id).set(data)
     except Exception as e:

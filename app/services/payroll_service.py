@@ -1356,6 +1356,35 @@ class PayrollService:
             tax_rates if isinstance(tax_rates, dict) else {})
         r = cls.get_rates(effective_rates)
 
+        # Las transacciones contienen el snapshot contable del concepto. Se
+        # usa solo cuando existe, manteniendo el asiento agregado para datos
+        # históricos que todavía no tengan transacciones detalladas.
+        concept_amounts = {}
+        if company_id and payroll_period.get("id"):
+            try:
+                from app.services import hr_data_service as _hr
+                txs = _hr.get_payroll_transactions(
+                    company_id, sandbox=sandbox, period_id=payroll_period.get("id", "")
+                )
+                for tx in txs:
+                    if tx.get("status", "applied") not in ("applied", "adjusted"):
+                        continue
+                    amount = round(float(tx.get("amount", 0) or 0), 2)
+                    if amount == 0:
+                        continue
+                    snap = tx.get("conceptSnapshot") or {}
+                    code = tx.get("conceptCode", "")
+                    key = (tx.get("type") or snap.get("type", ""), code)
+                    concept_amounts.setdefault(key, {
+                        "amount": 0.0,
+                        "debit": snap.get("accountDebit") or snap.get("account_debit", ""),
+                        "credit": snap.get("accountCredit") or snap.get("account_credit", ""),
+                        "name": snap.get("name") or code,
+                    })
+                    concept_amounts[key]["amount"] += amount
+            except Exception:
+                concept_amounts = {}
+
         total_gross = 0.0
         total_net = 0.0
         total_deductions = 0.0
@@ -1416,6 +1445,37 @@ class PayrollService:
             total_gross += pl.get("totalIncome", 0)
 
         total_employer = total_afp_empl + total_sfs_empl + total_srl_empl + total_infotep
+
+        if concept_amounts:
+            detailed_lines = []
+            for data in concept_amounts.values():
+                amount = round(data["amount"], 2)
+                if amount <= 0:
+                    continue
+                if data["debit"]:
+                    detailed_lines.append({
+                        "accountId": "", "accountCode": data["debit"],
+                        "accountName": data["name"], "debit": amount, "credit": 0.0,
+                        "description": f"{data['name']} período {period_label}",
+                    })
+                if data["credit"]:
+                    detailed_lines.append({
+                        "accountId": "", "accountCode": data["credit"],
+                        "accountName": data["name"], "debit": 0.0, "credit": amount,
+                        "description": f"{data['name']} período {period_label}",
+                    })
+            # Las transacciones detalladas sustituyen las líneas agregadas de
+            # conceptos. El neto se acredita como obligación residual.
+            total_debit = sum(line["debit"] for line in detailed_lines)
+            total_credit = sum(line["credit"] for line in detailed_lines)
+            net_payable = round(total_debit - total_credit, 2)
+            if net_payable > 0:
+                resolved = _acc("nomina_salarios_por_pagar", fallback_code=r["account_salaries_payable"], fallback_name="Salarios por pagar")
+                detailed_lines.append({"accountId": resolved["accountId"], "accountCode": resolved["accountCode"], "accountName": resolved["accountName"], "debit": 0.0, "credit": net_payable, "description": f"Salario neto período {period_label}"})
+            elif net_payable < 0:
+                resolved = _acc("nomina_salarios_por_pagar", fallback_code=r["account_salaries_payable"], fallback_name="Salarios por pagar")
+                detailed_lines.append({"accountId": resolved["accountId"], "accountCode": resolved["accountCode"], "accountName": resolved["accountName"], "debit": abs(net_payable), "credit": 0.0, "description": f"Ajuste salario neto período {period_label}"})
+            return detailed_lines
 
         # DEBE: Líneas de gasto por centro de costo
         for cc, totals in by_cc.items():
