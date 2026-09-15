@@ -1,5 +1,7 @@
 """BulkEditService — Edición masiva de campos de empleados con progreso en tiempo real."""
 
+import os
+import json
 import uuid
 import threading
 from datetime import datetime, timezone
@@ -154,6 +156,11 @@ BULK_EDITABLE_FIELDS = {
 
 BULK_EDIT_JOBS: dict[str, dict] = {}
 
+_BULK_EDIT_JOB_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "uploads", "bulk_edit_jobs",
+)
+
 
 def get_bulk_editable_fields() -> dict:
     return BULK_EDITABLE_FIELDS
@@ -176,8 +183,11 @@ def create_bulk_edit_job(company_id: str, employee_ids: list[str], changes: dict
         "changes": dict(changes),
         "createdAt": now,
         "userEmail": user_email,
+        "companyId": company_id,
+        "sandbox": sandbox,
     }
     BULK_EDIT_JOBS[job_id] = job
+    _persist_job(job)
 
     thread = threading.Thread(
         target=_execute_bulk_edit,
@@ -188,23 +198,80 @@ def create_bulk_edit_job(company_id: str, employee_ids: list[str], changes: dict
     return job_id
 
 
-def get_job_progress(job_id: str) -> dict | None:
+def _job_file_path(job_id: str) -> str:
+    return os.path.join(_BULK_EDIT_JOB_DIR, f"{job_id}.json")
+
+
+def _write_job_file(job: dict):
+    """Persiste el job en disco (compartido entre workers de la misma instancia)."""
+    try:
+        os.makedirs(_BULK_EDIT_JOB_DIR, exist_ok=True)
+        payload = {k: v for k, v in job.items() if k not in ("companyId", "sandbox")}
+        with open(_job_file_path(job["id"]), "w") as f:
+            json.dump(payload, f, ensure_ascii=False)
+    except Exception as e:
+        print(f"⚠️ bulk_edit: error escribiendo job a disco: {e}")
+
+
+def _read_job_file(job_id: str) -> dict | None:
+    try:
+        path = _job_file_path(job_id)
+        if os.path.exists(path):
+            with open(path, "r") as f:
+                return json.load(f)
+    except Exception as e:
+        print(f"⚠️ bulk_edit: error leyendo job de disco: {e}")
+    return None
+
+
+def _persist_job(job: dict):
+    """Persiste el job en disco y (mejor esfuerzo) en Firestore para lectura multi-worker/multi-instancia."""
+    _write_job_file(job)
+    company_id = job.get("companyId")
+    if not company_id:
+        return
+    try:
+        hr.save_bulk_edit_job(
+            company_id,
+            job["id"],
+            {k: v for k, v in job.items() if k not in ("companyId", "sandbox")},
+            sandbox=job.get("sandbox", True),
+        )
+    except Exception as e:
+        print(f"⚠️ bulk_edit: error persistiendo job en Firestore: {e}")
+
+
+def _load_job(job_id: str, company_id: str = "", sandbox: bool = True) -> dict | None:
+    """Lee el job: memoria → disco → Firestore (cubre single-process, multi-worker y multi-instancia)."""
     job = BULK_EDIT_JOBS.get(job_id)
+    if job:
+        return job
+    job = _read_job_file(job_id)
+    if job:
+        return job
+    if company_id:
+        return hr.get_bulk_edit_job(company_id, job_id, sandbox=sandbox)
+    return None
+
+
+def get_job_progress(job_id: str, company_id: str = "", sandbox: bool = True) -> dict | None:
+    job = _load_job(job_id, company_id, sandbox)
     if not job:
         return None
+    errors = job.get("errors", [])
     return {
         "jobId": job["id"],
         "status": job["status"],
         "total": job["total"],
         "progress": job["progress"],
         "success": job["success"],
-        "errors": len(job["errors"]),
+        "errors": len(errors),
         "currentEmployee": job.get("currentEmployee", ""),
     }
 
 
-def get_job_result(job_id: str) -> dict | None:
-    job = BULK_EDIT_JOBS.get(job_id)
+def get_job_result(job_id: str, company_id: str = "", sandbox: bool = True) -> dict | None:
+    job = _load_job(job_id, company_id, sandbox)
     if not job:
         return None
     return {
@@ -213,19 +280,22 @@ def get_job_result(job_id: str) -> dict | None:
         "total": job["total"],
         "progress": job["progress"],
         "success": job["success"],
-        "errors": job["errors"],
+        "errors": job.get("errors", []),
         "changes": job.get("changes", {}),
     }
 
 
 def _execute_bulk_edit(company_id: str, job_id: str, user_email: str, sandbox: bool):
-    job = BULK_EDIT_JOBS.get(job_id)
+    job = _load_job(job_id, company_id, sandbox)
     if not job:
         return
 
+    job["companyId"] = company_id
+    job["sandbox"] = sandbox
     job["status"] = "processing"
     employee_ids = job["employee_ids"]
     changes = {k: v for k, v in job["changes"].items() if k != "status"}
+    _persist_job(job)
 
     for eid in employee_ids:
         try:
@@ -237,6 +307,7 @@ def _execute_bulk_edit(company_id: str, job_id: str, user_email: str, sandbox: b
                     "message": "Empleado no encontrado",
                 })
                 job["progress"] += 1
+                _persist_job(job)
                 continue
 
             job["currentEmployee"] = emp.get("fullName", eid)
@@ -270,6 +341,8 @@ def _execute_bulk_edit(company_id: str, job_id: str, user_email: str, sandbox: b
             })
 
         job["progress"] += 1
+        _persist_job(job)
 
     job["status"] = "completed" if not job["errors"] else "partial"
     job["currentEmployee"] = ""
+    _persist_job(job)
