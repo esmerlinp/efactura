@@ -184,6 +184,11 @@
             <span class="kpi-value">{{ "RD$ {:,.2f}".format(year_tss_employer) }}</span>
             <span class="kpi-sub">AFP + SFS + SRL + INFOTEP empleador</span>
         </div>
+        <a class="kpi-card" href="{{ url_for('web_rrhh.incidences') }}" style="text-decoration:none; color:inherit;">
+            <span class="kpi-label">Incidencias de empleados</span>
+            <span class="kpi-value" style="{{ 'color:var(--accent-red);' if incidences_blocking else 'color:var(--accent-orange);' if incidences_count else '' }}">{{ incidences_count }}</span>
+            <span class="kpi-sub">{{ incidences_blocking }} bloquean la nómina · revisar y corregir</span>
+        </a>
     </div>
 
     <!-- Costo vs Pago + Composición -->

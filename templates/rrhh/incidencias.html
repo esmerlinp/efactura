@@ -1,0 +1,170 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Incidencias de Empleados — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<style>
+.inc-page { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.inc-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.inc-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); box-shadow: var(--shadow-sm); padding: 14px 16px; }
+.inc-card .k { font-size: 0.70rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.inc-card .v { font-size: 1.5rem; font-weight: 700; line-height: 1.1; margin-top: 4px; }
+.inc-card .sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; }
+.sev-chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 99px; font-size: 0.70rem; font-weight: 600; white-space: nowrap; }
+.sev-bloqueante { color: var(--accent-red); background: rgba(239,68,68,0.12); }
+.sev-requerido { color: var(--accent-orange); background: rgba(249,115,22,0.12); }
+.sev-advertencia { color: var(--accent-blue); background: rgba(59,130,246,0.12); }
+.inc-table th { padding: 7px 10px; font-size: 0.7rem; }
+.inc-table td { padding: 7px 10px; font-size: 0.75rem; vertical-align: top; }
+.inc-emp a { font-weight: 600; color: var(--text-primary); text-decoration: none; }
+.inc-emp a:hover { color: var(--accent-emerald); }
+.inc-item { display: inline-block; margin: 2px 3px 2px 0; }
+</style>
+
+<div class="inc-page">
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-triangle-exclamation"></i> Incidencias de Empleados</h1>
+    <div class="hr-page-actions">
+        <a href="{{ url_for('web_rrhh.employee_list') }}" class="btn btn-secondary btn-sm">
+            <i class="fa-solid fa-users"></i> Ver empleados
+        </a>
+    </div>
+</div>
+
+<!-- Resumen -->
+<div class="inc-summary">
+    <div class="inc-card">
+        <div class="k">Empleados vigentes</div>
+        <div class="v">{{ summary.totalActive }}</div>
+        <div class="sub">activos / vacaciones / licencia</div>
+    </div>
+    <div class="inc-card">
+        <div class="k">Con incidencias</div>
+        <div class="v" style="color:var(--accent-orange);">{{ summary.withIncidences }}</div>
+        <div class="sub">requieren corrección</div>
+    </div>
+    <div class="inc-card">
+        <div class="k">Bloqueantes</div>
+        <div class="v" style="color:var(--accent-red);">{{ summary.blocking }}</div>
+        <div class="sub">impiden calcular nómina</div>
+    </div>
+    <div class="inc-card">
+        <div class="k">Requeridos reporte</div>
+        <div class="v" style="color:var(--accent-orange);">{{ summary.required }}</div>
+        <div class="sub">TSS / DGT / IR incompletos</div>
+    </div>
+    <div class="inc-card">
+        <div class="k">Solo advertencias</div>
+        <div class="v" style="color:var(--accent-blue);">{{ summary.advertencia }}</div>
+        <div class="sub">datos recomendados</div>
+    </div>
+</div>
+
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-header-row">
+        <div>
+            <h3>Empleados con datos pendientes</h3>
+            <p>Campos requeridos por proceso o reporte que faltan por completar.</p>
+        </div>
+    </div>
+
+    <form method="GET" style="display:flex; gap:10px; flex-wrap:wrap; padding:0 20px 16px; align-items:flex-end;">
+        <div class="form-group" style="margin:0;">
+            <select name="process" class="form-select" style="width:auto;">
+                <option value="">Todos los procesos</option>
+                {% for p in processes %}
+                <option value="{{ p }}" {% if filter_process==p %}selected{% endif %}>{{ p }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <select name="severity" class="form-select" style="width:auto;">
+                <option value="">Todas las severidades</option>
+                <option value="{{ severity_blocking }}" {% if filter_severity==severity_blocking %}selected{% endif %}>Bloqueante</option>
+                <option value="{{ severity_required }}" {% if filter_severity==severity_required %}selected{% endif %}>Requerido para reporte</option>
+                <option value="{{ severity_advertencia }}" {% if filter_severity==severity_advertencia %}selected{% endif %}>Advertencia</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-secondary btn-sm"><i class="fa-solid fa-filter"></i> Filtrar</button>
+        {% if filter_process or filter_severity %}
+        <a href="{{ url_for('web_rrhh.incidences') }}" class="btn btn-ghost btn-sm" style="color:var(--danger);">
+            <i class="fa-solid fa-xmark"></i> Limpiar
+        </a>
+        {% endif %}
+    </form>
+
+    <div class="table-responsive">
+        <table class="data-grid inc-table">
+            <thead>
+                <tr>
+                    <th style="width:110px;">Código</th>
+                    <th>Empleado</th>
+                    <th style="width:90px;" class="col-right">Incidencias</th>
+                    <th>Detalle</th>
+                    <th style="width:120px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for it in items %}
+                <tr>
+                    <td class="text-muted">{{ it.code or '—' }}</td>
+                    <td class="inc-emp">
+                        <a href="{{ url_for('web_rrhh.employee_view', employee_id=it.employeeId) }}">{{ it.name }}</a>
+                        {% if it.cedula %}<div class="text-muted" style="font-size:0.7rem;">{{ it.cedula }}</div>{% endif %}
+                    </td>
+                    <td class="col-right" style="font-variant-numeric:tabular-nums;">
+                        <span class="sev-chip {% if it.blocking %}sev-bloqueante{% else %}sev-requerido{% endif %}">{{ it.count }}</span>
+                    </td>
+                    <td>
+                        {% for i in it.incidences %}
+                        <span class="sev-chip sev-{{ i.severity }} inc-item" title="{{ i.description }}">{{ i.field }}</span>
+                        {% endfor %}
+                    </td>
+                    <td style="text-align:right;">
+                        <a href="{{ url_for('web_rrhh.employee_view', employee_id=it.employeeId) }}#tab-datos" class="btn btn-ghost btn-sm" title="Corregir en la ficha">
+                            <i class="fa-solid fa-pen-to-square"></i> Corregir
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="text-center text-muted" style="padding:24px;">No hay empleados con incidencias que coincidan con los filtros.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div style="display:flex; justify-content:center; align-items:center; gap:12px; margin-top:16px; flex-wrap:wrap;">
+    <div style="display:flex; align-items:center; gap:6px;">
+        <label style="font-size:0.78rem; color:var(--text-muted); white-space:nowrap;">Mostrar</label>
+        <select class="form-select" style="width:auto; font-size:0.78rem; padding:4px 8px;" onchange="changePerPage(this.value)">
+            <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+            <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+            <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+            <option value="all" {% if per_page >= filtered_total %}selected{% endif %}>Todos</option>
+        </select>
+        <span style="font-size:0.78rem; color:var(--text-muted);">por página</span>
+    </div>
+    {% if total_pages > 1 and per_page < filtered_total %}
+    {% set base_url = '?process=' + filter_process + '&severity=' + filter_severity + '&per_page=' + per_page|string %}
+    {% if page > 1 %}
+    <a href="{{ base_url }}&page={{ page - 1 }}" class="btn btn-sm btn-ghost"><i class="fa-solid fa-chevron-left"></i></a>
+    {% endif %}
+    <span style="font-size:0.82rem; color:var(--text-muted);">Página {{ page }} de {{ total_pages }}</span>
+    {% if page < total_pages %}
+    <a href="{{ base_url }}&page={{ page + 1 }}" class="btn btn-sm btn-ghost"><i class="fa-solid fa-chevron-right"></i></a>
+    {% endif %}
+    {% else %}
+    <span style="font-size:0.82rem; color:var(--text-muted);">{{ filtered_total }} empleados</span>
+    {% endif %}
+</div>
+</div>
+
+<script>
+function changePerPage(v) {
+    var params = new URLSearchParams(window.location.search);
+    params.set('per_page', v);
+    params.delete('page');
+    window.location.search = params.toString();
+}
+</script>
+{% endblock %}

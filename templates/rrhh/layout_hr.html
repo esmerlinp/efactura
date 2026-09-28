@@ -68,6 +68,14 @@
                             data-tooltip="Empleados">
                             <a href="{{ url_for('web_rrhh.employee_list') }}"><span>Empleados</span></a>
                         </li>
+                        <li class="nav-item {% if active_page == 'rrhh_incidences' %}active{% endif %}"
+                            data-tooltip="Incidencias">
+                            <a href="{{ url_for('web_rrhh.incidences') }}"><span>Incidencias</span>
+                                {% if rrhh_incidences %}
+                                <span class="badge badge-warning" style="font-size:0.65rem; padding:1px 6px; border-radius:9px; margin-left:6px;">{{ rrhh_incidences }}</span>
+                                {% endif %}
+                            </a>
+                        </li>
                         <li class="nav-item {% if active_page == 'rrhh_org_chart' %}active{% endif %}"
                             data-tooltip="Organigrama">
                             <a href="{{ url_for('web_rrhh.org_chart') }}"><span>Organigrama</span></a>

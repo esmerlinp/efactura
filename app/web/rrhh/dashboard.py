@@ -136,6 +136,17 @@ def payroll_dashboard():
 
     active_emps = [e for e in employees if is_active_equivalent(e.get("status", ""))]
     employee_count = len(active_emps)
+
+    # ── Incidencias de datos (bloqueantes para nómina) ──
+    incidences_count = 0
+    incidences_blocking = 0
+    try:
+        from app.services.employee_incidences_service import get_incidences
+        _inc = get_incidences(company_id, sandbox=sandbox)
+        incidences_count = _inc["summary"]["withIncidences"]
+        incidences_blocking = _inc["summary"]["blocking"]
+    except Exception:
+        pass
     headcount_for_avg = latest_period.get("lineCount", 0) if latest_period else 0
     if not headcount_for_avg:
         headcount_for_avg = employee_count
@@ -364,7 +375,9 @@ def payroll_dashboard():
                            selected_group_id=selected_group_id, selected_period_key=selected_period_key,
                            period_options=period_options,
                            offboarding_pipeline=offboarding_pipeline,
-                           offboarding_pipeline_total=offboarding_pipeline_total)
+                           offboarding_pipeline_total=offboarding_pipeline_total,
+                           incidences_count=incidences_count,
+                           incidences_blocking=incidences_blocking)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
