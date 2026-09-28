@@ -175,14 +175,14 @@ def report_projection_export():
     return send_file(_projection_csv(filename, headers, rows, total), mimetype='text/csv', as_attachment=True, download_name=f'{filename}_{data.get("year", "")}.csv')
 
 
-def _enrich_periods(periods, owner_uid, sandbox):
+def _enrich_periods(periods, owner_uid, sandbox, company_id):
     """Inyecta líneas desde subcolección a cada período para compatibilidad con templates."""
     for p in periods:
         p["lines"] = PayrollService.get_period_lines(p, company_id=company_id, sandbox=sandbox)
     return periods
 
 
-def _enrich_period(period, owner_uid, sandbox):
+def _enrich_period(period, owner_uid, sandbox, company_id):
     """Inyecta líneas desde subcolección a un período."""
     if period:
         period["lines"] = PayrollService.get_period_lines(period, company_id=company_id, sandbox=sandbox)
@@ -269,8 +269,7 @@ def report_department():
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
-    periods = _enrich_periods(periods, owner_uid, sandbox)
-    periods = _enrich_periods(periods, owner_uid, sandbox)
+    periods = _enrich_periods(periods, owner_uid, sandbox, company_id)
     period_key = request.args.get("period", "")
     period = next((p for p in periods if p.get("periodKey") == period_key), None) if period_key else None
     by_dept = {}
@@ -297,7 +296,7 @@ def report_tss():
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
-    periods = _enrich_periods(periods, owner_uid, sandbox)
+    periods = _enrich_periods(periods, owner_uid, sandbox, company_id)
     try:
         year = int(request.args.get("year", date.today().year))
     except (ValueError, TypeError):
@@ -332,7 +331,7 @@ def report_comparative():
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
-    periods = _enrich_periods(periods, owner_uid, sandbox)
+    periods = _enrich_periods(periods, owner_uid, sandbox, company_id)
     periods.sort(key=lambda p: p.get("periodKey", ""), reverse=True)
     p1_key = request.args.get("p1", "")
     p2_key = request.args.get("p2", "")
@@ -380,7 +379,7 @@ def report_net_payroll():
     from app.services import hr_data_service as hr
 
     periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
-    periods = _enrich_periods(periods, owner_uid, sandbox)
+    periods = _enrich_periods(periods, owner_uid, sandbox, company_id)
     periods.sort(key=lambda p: p.get("periodKey", ""), reverse=True)
 
     # Filtro por período
@@ -408,7 +407,7 @@ def report_net_payroll_export():
 
     period_key = request.args.get("period", "")
     period = hr.get_payroll_period_by_key(company_id, period_key, sandbox=sandbox)
-    period = _enrich_period(period, owner_uid, sandbox)
+    period = _enrich_period(period, owner_uid, sandbox, company_id)
     if not period:
         flash("Período no encontrado.", "error")
         return redirect(url_for("web_invoices.report_net_payroll"))
@@ -449,7 +448,7 @@ def payroll_export_csv(period_id):
     from app.services import hr_data_service as hr
 
     period = hr.get_payroll_period(company_id, period_id, sandbox=sandbox)
-    period = _enrich_period(period, owner_uid, sandbox)
+    period = _enrich_period(period, owner_uid, sandbox, company_id)
     if not period:
         flash("Período no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_list"))
@@ -502,7 +501,7 @@ def report_isr_retentions():
     from app.services import hr_data_service as hr
 
     periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
-    periods = _enrich_periods(periods, owner_uid, sandbox)
+    periods = _enrich_periods(periods, owner_uid, sandbox, company_id)
     try:
         year = int(request.args.get("year", date.today().year))
     except (ValueError, TypeError):
@@ -541,7 +540,7 @@ def report_isr_retentions_export():
     from app.services import hr_data_service as hr
 
     periods = hr.get_payroll_periods(company_id, sandbox=sandbox)
-    periods = _enrich_periods(periods, owner_uid, sandbox)
+    periods = _enrich_periods(periods, owner_uid, sandbox, company_id)
     try:
         year = int(request.args.get("year", date.today().year))
         month = int(request.args.get("month", date.today().month))
