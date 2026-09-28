@@ -941,7 +941,8 @@ def _load_employee_context(company_id: str, employee_id: str, owner_uid: str,
 
     from app.services.herramientas_service import get_asignaciones_por_empleado
 
-    herramientas_asignadas = get_asignaciones_por_empleado(owner_uid, employee_id, sandbox=sandbox)
+    herramientas_asignadas = get_asignaciones_por_empleado(
+        owner_uid, employee_id, sandbox=sandbox, company_id=company_id)
 
     # ── Movimientos recurrentes del empleado (tab de la ficha) ──
     from app.services.recurring_service import get_applications_by_employee

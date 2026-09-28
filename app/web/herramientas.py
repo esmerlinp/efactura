@@ -345,9 +345,10 @@ def asignar_herramienta(herramienta_id):
 
     from app.services.herramientas_service import get_herramientas
     from app.services.hr_data_service import get_employees
+    from app.utils.hr_utils import is_active_equivalent
 
-    employees = get_employees(owner_uid, sandbox=sandbox)
-    active_employees = [e for e in employees if e.get("status") == "activo"]
+    employees = get_employees(company_id, sandbox=sandbox)
+    active_employees = [e for e in employees if is_active_equivalent(e.get("status"))]
 
     if request.method == "POST":
         empleado_id = request.form.get("empleadoId", "").strip()
@@ -624,10 +625,11 @@ def ajax_empleados():
         return jsonify({"success": False, "error": "No autorizado"}), 401
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services.hr_data_service import get_employees
-    employees = get_employees(owner_uid, sandbox=sandbox)
+    from app.utils.hr_utils import is_active_equivalent
+    employees = get_employees(company_id, sandbox=sandbox)
     active = [{"id": e["id"], "name": e.get("display_name") or e.get("fullName", ""),
                "cedula": e.get("cedula", ""), "position": e.get("position", "")}
-              for e in employees if e.get("status") == "activo"]
+              for e in employees if is_active_equivalent(e.get("status"))]
     return jsonify({"success": True, "employees": active})
 
 
