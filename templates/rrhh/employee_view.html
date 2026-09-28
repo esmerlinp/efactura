@@ -488,6 +488,16 @@
 
     <!-- Tab: Evaluaciones & Capacitaciones -->
     <div id="tab-evals" class="tab-content" style="display:none;">
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:12px;">
+            <a href="{{ url_for('web_rrhh.evaluation_list') }}" class="btn btn-sm btn-primary"
+               style="display:inline-flex; align-items:center; gap:6px; font-size:0.78rem; padding:4px 10px;">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Ir a Evaluaciones
+            </a>
+            <a href="{{ url_for('web_rrhh.training_list') }}" class="btn btn-sm btn-primary"
+               style="display:inline-flex; align-items:center; gap:6px; font-size:0.78rem; padding:4px 10px;">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Ir a Capacitaciones
+            </a>
+        </div>
         <div class="hr-section-card" style="border:none; box-shadow:none; padding:0; margin-bottom:16px;">
             <h3>Evaluaciones ({{ evaluations|length }})</h3>
             {% if evaluations %}
