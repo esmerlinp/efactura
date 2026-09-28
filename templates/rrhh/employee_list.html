@@ -54,7 +54,7 @@
 <!-- Compact stats + quick actions bar (single line) -->
 <div class="emp-stats-bar">
     <div class="emp-stats">
-        <a class="emp-stat {% if not filter_status %}active{% endif %}" href="{{ url_for('web_rrhh.employee_list') }}" title="Ver todos">
+        <a class="emp-stat {% if filter_status=='todos' %}active{% endif %}" href="{{ url_for('web_rrhh.employee_list', status='todos') }}" title="Ver todos (incluye ex-empleados)">
             <span class="emp-stat-label">Total</span>
             <span class="emp-stat-value">{{ total }}</span>
         </a>
@@ -120,7 +120,8 @@
         </div>
         <div class="form-group" style="margin:0;">
             <select name="status" class="form-select" style="width:auto;">
-                <option value="">Todos los estados</option>
+                <option value="" {% if not filter_status %}selected{% endif %}>Activos (por defecto)</option>
+                <option value="todos" {% if filter_status=='todos' %}selected{% endif %}>Todos los estados</option>
                 <option value="activo" {% if filter_status=='activo' %}selected{% endif %}>Activo</option>
                 <option value="vacaciones" {% if filter_status=='vacaciones' %}selected{% endif %}>Vacaciones</option>
                 <option value="licencia" {% if filter_status=='licencia' %}selected{% endif %}>Licencia</option>
@@ -216,22 +217,22 @@
             <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
             <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
             <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
-            <option value="all" {% if per_page >= total %}selected{% endif %}>Todos</option>
+            <option value="all" {% if per_page >= filtered_total %}selected{% endif %}>Todos</option>
         </select>
         <span style="font-size:0.78rem; color:var(--text-muted);">por página</span>
     </div>
 
-    {% if total_pages > 1 and per_page < total %}
+    {% if total_pages > 1 and per_page < filtered_total %}
     {% set base_url = '?search=' + search + '&status=' + filter_status + '&department=' + filter_department + '&branch=' + filter_branch + '&per_page=' + per_page|string %}
     {% if page > 1 %}
     <a href="{{ base_url }}&page={{ page - 1 }}" class="btn btn-sm btn-ghost"><i class="fa-solid fa-chevron-left"></i></a>
     {% endif %}
-    <span style="font-size:0.82rem; color:var(--text-muted);">Página {{ page }} de {{ total_pages }} ({{ total }} empleados)</span>
+    <span style="font-size:0.82rem; color:var(--text-muted);">Página {{ page }} de {{ total_pages }} ({{ filtered_total }} empleados)</span>
     {% if page < total_pages %}
     <a href="{{ base_url }}&page={{ page + 1 }}" class="btn btn-sm btn-ghost"><i class="fa-solid fa-chevron-right"></i></a>
     {% endif %}
     {% else %}
-    <span style="font-size:0.82rem; color:var(--text-muted);">{{ total }} empleados</span>
+    <span style="font-size:0.82rem; color:var(--text-muted);">{{ filtered_total }} empleados</span>
     {% endif %}
 </div>
 

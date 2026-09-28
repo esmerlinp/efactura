@@ -457,6 +457,16 @@ def employee_list():
     visible_map = get_employee_list_columns(user_uid)
     visible_columns = [c for c in EMPLOYEE_GRID_COLUMNS if visible_map.get(c["key"])]
 
+    # ── Conteos sobre el conjunto completo (antes de filtrar) ──
+    total = len(employees)
+    active_count = sum(1 for e in employees if e.get("status") == "activo")
+    inactive_count = sum(1 for e in employees if e.get("status") == "inactivo")
+    vacation_count = sum(1 for e in employees if e.get("status") == "vacaciones")
+    leave_count = sum(1 for e in employees if e.get("status") == "licencia")
+
+    # ── Departamentos disponibles para filtro ──
+    departments_set = sorted(set(e.get("department", "") or e.get("area", "") for e in employees if e.get("department") or e.get("area")))
+
     # ── Filtros ──
     search = request.args.get("search", "").strip().lower()
     filter_status = request.args.get("status", "").strip()
@@ -469,21 +479,19 @@ def employee_list():
                                 e.get("idNumber", "") + " " +
                                 e.get("position", "") + " " +
                                 str(e.get("code", ""))).lower()]
-    if filter_status:
+    if filter_status == "todos":
+        pass
+    elif filter_status:
         employees = [e for e in employees if e.get("status", "") == filter_status]
+    else:
+        # Por defecto se muestran los activos (excluye ex-empleados/inactivos).
+        employees = [e for e in employees if e.get("status", "") != "inactivo"]
     if filter_department:
         employees = [e for e in employees if e.get("department", "") == filter_department or e.get("area", "") == filter_department]
     if filter_branch:
         employees = [e for e in employees if e.get("branchId", "") == filter_branch]
 
-    total = len(employees)
-    active_count = sum(1 for e in employees if e.get("status") == "activo")
-    inactive_count = sum(1 for e in employees if e.get("status") == "inactivo")
-    vacation_count = sum(1 for e in employees if e.get("status") == "vacaciones")
-    leave_count = sum(1 for e in employees if e.get("status") == "licencia")
-
-    # ── Departamentos disponibles para filtro ──
-    departments_set = sorted(set(e.get("department", "") or e.get("area", "") for e in employees if e.get("department") or e.get("area")))
+    filtered_total = len(employees)
 
     # ── Paginación ──
     try:
@@ -491,19 +499,19 @@ def employee_list():
         per_page = max(10, min(100000, int(request.args.get("per_page", 25))))
     except (ValueError, TypeError):
         page, per_page = 1, 25
-    if total == 0:
+    if filtered_total == 0:
         per_page = 25
         page = 1
-    elif per_page >= total:
-        per_page = total
+    elif per_page >= filtered_total:
+        per_page = filtered_total
         page = 1
-    total_pages = max(1, (total + per_page - 1) // per_page)
+    total_pages = max(1, (filtered_total + per_page - 1) // per_page)
     start = (page - 1) * per_page
     paged = employees[start:start + per_page]
 
     return render_template("rrhh/employee_list.html", active_page="rrhh_employees",
                            employees=paged, page=page, total_pages=total_pages,
-                           total=total, per_page=per_page,
+                           total=total, filtered_total=filtered_total, per_page=per_page,
                            search=request.args.get("search", ""),
                            filter_status=filter_status, filter_department=filter_department,
                            filter_branch=filter_branch, branches=branches,
