@@ -48,7 +48,7 @@ def _sanitize_for_role(employee: dict) -> dict:
 @web_rrhh_bp.context_processor
 def _inject_hr_nav_counts():
     """Inyecta badges de conteo en el sidebar de RRHH."""
-    counts = {"rrhh_pending_authorizations": 0}
+    counts = {"rrhh_pending_authorizations": 0, "rrhh_incidences": 0}
     user = session.get("user", {})
     uid = user.get("uid", "")
     sandbox = session.get("is_sandbox_mode", True)
@@ -58,6 +58,11 @@ def _inject_hr_nav_counts():
             from app.services.hr_authorization_service import get_pending_for_user
             pending = get_pending_for_user(company_id, uid, sandbox=sandbox)
             counts["rrhh_pending_authorizations"] = len(pending)
+        except Exception:
+            pass
+        try:
+            from app.services.employee_incidences_service import get_incidences
+            counts["rrhh_incidences"] = get_incidences(company_id, sandbox=sandbox)["summary"]["withIncidences"]
         except Exception:
             pass
     return counts
@@ -141,6 +146,7 @@ from app.web.rrhh import documents           # noqa: E402, F401
 from app.web.rrhh import document_templates  # noqa: E402, F401
 from app.web.rrhh import request_attachments # noqa: E402, F401
 from app.web.rrhh import checklist           # noqa: E402, F401
+from app.web.rrhh import incidences          # noqa: E402, F401
 from app.web.rrhh import org_chart           # noqa: E402, F401
 from app.web.rrhh import attendance          # noqa: E402, F401
 from app.web.rrhh import attendance_import   # noqa: E402, F401
