@@ -2,6 +2,34 @@
 {% block title %}Vacaciones — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
+<style>
+.hr-compact-table th { padding: 7px 12px; }
+.hr-compact-table td { padding: 6px 12px; }
+.vac-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.vac-emp-name { font-weight: 600; color: var(--text-primary); text-decoration: none; }
+.vac-emp-name:hover { color: var(--accent-emerald); }
+.vac-emp-sub { font-size: 0.72rem; color: var(--text-muted); }
+.vac-status { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.8rem; white-space: nowrap; }
+.vac-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: currentColor; }
+.vac-status-pendiente { color: var(--accent-amber, #f59e0b); }
+.vac-status-en-curso { color: var(--accent-blue, #3b82f6); }
+.vac-status-aprobada { color: var(--accent-emerald, #10b981); }
+.vac-status-concluida { color: var(--text-muted); }
+.vac-status-anulada, .vac-status-rechazada { color: var(--danger, #ef4444); }
+.vac-status-revocada { color: var(--text-muted); }
+.vac-actions { white-space: nowrap; text-align: right; }
+.vac-actions .btn { padding: 2px 7px; font-size: 0.78rem; }
+/* Chips de estado */
+.vac-stats { display: inline-flex; align-items: stretch; flex-wrap: wrap; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); box-shadow: var(--shadow-sm); padding: 2px; }
+.vac-stat { display: inline-flex; align-items: center; gap: 7px; padding: 6px 13px; border-radius: 5px; text-decoration: none; color: inherit; }
+.vac-stat + .vac-stat { border-left: 1px solid var(--border-color); border-radius: 0 5px 5px 0; }
+a.vac-stat:hover { background: rgba(100, 116, 139, 0.10); }
+a.vac-stat.active { background: rgba(16, 185, 129, 0.12); }
+.vac-stat-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.vac-stat-label { font-size: 0.70rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+.vac-stat-value { font-size: 0.95rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
+</style>
+
 <div class="page-header hr-page-header">
     <h1 class="page-title"><i class="fa-solid fa-umbrella-beach"></i> Solicitudes de Vacaciones</h1>
     <div style="display:flex; gap:8px;">
@@ -14,6 +42,36 @@
     </div>
 </div>
 
+<!-- Chips de estado con conteos -->
+<div style="margin-bottom:14px;">
+    <div class="vac-stats">
+        <a class="vac-stat {% if not filter_status %}active{% endif %}" href="{{ url_for('web_rrhh.vacation_list') }}" title="Ver todas">
+            <span class="vac-stat-label">Total</span>
+            <span class="vac-stat-value">{{ status_counts.total }}</span>
+        </a>
+        <a class="vac-stat {% if filter_status == 'pendiente' %}active{% endif %}" href="{{ url_for('web_rrhh.vacation_list', status='pendiente') }}" title="Filtrar pendientes">
+            <span class="vac-stat-dot" style="background:var(--accent-amber, #f59e0b);"></span>
+            <span class="vac-stat-label">Pendientes</span>
+            <span class="vac-stat-value" style="color:var(--accent-amber, #f59e0b);">{{ status_counts.pendiente }}</span>
+        </a>
+        <a class="vac-stat {% if filter_status == 'en_curso' %}active{% endif %}" href="{{ url_for('web_rrhh.vacation_list', status='en_curso') }}" title="Filtrar en curso">
+            <span class="vac-stat-dot" style="background:var(--accent-blue, #3b82f6);"></span>
+            <span class="vac-stat-label">En curso</span>
+            <span class="vac-stat-value" style="color:var(--accent-blue, #3b82f6);">{{ status_counts.en_curso }}</span>
+        </a>
+        <a class="vac-stat {% if filter_status == 'concluidas' %}active{% endif %}" href="{{ url_for('web_rrhh.vacation_list', status='concluidas') }}" title="Filtrar concluidas">
+            <span class="vac-stat-dot" style="background:var(--text-muted);"></span>
+            <span class="vac-stat-label">Concluidas</span>
+            <span class="vac-stat-value" style="color:var(--text-muted);">{{ status_counts.concluidas }}</span>
+        </a>
+        <a class="vac-stat {% if filter_status == 'anulada' %}active{% endif %}" href="{{ url_for('web_rrhh.vacation_list', status='anulada') }}" title="Filtrar anuladas/revocadas">
+            <span class="vac-stat-dot" style="background:var(--danger, #ef4444);"></span>
+            <span class="vac-stat-label">Anuladas</span>
+            <span class="vac-stat-value" style="color:var(--danger, #ef4444);">{{ status_counts.anulada }}</span>
+        </a>
+    </div>
+</div>
+
 <div class="card-table-wrapper hr-table-card">
     <div class="table-header-row">
         <div>
@@ -21,77 +79,144 @@
             <p>Control de vacaciones solicitadas, días disponibles y aprobaciones.</p>
         </div>
     </div>
+
+    <!-- Filtros -->
+    <form method="GET" style="display:flex; gap:10px; flex-wrap:wrap; padding:0 20px 16px; align-items:flex-end;">
+        <div class="form-group" style="margin:0; flex:2; min-width:180px;">
+            <input type="text" name="q" class="form-input" placeholder="Buscar por empleado..."
+                   value="{{ q }}" style="border-radius:20px;">
+        </div>
+        <div class="form-group" style="margin:0;">
+            <select name="status" class="form-select" style="width:auto;">
+                <option value="" {% if not filter_status %}selected{% endif %}>Todos los estados</option>
+                <option value="pendiente" {% if filter_status == 'pendiente' %}selected{% endif %}>Pendiente</option>
+                <option value="en_curso" {% if filter_status == 'en_curso' %}selected{% endif %}>En curso</option>
+                <option value="aprobada" {% if filter_status == 'aprobada' %}selected{% endif %}>Aprobada</option>
+                <option value="concluidas" {% if filter_status == 'concluidas' %}selected{% endif %}>Concluidas</option>
+                <option value="anulada" {% if filter_status == 'anulada' %}selected{% endif %}>Anuladas</option>
+                <option value="revocada" {% if filter_status == 'revocada' %}selected{% endif %}>Revocadas</option>
+                <option value="rechazada" {% if filter_status == 'rechazada' %}selected{% endif %}>Rechazadas</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <select name="year" class="form-select" style="width:auto;">
+                <option value="">Todos los años</option>
+                {% for y in all_years %}
+                <option value="{{ y }}" {% if filter_year == y %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <select name="source" class="form-select" style="width:auto;">
+                <option value="">Todos los orígenes</option>
+                <option value="manual" {% if filter_source == 'manual' %}selected{% endif %}>Manual</option>
+                <option value="historico" {% if filter_source == 'historico' %}selected{% endif %}>Histórico</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-secondary btn-sm"><i class="fa-solid fa-filter"></i> Filtrar</button>
+        {% if q or filter_status or filter_year or filter_source %}
+        <a href="{{ url_for('web_rrhh.vacation_list') }}" class="btn btn-ghost btn-sm" style="color:var(--danger);">
+            <i class="fa-solid fa-xmark"></i> Limpiar
+        </a>
+        {% endif %}
+    </form>
+
     <div class="table-responsive">
-        <table class="data-grid">
+        <table class="data-grid hr-compact-table">
         <thead>
             <tr>
                 <th>Empleado</th>
                 <th>Desde</th>
                 <th>Hasta</th>
-                <th>Días</th>
-                <th>Disponibles</th>
+                <th style="text-align:right;">Días</th>
+                <th style="text-align:right;">Disponibles</th>
                 <th>Estado</th>
                 <th>Adjuntos</th>
-                <th>Acciones</th>
+                <th style="text-align:right;">Acciones</th>
             </tr>
         </thead>
         <tbody>
             {% for r in requests %}
+            {% set _s = r.status %}
+            {% if _s == 'pendiente' %}{% set _label = 'Pendiente' %}{% set _cls = 'vac-status-pendiente' %}
+            {% elif _s == 'aprobada' and r.startDate <= today and r.endDate >= today %}{% set _label = 'En curso' %}{% set _cls = 'vac-status-en-curso' %}
+            {% elif _s == 'aprobada' and r.endDate >= today %}{% set _label = 'Aprobada' %}{% set _cls = 'vac-status-aprobada' %}
+            {% elif _s == 'aprobada' %}{% set _label = 'Concluida' %}{% set _cls = 'vac-status-concluida' %}
+            {% elif _s == 'anulada' %}{% set _label = 'Anulada' %}{% set _cls = 'vac-status-anulada' %}
+            {% elif _s == 'revocada' %}{% set _label = 'Revocada' %}{% set _cls = 'vac-status-revocada' %}
+            {% else %}{% set _label = 'Rechazada' %}{% set _cls = 'vac-status-rechazada' %}{% endif %}
             <tr>
-                <td><strong><a href="{{ url_for('web_rrhh.employee_view', employee_id=r.employeeId) }}" style="color:var(--text-primary); text-decoration:none;">{{ r.employeeName }}</a></strong></td>
-                <td>{{ r.startDate }}</td>
-                <td>{{ r.endDate }}</td>
-                <td>{{ r.days }}</td>
-                <td>{{ r.remainingDaysBefore }}</td>
                 <td>
-                    {% if r.status == 'pendiente' %}
-                    <span class="badge badge-warning">Pendiente</span>
-                    {% elif r.status == 'aprobada' and r.startDate <= today and r.endDate >= today %}
-                    <span class="badge badge-info">En curso</span>
-                    {% elif r.status == 'aprobada' %}
-                    <span class="badge badge-success">Aprobada</span>
-                    {% elif r.status == 'anulada' %}
-                    <span class="badge badge-danger">Anulada</span>
-                    {% elif r.status == 'revocada' %}
-                    <span class="badge badge-secondary">Revocada</span>
-                    {% else %}
-                    <span class="badge badge-danger">Rechazada</span>
-                    {% endif %}
-                    {% if r.status in ('anulada', 'revocada') and r.get('consumedDays', 0) %}
-                    <span class="badge badge-info" title="Días efectivamente tomados">{{ r.consumedDays }} consumidos</span>
-                    {% endif %}
-                    {% if r.get('source') == 'masivo' %}
-                    <span class="badge badge-info">Histórico</span>
+                    <a class="vac-emp-name" href="{{ url_for('web_rrhh.employee_view', employee_id=r.employeeId) }}">{{ r.employeeName }}</a>
+                    {% if r.get('source') == 'masivo' %}<div class="vac-emp-sub">Histórico</div>{% endif %}
+                </td>
+                <td style="white-space:nowrap;">{{ r.startDate }}</td>
+                <td style="white-space:nowrap;">{{ r.endDate }}</td>
+                <td class="vac-num">{{ r.days }}</td>
+                <td class="vac-num" style="color:var(--text-muted);">{{ r.remainingDaysBefore if r.remainingDaysBefore is defined and r.remainingDaysBefore != '' else '—' }}</td>
+                <td>
+                    <span class="vac-status {{ _cls }}">{{ _label }}</span>
+                    {% if _s in ('anulada', 'revocada') and r.get('consumedDays', 0) %}
+                    <span style="font-size:0.72rem; color:var(--text-muted); white-space:nowrap;">· {{ r.consumedDays }} consumidos</span>
                     {% endif %}
                 </td>
                 <td>
-                    <button type="button" class="btn btn-sm btn-ghost" onclick="openAttachmentsModal('{{ r.id }}')">
-                        <i class="fa-solid fa-paperclip"></i> <span class="att-count" id="attcount-{{ r.id }}">Adjuntos</span>
+                    <button type="button" class="btn btn-sm btn-ghost" onclick="openAttachmentsModal('{{ r.id }}')" title="Documentos de aval">
+                        <i class="fa-solid fa-paperclip"></i> <span class="att-count" id="attcount-{{ r.id }}"></span>
                     </button>
                 </td>
-                <td><div class="hr-table-actions">
+                <td class="vac-actions">
                     {% if r.status == 'pendiente' %}
                     <form method="POST" action="{{ url_for('web_rrhh.vacation_action', request_id=r.id, action='approve') }}" style="display:contents;">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn btn-sm btn-success">Aprobar</button>
+                        <button type="submit" class="btn btn-sm btn-ghost" style="color:var(--accent-emerald);" title="Aprobar"><i class="fa-solid fa-check"></i> Aprobar</button>
                     </form>
                     <form method="POST" action="{{ url_for('web_rrhh.vacation_action', request_id=r.id, action='rechazar') }}" style="display:contents;">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn btn-sm btn-danger">Rechazar</button>
+                        <button type="submit" class="btn btn-sm btn-ghost" style="color:var(--danger);" title="Rechazar"><i class="fa-solid fa-xmark"></i> Rechazar</button>
                     </form>
-                    {% elif r.status == 'aprobada' and r.endDate >= today %}
-                    <button type="button" class="btn btn-sm btn-warning" onclick="openCancelModal('{{ r.id }}', '{{ r.employeeName }}', '{{ r.startDate }}', '{{ r.endDate }}')">Anular</button>
+                    {% elif r.status == 'aprobada' %}
+                    <button type="button" class="btn btn-sm btn-ghost" style="color:var(--accent-amber, #f59e0b);" title="Anular"
+                            onclick="openCancelModal('{{ r.id }}', '{{ r.employeeName }}', '{{ r.startDate }}', '{{ r.endDate }}')"><i class="fa-solid fa-ban"></i> Anular</button>
                     {% else %}
-                    <span class="text-muted" title="Sin acciones disponibles">—</span>
+                    <span class="text-muted" title="Sin acciones disponibles" style="font-size:0.85rem;">—</span>
                     {% endif %}
-                </div></td>
+                </td>
             </tr>
             {% else %}
-            <tr><td colspan="8" class="text-center text-muted">No hay solicitudes de vacaciones.</td></tr>
+            <tr><td colspan="8" class="text-center text-muted">No hay solicitudes que coincidan con los filtros.</td></tr>
             {% endfor %}
         </tbody>
         </table>
     </div>
+</div>
+
+<!-- Paginación -->
+<div style="display:flex; justify-content:center; align-items:center; gap:12px; margin-top:16px; flex-wrap:wrap;">
+    <div style="display:flex; align-items:center; gap:6px;">
+        <label style="font-size:0.78rem; color:var(--text-muted); white-space:nowrap;">Mostrar</label>
+        <select class="form-select" style="width:auto; font-size:0.78rem; padding:4px 8px;" onchange="changePerPage(this.value)">
+            <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
+            <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+            <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+            <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+            <option value="all" {% if per_page >= filtered_total %}selected{% endif %}>Todos</option>
+        </select>
+        <span style="font-size:0.78rem; color:var(--text-muted);">por página</span>
+    </div>
+
+    {% if total_pages > 1 and per_page < filtered_total %}
+    {% set base_url = '?q=' + q|urlencode + '&status=' + filter_status + '&year=' + filter_year + '&source=' + filter_source + '&per_page=' + per_page|string %}
+    {% if page > 1 %}
+    <a href="{{ base_url }}&page={{ page - 1 }}" class="btn btn-sm btn-ghost"><i class="fa-solid fa-chevron-left"></i></a>
+    {% endif %}
+    <span style="font-size:0.82rem; color:var(--text-muted);">Página {{ page }} de {{ total_pages }} ({{ filtered_total }} solicitudes)</span>
+    {% if page < total_pages %}
+    <a href="{{ base_url }}&page={{ page + 1 }}" class="btn btn-sm btn-ghost"><i class="fa-solid fa-chevron-right"></i></a>
+    {% endif %}
+    {% else %}
+    <span style="font-size:0.82rem; color:var(--text-muted);">{{ filtered_total }} solicitudes</span>
+    {% endif %}
 </div>
 
 <!-- Modal de anulación -->
@@ -180,7 +305,17 @@ function openAttachmentsModal(reqId) {
 }
 document.querySelectorAll('.att-count').forEach(function(el) {
     const n = (REQ_ATTACHMENTS[el.id.replace('attcount-', '')] || []).length;
-    el.textContent = 'Adjuntos (' + n + ')';
+    el.textContent = n ? '(' + n + ')' : '';
 });
+function changePerPage(value) {
+    var params = new URLSearchParams(window.location.search);
+    if (value === 'all') {
+        params.set('per_page', '99999');
+    } else {
+        params.set('per_page', value);
+    }
+    params.set('page', '1');
+    window.location.search = params.toString();
+}
 </script>
 {% endblock %}

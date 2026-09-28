@@ -2,6 +2,27 @@
 {% block title %}Parámetros Legales — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
+<style>
+.hr-compact-table th { padding: 7px 12px; }
+.hr-compact-table td { padding: 6px 12px; }
+.lp-status { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.8rem; white-space: nowrap; }
+.lp-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: currentColor; }
+.lp-vigente { color: var(--accent-emerald, #10b981); }
+.lp-historico { color: var(--text-muted); }
+.lp-no-configurado { color: var(--accent-amber, #f59e0b); }
+.lp-val { font-family: monospace; font-size: 0.8rem; white-space: nowrap; }
+.lp-actions { white-space: nowrap; text-align: right; }
+/* Chips de estado */
+.lp-stats { display: inline-flex; align-items: stretch; flex-wrap: wrap; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); box-shadow: var(--shadow-sm); padding: 2px; }
+.lp-stat { display: inline-flex; align-items: center; gap: 7px; padding: 6px 13px; border-radius: 5px; text-decoration: none; color: inherit; }
+.lp-stat + .lp-stat { border-left: 1px solid var(--border-color); border-radius: 0 5px 5px 0; }
+a.lp-stat:hover { background: rgba(100, 116, 139, 0.10); }
+a.lp-stat.active { background: rgba(16, 185, 129, 0.12); }
+.lp-stat-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.lp-stat-label { font-size: 0.70rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+.lp-stat-value { font-size: 0.95rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
+</style>
+
 <div class="page-header hr-page-header">
     <h1 class="page-title"><i class="fa-solid fa-scale-balanced"></i> Parámetros Legales</h1>
     <div class="hr-page-actions">
@@ -12,115 +33,166 @@
     </div>
 </div>
 
-<div class="card-table-wrapper hr-table-card" style="margin-bottom:12px; padding:12px 16px;">
-    <form method="GET" action="{{ url_for('web_rrhh.legal_parameters_list') }}" style="display:flex; gap:12px; flex-wrap:wrap; align-items:end;">
-        <div class="form-group" style="margin:0; min-width:250px;">
-            <label style="font-size:0.78rem;">Tipo de Parámetro</label>
-            <select name="parameter_type" class="form-select" onchange="this.form.submit()">
+<!-- Chips de estado -->
+<div style="margin-bottom:14px;">
+    <div class="lp-stats">
+        <a class="lp-stat {% if not filter_status %}active{% endif %}" href="{{ url_for('web_rrhh.legal_parameters_list') }}" title="Ver todos">
+            <span class="lp-stat-label">Todas</span>
+            <span class="lp-stat-value">{{ status_counts.total }}</span>
+        </a>
+        <a class="lp-stat {% if filter_status == 'vigente' %}active{% endif %}" href="{{ url_for('web_rrhh.legal_parameters_list', status='vigente') }}" title="Filtrar vigentes">
+            <span class="lp-stat-dot" style="background:var(--accent-emerald, #10b981);"></span>
+            <span class="lp-stat-label">Vigentes</span>
+            <span class="lp-stat-value" style="color:var(--accent-emerald, #10b981);">{{ status_counts.vigente }}</span>
+        </a>
+        <a class="lp-stat {% if filter_status == 'historico' %}active{% endif %}" href="{{ url_for('web_rrhh.legal_parameters_list', status='historico') }}" title="Filtrar históricas">
+            <span class="lp-stat-dot" style="background:var(--text-muted);"></span>
+            <span class="lp-stat-label">Históricas</span>
+            <span class="lp-stat-value" style="color:var(--text-muted);">{{ status_counts.historico }}</span>
+        </a>
+    </div>
+</div>
+
+<div class="card-table-wrapper hr-table-card" style="margin-bottom:0;">
+    <div class="table-header-row">
+        <div>
+            <h3>Parámetros configurados</h3>
+            <p>Versiones de tasas, topes y límites con su vigencia histórica.</p>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <form method="GET" action="{{ url_for('web_rrhh.legal_parameters_list') }}" style="display:flex; gap:10px; flex-wrap:wrap; padding:0 20px 16px; align-items:flex-end;">
+        <div class="form-group" style="margin:0; flex:2; min-width:180px;">
+            <input type="text" name="q" class="form-input" placeholder="Buscar por tipo..."
+                   value="{{ q }}" style="border-radius:20px;">
+        </div>
+        <div class="form-group" style="margin:0;">
+            <select name="parameter_type" class="form-select" style="width:auto;">
                 <option value="">Todos los tipos</option>
                 {% for pt in param_types %}
                 <option value="{{ pt }}" {% if selected_type == pt %}selected{% endif %}>{{ PARAM_TYPE_LABELS.get(pt, pt) }}</option>
                 {% endfor %}
             </select>
         </div>
-        {% if selected_type %}
-        <a href="{{ url_for('web_rrhh.legal_parameters_list') }}" class="btn btn-sm btn-ghost" style="align-self:end;">
+        <div class="form-group" style="margin:0;">
+            <select name="status" class="form-select" style="width:auto;">
+                <option value="">Todos los estados</option>
+                <option value="vigente" {% if filter_status == 'vigente' %}selected{% endif %}>Vigentes</option>
+                <option value="historico" {% if filter_status == 'historico' %}selected{% endif %}>Históricas</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-secondary btn-sm"><i class="fa-solid fa-filter"></i> Filtrar</button>
+        {% if q or selected_type or filter_status %}
+        <a href="{{ url_for('web_rrhh.legal_parameters_list') }}" class="btn btn-ghost btn-sm" style="color:var(--danger);">
             <i class="fa-solid fa-xmark"></i> Limpiar
         </a>
         {% endif %}
     </form>
+
+    <div class="table-responsive">
+        <table class="data-grid hr-compact-table">
+        <thead>
+            <tr>
+                <th>Tipo</th>
+                <th>Valor</th>
+                <th>Vigente Desde</th>
+                <th>Vigente Hasta</th>
+                <th>Estado</th>
+                <th>Actualizado</th>
+                <th style="text-align:right;">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in parameters %}
+            <tr>
+                <td>
+                    <strong style="font-size:0.85rem;">{{ PARAM_TYPE_LABELS.get(p.parameterType, p.parameterType) }}</strong>
+                    <code style="font-size:0.7rem; color:var(--text-muted); display:block;">{{ p.parameterType }}</code>
+                </td>
+                <td class="lp-val">
+                    {% if p.parameterType == 'isr_annual_table' and p.value %}
+                    <table class="data-grid data-grid--compact" style="margin:0;">
+                        <thead><tr><th style="padding:2px 6px;">Desde</th><th style="padding:2px 6px;">Hasta</th><th style="padding:2px 6px;">Tasa</th><th style="padding:2px 6px;">Ded.</th></tr></thead>
+                        <tbody>
+                        {% for row in p.value %}
+                        <tr>
+                            <td style="padding:2px 6px;">{{ "{:,.2f}".format(row[0]) }}</td>
+                            <td style="padding:2px 6px;">{{ "{:,.2f}".format(row[1]) if row[1] < 999999998 else "inf" }}</td>
+                            <td style="padding:2px 6px;">{{ "{:.0f}".format(row[2] * 100) }}%</td>
+                            <td style="padding:2px 6px;">{{ "{:,.2f}".format(row[3]) }}</td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                    {% elif p.parameterType == 'isr_annual_table' %}
+                    <span style="color:var(--text-muted);">0 escalas</span>
+                    {% elif p.value is number %}
+                    {{ "{:,.4f}".format(p.value) }}
+                    {% else %}
+                    {{ p.value }}
+                    {% endif %}
+                </td>
+                <td style="white-space:nowrap; font-size:0.8rem;">{{ p.effectiveFrom[:10] if p.effectiveFrom else '—' }}</td>
+                <td style="white-space:nowrap; font-size:0.8rem;">{{ p.effectiveTo[:10] if p.effectiveTo else '—' }}</td>
+                <td>
+                    {% if p.isActive %}
+                    <span class="lp-status lp-vigente">Vigente</span>
+                    {% else %}
+                    <span class="lp-status lp-historico">Histórico</span>
+                    {% endif %}
+                </td>
+                <td style="white-space:nowrap; font-size:0.75rem; color:var(--text-muted);">
+                    {% if p.updatedAt %}{{ p.updatedAt[:10] }}{% elif p.createdAt %}{{ p.createdAt[:10] }}{% else %}—{% endif %}
+                </td>
+                <td class="lp-actions">
+                    <a href="{{ url_for('web_rrhh.legal_parameter_history', param_id=p.id) }}" class="btn btn-sm btn-ghost" title="Historial"><i class="fa-solid fa-clock-rotate-left"></i></a>
+                    {% if p.isActive %}
+                    <a href="{{ url_for('web_rrhh.legal_parameter_edit', param_id=p.id) }}" class="btn btn-sm btn-ghost" title="Editar"><i class="fa-solid fa-pen-to-square"></i></a>
+                    <form method="POST" action="{{ url_for('web_rrhh.legal_parameter_delete', param_id=p.id) }}" style="display:contents;" onsubmit="return confirm('¿Desactivar este parámetro?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-ghost" title="Desactivar" style="color:var(--danger);"><i class="fa-solid fa-ban"></i></button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-center text-muted">No hay parámetros que coincidan con los filtros.</td></tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
 </div>
 
-{% if grouped %}
-    {% for ptype, params in grouped.items() %}
-    <div class="card-table-wrapper hr-table-card" style="margin-bottom:16px;">
-        <div class="table-header-row">
-            <div>
-                <h3 style="margin:0; font-size:0.95rem;">
-                    <i class="fa-solid fa-tag"></i> {{ PARAM_TYPE_LABELS.get(ptype, ptype) }}
-                    <code style="font-size:0.7rem; color:var(--text-muted); margin-left:8px;">{{ ptype }}</code>
-                </h3>
-                <p style="margin:2px 0 0; font-size:0.75rem; color:var(--text-muted);">
-                    {{ params|length }} versión(es)
-                </p>
-            </div>
-            <div>
-                <a href="{{ url_for('web_rrhh.legal_parameter_history', param_id=params[0].id) }}" class="btn btn-sm btn-ghost">
-                    <i class="fa-solid fa-clock-rotate-left"></i> Historial
-                </a>
-            </div>
-        </div>
-        <div class="table-responsive">
-            <table class="data-grid">
-            <thead>
-                <tr>
-                    <th>Versión</th>
-                    <th>Valor</th>
-                    <th>Vigente Desde</th>
-                    <th>Vigente Hasta</th>
-                    <th>Estado</th>
-                    <th>Actualizado</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for p in params %}
-                <tr>
-                    <td><strong>v{{ p.version }}</strong></td>
-                    <td style="font-family:monospace; font-size:0.8rem;">
-                        {% if p.parameterType == 'isr_annual_table' and p.value %}
-                        <table class="data-grid data-grid--compact">
-                            <thead><tr><th style="padding:2px 6px;">Desde</th><th style="padding:2px 6px;">Hasta</th><th style="padding:2px 6px;">Tasa</th><th style="padding:2px 6px;">Ded.</th></tr></thead>
-                            <tbody>
-                            {% for row in p.value %}
-                            <tr>
-                                <td style="padding:2px 6px;">{{ "{:,.2f}".format(row[0]) }}</td>
-                                <td style="padding:2px 6px;">{{ "{:,.2f}".format(row[1]) if row[1] < 999999998 else "inf" }}</td>
-                                <td style="padding:2px 6px;">{{ "{:.0f}".format(row[2] * 100) }}%</td>
-                                <td style="padding:2px 6px;">{{ "{:,.2f}".format(row[3]) }}</td>
-                            </tr>
-                            {% endfor %}
-                            </tbody>
-                        </table>
-                        {% elif p.parameterType == 'isr_annual_table' %}
-                        <span class="badge badge-info">0 escalas</span>
-                        {% elif p.value is number %}
-                        {{ "{:,.4f}".format(p.value) }}
-                        {% else %}
-                        {{ p.value }}
-                        {% endif %}
-                    </td>
-                    <td style="font-size:0.8rem;">{{ p.effectiveFrom[:10] if p.effectiveFrom else '—' }}</td>
-                    <td style="font-size:0.8rem;">{{ p.effectiveTo[:10] if p.effectiveTo else '—' }}</td>
-                    <td>
-                        {% if p.isActive %}
-                        <span class="badge badge-success">Vigente</span>
-                        {% else %}
-                        <span class="badge badge-secondary">Histórico</span>
-                        {% endif %}
-                    </td>
-                    <td style="font-size:0.75rem; color:var(--text-muted);">
-                        {% if p.updatedAt %}{{ p.updatedAt[:10] }}{% elif p.createdAt %}{{ p.createdAt[:10] }}{% else %}—{% endif %}
-                    </td>
-                    <td><div class="hr-table-actions">
-                        {% if p.isActive %}
-                        <a href="{{ url_for('web_rrhh.legal_parameter_edit', param_id=p.id) }}" class="btn btn-sm btn-ghost" title="Editar"><i class="fa-solid fa-pen-to-square"></i></a>
-                        <form method="POST" action="{{ url_for('web_rrhh.legal_parameter_delete', param_id=p.id) }}" style="display:contents;" onsubmit="return confirm('¿Desactivar este parámetro?')">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-sm btn-ghost" title="Desactivar" style="color:var(--danger);"><i class="fa-solid fa-ban"></i></button>
-                        </form>
-                        {% endif %}
-                    </div></td>
-                </tr>
-                {% endfor %}
-            </tbody>
-            </table>
-        </div>
+<!-- Paginación -->
+<div style="display:flex; justify-content:center; align-items:center; gap:12px; margin-top:16px; flex-wrap:wrap;">
+    <div style="display:flex; align-items:center; gap:6px;">
+        <label style="font-size:0.78rem; color:var(--text-muted); white-space:nowrap;">Mostrar</label>
+        <select class="form-select" style="width:auto; font-size:0.78rem; padding:4px 8px;" onchange="changePerPage(this.value)">
+            <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
+            <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+            <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+            <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+            <option value="all" {% if per_page >= filtered_total %}selected{% endif %}>Todos</option>
+        </select>
+        <span style="font-size:0.78rem; color:var(--text-muted);">por página</span>
     </div>
-    {% endfor %}
-{% endif %}
 
-{% if not grouped or default_params %}
+    {% if total_pages > 1 and per_page < filtered_total %}
+    {% set base_url = '?q=' + q|urlencode + '&parameter_type=' + selected_type + '&status=' + filter_status + '&per_page=' + per_page|string %}
+    {% if page > 1 %}
+    <a href="{{ base_url }}&page={{ page - 1 }}" class="btn btn-sm btn-ghost"><i class="fa-solid fa-chevron-left"></i></a>
+    {% endif %}
+    <span style="font-size:0.82rem; color:var(--text-muted);">Página {{ page }} de {{ total_pages }} ({{ filtered_total }} parámetros)</span>
+    {% if page < total_pages %}
+    <a href="{{ base_url }}&page={{ page + 1 }}" class="btn btn-sm btn-ghost"><i class="fa-solid fa-chevron-right"></i></a>
+    {% endif %}
+    {% else %}
+    <span style="font-size:0.82rem; color:var(--text-muted);">{{ filtered_total }} parámetros</span>
+    {% endif %}
+</div>
+
+{% if default_params %}
 <div class="card-table-wrapper hr-table-card" style="margin-bottom:16px;">
     <div class="table-header-row">
         <div>
@@ -128,7 +200,7 @@
                 <i class="fa-solid fa-circle-info"></i> Parámetros del sistema
             </h3>
             <p style="margin:2px 0 0; font-size:0.75rem; color:var(--text-muted);">
-                Valores por defecto que se usan cuando no hay un parámetro configurado. Haz clic en <strong>Crear</strong> para definir un valor específico.
+                Valores por defecto que se usan cuando no hay un parámetro configurado.
             </p>
         </div>
         <div>
@@ -138,28 +210,26 @@
         </div>
     </div>
     <div class="table-responsive">
-        <table class="data-grid">
+        <table class="data-grid hr-compact-table">
         <thead>
             <tr>
                 <th>Tipo de Parámetro</th>
                 <th>Valor por Defecto</th>
                 <th>Estado</th>
-                <th>Acción</th>
+                <th style="text-align:right;">Acción</th>
             </tr>
         </thead>
         <tbody>
-            {% set configured_types = grouped.keys()|list %}
             {% for pt in param_types %}
             {% if pt not in configured_types %}
-            {% set info = default_params.get(pt, {}) %}
             <tr>
                 <td>
-                    <strong>{{ PARAM_TYPE_LABELS.get(pt, pt) }}</strong>
+                    <strong style="font-size:0.85rem;">{{ PARAM_TYPE_LABELS.get(pt, pt) }}</strong>
                     <code style="font-size:0.7rem; color:var(--text-muted); display:block;">{{ pt }}</code>
                 </td>
-                <td style="font-family:monospace; font-size:0.8rem;">
+                <td class="lp-val">
                     {% if pt == 'isr_annual_table' and pt in default_params and default_params[pt] %}
-                    <table class="data-grid data-grid--compact">
+                    <table class="data-grid data-grid--compact" style="margin:0;">
                         <thead><tr><th style="padding:2px 6px;">Desde</th><th style="padding:2px 6px;">Hasta</th><th style="padding:2px 6px;">Tasa</th><th style="padding:2px 6px;">Ded.</th></tr></thead>
                         <tbody>
                         {% for row in default_params[pt] %}
@@ -173,15 +243,15 @@
                         </tbody>
                     </table>
                     {% elif pt == 'isr_annual_table' %}
-                    <span class="badge badge-info">0 escalas</span>
+                    <span style="color:var(--text-muted);">0 escalas</span>
                     {% elif default_params.get(pt) is number %}
                     {{ "{:,.4f}".format(default_params[pt]) }}
                     {% else %}
                     {{ default_params.get(pt, '—') }}
                     {% endif %}
                 </td>
-                <td><span class="badge badge-warning">No configurado</span></td>
-                <td>
+                <td><span class="lp-status lp-no-configurado">No configurado</span></td>
+                <td style="text-align:right; white-space:nowrap;">
                     <a href="{{ url_for('web_rrhh.legal_parameter_new') }}?param_type={{ pt }}" class="btn btn-sm btn-ghost" title="Configurar">
                         <i class="fa-solid fa-pen-to-square"></i>
                     </a>
@@ -195,17 +265,25 @@
 </div>
 {% endif %}
 
-{% if not grouped and not default_params %}
+{% if filtered_total == 0 and not default_params %}
 <div class="card-table-wrapper hr-table-card">
     <div class="text-center text-muted" style="padding:48px;">
         <i class="fa-solid fa-scale-balanced" style="font-size:2rem; display:block; margin-bottom:12px; opacity:0.3;"></i>
         <p>No hay parámetros legales configurados.</p>
-        <p style="font-size:0.82rem; margin-bottom:16px;">
-            Crea el primer parámetro legal para comenzar. Los valores por defecto se cargarán
-            automáticamente desde la configuración interna si no se ha definido un parámetro explícito.
-        </p>
-        <a href="{{ url_for('web_rrhh.legal_parameter_new') }}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Crear primer parámetro</a>
     </div>
 </div>
 {% endif %}
+
+<script>
+function changePerPage(value) {
+    var params = new URLSearchParams(window.location.search);
+    if (value === 'all') {
+        params.set('per_page', '99999');
+    } else {
+        params.set('per_page', value);
+    }
+    params.set('page', '1');
+    window.location.search = params.toString();
+}
+</script>
 {% endblock %}

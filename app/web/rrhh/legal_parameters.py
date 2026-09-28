@@ -41,29 +41,73 @@ def legal_parameters_list():
         return redirect(url_for("web_auth.login"))
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
 
-    param_type = request.args.get("parameter_type", "")
-    parameters = hr.get_legal_parameters(company_id, parameter_type=param_type, sandbox=sandbox)
-
-    # Agrupar por tipo para vista compacta
-    from collections import defaultdict
-    grouped = defaultdict(list)
-    for p in parameters:
-        grouped[p.get("parameterType", "")].append(p)
+    parameters = hr.get_legal_parameters(company_id, sandbox=sandbox)
 
     param_types = list(PARAM_TYPES.keys())
 
-    # Obtener defaults para mostrar parámetros no configurados
-    defaults = get_default_params() if not param_type or param_type == "" else {}
+    # Tipos ya configurados (sobre el set completo, para la sección de defaults)
+    configured_types = {p.get("parameterType", "") for p in parameters}
+
+    # Conteos por estado (para los chips)
+    status_counts = {
+        "total": len(parameters),
+        "vigente": sum(1 for p in parameters if p.get("isActive")),
+        "historico": sum(1 for p in parameters if not p.get("isActive")),
+    }
+
+    # Filtros
+    q = request.args.get("q", "").strip().lower()
+    filter_type = request.args.get("parameter_type", "").strip()
+    filter_status = request.args.get("status", "").strip()
+
+    def _search_text(p):
+        ptype = p.get("parameterType", "")
+        return " ".join([PARAM_TYPE_LABELS.get(ptype, ptype), ptype]).lower()
+
+    if q:
+        parameters = [p for p in parameters if q in _search_text(p)]
+    if filter_type:
+        parameters = [p for p in parameters if p.get("parameterType", "") == filter_type]
+    if filter_status == "vigente":
+        parameters = [p for p in parameters if p.get("isActive")]
+    elif filter_status == "historico":
+        parameters = [p for p in parameters if not p.get("isActive")]
+
+    filtered_total = len(parameters)
+
+    # Paginación
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+        per_page = max(10, min(100000, int(request.args.get("per_page", 25))))
+    except (TypeError, ValueError):
+        page, per_page = 1, 25
+    if filtered_total == 0:
+        page, per_page = 1, 25
+    elif per_page >= filtered_total:
+        per_page = filtered_total
+        page = 1
+    total_pages = max(1, (filtered_total + per_page - 1) // per_page)
+    page = min(page, total_pages)
+    start = (page - 1) * per_page
+    paged = parameters[start:start + per_page]
+
+    # Defaults solo para la vista "todos los tipos" (sin filtro de tipo)
+    defaults = get_default_params() if not filter_type else {}
 
     return render_template(
         "rrhh/legal_parameters/list.html",
         active_page="rrhh_legal_params",
-        parameters=parameters,
-        grouped=dict(grouped),
+        parameters=paged,
+        configured_types=configured_types,
         param_types=param_types,
         PARAM_TYPE_LABELS=PARAM_TYPE_LABELS,
-        selected_type=param_type,
+        status_counts=status_counts,
+        selected_type=filter_type,
+        filter_status=filter_status,
         default_params=defaults,
+        q=request.args.get("q", ""),
+        page=page, total_pages=total_pages,
+        filtered_total=filtered_total, per_page=per_page,
     )
 
 

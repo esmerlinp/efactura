@@ -331,7 +331,9 @@ class EmployeeStatusService:
         - Si es a mitad del período → solo se descuentan los días hábiles
           realmente tomados (desde startDate hasta min(cancelDate, endDate))
           y el resto se devuelve al balance disponible.
-        - No se puede anular una solicitud ya concluida (endDate en el pasado).
+        - Si ya concluyó (endDate en el pasado) y no se indica fecha, se
+          consideran consumidos todos los días (sin reembolso); si se indica
+          una fecha dentro del rango, prorratea igual que a mitad de curso.
         """
         req = hr.get_vacation_request(company_id, request_id, sandbox=sandbox)
         if not req:
@@ -342,9 +344,6 @@ class EmployeeStatusService:
 
         today = today or cls._today()
         end = cls._parse_date(req.get("endDate", ""))
-        if end and end < today:
-            return {"success": False,
-                    "error": "La solicitud ya concluyó y no puede anularse."}
 
         cd = cls._parse_date(cancel_date) if cancel_date else today
         if cd is None:

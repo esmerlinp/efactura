@@ -11,6 +11,21 @@ from app.web.rrhh import (
 from app.services import hr_data_service as hr
 
 
+LEAVE_TYPE_LABELS = {
+    "licencia_medica": "Licencia Médica",
+    "enfermedad": "Licencia Médica",
+    "permiso_personal": "Permiso Personal",
+    "maternidad": "Maternidad",
+    "paternidad": "Paternidad",
+    "luto": "Luto",
+    "estudios": "Estudios",
+    "voluntaria": "Licencia Voluntaria",
+    "discapacidad": "Lic. Discapacidad",
+    "sindical": "Sindical",
+    "otro": "Otro",
+}
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # PERMISOS / LICENCIAS
 # ═══════════════════════════════════════════════════════════════════════════
@@ -31,26 +46,99 @@ def leave_list():
         pass
 
     requests = hr.get_leave_requests(company_id, sandbox=sandbox)
-    requests.sort(key=lambda r: r.get("startDate", ""), reverse=True)
+    requests.sort(key=lambda r: r.get("startDate", "") or r.get("createdDate", ""),
+                  reverse=True)
 
+    today_iso = date.today().isoformat()
+
+    def _in_range(r):
+        return (r.get("status") == "aprobada"
+                and r.get("startDate", "") <= today_iso <= r.get("endDate", ""))
+
+    def _concluida(r):
+        return (r.get("status") == "aprobada"
+                and r.get("endDate", "") and r.get("endDate", "") < today_iso)
+
+    status_counts = {
+        "total": len(requests),
+        "pendiente": sum(1 for r in requests if r.get("status") == "pendiente"),
+        "en_curso": sum(1 for r in requests if _in_range(r)),
+        "concluidas": sum(1 for r in requests if _concluida(r)),
+        "rechazada": sum(1 for r in requests if r.get("status") == "rechazada"),
+    }
+
+    all_years = sorted({(r.get("startDate", "") or "")[:4]
+                        for r in requests if r.get("startDate")}, reverse=True)
+    all_types = sorted({(r.get("leaveType", "") or "").strip()
+                        for r in requests if (r.get("leaveType", "") or "").strip()})
+
+    # Filtros
+    q = request.args.get("q", "").strip().lower()
+    filter_status = request.args.get("status", "").strip()
+    filter_year = request.args.get("year", "").strip()
+    filter_type = request.args.get("type", "").strip()
+
+    if q:
+        requests = [r for r in requests
+                    if q in (r.get("employeeName", "") or "").lower()]
+    if filter_status == "en_curso":
+        requests = [r for r in requests if _in_range(r)]
+    elif filter_status == "concluidas":
+        requests = [r for r in requests if _concluida(r)]
+    elif filter_status:
+        requests = [r for r in requests if r.get("status", "") == filter_status]
+    if filter_year:
+        requests = [r for r in requests
+                    if (r.get("startDate", "") or "").startswith(filter_year)]
+    if filter_type:
+        requests = [r for r in requests
+                    if (r.get("leaveType", "") or "").strip() == filter_type]
+
+    filtered_total = len(requests)
+
+    # Paginación
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+        per_page = max(10, min(100000, int(request.args.get("per_page", 25))))
+    except (TypeError, ValueError):
+        page, per_page = 1, 25
+    if filtered_total == 0:
+        page, per_page = 1, 25
+    elif per_page >= filtered_total:
+        per_page = filtered_total
+        page = 1
+    total_pages = max(1, (filtered_total + per_page - 1) // per_page)
+    page = min(page, total_pages)
+    start = (page - 1) * per_page
+    paged = requests[start:start + per_page]
+
+    # Adjuntos solo de las solicitudes de la página visible
     import json as _json
-    attachments = hr.get_request_attachments(company_id, request_type="leave", sandbox=sandbox)
     attachments_by_request = {}
-    for a in attachments:
-        attachments_by_request.setdefault(a.get("requestId"), []).append({
-            "id": a.get("id"),
-            "name": a.get("name"),
-            "size": a.get("size", 0),
-            "uploadedAt": a.get("uploadedAt", ""),
-            "download": url_for("web_rrhh.leave_attachment_download",
-                                request_id=a.get("requestId"), doc_id=a.get("id")),
-            "delete": url_for("web_rrhh.leave_attachment_delete",
-                              request_id=a.get("requestId"), doc_id=a.get("id")),
-        })
+    for r in paged:
+        for a in hr.get_request_attachments(company_id, request_id=r.get("id"),
+                                            request_type="leave", sandbox=sandbox):
+            attachments_by_request.setdefault(a.get("requestId"), []).append({
+                "id": a.get("id"),
+                "name": a.get("name"),
+                "size": a.get("size", 0),
+                "uploadedAt": a.get("uploadedAt", ""),
+                "download": url_for("web_rrhh.leave_attachment_download",
+                                    request_id=a.get("requestId"), doc_id=a.get("id")),
+                "delete": url_for("web_rrhh.leave_attachment_delete",
+                                  request_id=a.get("requestId"), doc_id=a.get("id")),
+            })
 
     return render_template("rrhh/leave_list.html", active_page="rrhh_leaves",
-                           requests=requests, today=date.today().isoformat(),
-                           attachments_json=_json.dumps(attachments_by_request))
+                           requests=paged, today=today_iso,
+                           attachments_json=_json.dumps(attachments_by_request),
+                           status_counts=status_counts, all_years=all_years,
+                           all_types=all_types, leave_type_labels=LEAVE_TYPE_LABELS,
+                           q=request.args.get("q", ""),
+                           filter_status=filter_status, filter_year=filter_year,
+                           filter_type=filter_type,
+                           page=page, total_pages=total_pages,
+                           filtered_total=filtered_total, per_page=per_page)
 
 
 @web_rrhh_bp.route("/rrhh/leaves/new", methods=["GET", "POST"])

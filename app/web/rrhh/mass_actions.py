@@ -932,9 +932,69 @@ def mass_action_pending_list():
         -(len(a.get("createdAt") or "")),
     ))
 
+    type_labels = {k: {"label": v.get("label", k), "icon": v.get("icon", "fa-solid fa-file-lines")}
+                   for k, v in MASS_ACTION_TYPES.items()}
+
+    # Conteos por estado (para los chips)
+    status_counts = {"total": len(all_actions)}
+    for k in ("draft", "pending_approval", "approved", "returned",
+              "processing", "completed"):
+        status_counts[k] = sum(1 for a in all_actions if a.get("status") == k)
+
+    all_types = sorted({a.get("actionType", "") for a in all_actions
+                        if a.get("actionType")})
+    all_years = sorted({(a.get("createdAt", "") or "")[:4] for a in all_actions
+                        if a.get("createdAt")}, reverse=True)
+
+    # Filtros
+    q = request.args.get("q", "").strip().lower()
+    filter_status = request.args.get("status", "").strip()
+    filter_type = request.args.get("type", "").strip()
+    filter_year = request.args.get("year", "").strip()
+
+    def _search_text(a):
+        t = type_labels.get(a.get("actionType", ""), {})
+        parts = [t.get("label", ""), a.get("createdBy", "") or "",
+                 (a.get("assignedTo") or {}).get("name", "") or ""]
+        return " ".join(parts).lower()
+
+    if q:
+        all_actions = [a for a in all_actions if q in _search_text(a)]
+    if filter_status:
+        all_actions = [a for a in all_actions if a.get("status", "") == filter_status]
+    if filter_type:
+        all_actions = [a for a in all_actions if a.get("actionType", "") == filter_type]
+    if filter_year:
+        all_actions = [a for a in all_actions
+                       if (a.get("createdAt", "") or "").startswith(filter_year)]
+
+    filtered_total = len(all_actions)
+
+    # Paginación
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+        per_page = max(10, min(100000, int(request.args.get("per_page", 25))))
+    except (TypeError, ValueError):
+        page, per_page = 1, 25
+    if filtered_total == 0:
+        page, per_page = 1, 25
+    elif per_page >= filtered_total:
+        per_page = filtered_total
+        page = 1
+    total_pages = max(1, (filtered_total + per_page - 1) // per_page)
+    page = min(page, total_pages)
+    start = (page - 1) * per_page
+    paged = all_actions[start:start + per_page]
+
     return render_template("rrhh/mass_action_pending.html",
                            active_page="rrhh_mass_actions",
-                           actions=all_actions,
+                           actions=paged,
                            states=MASS_ACTION_STATES,
-                           type_labels={k: {"label": v.get("label", k), "icon": v.get("icon", "fa-solid fa-file-lines")}
-                                        for k, v in MASS_ACTION_TYPES.items()})
+                           type_labels=type_labels,
+                           status_counts=status_counts,
+                           all_types=all_types, all_years=all_years,
+                           q=request.args.get("q", ""),
+                           filter_status=filter_status, filter_type=filter_type,
+                           filter_year=filter_year,
+                           page=page, total_pages=total_pages,
+                           filtered_total=filtered_total, per_page=per_page)
