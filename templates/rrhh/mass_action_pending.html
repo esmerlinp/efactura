@@ -2,69 +2,158 @@
 {% block title %}Historial de Solicitudes — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
-
-{% set status_badge = {'draft':'secondary','pending_approval':'warning','approved':'primary','rejected':'danger','returned':'warning','processing':'info','completed':'success','partial':'warning','failed':'danger'} %}
+<style>
+.hr-compact-table th { padding: 7px 12px; }
+.hr-compact-table td { padding: 6px 12px; }
+.ma-status { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.8rem; white-space: nowrap; }
+.ma-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: currentColor; }
+.ma-draft { color: var(--text-muted); }
+.ma-pending, .ma-returned, .ma-partial { color: var(--accent-amber, #f59e0b); }
+.ma-approved, .ma-processing { color: var(--accent-blue, #3b82f6); }
+.ma-rejected, .ma-failed { color: var(--danger, #ef4444); }
+.ma-completed { color: var(--accent-emerald, #10b981); }
+.ma-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ma-actions { white-space: nowrap; text-align: right; }
+/* Chips de estado */
+.ma-stats { display: inline-flex; align-items: stretch; flex-wrap: wrap; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); box-shadow: var(--shadow-sm); padding: 2px; }
+.ma-stat { display: inline-flex; align-items: center; gap: 7px; padding: 6px 13px; border-radius: 5px; text-decoration: none; color: inherit; }
+.ma-stat + .ma-stat { border-left: 1px solid var(--border-color); border-radius: 0 5px 5px 0; }
+a.ma-stat:hover { background: rgba(100, 116, 139, 0.10); }
+a.ma-stat.active { background: rgba(16, 185, 129, 0.12); }
+.ma-stat-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.ma-stat-label { font-size: 0.70rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+.ma-stat-value { font-size: 0.95rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
+</style>
 
 <div class="page-header hr-page-header" style="margin-bottom:12px;">
     <div>
         <h1 class="page-title" style="margin-bottom:2px;"><i class="fa-solid fa-clock-rotate-left"></i> Historial de Solicitudes</h1>
-        <span style="font-size:0.8rem;color:var(--text-muted);">{{ actions|length }} solicitud(es)</span>
+        <span style="font-size:0.8rem;color:var(--text-muted);">{{ filtered_total }} solicitud(es)</span>
     </div>
     <div class="hr-page-actions">
         <a href="{{ url_for('web_rrhh.mass_action_wizard') }}" class="btn btn-primary btn-sm"><i class="fa-solid fa-plus"></i> Nueva</a>
     </div>
 </div>
 
-<!-- Filter bar -->
-<div class="card-table-wrapper" style="padding:8px 16px;margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-    <div style="display:flex;gap:4px;flex-wrap:wrap;" id="filter-tabs">
-        <button class="btn btn-xs btn-primary" data-filter="all" onclick="setFilter('all')">Todas</button>
-        <button class="btn btn-xs btn-ghost" data-filter="pending_approval" onclick="setFilter('pending_approval')">Pendientes</button>
-        <button class="btn btn-xs btn-ghost" data-filter="draft" onclick="setFilter('draft')">Borrador</button>
-        <button class="btn btn-xs btn-ghost" data-filter="returned" onclick="setFilter('returned')">Devueltas</button>
-        <button class="btn btn-xs btn-ghost" data-filter="approved" onclick="setFilter('approved')">Aprobadas</button>
+<!-- Chips de estado -->
+<div style="margin-bottom:14px;">
+    <div class="ma-stats">
+        <a class="ma-stat {% if not filter_status %}active{% endif %}" href="{{ url_for('web_rrhh.mass_action_pending_list') }}" title="Ver todas">
+            <span class="ma-stat-label">Todas</span>
+            <span class="ma-stat-value">{{ status_counts.total }}</span>
+        </a>
+        <a class="ma-stat {% if filter_status == 'pending_approval' %}active{% endif %}" href="{{ url_for('web_rrhh.mass_action_pending_list', status='pending_approval') }}" title="Filtrar pendientes">
+            <span class="ma-stat-dot" style="background:var(--accent-amber, #f59e0b);"></span>
+            <span class="ma-stat-label">Pendientes</span>
+            <span class="ma-stat-value" style="color:var(--accent-amber, #f59e0b);">{{ status_counts.pending_approval }}</span>
+        </a>
+        <a class="ma-stat {% if filter_status == 'draft' %}active{% endif %}" href="{{ url_for('web_rrhh.mass_action_pending_list', status='draft') }}" title="Filtrar borradores">
+            <span class="ma-stat-dot" style="background:var(--text-muted);"></span>
+            <span class="ma-stat-label">Borrador</span>
+            <span class="ma-stat-value" style="color:var(--text-muted);">{{ status_counts.draft }}</span>
+        </a>
+        <a class="ma-stat {% if filter_status == 'returned' %}active{% endif %}" href="{{ url_for('web_rrhh.mass_action_pending_list', status='returned') }}" title="Filtrar devueltas">
+            <span class="ma-stat-dot" style="background:var(--accent-amber, #f59e0b);"></span>
+            <span class="ma-stat-label">Devueltas</span>
+            <span class="ma-stat-value" style="color:var(--accent-amber, #f59e0b);">{{ status_counts.returned }}</span>
+        </a>
+        <a class="ma-stat {% if filter_status == 'approved' %}active{% endif %}" href="{{ url_for('web_rrhh.mass_action_pending_list', status='approved') }}" title="Filtrar aprobadas">
+            <span class="ma-stat-dot" style="background:var(--accent-blue, #3b82f6);"></span>
+            <span class="ma-stat-label">Aprobadas</span>
+            <span class="ma-stat-value" style="color:var(--accent-blue, #3b82f6);">{{ status_counts.approved }}</span>
+        </a>
+        <a class="ma-stat {% if filter_status == 'completed' %}active{% endif %}" href="{{ url_for('web_rrhh.mass_action_pending_list', status='completed') }}" title="Filtrar completadas">
+            <span class="ma-stat-dot" style="background:var(--accent-emerald, #10b981);"></span>
+            <span class="ma-stat-label">Completadas</span>
+            <span class="ma-stat-value" style="color:var(--accent-emerald, #10b981);">{{ status_counts.completed }}</span>
+        </a>
     </div>
-    <input type="text" class="form-input" id="search-input" placeholder="Buscar..." style="margin-left:auto;width:200px;font-size:0.82rem;padding:5px 10px;" oninput="filterRows()">
 </div>
 
-<!-- Grid -->
 <div class="card-table-wrapper hr-table-card" style="margin-bottom:0;">
+    <div class="table-header-row">
+        <div>
+            <h3>Solicitudes de acción masiva</h3>
+            <p>Acciones de personal pendientes, en proceso y su historial.</p>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <form method="GET" style="display:flex; gap:10px; flex-wrap:wrap; padding:0 20px 16px; align-items:flex-end;">
+        <div class="form-group" style="margin:0; flex:2; min-width:180px;">
+            <input type="text" name="q" class="form-input" placeholder="Buscar por tipo o creador..."
+                   value="{{ q }}" style="border-radius:20px;">
+        </div>
+        <div class="form-group" style="margin:0;">
+            <select name="status" class="form-select" style="width:auto;">
+                <option value="">Todos los estados</option>
+                {% for k, v in states.items() %}
+                <option value="{{ k }}" {% if filter_status == k %}selected{% endif %}>{{ v.get('label', k) }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <select name="type" class="form-select" style="width:auto;">
+                <option value="">Todos los tipos</option>
+                {% for t in all_types %}
+                <option value="{{ t }}" {% if filter_type == t %}selected{% endif %}>{{ type_labels.get(t, {}).get('label', t) }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <select name="year" class="form-select" style="width:auto;">
+                <option value="">Todos los años</option>
+                {% for y in all_years %}
+                <option value="{{ y }}" {% if filter_year == y %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-secondary btn-sm"><i class="fa-solid fa-filter"></i> Filtrar</button>
+        {% if q or filter_status or filter_type or filter_year %}
+        <a href="{{ url_for('web_rrhh.mass_action_pending_list') }}" class="btn btn-ghost btn-sm" style="color:var(--danger);">
+            <i class="fa-solid fa-xmark"></i> Limpiar
+        </a>
+        {% endif %}
+    </form>
+
     <div class="table-responsive">
-        <table class="data-grid" id="ma-table">
+        <table class="data-grid hr-compact-table">
             <thead>
                 <tr>
                     <th>Tipo</th>
                     <th>Creado</th>
-                    <th>Emp.</th>
+                    <th style="text-align:right;">Emp.</th>
                     <th>Estado</th>
                     <th>Fecha</th>
-                    <th style="width:40px;"></th>
+                    <th style="text-align:right;">Acciones</th>
                 </tr>
             </thead>
             <tbody>
                 {% for a in actions %}
                 {% set t = type_labels.get(a.actionType or a.type, {}) %}
-                <tr class="auth-row" data-status="{{ a.status }}" data-search="{{ t.get('label','') }} {{ a.createdBy or '' }} {{ (a.assignedTo or {}).get('name','') }}">
+                <tr>
                     <td>
                         <div style="display:flex;align-items:center;gap:10px;">
                             <span style="width:28px;height:28px;border-radius:6px;background:var(--bg-nav-hover);color:var(--text-muted);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.75rem;"><i class="{{ t.get('icon','fa-solid fa-file-lines') }}"></i></span>
                             <strong style="font-size:0.85rem;">{{ t.get('label', a.actionType or '—') }}</strong>
                         </div>
                     </td>
-                    <td><span style="font-size:0.8rem;">{{ a.createdBy or '—' }}</span></td>
-                    <td><span style="font-size:0.8rem;">{{ a.totalEmployees or (a.selectionCriteria.employeeIds|length if a.selectionCriteria else '—') }}</span></td>
-                    <td><span class="badge badge-{{ status_badge.get(a.status,'secondary') }} btn-xs">{{ states.get(a.status,{}).get('label',a.status) }}</span></td>
-                    <td><span style="font-size:0.78rem;color:var(--text-muted);">{{ (a.createdAt or '')[:10] }}</span></td>
-                    <td style="white-space:nowrap;">
-                        {% if a.status == 'draft' %}<a href="{{ url_for('web_rrhh.mass_action_edit',action_id=a.id) }}" class="btn btn-primary btn-xs" title="Continuar"><i class="fa-solid fa-play"></i></a>{% endif %}
-                        <a href="{{ url_for('web_rrhh.mass_action_detail',action_id=a.id) }}" class="btn btn-ghost btn-xs" title="Ver detalle"><i class="fa-regular fa-eye"></i></a>
+                    <td style="white-space:nowrap; font-size:0.8rem;">{{ a.createdBy or '—' }}</td>
+                    <td class="ma-num" style="font-size:0.8rem;">{{ a.totalEmployees or (a.selectionCriteria.employeeIds|length if a.selectionCriteria else '—') }}</td>
+                    <td><span class="ma-status ma-{{ a.status }}">{{ states.get(a.status,{}).get('label',a.status) }}</span></td>
+                    <td style="white-space:nowrap; font-size:0.78rem; color:var(--text-muted);">{{ (a.createdAt or '')[:10] }}</td>
+                    <td class="ma-actions">
+                        {% if a.status == 'draft' %}<a href="{{ url_for('web_rrhh.mass_action_edit',action_id=a.id) }}" class="btn btn-ghost btn-sm" style="color:var(--accent-emerald);" title="Continuar"><i class="fa-solid fa-play"></i></a>{% endif %}
+                        <a href="{{ url_for('web_rrhh.mass_action_detail',action_id=a.id) }}" class="btn btn-ghost btn-sm" title="Ver detalle"><i class="fa-regular fa-eye"></i></a>
                     </td>
                 </tr>
+                {% else %}
+                <tr><td colspan="6" class="text-center text-muted">No hay solicitudes que coincidan con los filtros.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-    {% if not actions %}
+    {% if filtered_total == 0 %}
     <div class="hr-empty-state">
         <div class="hr-empty-icon"><i class="fa-solid fa-inbox"></i></div>
         <p>No hay solicitudes registradas.</p>
@@ -73,20 +162,44 @@
     {% endif %}
 </div>
 
+<!-- Paginación -->
+<div style="display:flex; justify-content:center; align-items:center; gap:12px; margin-top:16px; flex-wrap:wrap;">
+    <div style="display:flex; align-items:center; gap:6px;">
+        <label style="font-size:0.78rem; color:var(--text-muted); white-space:nowrap;">Mostrar</label>
+        <select class="form-select" style="width:auto; font-size:0.78rem; padding:4px 8px;" onchange="changePerPage(this.value)">
+            <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
+            <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+            <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+            <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+            <option value="all" {% if per_page >= filtered_total %}selected{% endif %}>Todos</option>
+        </select>
+        <span style="font-size:0.78rem; color:var(--text-muted);">por página</span>
+    </div>
+
+    {% if total_pages > 1 and per_page < filtered_total %}
+    {% set base_url = '?q=' + q|urlencode + '&status=' + filter_status + '&type=' + filter_type + '&year=' + filter_year + '&per_page=' + per_page|string %}
+    {% if page > 1 %}
+    <a href="{{ base_url }}&page={{ page - 1 }}" class="btn btn-sm btn-ghost"><i class="fa-solid fa-chevron-left"></i></a>
+    {% endif %}
+    <span style="font-size:0.82rem; color:var(--text-muted);">Página {{ page }} de {{ total_pages }} ({{ filtered_total }} solicitudes)</span>
+    {% if page < total_pages %}
+    <a href="{{ base_url }}&page={{ page + 1 }}" class="btn btn-sm btn-ghost"><i class="fa-solid fa-chevron-right"></i></a>
+    {% endif %}
+    {% else %}
+    <span style="font-size:0.82rem; color:var(--text-muted);">{{ filtered_total }} solicitudes</span>
+    {% endif %}
+</div>
+
 <script>
-var currentFilter = 'all';
-function setFilter(f) {
-    currentFilter = f;
-    document.querySelectorAll('#filter-tabs .btn').forEach(function(b){ b.className = b.dataset.filter===f ? 'btn btn-xs btn-primary' : 'btn btn-xs btn-ghost'; });
-    filterRows();
-}
-function filterRows(){
-    var q = (document.getElementById('search-input').value||'').toLowerCase();
-    document.querySelectorAll('.auth-row').forEach(function(r){
-        var s = currentFilter==='all' || r.dataset.status===currentFilter;
-        if(s && q) s = r.dataset.search.toLowerCase().indexOf(q)!==-1;
-        r.style.display = s ? '' : 'none';
-    });
+function changePerPage(value) {
+    var params = new URLSearchParams(window.location.search);
+    if (value === 'all') {
+        params.set('per_page', '99999');
+    } else {
+        params.set('per_page', value);
+    }
+    params.set('page', '1');
+    window.location.search = params.toString();
 }
 </script>
 {% endblock %}

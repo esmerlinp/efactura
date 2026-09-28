@@ -217,17 +217,23 @@ class TestCancelVacation:
         assert emp_saved["status"] == "activo"
 
     @patch("app.services.employee_status_service.hr")
-    def test_no_se_puede_anular_vacacion_concluida(self, mock_hr):
+    def test_anular_vacacion_concluida_consume_todos_los_dias(self, mock_hr):
         vac = _vac(start="2026-01-05", end="2026-01-16", days=10)
         mock_hr.get_vacation_request.return_value = vac
+        mock_hr.get_employee.return_value = _emp()
+        mock_hr.get_vacation_requests.return_value = []
+        mock_hr.get_leave_requests.return_value = []
 
-        res = EmployeeStatusService.cancel_vacation_request(
-            COMPANY, "v1", actor="rrrhh@x.com", sandbox=True,
-            today=date(2026, 1, 20))
+        with patch.object(EmployeeStatusService, "_business_days", return_value=10):
+            res = EmployeeStatusService.cancel_vacation_request(
+                COMPANY, "v1", actor="rrrhh@x.com", sandbox=True,
+                today=date(2026, 1, 20))
 
-        assert res["success"] is False
-        assert "concluyó" in res["error"]
-        mock_hr.save_vacation_request.assert_not_called()
+        assert res["success"] is True
+        assert res["consumedDays"] == 10
+        assert res["refundedDays"] == 0
+        saved = mock_hr.save_vacation_request.call_args.args[2]
+        assert saved["status"] == "anulada"
 
     @patch("app.services.employee_status_service.hr")
     def test_no_se_puede_anular_pendiente(self, mock_hr):
