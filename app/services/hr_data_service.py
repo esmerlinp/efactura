@@ -8,7 +8,7 @@ Evita inflar aún más el DatabaseService monolítico.
 import uuid
 from datetime import datetime, timezone
 from google.cloud.firestore import FieldFilter
-from app.services.db_service import db_firestore, firebase_initialized, DatabaseService
+from app.services.db_service import db_firestore, firebase_initialized
 
 
 def _hr_company_path(company_id: str, collection: str, sandbox: bool = True) -> str | None:
@@ -1124,14 +1124,8 @@ def _catalog_coll_path(company_id: str, catalog_name: str, sandbox: bool = True)
     """Retorna companies/{companyId}/{sandbox_}hr_catalog_{name}."""
     if not company_id:
         return None
-    try:
-        companies = DatabaseService.get_companies_by_owner(company_id)
-        if not companies:
-            return None
-        prefix = "sandbox_" if sandbox else ""
-        return f"companies/{companies[0]['id']}/{prefix}hr_catalog_{catalog_name}"
-    except Exception:
-        return None
+    prefix = "sandbox_" if sandbox else ""
+    return f"companies/{company_id}/{prefix}hr_catalog_{catalog_name}"
 
 
 def get_catalog(company_id: str, catalog_name: str, sandbox: bool = True) -> list:
@@ -1142,7 +1136,9 @@ def get_catalog(company_id: str, catalog_name: str, sandbox: bool = True) -> lis
         return _default_catalog(catalog_name)
     try:
         docs = db_firestore.collection(coll_path).get()
-        items = [d.to_dict() for d in docs]
+        # El id del documento es la identidad real; lo inyectamos siempre porque
+        # catálogos legacy/migrados pueden no traer el campo "id" en el payload.
+        items = [{"id": d.id, **d.to_dict()} for d in docs]
         if not items:
             items = _default_catalog(catalog_name)
             for item in items:

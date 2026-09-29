@@ -480,6 +480,7 @@ def create_app():
                     'web_rrhh.vacation_import_status': 'nomina',
                     'web_rrhh.leave_list': 'nomina',
                     'web_rrhh.org_chart': 'nomina',
+                    'web_rrhh.org_chart_pdf': 'nomina',
                     'web_rrhh.team_calendar': 'nomina',
                     'web_rrhh.evaluation_list': 'nomina',
                     'web_rrhh.training_list': 'nomina',

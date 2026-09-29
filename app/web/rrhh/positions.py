@@ -14,6 +14,22 @@ _SCHEDULE_DAYS = [
 ]
 
 
+def _reports_to_is_valid(positions: list, item_id: str, reports_to: str) -> bool:
+    """Evita auto-referencia y ciclos en la jerarquía de posiciones."""
+    if not reports_to or reports_to == item_id:
+        return False if reports_to == item_id else True
+    by_id = {p.get("id"): p for p in positions}
+    seen = {item_id}
+    cursor = reports_to
+    while cursor:
+        if cursor in seen:
+            return False
+        seen.add(cursor)
+        parent = by_id.get(cursor)
+        cursor = (parent or {}).get("reportsTo", "") if parent else ""
+    return True
+
+
 @web_rrhh_bp.route("/rrhh/positions")
 def position_list():
     if _login_required():
@@ -41,16 +57,25 @@ def position_save():
     name = request.form.get("name", "").strip()
     if name:
         from app.utils.hr_utils import parse_work_schedule_form
+        positions = hr.get_catalog(company_id, "positions", sandbox=sandbox)
+        existing = next((p for p in positions if p.get("id") == item_id), None)
+        # Preservar jerarquía si el formulario no trae el campo (edición inline de nombre/horario).
+        if "reportsTo" in request.form:
+            reports_to = request.form.get("reportsTo", "").strip()
+        else:
+            reports_to = existing.get("reportsTo", "") if existing else ""
         if request.form.get("schedule_submitted") == "1":
             work_schedule = parse_work_schedule_form(request.form)
         else:
             # Edición inline solo de nombre → preservar horario existente
-            existing = next((p for p in hr.get_catalog(company_id, "positions", sandbox=sandbox)
-                             if p.get("id") == item_id), None)
             work_schedule = existing.get("workSchedule", []) if existing else []
+        if not _reports_to_is_valid(positions, item_id, reports_to):
+            flash("La jerarquía seleccionada crea un ciclo o se refiere a sí misma.", "error")
+            return redirect(url_for("web_rrhh.position_list"))
         hr.save_catalog_item(company_id, "positions", {
             "id": item_id, "name": name, "active": True,
             "workSchedule": work_schedule,
+            "reportsTo": reports_to,
         }, sandbox=sandbox)
         flash("Posición guardada.", "success")
     return redirect(url_for("web_rrhh.position_list"))
