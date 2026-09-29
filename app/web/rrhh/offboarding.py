@@ -1155,9 +1155,18 @@ def offboarding_rehire(request_id):
         svc.save_request_raw(request_id, req, _email())
 
         if new_employee_id:
+            # ── Advertencia legal: reincorporación en plazo breve (≤60 días) ──
+            from app.services.rehire_service import check_rehire_recency_warning
+            _rehire_warning = None
+            if new_employee_id == req.get("employeeId", ""):
+                _rehire_warning = check_rehire_recency_warning(req.get("effectiveDate", ""), new_hire_date)
+            if _rehire_warning and request.form.get("ackRehireWarning") != "1":
+                flash("Debe confirmar la advertencia de reincorporación en plazo breve (≤60 días desde la baja).", "error")
+                return redirect(url_for("web_rrhh.offboarding_rehire", request_id=request_id))
+
             try:
                 rehire_svc = RehireService(company_id, sandbox)
-                rehire_svc.rehire_employee(
+                _res = rehire_svc.rehire_employee(
                     employee_id=new_employee_id, start_date=new_hire_date,
                     contract_data={
                         "position": request.form.get("newPosition", "").strip(),
@@ -1174,6 +1183,8 @@ def offboarding_rehire(request_id):
                     actor_email=_email(),
                 )
                 flash("Empleado recontratado exitosamente (nuevo período laboral).", "success")
+                if _res.get("warning"):
+                    flash(_res["warning"], "warning")
             except RehireValidationError as ve:
                 flash(str(ve), "error")
             except Exception as e:

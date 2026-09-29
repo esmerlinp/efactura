@@ -1916,7 +1916,7 @@
             <div class="flashes-container"
                 style="position: fixed; top: 120px; right: 40px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; max-width: 380px; width: 100%;">
                 {% for category, message in messages %}
-                <div class="alert-banner badge {% if category == 'error' %}badge-danger{% else %}badge-success{% endif %}"
+                <div class="alert-banner badge {% if category == 'error' %}badge-danger{% elif category == 'warning' %}badge-warning{% elif category == 'info' %}badge-secondary{% else %}badge-success{% endif %}"
                     style="padding: 16px 20px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); font-size: 0.88rem; display: flex; align-items: center; justify-content: space-between; text-transform: none; font-weight: 500; backdrop-filter: blur(20px);">
                     <span>{{ message }}</span>
                     <i class="fa-solid fa-times" style="margin-left: 15px; cursor: pointer;"

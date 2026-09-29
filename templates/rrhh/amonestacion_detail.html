@@ -1,0 +1,94 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Amonestación — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-triangle-exclamation"></i> Detalle de amonestación</h1>
+    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        {% if amonestacion.firmada %}
+        <span style="font-weight:700; color:var(--accent-emerald); font-size:0.85rem;"><i class="fa-solid fa-check-circle"></i> Firmada</span>
+        {% else %}
+        <span style="font-weight:700; color:#b45309; font-size:0.85rem;">Pendiente de firma</span>
+        {% endif %}
+        <a href="{{ url_for('web_rrhh.amonestacion_pdf', amonestacion_id=amonestacion.id) }}" class="btn btn-primary">
+            <i class="fa-solid fa-file-pdf"></i> Descargar plantilla
+        </a>
+        <a href="{{ url_for('web_rrhh.amonestacion_edit', amonestacion_id=amonestacion.id) }}" class="btn btn-ghost">
+            <i class="fa-solid fa-pen-to-square"></i> Editar
+        </a>
+    </div>
+</div>
+
+<div class="card-table-wrapper hr-table-card" style="max-width:860px;">
+    <div class="table-header-row">
+        <div>
+            <h3>{{ amonestacion.employeeName or '—' }}</h3>
+            <p>{{ amonestacion.tipoLabel or amonestacion.tipo }} · {{ amonestacion.fechaLegible or amonestacion.fecha }}</p>
+        </div>
+    </div>
+    <div style="padding:16px 24px; display:flex; flex-direction:column; gap:16px;">
+        <div>
+            <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted);">Empleado</div>
+            <div><a href="{{ url_for('web_rrhh.employee_view', employee_id=amonestacion.employeeId) }}" style="color:var(--text-primary); text-decoration:none;">{{ amonestacion.employeeName or '—' }}</a>{% if amonestacion.cedula %} · {{ amonestacion.cedula }}{% endif %}</div>
+        </div>
+        <div>
+            <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted);">Hecho</div>
+            <div style="white-space:pre-wrap;">{{ amonestacion.hecho or '—' }}</div>
+        </div>
+        <div style="display:flex; gap:32px; flex-wrap:wrap;">
+            <div>
+                <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted);">Firmante</div>
+                <div>{{ amonestacion.signerName or '—' }}</div>
+            </div>
+            <div>
+                <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted);">Cargo</div>
+                <div>{{ amonestacion.signerPosition or '—' }}</div>
+            </div>
+        </div>
+
+        <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:14px 16px;">
+            {% if amonestacion.firmada %}
+            <div style="font-weight:600; font-size:0.85rem; color:var(--accent-emerald); margin-bottom:8px;">
+                <i class="fa-solid fa-check-circle"></i> Carta firmada
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <i class="fa-solid fa-file-lines" style="color:var(--accent-blue);"></i>
+                <a href="{{ url_for('web_rrhh.employee_document_download', employee_id=amonestacion.employeeId, doc_id=amonestacion.documentoFirmadoId) }}" style="font-weight:600; font-size:0.85rem; text-decoration:none;">
+                    {{ amonestacion.documentoFirmadoName or 'Documento firmado' }}
+                </a>
+                <span style="font-size:0.72rem; color:var(--text-muted);">
+                    {{ 'Subida por ' ~ (amonestacion.firmadaBy or '—') if amonestacion.firmadaBy else '' }}
+                    {% if amonestacion.firmadaAt %} · {{ amonestacion.firmadaAt[:10] }}{% endif %}
+                </span>
+                <form method="POST" action="{{ url_for('web_rrhh.amonestacion_firmar_delete', amonestacion_id=amonestacion.id) }}"
+                      onsubmit="return confirm('¿Quitar la carta firmada? La amonestación volverá a Pendiente de firma.')" style="display:inline; margin-left:auto;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sm btn-ghost" style="color:var(--danger);"><i class="fa-solid fa-trash-can"></i> Quitar firma</button>
+                </form>
+            </div>
+            {% else %}
+            <div style="font-weight:600; font-size:0.85rem; margin-bottom:8px;">
+                <i class="fa-solid fa-file-import"></i> Subir carta firmada
+            </div>
+            <form method="POST" action="{{ url_for('web_rrhh.amonestacion_firmar_upload', amonestacion_id=amonestacion.id) }}"
+                  enctype="multipart/form-data" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="file" name="file" class="form-input" style="flex:1; min-width:180px;" accept="application/pdf" required>
+                <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-upload"></i> Subir</button>
+            </form>
+            <p style="font-size:0.72rem; color:var(--text-muted); margin:8px 0 0;">Descarga la plantilla, imprímela/fírmala y súbela aquí como PDF.</p>
+            {% endif %}
+        </div>
+
+        <div style="font-size:0.72rem; color:var(--text-muted); border-top:1px solid var(--border-color); padding-top:12px;">
+            Creada por {{ amonestacion.createdBy or '—' }} · {{ amonestacion.createdAt[:10] if amonestacion.createdAt else '' }}
+            {% if amonestacion.updatedAt and amonestacion.updatedAt != amonestacion.createdAt %} · Actualizada {{ amonestacion.updatedAt[:10] }}{% endif %}
+        </div>
+        <form method="POST" action="{{ url_for('web_rrhh.amonestacion_delete', amonestacion_id=amonestacion.id) }}"
+              onsubmit="return confirm('¿Eliminar esta amonestación?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-ghost" style="color:var(--danger);"><i class="fa-solid fa-trash-can"></i> Eliminar amonestación</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

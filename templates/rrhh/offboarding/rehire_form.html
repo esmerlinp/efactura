@@ -29,7 +29,7 @@
             </div>
             <div class="form-group">
                 <label>Fecha de reingreso <span class="text-danger">*</span></label>
-                <input type="date" name="newHireDate" required class="form-input" style="width:100%;">
+                <input type="date" name="newHireDate" id="newHireDate" required class="form-input" style="width:100%;">
             </div>
             <div class="form-group">
                 <label>Nuevo puesto</label>
@@ -57,6 +57,17 @@
         </div>
     </div>
 
+    <div id="rehireRecencyBanner" style="display:none; margin-top:16px; padding:14px 16px; background:rgba(245,158,11,0.10); border:1px solid rgba(245,158,11,0.35); border-left:4px solid var(--accent-yellow, #f59e0b); border-radius:var(--radius-sm); color:var(--text-primary); font-size:0.85rem;">
+        <strong><i class="fa-solid fa-triangle-exclamation"></i> Advertencia legal</strong>
+        <p id="rehireRecencyText" style="margin:6px 0 0;"></p>
+    </div>
+    <div id="rehireRecencyAck" style="display:none; margin-top:12px;">
+        <label class="form-check">
+            <input type="checkbox" name="ackRehireWarning" id="ackRehireWarning" value="1" class="form-check-input">
+            <span>He leído y comprendo la advertencia. Confirmo la reincorporación con pleno conocimiento de sus implicaciones legales.</span>
+        </label>
+    </div>
+
     <div class="hr-actions-bar" style="margin-top:16px;">
         <button type="submit" class="btn btn-success">
             <i class="fa-solid fa-user-plus"></i> Recontratar
@@ -64,4 +75,52 @@
         <a href="{{ url_for('web_rrhh.offboarding_wizard', request_id=req.id) }}" class="btn btn-ghost">Cancelar</a>
     </div>
 </form>
+<script>
+(function () {
+  var TERM = {{ req.effectiveDate|tojson }};
+  var SAME_EMPLOYEE_ID = {{ req.employeeId|tojson }};
+  var DAYS = 60;
+  function recency() {
+    var term = TERM ? String(TERM).slice(0, 10) : '';
+    var start = (document.getElementById('newHireDate').value || '').slice(0, 10);
+    if (!term || !start) return null;
+    var t = Date.UTC(Number(term.slice(0,4)), Number(term.slice(5,7)) - 1, Number(term.slice(8,10)));
+    var s = Date.UTC(Number(start.slice(0,4)), Number(start.slice(5,7)) - 1, Number(start.slice(8,10)));
+    if (isNaN(t) || isNaN(s)) return null;
+    return Math.round((s - t) / 86400000);
+  }
+  function isSameEmployee() {
+    var sel = document.querySelector('select[name="newEmployeeId"]');
+    var v = sel ? sel.value : SAME_EMPLOYEE_ID;
+    return !v || v === SAME_EMPLOYEE_ID;
+  }
+  function update() {
+    var banner = document.getElementById('rehireRecencyBanner');
+    var ack = document.getElementById('rehireRecencyAck');
+    var text = document.getElementById('rehireRecencyText');
+    if (!banner || !ack) return;
+    var days = recency();
+    var show = isSameEmployee() && days !== null && days >= 0 && days <= DAYS;
+    banner.style.display = show ? '' : 'none';
+    ack.style.display = show ? '' : 'none';
+    if (show && text) {
+      text.textContent = 'El reingreso se produce ' + days + ' día(s) después de la baja (≤' + DAYS + ' días).';
+    }
+  }
+  var dateEl = document.getElementById('newHireDate');
+  if (dateEl) { dateEl.addEventListener('input', update); dateEl.addEventListener('change', update); }
+  var sel = document.querySelector('select[name="newEmployeeId"]');
+  if (sel) sel.addEventListener('change', update);
+  var form = document.querySelector('form');
+  if (form) form.addEventListener('submit', function (e) {
+    var banner = document.getElementById('rehireRecencyBanner');
+    var ack = document.getElementById('ackRehireWarning');
+    if (banner && banner.style.display !== 'none' && ack && !ack.checked) {
+      e.preventDefault();
+      alert('Debe marcar la casilla de confirmación de la advertencia legal para continuar.');
+    }
+  });
+  update();
+})();
+</script>
 {% endblock %}

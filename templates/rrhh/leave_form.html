@@ -124,7 +124,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var start = parseISO(startEl.value);
         if (!start) return;
         var end = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-        end.setDate(end.getDate() + MATERNIDAD_WEEKS * 7);
+        end.setDate(end.getDate() + MATERNIDAD_WEEKS * 7 - 1);
         setEndDateValue(end);
         recalcDays();
     }

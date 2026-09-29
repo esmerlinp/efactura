@@ -1,0 +1,53 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Amonestaciones — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-triangle-exclamation"></i> Amonestaciones</h1>
+</div>
+
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-header-row">
+        <div>
+            <h3>Amonestaciones registradas</h3>
+            <p>Acciones disciplinarias del personal. Cada registro guarda su carta en PDF.</p>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="data-grid">
+        <thead>
+            <tr>
+                <th>Empleado</th>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Hecho</th>
+                <th>Firmante</th>
+                <th style="text-align:right;">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for a in amonestaciones %}
+            <tr>
+                <td><strong><a href="{{ url_for('web_rrhh.employee_view', employee_id=a.employeeId) }}" style="color:var(--text-primary); text-decoration:none;">{{ a.employeeName or (employees.get(a.employeeId) or {}).fullName or '—' }}</a></strong></td>
+                <td>{{ a.fechaLegible or a.fecha }}</td>
+                <td><span class="badge badge-warning">{{ a.tipoLabel or a.tipo }}</span></td>
+                <td>{{ a.hecho[:70] }}{% if a.hecho|length > 70 %}...{% endif %}</td>
+                <td>{{ a.signerName or '—' }}</td>
+                <td style="text-align:right; white-space:nowrap;">
+                    <a href="{{ url_for('web_rrhh.amonestacion_detail', amonestacion_id=a.id) }}" class="btn btn-sm btn-ghost" title="Ver detalle"><i class="fa-solid fa-eye"></i></a>
+                    <a href="{{ url_for('web_rrhh.amonestacion_edit', amonestacion_id=a.id) }}" class="btn btn-sm btn-ghost" title="Editar"><i class="fa-solid fa-pen-to-square"></i></a>
+                    <form method="POST" action="{{ url_for('web_rrhh.amonestacion_delete', amonestacion_id=a.id) }}"
+                          onsubmit="return confirm('¿Eliminar esta amonestación? Esta acción también elimina su carta en PDF.')" style="display:inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-ghost" style="color:var(--danger);" title="Eliminar"><i class="fa-solid fa-trash-can"></i></button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted">No hay amonestaciones registradas.</td></tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

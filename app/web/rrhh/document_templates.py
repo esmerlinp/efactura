@@ -23,6 +23,7 @@ DOC_TEMPLATE_MAP = {
     "authorization": "autorizacion_descuento",
     "carta_desvinculacion": "carta_desvinculacion",
     "carta_ministerio_trabajo": "carta_desvinculacion",
+    "carta_amonestacion": "carta_amonestacion",
 }
 
 # Claves de categoría que tienen plantilla descargable (para la UI).
@@ -67,6 +68,20 @@ def _generate_carta_desvinculacion(employee, company, host_url, today_es):
     return WeasyprintHTML(string=rendered, base_url=host_url).write_pdf(**pdf_write_options())
 
 
+def _generate_carta_amonestacion(employee, company, host_url, today_es):
+    from app.services.amonestacion_service import (
+        build_amonestacion_data, generate_amonestacion_pdf,
+    )
+
+    data = build_amonestacion_data(
+        tipo="",
+        hecho="",
+        signer_name=company.get("representativeName", ""),
+        signer_position=company.get("representativePosition", "") or "Representante Legal",
+    )
+    return generate_amonestacion_pdf(employee, company, host_url, data)
+
+
 def _company_data(owner_uid, sandbox, company_id=None):
     from app.services.offboarding_document_service import _company_data as _off_company_data
     return _off_company_data(owner_uid, sandbox=sandbox, company_id=company_id)
@@ -75,6 +90,7 @@ def _company_data(owner_uid, sandbox, company_id=None):
 _TEMPLATE_GENERATORS = {
     "autorizacion_descuento": _generate_autorizacion_descuento,
     "carta_desvinculacion": _generate_carta_desvinculacion,
+    "carta_amonestacion": _generate_carta_amonestacion,
 }
 
 

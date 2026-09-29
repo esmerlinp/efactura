@@ -48,6 +48,10 @@ ACTION_LABELS = {
     "employee_marked_inactive": "Baja de empleado",
     "employee_reactivated": "Reactivación",
     "liquidacion_calculada": "Liquidación calculada",
+    "amonestacion_generated": "Amonestación",
+    "amonestacion_updated": "Amonestación actualizada",
+    "amonestacion_deleted": "Amonestación eliminada",
+    "amonestacion_firmada": "Amonestación firmada",
 }
 
 
@@ -75,6 +79,8 @@ def _action_category(action: str, changes: dict) -> str:
         return "baja"
     if action in ("rehire", "employee_reactivated"):
         return "alta"
+    if action in ("amonestacion_generated", "amonestacion_updated", "amonestacion_deleted", "amonestacion_firmada"):
+        return "amonestacion"
     return "empleado"
 
 
@@ -254,6 +260,9 @@ def _timeline_detail_url(item: dict, employee_id: str):
         return url_for("web_rrhh.employee_view", employee_id=employee_id)
     if action == "work_certificate_generated":
         return url_for("web_rrhh.employee_certificate", employee_id=employee_id)
+    if action in ("amonestacion_generated", "amonestacion_updated", "amonestacion_firmada"):
+        amon_id = changes.get("amonestacionId", "")
+        return url_for("web_rrhh.amonestacion_detail", amonestacion_id=amon_id) if amon_id else None
     if action in ("overtime_created", "overtime_approved"):
         oid = changes.get("overtimeId", "")
         return url_for("web_rrhh.overtime_view", record_id=oid) if oid else None
@@ -922,6 +931,9 @@ def _load_employee_context(company_id: str, employee_id: str, owner_uid: str,
         pass
     evals = [e for e in hr.get_evaluations(company_id, sandbox=sandbox) if e.get("employeeId") == employee_id]
     trainings = [t for t in hr.get_trainings(company_id, sandbox=sandbox) if t.get("employeeId") == employee_id]
+    amonestaciones = [a for a in hr.get_amonestaciones(company_id, sandbox=sandbox)
+                      if a.get("employeeId") == employee_id]
+    amonestaciones.sort(key=lambda a: a.get("fecha", "") or a.get("createdAt", ""), reverse=True)
     docs = hr.get_employee_documents(company_id, employee_id, sandbox=sandbox)
 
     # Historial de pagos (últimos 24 períodos)
@@ -1033,6 +1045,7 @@ def _load_employee_context(company_id: str, employee_id: str, owner_uid: str,
         "severance": severance,
         "evaluations": evals,
         "trainings": trainings,
+        "amonestaciones": amonestaciones,
         "documents": docs,
         "payment_history": payment_history,
         "timeline": timeline,
@@ -1174,6 +1187,10 @@ def employee_rehire_form(employee_id):
             "salary": employee.get("baseSalary", employee.get("salary", 0)),
             "terminationType": employee.get("terminationType", ""),
         }
+    # Fecha de baja (para advertencia de reincorporación en plazo ≤60 días)
+    previous_termination_date = (previous.get("terminationDate")
+                                 or previous.get("endDate")
+                                 or employee.get("terminationDate") or "")
     try:
         from app.services.recurring_service import get_recurring_movements
         prev_movements = get_recurring_movements(company_id, employee_id=employee_id, sandbox=sandbox)
@@ -1232,7 +1249,8 @@ def employee_rehire_form(employee_id):
                            payroll_groups=payroll_groups, branches=branches,
                            prev_position_id=prev_position_id,
                            prev_position_name=prev_position_name,
-                           prev_department=prev_department, prev_area=prev_area)
+                           prev_department=prev_department, prev_area=prev_area,
+                           previous_termination_date=previous_termination_date)
 
 
 @web_rrhh_bp.route("/rrhh/employees/<employee_id>/rehire", methods=["POST"])
@@ -1315,6 +1333,21 @@ def employee_rehire(employee_id):
     rehire_request_id = (_f("rehireRequestId") or _f("rehire_request_id") or "").strip()
     actor = session.get("user", {}).get("email", "")
 
+    # ── Advertencia legal: reincorporación en plazo breve (≤60 días desde la baja) ──
+    from app.services.rehire_service import check_rehire_recency_warning
+    _rehire_term = ""
+    try:
+        _rehire_emp = hr.get_employee(company_id, employee_id, sandbox=sandbox) or {}
+        _rehire_prev = hr.get_last_terminated_contract(company_id, employee_id, sandbox=sandbox) or {}
+        _rehire_term = (_rehire_prev.get("terminationDate") or _rehire_prev.get("endDate")
+                        or _rehire_emp.get("terminationDate") or "")
+    except Exception:
+        _rehire_term = ""
+    _rehire_warning = check_rehire_recency_warning(_rehire_term, start_date)
+    if _rehire_warning and request.form.get("ackRehireWarning") != "1":
+        flash("Debe confirmar la advertencia de reincorporación en plazo breve (≤60 días desde la baja).", "error")
+        return redirect(url_for("web_rrhh.employee_rehire_form", employee_id=employee_id))
+
     try:
         svc = RehireService(company_id, sandbox)
         res = svc.rehire_employee(
@@ -1334,6 +1367,9 @@ def employee_rehire(employee_id):
 
     contract = res.get("contract", {})
     new_contract_id = contract.get("id", "")
+
+    if res.get("warning"):
+        flash(res["warning"], "warning")
 
     # ── Documentos adjuntos a la reincorporación (contrato, cédula, etc.) ──
     # Se guardan como documentos del empleado vinculados al NUEVO contractId,

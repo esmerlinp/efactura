@@ -60,6 +60,11 @@
                    onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
                     <i class="fa-solid fa-clock-rotate-left" style="color:#2563eb; width:16px; text-align:center;"></i> Cálculo retroactivo
                 </a>
+                <a href="{{ url_for('web_rrhh.amonestacion_new', employee_id=employee.id) }}"
+                   style="display:flex; align-items:center; gap:8px; padding:10px 14px; text-decoration:none; color:var(--text-primary); font-size:0.85rem; border-bottom:1px solid var(--border-color); transition:background 0.15s;"
+                   onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
+                    <i class="fa-solid fa-triangle-exclamation" style="color:#b45309; width:16px; text-align:center;"></i> Amonestación
+                </a>
                 <a href="{{ url_for('web_rrhh.employee_liquidacion', employee_id=employee.id) }}"
                    style="display:flex; align-items:center; gap:8px; padding:10px 14px; text-decoration:none; color:var(--danger); font-size:0.85rem; border-bottom:1px solid var(--border-color); transition:background 0.15s;"
                    onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
@@ -370,7 +375,7 @@
                     <option value="autorizacion_descuento" {% if 'autorizacion_descuento' in doc_template_categories %}data-template="1"{% endif %}>Autorización de Descuento</option>
                     <option value="carta_cambio_puesto">Carta Cambio de Puesto</option>
                     <option value="carta_cambio_compania">Carta Cambio de Compañía</option>
-                    <option value="carta_amonestacion">Carta de Amonestación</option>
+                    <option value="carta_amonestacion" {% if 'carta_amonestacion' in doc_template_categories %}data-template="1"{% endif %}>Carta de Amonestación</option>
                     <option value="finiquito">Finiquito</option>
                     <option value="carta_ministerio_trabajo" {% if 'carta_ministerio_trabajo' in doc_template_categories %}data-template="1"{% endif %}>Carta Ministerio de Trabajo</option>
                     <option value="carta_trabajo">Carta de Trabajo</option>
@@ -520,6 +525,22 @@
                 {% endfor %}</tbody></table>
             </div>{% else %}<p style="color:var(--text-muted);">Sin capacitaciones.</p>{% endif %}
         </div>
+        <div class="hr-section-card" style="border:none; box-shadow:none; padding:0; margin-top:16px;">
+            <h3>Amonestaciones ({{ amonestaciones|length }})</h3>
+            {% if amonestaciones %}
+            <div class="table-responsive">
+                <table class="data-grid">
+                <thead><tr><th>Fecha</th><th>Tipo</th><th>Hecho</th><th>Firmante</th></tr></thead>
+                <tbody>{% for a in amonestaciones %}
+                    <tr>
+                        <td>{{ a.fechaLegible or a.fecha }}</td>
+                        <td><span class="badge badge-warning">{{ a.tipoLabel or a.tipo }}</span></td>
+                        <td>{{ a.hecho[:80] }}{% if a.hecho|length > 80 %}...{% endif %}</td>
+                        <td>{{ a.signerName or '—' }}</td>
+                    </tr>
+                {% endfor %}</tbody></table>
+            </div>{% else %}<p style="color:var(--text-muted);">Sin amonestaciones.</p>{% endif %}
+        </div>
     </div>
 
     <!-- Tab: Historial de pago -->
@@ -656,6 +677,7 @@
                 {% elif cat == 'herramienta' %}{% set bg = '#fef9c3' %}{% set fg = '#a16207' %}
                 {% elif cat == 'baja' %}{% set bg = '#fee2e2' %}{% set fg = '#dc2626' %}
                 {% elif cat == 'alta' %}{% set bg = '#d1fae5' %}{% set fg = '#047857' %}
+                {% elif cat == 'amonestacion' %}{% set bg = '#fef3c7' %}{% set fg = '#b45309' %}
                 {% elif cat == 'accion_masiva' %}
                     {% if it.action == 'salary_change' %}{% set bg = '#dbeafe' %}{% set fg = '#1d4ed8' %}
                     {% elif it.action == 'position_change' %}{% set bg = '#fae8ff' %}{% set fg = '#a21caf' %}
@@ -692,6 +714,7 @@
                 'pago': 'Pago de nómina', 'evaluacion': 'Evaluación', 'capacitacion': 'Capacitación',
                 'vacaciones': 'Vacaciones', 'licencia': 'Licencia', 'herramienta': 'Herramienta',
                 'baja': 'Baja', 'alta': 'Alta', 'accion_masiva': 'Acción masiva',
+                'amonestacion': 'Amonestación',
                 'empleado': 'Empleado', 'estado': 'Estado'
             };
             const exportCsvUrl = "{{ url_for('web_rrhh.employee_actions_export_csv', employee_id=employee.id) }}";

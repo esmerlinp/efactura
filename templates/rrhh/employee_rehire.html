@@ -23,6 +23,37 @@
 .fd-opt:hover, .fd-opt.active { background: rgba(30,58,138,0.06); }
 .fd-opt.selected { font-weight: 700; }
 .fd-empty { padding: 12px; text-align: center; color: var(--text-muted); font-size: 0.85rem; }
+.rehire-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 4px;
+}
+.rehire-summary-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+.rehire-summary-item:nth-child(odd) { border-right: 1px solid var(--border-color); }
+.rehire-summary-label {
+    display: block;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+.rehire-summary-value {
+    display: block;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+.rehire-summary-empty {
+    padding: 12px 16px;
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.85rem;
+}
 </style>
 {% endblock %}
 {% block content %}
@@ -73,6 +104,11 @@
 <form method="POST" action="{{ url_for('web_rrhh.employee_rehire', employee_id=employee.id) }}" onsubmit="return confirmRehire(this);" style="margin-top:16px;" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="rehireRequestId" value="reh_{{ employee.id[:8] }}_{{ previous.startDate or employee.hireDate or '' }}_{{ previous.endDate or employee.terminationDate or '' }}">
+
+    <div id="rehireRecencyBanner" style="display:none; margin-top:16px; margin-bottom:24px; padding:14px 16px; background:rgba(245,158,11,0.10); border:1px solid rgba(245,158,11,0.35); border-left:4px solid var(--accent-yellow, #f59e0b); border-radius:var(--radius-sm); color:var(--text-primary); font-size:0.85rem;">
+        <strong><i class="fa-solid fa-triangle-exclamation"></i> Advertencia legal</strong>
+        <p id="rehireRecencyText" style="margin:6px 0 0;"></p>
+    </div>
 
     <div class="hr-section-card">
         <h3><i class="fa-solid fa-user"></i> Nueva relación laboral</h3>
@@ -274,9 +310,12 @@
 
     <div class="hr-section-card" style="margin-top:16px;">
         <h3><i class="fa-solid fa-circle-check"></i> Confirmación</h3>
-        <div id="rehireSummary" style="color:var(--text-secondary);">Complete la fecha, puesto y salario para ver el resumen.</div>
-        <label class="checkbox-label" style="margin-top:8px;">
+        <div id="rehireSummary" class="rehire-summary-empty">Complete la fecha, puesto y salario para ver el resumen.</div>
+        <label class="checkbox-label" style="display:block; margin-top:12px; padding-top:12px; border-top:1px solid var(--border-color); font-size:0.85rem; color:var(--text-secondary);">
             <input type="checkbox" id="confirmCheck" required> Confirmo que se creará una <strong>nueva relación laboral</strong> sin modificar la anterior.
+        </label>
+        <label class="checkbox-label" id="rehireRecencyAck" style="display:none; margin-top:10px; font-size:0.85rem; color:var(--text-secondary);">
+            <input type="checkbox" name="ackRehireWarning" id="ackRehireWarning" value="1"> He leído y comprendo la advertencia. Confirmo la reincorporación con pleno conocimiento de sus implicaciones legales.
         </label>
     </div>
 
@@ -456,7 +495,38 @@ function copyPrevious() {
   document.getElementById('accountType').value = {{ (previous.accountType or employee.accountType or '')|tojson }};
   updateSummary();
 }
-document.addEventListener('DOMContentLoaded', function() { fdInit(); updateSummary(); });
+document.addEventListener('DOMContentLoaded', function() { fdInit(); updateSummary(); updateRecencyWarning(); });
+var PREV_TERMINATION_DATE = {{ previous_termination_date|tojson }};
+var RECENCY_WARNING_DAYS = 60;
+function recencyDays() {
+  var term = PREV_TERMINATION_DATE ? String(PREV_TERMINATION_DATE).slice(0, 10) : '';
+  var start = (document.getElementById('startDate').value || '').slice(0, 10);
+  if (!term || !start) return null;
+  var t = Date.UTC(Number(term.slice(0,4)), Number(term.slice(5,7)) - 1, Number(term.slice(8,10)));
+  var s = Date.UTC(Number(start.slice(0,4)), Number(start.slice(5,7)) - 1, Number(start.slice(8,10)));
+  if (isNaN(t) || isNaN(s)) return null;
+  return Math.round((s - t) / 86400000);
+}
+function updateRecencyWarning() {
+  var banner = document.getElementById('rehireRecencyBanner');
+  var ack = document.getElementById('rehireRecencyAck');
+  var text = document.getElementById('rehireRecencyText');
+  if (!banner || !ack) return;
+  var days = recencyDays();
+  var show = days !== null && days >= 0 && days <= RECENCY_WARNING_DAYS;
+  banner.style.display = show ? 'block' : 'none';
+  ack.style.display = show ? 'block' : 'none';
+  if (show && text) {
+    text.textContent = 'El reingreso se produce ' + days + ' día(s) después de la baja (≤' + RECENCY_WARNING_DAYS + ' días).';
+  }
+}
+document.addEventListener('input', function(e) {
+  if (e.target && e.target.id === 'startDate') updateRecencyWarning();
+});
+document.addEventListener('change', function(e) {
+  if (e.target && e.target.id === 'startDate') updateRecencyWarning();
+});
+
 function updateSummary() {
   var s = document.getElementById('startDate').value || '—';
   var p = selectedText('positionId');
@@ -464,21 +534,35 @@ function updateSummary() {
   var checked = document.querySelectorAll('input[name="selectedMovements"]:checked').length;
   var sp = document.getElementById('seniorityPolicy').value;
   var vp = document.getElementById('vacationPolicy').value;
-  document.getElementById('rehireSummary').innerHTML =
-    '<strong>Empleado:</strong> {{ employee.fullName }}<br>' +
-    '<strong>Relación anterior:</strong> {{ previous.startDate or employee.hireDate or "—" }} → {{ previous.endDate or employee.terminationDate or "—" }}<br>' +
-    '<strong>Nueva relación:</strong> ' + s + ' → Actualidad<br>' +
-    '<strong>Puesto:</strong> ' + p + '<br>' +
-    '<strong>Salario:</strong> RD$ ' + sal + '<br>' +
-    '<strong>Movimientos seleccionados:</strong> ' + checked + '<br>' +
-    '<strong>Vacaciones:</strong> ' + (vp === 'reset' ? 'Nuevo período' : 'Preservar según fecha base') + '<br>' +
-    '<strong>Antigüedad:</strong> ' + (sp === 'reset' ? 'Reinicia en ' + s : 'Preservada según fecha base');
+  var rows = [
+    ['Empleado', {{ employee.fullName|tojson }}],
+    ['Relación anterior', {{ (previous.startDate or employee.hireDate or '—')|tojson }} + ' → ' + {{ (previous.endDate or employee.terminationDate or '—')|tojson }}],
+    ['Nueva relación', s + ' → Actualidad'],
+    ['Puesto', p],
+    ['Salario', 'RD$ ' + sal],
+    ['Movimientos seleccionados', String(checked)],
+    ['Vacaciones', vp === 'reset' ? 'Nuevo período' : 'Preservar según fecha base'],
+    ['Antigüedad', sp === 'reset' ? 'Reinicia en ' + s : 'Preservada según fecha base'],
+  ];
+  var html = '<div class="rehire-summary-grid">';
+  rows.forEach(function (r) {
+    html += '<div class="rehire-summary-item">'
+          + '<span class="rehire-summary-label">' + r[0] + '</span>'
+          + '<span class="rehire-summary-value">' + r[1] + '</span></div>';
+  });
+  document.getElementById('rehireSummary').innerHTML = html + '</div>';
 }
 document.addEventListener('input', updateSummary);
 document.addEventListener('change', updateSummary);
 function confirmRehire(form) {
   var s = document.getElementById('startDate').value;
   if (!s) { alert('Indique la fecha de reincorporación.'); return false; }
+  var ackEl = document.getElementById('ackRehireWarning');
+  var bannerEl = document.getElementById('rehireRecencyBanner');
+  if (bannerEl && bannerEl.style.display !== 'none' && ackEl && !ackEl.checked) {
+    alert('Debe marcar la casilla de confirmación de la advertencia legal para continuar.');
+    return false;
+  }
   var sp = document.getElementById('seniorityPolicy').value;
   var vp = document.getElementById('vacationPolicy').value;
   if (sp === 'preserve' && !document.getElementById('seniorityBaseDate').value) {
