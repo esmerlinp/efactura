@@ -306,7 +306,12 @@ class PayrollService:
                 concept_label = code
             else:
                 continue
-            amount = float(tx.get("amount", 0) or 0)
+            # Conceptos en horas (HORAS_EXTRA) se guardan en la transacción con
+            # su monto monetario; recuperar las HORAS originales para el editor.
+            if tab and tab.get("hours") and tx.get("manualHours") is not None:
+                amount = float(tx.get("manualHours", 0) or 0)
+            else:
+                amount = float(tx.get("amount", 0) or 0)
             if amount <= 0:
                 continue
             key = (tx.get("employeeId", ""), concept_field)

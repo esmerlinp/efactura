@@ -63,6 +63,28 @@ def _should_skip_christmas_rule(rule: dict, include_christmas: bool) -> bool:
     return include_christmas and rule.get("generatedBy") == "christmas_bonus"
 
 
+def _calc_manual_overtime_pay(base: float, hours: float, params: dict) -> float:
+    """Convierte horas extra manuales (tab "Horas trabajadas") a dinero.
+
+    El editor captura HORAS; este helper las convierte usando la misma fórmula
+    que el resto del motor: (salario / días / horas_día) * tasa * horas.
+    """
+    if hours <= 0 or base <= 0:
+        return 0.0
+    return PayrollService._calculate_overtime(
+        base, float(hours),
+        float(params.get("overtime_rate", 1.35)),
+        float(params.get("working_days_per_month", 23.83)),
+        float(params.get("working_hours_per_day", 8.0)),
+    )
+
+
+def _filter_recurring_by_employees(recurring_movements: list, employees: list) -> list:
+    """Filtra movimientos recurrentes para mostrar solo los de empleados en la nómina."""
+    emp_ids = {e.get("id") for e in employees if e.get("id")}
+    return [mv for mv in recurring_movements if mv.get("employeeId") in emp_ids]
+
+
 def _editor_tabs(company_id: str, sandbox: bool = True) -> tuple:
     """Tabs dinámicos del editor (desde conceptos activos isManualEntry), con fallback al catálogo."""
     from app.services.payroll_variable_catalog import INGRESO_TABS, DESCUENTO_TABS
@@ -561,6 +583,9 @@ def payroll_new():
     if pending_liquidation_ids:
         employees = [e for e in employees if e.get("id") not in pending_liquidation_ids]
 
+    # ── Movimientos recurrentes solo de empleados en esta nómina ──
+    recurring_movements = _filter_recurring_by_employees(recurring_movements, employees)
+
     # ── Vista previa de regalía (para pre-llenar el tab Regalía) ──
     christmas_preview = _build_christmas_preview(employees)
 
@@ -955,6 +980,10 @@ def payroll_new():
                     emp_is_quincenal = emp_period_type == "quincenal"
                     if emp_is_quincenal and base > 0:
                         base = round(base / 2, 2)
+
+                    # ── Horas extra manuales (tab "Horas trabajadas"): convertir horas → dinero ──
+                    manual_overtime_pay = _calc_manual_overtime_pay(base, overtime, params)
+
                     line_id = str(uuid.uuid4())
 
                     employee_transactions = []
@@ -1031,6 +1060,8 @@ def payroll_new():
                             continue
                         if vcode == "REGALIA_PASCUAL":
                             continue  # se maneja en el bloque de regalía
+                        if vcode == "HORAS_EXTRA":
+                            continue  # se procesa aparte con conversión horas → dinero
                         if vcode in GROUP_OVERRIDE_BY_CONCEPT:
                             flag = GROUP_OVERRIDE_BY_CONCEPT[vcode]
                             if group_overrides.get(flag) is False:
@@ -1050,6 +1081,26 @@ def payroll_new():
                             createdAt=datetime.now(timezone.utc).isoformat(),
                             updatedAt=datetime.now(timezone.utc).isoformat(),
                         ).model_dump())
+
+                    # ── Horas extra manuales (ya convertidas a dinero) ──
+                    if manual_overtime_pay > 0:
+                        he_concept = concept_map.get("HORAS_EXTRA")
+                        if he_concept:
+                            from app.models.transaction import PayrollTransaction
+                            from app.services.payroll_concept_engine import build_concept_snapshot
+                            _he_tx = PayrollTransaction(
+                                id=str(uuid.uuid4()), periodId=period_id, periodKey=period_key,
+                                payrollLineId=line_id, employeeId=emp_id,
+                                conceptCode="HORAS_EXTRA", type="earning",
+                                amount=round(manual_overtime_pay, 2), source="var:HORAS_EXTRA",
+                                status="applied",
+                                conceptSnapshot=build_concept_snapshot(he_concept),
+                                periodYear=year,
+                                createdAt=datetime.now(timezone.utc).isoformat(),
+                                updatedAt=datetime.now(timezone.utc).isoformat(),
+                            ).model_dump()
+                            _he_tx["manualHours"] = float(overtime)
+                            employee_transactions.append(_he_tx)
 
                     # ── Regalía pascual (auto o override manual) ──
                     christmas = 0.0
@@ -1328,7 +1379,7 @@ def payroll_new():
                         "employeeName": emp.get("fullName", ""),
                         "cedula": emp.get("cedula", ""), "position": emp.get("position", ""),
                         "department": emp.get("department", ""), "baseSalary": base, "grossSalary": base,
-                        "overtimePay": round(sum(overtime_breakdown.values()) + overtime, 2),
+                        "overtimePay": round(sum(overtime_breakdown.values()) + manual_overtime_pay, 2),
                         "overtimeHours": float(overtime),
                         "overtimeBreakdown": overtime_breakdown,
                         "commission": commission, "bonus": bonus,
@@ -1931,6 +1982,9 @@ def payroll_simulate():
             if emp_is_quincenal and base > 0:
                 base = round(base / 2, 2)
 
+            # ── Horas extra manuales (tab "Horas trabajadas"): convertir horas → dinero ──
+            manual_overtime_pay = _calc_manual_overtime_pay(base, overtime, params)
+
             salary_history = hr.get_salary_history(company_id, emp_id, sandbox=sandbox)
             prorated = PayrollService.prorate_salary(
                 monthly_salary=base, period_start=start_date, period_end=end_date,
@@ -2008,6 +2062,8 @@ def payroll_simulate():
                     continue
                 if vcode == "REGALIA_PASCUAL":
                     continue  # se maneja en el bloque de regalía
+                if vcode == "HORAS_EXTRA":
+                    continue  # se procesa aparte con conversión horas → dinero
                 if vcode in _SIM_OVERRIDES and group_overrides.get(_SIM_OVERRIDES[vcode]) is False:
                     continue
                 concept = concept_map.get(vcode)
@@ -2032,6 +2088,29 @@ def payroll_simulate():
                     updatedAt=datetime.now(timezone.utc).isoformat(),
                 )
                 employee_transactions.append(tx.model_dump())
+
+            # ── Horas extra manuales (ya convertidas a dinero) ──
+            if manual_overtime_pay > 0:
+                he_concept = concept_map.get("HORAS_EXTRA")
+                if he_concept:
+                    from app.models.transaction import PayrollTransaction
+                    from app.services.payroll_concept_engine import build_concept_snapshot
+                    employee_transactions.append(PayrollTransaction(
+                        id=str(uuid.uuid4()),
+                        periodId=sim_period_id,
+                        periodKey=period_key,
+                        payrollLineId=line_id,
+                        employeeId=emp_id,
+                        conceptCode="HORAS_EXTRA",
+                        type="earning",
+                        amount=round(manual_overtime_pay, 2),
+                        source="var:HORAS_EXTRA",
+                        status="applied",
+                        conceptSnapshot=build_concept_snapshot(he_concept),
+                        periodYear=int(period_key[:4]) if period_key and len(period_key) >= 4 else 0,
+                        createdAt=datetime.now(timezone.utc).isoformat(),
+                        updatedAt=datetime.now(timezone.utc).isoformat(),
+                    ).model_dump())
 
             # ── Regalía pascual (auto o override manual) ──
             christmas = 0.0
@@ -2319,7 +2398,7 @@ def payroll_simulate():
                 "position": emp.get("position", ""),
                 "periodType": emp_period_type,
                 "grossSalary": sum_by_concept(employee_transactions, "SALARIO_BASE"),
-                "overtimePay": round(sum(overtime_breakdown.values()) + overtime, 2),
+                "overtimePay": round(sum(overtime_breakdown.values()) + manual_overtime_pay, 2),
                 "overtimeHours": overtime_hours_val,
                 "overtimeBreakdown": overtime_breakdown,
                 "commission": sum_by_concept(employee_transactions, "COMISION"),

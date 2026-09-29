@@ -2,7 +2,10 @@
 
 from unittest.mock import MagicMock, patch
 
-from app.web.rrhh.payroll_process import _extract_variable_values, _build_christmas_preview
+from app.web.rrhh.payroll_process import (
+    _extract_variable_values, _build_christmas_preview, _calc_manual_overtime_pay,
+    _filter_recurring_by_employees,
+)
 from app.web.rrhh.payroll_workflow import _is_simple_workflow, _transition
 
 
@@ -65,6 +68,45 @@ class TestExtractVariableValues:
 
     def test_formulario_vacio(self):
         assert _extract_variable_values({}, ["E1"]) == {}
+
+
+class TestCalcManualOvertimePay:
+
+    def test_horas_se_convierten_a_dinero(self):
+        params = {"overtime_rate": 1.35, "working_days_per_month": 23.83,
+                  "working_hours_per_day": 8.0}
+        pay = _calc_manual_overtime_pay(50000.0, 8.0, params)
+        expected = round(50000.0 / 23.83 / 8.0 * 1.35 * 8.0, 2)
+        assert pay == expected
+        assert pay > 1000.0  # no se registra como RD$ 8
+
+    def test_sin_horas_o_sin_salario_retorna_cero(self):
+        params = {"overtime_rate": 1.35, "working_days_per_month": 23.83,
+                  "working_hours_per_day": 8.0}
+        assert _calc_manual_overtime_pay(50000.0, 0.0, params) == 0.0
+        assert _calc_manual_overtime_pay(0.0, 8.0, params) == 0.0
+
+    def test_defaults_de_parametros(self):
+        pay = _calc_manual_overtime_pay(23830.0, 8.0, {})
+        # sin params usa 1.35 / 23.83 / 8.0
+        assert pay == round(23830.0 / 23.83 / 8.0 * 1.35 * 8.0, 2)
+
+
+class TestFilterRecurringByEmployees:
+
+    def test_solo_empleados_de_la_nomina(self):
+        movements = [
+            {"id": "m1", "employeeId": "E1"},
+            {"id": "m2", "employeeId": "E2"},
+            {"id": "m3", "employeeId": "E3"},
+        ]
+        employees = [{"id": "E1"}, {"id": "E2"}]
+        result = _filter_recurring_by_employees(movements, employees)
+        assert [m["id"] for m in result] == ["m1", "m2"]
+
+    def test_vacio(self):
+        assert _filter_recurring_by_employees([], [{"id": "E1"}]) == []
+        assert _filter_recurring_by_employees([{"id": "m1", "employeeId": "E1"}], []) == []
 
 
 class TestTransitionAllowFrom:
