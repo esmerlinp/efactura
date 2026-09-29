@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Organigrama</title>
+<style>
+  @page {
+    size: A4 landscape;
+    margin: 1.2cm;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Outfit', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    color: #1e293b;
+    font-size: 11px;
+    margin: 0;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 2px solid #0f766e;
+    padding-bottom: 10px;
+    margin-bottom: 16px;
+  }
+  .header .brand { display: flex; align-items: center; gap: 12px; }
+  .header .logo {
+    width: 52px; height: 52px; border-radius: 8px; object-fit: contain;
+    border: 1px solid #e2e8f0; background: #fff; padding: 4px;
+  }
+  .header .company-name { font-size: 16px; font-weight: 700; margin: 0; }
+  .header .company-meta { font-size: 10px; color: #64748b; margin-top: 2px; }
+  .header .doc-info { text-align: right; font-size: 10px; color: #475569; }
+  .header .doc-info .title { font-size: 15px; font-weight: 700; color: #0f766e; }
+  .tree { margin-top: 8px; }
+  .node {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin: 6px 0;
+    background: #fff;
+    page-break-inside: avoid;
+  }
+  .node.root { border-color: #0f766e; border-left: 4px solid #0f766e; }
+  .node .node-head { display: flex; align-items: center; gap: 8px; }
+  .node .avatar {
+    width: 28px; height: 28px; border-radius: 50%; background: #e2e8f0;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; color: #0f766e; font-size: 11px; flex-shrink: 0; overflow: hidden;
+  }
+  .node .avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .node .pos-icon {
+    width: 28px; height: 28px; border-radius: 6px; background: #ccfbf1;
+    display: flex; align-items: center; justify-content: center;
+    color: #0f766e; font-size: 12px; flex-shrink: 0;
+  }
+  .node .name { font-weight: 700; }
+  .node .sub { font-size: 9px; color: #64748b; }
+  .node .count {
+    margin-left: auto; font-size: 9px; color: #0f766e; background: #f0fdfa;
+    padding: 2px 8px; border-radius: 10px; white-space: nowrap;
+  }
+  .employees { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0 2px; }
+  .employee-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    border: 1px solid #e2e8f0; border-radius: 14px; padding: 2px 8px; font-size: 9px;
+  }
+  .employee-chip .avatar { width: 16px; height: 16px; font-size: 8px; border-radius: 50%; }
+  .children { margin-left: 24px; border-left: 2px solid #cbd5e1; padding-left: 16px; }
+  .footer {
+    margin-top: 18px; border-top: 1px solid #e2e8f0; padding-top: 8px;
+    font-size: 9px; color: #94a3b8; text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="brand">
+    {% if company.logoUrl or company.logoBase64 %}
+    <img class="logo" src="{{ company.logoUrl or company.logoBase64 }}" alt="Logo">
+    {% endif %}
+    <div>
+      <p class="company-name">{{ company.tradeName or company.companyName or 'Empresa' }}</p>
+      <div class="company-meta">
+        {% if company.companyRNC %}RNC {{ company.companyRNC }}{% endif %}
+        {% if company.companyAddress %} · {{ company.companyAddress }}{% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="doc-info">
+    <div class="title">Organigrama</div>
+    <div>{{ 'Por posición' if view == 'position' else 'Por empleado' }}</div>
+    <div>{{ now }}</div>
+  </div>
+</div>
+
+{% macro render_employee(node, is_root=False) %}
+  <div class="node{% if is_root %} root{% endif %}">
+    <div class="node-head">
+      <div class="avatar">
+        {% if node.photoUrl or node.photoBase64 %}
+        <img src="{{ node.photoUrl or node.photoBase64 }}" alt="">
+        {% else %}
+        {{ (node.firstName or '')[0] }}{{ (node.firstLastName or node.lastName or '')[0] }}
+        {% endif %}
+      </div>
+      <div>
+        <div class="name">{{ node.fullName }}</div>
+        <div class="sub">{{ node.position or '—' }}{% if node.area or node.department %} · {{ node.area or node.department }}{% endif %}</div>
+      </div>
+      {% if node.direct_reports %}
+      <span class="count">{{ node.direct_reports|length }} reporte{% if node.direct_reports|length != 1 %}s{% endif %}</span>
+      {% endif %}
+    </div>
+    {% if node.direct_reports %}
+    <div class="children">
+      {% for child in node.direct_reports %}
+        {{ render_employee(child, is_root=False) }}
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+{% endmacro %}
+
+{% macro render_position(node, is_root=False) %}
+  <div class="node{% if is_root %} root{% endif %}">
+    <div class="node-head">
+      <div class="pos-icon"><i>&#9878;</i></div>
+      <div>
+        <div class="name">{{ node.name or '—' }}</div>
+      </div>
+      {% if node.children %}
+      <span class="count">{{ node.children|length }} puesto{% if node.children|length != 1 %}s{% endif %}</span>
+      {% endif %}
+    </div>
+    {% if node.children %}
+    <div class="children">
+      {% for child in node.children %}
+        {{ render_position(child, is_root=False) }}
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+{% endmacro %}
+
+<div class="tree">
+{% if view == 'position' %}
+  {% for node in position_nodes %}
+    {{ render_position(node, is_root=True) }}
+  {% endfor %}
+{% else %}
+  {% for root in root_nodes %}
+    {{ render_employee(root, is_root=True) }}
+  {% endfor %}
+{% endif %}
+</div>
+
+<div class="footer">
+  Generado por {{ product_name }} · {{ now }}
+</div>
+
+</body>
+</html>
