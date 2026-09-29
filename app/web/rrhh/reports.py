@@ -91,6 +91,10 @@ def _projection_data(kind):
         result = PayrollProjectionService.project_benefits(employees, cutoff, company_id=company_id, sandbox=sandbox, **{k: filters[k] for k in ("employee_id", "department", "area", "group_id", "status", "include_inactive")})
         result.update(filters=filters, year=year, cutoff_date=cutoff)
         return result
+    if kind == "regalia":
+        result = PayrollProjectionService.project_regalia(employees, year, company_id=company_id, sandbox=sandbox, **{k: filters[k] for k in ("employee_id", "department", "area", "group_id", "status", "include_inactive")})
+        result["filters"] = filters
+        return result
     result = PayrollProjectionService.project_payroll(employees, year, tax_rates=hr.get_tax_rates(company_id, sandbox=sandbox), **{k: filters[k] for k in ("employee_id", "department", "area", "group_id", "status", "include_inactive")})
     result["filters"] = filters
     return result
@@ -115,6 +119,14 @@ def report_payroll_projection():
 def report_benefits_projection():
     if _login_required(): return redirect(url_for('web_auth.login'))
     return _projection_view('benefits', 'Proyección de prestaciones laborales', 'rrhh/reports/benefits_projection.html')
+
+
+@web_invoices_bp.route('/reports/rrhh/regalia-projection')
+@web_rrhh_bp.route('/rrhh/reports/regalia-projection')
+@require_module('nomina')
+def report_regalia_projection():
+    if _login_required(): return redirect(url_for('web_auth.login'))
+    return _projection_view('regalia', 'Proyección de regalía pascual', 'rrhh/reports/regalia_projection.html')
 
 
 def _contribution_projection(kind, title):
@@ -164,13 +176,24 @@ def report_projection_export():
         rows = [[r['employeeName'], r['cedula'], r['department'], r['salarioPromedio'], r['preaviso'], r['cesantia'], r['vacaciones'], r['salarioNavidad'], r['salarioProporcional'], r['descuentos'], r['total'], r['netoAPagar']] for r in data['rows']]
         total = ['TOTAL', '', '', '', '', '', '', '', '', '', data['total'], data['totalNeto']]
         filename = 'proyeccion_prestaciones'
+    elif kind == 'regalia':
+        headers = ['Empleado', 'Cédula', 'Departamento', 'Salario base', 'Meses', 'Salario anual proyectado', 'Regalía', 'Exento ISR', 'Neto a pagar']
+        rows = [[r['employeeName'], r['cedula'], r['department'], r['baseSalary'], r['monthsWorked'], r['salarioAnual'], r['regalia'], r['exentoISR'], r['netoAPagar']] for r in data['rows']]
+        total = ['TOTAL', '', '', '', '', '', data['total'], data['total'], data['totalNeto']]
+        filename = 'proyeccion_regalia'
     else:
         headers = ['Mes', 'Bruto', 'AFP empleado', 'SFS empleado', 'ISR', 'Neto', 'Aportes patronales', 'Costo total']
         rows = [[r['month'], r['totalIncome'], r['afpEmployee'], r['sfsEmployee'], r['isrRetention'], r['netSalary'], r['totalEmployerContrib'], r['totalCost']] for r in data['months']]
         total = ['TOTAL', data['totals']['totalIncome'], data['totals']['afpEmployee'], data['totals']['sfsEmployee'], data['totals']['isrRetention'], data['totals']['netSalary'], data['totals']['totalEmployerContrib'], data['totals']['totalCost']]
         filename = 'proyeccion_nomina'
     if fmt == 'pdf':
-        template = 'rrhh/reports/benefits_projection.html' if kind == 'benefits' else 'rrhh/reports/projection.html'
+        from app.services.db_service import DatabaseService
+        owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
+        data['company'] = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
+        data['today'] = date.today()
+        template = ('rrhh/reports/benefits_projection_pdf.html' if kind == 'benefits'
+                    else 'rrhh/reports/regalia_projection_pdf.html' if kind == 'regalia'
+                    else 'rrhh/reports/projection_pdf.html')
         return _projection_pdf(template, data, f'{filename}_{data.get("year", "")}.pdf')
     return send_file(_projection_csv(filename, headers, rows, total), mimetype='text/csv', as_attachment=True, download_name=f'{filename}_{data.get("year", "")}.csv')
 

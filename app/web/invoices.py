@@ -9294,6 +9294,8 @@ def get_report_categories():
                   "enabled": module_enabled('nomina'), "desc": "Proyecta mes a mes el costo anual de tu nómina."},
                  {"title": "Proyección de prestaciones laborales", "url": "web_invoices.report_benefits_projection",
                   "enabled": module_enabled('nomina'), "desc": "Detalle de prestaciones laborales por empleado."},
+                 {"title": "Proyección de regalía pascual", "url": "web_invoices.report_regalia_projection",
+                  "enabled": module_enabled('nomina'), "desc": "Proyecta el salario de navidad por empleado."},
                  {"title": "Proyección anual de AFP", "url": "web_invoices.report_afp_projection",
                   "enabled": module_enabled('nomina'), "desc": "Proyecta los aportes AFP del empleado y empleador."},
                  {"title": "Proyección anual de SFS", "url": "web_invoices.report_sfs_projection",

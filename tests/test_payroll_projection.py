@@ -44,3 +44,47 @@ class TestProjectBenefits:
         assert row["salarioPromedio"] == emp["baseSalary"]
         assert row["descuentos"] == 0.0
         assert row["netoAPagar"] == row["total"]
+
+
+class TestProjectRegalia:
+    def test_anio_completo_regalia_igual_a_base(self):
+        emp = _emp("E1", base=45000, hire="2020-01-01")
+        with patch("app.services.hr_data_service.get_payroll_transactions_for_employees", return_value={}):
+            r = PayrollProjectionService.project_regalia([emp], 2026, company_id="C1", sandbox=True)
+
+        row = r["rows"][0]
+        assert row["monthsWorked"] == 12
+        assert row["salarioAnual"] == 45000 * 12
+        assert row["regalia"] == 45000.0
+        assert r["total"] == 45000.0
+
+    def test_contratado_a_mitad_de_anio_prorratea(self):
+        emp = _emp("E2", base=45000, hire="2026-07-01")
+        with patch("app.services.hr_data_service.get_payroll_transactions_for_employees", return_value={}):
+            r = PayrollProjectionService.project_regalia([emp], 2026, company_id="C1", sandbox=True)
+
+        row = r["rows"][0]
+        assert row["monthsWorked"] == 6
+        assert row["salarioAnual"] == 45000 * 6
+        assert row["regalia"] == round((45000 * 6) / 12.0, 2)
+
+    def test_ytd_real_mas_proyeccion(self):
+        emp = _emp("E3", base=45000, hire="2020-01-01")
+        txs = {"E3": [_tx("SALARIO_BASE", 45000, "2026-01"),
+                      _tx("SALARIO_BASE", 45000, "2026-02")]}
+        with patch("app.services.hr_data_service.get_payroll_transactions_for_employees", return_value=txs):
+            r = PayrollProjectionService.project_regalia([emp], 2026, company_id="C1", sandbox=True)
+
+        row = r["rows"][0]
+        assert row["monthsWorked"] == 12
+        assert row["actualMonths"] == 2
+        assert row["salarioAnual"] == round(45000 * 2 + 45000 * 10, 2)
+        assert row["regalia"] == 45000.0
+
+    def test_sin_salario_base_se_omite(self):
+        emp = _emp("E4", base=0)
+        with patch("app.services.hr_data_service.get_payroll_transactions_for_employees", return_value={}):
+            r = PayrollProjectionService.project_regalia([emp], 2026, company_id="C1", sandbox=True)
+
+        assert r["rows"] == []
+        assert r["total"] == 0.0
