@@ -93,13 +93,17 @@ def payroll_view(period_id):
 
     # ── Contexto del editor de variables (sección Empleados→Ingresos→Descuentos) ──
     from app.services.payroll_variable_catalog import RECURRING_MANAGED_BY_CONCEPT
-    from app.web.rrhh.payroll_process import _build_christmas_preview, _editor_tabs
+    from app.web.rrhh.payroll_process import (
+        _build_christmas_preview, _editor_tabs, _filter_recurring_by_employees,
+    )
     ingreso_tabs, descuento_tabs = _editor_tabs(company_id, sandbox=sandbox)
     variable_tabs = ingreso_tabs + descuento_tabs
     group_id = period.get("payrollGroupId", "")
+    from app.utils.hr_utils import is_active_equivalent
     employees = hr.get_employees(company_id, sandbox=sandbox)
     if group_id:
         employees = [e for e in employees if group_id in e.get("payrollGroupIds", [])]
+    employees = [e for e in employees if is_active_equivalent(e.get("status", ""))]
     recurring_movements = []
     try:
         from app.services.recurring_service import get_recurring_movements
@@ -108,6 +112,7 @@ def payroll_view(period_id):
                 company_id, payroll_group_id=group_id, sandbox=sandbox)
     except Exception:
         recurring_movements = []
+    recurring_movements = _filter_recurring_by_employees(recurring_movements, employees)
     imported_variables = []
     try:
         imported_variables = PayrollService.get_period_manual_variables(

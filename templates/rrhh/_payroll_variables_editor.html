@@ -69,7 +69,15 @@
 
         <!-- Tab: Resumen -->
         <div id="pv-tab-resumen" class="pv-tab-panel {% if not pv_editable %}active{% endif %}">
-            {% if period_lines %}
+            {% if pv_editable %}
+            <div class="pv-complete-caption">Vista previa en vivo — se recalcula automáticamente (TSS, ISR y horas incluidas).</div>
+            <div class="table-responsive">
+            <table class="data-grid pv-summary-grid">
+                <thead><tr><th title="Empleado">Emp.</th><th class="num" title="Total de ingresos del período: salario base + variables + recurrentes">T. Ing.</th><th class="num" title="Total de descuentos: TSS, ISR, variables y recurrentes">T. Desc.</th><th class="num" title="Neto a pagar al empleado (ingresos − descuentos)">Neto</th><th class="num" title="Costo total para la empresa (ingresos + aportes patronales TSS)">Costo Emp.</th></tr></thead>
+                <tbody id="pv-live-resumen-body"><tr><td colspan="5" class="text-muted" style="padding:14px;">Calculando…</td></tr></tbody>
+            </table>
+            </div>
+            {% elif period_lines %}
             <div class="table-responsive">
             <table class="data-grid pv-summary-grid">
                 <thead><tr><th title="Empleado">Emp.</th><th class="num" title="Total de ingresos del período: salario base + variables + recurrentes">T. Ing.</th><th class="num" title="Total de descuentos: TSS, ISR, variables y recurrentes">T. Desc.</th><th class="num" title="Neto a pagar al empleado (ingresos − descuentos)">Neto</th><th class="num" title="Costo total para la empresa (ingresos + aportes patronales TSS)">Costo Emp.</th></tr></thead>
@@ -95,7 +103,33 @@
 
         <!-- Tab: Detalle -->
         <div id="pv-tab-detalle" class="pv-tab-panel">
-            {% if period_lines %}
+            {% if pv_editable %}
+            <div class="pv-complete-caption">Vista previa en vivo — Montos en RD$ · H.E. representa el pago de horas extras</div>
+            <div class="table-responsive">
+            <table class="data-grid pv-complete-grid">
+                <thead><tr>
+                    <th title="Empleado">Emp.</th>
+                    <th title="Salario base del período">Sal. Base</th>
+                    <th title="Pago por horas extras">H.E.</th>
+                    <th title="Comisiones del período">Com.</th>
+                    <th title="Bonificaciones del período">Bon.</th>
+                    <th title="Otros ingresos (incluye ingresos recurrentes)">O. Ing.</th>
+                    <th title="Regalía pascual">Reg.</th>
+                    <th title="Otras deducciones variables y manuales (no incluye recurrentes ni seguros)">O. Desc.</th>
+                    <th title="Descuento de planes de seguro del empleado">Seguro</th>
+                    <th class="num" title="Descuentos recurrentes: préstamos, cooperativas, embargos y reglas. Pasa el cursor sobre cada monto para ver el detalle">Rec.</th>
+                    <th title="Aporte AFP del empleado">AFP</th>
+                    <th title="Seguro Familiar de Salud (ARS) del empleado">SFS</th>
+                    <th title="Impuesto Sobre la Renta retenido al empleado">ISR</th>
+                    <th title="Descuento por días de licencia no pagada">Lic. No Pag.</th>
+                    <th class="num" title="Total de ingresos del período: salario base + variables + recurrentes">T. Ing.</th>
+                    <th class="num" title="Total de descuentos: TSS, ISR, variables y recurrentes">T. Desc.</th>
+                    <th class="num" title="Neto a pagar al empleado (ingresos − descuentos)">Neto</th>
+                </tr></thead>
+                <tbody id="pv-live-detalle-body"><tr><td colspan="17" class="text-muted" style="padding:14px;">Calculando…</td></tr></tbody>
+            </table>
+            </div>
+            {% elif period_lines %}
             <div class="pv-complete-caption">Montos en RD$ · H.E. representa el pago de horas extras</div>
             <div class="table-responsive">
             <table class="data-grid pv-complete-grid">
@@ -720,6 +754,7 @@ function pvRender() {
         document.getElementById('pvLiveNet').textContent = pvFmtMoney(salary + incMoney - decMoney);
     }
     try { pvSaveDraft(); } catch(e) {}
+    scheduleLivePreview();
 }
 
 function pvSetChipFilter(section, code) {
@@ -827,7 +862,7 @@ function syncChristmasRows() {
 }
 
 /* ── Vista previa ── */
-function openPreview() {
+function pvBuildFormData() {
     var fd = new FormData();
     var form = document.getElementById('pvProcessForm');
     if (form) {
@@ -844,6 +879,81 @@ function openPreview() {
             if (empId && concept && amt > 0) fd.append('var_' + concept + '_' + empId, amt);
         });
     });
+    return fd;
+}
+
+function pvFmtNum(v) {
+    var n = Number(v);
+    return (n > 0) ? n.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '—';
+}
+
+function pvRenderLive(lines) {
+    var resumen = document.getElementById('pv-live-resumen-body');
+    if (resumen) {
+        resumen.innerHTML = (lines || []).map(function(l) {
+            return '<tr>' +
+                '<td class="emp" title="' + (l.employeeName || l.employeeId || '') + '">' + (l.employeeName || l.employeeId || '') + '</td>' +
+                '<td class="num">' + pvFmtNum(l.totalIncome) + '</td>' +
+                '<td class="num">' + pvFmtNum(l.totalDeductions) + '</td>' +
+                '<td class="num net">' + pvFmtNum(l.netSalary) + '</td>' +
+                '<td class="num">' + pvFmtNum(l.totalEmployerContrib) + '</td>' +
+            '</tr>';
+        }).join('') || '<tr><td colspan="5" class="text-muted" style="padding:14px;">Sin empleados en este período.</td></tr>';
+    }
+    var detalle = document.getElementById('pv-live-detalle-body');
+    if (detalle) {
+        detalle.innerHTML = (lines || []).map(function(l) {
+            var rec = 0;
+            (l.recurringDeductionsBreakdown || []).forEach(function(d) { rec += (Number(d.amount) || 0); });
+            var sal = (l.lineType === 'liquidation') ? '—' : pvFmtNum(l.grossSalary);
+            return '<tr>' +
+                '<td class="emp" title="' + (l.employeeName || l.employeeId || '') + '">' + (l.employeeName || l.employeeId || '') + '</td>' +
+                '<td class="num">' + sal + '</td>' +
+                '<td class="num">' + pvFmtNum(l.overtimePay) + '</td>' +
+                '<td class="num">' + pvFmtNum(l.commission) + '</td>' +
+                '<td class="num">' + pvFmtNum(l.bonus) + '</td>' +
+                '<td class="num">' + pvFmtNum(l.otherIncome) + '</td>' +
+                '<td class="num">' + pvFmtNum(l.christmasBonus) + '</td>' +
+                '<td class="num">' + pvFmtNum(l.otherDeductions) + '</td>' +
+                '<td class="num">' + pvFmtNum(l.insuranceDeduction) + '</td>' +
+                '<td class="num">' + pvFmtNum(rec) + '</td>' +
+                '<td class="num">' + pvFmtNum(l.afpEmployee) + '</td>' +
+                '<td class="num">' + pvFmtNum(l.sfsEmployee) + '</td>' +
+                '<td class="num">' + pvFmtNum(l.isrRetention) + '</td>' +
+                '<td class="num">' + pvFmtNum(l.leaveDeduction) + '</td>' +
+                '<td class="num">' + pvFmtNum(l.totalIncome) + '</td>' +
+                '<td class="num">' + pvFmtNum(l.totalDeductions) + '</td>' +
+                '<td class="num net">' + pvFmtNum(l.netSalary) + '</td>' +
+            '</tr>';
+        }).join('') || '<tr><td colspan="17" class="text-muted" style="padding:14px;">Sin empleados en este período.</td></tr>';
+    }
+}
+
+function pvRefreshLive() {
+    if (!PV_EDITABLE) return;
+    if (!document.getElementById('pv-live-resumen-body') && !document.getElementById('pv-live-detalle-body')) return;
+    fetch('/rrhh/payroll/preview', {
+        method: 'POST',
+        headers: {'X-CSRFToken': '{{ csrf_token() }}'},
+        body: pvBuildFormData(),
+    })
+    .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
+    .then(function(res) {
+        if (!res.ok || !res.data || res.data.error || !res.data.lines) return;
+        pvRenderLive(res.data.lines);
+    })
+    .catch(function() {});
+}
+
+var _pvLiveTimer = null;
+function scheduleLivePreview() {
+    if (!PV_EDITABLE) return;
+    clearTimeout(_pvLiveTimer);
+    _pvLiveTimer = setTimeout(pvRefreshLive, 500);
+}
+
+function openPreview() {
+    var fd = pvBuildFormData();
     document.getElementById('pvPreviewModal').style.display = 'flex';
     document.getElementById('pvPreviewLoading').style.display = '';
     document.getElementById('pvPreviewContent').style.display = 'none';
