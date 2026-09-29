@@ -159,6 +159,7 @@
 {%- elif cat == 'herramienta' -%}background:#fef9c3;color:#a16207;
 {%- elif cat == 'baja' -%}background:#fee2e2;color:#dc2626;
 {%- elif cat == 'alta' -%}background:#d1fae5;color:#047857;
+{%- elif cat == 'amonestacion' -%}background:#fef3c7;color:#b45309;
 {%- else -%}background:#f3f4f6;color:#4b5563;
 {%- endif -%}
 {%- endmacro %}
@@ -365,6 +366,26 @@
 </table>
 {% else %}
 <p class="empty">Sin capacitaciones registradas.</p>
+{% endif %}
+
+{# ═══════════ AMONESTACIONES ═══════════ #}
+<h2 class="sec">Amonestaciones ({{ amonestaciones|length }})</h2>
+{% if amonestaciones %}
+<table class="data">
+    <thead><tr><th>Fecha</th><th>Tipo</th><th>Hecho</th><th>Firmante</th></tr></thead>
+    <tbody>
+    {% for a in amonestaciones %}
+        <tr>
+            <td>{{ a.fechaLegible or a.fecha or '—' }}</td>
+            <td>{{ a.tipoLabel or a.tipo or '—' }}</td>
+            <td>{{ (a.hecho or '')[:160] }}</td>
+            <td>{{ a.signerName or '—' }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="empty">Sin amonestaciones registradas.</p>
 {% endif %}
 
 {# ═══════════ HISTORIAL DE PAGOS ═══════════ #}

@@ -40,6 +40,8 @@ VALID_SENIORITY_POLICIES = {"reset", "preserve"}
 VALID_VACATION_POLICIES = {"reset", "preserve"}
 VALID_ORIGINS = {"initial_hire", "rehire", "contract_change", "legacy"}
 
+REHIRE_RECENCY_WARNING_DAYS = 60
+
 
 def _today_iso_date() -> str:
     return datetime.now(timezone.utc).date().isoformat()
@@ -59,6 +61,32 @@ def _parse_date(value: str) -> Optional[str]:
         return s
     except Exception:
         return None
+
+
+def check_rehire_recency_warning(termination_date: str,
+                                 start_date: str,
+                                 threshold_days: int = REHIRE_RECENCY_WARNING_DAYS) -> Optional[str]:
+    """Advertencia legal si el reingreso ocurre ≤ threshold_days desde la baja.
+
+    Jurisprudencia SCJ (2016): un reingreso en plazo breve —en particular con
+    devolución de indemnizaciones— puede implicar continuidad de la relación
+    laboral y el cómputo de períodos anteriores para fines de antigüedad.
+
+    Retorna el mensaje de advertencia si 0 <= (inicio - baja).days <= threshold,
+    si no None.
+    """
+    term = _parse_date(termination_date)
+    start = _parse_date(start_date)
+    if not term or not start:
+        return None
+    try:
+        days = (datetime.strptime(start, "%Y-%m-%d").date()
+                - datetime.strptime(term, "%Y-%m-%d").date()).days
+    except Exception:
+        return None
+    if 0 <= days <= threshold_days:
+        return f"El reingreso se produce {days} día(s) después de la baja (≤{threshold_days} días)."
+    return None
 
 
 def validate_rehire_eligibility(employee: dict | None,
@@ -347,7 +375,8 @@ class RehireService:
         if existing:
             emp = hr.get_employee(self.company_id, employee_id, sandbox=self.sandbox)
             return {"contract": existing, "employee": emp, "reused": True,
-                    "copiedMovements": [], "rehireRequestId": rehire_request_id}
+                    "copiedMovements": [], "rehireRequestId": rehire_request_id,
+                    "warning": None}
 
         # ── 1. Cargar empleado ──
         employee = hr.get_employee(self.company_id, employee_id, sandbox=self.sandbox)
@@ -376,6 +405,13 @@ class RehireService:
 
         validated = validate_rehire_eligibility(employee, active_contracts, start_date, previous)
         norm_start = validated["startDate"]
+
+        # ── Advertencia legal: reingreso en plazo breve (≤60 días desde la baja) ──
+        _prev_term = ""
+        if previous:
+            _prev_term = (previous.get("terminationDate") or previous.get("endDate") or "")
+        _prev_term = _prev_term or employee.get("terminationDate") or ""
+        recency_warning = check_rehire_recency_warning(_prev_term, norm_start)
 
         # ── Offboarding abierto incompatible ──
         try:
@@ -522,4 +558,5 @@ class RehireService:
 
         return {"contract": new_contract, "employee": updated_employee, "reused": False,
                 "copiedMovements": copied, "rehireRequestId": rehire_request_id,
-                "previousContractId": (previous or {}).get("id", "") if previous else ""}
+                "previousContractId": (previous or {}).get("id", "") if previous else "",
+                "warning": recency_warning}

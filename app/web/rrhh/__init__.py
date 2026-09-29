@@ -183,3 +183,4 @@ from app.web.rrhh import employee_profile_pdf  # noqa: E402, F401
 from app.web.rrhh import offboarding         # noqa: E402, F401
 from app.web.rrhh import authorizations      # noqa: E402, F401
 from app.web.rrhh import insurance            # noqa: E402, F401
+from app.web.rrhh import amonestaciones       # noqa: E402, F401

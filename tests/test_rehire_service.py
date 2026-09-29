@@ -11,6 +11,7 @@ from app.services.rehire_service import (
     build_new_contract_dict,
     build_employee_snapshot,
     _is_loan_copyable,
+    check_rehire_recency_warning,
 )
 from app.models.contract import EmploymentContract
 
@@ -287,3 +288,42 @@ def test_full_rehire_flow_and_idempotency(monkeypatch):
     assert res2["reused"] is True
     assert res2["contract"]["id"] == new["id"]
     assert len([c for c in fake.contracts.values() if c.get("origin") == "rehire"]) == 1
+
+
+# ── Advertencia de reincorporación en plazo breve (≤60 días desde la baja) ──
+
+def test_recency_warning_within_threshold():
+    msg = check_rehire_recency_warning("2026-09-15", "2026-09-15")
+    assert msg is not None
+    assert "0 día(s)" in msg
+
+    msg = check_rehire_recency_warning("2026-09-01", "2026-10-01")
+    assert msg is not None
+    assert "30 día(s)" in msg
+
+    msg = check_rehire_recency_warning("2026-09-01", "2026-10-31")
+    assert msg is not None
+    assert "60 día(s)" in msg
+
+
+def test_recency_warning_beyond_threshold():
+    assert check_rehire_recency_warning("2026-09-01", "2026-11-01") is None
+    assert check_rehire_recency_warning("2026-09-01", "2027-01-01") is None
+
+
+def test_recency_warning_empty_or_invalid_dates():
+    assert check_rehire_recency_warning("", "2026-09-15") is None
+    assert check_rehire_recency_warning("2026-09-15", "") is None
+    assert check_rehire_recency_warning("no-date", "2026-09-15") is None
+    assert check_rehire_recency_warning("2026-09-15", "no-date") is None
+    assert check_rehire_recency_warning("", "") is None
+
+
+def test_recency_warning_negative_days():
+    # Reingreso anterior a la baja (invalid order, ya validado en otro lugar) → sin advertencia aquí.
+    assert check_rehire_recency_warning("2026-09-15", "2026-08-01") is None
+
+
+def test_recency_warning_custom_threshold():
+    assert check_rehire_recency_warning("2026-09-01", "2026-09-16", threshold_days=30) is not None
+    assert check_rehire_recency_warning("2026-09-01", "2026-10-02", threshold_days=30) is None

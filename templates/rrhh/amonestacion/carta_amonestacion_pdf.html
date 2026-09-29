@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Carta de Amonestación</title>
+<style>
+    @page { size: letter; margin: 2.4cm 2.4cm 2cm 2.4cm; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; line-height: 1.7; color: #222; margin: 0; padding: 0; }
+    .header { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; }
+    .header img { max-height: 70px; max-width: 160px; object-fit: contain; }
+    .company-meta { flex: 1; }
+    .company-name { font-size: 15pt; font-weight: 700; letter-spacing: 0.5px; }
+    .company-line { font-size: 10pt; color: #444; }
+    .divider { border-bottom: 2px solid #222; margin: 14px 0 20px; }
+    .fecha { text-align: right; margin-bottom: 20px; }
+    .asunto { font-weight: 700; margin: 0 0 18px; text-decoration: underline; }
+    .content { text-align: justify; }
+    .content p { margin: 14px 0; }
+    .hecho { margin: 12px 0 12px 24px; }
+    .closing { margin-top: 24px; }
+    .signatures { display: flex; justify-content: space-between; gap: 48px; margin-top: 60px; }
+    .signature { flex: 1; text-align: center; }
+    .signature-label { font-size: 9pt; text-transform: uppercase; letter-spacing: 0.05em; color: #555; margin-bottom: 8px; }
+    .signature-line { border-top: 1px solid #333; width: 100%; margin: 0 auto 10px; }
+    .signature-name { font-weight: 600; }
+    .campo { border-bottom: 1px solid #333; display: inline-block; min-width: 200px; }
+    .campo-corto { border-bottom: 1px solid #333; display: inline-block; min-width: 140px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+    {% if logo_src %}<img src="{{ logo_src }}" alt="Logo">{% endif %}
+    <div class="company-meta">
+        <div class="company-name">{{ company.companyName or '________________________________' }}</div>
+        <div class="company-line">RNC: {{ company.rnc or '_________________' }}</div>
+        <div class="company-line">Dirección: {{ company.address or '________________________________' }}</div>
+    </div>
+</div>
+<div class="divider"></div>
+
+<div class="fecha">Fecha: {{ data.fecha or '_________________' }}</div>
+
+<p class="asunto">Asunto: Amonestación {{ data.tipo_label or '___________________________' }}</p>
+
+<div class="content">
+    <p>Estimado(a) <strong>{{ employee.fullName or '___________________________' }}</strong>,<br>
+    Cédula: <strong>{{ employee.cedula or employee.idNumber or '_________________' }}</strong></p>
+
+    <p>Por medio de la presente, la empresa <strong>{{ company.companyName or '________________________________' }}</strong> procede a imponerle una <strong>AMONESTACIÓN {{ (data.tipo_label or '_________________')|upper }}</strong>, como consecuencia del siguiente hecho:</p>
+
+    <p class="hecho">{{ data.hecho or '____________________________________________________________' }}</p>
+
+    <p>Este comportamiento constituye una falta a las obligaciones del trabajador, conforme a lo establecido en el Código de Trabajo de la República Dominicana, específicamente en el Artículo 44, así como a las políticas internas de la empresa debidamente comunicadas.</p>
+
+    <p>La presente amonestación es de carácter <strong>{{ data.tipo_label or '________________________________' }}</strong>, y tiene como finalidad corregir la conducta y prevenir situaciones similares en el futuro.</p>
+
+    <p>Se le exhorta a corregir de inmediato la conducta antes descrita. De reiterarse este tipo de faltas, la empresa se reserva el derecho de aplicar medidas disciplinarias adicionales, conforme a la gravedad del caso y a lo dispuesto por el Código de Trabajo, lo cual podría incluir sanciones mayores.</p>
+
+    <p>Esta comunicación será archivada en su expediente laboral, como constancia de la gestión realizada por la empresa.</p>
+
+    <p>Sin otro particular, esperamos contar con su colaboración para mantener un ambiente de trabajo basado en el respeto, la disciplina y el cumplimiento de las normas.</p>
+
+    <p>He recibido copia de la presente amonestación, la cual firmo como constancia de su notificación y recepción.</p>
+
+    <p class="closing">Atentamente,</p>
+</div>
+
+<div class="signatures">
+    <div class="signature">
+        <div class="signature-label">Recibido por el colaborador</div>
+        <div class="signature-line"></div>
+        <div class="signature-name">{{ employee.fullName or '___________________________' }}</div>
+        <div>Cédula: {{ employee.cedula or employee.idNumber or '_________________' }}</div>
+        <div>Fecha: ______________________</div>
+    </div>
+    <div class="signature">
+        <div class="signature-label">Por la empresa</div>
+        <div class="signature-line"></div>
+        <div class="signature-name">{{ data.signer_name or '________________________________' }}</div>
+        <div>{{ data.signer_position or '___________________________' }}</div>
+        <div>{{ company.companyName or '________________________________' }}</div>
+    </div>
+</div>
+
+</body>
+</html>

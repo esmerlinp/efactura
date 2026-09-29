@@ -1,0 +1,55 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}{{ 'Nueva' if is_new else 'Editar' }} Amonestación — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-triangle-exclamation"></i> {{ 'Nueva amonestación' if is_new else 'Editar amonestación' }}</h1>
+</div>
+
+<form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="card-table-wrapper" style="max-width:720px;">
+        <div style="padding:20px 24px; display:flex; flex-direction:column; gap:14px;">
+            <div style="font-size:0.9rem; color:var(--text-secondary);">
+                Empleado: <strong>{{ employee.fullName or '—' }}</strong>
+                {% if employee.cedula or employee.idNumber %} · {{ employee.cedula or employee.idNumber }}{% endif %}
+            </div>
+            <div class="form-group">
+                <label>Tipo de amonestación *</label>
+                <select name="tipo" class="form-input" required>
+                    <option value="">Seleccionar...</option>
+                    {% for key, label in AMONESTACION_TIPOS.items() %}
+                    <option value="{{ key }}" {% if amonestacion.tipo == key %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Fecha</label>
+                <input type="date" name="fecha" class="form-input" value="{{ amonestacion.fecha or '' }}">
+            </div>
+            <div class="form-group">
+                <label>Descripción del hecho *</label>
+                <textarea name="hecho" class="form-input" rows="5" required style="resize:vertical;" placeholder="Describa la conducta que motiva la amonestación...">{{ amonestacion.hecho or '' }}</textarea>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <div class="form-group">
+                    <label>Firmante</label>
+                    <input type="text" name="signerName" class="form-input" value="{{ amonestacion.signerName or '' }}" placeholder="Representante de la empresa">
+                </div>
+                <div class="form-group">
+                    <label>Cargo del firmante</label>
+                    <input type="text" name="signerPosition" class="form-input" value="{{ amonestacion.signerPosition or '' }}" placeholder="Representante Legal">
+                </div>
+            </div>
+        </div>
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap; margin-top:12px;">
+        {% if is_new %}
+        <a href="{{ url_for('web_rrhh.employee_view', employee_id=employee.id) }}" class="btn btn-ghost">Cancelar</a>
+        {% else %}
+        <a href="{{ url_for('web_rrhh.amonestacion_detail', amonestacion_id=amonestacion.id) }}" class="btn btn-ghost">Cancelar</a>
+        {% endif %}
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> {{ 'Guardar' if is_new else 'Guardar cambios' }}</button>
+    </div>
+</form>
+{% endblock %}

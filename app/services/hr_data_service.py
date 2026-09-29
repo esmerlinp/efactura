@@ -662,6 +662,23 @@ def delete_training(company_id: str, training_id: str, sandbox: bool = True):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# AMONESTACIONES (acciones disciplinarias)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_amonestaciones(company_id: str, sandbox: bool = True) -> list:
+    return _get_all(company_id, "amonestaciones", sandbox)
+
+def get_amonestacion(company_id: str, amonestacion_id: str, sandbox: bool = True) -> dict | None:
+    return _get_one(company_id, "amonestaciones", amonestacion_id, sandbox)
+
+def save_amonestacion(company_id: str, amonestacion_id: str, data: dict, sandbox: bool = True):
+    _save(company_id, "amonestaciones", amonestacion_id, data, sandbox)
+
+def delete_amonestacion(company_id: str, amonestacion_id: str, sandbox: bool = True):
+    _delete(company_id, "amonestaciones", amonestacion_id, sandbox)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # PAYROLL CONFIG (frecuencia de pago, onboarding)
 # ═══════════════════════════════════════════════════════════════════════════
 
