@@ -148,3 +148,83 @@ class PayrollProjectionService:
                 "total": round(sum(row["total"] for row in rows), 2),
                 "totalNeto": round(sum(row["netoAPagar"] for row in rows), 2),
                 "calculation_mode": "projected"}
+
+    @staticmethod
+    def _months_worked_in_year(hire_date_str, year):
+        """Meses (1..12) que un empleado trabaja en el año, según su fecha de ingreso."""
+        from datetime import date
+        try:
+            hd = date.fromisoformat(str(hire_date_str or "")[:10])
+        except (ValueError, TypeError):
+            return 12
+        if hd.year < year:
+            return 12
+        if hd.year > year:
+            return 0
+        return 12 - hd.month + 1
+
+    @classmethod
+    def project_regalia(cls, employees, year, company_id="", sandbox=True, **filters):
+        """Proyección de regalía pascual (salario de navidad, Art. 219).
+
+        Combina los salarios ordinarios ya devengados en el año (transacciones
+        aplicadas) con una proyección del salario base para los meses restantes,
+        y aplica 1/12 para obtener la regalía proyectada de cada empleado.
+        """
+        from app.services import hr_data_service as hr
+
+        selected = cls.filter_employees(employees, **filters)
+        ids = [e.get("id", "") for e in selected if e.get("id")]
+
+        txs_by_emp = {}
+        if company_id and ids:
+            try:
+                txs_by_emp = hr.get_payroll_transactions_for_employees(
+                    company_id, ids, sandbox=sandbox)
+            except Exception:
+                txs_by_emp = {}
+
+        rows = []
+        for employee in selected:
+            base = float(employee.get("baseSalary", employee.get("salary", 0)) or 0)
+            if base <= 0:
+                continue
+            emp_id = employee.get("id", "")
+
+            months_worked = cls._months_worked_in_year(employee.get("hireDate", ""), year)
+
+            monthly_ytd = []
+            if txs_by_emp.get(emp_id):
+                try:
+                    prom = LiquidacionService.calcular_salario_promedio_mensual(
+                        txs_by_emp.get(emp_id, []), year=year)
+                    monthly_ytd = prom.get("monthly_salaries_ytd") or []
+                except Exception:
+                    monthly_ytd = []
+
+            actual_months = min(len(monthly_ytd), months_worked)
+            actual_sum = round(sum(monthly_ytd[:months_worked]), 2)
+            projected_months = max(0, months_worked - actual_months)
+            salario_anual = round(actual_sum + base * projected_months, 2)
+            regalia = round(salario_anual / 12.0, 2)
+
+            rows.append({
+                "employeeId": emp_id, "employeeCode": employee.get("code", ""),
+                "employeeName": employee.get("fullName", "") or cls.employee_name(employee),
+                "cedula": employee.get("cedula", ""),
+                "position": employee.get("position", employee.get("jobTitle", "")),
+                "department": employee.get("department", employee.get("area", "General")),
+                "hireDate": employee.get("hireDate", ""),
+                "baseSalary": base,
+                "monthsWorked": months_worked,
+                "actualMonths": actual_months,
+                "salarioAnual": salario_anual,
+                "regalia": regalia,
+                "exentoISR": regalia,
+                "netoAPagar": regalia,
+            })
+        return {"year": int(year), "rows": rows,
+                "total": round(sum(r["regalia"] for r in rows), 2),
+                "totalNeto": round(sum(r["netoAPagar"] for r in rows), 2),
+                "employee_count": len(rows),
+                "calculation_mode": "projected"}

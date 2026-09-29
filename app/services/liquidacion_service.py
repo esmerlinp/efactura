@@ -81,7 +81,8 @@ class LiquidacionService:
     def calcular_salario_promedio_mensual(cls, transactions: list,
                                           contract_id: str = "",
                                           start_date: str = "",
-                                          end_date: str = "") -> dict:
+                                          end_date: str = "",
+                                          year: Optional[int] = None) -> dict:
         """
         Calcula el salario ordinario promedio mensual a partir de transacciones
         de nómina. Solo se consideran conceptos tipo 'earning' con estado
@@ -91,6 +92,10 @@ class LiquidacionService:
         Aislamiento contractual: con ``contract_id`` solo se usan transacciones
         de ese período (+ legacy dentro del rango de fechas); sin él se usa
         todo lo recibido (comportamiento legacy intacto).
+
+        ``year`` opcional: cuando se indica, ``monthly_salaries_ytd`` se filtra
+        a ese año (en lugar del año de la última transacción). Útil para
+        proyecciones de regalía de un año específico.
 
         Returns:
             {"promedio_mensual": float, "monthly_salaries_ytd": list,
@@ -169,7 +174,7 @@ class LiquidacionService:
         n = len(last_12) or 1
         promedio_mensual = round(total / n, 2)
 
-        current_year = last_12[-1][:4] if last_12 else ""
+        current_year = str(year) if year else (last_12[-1][:4] if last_12 else "")
         ytd = [round(monthly[m], 2) for m in sorted_months if m.startswith(current_year)]
         monthly_totals_last_12 = [round(monthly[m], 2) for m in last_12]
 
