@@ -1064,8 +1064,8 @@
                 compromiso.</p>
 
             <div class="max-w-2xl mx-auto">
-                <iframe src="{{ url_for('web_auth.contact_embed') }}" loading="lazy"
-                    class="w-full h-[670px] sm:h-[600px] md:h-[580px] lg:h-[560px]" frameborder="0" marginheight="0"
+                <iframe id="lead-iframe" src="{{ url_for('web_auth.contact_embed') }}"
+                    class="w-full h-[1500px] sm:h-[1350px] md:h-[1300px] lg:h-[1250px]" frameborder="0" marginheight="0"
                     marginwidth="0" title="Formulario de contacto {{ product_name }}"></iframe>
             </div>
 
@@ -1294,6 +1294,15 @@
                 });
             });
         }
+        // Ajustar altura del iframe del formulario de lead
+        window.addEventListener('message', function (e) {
+            if (e.data && e.data.type === 'lead-iframe-height') {
+                const iframe = document.getElementById('lead-iframe');
+                if (iframe) {
+                    iframe.style.height = (e.data.height + 24) + 'px';
+                }
+            }
+        });
     </script>
 </body>
 

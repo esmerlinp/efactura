@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>VykOne ERP — Resumen Ejecutivo y Capacidades del Sistema</title>
+  <link rel="stylesheet" href="vykone-resumen-ejecutivo.css">
+</head>
+<body>
+  <div class="document">
+
+    <!-- PÁGINA 1: PORTADA EJECUTIVA (FONDO BLANCO) -->
+    <section class="page cover-page">
+      <div class="cover-header">
+        <img src="../static/images/logo.png" alt="VykOne ERP">
+        <div>
+          <div class="cover-brand-title">VykOne ERP</div>
+          <div class="cover-brand-subtitle">Business Management Platform</div>
+        </div>
+      </div>
+
+      <div class="cover-main">
+        <div class="cover-badge">Resumen Ejecutivo · República Dominicana</div>
+        <h1>Todo tu negocio.<br><span>Una sola visión.</span></h1>
+        <p class="cover-description">
+          Plataforma ERP integral, moderna y multi-tenant, diseñada específicamente para
+          conectar facturación electrónica (e-CF DGII), nómina y TSS/ISR, contabilidad automatizada,
+          inventario multialmacén, compras, finanzas y CRM bajo estricto cumplimiento normativo dominicano.
+        </p>
+
+        <div class="cover-pills-grid">
+          <div class="pill-item highlight">e-CF & DGII (Ley 32-23)</div>
+          <div class="pill-item">Nómina TSS & ISR (Ley 87-01)</div>
+          <div class="pill-item">Prestaciones Ley 16-92</div>
+          <div class="pill-item">Contabilidad en Tiempo Real</div>
+          <div class="pill-item">Inventario PEPS / Promedio</div>
+          <div class="pill-item">Workflows CxC / CxP</div>
+          <div class="pill-item">CRM & Punto de Venta</div>
+          <div class="pill-item">Informes 606 / 607 / 608 / DGT</div>
+        </div>
+
+        <div class="cover-stats-row">
+          <div class="cover-stat-box">
+            <div class="cover-stat-val">100%</div>
+            <div class="cover-stat-lbl">Alineado a normas DGII, TSS y Ministerio de Trabajo</div>
+          </div>
+          <div class="cover-stat-box">
+            <div class="cover-stat-val">360°</div>
+            <div class="cover-stat-lbl">Control de ventas, compras, bancos y recursos humanos</div>
+          </div>
+          <div class="cover-stat-box">
+            <div class="cover-stat-val">Real-Time</div>
+            <div class="cover-stat-lbl">Asientos automáticos impulsados por eventos de negocio</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cover-bottom">
+        <span>VykOne ERP v2 · Documento Ejecutivo</span>
+        <span>www.vykcore.com</span>
+      </div>
+    </section>
+
+    <!-- PÁGINA 2: ¿QUÉ ES VYKONE? ARQUITECTURA Y PROPÓSITO -->
+    <section class="page">
+      <div class="page-header">
+        <div class="header-brand">
+          <img src="../static/images/logo.png" alt="VykOne">
+          <span>VykOne ERP</span>
+        </div>
+        <div class="header-meta">01 / La Plataforma</div>
+      </div>
+
+      <div class="page-body">
+        <span class="section-tag">Visión General</span>
+        <h2>¿Qué es VykOne?</h2>
+        <p class="lead-text">
+          VykOne es un sistema de planificación de recursos empresariales (ERP) de última generación,
+          creado para resolver la complejidad administrativa, fiscal y operativa de las empresas en
+          la República Dominicana. Unifica en un único entorno digital seguro la facturación electrónica,
+          la nómina con retenciones de ley, el registro contable y la gestión comercial.
+        </p>
+
+        <div class="grid-3" style="margin-bottom: 14px;">
+          <div class="card card-primary-light">
+            <div class="card-icon icon-blue">⚖️</div>
+            <h3>Cumplimiento Nativo</h3>
+            <p class="card-text">
+              Diseñado desde su base con las reglas tributarias de la DGII, retenciones de TSS/ISR y
+              parámetros de la legislación laboral dominicana (Ley 16-92).
+            </p>
+          </div>
+          <div class="card card-accent-light">
+            <div class="card-icon icon-green">⚡</div>
+            <h3>Automatización Total</h3>
+            <p class="card-text">
+              Bus de eventos que genera automáticamente la contabilidad a partir de facturas,
+              gastos, cobros y depreciaciones sin intervención manual redundante.
+            </p>
+          </div>
+          <div class="card card-amber-light">
+            <div class="card-icon icon-amber">🛡️</div>
+            <h3>Seguridad & Sandbox</h3>
+            <p class="card-text">
+              Aislamiento completo entre ambientes de prueba (Sandbox) y Producción, con matriz
+              de Segregación de Funciones (SoD) y auditoría detallada.
+            </p>
+          </div>
+        </div>
+
+        <span class="section-tag accent" style="margin-top: 4px;">Pilares Tecnológicos y Operativos</span>
+        <div class="grid-2" style="margin-top: 6px;">
+          <div class="card">
+            <h3 style="color: #2563eb;">Arquitectura Modular y Escalable</h3>
+            <ul class="bullet-list blue">
+              <li><b>Multi-inquilino (Multi-tenant):</b> Separación de datos por empresa y usuario.</li>
+              <li><b>Nube de alta disponibilidad:</b> Persistencia transaccional en Google Firestore.</li>
+              <li><b>Firma criptográfica P12:</b> Emisión válida de e-CF ante los servicios REST de la DGII.</li>
+              <li><b>Integración continua:</b> API REST documentada y conectores de pago (Azul).</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3 style="color: #059669;">Control Financiero & Operativo 360°</h3>
+            <ul class="bullet-list">
+              <li><b>Trazabilidad completa:</b> Desde la cotización CRM hasta el cobro bancario.</li>
+              <li><b>Costeo de inventario exacto:</b> FIFO/PEPS y Promedio Ponderado en tiempo real.</li>
+              <li><b>Flujos de aprobación:</b> Control de gastos y compras con límites por jerarquía.</li>
+              <li><b>Reportes regulatorios instantáneos:</b> Exportación a formatos 606, 607 y DGT.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="callout green" style="margin-top: 14px;">
+          <div class="callout-title">Impacto Directo en la Organización</div>
+          <div class="callout-desc">
+            Elimina la duplicación de datos entre hojas de cálculo y sistemas aislados, reduce los
+            riesgos de multas fiscales por inconsistencias en comprobantes y proporciona a la
+            dirección estados financieros e indicadores confiables al instante.
+          </div>
+        </div>
+      </div>
+
+      <div class="page-footer">
+        <span>VykOne ERP · Resumen Ejecutivo</span>
+        <span>Página 2</span>
+      </div>
+    </section>
+
+    <!-- PÁGINA 3: FACTURACIÓN ELECTRÓNICA (e-CF) Y DGII -->
+    <section class="page">
+      <div class="page-header">
+        <div class="header-brand">
+          <img src="../static/images/logo.png" alt="VykOne">
+          <span>VykOne ERP</span>
+        </div>
+        <div class="header-meta">02 / Facturación e-CF & DGII</div>
+      </div>
+
+      <div class="page-body">
+        <span class="section-tag">Módulo Esencial</span>
+        <h2>Facturación Electrónica e-CF & Cumplimiento DGII</h2>
+        <p class="lead-text">
+          VykOne opera como un emisor electrónico integral certificado conforme a la Ley 32-23 de
+          Facturación Electrónica, gestionando el ciclo completo de validación, firma, envío y recepción.
+        </p>
+
+        <div class="feature-split">
+          <div>
+            <ul class="bullet-list">
+              <li><b>Todos los Comprobantes Fiscales Electrónicos:</b> E31 (Crédito Fiscal), E32 (Consumo), E33 (Nota Débito), E34 (Nota Crédito), E41 (Compras), E43 (Especial), E44 (Reg. Especial), E45 (Gubernamental) y E47 (Exportación).</li>
+              <li><b>Firma Digital y Cuadratura Automática:</b> Validación estricta de bases gravadas, tasas de ITBIS (18%, 16%, exento) y firma con certificado digital X.509 (.p12).</li>
+              <li><b>Transmisión Directa a DGII:</b> Autenticación vía semilla/token, entrega por servicio REST y consulta periódica del TrackID con actualización de estado.</li>
+              <li><b>Modo de Contingencia:</b> Emisión ininterrumpida ante indisponibilidad del servicio DGII y sincronización automática en diferido.</li>
+              <li><b>Formatos Regulatorios Nativos:</b> Generación con un solo clic de los reportes 606 (compras), 607 (ventas), 608 (anulaciones) y 623.</li>
+            </ul>
+          </div>
+          <div class="screenshot-container">
+            <img src="../static/images/detalle_preview.png" alt="Factura Electrónica en VykOne" class="screenshot-md">
+          </div>
+        </div>
+
+        <span class="section-tag accent" style="margin-top: 6px;">Catálogo de Comprobantes Soportados</span>
+        <table class="compact-table">
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Tipo de e-CF</th>
+              <th>Uso Principal</th>
+              <th>Validación Clave</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="badge-tag blue">E31</span></td>
+              <td>Factura de Crédito Fiscal</td>
+              <td>Transacciones B2B con deducción de ITBIS / ISR</td>
+              <td>RNC Comprador verificado en DGII</td>
+            </tr>
+            <tr>
+              <td><span class="badge-tag green">E32 / RFCE</span></td>
+              <td>Factura de Consumo Electrónica</td>
+              <td>Ventas a consumidor final y Resumen RFCE</td>
+              <td>RNC genérico o documento de identidad</td>
+            </tr>
+            <tr>
+              <td><span class="badge-tag blue">E33 / E34</span></td>
+              <td>Notas de Débito y Crédito</td>
+              <td>Modificaciones de valor, devoluciones y descuentos</td>
+              <td>Vinculación al e-NCF original</td>
+            </tr>
+            <tr>
+              <td><span class="badge-tag amber">E45</span></td>
+              <td>Factura Gubernamental</td>
+              <td>Ventas a instituciones del Estado dominicano</td>
+              <td>Cuadratura precisa de precios sin ITBIS</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="page-footer">
+        <span>VykOne ERP · Resumen Ejecutivo</span>
+        <span>Página 3</span>
+      </div>
+    </section>
+
+    <!-- PÁGINA 4: RECURSOS HUMANOS, NÓMINA Y CUMPLIMIENTO LABORAL (FONDO BLANCO) -->
+    <section class="page">
+      <div class="page-header">
+        <div class="header-brand">
+          <img src="../static/images/logo.png" alt="VykOne">
+          <span>VykOne ERP</span>
+        </div>
+        <div class="header-meta">03 / RRHH, Nómina & Ley 16-92</div>
+      </div>
+
+      <div class="page-body">
+        <span class="section-tag accent">Talento & Ley Laboral</span>
+        <h2>Recursos Humanos, Nómina TSS/ISR & DGT</h2>
+        <p class="lead-text">
+          Administra de manera integral a tu personal, procesa la nómina con el cálculo exacto de las
+          retenciones de la Tesorería de la Seguridad Social (TSS) y del Impuesto Sobre la Renta (ISR),
+          y calcula prestaciones laborales conforme al Código de Trabajo (Ley 16-92).
+        </p>
+
+        <div class="feature-split">
+          <div class="screenshot-container">
+            <img src="../static/images/nomina_preview.png" alt="Módulo de Nómina VykOne" class="screenshot-md">
+          </div>
+          <div>
+            <ul class="bullet-list">
+              <li><b>Cálculo de Nómina Automático:</b> Procesamiento quincenal y mensual con desglose claro de ingresos ordinarios, horas extras, comisiones e incentivos.</li>
+              <li><b>Retenciones TSS de Ley:</b> Deducción precisa de AFP (2.87% empleado / 7.10% empleador), SFS (3.04% / 7.09%) y Seguro de Riesgos Laborales (SRL 1.20%).</li>
+              <li><b>Escala Progresiva de ISR:</b> Aplicación de la tabla anualizada de la DGII (0%, 15%, 20%, 25%) con exención contributiva y deducción educativa.</li>
+              <li><b>Liquidaciones Laborales (Ley 16-92):</b> Cálculo de Preaviso, Cesantía, Salario Diario Promedio (SDP), Vacaciones no gozadas y Salario de Navidad (Regalía).</li>
+              <li><b>Expediente y Estados de Empleados:</b> Control automatizado de estados (Activo, Vacaciones, Licencia, Suspendido e Inactivo) y códigos incrementales.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="grid-3" style="margin-top: 10px;">
+          <div class="card card-primary-light">
+            <h3 style="color: #1d4ed8;">Planillas DGT</h3>
+            <p class="card-text">
+              Generación de formularios oficiales del Ministerio de Trabajo: <b>DGT-2</b> (horas extras), <b>DGT-3</b> (personal fijo), <b>DGT-4</b> (cambios), <b>DGT-9</b> y <b>DGT-12</b>.
+            </p>
+          </div>
+          <div class="card card-accent-light">
+            <h3 style="color: #047857;">Novedades TSS</h3>
+            <p class="card-text">
+              Exportación estandarizada de archivos de novedades de personal para carga directa en el portal SUIR de la TSS (ingresos, salidas, cambios salariales).
+            </p>
+          </div>
+          <div class="card card-amber-light">
+            <h3 style="color: #b45309;">Integración Contable</h3>
+            <p class="card-text">
+              Al aprobar y cerrar la nómina, el sistema genera de forma automática el asiento de sueldos por pagar, retenciones por enterar y gasto patronal.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="page-footer">
+        <span>VykOne ERP · Resumen Ejecutivo</span>
+        <span>Página 4</span>
+      </div>
+    </section>
+
+    <!-- PÁGINA 5: CONTABILIDAD, FINANZAS Y CxC / CxP -->
+    <section class="page">
+      <div class="page-header">
+        <div class="header-brand">
+          <img src="../static/images/logo.png" alt="VykOne">
+          <span>VykOne ERP</span>
+        </div>
+        <div class="header-meta">04 / Contabilidad & Finanzas</div>
+      </div>
+
+      <div class="page-body">
+        <span class="section-tag">Control Financiero</span>
+        <h2>Contabilidad General, Activos Fijos & CxC / CxP</h2>
+        <p class="lead-text">
+          VykOne mantiene una contabilidad conectada en tiempo real con la operación diaria del negocio.
+          Cada factura, compra, cobro o depreciación alimenta automáticamente el libro diario.
+        </p>
+
+        <div class="feature-split reverse">
+          <div>
+            <ul class="bullet-list blue">
+              <li><b>Catálogo de Cuentas y Asientos Contables:</b> Estructura contable multinivel adaptable. Generación automática y registro de asientos manuales de ajuste.</li>
+              <li><b>Estados Financieros en Tiempo Real:</b> Balanza de comprobación, Balance General y Estado de Resultados disponibles en cualquier momento.</li>
+              <li><b>Cierres Fiscales Controlados:</b> Cierre de periodos mensuales y ejecución estructurada del cierre del año fiscal con bloqueo de registros pasados.</li>
+              <li><b>Gestión de Activos Fijos:</b> Registro de activos, vidas útiles, método de depreciación en línea recta y generación periódica del asiento contable.</li>
+              <li><b>Cuentas por Cobrar (CxC):</b> Estados de cuenta por cliente, control de antigüedad de saldos, registro de cobros totales o parciales y anticipos.</li>
+            </ul>
+          </div>
+          <div class="screenshot-container">
+            <img src="../static/images/contabilidad_preview.png" alt="Contabilidad en VykOne" class="screenshot-md">
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-top: 10px;">
+          <div class="card">
+            <h3 style="color: #d97706;">Compras y Cuentas por Pagar (CxP)</h3>
+            <p class="card-text">
+              Registro de facturas de proveedores con comprobante fiscal (B01/E41), órdenes de compra (PO), recepción física de mercancía (Goods Receipt) y programación de pagos para mantener el flujo de caja ordenado.
+            </p>
+          </div>
+          <div class="card">
+            <h3 style="color: #2563eb;">Flujos de Aprobación de Gastos</h3>
+            <p class="card-text">
+              Motor de autorizaciones multinivel con reglas configurables. Los gastos y solicitudes deben ser aprobados por supervisores designados antes de su contabilización y desembolso, garantizando el control interno.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout amber" style="margin-top: 12px;">
+          <div class="callout-title">Consistencia Contable Garantizada</div>
+          <div class="callout-desc">
+            Todos los asientos automáticos aplican el principio de partida doble estricta. Las cuentas de ITBIS por pagar/adelantado y retenciones se sincronizan perfectamente con los reportes 606 y 607.
+          </div>
+        </div>
+      </div>
+
+      <div class="page-footer">
+        <span>VykOne ERP · Resumen Ejecutivo</span>
+        <span>Página 5</span>
+      </div>
+    </section>
+
+    <!-- PÁGINA 6: BANCOS, INVENTARIO, CRM Y VENTAS -->
+    <section class="page">
+      <div class="page-header">
+        <div class="header-brand">
+          <img src="../static/images/logo.png" alt="VykOne">
+          <span>VykOne ERP</span>
+        </div>
+        <div class="header-meta">05 / Operaciones & Ventas</div>
+      </div>
+
+      <div class="page-body">
+        <span class="section-tag">Logística & Comercial</span>
+        <h2>Bancos, Inventario Multialmacén & CRM Comercial</h2>
+        <p class="lead-text">
+          Control total sobre la liquidez bancaria, la cadena de suministros y el ciclo de ventas,
+          desde la captación del prospecto hasta la entrega del producto y cobro del servicio.
+        </p>
+
+        <div class="grid-3" style="margin-bottom: 12px;">
+          <div class="card">
+            <div class="card-icon icon-blue">🏦</div>
+            <h3>Bancos & Conciliación</h3>
+            <p class="card-text">
+              Manejo de múltiples cuentas bancarias en RD$ y USD. Importación de extractos y conciliación asistida para cruzar depósitos, cheques y transferencias.
+            </p>
+          </div>
+          <div class="card">
+            <div class="card-icon icon-green">📦</div>
+            <h3>Inventario & Costeo</h3>
+            <p class="card-text">
+              Multialmacén, métodos de costeo <b>FIFO / PEPS</b>, <b>Promedio Ponderado</b> y Estándar. Ajustes por tomas físicas, transferencias entre sucursales y alertas de stock mínimo.
+            </p>
+          </div>
+          <div class="card">
+            <div class="card-icon icon-amber">🎯</div>
+            <h3>CRM & Ventas</h3>
+            <p class="card-text">
+              Embudos de ventas (*pipeline*), registro de prospectos, cotizaciones comerciales rápidas que se convierten en facturas con un solo clic y módulo Punto de Venta (POS).
+            </p>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="screenshot-container">
+            <img src="../static/images/inventario_preview.png" alt="Inventario VykOne" class="screenshot-sm">
+          </div>
+          <div class="screenshot-container">
+            <img src="../static/images/crm_preview.png" alt="CRM Pipeline VykOne" class="screenshot-sm">
+          </div>
+        </div>
+
+        <div class="card card-primary-light" style="margin-top: 12px;">
+          <h3 style="color: #1d4ed8;">Contratos y Facturación Recurrente Automatizada</h3>
+          <p class="card-text">
+            Ideal para empresas de servicios, suscripciones, alquileres o igualas contables: programa la
+            generación periódica automática de facturas y cobros recurrentes sin intervención manual,
+            notificando automáticamente al cliente con su comprobante fiscal adjunto.
+          </p>
+        </div>
+      </div>
+
+      <div class="page-footer">
+        <span>VykOne ERP · Resumen Ejecutivo</span>
+        <span>Página 6</span>
+      </div>
+    </section>
+
+    <!-- PÁGINA 7: GOBERNANZA, SEGURIDAD, MATRIZ Y CIERRE (FONDO BLANCO) -->
+    <section class="page closing-page">
+      <div class="closing-brand">
+        <img src="../static/images/logo.png" alt="VykOne">
+        <span>VykOne ERP</span>
+      </div>
+
+      <div class="page-body">
+        <span class="section-tag accent">Gobernanza & Confianza</span>
+        <h2 style="font-size: 24px; margin-bottom: 8px;">Seguridad Empresarial & Gobernanza</h2>
+        <p class="lead-text" style="margin-bottom: 16px;">
+          VykOne incorpora estándares avanzados de control interno para salvaguardar la integridad de
+          los datos de su empresa y garantizar que cada usuario acceda únicamente a sus funciones autorizadas.
+        </p>
+
+        <div class="grid-3" style="margin-bottom: 18px;">
+          <div class="card card-primary-light">
+            <div class="card-icon icon-blue">👥</div>
+            <h3 style="color: #1d4ed8;">Roles & SoD</h3>
+            <p class="card-text">
+              Matriz de Segregación de Funciones que previene conflictos de interés (ej. quien crea suplidores no autoriza pagos).
+            </p>
+          </div>
+          <div class="card card-accent-light">
+            <div class="card-icon icon-green">📋</div>
+            <h3 style="color: #047857;">Audit Trail</h3>
+            <p class="card-text">
+              Bitácora inmutable de auditoría que registra cada creación, modificación, anulación y emisión realizada en el sistema.
+            </p>
+          </div>
+          <div class="card card-amber-light">
+            <div class="card-icon icon-amber">🧪</div>
+            <h3 style="color: #b45309;">Ambiente Sandbox</h3>
+            <p class="card-text">
+              Entorno de pruebas idéntico a producción para capacitar al personal y probar configuraciones sin afectar los datos fiscales.
+            </p>
+          </div>
+        </div>
+
+        <div style="border-top: 1.5px solid #e2e8f0; padding-top: 14px;">
+          <h3 style="color: #0f172a; margin-bottom: 6px;">El Sistema que Impulsa el Crecimiento de tu Empresa</h3>
+          <p style="font-size: 10.5px; color: #475569; line-height: 1.5;">
+            Con VykOne obtienes una plataforma confiable, escalable y respaldada por especialistas en
+            normativa fiscal y contable dominicana. Acompañamos a tu equipo en la configuración,
+            migración de datos, pruebas y puesta en marcha.
+          </p>
+        </div>
+
+        <div class="contact-card">
+          <div class="contact-info">
+            <span>¿Listo para transformar la gestión de tu empresa?</span>
+            <b>Solicita una demostración personalizada</b>
+          </div>
+          <div style="text-align: right;">
+            <span style="font-size: 9px; color: #64748b; display: block; font-weight: 600;">SITIO WEB OFICIAL</span>
+            <span style="font-size: 15px; font-weight: 800; color: #2563eb;">www.vykcore.com</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="page-footer">
+        <span>VykOne ERP · VykCore SRL</span>
+        <span>© 2026 Todos los derechos reservados</span>
+      </div>
+    </section>
+
+  </div>
+</body>
+</html>

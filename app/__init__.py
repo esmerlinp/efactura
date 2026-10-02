@@ -769,7 +769,10 @@ def create_app():
     # =========================================================================
     @app.after_request
     def add_security_headers(response):
-        response.headers['X-Frame-Options'] = 'DENY'
+        # El formulario de la landing se incrusta vía iframe (mismo origen);
+        # para esos endpoints se permite el framing, en el resto se niega.
+        allow_frame = request.endpoint == 'web_auth.contact_embed'
+        response.headers['X-Frame-Options'] = 'SAMEORIGIN' if allow_frame else 'DENY'
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
         response.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
@@ -778,6 +781,8 @@ def create_app():
         response.headers['Cross-Origin-Opener-Policy'] = 'same-origin'
         if request.is_secure:
             response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+
+        frame_ancestors = "'self'" if allow_frame else "'none'"
 
         # CSP: restringir orígenes de recursos a conocidos
         csp = (
@@ -813,7 +818,7 @@ def create_app():
             "frame-src 'self' "
             "www.paypal.com *.paypal.com "
             "www.sandbox.paypal.com; "
-            "frame-ancestors 'none'; "
+            f"frame-ancestors {frame_ancestors}; "
             "form-action 'self' "
             "www.paypal.com *.paypal.com; "
             "base-uri 'self'"

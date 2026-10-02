@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Visión general de los módulos - VykOne ERP</title>
+<link rel="stylesheet" href="overview-modulos.css">
+</head>
+<body>
+<div class="document">
+
+<header class="cover">
+  <div>
+    <img src="../../static/images/logo.png" alt="VykOne ERP" class="logo">
+    <p class="eyebrow">VykOne ERP · Documento comercial</p>
+    <h1>Visión general<br><span>de los módulos</span></h1>
+    <p class="subtitle">Una noción clara de lo que puedes esperar de cada módulo: facturación, clientes y cobros, inventario, punto de venta, contabilidad y portal del cliente.</p>
+    <div class="meta-card">
+      <div><span>Código</span><b>COM-MOD-001</b></div>
+      <div><span>Versión</span><b>1.0</b></div>
+      <div><span>Módulos</span><b>6</b></div>
+    </div>
+    <p class="small-note">Resumen introductorio · Sin profundidad operativa · Solicita una demo para verlos en acción.</p>
+  </div>
+  <div class="cover-footer">
+    <span>VykCore Automation S.R.L.</span>
+    <span>2 de octubre de 2026</span>
+  </div>
+</header>
+
+<section class="content">
+  <div class="running-title"><span>VykOne ERP</span><span>COM-MOD-001 · v1.0</span></div>
+
+  <div class="hero-callout">
+    <b>Objetivo</b>
+    <span>Dar una visión general de los módulos principales de VykOne ERP para que entiendas qué resuelve cada uno y qué puedes esperar al usarlo, sin entrar en detalle operativo. Cada módulo responde a tres preguntas: qué es, qué puedes hacer y para quién es.</span>
+  </div>
+
+  <div class="module m-invoice">
+    <div class="module-head"><span class="num">01</span><h3>Facturación Electrónica (e-CF)</h3><span class="tag">Ventas · DGII</span></div>
+    <div class="module-body">
+      <p class="module-what"><b>Qué es:</b> el núcleo del sistema para emitir comprobantes fiscales electrónicos validados en línea por la DGII.</p>
+      <ul>
+        <li><b>Clientes y productos</b> con RNC/Cédula, precios y tasa de ITBIS (18% o exento).</li>
+        <li><b>Secuencias fiscales</b> E31 (crédito fiscal) y E32 (consumo) consumidas en orden.</li>
+        <li><b>Cálculo automático</b> de ITBIS y retenciones ISR, con el neto a recibir visible.</li>
+        <li><b>Firma digital y envío a DGII</b> en tiempo real, con código QR y XML generados.</li>
+        <li><b>Notas de crédito y débito</b> para corregir o anular comprobantes.</li>
+        <li><b>Modo contingencia</b>: si la DGII no responde, facturas sin conexión con regularización posterior.</li>
+      </ul>
+      <p class="module-for"><b>Para quién es:</b> toda empresa que facture con crédito fiscal o venta al consumidor final.</p>
+    </div>
+  </div>
+
+  <div class="module m-cxc">
+    <div class="module-head"><span class="num">02</span><h3>Clientes y Cobros</h3><span class="tag">CRM · CxC</span></div>
+    <div class="module-body">
+      <p class="module-what"><b>Qué es:</b> la gestión de la relación con tus clientes y el control de la cartera por cobrar, de la cotización al cobro.</p>
+      <ul>
+        <li><b>Prospectos, contactos y cotizaciones</b> con un embudo de ventas (ganado/perdido).</li>
+        <li><b>Catálogo de clientes</b> con RNC/Cédula, contactos y datos de facturación.</li>
+        <li><b>Cartera de crédito</b> con estados automáticos: Emitida, Vencida y Cobrada.</li>
+        <li><b>Registro de pagos</b> por efectivo, transferencia, cheque o tarjeta, que concilia la factura.</li>
+        <li><b>Cobranza inteligente</b>: recordatorios automáticos por email y WhatsApp en tono amigable, profesional o urgente.</li>
+        <li><b>Antigüedad de saldos y promesas de pago</b> para priorizar la gestión de cobro.</li>
+      </ul>
+      <p class="module-for"><b>Para quién es:</b> negocios que venden a crédito y necesitan organizar su cobranza y seguimiento comercial.</p>
+    </div>
+  </div>
+
+  <div class="module m-inventory">
+    <div class="module-head"><span class="num">03</span><h3>Inventario y Almacenes</h3><span class="tag">Logística</span></div>
+    <div class="module-body">
+      <p class="module-what"><b>Qué es:</b> el control de existencias y el costeo de la mercancía, organizado por almacenes y ubicaciones.</p>
+      <ul>
+        <li><b>Almacenes y ubicaciones</b> para organizar el stock por punto de operación.</li>
+        <li><b>Métodos de costeo</b>: FIFO, Promedio Ponderado y Costo Estándar.</li>
+        <li><b>Alertas de stock bajo</b> para reabastecer a tiempo.</li>
+        <li><b>Transferencias entre almacenes</b> con registro y control.</li>
+        <li><b>Conteo físico y ajustes</b> para conciliar lo registrado con lo real.</li>
+      </ul>
+      <p class="module-for"><b>Para quién es:</b> empresas con mercancía física que necesitan saber cuánto tienen, dónde y a qué costo.</p>
+    </div>
+  </div>
+
+  <div class="module m-pos">
+    <div class="module-head"><span class="num">04</span><h3>Punto de Venta (POS)</h3><span class="tag">Ventas · Caja</span></div>
+    <div class="module-body">
+      <p class="module-what"><b>Qué es:</b> una terminal de cobro rápida para ventas de mostrador, con control de caja por turno.</p>
+      <ul>
+        <li><b>Apertura de turno</b> con monto inicial de caja.</li>
+        <li><b>Registro rápido de ventas y cobros</b> optimizado para mostrador.</li>
+        <li><b>Modo consolidado E32</b>: agrupa las ventas del día en un único comprobante de consumo.</li>
+        <li><b>Cierre de caja con arqueo</b> comparando lo declarado con lo registrado.</li>
+        <li><b>Auditoría con PIN de supervisor</b> para cierres y control.</li>
+      </ul>
+      <p class="module-for"><b>Para quién es:</b> tiendas, restaurantes y comercios con venta directa al consumidor en el local.</p>
+    </div>
+  </div>
+
+  <div class="module m-accounting">
+    <div class="module-head"><span class="num">05</span><h3>Contabilidad</h3><span class="tag">Finanzas</span></div>
+    <div class="module-body">
+      <p class="module-what"><b>Qué es:</b> la contabilidad general con plan de cuentas y asientos, integrada automáticamente con la operación.</p>
+      <ul>
+        <li><b>Plan de cuentas jerárquico</b> con cuentas de mayor y de detalle.</li>
+        <li><b>Asientos manuales y automáticos</b> generados desde facturación, gastos, pagos y depreciación.</li>
+        <li><b>Estado de resultados y balance general</b> para ver la salud financiera.</li>
+        <li><b>Exportación contable</b> a tu sistema externo si lo requieres.</li>
+        <li><b>Períodos y cierre fiscal</b> para el cierre de año.</li>
+      </ul>
+      <p class="module-for"><b>Para quién es:</b> empresas que necesitan contabilidad formal, reportes financieros y soporte para su CPA.</p>
+    </div>
+  </div>
+
+  <div class="module m-portal">
+    <div class="module-head"><span class="num">06</span><h3>Portal del Cliente</h3><span class="tag">Autoservicio</span></div>
+    <div class="module-body">
+      <p class="module-what"><b>Qué es:</b> un portal web seguro donde tus clientes consultan y descargan sus documentos fiscales.</p>
+      <ul>
+        <li><b>Acceso por token</b> enviado por correo, sin usuario ni contraseña.</li>
+        <li><b>Consulta de facturas electrónicas</b> emitidas a tu nombre.</li>
+        <li><b>Descarga de PDF y XML</b> de cada comprobante.</li>
+        <li><b>Estado de cuenta y pagos</b> visibles por el cliente.</li>
+        <li><b>QR en la factura</b> que redirige directamente al portal.</li>
+      </ul>
+      <p class="module-for"><b>Para quién es:</b> empresas que quieren reducir consultas manuales y dar autoservicio a sus clientes.</p>
+    </div>
+  </div>
+
+  <h2>Resumen rápido</h2>
+  <table>
+    <tr><th style="width:24%">Módulo</th><th>Resuelve</th></tr>
+    <tr><td><strong>Facturación e-CF</strong></td><td>Emitir comprobantes fiscales válidos ante la DGII.</td></tr>
+    <tr><td><strong>Clientes y Cobros</strong></td><td>Gestionar la relación comercial y cobrar la cartera a tiempo.</td></tr>
+    <tr><td><strong>Inventario</strong></td><td>Saber qué tienes, dónde está y a qué costo.</td></tr>
+    <tr><td><strong>Punto de Venta</strong></td><td>Vender rápido en mostrador con control de caja.</td></tr>
+    <tr><td><strong>Contabilidad</strong></td><td>Mantener los libros al día y conocer tus resultados.</td></tr>
+    <tr><td><strong>Portal del Cliente</strong></td><td>Dar autoservicio de documentos a tus clientes.</td></tr>
+  </table>
+
+  <div class="contact-card">
+    <div><b>¿Quieres verlos en acción?</b><span>Solicita tu prueba gratis y conoce el sistema.</span></div>
+    <div style="text-align:right"><b>support@vykcore.com</b><span>809-866-8227</span></div>
+  </div>
+
+  <div class="version">
+    <b>Control de versiones</b>
+    <span>Versión 1.0 · 2 de octubre de 2026 · Emisión inicial · Documento comercial de VykOne ERP.</span>
+  </div>
+</section>
+
+</div>
+</body>
+</html>
