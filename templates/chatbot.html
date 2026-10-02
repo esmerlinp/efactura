@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es" {% if session.get('is_sandbox_mode', False) %}class="sandbox-mode" {% endif %}>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="theme-color" content="{{ company_color_marca or '#7c3aed' }}">
+    <script>
+        window.setThemeColor = function (color) {
+            var old = document.querySelector('meta[name="theme-color"]');
+            if (old) old.remove();
+            var meta = document.createElement('meta');
+            meta.name = 'theme-color';
+            meta.content = color;
+            document.head.appendChild(meta);
+        };
+        (function () {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            const lightColor = '{{ company_color_marca or "#7c3aed" }}';
+            const darkColor = '#0f172a';
+            document.documentElement.setAttribute('data-theme-color-light', lightColor);
+            document.documentElement.setAttribute('data-theme-color-dark', darkColor);
+            window.setThemeColor(savedTheme === 'dark' ? darkColor : lightColor);
+        })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asistente IA — {{ product_name }}</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/efactura_logo.png') }}">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    {% if company_theme == 'moderno' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_moderno.css') }}?v={{ static_hash('css/style_moderno.css') }}">
+    {% elif company_theme == 'alegra' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_alegra.css') }}?v={{ static_hash('css/style_alegra.css') }}">
+    {% elif company_theme == 'landing' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_landing.css') }}?v={{ static_hash('css/style_landing.css') }}">
+    {% else %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_clasico.css') }}?v={{ static_hash('css/style_clasico.css') }}">
+    {% endif %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/chatbot.css') }}?v={{ static_hash('css/chatbot.css') }}">
+</head>
+
+<body class="chatbot-fullscreen-page">
+    <section id="chatbot-fullscreen">
+        <div class="chatbot-header">
+            <div class="chatbot-header-title">
+                <i class="fa-solid fa-robot"></i>
+                <span>Asistente {{ product_name }}</span>
+            </div>
+            <div class="chatbot-header-actions">
+                <button id="chatbot-clear-btn" class="chatbot-header-btn danger" title="Limpiar conversación">
+                    <i class="fa-solid fa-eraser"></i>
+                </button>
+                <button id="chatbot-close-btn" class="chatbot-header-btn" title="Cerrar">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="chatbot-usage-bar" id="chatbot-usage-bar" style="display:none;">
+            <span class="chatbot-usage-label">Consultas hoy:</span>
+            <span class="chatbot-usage-count" id="chatbot-usage-count">0</span>
+            <span class="chatbot-usage-sep">/</span>
+            <span class="chatbot-usage-limit" id="chatbot-usage-limit">20</span>
+        </div>
+
+        <div class="chatbot-body" id="chatbot-messages-container">
+            <div class="chatbot-welcome-card">
+                <h5>¡Hola! Soy tu Asistente {{ product_name }}</h5>
+                <p>Puedo ayudarte con preguntas sobre tus datos de facturación, clientes, gastos, inventario, normativa fiscal dominicana y cómo usar la aplicación.</p>
+                <div class="chatbot-chips-grid">
+                    <button class="chatbot-chip">¿Cuánto he facturado este mes?</button>
+                    <button class="chatbot-chip">¿Cuáles son mis clientes principales?</button>
+                    <button class="chatbot-chip">¿Qué gastos deducibles tengo?</button>
+                    <button class="chatbot-chip">¿Cómo creo una factura de crédito fiscal?</button>
+                    <button class="chatbot-chip">¿Cómo registro un empleado?</button>
+                    <button class="chatbot-chip">¿Qué hago en caso de contingencia?</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="chatbot-footer">
+            <form id="chatbot-form" class="chatbot-input-row">
+                <input type="text" id="chatbot-input" placeholder="Escribe tu consulta aquí..." autocomplete="off" required>
+                <button type="submit" id="chatbot-send-btn" title="Enviar">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </form>
+        </div>
+    </section>
+
+    <script>
+        window.PRODUCT_NAME = '{{ product_name }}';
+    </script>
+    <script src="{{ url_for('static', filename='js/chatbot.js') }}?v={{ static_hash('js/chatbot.js') }}"></script>
+</body>
+
+</html>
