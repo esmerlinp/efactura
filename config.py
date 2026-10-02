@@ -66,6 +66,7 @@ class Config:
     MAIL_FROM_NOTIFICATION = os.getenv('MAIL_FROM_NOTIFICATION', SMTP_USER)
     MAIL_FROM_NOREPLY = os.getenv('MAIL_FROM_NOREPLY', SMTP_USER)
     MAIL_FROM_SUPPORT = os.getenv('MAIL_FROM_SUPPORT', SMTP_USER)
+    SUPPORT_EMAIL = os.getenv('SUPPORT_EMAIL', 'support@vykcore.com')
 
     # Microsoft Graph API (reemplaza SMTP)
     MAIL_USE_GRAPH_API = os.getenv('MAIL_USE_GRAPH_API', 'false').lower() == 'true'

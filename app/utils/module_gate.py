@@ -26,6 +26,27 @@ MODULE_DEFS = [
     {"key": "certificacion", "label": "Certificación DGII", "category": "cumplimiento"},
 ]
 
+# Módulos principales que se muestran en el formulario de prueba gratis
+# (filtra los módulos avanzados/enterprise para mantener el formulario simple).
+MAIN_MODULE_KEYS = [
+    "e_cf",
+    "nomina",
+    "contabilidad",
+    "inventario",
+    "crm",
+    "pos",
+    "cxc",
+    "cxp_compras",
+    "gastos",
+    "banks",
+    "reporte_606",
+    "cotizaciones",
+]
+
+def get_main_modules():
+    """Retorna los módulos principales (para formularios públicos)."""
+    return [m for m in MODULE_DEFS if m["key"] in MAIN_MODULE_KEYS]
+
 def get_enabled_modules():
     """Retorna el dict de módulos habilitados desde la sesión."""
     from flask import session

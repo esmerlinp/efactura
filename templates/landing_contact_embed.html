@@ -39,8 +39,30 @@
             margin-bottom: 18px;
         }
 
+        .section-title {
+            font-family: 'Sora', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #f59e0b;
+            margin: 22px 0 10px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .section-title:first-of-type {
+            margin-top: 0;
+            padding-top: 0;
+            border-top: none;
+        }
+
         .field {
             margin-bottom: 14px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
         }
 
         label {
@@ -62,9 +84,56 @@
             outline: none;
         }
 
+        input,
+        select {
+            height: 46px;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            border-color: rgba(245, 158, 11, 0.5);
+        }
+
+        select option {
+            color: #0a0e1a;
+        }
+
         textarea {
             resize: vertical;
             min-height: 90px;
+        }
+
+        .modules-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .module-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.03);
+            cursor: pointer;
+            font-size: 0.82rem;
+            color: #d1d5db;
+            transition: all 0.15s ease;
+        }
+
+        .module-item:hover {
+            border-color: rgba(245, 158, 11, 0.4);
+        }
+
+        .module-item input {
+            width: 15px;
+            height: 15px;
+            padding: 0;
+            accent-color: #f59e0b;
+            flex-shrink: 0;
         }
 
         .btn {
@@ -76,6 +145,16 @@
             cursor: pointer;
             background: linear-gradient(135deg, #f59e0b, #fbbf24);
             color: #0a0e1a;
+            margin-top: 8px;
+        }
+
+        .btn:hover {
+            opacity: 0.95;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
 
         .success {
@@ -107,6 +186,14 @@
             font-weight: 700;
         }
 
+        .error {
+            color: #f87171;
+            font-size: 0.82rem;
+            margin-top: 10px;
+            text-align: center;
+            display: none;
+        }
+
         @media (max-width: 480px) {
             .card {
                 padding: 16px 12px;
@@ -121,6 +208,10 @@
             }
             .field {
                 margin-bottom: 10px;
+            }
+            .form-row,
+            .modules-grid {
+                grid-template-columns: 1fr;
             }
             input, select, textarea {
                 padding: 10px 12px;
@@ -141,59 +232,111 @@
 <body>
     <div class="card">
         <div id="contact-form">
-            <div class="title">Solicita tu demo</div>
-            <div class="subtitle">Te contactamos en menos de 24 horas laborables.</div>
+            <div class="title">Solicita tu prueba gratis</div>
+            <div class="subtitle">Completa el formulario y te preparamos el acceso al ambiente de pruebas (sandbox). Te contactamos en menos de 24 horas laborables.</div>
             <form id="embed-lead-form">
-                <input type="hidden" name="volumen_facturas" value="100">
+
+                <div class="section-title">Datos del Responsable</div>
                 <div class="field">
                     <label for="embed-name">Nombre completo *</label>
-                    <input id="embed-name" name="name" type="text" placeholder="Nombre y apellido" required>
+                    <input id="embed-name" name="nombre" type="text" placeholder="Nombre y apellido" required>
+                </div>
+                <div class="form-row">
+                    <div class="field">
+                        <label for="embed-cargo">Cargo</label>
+                        <input id="embed-cargo" name="cargo" type="text" placeholder="Gerente, Contador...">
+                    </div>
+                    <div class="field">
+                        <label for="embed-phone">Teléfono *</label>
+                        <input id="embed-phone" name="telefono" type="tel" inputmode="numeric" autocomplete="off"
+                            maxlength="12" placeholder="809-555-0199" required>
+                    </div>
                 </div>
                 <div class="field">
                     <label for="embed-email">Correo corporativo *</label>
                     <input id="embed-email" name="email" type="email" placeholder="tu@empresa.com" required>
                 </div>
+
+                <div class="section-title">Datos de la Empresa</div>
                 <div class="field">
-                    <label for="embed-phone">Teléfono *</label>
-                    <input id="embed-phone" name="phone" type="tel" placeholder="809-555-0199" required>
+                    <label for="embed-razon">Razón social *</label>
+                    <input id="embed-razon" name="razon_social" type="text" placeholder="Nombre legal de la empresa" required>
+                </div>
+                <div class="form-row">
+                    <div class="field">
+                        <label for="embed-comercial">Nombre comercial</label>
+                        <input id="embed-comercial" name="nombre_comercial" type="text" placeholder="Marca / nombre de operación">
+                    </div>
+                    <div class="field">
+                        <label for="embed-rnc">RNC / Cédula</label>
+                        <input id="embed-rnc" name="rnc" type="text" inputmode="numeric" autocomplete="off"
+                            maxlength="13" placeholder="1-31-68978-7 ó 001-1234567-8">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="field">
+                        <label for="embed-tel-empresa">Teléfono empresa</label>
+                        <input id="embed-tel-empresa" name="telefono_empresa" type="tel" inputmode="numeric" autocomplete="off"
+                            maxlength="12" placeholder="809-555-0100">
+                    </div>
+                    <div class="field">
+                        <label for="embed-sector">Sector</label>
+                        <input id="embed-sector" name="sector" type="text" placeholder="Comercio, Servicios...">
+                    </div>
                 </div>
                 <div class="field">
-                    <label for="embed-rnc">RNC (opcional)</label>
-                    <input id="embed-rnc" name="rnc" type="text" placeholder="131689787">
+                    <label for="embed-direccion">Dirección</label>
+                    <input id="embed-direccion" name="direccion" type="text" placeholder="Calle, ciudad, provincia">
+                </div>
+
+                <div class="section-title">Módulos que necesitas</div>
+                <div class="field">
+                    <div class="modules-grid">
+                        {% for m in module_definitions %}
+                        <label class="module-item">
+                            <input type="checkbox" name="module" value="{{ m.key }}">
+                            <span>{{ m.label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="section-title">Volumen estimado</div>
+                <div class="form-row">
+                    <div class="field">
+                        <label for="embed-facturas">Facturas e-CF / mes *</label>
+                        <select id="embed-facturas" name="facturas_mes" required>
+                            <option value="" disabled selected>Selecciona un rango</option>
+                            <option value="Menos de 50">Menos de 50</option>
+                            <option value="50 a 200">50 a 200</option>
+                            <option value="200 a 500">200 a 500</option>
+                            <option value="500 a 1,500">500 a 1,500</option>
+                            <option value="Más de 1,500">Más de 1,500</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="embed-empleados">Cantidad de empleados</label>
+                        <input id="embed-empleados" name="empleados" type="number" min="0" placeholder="0">
+                    </div>
                 </div>
                 <div class="field">
-                    <label for="embed-plan">Plan de interés *</label>
-                    <select id="embed-plan" name="plan_interest" required>
-                        <option value="" disabled selected>Selecciona un plan</option>
-                        <option value="Esencial">Esencial - Facturación ($35/mes)</option>
-                        <option value="Pro">Pro - Crecimiento ($80/mes)</option>
-                        <option value="Enterprise">Enterprise - Corporativo ($160/mes)</option>
-                        <option value="No estoy seguro">No estoy seguro, necesito asesoría</option>
-                    </select>
+                    <label for="embed-usuarios">Cantidad de usuarios</label>
+                    <input id="embed-usuarios" name="usuarios" type="number" min="1" placeholder="1">
                 </div>
-                <div class="field">
-                    <label for="embed-transactions">Transacciones mensuales *</label>
-                    <select id="embed-transactions" name="transactions_qty" required>
-                        <option value="" disabled selected>Selecciona un rango</option>
-                        <option value="Menos de 50">Menos de 50</option>
-                        <option value="50 a 200">50 a 200</option>
-                        <option value="200 a 500">200 a 500</option>
-                        <option value="500 a 1,500">500 a 1,500</option>
-                        <option value="Más de 1,500">Más de 1,500</option>
-                    </select>
-                </div>
+
                 <div class="field">
                     <label for="embed-comments">Comentarios</label>
-                    <textarea id="embed-comments" name="comments" placeholder="Cuéntanos sobre tu operación..."></textarea>
+                    <textarea id="embed-comments" name="comentarios" placeholder="Cuéntanos sobre tu operación..."></textarea>
                 </div>
-                <button type="submit" class="btn">Solicitar Demo</button>
+                <button type="submit" class="btn" id="embed-submit-btn">Solicitar Prueba Gratis</button>
+                <div class="error" id="embed-error"></div>
             </form>
         </div>
 
         <div id="contact-success" class="success">
             <div class="icon">✓</div>
             <h4>Solicitud enviada</h4>
-            <p>Gracias por contactar a {{ product_name }}. Un especialista te escribirá pronto.</p>
+            <p>Gracias por solicitar tu prueba gratis de {{ product_name }}. Recibirás un correo de confirmación y un especialista te contactará para proponerte un plan.</p>
         </div>
     </div>
 
@@ -201,15 +344,105 @@
         const leadForm = document.getElementById('embed-lead-form');
         const successState = document.getElementById('contact-success');
         const formState = document.getElementById('contact-form');
+        const errorEl = document.getElementById('embed-error');
+        const submitBtn = document.getElementById('embed-submit-btn');
+
+        function reportHeight() {
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ type: 'lead-iframe-height', height: document.body.scrollHeight }, '*');
+            }
+        }
+
+        window.addEventListener('load', reportHeight);
+        window.addEventListener('resize', reportHeight);
+        setTimeout(reportHeight, 500);
+        setTimeout(reportHeight, 1500);
+
+        function maskPhone(input) {
+            const d = input.value.replace(/\D/g, '').slice(0, 10);
+            const parts = [];
+            if (d.length >= 3) {
+                parts.push(d.slice(0, 3));
+            } else if (d.length) {
+                parts.push(d.slice(0));
+            }
+            if (d.length >= 6) {
+                parts.push(d.slice(3, 6));
+            } else if (d.length > 3) {
+                parts.push(d.slice(3));
+            }
+            if (d.length >= 10) {
+                parts.push(d.slice(6, 10));
+            } else if (d.length > 6) {
+                parts.push(d.slice(6));
+            }
+            input.value = parts.join('-');
+        }
+
+        function maskRncCedula(input) {
+            const d = input.value.replace(/\D/g, '').slice(0, 11);
+            const parts = [];
+            if (d.length <= 9) {
+                // RNC: X-XX-XXXXX-X
+                if (d.length >= 1) parts.push(d.slice(0, 1));
+                if (d.length >= 3) parts.push(d.slice(1, 3));
+                else if (d.length > 1) parts.push(d.slice(1));
+                if (d.length >= 8) parts.push(d.slice(3, 8));
+                else if (d.length > 3) parts.push(d.slice(3));
+                if (d.length >= 9) parts.push(d.slice(8, 9));
+            } else {
+                // Cédula: XXX-XXXXXXX-X
+                if (d.length >= 3) parts.push(d.slice(0, 3));
+                else if (d.length) parts.push(d.slice(0));
+                if (d.length >= 10) parts.push(d.slice(3, 10));
+                else if (d.length > 3) parts.push(d.slice(3));
+                if (d.length >= 11) parts.push(d.slice(10, 11));
+            }
+            input.value = parts.join('-');
+        }
+
+        const phoneInput = document.getElementById('embed-phone');
+        const companyPhoneInput = document.getElementById('embed-tel-empresa');
+        const rncInput = document.getElementById('embed-rnc');
+
+        if (phoneInput) phoneInput.addEventListener('input', function () { maskPhone(this); });
+        if (companyPhoneInput) companyPhoneInput.addEventListener('input', function () { maskPhone(this); });
+        if (rncInput) rncInput.addEventListener('input', function () { maskRncCedula(this); });
 
         if (leadForm) {
             leadForm.addEventListener('submit', function(event) {
                 event.preventDefault();
-                const formData = new FormData(leadForm);
-                const payload = {};
-                formData.forEach((value, key) => { payload[key] = value; });
+                errorEl.style.display = 'none';
 
-                fetch('/api/solicitar-demo', {
+                const selectedModules = Array.from(leadForm.querySelectorAll('input[name="module"]:checked'))
+                    .map(function (cb) { return cb.value; });
+
+                const payload = {
+                    responsable: {
+                        nombre: leadForm.nombre.value.trim(),
+                        cargo: leadForm.cargo.value.trim(),
+                        telefono: leadForm.telefono.value.trim(),
+                        email: leadForm.email.value.trim()
+                    },
+                    empresa: {
+                        razon_social: leadForm.razon_social.value.trim(),
+                        nombre_comercial: leadForm.nombre_comercial.value.trim(),
+                        rnc: leadForm.rnc.value.trim(),
+                        telefono: leadForm.telefono_empresa.value.trim(),
+                        sector: leadForm.sector.value.trim(),
+                        direccion: leadForm.direccion.value.trim()
+                    },
+                    modulos: selectedModules,
+                    facturas_mes: leadForm.facturas_mes.value,
+                    empleados: leadForm.empleados.value.trim(),
+                    usuarios: leadForm.usuarios.value.trim(),
+                    comentarios: leadForm.comentarios.value.trim()
+                };
+
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Enviando...';
+
+                fetch('/api/solicitar-prueba', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -219,13 +452,19 @@
                     if (res.success) {
                         formState.style.display = 'none';
                         successState.style.display = 'block';
+                        reportHeight();
                     } else {
-                        alert('Error al enviar la solicitud.');
+                        errorEl.textContent = res.error || 'Error al enviar la solicitud. Intenta de nuevo.';
+                        errorEl.style.display = 'block';
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Solicitar Prueba Gratis';
                     }
                 })
                 .catch(() => {
-                    formState.style.display = 'none';
-                    successState.style.display = 'block';
+                    errorEl.textContent = 'Error de conexión. Intenta de nuevo.';
+                    errorEl.style.display = 'block';
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Solicitar Prueba Gratis';
                 });
             });
         }

@@ -79,7 +79,9 @@ def faqs():
 
 @web_auth_bp.route('/contacto-embed')
 def contact_embed():
-    return render_template('landing_contact_embed.html')
+    from app.utils.module_gate import get_main_modules
+    return render_template('landing_contact_embed.html',
+                           module_definitions=get_main_modules())
 
 @web_auth_bp.route('/api/solicitar-demo', methods=['POST'])
 def api_solicitar_demo():
@@ -167,6 +169,165 @@ def api_solicitar_demo():
             print("WARNING [Landing Lead]: SMTP no configurado. No se envió el correo interno.", flush=True)
         
         return jsonify({"success": True, "message": "¡Solicitud registrada con éxito!"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@web_auth_bp.route('/api/solicitar-prueba', methods=['POST'])
+@limiter.limit("10/minute;30/hour;100/day")
+def api_solicitar_prueba():
+    """Solicitud de prueba gratis (sandbox) desde la landing page.
+
+    Recolecta la información necesaria para que soporte cree el acceso al
+    ambiente sandbox, envía un correo organizado a SUPPORT_EMAIL y un correo
+    de confirmación al solicitante.
+    """
+    from flask import current_app
+    try:
+        data = request.get_json(silent=True) or {}
+
+        responsable = data.get('responsable') or {}
+        empresa = data.get('empresa') or {}
+
+        nombre = (responsable.get('nombre') or data.get('name') or '').strip()
+        cargo = (responsable.get('cargo') or '').strip()
+        telefono = (responsable.get('telefono') or data.get('phone') or '').strip()
+        email = (responsable.get('email') or data.get('email') or '').strip()
+
+        razon_social = (empresa.get('razon_social') or '').strip()
+        nombre_comercial = (empresa.get('nombre_comercial') or '').strip()
+        rnc = (empresa.get('rnc') or data.get('rnc') or '').strip()
+        telefono_empresa = (empresa.get('telefono') or '').strip()
+        direccion = (empresa.get('direccion') or '').strip()
+        sector = (empresa.get('sector') or '').strip()
+
+        modulos = data.get('modulos') or []
+        if isinstance(modulos, str):
+            modulos = [m.strip() for m in modulos.split(',') if m.strip()]
+
+        facturas_mes = data.get('facturas_mes', '').strip()
+        empleados = data.get('empleados', '').strip()
+        usuarios = data.get('usuarios', '').strip()
+        comentarios = (data.get('comentarios') or data.get('comments') or '').strip()
+
+        if not nombre or not email:
+            return jsonify({"success": False, "error": "El nombre y el correo del responsable son obligatorios."}), 400
+
+        # Resolver etiquetas de módulos seleccionados
+        from app.utils.module_gate import MODULE_DEFS
+        labels = {m["key"]: m["label"] for m in MODULE_DEFS}
+        modulos_html = ""
+        if modulos:
+            items = []
+            for key in modulos:
+                label = labels.get(key, key)
+                items.append(f"<li style='padding:4px 0;'>{label}</li>")
+            modulos_html = "".join(items)
+        else:
+            modulos_html = "<li style='padding:4px 0;'>No especificado</li>"
+
+        print(f"INFO [Landing Lead]: Nueva solicitud de PRUEBA GRATIS. Responsable: {nombre} ({email}), "
+              f"Empresa: {razon_social} (RNC {rnc}), Módulos: {modulos}, "
+              f"Facturas/mes: {facturas_mes}, Empleados: {empleados}, Usuarios: {usuarios}", flush=True)
+
+        # ── Correo interno a soporte ──
+        if current_app.config.get("SMTP_USER") and current_app.config.get("SMTP_PASSWORD"):
+            html_body = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6; max-width: 640px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+                <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #10b981; padding-bottom: 10px;">
+                    <h2 style="color: #10b981; margin: 0;">Nueva Solicitud de Prueba Gratis (Sandbox)</h2>
+                </div>
+                <p>Se ha recibido una solicitud de prueba gratis desde la página de aterrizaje:</p>
+
+                <h3 style="margin: 24px 0 8px; color: #111;">Datos del Responsable</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-weight: bold; width: 40%;">Nombre completo:</td><td style="padding: 6px 8px; border-bottom: 1px solid #eee;">{nombre}</td></tr>
+                    <tr><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-weight: bold;">Cargo:</td><td style="padding: 6px 8px; border-bottom: 1px solid #eee;">{cargo or 'No provisto'}</td></tr>
+                    <tr><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-weight: bold;">Teléfono:</td><td style="padding: 6px 8px; border-bottom: 1px solid #eee;">{telefono or 'No provisto'}</td></tr>
+                    <tr><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-weight: bold;">Correo:</td><td style="padding: 6px 8px; border-bottom: 1px solid #eee;"><a href="mailto:{email}">{email}</a></td></tr>
+                </table>
+
+                <h3 style="margin: 24px 0 8px; color: #111;">Datos de la Empresa</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-weight: bold; width: 40%;">Razón social:</td><td style="padding: 6px 8px; border-bottom: 1px solid #eee;">{razon_social or 'No provisto'}</td></tr>
+                    <tr><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-weight: bold;">Nombre comercial:</td><td style="padding: 6px 8px; border-bottom: 1px solid #eee;">{nombre_comercial or 'No provisto'}</td></tr>
+                    <tr><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-weight: bold;">RNC:</td><td style="padding: 6px 8px; border-bottom: 1px solid #eee;">{rnc or 'No provisto'}</td></tr>
+                    <tr><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-weight: bold;">Teléfono:</td><td style="padding: 6px 8px; border-bottom: 1px solid #eee;">{telefono_empresa or 'No provisto'}</td></tr>
+                    <tr><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-weight: bold;">Dirección:</td><td style="padding: 6px 8px; border-bottom: 1px solid #eee;">{direccion or 'No provisto'}</td></tr>
+                    <tr><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-weight: bold;">Sector:</td><td style="padding: 6px 8px; border-bottom: 1px solid #eee;">{sector or 'No provisto'}</td></tr>
+                </table>
+
+                <h3 style="margin: 24px 0 8px; color: #111;">Módulos Solicitados</h3>
+                <ul style="margin: 0; padding-left: 20px;">{modulos_html}</ul>
+
+                <h3 style="margin: 24px 0 8px; color: #111;">Volumen Estimado</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-weight: bold; width: 40%;">Facturas e-CF/mes:</td><td style="padding: 6px 8px; border-bottom: 1px solid #eee;">{facturas_mes or 'No especificado'}</td></tr>
+                    <tr><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-weight: bold;">Empleados:</td><td style="padding: 6px 8px; border-bottom: 1px solid #eee;">{empleados or 'No especificado'}</td></tr>
+                    <tr><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-weight: bold;">Usuarios:</td><td style="padding: 6px 8px; border-bottom: 1px solid #eee;">{usuarios or 'No especificado'}</td></tr>
+                </table>
+
+                <h3 style="margin: 24px 0 8px; color: #111;">Comentarios</h3>
+                <p style="margin: 0; padding: 8px; background: #f9fafb; border-radius: 6px;">{comentarios if comentarios else 'Sin comentarios'}</p>
+
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 24px 0;">
+                <div style="font-size: 0.8rem; color: #999; text-align: center;">
+                    Notificación automática del sistema de Landing Page de {get_product_name()}.
+                </div>
+            </body>
+            </html>
+            """
+
+            try:
+                success = Mailer.send(
+                    app=current_app._get_current_object(),
+                    to_email=current_app.config.get("SUPPORT_EMAIL", "support@vykcore.com"),
+                    subject=f"Nueva Solicitud de Prueba Gratis: {nombre} — {razon_social or nombre_comercial or 'Empresa'}",
+                    html_body=html_body,
+                    from_name=f"{get_product_name()} Landing",
+                    category='support'
+                )
+                if success:
+                    print(f"INFO [Landing Lead]: Email enviado exitosamente a {current_app.config.get('SUPPORT_EMAIL')}", flush=True)
+            except Exception as mail_err:
+                print(f"WARNING [Landing Lead]: Fallo al enviar email interno: {mail_err}", flush=True)
+
+            # ── Correo de confirmación al solicitante ──
+            confirm_body = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6; max-width: 560px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+                <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #10b981; padding-bottom: 10px;">
+                    <h2 style="color: #10b981; margin: 0;">¡Solicitud Recibida!</h2>
+                </div>
+                <p>Hola <strong>{nombre}</strong>,</p>
+                <p>Gracias por solicitar tu <strong>prueba gratis</strong> de {get_product_name()}.</p>
+                <p>Hemos recibido tu solicitud y un especialista se pondrá en contacto contigo en las próximas horas para
+                configurar tu acceso al ambiente de pruebas (sandbox) y proponerte el plan que mejor se adapte a tu empresa.</p>
+                <p>Si tienes alguna pregunta, no dudes en responder a este correo o escribirnos a
+                <a href="mailto:{current_app.config.get('SUPPORT_EMAIL', 'support@vykcore.com')}">{current_app.config.get('SUPPORT_EMAIL', 'support@vykcore.com')}</a>.</p>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 24px 0;">
+                <div style="font-size: 0.8rem; color: #999; text-align: center;">
+                    Equipo {get_product_name()}
+                </div>
+            </body>
+            </html>
+            """
+            try:
+                Mailer.send(
+                    app=current_app._get_current_object(),
+                    to_email=email,
+                    subject=f"Recibimos tu solicitud de prueba gratis — {get_product_name()}",
+                    html_body=confirm_body,
+                    from_name=f"{get_product_name()}",
+                    category='notification'
+                )
+            except Exception as confirm_err:
+                print(f"WARNING [Landing Lead]: Fallo al enviar confirmación a {email}: {confirm_err}", flush=True)
+        else:
+            print("WARNING [Landing Lead]: SMTP no configurado. No se enviaron correos de prueba gratis.", flush=True)
+
+        return jsonify({"success": True, "message": "¡Solicitud de prueba gratis registrada con éxito!"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
