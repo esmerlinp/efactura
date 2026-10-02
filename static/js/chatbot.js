@@ -1,13 +1,15 @@
 document.addEventListener('DOMContentLoaded', function () {
   var sidebar = document.getElementById('chatbot-sidebar');
+  var isFullscreen = !!document.getElementById('chatbot-fullscreen');
   var toggleBtn = document.getElementById('chatbot-toggle-btn');
+  var expandBtn = document.getElementById('chatbot-expand-btn');
   var closeBtn = document.getElementById('chatbot-close-btn');
   var clearBtn = document.getElementById('chatbot-clear-btn');
   var form = document.getElementById('chatbot-form');
   var input = document.getElementById('chatbot-input');
   var messagesContainer = document.getElementById('chatbot-messages-container');
 
-  if (!sidebar || !toggleBtn) return;
+  if (!sidebar && !isFullscreen) return;
 
   var conversationHistory = [];
   var MAX_CHAT_HISTORY = 50;
@@ -27,13 +29,15 @@ document.addEventListener('DOMContentLoaded', function () {
     })
     .catch(function () {});
 
-  // Restore state
-  var savedWidth = localStorage.getItem('chatbot-sidebar-width') || '420';
-  sidebar.style.width = savedWidth + 'px';
+  // Restore state (sidebar only)
+  if (sidebar) {
+    var savedWidth = localStorage.getItem('chatbot-sidebar-width') || '420';
+    sidebar.style.width = savedWidth + 'px';
 
-  var isOpen = localStorage.getItem('chatbot-sidebar-open') === 'true';
-  if (isOpen) {
-    sidebar.classList.add('open');
+    var isOpen = localStorage.getItem('chatbot-sidebar-open') === 'true';
+    if (isOpen) {
+      sidebar.classList.add('open');
+    }
   }
 
   var cachedHistory = localStorage.getItem('chatbot-conversation-history');
@@ -49,20 +53,34 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  // Toggle
-  toggleBtn.addEventListener('click', function () {
-    sidebar.classList.toggle('open');
-    localStorage.setItem('chatbot-sidebar-open', sidebar.classList.contains('open'));
-    if (sidebar.classList.contains('open')) {
-      input.focus();
-      scrollToBottom();
-    }
-  });
+  // Toggle (sidebar only)
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', function () {
+      sidebar.classList.toggle('open');
+      localStorage.setItem('chatbot-sidebar-open', sidebar.classList.contains('open'));
+      if (sidebar.classList.contains('open')) {
+        input.focus();
+        scrollToBottom();
+      }
+    });
+  }
+
+  // Expand to full-screen (sidebar only)
+  if (expandBtn) {
+    expandBtn.addEventListener('click', function () {
+      window.open('/chatbot', '_blank');
+    });
+  }
 
   if (closeBtn) {
     closeBtn.addEventListener('click', function () {
-      sidebar.classList.remove('open');
-      localStorage.setItem('chatbot-sidebar-open', 'false');
+      if (isFullscreen) {
+        window.close();
+        setTimeout(function () { window.location.href = '/'; }, 300);
+      } else {
+        sidebar.classList.remove('open');
+        localStorage.setItem('chatbot-sidebar-open', 'false');
+      }
     });
   }
 

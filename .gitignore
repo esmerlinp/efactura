@@ -32,3 +32,6 @@ __pycache__/
 node_modules/
 dist/
 build/
+
+# Índice de tutoriales generado (embeddings)
+docs/tutoriales/.index.json

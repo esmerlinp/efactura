@@ -3,6 +3,7 @@ import json
 from datetime import datetime, timezone
 from config import Config
 from app.services.db_service import DatabaseService, _company_coll, db_firestore
+from app.services.tutorials import search_tutorials
 from app.brand import get_product_name
 
 
@@ -120,6 +121,22 @@ TOOLS = [
                 "required": ["client_name"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_tutorials",
+            "description": "Buscar tutoriales de uso de la aplicación (cómo hacer una tarea, dónde está una opción, pasos a seguir). Devuelve secciones de tutoriales relevantes con su título y módulo.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "La tarea o pregunta del usuario en lenguaje natural"},
+                    "module": {"type": "string", "description": "Módulo opcional para acotar: configuracion, facturacion, pos, inventario, compras, contabilidad, finanzas, rrhh, gestion"},
+                    "limit": {"type": "integer", "description": "Máximo de resultados (default 3, max 5)"}
+                },
+                "required": ["query"]
+            }
+        }
     }
 ]
 
@@ -133,7 +150,7 @@ def _serialize_doc(doc):
     return data
 
 
-def _run_query_clients(owner_uid, sandbox, args, company_id=None):
+def _run_query_clients(owner_uid, sandbox, args, company_id=None, api_key=None):
     search = (args.get("search") or "").strip().lower()
     limit = min(int(args.get("limit", 50)), 100)
     results = []
@@ -157,7 +174,7 @@ def _run_query_clients(owner_uid, sandbox, args, company_id=None):
     return json.dumps({"total": len(all_clients), "results": results}, ensure_ascii=False)
 
 
-def _run_query_invoices(owner_uid, sandbox, args, company_id=None):
+def _run_query_invoices(owner_uid, sandbox, args, company_id=None, api_key=None):
     status_filter = args.get("status")
     date_from = args.get("date_from")
     date_to = args.get("date_to")
@@ -200,7 +217,7 @@ def _run_query_invoices(owner_uid, sandbox, args, company_id=None):
     return json.dumps({"count": len(results), "total_sum": total_sum, "pending_sum": pending_sum, "results": results}, ensure_ascii=False)
 
 
-def _run_query_quotations(owner_uid, sandbox, args, company_id=None):
+def _run_query_quotations(owner_uid, sandbox, args, company_id=None, api_key=None):
     status_filter = args.get("status")
     date_from = args.get("date_from")
     date_to = args.get("date_to")
@@ -234,7 +251,7 @@ def _run_query_quotations(owner_uid, sandbox, args, company_id=None):
     return json.dumps({"count": len(results), "results": results}, ensure_ascii=False)
 
 
-def _run_query_expenses(owner_uid, sandbox, args, company_id=None):
+def _run_query_expenses(owner_uid, sandbox, args, company_id=None, api_key=None):
     date_from = args.get("date_from")
     date_to = args.get("date_to")
     deducible = args.get("deducible")
@@ -266,7 +283,7 @@ def _run_query_expenses(owner_uid, sandbox, args, company_id=None):
     return json.dumps({"count": len(results), "total_sum": total_sum, "deductible_sum": deductible_sum, "results": results}, ensure_ascii=False)
 
 
-def _run_query_items(owner_uid, sandbox, args, company_id=None):
+def _run_query_items(owner_uid, sandbox, args, company_id=None, api_key=None):
     search = (args.get("search") or "").strip().lower()
     limit = min(int(args.get("limit", 50)), 100)
     results = []
@@ -290,7 +307,7 @@ def _run_query_items(owner_uid, sandbox, args, company_id=None):
     return json.dumps({"count": len(results), "results": results}, ensure_ascii=False)
 
 
-def _run_get_financial_summary(owner_uid, sandbox, args, company_id=None):
+def _run_get_financial_summary(owner_uid, sandbox, args, company_id=None, api_key=None):
     date_from = args.get("date_from", "0001-01-01")
     date_to = args.get("date_to", "9999-12-31")
     total_sales = 0.0
@@ -326,7 +343,7 @@ def _run_get_financial_summary(owner_uid, sandbox, args, company_id=None):
     }, ensure_ascii=False)
 
 
-def _run_query_client_debt(owner_uid, sandbox, args, company_id=None):
+def _run_query_client_debt(owner_uid, sandbox, args, company_id=None, api_key=None):
     client_name = (args.get("client_name") or "").strip().lower()
     client_rnc = (args.get("client_rnc") or "").strip().lower()
     results = []
@@ -378,6 +395,15 @@ def _run_query_client_debt(owner_uid, sandbox, args, company_id=None):
     }, ensure_ascii=False)
 
 
+def _run_search_tutorials(owner_uid, sandbox, args, company_id=None, api_key=None):
+    query = (args.get("query") or "").strip()
+    module = (args.get("module") or "").strip().lower() or None
+    limit = min(int(args.get("limit", 3) or 3), 5)
+    if not query:
+        return json.dumps({"error": "Falta el parámetro 'query'."}, ensure_ascii=False)
+    return json.dumps(search_tutorials(query, module=module, top_k=limit, api_key=api_key), ensure_ascii=False)
+
+
 TOOL_HANDLERS = {
     "query_clients": _run_query_clients,
     "query_invoices": _run_query_invoices,
@@ -386,6 +412,7 @@ TOOL_HANDLERS = {
     "query_items": _run_query_items,
     "get_financial_summary": _run_get_financial_summary,
     "query_client_debt": _run_query_client_debt,
+    "search_tutorials": _run_search_tutorials,
 }
 
 
@@ -523,15 +550,20 @@ class ChatbotService:
 
 ROL Y NORMAS:
 - Te llamas "Asistente {product}" y debes presentarte así la primera vez.
-- Responde preguntas sobre los **datos de la empresa** combinados con tu **conocimiento fiscal** (RST, ITBIS, ISR, retenciones, deducibilidad, Ley 32-23, contingencia DGII).
-- **SIEMPRE que menciones un documento**, incluye un enlace directo Markdown: `[Texto](URL)`. Las URLs disponibles son:
+- Responde preguntas sobre los **datos de la empresa**, la **normativa fiscal dominicana** y el **uso de la aplicación** (RST, ITBIS, ISR, retenciones, deducibilidad, Ley 32-23, contingencia DGII, y los pasos de los tutoriales).
+- Solo incluye un enlace directo Markdown `[Texto](URL)` cuando menciones un **documento de la empresa** (no un tutorial). URLs válidas:
   - Factura o Cotización: `/invoices/<id>`
   - Cliente: `/clients/<id>`
   - Gasto: `/expenses/<id>`
+  - **Los tutoriales NO tienen enlace/URL.** NUNCA generes un enlace para un tutorial; cítalo en negrita sin URL (ej. **Factura de consumidor final (E32)**).
 - **USA LAS HERRAMIENTAS DISPONIBLES** para consultar datos. No inventes cifras. Si la herramienta no devuelve resultados, dilo claramente.
 - **Para consultar la deuda de un cliente específico usa `query_client_debt`.** Ejemplo: "¿cuánto debe el cliente X?" o "¿cuál es la deuda de X?" → llama a `query_client_debt(client_name="X")`.
-- **NO respondas preguntas no relacionadas** con los datos de la empresa o normativa fiscal dominicana. Responde: "Lo siento, solo puedo ayudarte con preguntas relacionadas con los datos de tu empresa y normativa fiscal dominicana. Esta consulta viola las políticas de uso del asistente."
-- **NO realices acciones** (crear, modificar, eliminar). Ofrece el enlace a la sección correspondiente.
+- **Para preguntas de USO de la aplicación** ("¿cómo emito una factura?", "¿dónde configuro los impuestos?", "¿qué pasos sigo para procesar la nómina?") llama SIEMPRE a `search_tutorials(query="...")` y, con base en el resultado, **REPRODUCE los pasos** del campo `contenido` como lista numerada o con viñetas, usando los nombres de menús y botones tal cual aparecen. NO inventes pasos ni menús y NO te limites a decir "consulta el tutorial".
+- Cuando respondas con un tutorial, **cita su título** al inicio en negrita (ej. **Factura de consumidor final (E32)**) e indica el módulo entre paréntesis (ej. Facturación). **Sin enlace.**
+- Si `search_tutorials` no devuelve un tutorial claramente relacionado, dilo explícitamente: "No encontré un tutorial específico para eso" y sugiere reformular la pregunta.
+- Distingue dos tipos de consulta: (a) datos de la empresa → usa `query_*` / `get_financial_summary`; (b) cómo usar la app → usa `search_tutorials`.
+- **NO respondas preguntas no relacionadas** con los datos de la empresa, la normativa fiscal dominicana o el uso de la aplicación. Si la consulta es de otro tema (política, clima, entretenimiento, etc.), responde: "Lo siento, solo puedo ayudarte con preguntas sobre tu empresa, la normativa fiscal dominicana o cómo usar VykOne. Esta consulta viola las políticas de uso del asistente."
+- **NO realices acciones** (crear, modificar, eliminar) sobre los datos de la empresa. Para indicar dónde está una función, describe la ruta de menú en texto; no generes enlaces a secciones internas.
 - Sé claro, profesional, pedagógico. Usa Markdown (negritas, viñetas, tablas).
 - Usa un tono amigable pero profesional. Muestra seguridad en los números.
 
@@ -613,7 +645,7 @@ EMPRESA ACTUAL:
                     handler = TOOL_HANDLERS.get(tool_name)
                     if handler:
                         try:
-                            result = handler(owner_uid, sandbox, tool_args, company_id=company_id)
+                            result = handler(owner_uid, sandbox, tool_args, company_id=company_id, api_key=api_key)
                         except Exception as e:
                             result = json.dumps({"error": str(e)})
                     else:

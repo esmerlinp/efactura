@@ -10029,6 +10029,14 @@ def chatbot_api():
     result = ChatbotService.ask_chatbot(owner_uid, user_uid, message, history, sandbox=sandbox)
     return jsonify(result)
 
+@web_invoices_bp.route('/chatbot')
+@require_module('ia_bi')
+@require_permission('canUseChatbot', 'Asistente IA')
+def chatbot_fullscreen():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    return render_template('chatbot.html', active_page='chatbot')
+
 @web_invoices_bp.route('/suscripcion')
 @require_permission('canViewSubscription', 'Suscripción y Consumo')
 def client_subscription_page():
