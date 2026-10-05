@@ -1152,9 +1152,11 @@
                 overlay.classList.remove('fade-out');
             }, 450);
         };
-        // Navegar a una URL mostrando primero el loader animado
+        // Navegar a una URL mostrando primero el loader animado. Marca el flag
+        // para que la página destino siga mostrando el loader durante el render del servidor.
         window.showAppLoaderAndNavigate = function(url) {
             window.showAppLoader();
+            try { sessionStorage.setItem('app_loader_pending', '1'); } catch(e) {}
             // Doble rAF garantiza que el navegador pinte el overlay antes de navegar
             requestAnimationFrame(function() {
                 requestAnimationFrame(function() {
@@ -1162,8 +1164,8 @@
                 });
             });
         };
-        // Interceptar la navegación hacia módulos pesados (Nómina/RRHH y Contabilidad)
-        // para mostrar el loader también durante el render del servidor.
+        // Interceptar la navegación ENTRANDO a módulos pesados (Nómina/RRHH y Contabilidad)
+        // desde otro módulo. No dispara el loader en navegación interna dentro del mismo módulo.
         document.addEventListener('click', function(e) {
             var link = e.target.closest('.sidebar a');
             if (!link) return;
@@ -1171,8 +1173,12 @@
             if (link.getAttribute('target') === '_blank') return;
             var href = link.getAttribute('href');
             if (!href || href.charAt(0) === '#') return;
-            var isHeavy = (href.indexOf('/accounting') !== -1) || (href.indexOf('/rrhh') !== -1);
-            if (isHeavy && window.showAppLoaderAndNavigate) {
+            var targetModule = (href.indexOf('/rrhh') !== -1) ? 'rrhh'
+                : ((href.indexOf('/accounting') !== -1) ? 'accounting' : null);
+            if (!targetModule) return;
+            var currentModule = (window.location.pathname.indexOf('/rrhh') !== -1) ? 'rrhh'
+                : ((window.location.pathname.indexOf('/accounting') !== -1) ? 'accounting' : null);
+            if (targetModule !== currentModule && window.showAppLoaderAndNavigate) {
                 showAppLoaderAndNavigate(href);
                 e.preventDefault();
             }
