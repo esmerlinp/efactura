@@ -1,0 +1,73 @@
+<!-- GRUPO: MÓDULOS -->
+<div class="sidebar-discover-group">
+    <div class="sidebar-divider"></div>
+    <span class="sidebar-discover-title">Módulos</span>
+
+    <a href="{{ url_for('web_invoices.list_invoices') }}"
+        class="sidebar-discover-item {% if active_page == 'invoices' %}active{% endif %}"
+        data-tooltip="Facturación">
+        <i class="fa-solid fa-file-invoice-dollar"></i>
+        <span>Facturación</span>
+    </a>
+
+    {% if module_enabled('nomina') and (session.get('user', {}).get('role') == 'owner' or session.get('user',
+    {}).get('permissions', {}).get('canHR', True)) %}
+    <a href="{{ url_for('web_rrhh.payroll_dashboard') }}"
+        class="sidebar-discover-item {% if active_page and active_page.startswith('rrhh_') %}active{% endif %}"
+        data-tooltip="Nómina y RRHH">
+        <i class="fa-solid fa-coins"></i>
+        <span>Nómina y RRHH</span>
+    </a>
+    {% endif %}
+    {% if module_enabled('contabilidad') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canAccounting', True)) %}
+    <a href="{{ url_for('web_accounting.dashboard') }}"
+        class="sidebar-discover-item {% if active_page and active_page.startswith('acc_') %}active{% endif %}"
+        data-tooltip="Contabilidad">
+        <i class="fa-solid fa-scale-balanced"></i>
+        <span>Contabilidad</span>
+    </a>
+    {% endif %}
+
+    {% if module_enabled('pos') and (session.get('user', {}).get('role') == 'owner' or
+    session.get('user', {}).get('permissions', {}).get('canManagePOS', True)) and
+    session.get('company_profile_pos_enabled', True) %}
+    <a href="{{ url_for('web_pos.pos_dashboard') }}"
+        class="sidebar-discover-item {% if active_page == 'pos' or active_page == 'pos_admin' %}active{% endif %}"
+        data-tooltip="Caja / POS">
+        <i class="fa-solid fa-cash-register"></i>
+        <span>Punto de Venta (POS)</span>
+    </a>
+    <a href="{{ url_for('web_rui.rui_list') }}"
+        class="sidebar-discover-subitem {% if active_page == 'rui' %}active{% endif %}"
+        data-tooltip="Registro Único de Ingresos">
+        <i class="fa-solid fa-file-invoice"></i>
+        <span>RUI (Tipo 12)</span>
+    </a>
+    {% endif %}
+    {% if module_enabled('portal_cliente') and (session.get('user', {}).get('role') == 'owner' or
+    session.get('user', {}).get('permissions', {}).get('canClients', True)) %}
+    <a href="{{ url_for('portal.portal_admin') }}"
+        class="sidebar-discover-item {% if active_page == 'portal_admin' %}active{% endif %}"
+        data-tooltip="Portal de Clientes">
+        <i class="fa-solid fa-globe"></i>
+        <span>Portal de Clientes</span>
+    </a>
+    {% endif %}
+    {% if module_enabled('certificacion') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canCertifyDGII', True)) %}
+    <a href="{{ url_for('web_certificacion.wizard') }}"
+        class="sidebar-discover-item {% if active_page == 'certificacion' %}active{% endif %}"
+        data-tooltip="Certificación DGII">
+        <i class="fa-solid fa-certificate"></i>
+        <span>Certificación DGII</span>
+    </a>
+    {% endif %}
+    {% if module_enabled('ia_bi') and (session.get('user', {}).get('role') == 'owner' or
+    session.get('user', {}).get('permissions', {}).get('canViewBI', True)) %}
+    <a href="{{ url_for('web_bi.drilldown', metric='sales') }}"
+        class="sidebar-discover-item {% if active_page == 'bi_drilldown' %}active{% endif %}"
+        data-tooltip="BI Drill-down">
+        <i class="fa-solid fa-magnifying-glass-chart"></i>
+        <span>BI Drill-down</span>
+    </a>
+    {% endif %}
+</div>
