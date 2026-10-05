@@ -995,6 +995,21 @@
             color: var(--accent-purple, #7c3aed);
         }
 
+        /* Identificador de módulo (pill sutil en la barra superior) */
+        .module-pill {
+            --module-color: var(--accent-emerald);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            gap: 6px;
+        }
+        .module-pill i {
+            color: var(--module-color);
+            font-size: 0.8rem;
+        }
+        .module-pill.module--facturacion { --module-color: var(--accent-emerald); }
+        .module-pill.module--contabilidad { --module-color: var(--accent-purple); }
+        .module-pill.module--nomina { --module-color: var(--accent-blue); }
+
         /* Ocultar barra en móviles */
         @media (max-width: 768px) {
             .top-utility-bar {
@@ -1833,6 +1848,12 @@
                 </div>
 
                 <div class="utility-bar-right">
+                    {% block module_pill %}
+                    <span class="utility-item utility-pill module-pill module--facturacion" title="Módulo: Facturación">
+                        <i class="fa-solid fa-file-invoice-dollar"></i>
+                        <span>Facturación</span>
+                    </span>
+                    {% endblock %}
                     <div class="crm-dropdown" id="crm-dropdown-trigger" style="position:relative;">
                         <button class="utility-item" title="Notificaciones"><i class="fa-solid fa-bell"></i>
                             {% set has_unread = false %}{% if user_notifications %}{% for n in user_notifications %}{% if not n.read %}{% set has_unread = true %}{% endif %}{% endfor %}{% endif %}

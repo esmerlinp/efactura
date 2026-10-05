@@ -1,5 +1,12 @@
 {% extends "layout.html" %}
 
+{% block module_pill %}
+<span class="utility-item utility-pill module-pill module--nomina" title="Módulo: Nómina y RRHH">
+    <i class="fa-solid fa-users"></i>
+    <span>Nómina y RRHH</span>
+</span>
+{% endblock %}
+
 {% block app_loader %}
 <script>
     if (window.showAppLoader) { showAppLoader(); }
