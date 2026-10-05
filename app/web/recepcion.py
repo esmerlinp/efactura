@@ -2,6 +2,14 @@ from flask import Blueprint, render_template, session, request, make_response, r
 from app.repositories.receptor_repository import ReceptorRepository
 from app.services.db_service import DatabaseService
 from app.services.receptor_xml_service import ReceptorXmlService
+from app.utils.pdf import pdf_write_options
+
+try:
+    from weasyprint import HTML as WeasyprintHTML
+    WEASYPRINT_AVAILABLE = True
+except Exception:
+    WeasyprintHTML = None
+    WEASYPRINT_AVAILABLE = False
 
 web_recepcion_bp = Blueprint("web_recepcion", __name__)
 
@@ -204,6 +212,86 @@ def download_received_xml(ecf_id):
     response = make_response(xml_content)
     response.headers["Content-Type"] = "application/xml; charset=utf-8"
     response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+@web_recepcion_bp.route("/recepcion/ecf/<ecf_id>/pdf")
+def download_received_pdf(ecf_id):
+    if not _check_auth():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, company_id = _get_context()
+    doc = ReceptorRepository.get_received_ecf_merged(owner_uid, ecf_id)
+    if not doc:
+        flash("Documento no encontrado.", "error")
+        return redirect(url_for("web_recepcion.list_received_ecf"))
+
+    detail = ReceptorXmlService.default_detail()
+    xml_content = doc.get("xml_content", "")
+    if xml_content:
+        try:
+            parsed, _ = ReceptorXmlService.parse_ecf_detail(xml_content.encode("utf-8"))
+            if parsed:
+                detail.update(parsed)
+        except Exception:
+            pass
+
+    company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+
+    from app.services.dgii_signer import DgiiSigner
+    fecha_firma = DgiiSigner.extract_fecha_hora_firma(xml_content)
+    codigo_seguridad = (DgiiSigner.extract_signature_value(xml_content) or "")[:6]
+
+    import io
+    import base64
+    import qrcode
+
+    qr_url = "https://dgii.gov.do/validaecf"
+    qr = qrcode.QRCode(version=1, box_size=10, border=0)
+    qr.add_data(qr_url)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    stream = io.BytesIO()
+    img.save(stream, format="PNG")
+    qr_base64 = base64.b64encode(stream.getvalue()).decode("utf-8")
+
+    sender_rnc = str(doc.get("sender_rnc") or "").replace("-", "").replace(" ", "").strip()
+    encf = doc.get("encf", ecf_id)
+    pdf_filename = f"{sender_rnc}{encf}.pdf" if (sender_rnc and encf) else f"{encf}.pdf"
+
+    action = request.args.get("action", "download")
+    sandbox = session.get("is_sandbox_mode", True)
+
+    if WEASYPRINT_AVAILABLE and action == "download":
+        rendered_html = render_template(
+            "recepcion/pdf.html",
+            doc=doc,
+            detail=detail,
+            company=company,
+            qr_base64=qr_base64,
+            fecha_firma=fecha_firma,
+            codigo_seguridad=codigo_seguridad,
+            auto_print=False,
+            sandbox=sandbox,
+        )
+        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf(**pdf_write_options())
+        response = make_response(pdf_bytes)
+        response.headers["Content-Type"] = "application/pdf"
+        response.headers["Content-Disposition"] = f'attachment; filename="{pdf_filename}"'
+        return response
+
+    rendered_html = render_template(
+        "recepcion/pdf.html",
+        doc=doc,
+        detail=detail,
+        company=company,
+        qr_base64=qr_base64,
+        fecha_firma=fecha_firma,
+        codigo_seguridad=codigo_seguridad,
+        auto_print=True,
+        sandbox=sandbox,
+    )
+    response = make_response(rendered_html)
+    response.headers["Content-Type"] = "text/html; charset=utf-8"
     return response
 
 

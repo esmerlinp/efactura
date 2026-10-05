@@ -739,30 +739,30 @@ ECF_FULL_XML = """<?xml version="1.0" encoding="utf-8"?>
       <TotalITBISRetenido>30.51</TotalITBISRetenido>
       <TotalISRRetencion>20.00</TotalISRRetencion>
     </Totales>
-    <DetallesItems>
-      <Item>
-        <NumeroLinea>1</NumeroLinea>
-        <IndicadorFacturacion>1</IndicadorFacturacion>
-        <CodigoItem>P001</CodigoItem>
-        <NombreItem>Producto A</NombreItem>
-        <CantidadItem>2.00</CantidadItem>
-        <PrecioUnitarioItem>500.00</PrecioUnitarioItem>
-        <DescuentoMonto>10.00</DescuentoMonto>
-        <MontoItem>990.00</MontoItem>
-      </Item>
-      <Item>
-        <NumeroLinea>2</NumeroLinea>
-        <IndicadorFacturacion>2</IndicadorFacturacion>
-        <CodigoItem>S001</CodigoItem>
-        <NombreItem>Servicio B</NombreItem>
-        <CantidadItem>1.00</CantidadItem>
-        <PrecioUnitarioItem>10.00</PrecioUnitarioItem>
-        <DescuentoMonto>0.00</DescuentoMonto>
-        <MontoItem>10.00</MontoItem>
-        <MontoExento>10.00</MontoExento>
-      </Item>
-    </DetallesItems>
   </Encabezado>
+  <DetallesItems>
+    <Item>
+      <NumeroLinea>1</NumeroLinea>
+      <IndicadorFacturacion>1</IndicadorFacturacion>
+      <CodigoItem>P001</CodigoItem>
+      <NombreItem>Producto A</NombreItem>
+      <CantidadItem>2.00</CantidadItem>
+      <PrecioUnitarioItem>500.00</PrecioUnitarioItem>
+      <DescuentoMonto>10.00</DescuentoMonto>
+      <MontoItem>990.00</MontoItem>
+    </Item>
+    <Item>
+      <NumeroLinea>2</NumeroLinea>
+      <IndicadorFacturacion>2</IndicadorFacturacion>
+      <CodigoItem>S001</CodigoItem>
+      <NombreItem>Servicio B</NombreItem>
+      <CantidadItem>1.00</CantidadItem>
+      <PrecioUnitarioItem>10.00</PrecioUnitarioItem>
+      <DescuentoMonto>0.00</DescuentoMonto>
+      <MontoItem>10.00</MontoItem>
+      <MontoExento>10.00</MontoExento>
+    </Item>
+  </DetallesItems>
 </ECF>"""
 
 
@@ -794,9 +794,14 @@ def test_parse_ecf_detail_extracts_items_and_totals():
     assert first["descuento"] == 10.0
     assert first["monto_item"] == 990.0
     assert first["monto_exento"] == 0.0
+    assert first["itbis_rate"] == 0.18
+    assert first["itbis_amount"] == 178.20
+    assert first["discount_rate"] == 0.01
     second = detail["detalle_items"][1]
     assert second["indicador_facturacion"] == "2"
     assert second["monto_exento"] == 10.0
+    assert second["itbis_rate"] == 0.16
+    assert second["itbis_amount"] == 0.0
 
 
 def test_parse_ecf_detail_minimal_xml_tolerates_missing_fields():
@@ -990,6 +995,43 @@ def test_detail_received_ecf_missing_redirects(client):
             sess["user"] = {"uid": "u1", "ownerUID": "owner-1"}
         resp = client.get("/recepcion/ecf/unknown")
         assert resp.status_code == 302
+
+
+def test_download_received_ecf_pdf(client):
+    from app.repositories.receptor_repository import ReceptorRepository
+    stored = {
+        "sender_rnc": "132109122",
+        "sender_name": "EMISOR SRL",
+        "receiver_rnc": "131880681",
+        "receiver_name": "COMPRADOR SRL",
+        "encf": "E310000000001",
+        "ecf_type": "31",
+        "monto_total": 1000.0,
+        "xml_content": ECF_FULL_XML,
+        "arecf_xml": "<ARECF/>",
+        "status": "recibido",
+        "estado_arecf": "0",
+        "codigo_motivo_no_recibido": None,
+        "track_id": "TRACK123",
+        "received_at": "2026-08-31T10:00:00+00:00",
+        "id": "doc-1",
+    }
+    with _patch_ui_session_dependencies()[0], _patch_ui_session_dependencies()[1], \
+            _patch_ui_session_dependencies()[2], _patch_ui_session_dependencies()[3], \
+            _patch_ui_session_dependencies()[4], \
+            patch.object(ReceptorRepository, "get_received_ecf_merged", return_value=stored):
+        with client.session_transaction() as sess:
+            sess["user"] = {"uid": "u1", "ownerUID": "owner-1"}
+            sess["is_sandbox_mode"] = True
+        resp = client.get("/recepcion/ecf/doc-1/pdf?action=print")
+        assert resp.status_code == 200
+        html = re.sub(r"\s+", " ", resp.get_data(as_text=True))
+        assert "EMISOR SRL" in html
+        assert "E310000000001" in html
+        assert "Producto A" in html
+        assert "Servicio B" in html
+        assert "Monto Total" in html
+        assert "TRACK123" in html
 
 
 # ── UI /recepcion/ecf (listado estilo invoices con filtros) ─────────────────

@@ -174,7 +174,10 @@
                                 Cant.</th>
                             <th
                                 style="padding: 12px 14px; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.03em; text-align: right;">
-                                Desc.</th>
+                                ITBIS</th>
+                            <th
+                                style="padding: 12px 14px; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.03em; text-align: right;">
+                                Desc. %</th>
                             <th
                                 style="padding: 12px 14px; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.03em; text-align: right;">
                                 Subtotal</th>
@@ -204,8 +207,12 @@
                                 style="padding: 12px 14px; text-align: center; vertical-align: middle; font-size: 0.8rem; font-weight: 700; color: var(--text-primary);">
                                 {{ "{:,.2f}".format(item.cantidad) }}</td>
                             <td
+                                style="padding: 12px 14px; text-align: right; vertical-align: middle; font-size: 0.8rem; font-weight: 500; color: var(--text-secondary);">
+                                {% if item.itbis_amount and item.itbis_amount > 0 %}RD$ {{ "{:,.2f}".format(item.itbis_amount)
+                                }} ({{ "{:.0%}".format(item.itbis_rate) }}){% else %}-{% endif %}</td>
+                            <td
                                 style="padding: 12px 14px; text-align: right; vertical-align: middle; font-size: 0.8rem; font-weight: 500; color: var(--text-muted);">
-                                {% if item.descuento and item.descuento > 0 %}RD$ {{ "{:,.2f}".format(item.descuento)
+                                {% if item.discount_rate and item.discount_rate > 0 %}{{ "{:.0%}".format(item.discount_rate)
                                 }}{% else %}-{% endif %}</td>
                             <td
                                 style="padding: 12px 14px; text-align: right; vertical-align: middle; font-size: 0.82rem; font-weight: 800; color: var(--text-primary);">
@@ -273,6 +280,13 @@
                         <span>ITBIS Total:</span>
                         <span>RD$ {{ "{:,.2f}".format(detail.total_itbis | float) }}</span>
                     </div>
+                    {% if detail.monto_impuesto_adicional %}
+                    <div
+                        style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-secondary);">
+                        <span>Impuesto Adicional:</span>
+                        <span>RD$ {{ "{:,.2f}".format(detail.monto_impuesto_adicional | float) }}</span>
+                    </div>
+                    {% endif %}
                     {% if detail.total_isr_retencion %}
                     <div
                         style="display: flex; justify-content: space-between; font-size: 0.88rem; color: var(--text-muted);">
@@ -321,6 +335,11 @@
                 Track ID: {{ doc.track_id or '-' }}
             </div>
             <div style="display: flex; flex-direction: column; gap: 10px;">
+                <a href="{{ url_for('web_recepcion.download_received_pdf', ecf_id=doc.id) }}" class="btn btn-primary"
+                    style="width: 100%; font-size: 0.82rem; padding: 8px 16px;">
+                    <i class="fa-solid fa-file-pdf"></i>
+                    <span>Descargar PDF</span>
+                </a>
                 <a href="{{ url_for('web_recepcion.download_received_xml', ecf_id=doc.id) }}" class="btn btn-secondary"
                     style="width: 100%; font-size: 0.82rem; padding: 8px 16px;">
                     <i class="fa-solid fa-file-code" style="color: var(--accent-blue);"></i>
