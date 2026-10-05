@@ -2,10 +2,27 @@
 {% block title %}Posiciones — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
-{% set days = [('L',0),('M',1),('X',2),('J',3),('V',4),('S',5),('D',6)] %}
 <div class="page-header hr-page-header">
     <h1 class="page-title"><i class="fa-solid fa-briefcase"></i> Posiciones</h1>
     <a href="{{ url_for('web_rrhh.settings_index') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Configuración</a>
+</div>
+
+<div class="card-table-wrapper" style="padding:16px 24px; margin-bottom:16px; display:flex; gap:8px;">
+    <form method="POST" action="{{ url_for('web_rrhh.position_save') }}" style="display:flex; gap:8px; flex:1; align-items:flex-end;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group" style="margin:0; flex:1;">
+            <input type="text" name="name" class="form-input" placeholder="Nueva posición..." required>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <select name="reportsTo" class="form-input" style="width:200px;">
+                <option value="">— Reporta a (opcional) —</option>
+                {% for p in rows %}
+                <option value="{{ p.id }}">{{ p.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-plus"></i> Nueva posición</button>
+    </form>
 </div>
 
 <div class="card-table-wrapper hr-table-card">
@@ -14,92 +31,44 @@
         <thead>
             <tr>
                 <th>Nombre</th>
+                <th>Área</th>
+                <th>Nivel</th>
                 <th>Reporta a</th>
-                <th>Horario semanal</th>
+                <th style="text-align:center;">Empleados</th>
                 <th style="width:60px;">Acción</th>
             </tr>
         </thead>
         <tbody>
-            {% for item in items %}
-            <tr>
-                <td style="vertical-align:top; min-width:200px;">
-                    <form method="POST" action="{{ url_for('web_rrhh.position_save') }}">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <input type="hidden" name="id" value="{{ item.id }}">
-                        <input type="text" name="name" value="{{ item.name }}" class="form-input">
-                        <button type="submit" class="btn btn-ghost btn-sm"><i class="fa-solid fa-check"></i> Guardar nombre</button>
-                    </form>
-                </td>
+            {% for p in rows %}
+            <tr class="position-row" data-href="{{ url_for('web_rrhh.position_detail', item_id=p.id) }}" style="cursor:pointer;">
+                <td style="font-weight:600;">{{ p.name }}</td>
+                <td>{% if p.area %}<span class="badge badge-secondary">{{ p.area }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                <td>{% if p.level %}<span class="badge badge-primary">{{ p.level }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                <td>{{ p.reports_to or '—' }}</td>
+                <td style="text-align:center;">{{ p.employee_count }}</td>
                 <td style="vertical-align:top;">
-                    <form method="POST" action="{{ url_for('web_rrhh.position_save') }}">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <input type="hidden" name="id" value="{{ item.id }}">
-                        <input type="hidden" name="name" value="{{ item.name }}">
-                        <select name="reportsTo" class="form-input" style="width:160px;">
-                            <option value="">— (raíz) —</option>
-                            {% for p in items if p.id != item.id %}
-                            <option value="{{ p.id }}" {% if item.reportsTo == p.id %}selected{% endif %}>{{ p.name }}</option>
-                            {% endfor %}
-                        </select>
-                        <button type="submit" class="btn btn-ghost btn-sm"><i class="fa-solid fa-check"></i> Guardar</button>
-                    </form>
-                </td>
-                <td style="vertical-align:top;">
-                    <form method="POST" action="{{ url_for('web_rrhh.position_save') }}">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <input type="hidden" name="id" value="{{ item.id }}">
-                        <input type="hidden" name="name" value="{{ item.name }}">
-                        <input type="hidden" name="schedule_submitted" value="1">
-                        <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center;">
-                            {% for label, day in days %}
-                            {% set entry = item.get('_schedule_map', {}).get(day) %}
-                            <div style="display:flex; align-items:center; gap:4px; background:var(--bg-nav-hover); padding:4px 8px; border-radius:6px;">
-                                <span style="font-weight:700; width:14px;">{{ label }}</span>
-                                <input type="time" name="ws_start_{{ day }}" class="form-input"
-                                       value="{{ entry.start if entry else '' }}" style="width:96px; padding:2px 6px;">
-                                <span style="color:var(--text-muted);">a</span>
-                                <input type="time" name="ws_end_{{ day }}" class="form-input"
-                                       value="{{ entry.end if entry else '' }}" style="width:96px; padding:2px 6px;">
-                            </div>
-                            {% endfor %}
-                        </div>
-                        <button type="submit" class="btn btn-primary btn-sm" style="margin-top:6px;"><i class="fa-solid fa-clock"></i> Guardar horario</button>
-                    </form>
-                </td>
-                <td style="vertical-align:top;">
-                    <form method="POST" action="{{ url_for('web_rrhh.position_delete', item_id=item.id) }}"
-                          onsubmit="return confirm('¿Eliminar {{ item.name }}?')" style="display:contents;">
+                    <form method="POST" action="{{ url_for('web_rrhh.position_delete', item_id=p.id) }}"
+                          onsubmit="return confirm('¿Eliminar {{ p.name }}?');" style="display:contents;"
+                          onclick="event.stopPropagation();">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--danger);"><i class="fa-solid fa-trash-can"></i></button>
                     </form>
                 </td>
             </tr>
             {% else %}
-            <tr><td colspan="4" class="text-center text-muted">Sin posiciones definidas.</td></tr>
+            <tr><td colspan="6" class="text-center text-muted">Sin posiciones definidas.</td></tr>
             {% endfor %}
         </tbody>
         </table>
     </div>
 </div>
 
-<div class="card-table-wrapper" style="padding:16px 24px; margin-top:16px;">
-    <h3 style="margin:0 0 12px;">Nueva posición</h3>
-    <form method="POST" action="{{ url_for('web_rrhh.position_save') }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div style="display:flex; gap:8px; align-items:flex-end;">
-            <div class="form-group" style="margin:0; flex:1;">
-                <input type="text" name="name" class="form-input" placeholder="Nueva posición..." required>
-            </div>
-            <div class="form-group" style="margin:0;">
-                <select name="reportsTo" class="form-input" style="width:180px;">
-                    <option value="">— (raíz) —</option>
-                    {% for p in items %}
-                    <option value="{{ p.id }}">{{ p.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-plus"></i> Agregar</button>
-        </div>
-    </form>
-</div>
+<script>
+document.querySelectorAll('.position-row').forEach(function(row) {
+    row.addEventListener('click', function(e) {
+        if (e.target.closest('form') || e.target.closest('button')) return;
+        window.location.href = row.dataset.href;
+    });
+});
+</script>
 {% endblock %}

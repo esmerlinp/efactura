@@ -1,0 +1,305 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}{{ item.name }} — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<style>
+    .list-editor-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .list-editor-row .form-input { flex: 1; }
+    .pos-section-title { font-size: 0.95rem; font-weight: 700; margin: 0 0 12px 0; display: flex; align-items: center; gap: 10px; }
+    .pos-section-title i { color: var(--accent-emerald); }
+    .pos-read-list { margin: 0; padding-left: 18px; }
+    .pos-read-list li { margin-bottom: 6px; color: var(--text-primary); }
+    .pos-empty { color: var(--text-muted); font-style: italic; font-size: 0.85rem; }
+</style>
+
+<div class="page-header hr-page-header">
+    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <a href="{{ url_for('web_rrhh.position_list') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Posiciones</a>
+        <h1 class="page-title" style="margin:0;"><i class="fa-solid fa-briefcase"></i> {{ item.name }}</h1>
+    </div>
+    <div class="hr-page-actions">
+        {% if edit %}
+        <a href="{{ url_for('web_rrhh.position_detail', item_id=item.id) }}" class="btn btn-ghost">Cancelar</a>
+        {% else %}
+        <a href="{{ url_for('web_rrhh.position_detail', item_id=item.id, edit=1) }}" class="btn btn-primary"><i class="fa-solid fa-pen"></i> Editar</a>
+        {% endif %}
+    </div>
+</div>
+
+{% if not edit %}
+<!-- ══════════ MODO LECTURA ══════════ -->
+<div class="hr-main-col">
+    <div class="hr-section-card">
+        <h3 class="pos-section-title"><i class="fa-solid fa-id-badge"></i> Identificación del cargo</h3>
+        <div class="hr-info-grid">
+            <div class="hr-info-item">
+                <span class="hr-info-label">Nombre</span>
+                <span class="hr-info-value">{{ item.name }}</span>
+            </div>
+            <div class="hr-info-item">
+                <span class="hr-info-label">Área</span>
+                <span class="hr-info-value">{{ area or '—' }}</span>
+            </div>
+            <div class="hr-info-item">
+                <span class="hr-info-label">Nivel jerárquico</span>
+                <span class="hr-info-value">{{ level or '—' }}</span>
+            </div>
+            <div class="hr-info-item">
+                <span class="hr-info-label">Supervisor directo</span>
+                <span class="hr-info-value">{{ supervisor or '—' }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="hr-section-card">
+        <h3 class="pos-section-title"><i class="fa-solid fa-bullseye"></i> Propósito del puesto</h3>
+        {% if item.purpose %}
+        <p style="margin:0; color:var(--text-primary); white-space:pre-wrap;">{{ item.purpose }}</p>
+        {% else %}
+        <p class="pos-empty">Sin propósito definido.</p>
+        {% endif %}
+    </div>
+
+    <div class="hr-section-card">
+        <h3 class="pos-section-title"><i class="fa-solid fa-list-check"></i> Funciones principales</h3>
+        {% if functions %}
+        <ul class="pos-read-list">
+            {% for f in functions %}<li>{{ f }}</li>{% endfor %}
+        </ul>
+        {% else %}<p class="pos-empty">Sin funciones definidas.</p>{% endif %}
+    </div>
+
+    <div class="hr-section-card">
+        <h3 class="pos-section-title"><i class="fa-solid fa-shield-halved"></i> Responsabilidades</h3>
+        {% if responsibilities %}
+        <ul class="pos-read-list">
+            {% for r in responsibilities %}<li>{{ r }}</li>{% endfor %}
+        </ul>
+        {% else %}<p class="pos-empty">Sin responsabilidades definidas.</p>{% endif %}
+    </div>
+
+    <div class="hr-section-card">
+        <h3 class="pos-section-title"><i class="fa-solid fa-lightbulb"></i> Competencias requeridas</h3>
+        <div class="hr-detail-grid">
+            <div>
+                <span class="hr-info-label" style="margin-bottom:8px;">Conocimientos técnicos</span>
+                {% if competencies_knowledge %}
+                <ul class="pos-read-list">{% for c in competencies_knowledge %}<li>{{ c }}</li>{% endfor %}</ul>
+                {% else %}<p class="pos-empty">Sin definir.</p>{% endif %}
+            </div>
+            <div>
+                <span class="hr-info-label" style="margin-bottom:8px;">Habilidades</span>
+                {% if competencies_skills %}
+                <ul class="pos-read-list">{% for c in competencies_skills %}<li>{{ c }}</li>{% endfor %}</ul>
+                {% else %}<p class="pos-empty">Sin definir.</p>{% endif %}
+            </div>
+            <div>
+                <span class="hr-info-label" style="margin-bottom:8px;">Actitudes</span>
+                {% if competencies_attitudes %}
+                <ul class="pos-read-list">{% for c in competencies_attitudes %}<li>{{ c }}</li>{% endfor %}</ul>
+                {% else %}<p class="pos-empty">Sin definir.</p>{% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="hr-section-card">
+        <h3 class="pos-section-title"><i class="fa-solid fa-chart-line"></i> Indicadores de desempeño</h3>
+        {% if performance_indicators %}
+        <ul class="pos-read-list">
+            {% for k in performance_indicators %}<li>{{ k }}</li>{% endfor %}
+        </ul>
+        {% else %}<p class="pos-empty">Sin indicadores definidos.</p>{% endif %}
+    </div>
+</div>
+{% else %}
+<!-- ══════════ MODO EDICIÓN ══════════ -->
+<form method="POST" action="{{ url_for('web_rrhh.position_detail_save', item_id=item.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="hr-main-col">
+        <div class="hr-section-card">
+            <h3 class="pos-section-title"><i class="fa-solid fa-id-badge"></i> Identificación del cargo</h3>
+            <div class="hr-form-grid">
+                <div class="form-group">
+                    <label class="hr-info-label">Nombre</label>
+                    <input type="text" name="name" value="{{ item.name }}" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="hr-info-label">Área</label>
+                    <select name="departmentId" class="form-input">
+                        <option value="">— Sin área —</option>
+                        {% for d in departments %}
+                        <option value="{{ d.id }}" {% if item.departmentId == d.id %}selected{% endif %}>{{ d.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="hr-info-label">Nivel jerárquico</label>
+                    <select name="level" class="form-input">
+                        <option value="">— Sin nivel —</option>
+                        {% for value, label in levels %}
+                        <option value="{{ value }}" {% if item.level == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="hr-info-label">Supervisor directo</label>
+                    <select name="reportsTo" class="form-input">
+                        <option value="">— (raíz) —</option>
+                        {% for p in positions if p.id != item.id %}
+                        <option value="{{ p.id }}" {% if item.reportsTo == p.id %}selected{% endif %}>{{ p.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="hr-section-card">
+            <h3 class="pos-section-title"><i class="fa-solid fa-bullseye"></i> Propósito del puesto</h3>
+            <div class="form-group" style="margin:0;">
+                <textarea name="purpose" class="form-input" rows="3" placeholder="Razón de ser del cargo en una o dos oraciones...">{{ item.purpose or '' }}</textarea>
+            </div>
+        </div>
+
+        <div class="hr-section-card">
+            <h3 class="pos-section-title"><i class="fa-solid fa-list-check"></i> Funciones principales</h3>
+            <div class="list-editor">
+                <div class="list-editor-rows">
+                    {% for f in functions %}
+                    <div class="list-editor-row">
+                        <input type="text" name="functions" value="{{ f }}" class="form-input" placeholder="Describa una función concreta...">
+                        <button type="button" class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()" style="color:var(--danger);"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    {% endfor %}
+                </div>
+                <template>
+                    <div class="list-editor-row">
+                        <input type="text" name="functions" value="" class="form-input" placeholder="Describa una función concreta...">
+                        <button type="button" class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()" style="color:var(--danger);"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                </template>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="addRow(this)"><i class="fa-solid fa-plus"></i> Agregar función</button>
+            </div>
+        </div>
+
+        <div class="hr-section-card">
+            <h3 class="pos-section-title"><i class="fa-solid fa-shield-halved"></i> Responsabilidades</h3>
+            <div class="list-editor">
+                <div class="list-editor-rows">
+                    {% for r in responsibilities %}
+                    <div class="list-editor-row">
+                        <input type="text" name="responsibilities" value="{{ r }}" class="form-input" placeholder="Manejo de efectivo, supervisión, metas, información confidencial...">
+                        <button type="button" class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()" style="color:var(--danger);"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    {% endfor %}
+                </div>
+                <template>
+                    <div class="list-editor-row">
+                        <input type="text" name="responsibilities" value="" class="form-input" placeholder="Manejo de efectivo, supervisión, metas, información confidencial...">
+                        <button type="button" class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()" style="color:var(--danger);"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                </template>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="addRow(this)"><i class="fa-solid fa-plus"></i> Agregar responsabilidad</button>
+            </div>
+        </div>
+
+        <div class="hr-section-card">
+            <h3 class="pos-section-title"><i class="fa-solid fa-lightbulb"></i> Competencias requeridas</h3>
+            <div class="hr-detail-grid">
+                <div class="list-editor">
+                    <span class="hr-info-label" style="margin-bottom:8px;">Conocimientos técnicos</span>
+                    <div class="list-editor-rows">
+                        {% for c in competencies_knowledge %}
+                        <div class="list-editor-row">
+                            <input type="text" name="competencies_knowledge" value="{{ c }}" class="form-input" placeholder="Conocimiento técnico...">
+                            <button type="button" class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()" style="color:var(--danger);"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <template>
+                        <div class="list-editor-row">
+                            <input type="text" name="competencies_knowledge" value="" class="form-input" placeholder="Conocimiento técnico...">
+                            <button type="button" class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()" style="color:var(--danger);"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                    </template>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="addRow(this)"><i class="fa-solid fa-plus"></i> Agregar</button>
+                </div>
+                <div class="list-editor">
+                    <span class="hr-info-label" style="margin-bottom:8px;">Habilidades</span>
+                    <div class="list-editor-rows">
+                        {% for c in competencies_skills %}
+                        <div class="list-editor-row">
+                            <input type="text" name="competencies_skills" value="{{ c }}" class="form-input" placeholder="Habilidad...">
+                            <button type="button" class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()" style="color:var(--danger);"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <template>
+                        <div class="list-editor-row">
+                            <input type="text" name="competencies_skills" value="" class="form-input" placeholder="Habilidad...">
+                            <button type="button" class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()" style="color:var(--danger);"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                    </template>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="addRow(this)"><i class="fa-solid fa-plus"></i> Agregar</button>
+                </div>
+                <div class="list-editor">
+                    <span class="hr-info-label" style="margin-bottom:8px;">Actitudes</span>
+                    <div class="list-editor-rows">
+                        {% for c in competencies_attitudes %}
+                        <div class="list-editor-row">
+                            <input type="text" name="competencies_attitudes" value="{{ c }}" class="form-input" placeholder="Actitud...">
+                            <button type="button" class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()" style="color:var(--danger);"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <template>
+                        <div class="list-editor-row">
+                            <input type="text" name="competencies_attitudes" value="" class="form-input" placeholder="Actitud...">
+                            <button type="button" class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()" style="color:var(--danger);"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                    </template>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="addRow(this)"><i class="fa-solid fa-plus"></i> Agregar</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="hr-section-card">
+            <h3 class="pos-section-title"><i class="fa-solid fa-chart-line"></i> Indicadores de desempeño</h3>
+            <div class="list-editor">
+                <div class="list-editor-rows">
+                    {% for k in performance_indicators %}
+                    <div class="list-editor-row">
+                        <input type="text" name="performanceIndicators" value="{{ k }}" class="form-input" placeholder="Criterio para medir el desempeño...">
+                        <button type="button" class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()" style="color:var(--danger);"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    {% endfor %}
+                </div>
+                <template>
+                    <div class="list-editor-row">
+                        <input type="text" name="performanceIndicators" value="" class="form-input" placeholder="Criterio para medir el desempeño...">
+                        <button type="button" class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()" style="color:var(--danger);"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                </template>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="addRow(this)"><i class="fa-solid fa-plus"></i> Agregar indicador</button>
+            </div>
+        </div>
+
+        <div class="hr-section-card hr-actions-card">
+            <div class="hr-actions-bar">
+                <a href="{{ url_for('web_rrhh.position_detail', item_id=item.id) }}" class="btn btn-ghost">Cancelar</a>
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Guardar descripción</button>
+            </div>
+        </div>
+    </div>
+</form>
+{% endif %}
+
+<script>
+function addRow(btn) {
+    var container = btn.closest('.list-editor');
+    var tpl = container.querySelector('template');
+    var node = tpl.content.firstElementChild.cloneNode(true);
+    btn.parentElement.insertBefore(node, btn);
+    node.querySelector('input').focus();
+}
+</script>
+{% endblock %}
