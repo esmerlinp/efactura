@@ -130,6 +130,16 @@ class ReceptorXmlService:
             return 0.0
 
     @staticmethod
+    def _indicador_to_rate(indicador):
+        """Mapea IndicadorFacturacion a tasa de ITBIS (0/1=18%, 2=16%, 3=0%, 4=exento)."""
+        ind = str(indicador or "").strip()
+        if ind in ("0", "1"):
+            return 0.18
+        if ind == "2":
+            return 0.16
+        return 0.0
+
+    @staticmethod
     def default_detail():
         """Estructura con valores por defecto para renderizar el detalle
         cuando el XML no está disponible o no se pudo parsear."""
@@ -155,6 +165,7 @@ class ReceptorXmlService:
             "total_itbis_retenido": 0.0,
             "total_isr_retencion": 0.0,
             "monto_total": 0.0,
+            "monto_impuesto_adicional": 0.0,
             "detalle_items": [],
         }
 
@@ -179,33 +190,48 @@ class ReceptorXmlService:
         emisor = ReceptorXmlService._find_elem(enc, "Emisor")
         comprador = ReceptorXmlService._find_elem(enc, "Comprador")
         totales = ReceptorXmlService._find_elem(enc, "Totales")
-        detalles = ReceptorXmlService._find_elem(enc, "DetallesItems")
+        detalles = ReceptorXmlService._find_elem(root, "DetallesItems")
 
         items = []
         if detalles is not None:
             for item_elem in ReceptorXmlService._find_all(detalles, "Item"):
+                indicador_facturacion = ReceptorXmlService._find_text(
+                    item_elem, "IndicadorFacturacion"
+                )
+                precio_unitario = ReceptorXmlService._to_float(
+                    ReceptorXmlService._find_text(item_elem, "PrecioUnitarioItem", "PrecioUnitario")
+                )
+                cantidad = ReceptorXmlService._to_float(
+                    ReceptorXmlService._find_text(item_elem, "CantidadItem")
+                )
+                descuento = ReceptorXmlService._to_float(
+                    ReceptorXmlService._find_text(item_elem, "DescuentoMonto")
+                )
+                monto_item = ReceptorXmlService._to_float(
+                    ReceptorXmlService._find_text(item_elem, "MontoItem")
+                )
+                monto_exento = ReceptorXmlService._to_float(
+                    ReceptorXmlService._find_text(item_elem, "MontoExento")
+                )
+                itbis_rate = ReceptorXmlService._indicador_to_rate(indicador_facturacion)
+                base = precio_unitario * cantidad
+                discount_rate = round(descuento / base, 4) if base > 0 else 0.0
+                itbis_amount = 0.0
+                if monto_exento <= 0 and itbis_rate > 0:
+                    itbis_amount = round(monto_item * itbis_rate, 2)
                 item = {
                     "numero_linea": ReceptorXmlService._find_text(item_elem, "NumeroLinea"),
                     "codigo": ReceptorXmlService._find_text(item_elem, "CodigoItem"),
                     "nombre": ReceptorXmlService._find_text(item_elem, "NombreItem"),
-                    "indicador_facturacion": ReceptorXmlService._find_text(
-                        item_elem, "IndicadorFacturacion"
-                    ),
-                    "cantidad": ReceptorXmlService._to_float(
-                        ReceptorXmlService._find_text(item_elem, "CantidadItem")
-                    ),
-                    "precio_unitario": ReceptorXmlService._to_float(
-                        ReceptorXmlService._find_text(item_elem, "PrecioUnitarioItem", "PrecioUnitario")
-                    ),
-                    "descuento": ReceptorXmlService._to_float(
-                        ReceptorXmlService._find_text(item_elem, "DescuentoMonto")
-                    ),
-                    "monto_item": ReceptorXmlService._to_float(
-                        ReceptorXmlService._find_text(item_elem, "MontoItem")
-                    ),
-                    "monto_exento": ReceptorXmlService._to_float(
-                        ReceptorXmlService._find_text(item_elem, "MontoExento")
-                    ),
+                    "indicador_facturacion": indicador_facturacion,
+                    "cantidad": cantidad,
+                    "precio_unitario": precio_unitario,
+                    "descuento": descuento,
+                    "discount_rate": discount_rate,
+                    "itbis_rate": itbis_rate,
+                    "itbis_amount": itbis_amount,
+                    "monto_item": monto_item,
+                    "monto_exento": monto_exento,
                 }
                 items.append(item)
 
@@ -254,6 +280,9 @@ class ReceptorXmlService:
             ) if totales is not None else 0.0,
             "monto_total": ReceptorXmlService._to_float(
                 ReceptorXmlService._find_text(totales, "MontoTotal")
+            ) if totales is not None else 0.0,
+            "monto_impuesto_adicional": ReceptorXmlService._to_float(
+                ReceptorXmlService._find_text(totales, "MontoImpuestoAdicional")
             ) if totales is not None else 0.0,
             "detalle_items": items,
         }
