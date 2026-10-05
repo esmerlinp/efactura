@@ -6,8 +6,14 @@
 {% endblock %}
 {% block app_loader %}
 <script>
-    if (window.showAppLoader) { showAppLoader(); }
-    window.addEventListener('load', function() { setTimeout(function() { if (window.hideAppLoader) hideAppLoader(); }, 400); });
+    (function () {
+        var pending = false;
+        try { pending = sessionStorage.getItem('app_loader_pending') === '1'; sessionStorage.removeItem('app_loader_pending'); } catch(e) {}
+        if (pending && window.showAppLoader) { showAppLoader(); }
+        window.addEventListener('load', function () {
+            setTimeout(function () { if (window.hideAppLoader) hideAppLoader(); }, 400);
+        });
+    })();
 </script>
 {% endblock %}
 {% block content %}
