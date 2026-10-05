@@ -35,6 +35,21 @@ def _safe_redirect_fallback(default_endpoint='web_dashboard.dashboard'):
             return redirect(target)
     return redirect(url_for(default_endpoint))
 
+def _resolve_safe_next(next_url):
+    """Devuelve una ruta local válida a partir de `next_url`, o '' si es insegura/ausente."""
+    from urllib.parse import urlparse
+    if not next_url:
+        return ''
+    parsed = urlparse(next_url)
+    if not parsed.netloc and not parsed.scheme:
+        return next_url
+    if parsed.netloc == request.host:
+        target = parsed.path
+        if parsed.query:
+            target += '?' + parsed.query
+        return target
+    return ''
+
 @web_auth_bp.route('/')
 def home():
     is_logged_in = 'user' in session
@@ -341,7 +356,7 @@ LOCKOUT_DURATION = 900  # 15 minutos en segundos
 @limiter.limit("10/minute;30/hour;100/day")
 def login():
     if 'user' in session:
-        return redirect(url_for('web_dashboard.dashboard'))
+        return _safe_redirect_fallback()
         
     if request.method == 'POST':
         email = request.form['email'].strip().lower()
@@ -364,12 +379,15 @@ def login():
                 # Restablecer contador de intentos fallidos
                 cache.delete(f"login_attempts_{email}")
                 
+                next_url = request.form.get('next') or request.args.get('next')
+
                 # Si tiene MFA activo, guardar perfil temporal y redirigir
                 # Si tiene MFA activo, guardar perfil temporal y redirigir
                 if user_profile.get("two_factor_enabled"):
                     session['mfa_pending_uid'] = user_profile['uid']
                     session['mfa_pending_email'] = user_profile['email']
                     session['mfa_pending_profile'] = user_profile
+                    session['pending_login_next'] = next_url or ''
                     return redirect(url_for('web_auth.verify_2fa'))
                     
                 session_token = str(uuid.uuid4())
@@ -380,6 +398,7 @@ def login():
                     session['pending_login_profile'] = user_profile
                     session['pending_login_session_token'] = session_token
                     session['pending_login_email'] = user_profile.get('email')
+                    session['pending_login_next'] = next_url or ''
                     session['pending_login_conflict_info'] = {
                         "ip": active_session.get("ip_address", ""),
                         "agent": active_session.get("user_agent", ""),
@@ -455,8 +474,10 @@ def login():
                 
                 flash('¡Sesión iniciada exitosamente!', 'success')
                 if len(session.get('user_companies', [])) > 1:
+                    if next_url:
+                        return redirect(url_for('web_auth.select_company', next=next_url))
                     return redirect(url_for('web_auth.select_company'))
-                return redirect(url_for('web_dashboard.dashboard'))
+                return _safe_redirect_fallback()
             else:
                 from app.services.audit_service import AuditService, ACTION_LOGIN, MODULE_AUTH
                 AuditService.log_from_request(
@@ -530,6 +551,7 @@ def resolve_session_conflict():
         session.pop('pending_login_session_token', None)
         session.pop('pending_login_email', None)
         session.pop('pending_login_conflict_info', None)
+        session.pop('pending_login_next', None)
         flash('Inicio de sesión cancelado.', 'info')
         return redirect(url_for('web_auth.login'))
     
@@ -602,8 +624,13 @@ def resolve_session_conflict():
     )
     
     flash('Sesión anterior cerrada. ¡Bienvenido de nuevo!', 'success')
+    next_url = _resolve_safe_next(session.pop('pending_login_next', None))
     if len(session.get('user_companies', [])) > 1:
+        if next_url:
+            return redirect(url_for('web_auth.select_company', next=next_url))
         return redirect(url_for('web_auth.select_company'))
+    if next_url:
+        return redirect(next_url)
     return redirect(url_for('web_dashboard.dashboard'))
 
 
@@ -703,8 +730,13 @@ def verify_2fa():
             )
             
             flash('¡Sesión iniciada exitosamente con 2FA!', 'success')
+            next_url = _resolve_safe_next(session.pop('pending_login_next', None))
             if len(session.get('user_companies', [])) > 1:
+                if next_url:
+                    return redirect(url_for('web_auth.select_company', next=next_url))
                 return redirect(url_for('web_auth.select_company'))
+            if next_url:
+                return redirect(next_url)
             return redirect(url_for('web_dashboard.dashboard'))
         else:
             flash('Código incorrecto o inválido. Inténtalo de nuevo.', 'error')

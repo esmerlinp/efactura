@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% block title %}Portal de Desarrolladores{% endblock %} · {{ product_name }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg: #ffffff;
+            --bg-soft: #f9fafb;
+            --bg-panel: #f3f4f6;
+            --border: #e5e7eb;
+            --text: #111827;
+            --text-muted: #6b7280;
+            --accent: #2563eb;
+            --accent-soft: #eff6ff;
+            --success: #059669;
+            --success-soft: #ecfdf5;
+            --danger: #dc2626;
+            --danger-soft: #fef2f2;
+            --warning: #d97706;
+            --warning-soft: #fffbeb;
+            --radius: 12px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            font-size: 15px;
+        }
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        header {
+            background: var(--bg);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+        .header-inner {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 24px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 24px;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 800;
+            font-size: 1.1rem;
+            color: var(--text);
+            text-decoration: none;
+        }
+        .brand:hover { text-decoration: none; }
+        .brand .mark {
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            background: var(--accent);
+            color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.9rem;
+        }
+        nav.main { display: flex; align-items: center; gap: 4px; }
+        nav.main a {
+            color: var(--text-muted);
+            font-weight: 500;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 0.92rem;
+        }
+        nav.main a:hover { color: var(--text); text-decoration: none; background: var(--bg-soft); }
+        nav.main a.active { color: var(--accent); background: var(--accent-soft); }
+        .header-actions { display: flex; align-items: center; gap: 12px; }
+        .btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 9px 16px;
+            border-radius: 9px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            border: 1px solid transparent;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .btn:hover { text-decoration: none; }
+        .btn-primary { background: var(--accent); color: #fff; }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-ghost { background: var(--bg); border-color: var(--border); color: var(--text); }
+        .btn-ghost:hover { background: var(--bg-soft); }
+
+        .page { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+
+        .card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+        }
+        .badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+        .badge.success { background: var(--success-soft); color: var(--success); }
+        .badge.warning { background: var(--warning-soft); color: var(--warning); }
+        .badge.danger { background: var(--danger-soft); color: var(--danger); }
+        .badge.muted { background: var(--bg-panel); color: var(--text-muted); }
+
+        code {
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+            font-size: 0.85em;
+            background: var(--bg-panel);
+            padding: 2px 6px;
+            border-radius: 6px;
+            color: var(--text);
+        }
+        pre {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            overflow-x: auto;
+            font-size: 0.82rem;
+            line-height: 1.55;
+            color: #1f2937;
+            margin: 12px 0;
+        }
+        pre code { background: none; padding: 0; }
+
+        .method {
+            display: inline-block;
+            font-family: 'SFMono-Regular', Consolas, monospace;
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 6px;
+            margin-right: 8px;
+            color: #fff;
+        }
+        .method.get { background: #059669; }
+        .method.post { background: #2563eb; }
+        .method.put { background: #d97706; }
+        .method.delete { background: #dc2626; }
+
+        .flash {
+            padding: 12px 16px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            border: 1px solid;
+        }
+        .flash.success { background: var(--success-soft); border-color: #a7f3d0; color: #065f46; }
+        .flash.error { background: var(--danger-soft); border-color: #fecaca; color: #991b1b; }
+
+        .grid { display: grid; gap: 16px; }
+        .grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+        .grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+        @media (max-width: 800px) {
+            .grid.cols-3, .grid.cols-2 { grid-template-columns: 1fr; }
+            nav.main a { padding: 8px 10px; font-size: 0.85rem; }
+        }
+
+        .stat-label { font-size: 0.78rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+        .stat-value { font-size: 1.05rem; font-weight: 700; margin-top: 2px; word-break: break-all; }
+        .muted { color: var(--text-muted); }
+        .h1 { font-size: 1.9rem; font-weight: 800; letter-spacing: -0.02em; }
+        .h2 { font-size: 1.25rem; font-weight: 700; }
+        .h3 { font-size: 1rem; font-weight: 700; }
+        .lead { color: var(--text-muted); font-size: 1rem; }
+        .mt-1 { margin-top: 4px; } .mt-2 { margin-top: 8px; } .mt-3 { margin-top: 12px; }
+        .mt-4 { margin-top: 16px; } .mt-6 { margin-top: 24px; } .mt-8 { margin-top: 32px; }
+        .mb-4 { margin-bottom: 16px; } .mb-6 { margin-bottom: 24px; }
+        .flex { display: flex; } .items-center { align-items: center; }
+        .gap-2 { gap: 8px; } .gap-3 { gap: 12px; } .between { justify-content: space-between; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+        th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+        th { color: var(--text-muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; background: var(--bg-soft); }
+        td.param { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.82rem; color: var(--accent); font-weight: 600; }
+        td.req { color: var(--danger); font-weight: 700; font-size: 0.75rem; }
+
+        .layout-2 { display: grid; grid-template-columns: 240px 1fr; gap: 32px; align-items: start; }
+        @media (max-width: 900px) { .layout-2 { grid-template-columns: 1fr; } }
+        .toc { position: sticky; top: 88px; display: flex; flex-direction: column; gap: 2px; }
+        .toc a { color: var(--text-muted); font-size: 0.88rem; padding: 6px 10px; border-radius: 8px; }
+        .toc a:hover { background: var(--bg-soft); color: var(--text); text-decoration: none; }
+        .toc .group { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: #9ca3af; font-weight: 700; margin: 14px 10px 4px; }
+        .toc .group:first-child { margin-top: 0; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-inner">
+            <a href="{{ url_for('web_api_portal.index') }}" class="brand">
+                <span class="mark"><i class="fa-solid fa-code"></i></span>
+                <span>Desarrolladores</span>
+            </a>
+            <nav class="main">
+                <a href="{{ url_for('web_api_portal.index') }}" class="{{ 'active' if active_page == 'home' }}">Inicio</a>
+                <a href="{{ url_for('web_api_portal.docs') }}" class="{{ 'active' if active_page == 'docs' }}">Documentación</a>
+                <a href="{{ url_for('web_api_portal.setup') }}" class="{{ 'active' if active_page == 'setup' }}">Configuración</a>
+            </nav>
+            <div class="header-actions">
+                <a href="{{ url_for('web_dashboard.dashboard') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Volver al sistema</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="page">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+    </main>
+
+    <script>
+        function copyText(value, btn) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(value).then(function () {
+                    var original = btn.innerHTML;
+                    btn.innerHTML = '<i class="fa-solid fa-check"></i> Copiado';
+                    setTimeout(function () { btn.innerHTML = original; }, 1500);
+                });
+            }
+        }
+    </script>
+</body>
+</html>

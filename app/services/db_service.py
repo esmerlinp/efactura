@@ -1633,6 +1633,8 @@ class DatabaseService:
             "certificateExtension": company.get("certificate_extension", company.get("certificateExtension", "")),
             "certificateContent": company.get("certificate_content", company.get("certificateContent", "")),
             "certificatePassword": company.get("certificate_password", company.get("certificatePassword", "")),
+            "apiKey": company.get("api_key", company.get("apiKey", "")),
+            "developersEnabled": company.get("developers_enabled", company.get("developersEnabled", False)),
             "planId": company.get("plan_id", company.get("planId", "")),
             "plan_version": company.get("plan_version", company.get("planVersion", 0)),
             "status": status_str,
@@ -1786,6 +1788,9 @@ class DatabaseService:
             "parque": profile_dict.get("parque", ""),
             "offboarding_mode": profile_dict.get("offboardingMode", "simple"),
         }
+        # Persistir la API Key solo si viene en el dict (evita sobrescribir con vacío)
+        if "apiKey" in profile_dict:
+            update_data["api_key"] = profile_dict.get("apiKey", "")
         result = cls.update_company(company_id, update_data)
         if result and owner_uid:
             try:
