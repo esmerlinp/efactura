@@ -1090,6 +1090,79 @@
         </div>
         <span id="loader-footer" style="position:absolute; bottom:40px; font-size:0.85rem; color:#94a3b8; font-family:'Inter',system-ui,sans-serif; font-weight:500;">Cargando...</span>
     </div>
+    <style>
+        /* PANTALLA DE CARGA ANIMADA */
+        @keyframes loader-text-slide-in {
+            0%   { opacity:0; transform:translateX(120px); }
+            100% { opacity:1; transform:translateX(0); }
+        }
+        @keyframes loader-pulse {
+            0%, 100% { transform:scale(1); }
+            50%      { transform:scale(1.06); }
+        }
+        @keyframes loader-fade-out {
+            0%   { opacity:1; }
+            100% { opacity:0; visibility:hidden; }
+        }
+        #app-loader-overlay.fade-out {
+            animation: loader-fade-out 0.4s ease-out forwards;
+            pointer-events:none;
+        }
+        #app-loader-stage {
+            animation: loader-pulse 2s ease-in-out infinite;
+        }
+    </style>
+    <script>
+        // Funciones globales para controlar la pantalla de carga
+        window.showAppLoader = function() {
+            var overlay = document.getElementById('app-loader-overlay');
+            var text = document.getElementById('loader-text');
+            if (!overlay) return;
+            overlay.classList.remove('fade-out');
+            overlay.style.display = 'flex';
+            if (text) {
+                text.style.animation = 'none';
+                text.style.opacity = '0';
+                text.style.transform = 'translateX(120px)';
+                void overlay.offsetWidth;
+                text.style.animation = 'loader-text-slide-in 0.6s cubic-bezier(0.22,1,0.36,1) forwards';
+            }
+        };
+        window.hideAppLoader = function() {
+            var overlay = document.getElementById('app-loader-overlay');
+            if (!overlay) return;
+            overlay.classList.add('fade-out');
+            setTimeout(function() {
+                overlay.style.display = 'none';
+                overlay.classList.remove('fade-out');
+            }, 450);
+        };
+        // Navegar a una URL mostrando primero el loader animado
+        window.showAppLoaderAndNavigate = function(url) {
+            window.showAppLoader();
+            // Doble rAF garantiza que el navegador pinte el overlay antes de navegar
+            requestAnimationFrame(function() {
+                requestAnimationFrame(function() {
+                    window.location.href = url;
+                });
+            });
+        };
+        // Interceptar la navegación hacia módulos pesados (Nómina/RRHH y Contabilidad)
+        // para mostrar el loader también durante el render del servidor.
+        document.addEventListener('click', function(e) {
+            var link = e.target.closest('.sidebar a');
+            if (!link) return;
+            if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+            if (link.getAttribute('target') === '_blank') return;
+            var href = link.getAttribute('href');
+            if (!href || href.charAt(0) === '#') return;
+            var isHeavy = (href.indexOf('/accounting') !== -1) || (href.indexOf('/rrhh') !== -1);
+            if (isHeavy && window.showAppLoaderAndNavigate) {
+                showAppLoaderAndNavigate(href);
+                e.preventDefault();
+            }
+        });
+    </script>
     {% block app_loader %}{% endblock %}
 
     <!-- Skip to content link for keyboard users -->
@@ -1500,70 +1573,7 @@
                 {% endif %}
 
                 <!-- GRUPO: MÓDULOS -->
-                <div class="sidebar-discover-group">
-                    <div class="sidebar-divider"></div>
-                    <span class="sidebar-discover-title">Módulos</span>
-                    {% if module_enabled('nomina') and (session.get('user', {}).get('role') == 'owner' or session.get('user',
-                    {}).get('permissions', {}).get('canHR', True)) %}
-                    <a href="{{ url_for('web_rrhh.payroll_dashboard') }}"
-                        class="sidebar-discover-item {% if active_page and active_page.startswith('rrhh_') %}active{% endif %}"
-                        data-tooltip="Nómina y RRHH">
-                        <i class="fa-solid fa-coins"></i>
-                        <span>Nómina y RRHH</span>
-                    </a>
-                    {% endif %}
-                    {% if module_enabled('contabilidad') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canAccounting', True)) %}
-                    <a href="{{ url_for('web_accounting.dashboard') }}"
-                        class="sidebar-discover-item {% if active_page and active_page.startswith('acc_') %}active{% endif %}"
-                        data-tooltip="Contabilidad">
-                        <i class="fa-solid fa-scale-balanced"></i>
-                        <span>Contabilidad</span>
-                    </a>
-                    {% endif %}
-
-                    {% if module_enabled('pos') and (session.get('user', {}).get('role') == 'owner' or
-                    session.get('user', {}).get('permissions', {}).get('canManagePOS', True)) and
-                    session.get('company_profile_pos_enabled', True) %}
-                    <a href="{{ url_for('web_pos.pos_dashboard') }}"
-                        class="sidebar-discover-item {% if active_page == 'pos' or active_page == 'pos_admin' %}active{% endif %}"
-                        data-tooltip="Caja / POS">
-                        <i class="fa-solid fa-cash-register"></i>
-                        <span>Punto de Venta (POS)</span>
-                    </a>
-                    <a href="{{ url_for('web_rui.rui_list') }}"
-                        class="sidebar-discover-subitem {% if active_page == 'rui' %}active{% endif %}"
-                        data-tooltip="Registro Único de Ingresos">
-                        <i class="fa-solid fa-file-invoice"></i>
-                        <span>RUI (Tipo 12)</span>
-                    </a>
-                    {% endif %}
-                    {% if module_enabled('portal_cliente') and (session.get('user', {}).get('role') == 'owner' or
-                    session.get('user', {}).get('permissions', {}).get('canClients', True)) %}
-                    <a href="{{ url_for('portal.portal_admin') }}"
-                        class="sidebar-discover-item {% if active_page == 'portal_admin' %}active{% endif %}"
-                        data-tooltip="Portal de Clientes">
-                        <i class="fa-solid fa-globe"></i>
-                        <span>Portal de Clientes</span>
-                    </a>
-                    {% endif %}
-                    {% if module_enabled('certificacion') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canCertifyDGII', True)) %}
-                    <a href="{{ url_for('web_certificacion.wizard') }}"
-                        class="sidebar-discover-item {% if active_page == 'certificacion' %}active{% endif %}"
-                        data-tooltip="Certificación DGII">
-                        <i class="fa-solid fa-certificate"></i>
-                        <span>Certificación DGII</span>
-                    </a>
-                    {% endif %}
-                    {% if module_enabled('ia_bi') and (session.get('user', {}).get('role') == 'owner' or
-                    session.get('user', {}).get('permissions', {}).get('canViewBI', True)) %}
-                    <a href="{{ url_for('web_bi.drilldown', metric='sales') }}"
-                        class="sidebar-discover-item {% if active_page == 'bi_drilldown' %}active{% endif %}"
-                        data-tooltip="BI Drill-down">
-                        <i class="fa-solid fa-magnifying-glass-chart"></i>
-                        <span>BI Drill-down</span>
-                    </a>
-                    {% endif %}
-                </div>
+                {% include "_sidebar_modules.html" %}
 
 
 
@@ -2624,64 +2634,7 @@
          [data-theme="dark"] .action-menu-btn:hover { background: rgba(255,255,255,0.08); }
          [data-theme="dark"] .action-menu-dropdown { background: var(--dark-surface); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-color: var(--dark-border); }
          [data-theme="dark"] .action-menu-item:hover { background: rgba(255,255,255,0.06); }
-
-        /* PANTALLA DE CARGA ANIMADA */
-        @keyframes loader-text-slide-in {
-            0%   { opacity:0; transform:translateX(120px); }
-            100% { opacity:1; transform:translateX(0); }
-        }
-        @keyframes loader-pulse {
-            0%, 100% { transform:scale(1); }
-            50%      { transform:scale(1.06); }
-        }
-        @keyframes loader-fade-out {
-            0%   { opacity:1; }
-            100% { opacity:0; visibility:hidden; }
-        }
-        #app-loader-overlay.fade-out {
-            animation: loader-fade-out 0.4s ease-out forwards;
-            pointer-events:none;
-        }
-        #app-loader-stage {
-            animation: loader-pulse 2s ease-in-out infinite;
-        }
     </style>
-    <script>
-        // Funciones globales para controlar la pantalla de carga
-        window.showAppLoader = function() {
-            var overlay = document.getElementById('app-loader-overlay');
-            var text = document.getElementById('loader-text');
-            if (!overlay) return;
-            overlay.classList.remove('fade-out');
-            overlay.style.display = 'flex';
-            if (text) {
-                text.style.animation = 'none';
-                text.style.opacity = '0';
-                text.style.transform = 'translateX(120px)';
-                void overlay.offsetWidth;
-                text.style.animation = 'loader-text-slide-in 0.6s cubic-bezier(0.22,1,0.36,1) forwards';
-            }
-        };
-        window.hideAppLoader = function() {
-            var overlay = document.getElementById('app-loader-overlay');
-            if (!overlay) return;
-            overlay.classList.add('fade-out');
-            setTimeout(function() {
-                overlay.style.display = 'none';
-                overlay.classList.remove('fade-out');
-            }, 450);
-        };
-        // Navegar a una URL mostrando primero el loader animado
-        window.showAppLoaderAndNavigate = function(url) {
-            window.showAppLoader();
-            // Doble rAF garantiza que el navegador pinte el overlay antes de navegar
-            requestAnimationFrame(function() {
-                requestAnimationFrame(function() {
-                    window.location.href = url;
-                });
-            });
-        };
-    </script>
 </body>
 
 </html>

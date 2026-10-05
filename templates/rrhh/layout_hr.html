@@ -1,5 +1,14 @@
 {% extends "layout.html" %}
 
+{% block app_loader %}
+<script>
+    if (window.showAppLoader) { showAppLoader(); }
+    window.addEventListener('load', function () {
+        setTimeout(function () { if (window.hideAppLoader) hideAppLoader(); }, 400);
+    });
+</script>
+{% endblock %}
+
 {% block sidebar %}
                 <!-- ═══════════════════════════════════════════════════════ -->
                 <!-- WORKSPACE: RRHH Y NÓMINA                                -->
@@ -235,6 +244,9 @@
                     </a>
                 </div>
                 #}
+
+                <!-- GRUPO: MÓDULOS (acceso cruzado) -->
+                {% include "_sidebar_modules.html" %}
 
                 <!-- Collapse init -->
                 <script>
