@@ -70,3 +70,29 @@ def test_roundtrip_persiste_reports_to():
     by_id = {i["id"]: i for i in items}
     assert by_id["p2"]["reportsTo"] == "p1"
     assert by_id["p1"]["reportsTo"] == ""
+
+
+def test_roundtrip_persiste_descripcion_puesto():
+    store = _FakeStore()
+    with patch.object(hr, "firebase_initialized", True), \
+         patch.object(hr, "db_firestore", store):
+        hr.save_catalog_item("c1", "positions", {
+            "id": "p1", "name": "Gerente General", "active": True,
+            "workSchedule": [], "reportsTo": "",
+            "departmentId": "d1", "level": "estrategico",
+            "purpose": "Dirigir la empresa.",
+            "functions": ["Planificar"],
+            "responsibilities": ["Supervisión"],
+            "competencies": {"knowledge": ["Finanzas"], "skills": ["Liderazgo"], "attitudes": ["Proactividad"]},
+            "performanceIndicators": ["Metas"],
+        }, sandbox=True)
+
+        items = hr.get_catalog("c1", "positions", sandbox=True)
+
+    item = items[0]
+    assert item["departmentId"] == "d1"
+    assert item["level"] == "estrategico"
+    assert item["purpose"] == "Dirigir la empresa."
+    assert item["functions"] == ["Planificar"]
+    assert item["competencies"]["knowledge"] == ["Finanzas"]
+    assert item["performanceIndicators"] == ["Metas"]
