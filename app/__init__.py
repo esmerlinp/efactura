@@ -967,6 +967,7 @@ def create_app():
     from app.web.company import web_company_bp
     from app.web.recepcion import web_recepcion_bp
     from app.web.certificacion import web_certificacion_bp
+    from app.web.api_portal import web_api_portal_bp
 
     app.register_blueprint(web_herramientas_bp)
     app.register_blueprint(web_auth_bp)
@@ -1005,6 +1006,7 @@ def create_app():
     app.register_blueprint(web_company_bp)
     app.register_blueprint(web_recepcion_bp)
     app.register_blueprint(web_certificacion_bp)
+    app.register_blueprint(web_api_portal_bp)
 
     # Eximir rutas /api/ de validación CSRF (los blueprints de API se registraron arriba)
     for rule in app.url_map.iter_rules():

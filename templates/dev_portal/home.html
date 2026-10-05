@@ -1,0 +1,83 @@
+{% extends "dev_portal/layout.html" %}
+{% block title %}Inicio{% endblock %}
+{% block content %}
+
+<div class="mb-6">
+    <h1 class="h1">Integra la facturación electrónica de {{ product_name }}</h1>
+    <p class="lead mt-2">Emite y recibe comprobantes fiscales electrónicos (e-CF) vía API REST, homologada por la DGII. Tu sistema envía un JSON y nosotros nos encargamos de la firma digital, la secuencia NCF y la comunicación con la DGII.</p>
+</div>
+
+<div class="grid cols-3 mb-6">
+    <div class="card">
+        <span class="stat-label">Base URL</span>
+        <div class="stat-value muted" style="font-size:0.92rem;">{{ base_url }}</div>
+    </div>
+    <div class="card">
+        <span class="stat-label">Autenticación</span>
+        <div class="stat-value muted" style="font-size:0.92rem;">Header <code>X-API-Key</code></div>
+    </div>
+    <div class="card">
+        <span class="stat-label">Formato</span>
+        <div class="stat-value muted" style="font-size:0.92rem;">JSON (REST)</div>
+    </div>
+</div>
+
+<div class="grid cols-2 mb-6">
+    <div class="card">
+        <div class="flex items-center between mb-4">
+            <h2 class="h2">Tu API Key</h2>
+            <a href="{{ url_for('web_api_portal.setup') }}" class="muted" style="font-size:0.85rem;">Gestionar</a>
+        </div>
+        {% if api_key %}
+            <pre><code>{{ api_key }}</code></pre>
+            <button class="btn btn-ghost" onclick="copyText('{{ api_key }}', this)"><i class="fa-regular fa-copy"></i> Copiar</button>
+        {% else %}
+            <p class="muted">Aún no has generado tu API Key.</p>
+            <a href="{{ url_for('web_api_portal.setup') }}" class="btn btn-primary mt-3">Generar API Key</a>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <div class="flex items-center between mb-4">
+            <h2 class="h2">Estado de configuración</h2>
+            <a href="{{ url_for('web_api_portal.setup') }}" class="muted" style="font-size:0.85rem;">Completar</a>
+        </div>
+        <table>
+            <tbody>
+                <tr>
+                    <td class="param">RNC</td>
+                    <td>{{ profile.companyRNC or '—' }}</td>
+                    <td>{% if status.company.rnc_configured %}<span class="badge success"><i class="fa-solid fa-check"></i> Listo</span>{% else %}<span class="badge danger">Faltante</span>{% endif %}</td>
+                </tr>
+                <tr>
+                    <td class="param">Razón social</td>
+                    <td>{{ profile.companyName or '—' }}</td>
+                    <td>{% if status.company.name_configured %}<span class="badge success"><i class="fa-solid fa-check"></i> Listo</span>{% else %}<span class="badge danger">Faltante</span>{% endif %}</td>
+                </tr>
+                <tr>
+                    <td class="param">Firma digital</td>
+                    <td>{{ profile.certificateName or '—' }}</td>
+                    <td>{% if status.certificate.valid %}<span class="badge success"><i class="fa-solid fa-check"></i> Válida</span>{% else %}<span class="badge warning">Pendiente</span>{% endif %}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <h2 class="h2 mb-4">Empieza en segundos</h2>
+    <pre><code>curl -X POST {{ base_url }}/invoices/emit \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: TU_API_KEY" \
+  -d '{
+    "client_rnc": "131880681",
+    "client_name": "CLIENTE DE EJEMPLO",
+    "ecf_type": "Factura de Consumo (E32)",
+    "items": [
+      {"name": "Servicio de consultoría", "price": 1000.00, "quantity": 1, "itbis_rate": 0.18}
+    ]
+  }'</code></pre>
+    <a href="{{ url_for('web_api_portal.docs') }}" class="btn btn-primary mt-2"><i class="fa-solid fa-book"></i> Ver documentación completa</a>
+</div>
+
+{% endblock %}

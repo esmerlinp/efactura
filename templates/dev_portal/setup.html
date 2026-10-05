@@ -1,0 +1,88 @@
+{% extends "dev_portal/layout.html" %}
+{% block title %}Configuración{% endblock %}
+{% block content %}
+
+<div class="mb-6">
+    <h1 class="h1">Configuración</h1>
+    <p class="lead mt-2">Carga los datos necesarios para emitir y recibir comprobantes fiscales por API.</p>
+</div>
+
+<div class="grid cols-2">
+    <div class="card">
+        <h2 class="h2 mb-4">Firma digital (certificado DGII)</h2>
+        <p class="muted mb-4">Sube tu certificado digital <code>.p12</code> o <code>.pfx</code> con su contraseña. Se valida que el certificado sea vigente y corresponda a tu RNC antes de guardarlo.</p>
+
+        <form action="{{ url_for('web_api_portal.upload_certificate') }}" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label class="stat-label">Archivo del certificado (.p12 / .pfx)</label>
+            <input type="file" name="certificateFile" accept=".p12,.pfx" required
+                style="width:100%; margin-top:6px; padding:10px; border:1px solid var(--border); border-radius:9px; background:var(--bg-soft);">
+
+            <label class="stat-label" style="display:block; margin-top:16px;">Contraseña del certificado</label>
+            <input type="password" name="certificatePassword" required autocomplete="off"
+                style="width:100%; margin-top:6px; padding:10px 12px; border:1px solid var(--border); border-radius:9px; font-size:0.95rem;">
+
+            <button type="submit" class="btn btn-primary mt-4"><i class="fa-solid fa-shield-halved"></i> Guardar firma digital</button>
+        </form>
+
+        <div class="mt-4" style="font-size:0.88rem;">
+            {% if status.certificate.configured %}
+                <span class="badge success"><i class="fa-solid fa-check"></i> Certificado configurado</span>
+                {% if status.certificate.expires_at %}
+                    <span class="muted mt-1" style="display:block;">Expira: {{ status.certificate.expires_at }}</span>
+                {% endif %}
+            {% else %}
+                <span class="badge warning"><i class="fa-solid fa-circle-exclamation"></i> Sin certificado configurado</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card">
+        <h2 class="h2 mb-4">API Key</h2>
+        <p class="muted mb-4">Se envía en la cabecera <code>X-API-Key</code> de cada petición. Mantenla en secreto.</p>
+
+        {% if api_key %}
+            <label class="stat-label">Clave actual</label>
+            <pre><code>{{ api_key }}</code></pre>
+            <div class="flex gap-2">
+                <button class="btn btn-ghost" onclick="copyText('{{ api_key }}', this)"><i class="fa-regular fa-copy"></i> Copiar</button>
+            </div>
+        {% else %}
+            <p class="muted">No hay una API Key generada todavía.</p>
+        {% endif %}
+
+        <form action="{{ url_for('web_api_portal.regenerate_api_key') }}" method="POST" class="mt-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-ghost"
+                onclick="return confirm('¿Regenerar la API Key? Cualquier integración activa con la clave anterior dejará de funcionar de inmediato.');">
+                <i class="fa-solid fa-rotate"></i> {{ 'Regenerar API Key' if api_key else 'Generar API Key' }}
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="card mt-6">
+    <h2 class="h2 mb-4">Estado de preparación (e-CF)</h2>
+    {% if status.blocking_errors %}
+        <p class="muted mb-4">Estos elementos son obligatorios para emitir comprobantes:</p>
+        <ul style="list-style:none; display:flex; flex-direction:column; gap:8px;">
+            {% for e in status.blocking_errors %}
+            <li><span class="badge danger"><i class="fa-solid fa-xmark"></i> {{ e.code }}</span> <span class="muted" style="margin-left:8px;">{{ e.message }}</span></li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <span class="badge success"><i class="fa-solid fa-check"></i> Todo listo para emitir e-CF</span>
+    {% endif %}
+    {% if status.warnings %}
+        <div class="mt-4">
+            <p class="muted mb-2" style="font-size:0.85rem;">Advertencias:</p>
+            <ul style="list-style:none; display:flex; flex-direction:column; gap:6px;">
+                {% for w in status.warnings %}
+                <li><span class="badge warning"><i class="fa-solid fa-triangle-exclamation"></i> {{ w.code }}</span> <span class="muted" style="margin-left:8px;">{{ w.message }}</span></li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+</div>
+
+{% endblock %}

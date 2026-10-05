@@ -1,0 +1,160 @@
+{% extends "dev_portal/layout.html" %}
+{% block title %}Documentación{% endblock %}
+{% block content %}
+
+<div class="mb-6">
+    <h1 class="h1">Documentación de la API</h1>
+    <p class="lead mt-2">Referencia de los endpoints REST para emitir, consultar y anular comprobantes fiscales electrónicos (e-CF), además de consultas DGII y catálogos.</p>
+</div>
+
+<div class="layout-2">
+    <aside class="toc">
+        <a href="#auth" class="active">Autenticación</a>
+        <span class="group">Comprobantes</span>
+        <a href="#emit">Emitir e-CF</a>
+        <a href="#calculate">Calcular totales</a>
+        <a href="#status">Consultar estado</a>
+        <a href="#cancel">Anular</a>
+        <a href="#list">Listar / detalle</a>
+        <a href="#draft">Crear borrador</a>
+        <span class="group">Catálogos</span>
+        <a href="#items">Ítems</a>
+        <a href="#clients">Clientes</a>
+        <span class="group">DGII</span>
+        <a href="#rnc">Consultar RNC</a>
+        <a href="#sequences">Secuencias</a>
+        <a href="#audit">Auditoría</a>
+        <a href="#metadata">Catálogos de referencia</a>
+        <span class="group">Recepción</span>
+        <a href="#reception">Recepción e-CF</a>
+    </aside>
+
+    <div>
+        <section id="auth" class="card mb-4">
+            <h2 class="h2 mb-4">Autenticación</h2>
+            <p class="muted mb-4">Todas las peticiones (excepto recepción DGII) requieren la cabecera <code>X-API-Key</code> con la API Key de tu empresa. Para operar en el entorno de pruebas usa <code>X-Sandbox-Mode: true</code>; para producción <code>X-Sandbox-Mode: false</code>.</p>
+            <pre><code>X-API-Key: ef_xxxxxxxxxxxxxxxx
+X-Sandbox-Mode: true   # true = sandbox, false = producción</code></pre>
+        </section>
+
+        <section id="emit" class="card mb-4">
+            <h2 class="h2 mb-4"><span class="method post">POST</span><code>/invoices/emit</code></h2>
+            <p class="muted mb-4">Emite un comprobante fiscal electrónico. Calcula impuestos (ITBIS, ISC, retenciones), consume la secuencia NCF, firma y envía a la DGII.</p>
+            <h3 class="h3 mb-2">Cabecera opcional</h3>
+            <table class="mb-4">
+                <tbody>
+                    <tr><td class="param">Idempotency-Key</td><td class="muted">Evita emisiones duplicadas para una misma clave.</td></tr>
+                </tbody>
+            </table>
+            <h3 class="h3 mb-2">Cuerpo (principales campos)</h3>
+            <table class="mb-4">
+                <tbody>
+                    <tr><td class="param">items</td><td class="req">requerido</td><td class="muted">Lista de artículos: <code>name</code>, <code>price</code>, <code>quantity</code>, <code>itbis_rate</code>, <code>type</code>, <code>unit</code>.</td></tr>
+                    <tr><td class="param">client_rnc</td><td></td><td class="muted">RNC/Cédula del cliente.</td></tr>
+                    <tr><td class="param">client_name</td><td></td><td class="muted">Razón social del cliente.</td></tr>
+                    <tr><td class="param">ecf_type</td><td></td><td class="muted">Tipo de comprobante, ej. <code>Factura de Consumo (E32)</code>, <code>Crédito Fiscal (E31)</code>.</td></tr>
+                    <tr><td class="param">payment_method</td><td></td><td class="muted">Efectivo, Cheque / Transferencia, Tarjeta…</td></tr>
+                    <tr><td class="param">due_date</td><td></td><td class="muted">Fecha de vencimiento (YYYY-MM-DD).</td></tr>
+                    <tr><td class="param">discount_rate</td><td></td><td class="muted">Descuento global (0.0–1.0).</td></tr>
+                    <tr><td class="param">retained_isr_rate / retained_itbis_rate</td><td></td><td class="muted">Tasas de retención.</td></tr>
+                    <tr><td class="param">income_type</td><td></td><td class="muted">Tipo de ingreso DGII (ej. <code>01 - Ingresos por operaciones</code>).</td></tr>
+                </tbody>
+            </table>
+            <pre><code>curl -X POST {{ base_url }}/invoices/emit \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: TU_API_KEY" \
+  -d '{
+    "client_rnc": "131880681",
+    "client_name": "CLIENTE DE EJEMPLO",
+    "ecf_type": "Factura de Consumo (E32)",
+    "items": [
+      {"name": "Servicio de consultoría", "price": 1000.00, "quantity": 1, "itbis_rate": 0.18}
+    ]
+  }'</code></pre>
+            <p class="muted">Respuesta: <code>success</code>, <code>invoice_id</code>, <code>encf</code>, <code>track_id</code>, <code>xmlSignature</code>, <code>qrCodeURL</code>, <code>pdfUrl</code>, <code>xmlUrl</code>.</p>
+        </section>
+
+        <section id="calculate" class="card mb-4">
+            <h2 class="h2 mb-4"><span class="method post">POST</span><code>/invoices/calculate</code></h2>
+            <p class="muted mb-4">Calcula los totales fiscales exactos (subtotal, ITBIS, ISC, retenciones) sin emitir el comprobante.</p>
+            <pre><code>curl -X POST {{ base_url }}/invoices/calculate \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: TU_API_KEY" \
+  -d '{"items": [{"price": 1000, "quantity": 2, "itbisRate": 0.18}]}'</code></pre>
+        </section>
+
+        <section id="status" class="card mb-4">
+            <h2 class="h2 mb-4"><span class="method get">GET</span><code>/invoices/{invoice_id}/status</code></h2>
+            <p class="muted mb-4">Consulta el estado, NCF, track ID y sincronización con la DGII de un comprobante.</p>
+            <pre><code>curl {{ base_url }}/invoices/ID_DEL_DOCUMENTO/status \
+  -H "X-API-Key: TU_API_KEY"</code></pre>
+        </section>
+
+        <section id="cancel" class="card mb-4">
+            <h2 class="h2 mb-4"><span class="method post">POST</span><code>/invoices/{invoice_id}/cancel</code></h2>
+            <p class="muted mb-4">Anula un e-CF emitido enviando la solicitud de anulación al proveedor autorizado.</p>
+            <pre><code>curl -X POST {{ base_url }}/invoices/ID_DEL_DOCUMENTO/cancel \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: TU_API_KEY" \
+  -d '{"reason": "Error en digitación de monto"}'</code></pre>
+        </section>
+
+        <section id="list" class="card mb-4">
+            <h2 class="h2 mb-4"><span class="method get">GET</span><code>/invoices</code> · <code>/documents</code> · <code>/invoices/{id}</code></h2>
+            <p class="muted mb-4">Lista los comprobantes emitidos (o todos los documentos con <code>/documents</code>) y obtiene el detalle completo de uno específico.</p>
+            <pre><code>curl {{ base_url }}/invoices -H "X-API-Key: TU_API_KEY"
+curl {{ base_url }}/invoices/ID_DEL_DOCUMENTO -H "X-API-Key: TU_API_KEY"</code></pre>
+        </section>
+
+        <section id="draft" class="card mb-4">
+            <h2 class="h2 mb-4"><span class="method post">POST</span><code>/invoices</code></h2>
+            <p class="muted mb-4">Crea un borrador de factura o cotización (<code>is_quotation: true</code>) sin emitirlo. Los totales se calculan automáticamente.</p>
+        </section>
+
+        <section id="items" class="card mb-4">
+            <h2 class="h2 mb-4"><span class="method get">GET</span><code>/items</code> · <span class="method post">POST</span><code>/items</code> · <span class="method put">PUT</span><code>/items/{id}</code></h2>
+            <p class="muted mb-4">Gestiona el catálogo de artículos y servicios (nombre, precio, código, tipo, unidad, tasa de ITBIS, stock).</p>
+        </section>
+
+        <section id="clients" class="card mb-4">
+            <h2 class="h2 mb-4"><span class="method get">GET</span><code>/clients</code> · <span class="method post">POST</span><code>/clients</code> · <span class="method get">GET</span><code>/clients/{id}/statement</code></h2>
+            <p class="muted mb-4">Gestiona el directorio de clientes y consulta el estado de cuenta de un cliente.</p>
+        </section>
+
+        <section id="rnc" class="card mb-4">
+            <h2 class="h2 mb-4"><span class="method get">GET</span><code>/dgii/rnc/{rnc}</code></h2>
+            <p class="muted mb-4">Consulta la información fiscal de un RNC o cédula directamente en la DGII.</p>
+            <pre><code>curl {{ base_url }}/dgii/rnc/131880681 -H "X-API-Key: TU_API_KEY"</code></pre>
+        </section>
+
+        <section id="sequences" class="card mb-4">
+            <h2 class="h2 mb-4"><span class="method get">GET</span><code>/dgii/sequences</code></h2>
+            <p class="muted mb-4">Lista las secuencias (rangos) de comprobantes fiscales autorizadas y su consumo.</p>
+        </section>
+
+        <section id="audit" class="card mb-4">
+            <h2 class="h2 mb-4"><span class="method get">GET</span><code>/dgii/audit</code></h2>
+            <p class="muted mb-4">Consulta los logs de auditoría de secuencias usadas y su estado de sincronización con la DGII.</p>
+        </section>
+
+        <section id="metadata" class="card mb-4">
+            <h2 class="h2 mb-4"><span class="method get">GET</span><code>/metadata/catalogs</code></h2>
+            <p class="muted mb-4">Retorna los catálogos de referencia: unidades de medida, monedas, tipos de pago, métodos de pago, tipos de ingreso, tasas de ITBIS y tipos de comprobante e-CF.</p>
+        </section>
+
+        <section id="reception" class="card mb-4">
+            <h2 class="h2 mb-4">Recepción de e-CF (DGII)</h2>
+            <p class="muted mb-4">Endpoints de recepción de comprobantes de proveedores, registrados ante la DGII. Usan token Bearer emitido por el flujo de autenticación DGII (no <code>X-API-Key</code>).</p>
+            <table class="mb-4">
+                <tbody>
+                    <tr><td class="param">GET /fe/autenticacion/api/semilla</td><td class="muted">Devuelve el XML de semilla de autenticación.</td></tr>
+                    <tr><td class="param">POST /fe/autenticacion/api/validacioncertificado</td><td class="muted">Valida el certificado y emite el token.</td></tr>
+                    <tr><td class="param">POST /fe/recepcion/api/ecf</td><td class="muted">Recibe el XML del e-CF y responde con el ARECF firmado.</td></tr>
+                    <tr><td class="param">POST /fe/aprobacioncomercial/api/ecf</td><td class="muted">Recibe la aprobación comercial.</td></tr>
+                </tbody>
+            </table>
+        </section>
+    </div>
+</div>
+
+{% endblock %}

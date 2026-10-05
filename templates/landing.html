@@ -124,9 +124,8 @@
                     <a href="{{ url_for('web_auth.pricing') }}" class="nav-link text-gray-300 hover:text-white transition-colors">Comparar</a>
                     <a href="#faq" class="nav-link text-gray-300 hover:text-white transition-colors">FAQ</a>
                     <a href="#contacto" class="nav-link text-gray-300 hover:text-white transition-colors">Contacto</a>
-                    {# TODO: Rehabilitar enlace API docs cuando esté lista #}
-                    <!-- <a href="{{ url_for('flasgger.apidocs') }}"
-                        class="nav-link text-gray-300 hover:text-white transition-colors">API</a> -->
+                    <a href="{{ url_for('web_api_portal.index') }}"
+                        class="nav-link text-gray-300 hover:text-white transition-colors">API / Desarrolladores</a>
                 </div>
 
                 <div class="flex items-center gap-4">
@@ -168,9 +167,8 @@
                 class="block text-lg text-gray-300 hover:text-white font-medium py-2 border-b border-white/5 transition-colors">FAQ</a>
             <a href="#contacto"
                 class="block text-lg text-gray-300 hover:text-white font-medium py-2 border-b border-white/5 transition-colors">Contacto</a>
-            {# TODO: Rehabilitar enlace API docs cuando esté lista #}
-            <!-- <a href="{{ url_for('flasgger.apidocs') }}"
-                class="block text-lg text-gray-300 hover:text-white font-medium py-2 border-b border-white/5 transition-colors">API</a> -->
+            <a href="{{ url_for('web_api_portal.index') }}"
+                class="block text-lg text-gray-300 hover:text-white font-medium py-2 border-b border-white/5 transition-colors">API / Desarrolladores</a>
             {% if is_logged_in %}
             <a href="{{ url_for('web_dashboard.dashboard') }}"
                 class="block btn-primary text-center bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900 px-6 py-3 rounded-xl font-semibold mt-4">Ir
