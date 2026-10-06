@@ -1464,48 +1464,42 @@
                         {% if module_enabled('inventario') and (session.get('user', {}).get('role') == 'owner' or
                         session.get('user', {}).get('permissions', {}).get('canManageInventory', True)) %}
                         <li class="nav-item {% if active_page == 'inventory' %}active{% endif %}"
-                            data-tooltip="Inventario">
+                            data-tooltip="Tablero de Inventario">
                             <a href="{{ url_for('web_invoices.inventory_dashboard') }}">
-                                <span>Inventario</span>
+                                <span>Tablero de Inventario</span>
                             </a>
                         </li>
-                        {% endif %}
-                        <li class="nav-item {% if active_page == 'inventory_advanced' %}active{% endif %}"
-                            data-tooltip="Inventario Avanzado">
-                            <a href="{{ url_for('web_inventory.advanced_dashboard') }}">
-                                <span>Inventario Avanzado</span>
+                        <li class="nav-item {% if active_page == 'inventory_kardex' %}active{% endif %}"
+                            data-tooltip="Kardex Valorizado Continuo (FIFO/PEPS) y Conciliación">
+                            <a href="{{ url_for('web_inventory.kardex_view') }}">
+                                <span>Kardex Valorizado</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'inventory_receipts' %}active{% endif %}"
+                            data-tooltip="Recepciones de Mercancía de compras y proveedores">
+                            <a href="{{ url_for('web_inventory.list_receipts') }}">
+                                <span>Recepciones de Mercancía</span>
                             </a>
                         </li>
                         <li class="nav-item {% if active_page == 'inventory_transfers' %}active{% endif %}"
-                            data-tooltip="Transferencias">
+                            data-tooltip="Transferencias entre almacenes y sucursales">
                             <a href="{{ url_for('web_inventory.transfer_list') }}">
                                 <span>Transferencias</span>
                             </a>
                         </li>
                         <li class="nav-item {% if active_page == 'inventory_counts' %}active{% endif %}"
-                            data-tooltip="Conteos Físicos">
+                            data-tooltip="Conteos Físicos, auditorías y registro de mermas">
                             <a href="{{ url_for('web_inventory.physical_count_list') }}">
                                 <span>Conteos Físicos</span>
                             </a>
                         </li>
                         <li class="nav-item {% if active_page == 'inventory_lots' %}active{% endif %}"
-                            data-tooltip="Lotes">
+                            data-tooltip="Control de lotes y fechas de vencimiento">
                             <a href="{{ url_for('web_inventory.lot_list') }}">
-                                <span>Lotes</span>
+                                <span>Lotes y Vencimientos</span>
                             </a>
                         </li>
-                        <li class="nav-item {% if active_page == 'inventory_alerts' %}active{% endif %}"
-                            data-tooltip="Alertas">
-                            <a href="{{ url_for('web_inventory.alert_dashboard') }}">
-                                <span>Alertas</span>
-                            </a>
-                        </li>
-                        <li class="nav-item {% if active_page == 'inventory_receipts' %}active{% endif %}"
-                            data-tooltip="Registra la entrada de mercancía de tus órdenes de compra para actualizar el inventario automáticamente.">
-                            <a href="{{ url_for('web_inventory.list_receipts') }}">
-                                <span>Recepciones de Mercancía</span>
-                            </a>
-                        </li>
+                        {% endif %}
                     </ul>
                 </div>
                 {% endif %}

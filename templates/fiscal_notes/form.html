@@ -525,6 +525,22 @@ function selectProduct(product) {
             }
         }
     }
+    var reingresoChk = row.querySelector('.item-reingreso-chk');
+    if (reingresoChk) {
+        if (product.type === 'Servicio' || product.type === 'servicio') {
+            reingresoChk.checked = false;
+            reingresoChk.disabled = true;
+            if (reingresoChk.parentElement) {
+                reingresoChk.parentElement.title = 'Servicio: No aplica reingreso de stock';
+            }
+        } else {
+            reingresoChk.disabled = false;
+            reingresoChk.checked = true;
+            if (reingresoChk.parentElement) {
+                reingresoChk.parentElement.title = 'Reingresar stock físicamente al almacén';
+            }
+        }
+    }
     closeProductModal();
     recalculateItemRow(row);
     recalculateTotals();
