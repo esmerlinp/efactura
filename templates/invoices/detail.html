@@ -1244,6 +1244,17 @@
             </div>
             {% endif %}
 
+            {% if invoice.emisionMode == 'API' and invoice.dgiiStatus == 'PENDING' %}
+            <form action="{{ url_for('web_invoices.sync_single_invoice_route', invoice_id=invoice.id) }}" method="POST"
+                style="margin-bottom: 16px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-secondary"
+                    style="width: 100%; font-size: 0.78rem; padding: 7px 12px; font-weight: 500; cursor: pointer;">
+                    <i class="fa-solid fa-rotate"></i> Sincronizar estado DGII
+                </button>
+            </form>
+            {% endif %}
+
             <span
                 style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 16px; line-height: 1.3;">
                 Código QR exigido por la Ley 32-23 para escaneo y validación directa en la base de datos de la DGII.

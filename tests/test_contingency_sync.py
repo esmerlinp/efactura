@@ -233,6 +233,164 @@ class TestContingencySyncService:
             assert synced == 0
 
 
+class TestPendingApiReconciliation:
+
+    def test_apply_status_resolution_accepted_sets_emitida(self):
+        inv = {"id": "inv001", "encf": "E310000000001", "total": 100.0,
+               "totalPaid": "0.0", "status": "Pendiente DGII"}
+        res = {"success": True, "dgiiStatus": "ACCEPTED", "trackId": "tk123456789012"}
+
+        with patch.object(ContingencySyncService, "_record_sequence_status"), \
+             patch("app.services.contingency_sync_service.DatabaseService.save_invoice"):
+
+            outcome = ContingencySyncService._apply_status_resolution(
+                "owner01", "inv001", inv, res, sandbox=True
+            )
+
+        assert outcome == "accepted"
+        assert inv["status"] == "Emitida"
+        assert inv["dgiiStatus"] == "ACCEPTED"
+        assert inv["isSyncedWithDGII"] is True
+        assert "pendingSyncAttempts" not in inv
+
+    def test_apply_status_resolution_accepted_sets_cobrada_when_paid(self):
+        inv = {"id": "inv001", "total": 100.0, "totalPaid": "100.0", "status": "Pendiente DGII"}
+        res = {"success": True, "dgiiStatus": "ACCEPTED"}
+
+        with patch.object(ContingencySyncService, "_record_sequence_status"), \
+             patch("app.services.contingency_sync_service.DatabaseService.save_invoice"):
+
+            ContingencySyncService._apply_status_resolution("owner01", "inv001", inv, res, sandbox=True)
+
+        assert inv["status"] == "Cobrada"
+
+    def test_apply_status_resolution_rejected(self):
+        inv = {"id": "inv001", "encf": "E310000000001", "total": 100.0,
+               "totalPaid": "0.0", "status": "Pendiente DGII"}
+        res = {"success": True, "dgiiStatus": "REJECTED",
+               "mensajes": [{"valor": "RNC de cliente inválido"}]}
+
+        with patch.object(ContingencySyncService, "_record_sequence_status"), \
+             patch("app.services.contingency_sync_service.DatabaseService.save_invoice"):
+
+            outcome = ContingencySyncService._apply_status_resolution(
+                "owner01", "inv001", inv, res, sandbox=True
+            )
+
+        assert outcome == "rejected"
+        assert inv["status"] == "Rechazado DGII"
+        assert inv["dgiiStatus"] == "REJECTED"
+        assert inv["dgiiError"] == "RNC de cliente inválido"
+
+    def test_apply_status_resolution_pending_no_change(self):
+        inv = {"id": "inv001", "total": 100.0, "totalPaid": "0.0", "status": "Pendiente DGII"}
+        res = {"success": True, "dgiiStatus": "PENDING"}
+
+        with patch.object(ContingencySyncService, "_record_sequence_status") as mock_log, \
+             patch("app.services.contingency_sync_service.DatabaseService.save_invoice") as mock_save:
+
+            outcome = ContingencySyncService._apply_status_resolution(
+                "owner01", "inv001", inv, res, sandbox=True
+            )
+
+        assert outcome == "pending"
+        assert inv["status"] == "Pendiente DGII"
+        mock_log.assert_not_called()
+        mock_save.assert_not_called()
+
+    def test_apply_status_resolution_not_success(self):
+        inv = {"id": "inv001", "status": "Pendiente DGII"}
+        res = {"success": False, "message": "sin token"}
+
+        outcome = ContingencySyncService._apply_status_resolution("owner01", "inv001", inv, res, sandbox=True)
+        assert outcome == "pending"
+
+    def test_reconcile_pending_api_empty(self):
+        with patch("app.services.contingency_sync_service.DatabaseService.get_pending_api_invoices",
+                   return_value=[]):
+            synced, rejected, pending = ContingencySyncService.reconcile_pending_api("owner01", sandbox=True)
+
+        assert (synced, rejected, pending) == (0, 0, 0)
+
+    def test_reconcile_pending_api_no_company_profile(self):
+        inv = {"id": "inv001", "trackId": "tk1", "pendingSyncAttempts": 0, "lastPendingCheckAt": ""}
+        with patch("app.services.contingency_sync_service.DatabaseService.get_pending_api_invoices",
+                   return_value=[inv]), \
+             patch("app.services.contingency_sync_service.DatabaseService.get_company_profile",
+                   return_value=None):
+
+            synced, rejected, pending = ContingencySyncService.reconcile_pending_api("owner01", sandbox=True)
+
+        assert (synced, rejected, pending) == (0, 0, 0)
+
+    def test_reconcile_pending_api_accepted(self):
+        inv = {"id": "inv001", "encf": "E310000000001", "trackId": "tk1",
+               "pendingSyncAttempts": 0, "lastPendingCheckAt": ""}
+        check_res = {"success": True, "dgiiStatus": "ACCEPTED", "trackId": "tk1"}
+
+        with patch("app.services.contingency_sync_service.DatabaseService.get_pending_api_invoices",
+                   return_value=[inv]), \
+             patch("app.services.contingency_sync_service.DatabaseService.get_company_profile",
+                   return_value={"companyRNC": "131111111"}), \
+             patch("app.services.contingency_sync_service.DatabaseService.get_invoice",
+                   return_value=inv), \
+             patch("app.services.contingency_sync_service.DgiiDirectService.check_status",
+                   return_value=check_res), \
+             patch.object(ContingencySyncService, "_apply_status_resolution", return_value="accepted"):
+
+            synced, rejected, pending = ContingencySyncService.reconcile_pending_api("owner01", sandbox=True)
+
+        assert (synced, rejected, pending) == (1, 0, 0)
+        assert inv["pendingSyncAttempts"] == 1
+        assert inv["lastPendingCheckAt"]
+
+    def test_reconcile_pending_api_without_track_id(self):
+        inv = {"id": "inv001", "encf": "E310000000001", "trackId": "",
+               "pendingSyncAttempts": 0, "lastPendingCheckAt": ""}
+
+        with patch("app.services.contingency_sync_service.DatabaseService.get_pending_api_invoices",
+                   return_value=[inv]), \
+             patch("app.services.contingency_sync_service.DatabaseService.get_company_profile",
+                   return_value={"companyRNC": "131111111"}), \
+             patch("app.services.contingency_sync_service.DatabaseService.get_invoice",
+                   return_value=inv), \
+             patch("app.services.contingency_sync_service.DatabaseService.save_invoice") as mock_save:
+
+            synced, rejected, pending = ContingencySyncService.reconcile_pending_api("owner01", sandbox=True)
+
+        assert (synced, rejected, pending) == (0, 0, 1)
+        mock_save.assert_called_once()
+
+    def test_reconcile_pending_api_skips_when_retry_not_due(self):
+        inv = {"id": "inv001", "encf": "E310000000001", "trackId": "tk1",
+               "pendingSyncAttempts": 2,
+               "lastPendingCheckAt": datetime.now(timezone.utc).isoformat()}
+
+        with patch("app.services.contingency_sync_service.DatabaseService.get_pending_api_invoices",
+                   return_value=[inv]), \
+             patch("app.services.contingency_sync_service.DatabaseService.get_company_profile",
+                   return_value={"companyRNC": "131111111"}), \
+             patch("app.services.contingency_sync_service.DgiiDirectService.check_status") as mock_check:
+
+            synced, rejected, pending = ContingencySyncService.reconcile_pending_api("owner01", sandbox=True)
+
+        assert (synced, rejected, pending) == (0, 0, 0)
+        mock_check.assert_not_called()
+
+    def test_reconcile_all_companies(self):
+        with patch.object(ContingencySyncService, "_discover_all_owner_uids") as mock_discover, \
+             patch.object(ContingencySyncService, "reconcile_pending_api") as mock_reconcile:
+
+            mock_discover.return_value = {"owner01"}
+            mock_reconcile.return_value = (1, 0, 0)
+
+            synced, rejected, pending = ContingencySyncService.reconcile_all_companies()
+            assert synced == 2
+            assert rejected == 0
+            assert pending == 0
+            assert mock_reconcile.call_count == 2
+
+
 MOCK_USER_PROFILE = {
     'uid': 'test-uid',
     'ownerUID': 'test-owner',

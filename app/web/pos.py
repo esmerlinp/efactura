@@ -888,6 +888,7 @@ def create_pos_sale():
             invoice_dict["isSyncedWithDGII"] = (res.get("mode") in ("API", "RFCE_API") and res.get("status") != "PENDING")
             invoice_dict["emisionMode"] = res.get("mode", "API")
             invoice_dict["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
+            invoice_dict["trackId"] = res.get("trackId", "")
             invoice_dict["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat() if res.get("mode") == "FALLBACK" else None
             invoice_dict["status"] = "Pendiente DGII" if pending_dgii else "Cobrada"
             DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, company_id=company_id, sandbox=sandbox)

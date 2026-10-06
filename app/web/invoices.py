@@ -3642,6 +3642,7 @@ def sign_invoice_route(invoice_id):
             invoice["isSyncedWithDGII"] = (res.get("mode") in ("API", "RFCE_API") and res.get("status") != "PENDING")
             invoice["emisionMode"] = res.get("mode", "API")
             invoice["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
+            invoice["trackId"] = res.get("trackId", "")
             invoice["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat() if res.get("mode") == "FALLBACK" else None
             invoice["date"] = datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d %H:%M:%S")
             
@@ -3742,6 +3743,7 @@ def reemit_invoice_route(invoice_id):
             invoice["isSyncedWithDGII"] = (res.get("mode") in ("API", "RFCE_API") and res.get("status") != "PENDING")
             invoice["emisionMode"] = res.get("mode", "API")
             invoice["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
+            invoice["trackId"] = res.get("trackId", "")
             invoice["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat() if res.get("mode") == "FALLBACK" else None
             invoice.pop("dgiiError", None)
             invoice.pop("enviadoADGII", None)
@@ -5640,6 +5642,26 @@ def sync_single_invoice_route(invoice_id):
     company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
     
     try:
+        # Factura emitida en modo API cuyo estado DGII quedó PENDING:
+        # consultar el resultado final en vez de re-emitir (evita duplicar eNCF).
+        if invoice.get("emisionMode") == "API" and invoice.get("dgiiStatus") == "PENDING":
+            from app.services.contingency_sync_service import ContingencySyncService
+            track_id = invoice.get("trackId", "")
+            if not track_id:
+                flash('Este comprobante no tiene trackId para consultar su estado.', 'warning')
+                return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+            res = DgiiDirectService.check_status(company, track_id, sandbox=sandbox)
+            outcome = ContingencySyncService._apply_status_resolution(
+                owner_uid, invoice_id, invoice, res, sandbox=sandbox, company_id=company_id
+            )
+            if outcome == "accepted":
+                flash(f"¡Factura {invoice.get('invoiceNumber')} sincronizada: la DGII confirmó el comprobante! e-NCF: {invoice.get('encf')}", 'success')
+            elif outcome == "rejected":
+                flash(f"La DGII rechazó el comprobante {invoice.get('encf')}: {invoice.get('dgiiError', 'Rechazado')}", 'error')
+            else:
+                flash('El comprobante sigue PENDING en la DGII. Intente nuevamente más tarde.', 'warning')
+            return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+
         res = EcfEmissionService.emit_electronic_comprobante(company, invoice, sandbox=sandbox)
         if res.get("success") and res.get("mode") in ("API", "RFCE_API"):
             invoice["isSyncedWithDGII"] = True

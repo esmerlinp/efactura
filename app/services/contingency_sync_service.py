@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from app.services.db_service import DatabaseService, db_firestore, firebase_initialized
 from app.services.ecf_emission import EcfEmissionService
 from app.services.dgii import DGIIService
+from app.services.dgii_direct import DgiiDirectService
 
 logger = logging.getLogger(__name__)
 
@@ -213,6 +214,141 @@ class ContingencySyncService:
                 }, sandbox=sandbox, company_id=company_id)
         except Exception as e:
             logger.warning(f"Error actualizando log de secuencia: {e}")
+
+    @classmethod
+    def _record_sequence_status(cls, owner_uid, invoice, estado, motivo, resp=None, sandbox=True, company_id=None):
+        try:
+            logs = DatabaseService.get_sequence_logs(owner_uid, sandbox=sandbox, company_id=company_id)
+            log = next((l for l in logs if l.get("encf") == invoice.get("encf")), None)
+            if log:
+                DatabaseService.update_sequence_log(owner_uid, log["id"], {
+                    "estado": estado,
+                    "motivo": motivo,
+                    "respuestaDGII": json.dumps(resp, indent=2) if resp else ""
+                }, sandbox=sandbox, company_id=company_id)
+        except Exception as e:
+            logger.warning(f"Error actualizando log de secuencia: {e}")
+
+    @classmethod
+    def _apply_status_resolution(cls, owner_uid, inv_id, invoice, res, sandbox=True, company_id=None):
+        """Aplica el resultado de una consulta de estado DGII (check_status) a una
+        factura PENDING. Retorna 'accepted', 'rejected' o 'pending'."""
+        if not res or not res.get("success"):
+            return "pending"
+
+        dgii_status = str(res.get("dgiiStatus") or "").strip().upper()
+        response_body = res.get("responseBody")
+
+        if dgii_status == "ACCEPTED":
+            invoice["dgiiStatus"] = "ACCEPTED"
+            invoice["isSyncedWithDGII"] = True
+            invoice.pop("pendingSyncAttempts", None)
+            invoice.pop("lastPendingCheckAt", None)
+            total_paid = float(invoice.get("totalPaid", 0.0))
+            net_payable = float(invoice.get("netPayable", invoice.get("total", 0.0)))
+            if total_paid >= net_payable and total_paid > 0:
+                invoice["status"] = "Cobrada"
+            elif invoice.get("status") == "Pendiente DGII":
+                invoice["status"] = "Emitida"
+            DatabaseService.save_invoice(owner_uid, inv_id, invoice, sandbox=sandbox, company_id=company_id)
+            cls._record_sequence_status(
+                owner_uid, invoice, "ACCEPTED",
+                f"Regularizado por consulta de estado. TrackID: {res.get('trackId', 'N/A')[:12]}",
+                resp=response_body, sandbox=sandbox, company_id=company_id,
+            )
+            return "accepted"
+
+        if dgii_status == "REJECTED":
+            mensajes = res.get("mensajes", []) or []
+            msgs = "; ".join(m.get("valor", "") for m in mensajes if isinstance(m, dict) and m.get("valor"))
+            invoice["dgiiStatus"] = "REJECTED"
+            invoice["status"] = "Rechazado DGII"
+            invoice["dgiiError"] = (msgs or "DGII rechazó el comprobante")[:200]
+            invoice.pop("pendingSyncAttempts", None)
+            invoice.pop("lastPendingCheckAt", None)
+            DatabaseService.save_invoice(owner_uid, inv_id, invoice, sandbox=sandbox, company_id=company_id)
+            cls._record_sequence_status(
+                owner_uid, invoice, "FAILED",
+                f"DGII rechazó: {msgs or 'Rechazado'}",
+                resp=response_body, sandbox=sandbox, company_id=company_id,
+            )
+            return "rejected"
+
+        return "pending"
+
+    @classmethod
+    def reconcile_pending_api(cls, owner_uid, sandbox=True, company_id=None):
+        invoices = DatabaseService.get_pending_api_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
+        if not invoices:
+            return 0, 0, 0
+
+        company = DatabaseService.get_company_profile(owner_uid, company_id=company_id)
+        if not company:
+            logger.warning(f"Perfil de empresa no encontrado para {owner_uid}")
+            return 0, 0, 0
+
+        synced_count = 0
+        rejected_count = 0
+        still_pending = 0
+
+        for inv in invoices:
+            attempts = int(inv.get("pendingSyncAttempts", 0))
+            last_check = inv.get("lastPendingCheckAt", "")
+            if not cls._should_retry(attempts, last_check):
+                continue
+
+            encf = inv.get("encf", "N/A")
+            inv_id = inv["id"]
+            try:
+                full_inv = DatabaseService.get_invoice(owner_uid, inv_id, sandbox=sandbox, company_id=company_id)
+                target_invoice = full_inv or inv
+                target_invoice["pendingSyncAttempts"] = attempts + 1
+                target_invoice["lastPendingCheckAt"] = datetime.now(timezone.utc).isoformat()
+
+                track_id = target_invoice.get("trackId") or inv.get("trackId") or ""
+                if not track_id:
+                    DatabaseService.save_invoice(owner_uid, inv_id, target_invoice, sandbox=sandbox, company_id=company_id)
+                    still_pending += 1
+                    logger.warning(f"e-NCF {encf} sin trackId para reconciliar; marcado para revisión manual.")
+                    continue
+
+                res = DgiiDirectService.check_status(company, track_id, sandbox=sandbox)
+                outcome = cls._apply_status_resolution(
+                    owner_uid, inv_id, target_invoice, res, sandbox=sandbox, company_id=company_id
+                )
+                if outcome == "accepted":
+                    synced_count += 1
+                    logger.info(f"e-NCF {encf} reconciliada: ACCEPTED")
+                elif outcome == "rejected":
+                    rejected_count += 1
+                    logger.warning(f"e-NCF {encf} reconciliada: REJECTED")
+                else:
+                    DatabaseService.save_invoice(owner_uid, inv_id, target_invoice, sandbox=sandbox, company_id=company_id)
+                    still_pending += 1
+            except Exception as e:
+                logger.error(f"Error reconciliando e-NCF {encf}: {e}")
+                still_pending += 1
+
+        return synced_count, rejected_count, still_pending
+
+    @classmethod
+    def reconcile_all_companies(cls, company_id=None):
+        logger.info("Iniciando reconciliación de facturas PENDING (API) para todas las empresas...")
+        owner_uids = cls._discover_all_owner_uids(company_id=company_id)
+        total_synced = total_rejected = total_pending = 0
+        for owner_uid in owner_uids:
+            for sandbox in (False, True):
+                try:
+                    synced, rejected, pending = cls.reconcile_pending_api(
+                        owner_uid, sandbox=sandbox, company_id=company_id
+                    )
+                    total_synced += synced
+                    total_rejected += rejected
+                    total_pending += pending
+                except Exception as e:
+                    logger.error(f"Error reconciliación empresa {owner_uid} (sandbox={sandbox}): {e}")
+        logger.info(f"Reconciliación PENDING completada: {total_synced} aceptadas, {total_rejected} rechazadas, {total_pending} pendientes")
+        return total_synced, total_rejected, total_pending
 
     @classmethod
     def _hours_since_contingency(cls, invoice):
