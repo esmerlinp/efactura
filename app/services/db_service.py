@@ -3126,8 +3126,8 @@ class DatabaseService:
         
         fs_items = []
         for item in items:
-            _price = float(item["price"])
-            _quantity = int(item["quantity"])
+            _price = float(item.get("price", item.get("unitPrice", 0.0)))
+            _quantity = float(item.get("quantity", 0.0))
             _subtotal_raw = float(item.get("subtotal_raw", 0.0))
             if _subtotal_raw == 0.0:
                 _subtotal_raw = round(_price * _quantity, 2)
@@ -3136,6 +3136,9 @@ class DatabaseService:
                 _discount_rate = float(item.get("discountRate", 0.0))
                 if _discount_rate > 0.0:
                     _discount_amount = round(_subtotal_raw * _discount_rate, 2)
+            _reingreso = bool(item.get("reingresoStock", False))
+            _orig_cost = float(item.get("originalCost") or item.get("unitCost") or item.get("costPrice") or 0.0)
+            _qty_ret = float(item.get("quantityReturned", _quantity if _reingreso else 0.0))
             fs_items.append({
                 "id": item.get("id") or str(uuid.uuid4()),
                 "code": item.get("code", ""),
@@ -3159,14 +3162,21 @@ class DatabaseService:
                 "precioReferencia": float(item.get("precioReferencia", 0.0)),
                 "isc_especifico_amount": float(item.get("isc_especifico_amount", item.get("iscEspecificoAmount", 0.0))),
                 "isc_advalorem_amount": float(item.get("isc_advalorem_amount", item.get("iscAdValoremAmount", 0.0))),
-                "otros_impuestos_amount": float(item.get("otros_impuestos_amount", item.get("otrosImpuestosAmount", 0.0)))
+                "otros_impuestos_amount": float(item.get("otros_impuestos_amount", item.get("otrosImpuestosAmount", 0.0))),
+                "reingresoStock": _reingreso,
+                "originalInvoiceId": item.get("originalInvoiceId", ""),
+                "originalLineId": item.get("originalLineId", ""),
+                "warehouseId": item.get("warehouseId", ""),
+                "quantityReturned": _qty_ret,
+                "originalCost": _orig_cost,
+                "unitCost": _orig_cost,
+                "costPrice": float(item.get("costPrice", _orig_cost) or _orig_cost)
             })
         
-        inv_dict["items"] = fs_items
-        inv_dict["date"] = serialize_field(inv_dict["date"])
-        inv_dict["dueDate"] = serialize_field(inv_dict["dueDate"])
+        inv_dict["date"] = serialize_field(inv_dict.get("date", ""))
+        inv_dict["dueDate"] = serialize_field(inv_dict.get("dueDate", inv_dict.get("date", "")))
         inv_dict["nextOccurrenceDate"] = serialize_field(inv_dict.get("nextOccurrenceDate"))
-        inv_dict["createdAt"] = serialize_field(inv_dict["createdAt"])
+        inv_dict["createdAt"] = serialize_field(inv_dict.get("createdAt"))
 
         if not inv_dict.get("dgiiStatus"):
             if inv_dict.get("emisionMode") == "FALLBACK":
@@ -3176,24 +3186,33 @@ class DatabaseService:
             elif inv_dict.get("status") == "Pendiente DGII":
                 inv_dict["dgiiStatus"] = "PENDING"
 
-        # Descontar inventario automáticamente si la factura está aceptada por DGII
+        # Descontar o reingresar inventario automáticamente
         status = inv_dict.get("status", "Borrador")
         is_quotation = inv_dict.get("isQuotation", False)
         ecf_type = inv_dict.get("ecfType", "")
-        is_note = "Nota de Crédito" in ecf_type or "Nota de Débito" in ecf_type
+        from app.services.credit_note_inventory_service import CreditNoteInventoryService
+        is_e34 = CreditNoteInventoryService.is_credit_note_e34(inv_dict)
+        is_note = "Nota de Crédito" in ecf_type or "Nota de Débito" in ecf_type or is_e34 or "E33" in ecf_type or ecf_type in ('33', '34')
         is_synced = bool(inv_dict.get("isSyncedWithDGII", False))
         existing_stock_reduced = False
+        existing_stock_reentered = False
         if firebase_initialized:
             try:
                 coll_name = "sandbox_invoices" if sandbox else "invoices"
                 existing_doc = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name).document(invoice_id).get()
-                if existing_doc.exists and existing_doc.to_dict().get("stockReduced"):
-                    existing_stock_reduced = True
-                    inv_dict["stockReduced"] = True
+                if existing_doc.exists:
+                    doc_data = existing_doc.to_dict()
+                    if doc_data.get("stockReduced"):
+                        existing_stock_reduced = True
+                        inv_dict["stockReduced"] = True
+                    if doc_data.get("stockReentered"):
+                        existing_stock_reentered = True
+                        inv_dict["stockReentered"] = True
             except Exception as e:
                 print(f"⚠️ Error al verificar stock reducido en factura {invoice_id}: {e}")
 
-        if not is_quotation and not is_note and is_synced and status in ["Emitida", "Cobrada", "Pagada", "Vencida"] and not inv_dict.get("stockReduced") and not existing_stock_reduced:
+        # Caso 1: Factura de Venta regular -> Descontar stock (SALIDA / VENTA)
+        if not is_quotation and not is_note and (is_synced or status in ["Emitida", "Cobrada", "Pagada", "Vencida"]) and status != "Borrador" and not inv_dict.get("stockReduced") and not existing_stock_reduced:
             wh_id = inv_dict.get("warehouseId")
             if not wh_id:
                 whs = cls.get_warehouses(owner_uid, sandbox=sandbox, company_id=company_id)
@@ -3206,24 +3225,72 @@ class DatabaseService:
                     items_catalog = cls.get_items(owner_uid, sandbox=sandbox, company_id=company_id)
                     catalog_ids = {cit["id"] for cit in items_catalog}
                     if it["id"] in catalog_ids:
+                        from app.services.inventory_transaction_service import InventoryTransactionService
+                        idempotency_key = InventoryTransactionService.build_idempotency_key(
+                            company_id=company_id,
+                            reference_type="INVOICE",
+                            reference_id=f"{invoice_id}_{it['id']}",
+                            operation=InventoryTransactionService.TYPE_SALIDA
+                        )
                         tx_dict = {
                             "itemId": it["id"],
                             "itemName": it["name"],
-                            "type": "SALIDA",
+                            "type": InventoryTransactionService.TYPE_SALIDA,
                             "quantity": float(it["quantity"]),
-                            "reason": "VENTA",
+                            "reason": InventoryTransactionService.REASON_VENTA,
+                            "referenceType": "INVOICE",
                             "referenceId": inv_dict.get("invoiceNumber") or invoice_id,
+                            "idempotencyKey": idempotency_key,
                             "originWarehouseId": wh_id,
                             "destinationWarehouseId": "",
                             "notes": f"Venta en Factura {inv_dict.get('invoiceNumber')}",
                             "performedBy": f"Sistema {get_product_name()}"
                         }
-                        cls.register_inventory_transaction(owner_uid, tx_dict, sandbox=sandbox, company_id=company_id)
+                        res_tx = InventoryTransactionService.execute_transaction(
+                            owner_uid=owner_uid,
+                            company_id=company_id,
+                            tx_dict=tx_dict,
+                            sandbox=sandbox
+                        )
+                        if res_tx:
+                            try:
+                                from app.services.inventory_accounting_service import InventoryAccountingService
+                                InventoryAccountingService.post_inventory_transaction(
+                                    company_id=company_id,
+                                    tx=res_tx,
+                                    sandbox=sandbox,
+                                    owner_uid=owner_uid
+                                )
+                            except Exception as acc_e:
+                                print(f"⚠️ Error al contabilizar COGS para factura {invoice_id}: {acc_e}")
             
             inv_dict["stockReduced"] = True
 
+        # Caso 2: Nota de Crédito E34 -> Reingreso físico de mercancía devuelta (ENTRADA / DEVOLUCION_CLIENTE)
+        elif is_e34 and status in ["Emitida", "Cobrada", "Pagada", "Vencida"] and not inv_dict.get("stockReentered") and not existing_stock_reentered:
+            try:
+                CreditNoteInventoryService.process_credit_note_stock_reentry(
+                    owner_uid=owner_uid,
+                    company_id=company_id,
+                    credit_note_dict=inv_dict,
+                    sandbox=sandbox
+                )
+            except Exception as e:
+                print(f"⚠️ Error al procesar reingreso de inventario para Nota de Crédito {invoice_id}: {e}")
+
+        # Caso 3: Anulación de Factura o Nota de Crédito
         elif status == "Anulada":
-            if inv_dict.get("stockReduced") and not inv_dict.get("stockReverted"):
+            if is_e34 and inv_dict.get("stockReentered") and not inv_dict.get("stockReverted"):
+                try:
+                    CreditNoteInventoryService.revert_credit_note_stock_reentry(
+                        owner_uid=owner_uid,
+                        company_id=company_id,
+                        credit_note_dict=inv_dict,
+                        sandbox=sandbox
+                    )
+                except Exception as e:
+                    print(f"⚠️ Error al revertir reingreso de inventario para Nota de Crédito {invoice_id}: {e}")
+            elif not is_note and inv_dict.get("stockReduced") and not inv_dict.get("stockReverted"):
                 wh_id = inv_dict.get("warehouseId")
                 if not wh_id:
                     whs = cls.get_warehouses(owner_uid, sandbox=sandbox, company_id=company_id)
@@ -3235,21 +3302,47 @@ class DatabaseService:
                         items_catalog = cls.get_items(owner_uid, sandbox=sandbox, company_id=company_id)
                         catalog_ids = {cit["id"] for cit in items_catalog}
                         if it["id"] in catalog_ids:
+                            from app.services.inventory_transaction_service import InventoryTransactionService
+                            idempotency_key = InventoryTransactionService.build_idempotency_key(
+                                company_id=company_id,
+                                reference_type="INVOICE_CANCEL",
+                                reference_id=f"{invoice_id}_{it['id']}",
+                                operation=InventoryTransactionService.TYPE_ENTRADA
+                            )
                             tx_dict = {
                                 "itemId": it["id"],
                                 "itemName": it["name"],
-                                "type": "ENTRADA",
+                                "type": InventoryTransactionService.TYPE_ENTRADA,
                                 "quantity": float(it["quantity"]),
-                                "reason": "AJUSTE",
+                                "reason": InventoryTransactionService.REASON_DEVOLUCION_CLIENTE,
+                                "referenceType": "INVOICE_CANCEL",
                                 "referenceId": inv_dict.get("invoiceNumber") or invoice_id,
+                                "idempotencyKey": idempotency_key,
                                 "originWarehouseId": "",
                                 "destinationWarehouseId": wh_id,
                                 "notes": f"Reversión de Venta (Anulación de Factura {inv_dict.get('invoiceNumber')})",
                                 "performedBy": f"Sistema {get_product_name()} (Automático)"
                             }
-                            cls.register_inventory_transaction(owner_uid, tx_dict, sandbox=sandbox, company_id=company_id)
+                            res_void_tx = InventoryTransactionService.execute_transaction(
+                                owner_uid=owner_uid,
+                                company_id=company_id,
+                                tx_dict=tx_dict,
+                                sandbox=sandbox
+                            )
+                            if res_void_tx:
+                                try:
+                                    from app.services.inventory_accounting_service import InventoryAccountingService
+                                    InventoryAccountingService.post_inventory_transaction(
+                                        company_id=company_id,
+                                        tx=res_void_tx,
+                                        sandbox=sandbox,
+                                        owner_uid=owner_uid
+                                    )
+                                except Exception as acc_e:
+                                    print(f"⚠️ Error al contabilizar reversión de COGS para factura {invoice_id}: {acc_e}")
                             
                 inv_dict["stockReverted"] = True
+
 
             # Anular siempre la transacción de caja asociada si existe en el turno actual (independiente del stock de productos)
             if firebase_initialized:
@@ -3458,19 +3551,33 @@ class DatabaseService:
                                 items_catalog = cls.get_items(owner_uid, sandbox=sandbox, company_id=company_id)
                                 catalog_ids = {cit["id"] for cit in items_catalog}
                                 if it["id"] in catalog_ids:
+                                    from app.services.inventory_transaction_service import InventoryTransactionService
+                                    idempotency_key = InventoryTransactionService.build_idempotency_key(
+                                        company_id=company_id,
+                                        reference_type="INVOICE",
+                                        reference_id=f"{invoice_id}_{it['id']}",
+                                        operation=InventoryTransactionService.TYPE_SALIDA
+                                    )
                                     tx_dict = {
                                         "itemId": it["id"],
                                         "itemName": it.get("name", ""),
-                                        "type": "SALIDA",
+                                        "type": InventoryTransactionService.TYPE_SALIDA,
                                         "quantity": float(it.get("quantity", 0)),
-                                        "reason": "VENTA",
+                                        "reason": InventoryTransactionService.REASON_VENTA,
+                                        "referenceType": "INVOICE",
                                         "referenceId": inv_data.get("invoiceNumber") or invoice_id,
+                                        "idempotencyKey": idempotency_key,
                                         "originWarehouseId": wh_id,
                                         "destinationWarehouseId": "",
                                         "notes": f"Venta en Factura {inv_data.get('invoiceNumber')}",
                                         "performedBy": f"Sistema {get_product_name()}"
                                     }
-                                    cls.register_inventory_transaction(owner_uid, tx_dict, sandbox=sandbox, company_id=company_id)
+                                    InventoryTransactionService.execute_transaction(
+                                        owner_uid=owner_uid,
+                                        company_id=company_id,
+                                        tx_dict=tx_dict,
+                                        sandbox=sandbox
+                                    )
                         inv_ref.update({"stockReduced": True})
             except Exception as inv_err:
                 print(f"⚠️ Error al aplicar inventario en pago: {inv_err}")
@@ -4158,107 +4265,16 @@ class DatabaseService:
     @classmethod
     def register_inventory_transaction(cls, owner_uid, tx_dict, sandbox=True, company_id=None):
         """
-        Registra un movimiento físico de inventario y actualiza las existencias.
-        IMPORTANTE: Todas las lecturas se hacen ANTES de cualquier escritura dentro
-        de la transacción Firestore para evitar el error 'read-after-write'.
-        El recálculo de totalStock se hace fuera de la transacción (post-commit).
+        Adaptador hacia InventoryTransactionService para registrar movimientos de inventario
+        de forma atómica, inmutable y con soporte de idempotencia.
         """
-        if not firebase_initialized:
-            return None
-
-        coll_stock = "sandbox_inventory_stock" if sandbox else "inventory_stock"
-        coll_tx = "sandbox_inventory_transactions" if sandbox else "inventory_transactions"
-        coll_items = "sandbox_items" if sandbox else "items"
-
-        tx_id = tx_dict.get("id") or str(uuid.uuid4())
-        tx_dict["id"] = tx_id
-        tx_dict["ownerUID"] = owner_uid
-        if "date" not in tx_dict or not tx_dict["date"]:
-            tx_dict["date"] = datetime.now(timezone.utc).isoformat()
-
-        item_id = tx_dict["itemId"]
-        tx_type = tx_dict["type"]
-        qty = float(tx_dict["quantity"])
-
-        whs = cls.get_warehouses(owner_uid, sandbox=sandbox, company_id=company_id)
-        wh_map = {w["id"]: w.get("branchId", "default-sucursal-principal") for w in whs}
-
-        if tx_dict.get("originWarehouseId"):
-            tx_dict["originBranchId"] = wh_map.get(tx_dict["originWarehouseId"], "default-sucursal-principal")
-        if tx_dict.get("destinationWarehouseId"):
-            tx_dict["destinationBranchId"] = wh_map.get(tx_dict["destinationWarehouseId"], "default-sucursal-principal")
-
-        transaction = db_firestore.transaction()
-
-        @firestore.transactional
-        def run_in_transaction(transaction):
-            # ── FASE 1: TODAS LAS LECTURAS PRIMERO ──────────────────────────
-            stock_updates = []  # lista de (ref, new_qty, wh_id)
-
-            if tx_type == "ENTRADA":
-                dest_wh_id = tx_dict["destinationWarehouseId"]
-                ref = db_firestore.collection("users").document(owner_uid)\
-                    .collection(coll_stock).document(f"{item_id}_{dest_wh_id}")
-                doc = ref.get(transaction=transaction)
-                old_qty = float(doc.to_dict().get("quantity", 0.0)) if doc.exists else 0.0
-                stock_updates.append((ref, old_qty + qty, dest_wh_id))
-
-            elif tx_type == "SALIDA":
-                orig_wh_id = tx_dict["originWarehouseId"]
-                ref = db_firestore.collection("users").document(owner_uid)\
-                    .collection(coll_stock).document(f"{item_id}_{orig_wh_id}")
-                doc = ref.get(transaction=transaction)
-                old_qty = float(doc.to_dict().get("quantity", 0.0)) if doc.exists else 0.0
-                stock_updates.append((ref, old_qty - qty, orig_wh_id))
-
-            elif tx_type == "TRANSFERENCIA":
-                orig_wh_id = tx_dict["originWarehouseId"]
-                dest_wh_id = tx_dict["destinationWarehouseId"]
-                ref_orig = db_firestore.collection("users").document(owner_uid)\
-                    .collection(coll_stock).document(f"{item_id}_{orig_wh_id}")
-                ref_dest = db_firestore.collection("users").document(owner_uid)\
-                    .collection(coll_stock).document(f"{item_id}_{dest_wh_id}")
-                # Ambas lecturas antes de cualquier write
-                doc_orig = ref_orig.get(transaction=transaction)
-                doc_dest = ref_dest.get(transaction=transaction)
-                old_orig = float(doc_orig.to_dict().get("quantity", 0.0)) if doc_orig.exists else 0.0
-                old_dest = float(doc_dest.to_dict().get("quantity", 0.0)) if doc_dest.exists else 0.0
-                stock_updates.append((ref_orig, old_orig - qty, orig_wh_id))
-                stock_updates.append((ref_dest, old_dest + qty, dest_wh_id))
-
-            # ── FASE 2: TODAS LAS ESCRITURAS DESPUÉS DE LAS LECTURAS ────────
-            for ref, new_qty, wh_id in stock_updates:
-                transaction.set(ref, {
-                    "id": f"{item_id}_{wh_id}",
-                    "itemId": item_id,
-                    "warehouseId": wh_id,
-                    "quantity": new_qty,
-                    "updatedAt": firestore.SERVER_TIMESTAMP
-                })
-
-            # Registrar el movimiento en el historial
-            tx_ref = db_firestore.collection("users").document(owner_uid)\
-                .collection(coll_tx).document(tx_id)
-            transaction.set(tx_ref, tx_dict)
-
-            return tx_dict
-
-        try:
-            res = run_in_transaction(transaction)
-            # Post-transacción: recalcular totalStock real fuera de la transacción.
-            # No se puede hacer query-read después de writes dentro de Firestore.
-            try:
-                all_stocks = db_firestore.collection("users").document(owner_uid)\
-                    .collection(coll_stock).where(filter=firestore.FieldFilter("itemId", "==", item_id)).get()
-                real_total = sum(float(s.to_dict().get("quantity", 0.0)) for s in all_stocks)
-                db_firestore.collection("users").document(owner_uid)\
-                    .collection(coll_items).document(item_id).update({"totalStock": real_total})
-            except Exception as recalc_err:
-                print(f"⚠️ No se pudo recalcular totalStock post-transacción: {recalc_err}")
-            return res
-        except Exception as e:
-            print(f"❌ Error al registrar transacción de inventario: {e}")
-            return None
+        from app.services.inventory_transaction_service import InventoryTransactionService
+        return InventoryTransactionService.execute_transaction(
+            owner_uid=owner_uid,
+            company_id=company_id or "",
+            tx_dict=tx_dict,
+            sandbox=sandbox
+        )
 
     @classmethod
     def get_company_by_api_key(cls, api_key):
@@ -5477,19 +5493,33 @@ class DatabaseService:
                 for it in inv.get("items", []):
                     if it.get("type", "Bien") == "Bien" and it.get("id"):
                         if it["id"] in catalog_ids:
+                            from app.services.inventory_transaction_service import InventoryTransactionService
+                            idempotency_key = InventoryTransactionService.build_idempotency_key(
+                                company_id=company_id,
+                                reference_type="INVOICE",
+                                reference_id=f"{inv_id}_{it['id']}",
+                                operation=InventoryTransactionService.TYPE_SALIDA
+                            )
                             tx_dict = {
                                 "itemId": it["id"],
                                 "itemName": it.get("name", ""),
-                                "type": "SALIDA",
+                                "type": InventoryTransactionService.TYPE_SALIDA,
                                 "quantity": float(it.get("quantity", 0)),
-                                "reason": "VENTA",
+                                "reason": InventoryTransactionService.REASON_VENTA,
+                                "referenceType": "POS_CONSOLIDATION",
                                 "referenceId": inv.get("invoiceNumber") or inv_id,
+                                "idempotencyKey": idempotency_key,
                                 "originWarehouseId": wh_id,
                                 "destinationWarehouseId": "",
                                 "notes": f"Venta en Factura {inv.get('invoiceNumber')}",
                                 "performedBy": f"Sistema {get_product_name()}"
                             }
-                            cls.register_inventory_transaction(owner_uid, tx_dict, sandbox=sandbox, company_id=company_id)
+                            InventoryTransactionService.execute_transaction(
+                                owner_uid=owner_uid,
+                                company_id=company_id,
+                                tx_dict=tx_dict,
+                                sandbox=sandbox
+                            )
 
                 update_payload = {"stockReduced": True}
                 if not inv.get("warehouseId"):

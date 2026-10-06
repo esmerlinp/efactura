@@ -301,6 +301,8 @@ class AccountingService:
             "createdAt": datetime.now(timezone.utc).isoformat(),
             "createdBy": entry_data.get("createdBy", ""),
         }
+        if entry_data.get("reversalOfEntryId"):
+            entry["reversalOfEntryId"] = entry_data["reversalOfEntryId"]
         DatabaseService.save_accounting_entry(company_id, entry_id, entry, sandbox=sandbox, company_id=company_id)
         from app.services.ledger_audit_service import LedgerAuditService
         LedgerAuditService.log_entry_creation(entry, company_id, performed_by=entry_data.get("createdBy", ""))
@@ -741,8 +743,9 @@ class AccountingService:
             })
         extra_tax_lines = cls._build_extra_tax_lines(invoice, accounts, company_id=company_id)
         lines.extend(extra_tax_lines)
-        cogs_lines = cls._build_cogs_lines(invoice, accounts, company_id=company_id)
-        lines.extend(cogs_lines)
+        # NOTA FASE 7: El COGS de inventario no se calcula por estimación aquí.
+        # Es generado de forma separada y exacta (FIFO) por InventoryAccountingService.
+
 
         try:
             entry = cls.generate_entry(company_id, {
@@ -1241,14 +1244,11 @@ class AccountingService:
             "costCenterId": cost_center_id,
             "currency": currency
         })
-        cogs_lines = cls._build_cogs_lines(invoice, accounts, company_id=company_id)
-        if cogs_lines:
-            for cl in cogs_lines:
-                cl["debit"], cl["credit"] = cl["credit"], cl["debit"]
-                cl["description"] = f"[REVERSO COGS] {cl.get('description', '')}"
-            lines.extend(cogs_lines)
+        # NOTA FASE 7: El reingreso contable de costo devuelto es gestionado por
+        # CreditNoteInventoryService + InventoryAccountingService si reingresoStock=True.
         try:
             entry = cls.generate_entry(company_id, {
+
                 "entryType": "credit_note",
                 "date": str(invoice.get("date", ""))[:10],
                 "concept": f"Nota de crédito {invoice.get('invoiceNumber', '')} - {invoice.get('clientName', '')}",

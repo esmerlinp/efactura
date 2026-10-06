@@ -146,7 +146,11 @@ class GoodsReceiptService:
         items = receipt_data.get("items", [])
         warehouse_id = receipt_data.get("warehouseId", "")
         receipt_number = receipt_data.get("receiptNumber", "")
+        receipt_id = receipt_data.get("id", receipt_number)
         performed_by = receipt_data.get("createdBy", "Sistema")
+
+        from app.services.inventory_transaction_service import InventoryTransactionService
+        from app.services.inventory_costing_service import InventoryCostingService
 
         for item in items:
             item_id = item.get("itemId", "")
@@ -156,32 +160,55 @@ class GoodsReceiptService:
             if qty <= 0:
                 continue
 
+            unit_cost = float(item.get("unitCost", item.get("costPrice", item.get("unitPrice", 0))) or 0)
+            idempotency_key = InventoryTransactionService.build_idempotency_key(
+                company_id=company_id,
+                reference_type="GOODS_RECEIPT",
+                reference_id=f"{receipt_id}_{item_id}",
+                operation="ENTRADA"
+            )
+
             tx = {
-                "type": "ENTRADA",
+                "type": InventoryTransactionService.TYPE_ENTRADA,
                 "itemId": item_id,
                 "itemName": item.get("itemName", item.get("poItemName", "")),
                 "quantity": qty,
+                "unitCost": unit_cost,
                 "destinationWarehouseId": warehouse_id,
                 "destinationWarehouseName": receipt_data.get("warehouseName", ""),
-                "reason": "COMPRA",
-                "referenceId": receipt_number,
+                "reason": InventoryTransactionService.REASON_COMPRA,
+                "referenceType": "GOODS_RECEIPT",
+                "referenceId": receipt_number or receipt_id,
+                "idempotencyKey": idempotency_key,
                 "notes": f"Recepción {receipt_number} - OC {receipt_data.get('poNumber', '')}",
                 "performedBy": performed_by,
             }
-            result = DatabaseService.register_inventory_transaction(owner_uid, tx, company_id=company_id, sandbox=sandbox)
+            result = InventoryTransactionService.execute_transaction(
+                owner_uid=owner_uid,
+                company_id=company_id,
+                tx_dict=tx,
+                sandbox=sandbox
+            )
             if result:
                 registered.append(result)
 
-            unit_cost = float(item.get("unitCost", item.get("costPrice", item.get("unitPrice", 0))) or 0)
             if unit_cost > 0:
-                from app.services.inventory_costing_service import InventoryCostingService
-                InventoryCostingService.record_fifo_entry(
-                    company_id, item_id, warehouse_id, qty, unit_cost,
-                    reference_id=receipt_number, reference_type="COMPRA",
-                    sandbox=sandbox
-                )
                 InventoryCostingService.recalculate_item_avg_cost(
                     company_id, item_id, warehouse_id, sandbox=sandbox, owner_uid=owner_uid
                 )
 
+        # ── Post-Commit Contable: Contabilizar Recepción de Mercancías ──
+        from app.services.inventory_accounting_service import InventoryAccountingService
+        for tx_result in registered:
+            try:
+                InventoryAccountingService.post_inventory_transaction(
+                    company_id=company_id,
+                    tx=tx_result,
+                    sandbox=sandbox,
+                    owner_uid=owner_uid
+                )
+            except Exception as acc_err:
+                print(f"⚠️ Error al contabilizar recepción de mercancía {tx_result.get('id')}: {acc_err}")
+
         return registered
+

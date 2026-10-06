@@ -6,27 +6,32 @@ from unittest.mock import MagicMock
 
 
 def _setup_mocks():
-    """Mock dependencias externas para pruebas unitarias aisladas."""
+    """Mock dependencias externas para pruebas unitarias aisladas si no existen."""
     # --- Mock flask ---
-    flask_mod = types.ModuleType("flask")
-    sys.modules["flask"] = flask_mod
+    if "flask" not in sys.modules:
+        flask_mod = types.ModuleType("flask")
+        sys.modules["flask"] = flask_mod
 
     # --- Mock app package ---
-    app_mod = types.ModuleType("app")
-    app_mod.__path__ = ["app"]
-    sys.modules["app"] = app_mod
+    if "app" not in sys.modules:
+        app_mod = types.ModuleType("app")
+        app_mod.__path__ = ["app"]
+        sys.modules["app"] = app_mod
 
-    app_services = types.ModuleType("app.services")
-    app_services.__path__ = ["app/services"]
-    sys.modules["app.services"] = app_services
+    if "app.services" not in sys.modules:
+        app_services = types.ModuleType("app.services")
+        app_services.__path__ = ["app/services"]
+        sys.modules["app.services"] = app_services
 
-    app_countries = types.ModuleType("app.countries")
-    app_countries.__path__ = ["app/countries"]
-    sys.modules["app.countries"] = app_countries
+    if "app.countries" not in sys.modules:
+        app_countries = types.ModuleType("app.countries")
+        app_countries.__path__ = ["app/countries"]
+        sys.modules["app.countries"] = app_countries
 
-    app_countries_do = types.ModuleType("app.countries.do")
-    app_countries_do.__path__ = ["app/countries/do"]
-    sys.modules["app.countries.do"] = app_countries_do
+    if "app.countries.do" not in sys.modules:
+        app_countries_do = types.ModuleType("app.countries.do")
+        app_countries_do.__path__ = ["app/countries/do"]
+        sys.modules["app.countries.do"] = app_countries_do
 
     # --- Mock TaxCalculator ABC ---
     from abc import ABC, abstractmethod
@@ -48,12 +53,13 @@ def _setup_mocks():
         def get_rates(self):
             pass
 
-    tax_calc_mod = types.ModuleType("app.services.tax_calculator")
-    tax_calc_mod.TaxCalculator = MockTaxCalculator
-    tax_calc_mod.TaxCalculatorFactory = type(
-        "Factory", (), {"create": staticmethod(lambda c, r=None: None)}
-    )
-    sys.modules["app.services.tax_calculator"] = tax_calc_mod
+    if "app.services.tax_calculator" not in sys.modules:
+        tax_calc_mod = types.ModuleType("app.services.tax_calculator")
+        tax_calc_mod.TaxCalculator = MockTaxCalculator
+        tax_calc_mod.TaxCalculatorFactory = type(
+            "Factory", (), {"create": staticmethod(lambda c, r=None: None)}
+        )
+        sys.modules["app.services.tax_calculator"] = tax_calc_mod
 
 
 _setup_mocks()

@@ -180,6 +180,12 @@ TRANSACTIONS = {
                 "fallback_usages": ["isr_retenido"],
                 "conditions": [],
             },
+            "gasto_mercancia_transito": {
+                "label": "Mercancía recibida no facturada / Tránsito",
+                "side": "credit",
+                "fallback_usages": ["mercancia_transito", "mercancia_recibida_no_facturada", "cxp", "pasivos"],
+                "conditions": [],
+            },
         },
     },
     "cobro": {
@@ -259,6 +265,12 @@ TRANSACTIONS = {
                 "label": "Merma / pérdida de inventario",
                 "side": "debit",
                 "fallback_usages": ["merma_perdida", "costo_ventas"],
+                "conditions": [],
+            },
+            "inventario_mercancia_transito": {
+                "label": "Mercancía recibida no facturada / Tránsito",
+                "side": "credit",
+                "fallback_usages": ["mercancia_transito", "mercancia_recibida_no_facturada", "cxp", "pasivos"],
                 "conditions": [],
             },
         },

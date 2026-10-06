@@ -1,0 +1,436 @@
+{% extends "layout.html" %}
+
+{% block title %}Kardex Valorizado Continuo (FIFO){% endblock %}
+
+{% block page_header %}Kardex Valorizado de Inventario{% endblock %}
+
+{% block content %}
+<div class="card-table-wrapper" style="padding: 24px; background: var(--bg-card, #ffffff); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+
+    <!-- Encabezado y Acciones -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+        <div>
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+                <h2 style="font-size: 1.4rem; font-weight: 700; color: var(--text-primary, #0f172a); margin: 0;">
+                    Kardex Valorizado Continuo
+                </h2>
+                <span class="badge" style="background: #e0f2fe; color: #0369a1; font-weight: 600; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem;">
+                    Método FIFO
+                </span>
+            </div>
+            <p style="color: var(--text-secondary, #64748b); font-size: 0.88rem; margin: 0;">
+                Auditoría cronológica inmutable de movimientos físicos, capas de costo y valorización monetaria.
+            </p>
+        </div>
+
+        <!-- Botones de Acción -->
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <a href="{{ url_for('web_inventory.advanced_dashboard') }}" class="btn btn-secondary" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; font-size: 0.85rem; border-radius: 8px;">
+                <i class="fa-solid fa-arrow-left"></i>
+                <span>Volver</span>
+            </a>
+            {% if selected_item_id %}
+            <a href="{{ url_for('web_inventory.kardex_export_excel', item_id=selected_item_id, warehouse_id=selected_warehouse_id, date_from=date_from, date_to=date_to) }}" class="btn btn-success" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; font-size: 0.85rem; background: #059669; color: white; border-radius: 8px;">
+                <i class="fa-solid fa-file-excel"></i>
+                <span>Exportar Excel</span>
+            </a>
+            <a href="{{ url_for('web_inventory.kardex_export_pdf', item_id=selected_item_id, warehouse_id=selected_warehouse_id, date_from=date_from, date_to=date_to) }}" class="btn btn-danger" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; font-size: 0.85rem; background: #dc2626; color: white; border-radius: 8px;">
+                <i class="fa-solid fa-file-pdf"></i>
+                <span>Descargar PDF</span>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Barra de Filtros -->
+    <form method="GET" action="{{ url_for('web_inventory.kardex_view') }}" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-bottom: 24px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; align-items: flex-end;">
+            
+            <!-- Selector de Artículo -->
+            <div>
+                <label style="display: block; font-size: 0.78rem; font-weight: 600; color: #475569; margin-bottom: 5px;">
+                    Artículo / Producto
+                </label>
+                <select name="item_id" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 0 10px; font-size: 0.85rem; background: white;" onchange="this.form.submit()">
+                    <option value="">-- Consolidado General de Artículos --</option>
+                    {% for it in items %}
+                    <option value="{{ it.id }}" {% if it.id == selected_item_id %}selected{% endif %}>
+                        [{{ it.code or it.reference or '-' }}] {{ it.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Selector de Almacén -->
+            <div>
+                <label style="display: block; font-size: 0.78rem; font-weight: 600; color: #475569; margin-bottom: 5px;">
+                    Almacén
+                </label>
+                <select name="warehouse_id" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 0 10px; font-size: 0.85rem; background: white;">
+                    <option value="">Todos los Almacenes</option>
+                    {% for wh in warehouses %}
+                    <option value="{{ wh.id }}" {% if wh.id == selected_warehouse_id %}selected{% endif %}>
+                        {{ wh.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Fecha Desde -->
+            <div>
+                <label style="display: block; font-size: 0.78rem; font-weight: 600; color: #475569; margin-bottom: 5px;">
+                    Fecha Desde
+                </label>
+                <input type="date" name="date_from" value="{{ date_from or '' }}" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 0 10px; font-size: 0.85rem; background: white;">
+            </div>
+
+            <!-- Fecha Hasta -->
+            <div>
+                <label style="display: block; font-size: 0.78rem; font-weight: 600; color: #475569; margin-bottom: 5px;">
+                    Fecha Hasta
+                </label>
+                <input type="date" name="date_to" value="{{ date_to or '' }}" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 0 10px; font-size: 0.85rem; background: white;">
+            </div>
+
+            <!-- Botón Filtrar -->
+            <div style="display: flex; gap: 8px;">
+                <button type="submit" class="btn btn-primary" style="height: 38px; padding: 0 16px; font-size: 0.85rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-filter"></i>
+                    <span>Consultar</span>
+                </button>
+                <a href="{{ url_for('web_inventory.kardex_view') }}" class="btn btn-secondary" style="height: 38px; padding: 0 12px; font-size: 0.85rem; border-radius: 6px; display: inline-flex; align-items: center;" title="Limpiar Filtros">
+                    <i class="fa-solid fa-rotate-left"></i>
+                </a>
+            </div>
+        </div>
+    </form>
+
+    {% if selected_item_id and kardex_data %}
+        <!-- KPI Summary Cards para Artículo Seleccionado -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
+            
+            <!-- Saldo Inicial -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px;">
+                <div style="font-size: 0.75rem; font-weight: 600; color: #64748b; text-transform: uppercase;">Saldo Inicial</div>
+                <div style="font-size: 1.25rem; font-weight: 700; color: #0f172a; margin: 4px 0;">
+                    {{ "%.2f"|format(kardex_data.initialBalance.quantity) }} uds
+                </div>
+                <div style="font-size: 0.82rem; color: #3b82f6; font-weight: 500;">
+                    RD$ {{ "{:,.2f}".format(kardex_data.initialBalance.totalValue) }}
+                </div>
+            </div>
+
+            <!-- Entradas Período -->
+            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 16px;">
+                <div style="font-size: 0.75rem; font-weight: 600; color: #166534; text-transform: uppercase;">Entradas del Período</div>
+                <div style="font-size: 1.25rem; font-weight: 700; color: #15803d; margin: 4px 0;">
+                    +{{ "%.2f"|format(kardex_data.periodTotals.inQuantity) }} uds
+                </div>
+                <div style="font-size: 0.82rem; color: #15803d; font-weight: 500;">
+                    RD$ {{ "{:,.2f}".format(kardex_data.periodTotals.inTotalValue) }}
+                </div>
+            </div>
+
+            <!-- Salidas Período (COGS) -->
+            <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 16px;">
+                <div style="font-size: 0.75rem; font-weight: 600; color: #991b1b; text-transform: uppercase;">Salidas (COGS FIFO)</div>
+                <div style="font-size: 1.25rem; font-weight: 700; color: #b91c1c; margin: 4px 0;">
+                    -{{ "%.2f"|format(kardex_data.periodTotals.outQuantity) }} uds
+                </div>
+                <div style="font-size: 0.82rem; color: #b91c1c; font-weight: 500;">
+                    RD$ {{ "{:,.2f}".format(kardex_data.periodTotals.outTotalValue) }}
+                </div>
+            </div>
+
+            <!-- Saldo Final Valorizado -->
+            <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 16px;">
+                <div style="font-size: 0.75rem; font-weight: 600; color: #1e40af; text-transform: uppercase;">Saldo Final Valorizado</div>
+                <div style="font-size: 1.25rem; font-weight: 700; color: #1d4ed8; margin: 4px 0;">
+                    {{ "%.2f"|format(kardex_data.finalBalance.quantity) }} uds
+                </div>
+                <div style="font-size: 0.82rem; color: #1d4ed8; font-weight: 700;">
+                    RD$ {{ "{:,.2f}".format(kardex_data.finalBalance.totalValue) }}
+                    <span style="font-size: 0.75rem; font-weight: normal; color: #64748b;">(RD$ {{ "{:,.2f}".format(kardex_data.finalBalance.unitCost) }}/u)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Banner de Conciliación y Auditoría -->
+        {% if kardex_data.reconciliation %}
+        <div style="background: {% if kardex_data.reconciliation.status == 'OK' %}#f8fafc{% else %}#fffbeb{% endif %}; border: 1px solid {% if kardex_data.reconciliation.status == 'OK' %}#e2e8f0{% else %}#fde68a{% endif %}; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                {% if kardex_data.reconciliation.status == 'OK' %}
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: #dcfce7; color: #15803d; display: flex; align-items: center; justify-content: center; font-size: 1rem;">
+                        <i class="fa-solid fa-check"></i>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.85rem; font-weight: 700; color: #15803d;">Conciliación Correcta (100% íntegro)</div>
+                        <div style="font-size: 0.78rem; color: #64748b;">
+                            Existencia física en almacén: <strong>{{ "%.2f"|format(kardex_data.reconciliation.stockQty) }}</strong> uds • Capas FIFO activas: <strong>RD$ {{ "{:,.2f}".format(kardex_data.reconciliation.ledgerValue) }}</strong>
+                        </div>
+                    </div>
+                {% else %}
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: #fef3c7; color: #b45309; display: flex; align-items: center; justify-content: center; font-size: 1rem;">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.85rem; font-weight: 700; color: #b45309;">Advertencia de Conciliación</div>
+                        <div style="font-size: 0.78rem; color: #78350f;">
+                            {{ kardex_data.reconciliation.notes }}
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+            <div>
+                <span class="badge" style="background: {% if kardex_data.reconciliation.status == 'OK' %}#dcfce7; color: #166534;{% else %}#fef3c7; color: #92400e;{% endif %} padding: 5px 12px; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">
+                    Estado: {{ kardex_data.reconciliation.status }}
+                </span>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Tabla Detallada de Kardex -->
+        <div class="table-responsive" style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <table class="data-grid" style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
+                <thead>
+                    <tr style="background: #1e293b; color: white;">
+                        <th colspan="5" style="padding: 8px 10px; text-align: center; border-right: 1px solid #334155; font-size: 0.78rem;">DATOS DEL MOVIMIENTO</th>
+                        <th colspan="3" style="padding: 8px 10px; text-align: center; border-right: 1px solid #334155; background: #065f46; font-size: 0.78rem;">ENTRADAS</th>
+                        <th colspan="3" style="padding: 8px 10px; text-align: center; border-right: 1px solid #334155; background: #991b1b; font-size: 0.78rem;">SALIDAS (COGS FIFO)</th>
+                        <th colspan="3" style="padding: 8px 10px; text-align: center; border-right: 1px solid #334155; background: #1e40af; font-size: 0.78rem;">SALDO ACUMULADO</th>
+                        <th style="padding: 8px 10px; text-align: center; font-size: 0.78rem;">TRAZABILIDAD</th>
+                    </tr>
+                    <tr style="background: #f1f5f9; color: #334155; border-bottom: 2px solid #cbd5e1;">
+                        <th style="padding: 8px 10px; text-align: left;">Fecha / Hora</th>
+                        <th style="padding: 8px 10px; text-align: left;">Documento</th>
+                        <th style="padding: 8px 10px; text-align: center;">Tipo</th>
+                        <th style="padding: 8px 10px; text-align: left;">Motivo</th>
+                        <th style="padding: 8px 10px; text-align: left; border-right: 1px solid #cbd5e1;">Almacén</th>
+
+                        <!-- Entradas -->
+                        <th style="padding: 8px 10px; text-align: right; background: #ecfdf5; color: #065f46;">Cant.</th>
+                        <th style="padding: 8px 10px; text-align: right; background: #ecfdf5; color: #065f46;">Costo U.</th>
+                        <th style="padding: 8px 10px; text-align: right; background: #ecfdf5; color: #065f46; border-right: 1px solid #cbd5e1;">Total</th>
+
+                        <!-- Salidas -->
+                        <th style="padding: 8px 10px; text-align: right; background: #fef2f2; color: #991b1b;">Cant.</th>
+                        <th style="padding: 8px 10px; text-align: right; background: #fef2f2; color: #991b1b;">Costo U.</th>
+                        <th style="padding: 8px 10px; text-align: right; background: #fef2f2; color: #991b1b; border-right: 1px solid #cbd5e1;">Total</th>
+
+                        <!-- Saldos -->
+                        <th style="padding: 8px 10px; text-align: right; background: #eff6ff; color: #1e40af;">Cant.</th>
+                        <th style="padding: 8px 10px; text-align: right; background: #eff6ff; color: #1e40af;">Costo Prom.</th>
+                        <th style="padding: 8px 10px; text-align: right; background: #eff6ff; color: #1e40af; border-right: 1px solid #cbd5e1;">Total</th>
+
+                        <!-- Auditoría -->
+                        <th style="padding: 8px 10px; text-align: left;">Capas FIFO Consumidas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Fila de Saldo Inicial -->
+                    <tr style="background: #f8fafc; font-weight: 600; border-bottom: 1px solid #e2e8f0;">
+                        <td style="padding: 8px 10px; color: #64748b;">{{ kardex_data.initialBalance.date or 'INICIO' }}</td>
+                        <td style="padding: 8px 10px; color: #64748b;">-</td>
+                        <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="background:#cbd5e1; color:#334155;">SALDO</span></td>
+                        <td style="padding: 8px 10px;">SALDO INICIAL ACUMULADO</td>
+                        <td style="padding: 8px 10px; border-right: 1px solid #cbd5e1;">{{ kardex_data.warehouseName }}</td>
+
+                        <td style="padding: 8px 10px; text-align: center; color: #94a3b8;">-</td>
+                        <td style="padding: 8px 10px; text-align: center; color: #94a3b8;">-</td>
+                        <td style="padding: 8px 10px; text-align: center; color: #94a3b8; border-right: 1px solid #cbd5e1;">-</td>
+
+                        <td style="padding: 8px 10px; text-align: center; color: #94a3b8;">-</td>
+                        <td style="padding: 8px 10px; text-align: center; color: #94a3b8;">-</td>
+                        <td style="padding: 8px 10px; text-align: center; color: #94a3b8; border-right: 1px solid #cbd5e1;">-</td>
+
+                        <td style="padding: 8px 10px; text-align: right;">{{ "%.2f"|format(kardex_data.initialBalance.quantity) }}</td>
+                        <td style="padding: 8px 10px; text-align: right;">RD$ {{ "{:,.2f}".format(kardex_data.initialBalance.unitCost) }}</td>
+                        <td style="padding: 8px 10px; text-align: right; color: #1e40af; border-right: 1px solid #cbd5e1;">RD$ {{ "{:,.2f}".format(kardex_data.initialBalance.totalValue) }}</td>
+
+                        <td style="padding: 8px 10px; color: #64748b; font-size: 0.75rem;">Apertura de período</td>
+                    </tr>
+
+                    <!-- Movimientos del Período -->
+                    {% for mov in kardex_data.movements %}
+                    <tr style="border-bottom: 1px solid #e2e8f0; transition: background 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='white'">
+                        <td style="padding: 8px 10px; font-family: monospace; font-size: 0.78rem;">{{ mov.date[:16].replace('T', ' ') if mov.date else '-' }}</td>
+                        <td style="padding: 8px 10px; font-weight: 500;">{{ mov.documentNumber or mov.referenceId or '-' }}</td>
+                        <td style="padding: 8px 10px; text-align: center;">
+                            {% if mov.type == 'ENTRADA' %}
+                                <span class="badge" style="background:#dcfce7; color:#15803d; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px;">ENTRADA</span>
+                            {% elif mov.type == 'SALIDA' %}
+                                <span class="badge" style="background:#fee2e2; color:#b91c1c; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px;">SALIDA</span>
+                            {% elif mov.type == 'TRANSFERENCIA' %}
+                                <span class="badge" style="background:#e0e7ff; color:#4338ca; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px;">TRANSF</span>
+                            {% else %}
+                                <span class="badge" style="background:#fef3c7; color:#b45309; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px;">AJUSTE</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 8px 10px;">{{ mov.reason }}</td>
+                        <td style="padding: 8px 10px; border-right: 1px solid #cbd5e1;">{{ mov.warehouseName }}</td>
+
+                        <!-- Entradas -->
+                        <td style="padding: 8px 10px; text-align: right; font-weight: {{ '600' if mov.inQty > 0 else 'normal' }}; color: {{ '#15803d' if mov.inQty > 0 else '#94a3b8' }};">
+                            {{ "%.2f"|format(mov.inQty) if mov.inQty > 0 else '-' }}
+                        </td>
+                        <td style="padding: 8px 10px; text-align: right; color: {{ '#15803d' if mov.inQty > 0 else '#94a3b8' }};">
+                            {{ "RD$ {:,.2f}".format(mov.inUnitCost) if mov.inQty > 0 else '-' }}
+                        </td>
+                        <td style="padding: 8px 10px; text-align: right; font-weight: 600; color: {{ '#15803d' if mov.inQty > 0 else '#94a3b8' }}; border-right: 1px solid #cbd5e1;">
+                            {{ "RD$ {:,.2f}".format(mov.inTotalValue) if mov.inQty > 0 else '-' }}
+                        </td>
+
+                        <!-- Salidas -->
+                        <td style="padding: 8px 10px; text-align: right; font-weight: {{ '600' if mov.outQty > 0 else 'normal' }}; color: {{ '#b91c1c' if mov.outQty > 0 else '#94a3b8' }};">
+                            {{ "%.2f"|format(mov.outQty) if mov.outQty > 0 else '-' }}
+                        </td>
+                        <td style="padding: 8px 10px; text-align: right; color: {{ '#b91c1c' if mov.outQty > 0 else '#94a3b8' }};">
+                            {{ "RD$ {:,.2f}".format(mov.outUnitCost) if mov.outQty > 0 else '-' }}
+                        </td>
+                        <td style="padding: 8px 10px; text-align: right; font-weight: 600; color: {{ '#b91c1c' if mov.outQty > 0 else '#94a3b8' }}; border-right: 1px solid #cbd5e1;">
+                            {{ "RD$ {:,.2f}".format(mov.outTotalValue) if mov.outQty > 0 else '-' }}
+                        </td>
+
+                        <!-- Saldos -->
+                        <td style="padding: 8px 10px; text-align: right; font-weight: 700;">{{ "%.2f"|format(mov.balanceQty) }}</td>
+                        <td style="padding: 8px 10px; text-align: right;">RD$ {{ "{:,.2f}".format(mov.balanceUnitCost) }}</td>
+                        <td style="padding: 8px 10px; text-align: right; font-weight: 700; color: #1d4ed8; border-right: 1px solid #cbd5e1;">
+                            RD$ {{ "{:,.2f}".format(mov.balanceTotalValue) }}
+                        </td>
+
+                        <!-- Auditoría Capas -->
+                        <td style="padding: 8px 10px; font-size: 0.75rem; color: #475569;">
+                            {% if mov.costLayers %}
+                                {% for l in mov.costLayers %}
+                                    <span style="display: inline-block; background: #f1f5f9; border: 1px solid #cbd5e1; padding: 1px 5px; border-radius: 4px; margin: 1px 0;">
+                                        {{ "%.0f"|format(l.quantity) }}u @ RD${{ "%.2f"|format(l.unitCost) }}
+                                    </span>
+                                {% endfor %}
+                            {% else %}
+                                <span style="color: #94a3b8;">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+
+                    <!-- Fila Totales del Período -->
+                    <tr style="background: #e2e8f0; font-weight: 700; border-top: 2px solid #0f172a;">
+                        <td colspan="5" style="padding: 10px; text-align: right; border-right: 1px solid #cbd5e1;">TOTALES DEL PERÍODO:</td>
+
+                        <td style="padding: 10px; text-align: right; color: #15803d;">{{ "%.2f"|format(kardex_data.periodTotals.inQuantity) }}</td>
+                        <td style="padding: 10px; text-align: center;">-</td>
+                        <td style="padding: 10px; text-align: right; color: #15803d; border-right: 1px solid #cbd5e1;">RD$ {{ "{:,.2f}".format(kardex_data.periodTotals.inTotalValue) }}</td>
+
+                        <td style="padding: 10px; text-align: right; color: #b91c1c;">{{ "%.2f"|format(kardex_data.periodTotals.outQuantity) }}</td>
+                        <td style="padding: 10px; text-align: center;">-</td>
+                        <td style="padding: 10px; text-align: right; color: #b91c1c; border-right: 1px solid #cbd5e1;">RD$ {{ "{:,.2f}".format(kardex_data.periodTotals.outTotalValue) }}</td>
+
+                        <td style="padding: 10px; text-align: right; color: #1d4ed8;">{{ "%.2f"|format(kardex_data.finalBalance.quantity) }}</td>
+                        <td style="padding: 10px; text-align: right;">RD$ {{ "{:,.2f}".format(kardex_data.finalBalance.unitCost) }}</td>
+                        <td style="padding: 10px; text-align: right; color: #1d4ed8; border-right: 1px solid #cbd5e1;">RD$ {{ "{:,.2f}".format(kardex_data.finalBalance.totalValue) }}</td>
+
+                        <td style="padding: 10px; text-align: center;">-</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+    {% else %}
+        <!-- Vista de Resumen Consolidado de Artículos -->
+        <div style="margin-bottom: 20px;">
+            <h3 style="font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 6px;">
+                Resumen Valorizado de Inventario por Artículo
+            </h3>
+            <p style="color: #64748b; font-size: 0.85rem; margin: 0;">
+                Haga clic en cualquier artículo para ver su desglose cronológico completo de Kardex y capas FIFO.
+            </p>
+        </div>
+
+        <!-- KPI Totales Consolidados -->
+        {% if summary_data and summary_data.totals %}
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px;">
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px;">
+                <div style="font-size: 0.72rem; color: #64748b; font-weight: 600; text-transform: uppercase;">Valor Inicial Total</div>
+                <div style="font-size: 1.15rem; font-weight: 700; color: #0f172a; margin-top: 2px;">
+                    RD$ {{ "{:,.2f}".format(summary_data.totals.initialValue) }}
+                </div>
+            </div>
+            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 16px;">
+                <div style="font-size: 0.72rem; color: #166534; font-weight: 600; text-transform: uppercase;">Entradas Totales</div>
+                <div style="font-size: 1.15rem; font-weight: 700; color: #15803d; margin-top: 2px;">
+                    +RD$ {{ "{:,.2f}".format(summary_data.totals.inValue) }}
+                </div>
+            </div>
+            <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px 16px;">
+                <div style="font-size: 0.72rem; color: #991b1b; font-weight: 600; text-transform: uppercase;">Salidas (COGS)</div>
+                <div style="font-size: 1.15rem; font-weight: 700; color: #b91c1c; margin-top: 2px;">
+                    -RD$ {{ "{:,.2f}".format(summary_data.totals.outValue) }}
+                </div>
+            </div>
+            <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 12px 16px;">
+                <div style="font-size: 0.72rem; color: #1e40af; font-weight: 600; text-transform: uppercase;">Valor Final Inventario</div>
+                <div style="font-size: 1.15rem; font-weight: 700; color: #1d4ed8; margin-top: 2px;">
+                    RD$ {{ "{:,.2f}".format(summary_data.totals.finalValue) }}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Tabla de Resumen por Artículo -->
+        <div class="table-responsive" style="border: 1px solid #e2e8f0; border-radius: 8px;">
+            <table class="data-grid" style="width: 100%; border-collapse: collapse; font-size: 0.84rem;">
+                <thead style="background: #f8fafc; border-bottom: 2px solid #cbd5e1;">
+                    <tr>
+                        <th style="padding: 10px; text-align: left;">Código</th>
+                        <th style="padding: 10px; text-align: left;">Artículo</th>
+                        <th style="padding: 10px; text-align: right;">S. Inicial (uds)</th>
+                        <th style="padding: 10px; text-align: right;">Entradas (uds)</th>
+                        <th style="padding: 10px; text-align: right;">Salidas (uds)</th>
+                        <th style="padding: 10px; text-align: right; font-weight: 700;">Existencia Final</th>
+                        <th style="padding: 10px; text-align: right;">Costo Prom.</th>
+                        <th style="padding: 10px; text-align: right; font-weight: 700; color: #1e40af;">Valorización Final</th>
+                        <th style="padding: 10px; text-align: center;">Conciliación</th>
+                        <th style="padding: 10px; text-align: center;">Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sit in summary_data['items'] %}
+                    <tr style="border-bottom: 1px solid #e2e8f0;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                        <td style="padding: 9px 10px; font-family: monospace; font-weight: 600;">{{ sit.itemCode or '-' }}</td>
+                        <td style="padding: 9px 10px; font-weight: 600; color: #0f172a;">{{ sit.itemName }}</td>
+                        <td style="padding: 9px 10px; text-align: right; color: #64748b;">{{ "%.2f"|format(sit.initialQty) }}</td>
+                        <td style="padding: 9px 10px; text-align: right; color: #15803d;">+{{ "%.2f"|format(sit.periodInQty) }}</td>
+                        <td style="padding: 9px 10px; text-align: right; color: #b91c1c;">-{{ "%.2f"|format(sit.periodOutQty) }}</td>
+                        <td style="padding: 9px 10px; text-align: right; font-weight: 700;">{{ "%.2f"|format(sit.finalQty) }} {{ sit.unit }}</td>
+                        <td style="padding: 9px 10px; text-align: right;">RD$ {{ "{:,.2f}".format(sit.finalUnitCost) }}</td>
+                        <td style="padding: 9px 10px; text-align: right; font-weight: 700; color: #1d4ed8;">
+                            RD$ {{ "{:,.2f}".format(sit.finalValue) }}
+                        </td>
+                        <td style="padding: 9px 10px; text-align: center;">
+                            {% if sit.reconciliationStatus == 'OK' %}
+                                <span class="badge" style="background:#dcfce7; color:#166534; padding: 3px 8px; border-radius: 10px; font-size: 0.72rem;">✔ OK</span>
+                            {% else %}
+                                <span class="badge" style="background:#fef3c7; color:#92400e; padding: 3px 8px; border-radius: 10px; font-size: 0.72rem;" title="Diferencia detectada">⚠ {{ sit.reconciliationStatus }}</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 9px 10px; text-align: center;">
+                            <a href="{{ url_for('web_inventory.kardex_view', item_id=sit.itemId, warehouse_id=selected_warehouse_id, date_from=date_from, date_to=date_to) }}" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.78rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;">
+                                <i class="fa-solid fa-list-check"></i>
+                                <span>Ver Kardex</span>
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="10" style="padding: 24px; text-align: center; color: #94a3b8;">
+                            No se encontraron artículos registrados en el catálogo.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}

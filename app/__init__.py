@@ -910,6 +910,7 @@ def create_app():
     from app.api.v1.supplier_invoices import api_supplier_invoices_bp
     from app.api.v1.receptor import api_receptor_bp
     from app.api.v1.certificacion import api_certificacion_bp
+    from app.api.v1.inventory import api_inventory_bp
     
     app.register_blueprint(api_expenses_bp, url_prefix='/api/v1')
     app.register_blueprint(api_invoices_bp, url_prefix='/api/v1')
@@ -921,6 +922,7 @@ def create_app():
     app.register_blueprint(api_accounting_bp, url_prefix='/api/v1')
     app.register_blueprint(api_liquidacion_bp, url_prefix='/api/v1')
     app.register_blueprint(api_supplier_invoices_bp, url_prefix='/api/v1')
+    app.register_blueprint(api_inventory_bp, url_prefix='/api/v1')
     # Rutas exactas registradas ante la DGII para recepción de e-CF (sin prefijo):
     #   GET  /fe/autenticacion/api/semilla
     #   POST /fe/autenticacion/api/ValidacionCertificado

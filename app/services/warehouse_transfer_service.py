@@ -78,42 +78,43 @@ class WarehouseTransferService:
         transfer["approvedBy"] = approved_by
         transfer["approvedDate"] = datetime.now(timezone.utc).isoformat()
 
+        from app.services.inventory_transaction_service import InventoryTransactionService
+
         for line in transfer.get("lines", []):
             item_id = line["itemId"]
             qty = float(line["quantity"])
             item_name = line.get("itemName", "")
+            cost = float(line.get("unitCost", 0.0) or 0.0)
 
-            DatabaseService.register_inventory_transaction(owner_uid, {
-                "type": "SALIDA",
-                "itemId": item_id,
-                "itemName": item_name,
-                "quantity": qty,
-                "originWarehouseId": transfer["originWarehouseId"],
-                "reason": "TRANSFERENCIA_SALIDA",
-                "referenceId": transfer_id,
-                "notes": f"Transferencia #{transfer_id[:8]} → {transfer.get('destinationWarehouseName', '')}",
-                "performedBy": approved_by,
-            }, company_id=company_id, sandbox=sandbox)
+            idempotency_key = InventoryTransactionService.build_idempotency_key(
+                company_id=company_id,
+                reference_type="WAREHOUSE_TRANSFER",
+                reference_id=f"{transfer_id}_{item_id}",
+                operation=InventoryTransactionService.TYPE_TRANSFERENCIA
+            )
 
-            cost = line.get("unitCost", 0.0)
-            DatabaseService.register_inventory_transaction(owner_uid, {
-                "type": "ENTRADA",
-                "itemId": item_id,
-                "itemName": item_name,
-                "quantity": qty,
-                "destinationWarehouseId": transfer["destinationWarehouseId"],
-                "reason": "TRANSFERENCIA_ENTRADA",
-                "referenceId": transfer_id,
-                "notes": f"Transferencia #{transfer_id[:8]} ← {transfer.get('originWarehouseName', '')}",
-                "performedBy": approved_by,
-            }, company_id=company_id, sandbox=sandbox)
-
-            if cost > 0:
-                from app.services.inventory_costing_service import InventoryCostingService
-                InventoryCostingService.record_fifo_entry(
-                    company_id, item_id, transfer["destinationWarehouseId"],
-                    qty, cost, transfer_id, "transfer", sandbox
-                )
+            InventoryTransactionService.execute_transaction(
+                owner_uid=owner_uid,
+                company_id=company_id,
+                tx_dict={
+                    "type": InventoryTransactionService.TYPE_TRANSFERENCIA,
+                    "itemId": item_id,
+                    "itemName": item_name,
+                    "quantity": qty,
+                    "unitCost": cost,
+                    "originWarehouseId": transfer["originWarehouseId"],
+                    "originWarehouseName": transfer.get("originWarehouseName", ""),
+                    "destinationWarehouseId": transfer["destinationWarehouseId"],
+                    "destinationWarehouseName": transfer.get("destinationWarehouseName", ""),
+                    "reason": InventoryTransactionService.REASON_TRANSFERENCIA,
+                    "referenceType": "WAREHOUSE_TRANSFER",
+                    "referenceId": transfer_id,
+                    "idempotencyKey": idempotency_key,
+                    "notes": f"Transferencia #{transfer_id[:8]} ({transfer.get('originWarehouseName', '')} → {transfer.get('destinationWarehouseName', '')})",
+                    "performedBy": approved_by,
+                },
+                sandbox=sandbox
+            )
 
         transfer["status"] = "completada"
         transfer["completedDate"] = datetime.now(timezone.utc).isoformat()

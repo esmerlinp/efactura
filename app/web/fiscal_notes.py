@@ -152,6 +152,10 @@ def save_fiscal_note():
 
     catalog = DatabaseService.get_items(owner_uid, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'), company_id=company_id) or []
     catalog_types = {it['name'].lower().strip(): it.get('type', 'Bien') for it in catalog}
+    catalog_by_code = {it['code'].strip().lower(): it for it in catalog if it.get('code')}
+    catalog_by_name = {it['name'].strip().lower(): it for it in catalog}
+
+    from app.services.credit_note_inventory_service import CreditNoteInventoryService
 
     for idx in sorted(item_indices):
         name = request.form.get(f'items[{idx}][name]', '').strip()
@@ -160,20 +164,67 @@ def save_fiscal_note():
         itbis_rate = float(request.form.get(f'items[{idx}][itbisRate]', 0.18))
         item_disc = float(request.form.get(f'items[{idx}][discountRate]', 0.0))
         code = request.form.get(f'items[{idx}][code]', '').strip()
+        item_warehouse_id = request.form.get(f'items[{idx}][warehouseId]', '').strip() or warehouse_id
+        reingreso_raw = request.form.get(f'items[{idx}][reingresoStock]')
 
         if name and price > 0:
-            item_type = catalog_types.get(name.lower().strip())
+            cat_it = catalog_by_code.get(code.lower()) or catalog_by_name.get(name.lower())
+            item_id = cat_it["id"] if cat_it else str(uuid.uuid4())
+            item_type = catalog_types.get(name.lower().strip()) or (cat_it.get("type") if cat_it else None)
             if not item_type:
                 item_type = 'Servicio' if any(x in name.lower() for x in ['servicio', 'honorarios', 'consultoria', 'asesoria', 'soporte', 'mantenimiento']) else 'Bien'
+
+            is_bien = (item_type == 'Bien')
+            if note_type == 'E34':
+                if reingreso_raw is not None:
+                    is_reingreso = (reingreso_raw.lower() in ('1', 'true', 'on', 'yes')) and is_bien
+                else:
+                    is_reingreso = (modification_code == '1') and is_bien
+            else:
+                is_reingreso = False
+
+            ref_it = None
+            if ref_invoice and ref_invoice.get("items"):
+                for ri in ref_invoice.get("items", []):
+                    if (code and (ri.get("code", "")).strip().lower() == code.lower()) or (ri.get("name", "").strip().lower() == name.lower()) or (cat_it and ri.get("id") == cat_it["id"]):
+                        ref_it = ri
+                        break
+
+            orig_line_id = ref_it.get("id", "") if ref_it else ""
+            item_temp = {
+                "id": item_id,
+                "code": code,
+                "name": name,
+                "originalLineId": orig_line_id,
+                "unitCost": float(request.form.get(f'items[{idx}][originalCost]', 0.0))
+            }
+            orig_cost = CreditNoteInventoryService.resolve_original_cost(
+                owner_uid=owner_uid,
+                company_id=company_id,
+                ref_invoice=ref_invoice,
+                item=item_temp,
+                sandbox=sandbox
+            )
+            if orig_cost <= 0 and cat_it:
+                orig_cost = float(cat_it.get("costPrice", 0.0) or 0.0)
+
             parsed_items.append({
-                "id": str(uuid.uuid4()),
-                "code": code or f"ITEM-{idx + 1}",
+                "id": item_id,
+                "code": code or (cat_it.get("code") if cat_it else f"ITEM-{idx + 1}"),
                 "type": item_type,
                 "name": name,
                 "price": price,
                 "quantity": qty,
                 "itbisRate": itbis_rate,
                 "discountRate": item_disc / 100.0,  # Convert % to decimal
+                "reingresoStock": is_reingreso,
+                "originalInvoiceId": ref_invoice_id,
+                "originalLineId": orig_line_id,
+                "warehouseId": item_warehouse_id or warehouse_id,
+                "quantityReturned": qty if is_reingreso else 0,
+                "originalCost": orig_cost,
+                "unitCost": orig_cost,
+                "costPrice": orig_cost,
             })
 
     if not parsed_items:
@@ -240,6 +291,7 @@ def save_fiscal_note():
         "totalITBIS": calcs["total_itbis"],
         "total": calcs["total"],
         "netPayable": calcs["net_payable"],
+        "referenceInvoiceId": ref_invoice_id,
         "informationReference": {
             "modificationCode": int(modification_code),
             "ncfModified": ref_invoice.get("encf", ref_invoice.get("ncf", "")),
