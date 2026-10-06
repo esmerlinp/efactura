@@ -229,6 +229,7 @@ def emit_invoice():
             invoice_dict["isSyncedWithDGII"] = (res.get("mode", "API") == "API" and res.get("status") != "PENDING")
             invoice_dict["emisionMode"] = res.get("mode", "API")
             invoice_dict["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
+            invoice_dict["trackId"] = res.get("trackId", "")
             
             # Guardamos con el estado final actualizado
             DatabaseService.save_invoice(g.owner_uid, invoice_id, invoice_dict, company_id=g.company_id, sandbox=g.sandbox_mode)

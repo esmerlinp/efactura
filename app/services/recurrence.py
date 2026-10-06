@@ -215,6 +215,7 @@ class RecurrenceService:
                             new_invoice["isSyncedWithDGII"] = (res.get("mode", "API") == "API" and res.get("status") != "PENDING")
                             new_invoice["emisionMode"] = res.get("mode", "API")
                             new_invoice["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if res.get("status") == "PENDING" else "ACCEPTED")
+                            new_invoice["trackId"] = res.get("trackId", "")
                             new_invoice["status"] = "Pendiente DGII" if res.get("status") == "PENDING" or res.get("mode") == "FALLBACK" else "Emitida"
                             if res.get("mode") == "FALLBACK":
                                 new_invoice["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat()

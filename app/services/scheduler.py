@@ -150,6 +150,18 @@ def run_contingency_sync():
     logger.info(f"✅ APScheduler — Sincronización de contingencia: {synced} OK, {failed} fallidas")
 
 
+def run_dgii_pending_reconciliation():
+    """Job cada 30 min: reconcilia facturas emitidas en modo API cuyo estado DGII
+    quedó PENDING, consultando el resultado final (check_status) sin re-emitir."""
+    from app.services.contingency_sync_service import ContingencySyncService
+    logger.info("🔄 APScheduler — Iniciando reconciliación de facturas PENDING (API)...")
+    synced, rejected, pending = ContingencySyncService.reconcile_all_companies()
+    logger.info(
+        f"✅ APScheduler — Reconciliación PENDING: {synced} aceptadas, "
+        f"{rejected} rechazadas, {pending} aún pendientes"
+    )
+
+
 def run_daily_rui_generation(company_id=None):
     """Job diario (00:30 AM RD): genera RUI automático para el día anterior
     en todas las empresas con ruiEnabled=True y ruiAutoGenerate=True."""
@@ -264,6 +276,14 @@ def monitored_contingency_sync():
         "contingency_sync",
         "Sincronización Automática de Contingencia DGII",
         run_contingency_sync,
+    )
+
+
+def monitored_dgii_pending_reconciliation():
+    return _run_monitored(
+        "dgii_pending_reconciliation",
+        "Reconciliación de Facturas PENDING (API) ante DGII",
+        run_dgii_pending_reconciliation,
     )
 
 
@@ -408,6 +428,14 @@ def init_scheduler(app):
     # desde /admin/jobs (panel de administración) o desde el Dashboard.
     # El job automático cada 30 min fue deshabilitado para reducir
     # costos de Firestore — ver plan de optimización GCP Jul 2026.
+
+    _scheduler.add_job(
+        func=monitored_dgii_pending_reconciliation,
+        trigger=CronTrigger(minute="*/30"),
+        id="dgii_pending_reconciliation",
+        name="Reconciliación de Facturas PENDING (API) ante DGII",
+        replace_existing=True,
+    )
 
     _scheduler.add_job(
         func=monitored_daily_depreciation,

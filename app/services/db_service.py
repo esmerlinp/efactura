@@ -694,6 +694,54 @@ def _cached_contingency_invoices(owner_uid, sandbox, company_id=None):
 
 
 @cache.memoize(timeout=120)
+def _cached_pending_api_invoices(owner_uid, sandbox, company_id=None):
+    """Facturas emitidas en modo API que DGII devolvió PENDING en la recepción y
+    aún no han sido reconciliadas (status Pendiente DGII). Se reconcilian vía
+    consulta de estado (check_status) en lugar de re-emitir (evita duplicar eNCF)."""
+    invoices = []
+    if firebase_initialized:
+        try:
+            coll_name = "sandbox_invoices" if sandbox else "invoices"
+            docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=coll_name) \
+                .where(filter=firestore.FieldFilter("dgiiStatus", "==", "PENDING")) \
+                .limit(500).get()
+
+            for doc in docs:
+                data = doc.to_dict()
+                if data.get("isDeleted"):
+                    continue
+                if data.get("emisionMode") != "API":
+                    continue
+                if data.get("status") != "Pendiente DGII":
+                    continue
+                invoices.append({
+                    "id": doc.id,
+                    "invoiceNumber": data.get("invoiceNumber", ""),
+                    "date": serialize_field(data.get("date")),
+                    "clientName": data.get("clientName", ""),
+                    "clientRNC": data.get("clientRNC", ""),
+                    "status": data.get("status", "Borrador"),
+                    "ecfType": data.get("ecfType", "Factura de Consumo (E32)"),
+                    "encf": data.get("encf", ""),
+                    "emisionMode": "API",
+                    "isSyncedWithDGII": False,
+                    "dgiiStatus": "PENDING",
+                    "trackId": data.get("trackId", ""),
+                    "xmlSignature": data.get("xmlSignature", ""),
+                    "netPayable": float(data.get("netPayable", data.get("total", 0.0))),
+                    "total": float(data.get("total", 0.0)),
+                    "totalPaid": float(data.get("totalPaid", 0.0)),
+                    "pendingSyncAttempts": int(data.get("pendingSyncAttempts", 0)),
+                    "lastPendingCheckAt": data.get("lastPendingCheckAt", ""),
+                })
+
+            invoices.sort(key=lambda x: x["date"] or "", reverse=True)
+        except Exception as e:
+            print(f"⚠️ Error al obtener facturas PENDING (API) desde Firestore: {e}")
+    return invoices
+
+
+@cache.memoize(timeout=120)
 def _cached_user_notifications(user_uid, limit):
     notifications = []
     if firebase_initialized:
@@ -835,6 +883,7 @@ def _invalidate_invoices(owner_uid, company_id=None):
     try:
         for sandbox in [True, False]:
             cache.delete_memoized(_cached_contingency_invoices, owner_uid, sandbox, company_id)
+            cache.delete_memoized(_cached_pending_api_invoices, owner_uid, sandbox, company_id)
             for quotations_only in [True, False]:
                 for include_all in [True, False]:
                     cache.delete_memoized(_cached_invoices, owner_uid, sandbox, quotations_only, include_all, company_id)
@@ -2845,6 +2894,12 @@ class DatabaseService:
         """Retorna solo facturas en modo contingencia (FALLBACK) no sincronizadas con la DGII."""
         import copy
         return copy.deepcopy(_cached_contingency_invoices(owner_uid, sandbox, company_id=company_id))
+
+    @classmethod
+    def get_pending_api_invoices(cls, owner_uid, sandbox=True, company_id=None):
+        """Retorna facturas emitidas en modo API con estado PENDING (por reconciliar)."""
+        import copy
+        return copy.deepcopy(_cached_pending_api_invoices(owner_uid, sandbox, company_id=company_id))
 
     @classmethod
     def get_invoice(cls, owner_uid, invoice_id, sandbox=True, company_id=None):

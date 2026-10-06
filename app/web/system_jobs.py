@@ -52,6 +52,7 @@ def trigger_job():
 
     job_map = {
         "contingency_sync": ("contingency_sync", "Sincronización de Contingencia DGII (Manual)"),
+        "dgii_pending_reconciliation": ("dgii_pending_reconciliation", "Reconciliación de Facturas PENDING (API) ante DGII (Manual)"),
         "daily_contract_billing": ("daily_contract_billing", "Facturación Diaria de Contratos (Manual)"),
         "daily_depreciation": ("daily_depreciation", "Depreciación de Activos Fijos (Manual)"),
         "cleanup_idempotency_keys": ("cleanup_idempotency_keys", "Limpieza de Idempotency Keys (Manual)"),
@@ -67,6 +68,7 @@ def trigger_job():
     try:
         from app.services.scheduler import (
             run_contingency_sync,
+            run_dgii_pending_reconciliation,
             run_daily_contract_billing,
             run_daily_depreciation,
             cleanup_expired_idempotency_keys,
@@ -74,6 +76,7 @@ def trigger_job():
         )
         func_map = {
             "contingency_sync": run_contingency_sync,
+            "dgii_pending_reconciliation": run_dgii_pending_reconciliation,
             "daily_contract_billing": run_daily_contract_billing,
             "daily_depreciation": run_daily_depreciation,
             "cleanup_idempotency_keys": cleanup_expired_idempotency_keys,
