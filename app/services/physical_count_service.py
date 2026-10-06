@@ -136,6 +136,10 @@ class PhysicalCountService:
         adjustments = 0
         adjusted_items = []
 
+        from app.services.inventory_transaction_service import InventoryTransactionService
+        items_catalog = DatabaseService.get_items(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox)
+        item_cost_map = {it.get("id"): float(it.get("costPrice", 0.0) or 0.0) for it in items_catalog}
+
         for line in count["lines"]:
             diff = line["difference"]
             if abs(diff) > tolerance:
@@ -146,38 +150,60 @@ class PhysicalCountService:
                     shortage += abs(diff)
                 adjustments += 1
 
-                tx_type = "ENTRADA" if diff > 0 else "SALIDA"
-                DatabaseService.register_inventory_transaction(owner_uid, {
-                    "type": tx_type,
-                    "itemId": line["itemId"],
-                    "itemName": line["itemName"],
-                    "quantity": abs(diff),
-                    "destinationWarehouseId": count["warehouseId"] if diff > 0 else "",
-                    "originWarehouseId": count["warehouseId"] if diff <= 0 else "",
-                    "reason": "AJUSTE_POR_CONTEO",
-                    "referenceId": count_id,
-                    "notes": f"Ajuste automático: conteo #{count_id[:8]}, diferencia {diff:+.4f}",
-                    "performedBy": finalized_by,
-                }, sandbox=sandbox)
+                item_id = line["itemId"]
+                unit_cost = item_cost_map.get(item_id, float(line.get("costPrice", 0.0) or 0.0))
+                tx_type = InventoryTransactionService.TYPE_ENTRADA if diff > 0 else InventoryTransactionService.TYPE_SALIDA
+
+                idempotency_key = InventoryTransactionService.build_idempotency_key(
+                    company_id=company_id,
+                    reference_type="PHYSICAL_COUNT",
+                    reference_id=f"{count_id}_{item_id}",
+                    operation=tx_type
+                )
+
+                res_tx = InventoryTransactionService.execute_transaction(
+                    owner_uid=owner_uid,
+                    company_id=company_id,
+                    tx_dict={
+                        "type": tx_type,
+                        "itemId": item_id,
+                        "itemName": line["itemName"],
+                        "quantity": abs(diff),
+                        "unitCost": unit_cost,
+                        "destinationWarehouseId": count["warehouseId"] if diff > 0 else "",
+                        "originWarehouseId": count["warehouseId"] if diff <= 0 else "",
+                        "reason": InventoryTransactionService.REASON_AJUSTE_FISICO,
+                        "referenceType": "PHYSICAL_COUNT",
+                        "referenceId": count_id,
+                        "idempotencyKey": idempotency_key,
+                        "notes": f"Ajuste automático: conteo #{count_id[:8]}, diferencia {diff:+.4f}",
+                        "performedBy": finalized_by,
+                    },
+                    sandbox=sandbox,
+                    allow_negative_stock=True  # Conteo físico refleja la realidad física ajustada
+                )
+
+                # ── Post-Commit Contable: Contabilizar Ajuste Físico / Merma ──
+                if res_tx:
+                    try:
+                        from app.services.inventory_accounting_service import InventoryAccountingService
+                        InventoryAccountingService.post_inventory_transaction(
+                            company_id=company_id,
+                            tx=res_tx,
+                            sandbox=sandbox,
+                            owner_uid=owner_uid
+                        )
+                    except Exception as acc_err:
+                        print(f"⚠️ Error al contabilizar ajuste de conteo físico {count_id}: {acc_err}")
 
                 adjusted_items.append({
                     "itemId": line["itemId"],
                     "name": line["itemName"],
                     "quantity": diff,
                     "qtyDiff": diff,
-                    "costPrice": 0,
+                    "costPrice": unit_cost,
                 })
 
-        if adjusted_items:
-            try:
-                from app.services.accounting_service import AccountingService
-                AccountingService.auto_generate_inventory_entry(
-                    company_id, "ajuste", adjusted_items,
-                    reference_id=count_id, performed_by=finalized_by,
-                    sandbox=sandbox
-                )
-            except Exception as e:
-                print(f"⚠️ Error al generar asiento de inventario para conteo {count_id}: {e}")
 
         count["status"] = "ajustado" if adjustments > 0 else "finalizado"
         count["finalizedDate"] = datetime.now(timezone.utc).isoformat()

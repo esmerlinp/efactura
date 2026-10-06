@@ -78,7 +78,7 @@ class TestVentasAccountingByType:
         mock_db_class.get_next_entry_number.return_value = "A-00001"
         saved = []
         mock_db_class.save_accounting_entry = MagicMock(
-            side_effect=lambda uid, eid, entry, sandbox: saved.append(entry)
+            side_effect=lambda uid, eid, entry, sandbox=True, **kwargs: saved.append(entry)
         )
         return saved
 
@@ -232,7 +232,7 @@ class TestComprasAccountingByType:
         mock_db_class.get_next_entry_number.return_value = "C-00001"
         saved = []
         mock_db_class.save_accounting_entry = MagicMock(
-            side_effect=lambda uid, eid, entry, sandbox: saved.append(entry)
+            side_effect=lambda uid, eid, entry, sandbox=True, **kwargs: saved.append(entry)
         )
         return saved
 

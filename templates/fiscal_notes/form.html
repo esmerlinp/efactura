@@ -185,14 +185,17 @@
             <table class="table-premium" id="items-table" style="min-width:1050px;">
                 <thead>
                     <tr>
-                        <th style="width:18%;">Referencia</th>
-                        <th style="width:24%;">Descripción <span style="color:var(--accent-red);">*</span></th>
+                        <th style="width:16%;">Referencia</th>
+                        <th style="width:22%;">Descripción <span style="color:var(--accent-red);">*</span></th>
                         <th style="width:11%; text-align:right;">Precio <span style="color:var(--accent-red);">*</span></th>
                         <th style="width:8%; text-align:center;">Cant. <span style="color:var(--accent-red);">*</span></th>
-                        <th style="width:9%; text-align:right;">Desc. %</th>
-                        <th style="width:10%;">ITBIS</th>
-                        <th style="width:13%; text-align:right;">Total</th>
-                        <th style="width:7%; text-align:center;"></th>
+                        <th style="width:8%; text-align:right;">Desc. %</th>
+                        <th style="width:9%;">ITBIS</th>
+                        {% if note_type == 'E34' %}
+                        <th style="width:10%; text-align:center;" title="Reingresar físicamente la mercancía devuelta al inventario">¿Reingreso?</th>
+                        {% endif %}
+                        <th style="width:11%; text-align:right;">Total</th>
+                        <th style="width:5%; text-align:center;"></th>
                     </tr>
                 </thead>
                 <tbody id="items-body">
@@ -224,6 +227,13 @@
                                 <option value="0.0">Exento (0%)</option>
                             </select>
                         </td>
+                        {% if note_type == 'E34' %}
+                        <td style="text-align:center; vertical-align:middle;">
+                            <label style="display:inline-flex; align-items:center; cursor:pointer;" title="Reingresar stock físicamente al almacén">
+                                <input type="checkbox" class="item-reingreso-chk" name="items[0][reingresoStock]" value="true" checked style="width:18px; height:18px; accent-color:var(--accent-emerald);">
+                            </label>
+                        </td>
+                        {% endif %}
                         <td style="text-align:right; vertical-align:middle;">
                             <strong class="item-total-label">RD$ 0.00</strong>
                         </td>
@@ -525,10 +535,18 @@ function selectProduct(product) {
 // =========================================================================
 var itemsBody = document.getElementById('items-body');
 var btnAddItem = document.getElementById('btn-add-item');
+var isNoteE34 = '{{ note_type }}' === 'E34';
 
 function createItemRow(index) {
     var tr = document.createElement('tr');
     tr.className = 'item-row animate-fade-in';
+    var reingresoHtml = isNoteE34 ? 
+        '<td style="text-align:center; vertical-align:middle;">' +
+            '<label style="display:inline-flex; align-items:center; cursor:pointer;" title="Reingresar stock físicamente al almacén">' +
+                '<input type="checkbox" class="item-reingreso-chk" name="items[' + index + '][reingresoStock]" value="true" checked style="width:18px; height:18px; accent-color:var(--accent-emerald);">' +
+            '</label>' +
+        '</td>' : '';
+
     tr.innerHTML =
         '<td><div style="display:flex; gap:4px;">' +
             '<input type="text" class="form-input item-ref-input" name="items[' + index + '][code]" placeholder="Código" style="width:100%;">' +
@@ -543,6 +561,7 @@ function createItemRow(index) {
             '<option value="0.16">16%</option>' +
             '<option value="0.0">Exento (0%)</option>' +
         '</select></td>' +
+        reingresoHtml +
         '<td style="text-align:right; vertical-align:middle;"><strong class="item-total-label">RD$ 0.00</strong></td>' +
         '<td style="text-align:center; vertical-align:middle;"><button type="button" class="btn btn-danger btn-remove-row" style="padding:6px 10px;"><i class="fa-solid fa-trash-can"></i></button></td>';
     return tr;
@@ -619,6 +638,17 @@ function realignItemIndexes() {
         row.querySelector('.item-qty-input').name = 'items[' + i + '][quantity]';
         row.querySelector('.item-discount-input').name = 'items[' + i + '][discountRate]';
         row.querySelector('.item-itbis-select').name = 'items[' + i + '][itbisRate]';
+        var chk = row.querySelector('.item-reingreso-chk');
+        if (chk) chk.name = 'items[' + i + '][reingresoStock]';
+    });
+}
+
+var modCodeSelect = document.querySelector('select[name="modificationCode"]');
+if (modCodeSelect) {
+    modCodeSelect.addEventListener('change', function() {
+        var isDevolucion = (this.value === '1');
+        var chks = document.querySelectorAll('.item-reingreso-chk');
+        chks.forEach(function(c) { c.checked = isDevolucion; });
     });
 }
 

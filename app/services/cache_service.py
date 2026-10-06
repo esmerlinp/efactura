@@ -13,7 +13,10 @@ class CacheService:
                 'CACHE_TYPE': 'SimpleCache',
                 'CACHE_DEFAULT_TIMEOUT': 300,
             })
-            cls._cache.init_app(app)
+            try:
+                cls._cache.init_app(app)
+            except Exception:
+                pass
         return cls._cache
 
     @staticmethod

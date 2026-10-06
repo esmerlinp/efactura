@@ -1173,7 +1173,7 @@ def create_item():
             "itbisRate": float(data.get('itbis_rate', data.get('itbisRate', 0.18))),
             "minStock": float(data.get('min_stock', data.get('minStock', 0.0))),
             "rackLocation": data.get('rack_location', data.get('rackLocation', '')),
-            "totalStock": float(data.get('total_stock', data.get('totalStock', 0.0)))
+            "totalStock": 0.0  # El stock inicial solo se modifica mediante transacciones o recepciones
         }
         
         DatabaseService.save_item(g.owner_uid, item_id, item_dict, company_id=g.company_id, sandbox=g.sandbox_mode)
@@ -1199,7 +1199,8 @@ def update_item(item_id):
     summary: Actualiza la informacion de un articulo o servicio existente
     description: |
       Actualiza los datos de un articulo o servicio del catalogo,
-      incluyendo precio, stock, tipo y propiedades fiscales.
+      incluyendo precio, tipo y propiedades fiscales. El stock no puede
+      modificarse directamente por esta vía; se gestiona por inventario.
     security:
       - ApiKeyHeader: []
     parameters:
@@ -1238,9 +1239,6 @@ def update_item(item_id):
             rack_location:
               type: string
               description: Ubicacion en almacen
-            total_stock:
-              type: number
-              description: Stock total
     responses:
       200:
         description: Articulo actualizado exitosamente
@@ -1266,7 +1264,7 @@ def update_item(item_id):
             "itbisRate": float(data.get('itbis_rate', data.get('itbisRate', item.get('itbisRate')))),
             "minStock": float(data.get('min_stock', data.get('minStock', item.get('minStock')))),
             "rackLocation": data.get('rack_location', data.get('rackLocation', item.get('rackLocation'))),
-            "totalStock": float(data.get('total_stock', data.get('totalStock', item.get('totalStock'))))
+            "totalStock": float(item.get('totalStock', 0.0))  # Preserva totalStock existente inmutable
         }
         
         DatabaseService.save_item(g.owner_uid, item_id, item_dict, company_id=g.company_id, sandbox=g.sandbox_mode)
@@ -2235,6 +2233,55 @@ def create_credit_note(invoice_id):
         note_amount = float(data.get("netPayable", 0) or data.get("total", 0))
         if note_amount <= 0:
             return jsonify({"success": False, "error": "El monto de la nota de crédito debe ser mayor a cero."}), 400
+        raw_items = data.get("items", original.get("items", []))
+        mod_code = int(data.get("modificationCode", 3))
+        wh_id = data.get("warehouseId") or original.get("warehouseId", "")
+
+        from app.services.credit_note_inventory_service import CreditNoteInventoryService
+
+        parsed_items = []
+        for idx, it in enumerate(raw_items):
+            it_type = it.get("type", "Bien")
+            is_bien = (it_type == "Bien")
+            reingreso_val = it.get("reingresoStock")
+            if reingreso_val is not None:
+                is_reingreso = bool(reingreso_val) and is_bien
+            else:
+                is_reingreso = (mod_code == 1) and is_bien
+
+            orig_line_id = it.get("originalLineId", it.get("id", ""))
+            item_wh_id = it.get("warehouseId") or wh_id
+
+            orig_cost = CreditNoteInventoryService.resolve_original_cost(
+                owner_uid=g.owner_uid,
+                company_id=g.company_id,
+                ref_invoice=original,
+                item=it,
+                sandbox=g.sandbox_mode
+            )
+            qty = float(it.get("quantity", 1))
+
+            parsed_items.append({
+                "id": it.get("id") or str(uuid.uuid4()),
+                "code": it.get("code", ""),
+                "type": it_type,
+                "name": it.get("name", "Artículo"),
+                "price": float(it.get("price", 0.0)),
+                "quantity": int(qty),
+                "itbisRate": float(it.get("itbisRate", 0.18)),
+                "discountRate": float(it.get("discountRate", 0.0)),
+                "subtotal": float(it.get("subtotal", it.get("price", 0.0) * qty)),
+                "total": float(it.get("total", it.get("price", 0.0) * qty)),
+                "reingresoStock": is_reingreso,
+                "originalInvoiceId": invoice_id,
+                "originalLineId": orig_line_id,
+                "warehouseId": item_wh_id,
+                "quantityReturned": qty if is_reingreso else 0.0,
+                "originalCost": orig_cost,
+                "unitCost": orig_cost,
+                "costPrice": orig_cost
+            })
+
         note_id = str(uuid.uuid4())
         note_dict = {
             "invoiceNumber": f"NC-{original.get('invoiceNumber', invoice_id)}",
@@ -2252,11 +2299,13 @@ def create_credit_note(invoice_id):
             "isQuotation": False,
             "paymentType": "Crédito",
             "currency": original.get("currency", "DOP"),
-            "items": data.get("items", original.get("items", [])),
+            "items": parsed_items,
             "totalPaid": 0,
             "remainingBalance": note_amount,
+            "warehouseId": wh_id,
+            "referenceInvoiceId": invoice_id,
             "informationReference": {
-                "modificationCode": 3,
+                "modificationCode": mod_code,
                 "ncfModified": original.get("encf", ""),
                 "ncfModifiedDate": original.get("date", "")[:10],
                 "reasonForModification": data.get("reason", "Corrección de importes"),

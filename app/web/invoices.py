@@ -1016,25 +1016,43 @@ def new_inventory_transaction():
         warehouses = DatabaseService.get_warehouses(owner_uid, company_id=company_id, sandbox=sandbox)
         wh_map = {wh['id']: wh['name'] for wh in warehouses}
         
+        from app.services.inventory_transaction_service import InventoryTransactionService, InsufficientStockError, InventoryTransactionError
+        unit_cost = float(item.get('costPrice', 0.0) or 0.0) if item else 0.0
+
         tx_dict = {
             "itemId": item_id,
             "itemName": item_name,
             "type": tx_type,
             "quantity": qty,
+            "unitCost": unit_cost,
             "reason": reason,
             "notes": notes,
             "originWarehouseId": request.form.get('originWarehouseId', ''),
             "originWarehouseName": wh_map.get(request.form.get('originWarehouseId', ''), '') if tx_type in ['SALIDA', 'TRANSFERENCIA'] else '',
             "destinationWarehouseId": request.form.get('destinationWarehouseId', ''),
             "destinationWarehouseName": wh_map.get(request.form.get('destinationWarehouseId', ''), '') if tx_type in ['ENTRADA', 'TRANSFERENCIA'] else '',
+            "referenceType": "MANUAL_ADJUSTMENT",
+            "referenceId": str(uuid.uuid4())[:8],
             "performedBy": session['user']['email']
         }
         
-        res = DatabaseService.register_inventory_transaction(owner_uid, tx_dict, company_id=company_id, sandbox=sandbox)
-        if res:
-            flash('Movimiento de inventario registrado y existencias actualizadas.', 'success')
-        else:
-            flash('Fallo al registrar el movimiento de inventario.', 'error')
+        try:
+            res = InventoryTransactionService.execute_transaction(
+                owner_uid=owner_uid,
+                company_id=company_id,
+                tx_dict=tx_dict,
+                sandbox=sandbox
+            )
+            if res:
+                flash('Movimiento de inventario registrado y existencias actualizadas exitosamente.', 'success')
+            else:
+                flash('Fallo al registrar el movimiento de inventario.', 'error')
+        except InsufficientStockError as e:
+            flash(f'Stock insuficiente: {str(e)}', 'error')
+        except InventoryTransactionError as e:
+            flash(f'Error en movimiento de inventario: {str(e)}', 'error')
+        except Exception as e:
+            flash(f'Fallo al registrar el movimiento de inventario: {str(e)}', 'error')
             
         return redirect(url_for('web_invoices.inventory_dashboard'))
         
@@ -7990,7 +8008,7 @@ def company_settings():
                     "itbisRate": w_prod_itbis,
                     "minStock": 0.0,
                     "rackLocation": "",
-                    "totalStock": 100.0
+                    "totalStock": 0.0
                 }
                 DatabaseService.save_item(owner_uid, item_id, item_dict, company_id=company_id, sandbox=sandbox)
                 

@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Kardex Valorizado Continuo - {{ kardex.item.name }}</title>
+    <style>
+        @page {
+            size: letter landscape;
+            margin: 1.2cm 1cm 1.5cm 1cm;
+            @bottom-right {
+                content: "Página " counter(page) " de " counter(pages);
+                font-size: 8pt;
+                color: #64748b;
+                font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            }
+            @bottom-left {
+                content: "VykOne ERP • Kardex Valorizado FIFO";
+                font-size: 8pt;
+                color: #64748b;
+                font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            }
+        }
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            color: #1e293b;
+            margin: 0;
+            padding: 0;
+            font-size: 8.5pt;
+            line-height: 1.3;
+        }
+        .header-table {
+            width: 100%;
+            margin-bottom: 12px;
+            border-bottom: 2px solid #0f172a;
+            padding-bottom: 8px;
+        }
+        .company-title {
+            font-size: 14pt;
+            font-weight: bold;
+            color: #0f172a;
+            margin: 0 0 2px 0;
+        }
+        .report-title {
+            font-size: 11pt;
+            font-weight: bold;
+            color: #2563eb;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 0;
+        }
+        .meta-text {
+            font-size: 8pt;
+            color: #475569;
+        }
+        .kpi-container {
+            width: 100%;
+            margin-bottom: 12px;
+            border-collapse: collapse;
+        }
+        .kpi-box {
+            border: 1px solid #cbd5e1;
+            background: #f8fafc;
+            padding: 6px 8px;
+            text-align: center;
+            border-radius: 4px;
+        }
+        .kpi-label {
+            font-size: 7pt;
+            font-weight: bold;
+            color: #64748b;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+        .kpi-value {
+            font-size: 10pt;
+            font-weight: bold;
+            color: #0f172a;
+        }
+        .kpi-sub {
+            font-size: 7.5pt;
+            color: #2563eb;
+        }
+        table.kardex-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 5px;
+            margin-bottom: 12px;
+        }
+        table.kardex-table th {
+            font-size: 7.5pt;
+            font-weight: bold;
+            padding: 4px 5px;
+            border: 1px solid #94a3b8;
+            text-align: center;
+        }
+        .th-main {
+            background-color: #1e293b;
+            color: #ffffff;
+        }
+        .th-in {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+        .th-out {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+        .th-bal {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+        .th-meta {
+            background-color: #f1f5f9;
+            color: #334155;
+        }
+        table.kardex-table td {
+            font-size: 8pt;
+            padding: 3px 4px;
+            border: 1px solid #cbd5e1;
+        }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .text-left { text-align: left; }
+        .row-even { background-color: #ffffff; }
+        .row-odd { background-color: #f8fafc; }
+        .row-initial { background-color: #f1f5f9; font-weight: bold; }
+        .row-total { background-color: #e2e8f0; font-weight: bold; border-top: 2px solid #0f172a; }
+        .badge {
+            display: inline-block;
+            padding: 1px 4px;
+            font-size: 6.5pt;
+            font-weight: bold;
+            border-radius: 3px;
+        }
+        .badge-entrada { background: #d1fae5; color: #065f46; }
+        .badge-salida { background: #fee2e2; color: #991b1b; }
+        .badge-transf { background: #e0e7ff; color: #3730a3; }
+        .badge-ajuste { background: #fef3c7; color: #92400e; }
+        .reconcil-box {
+            border: 1px solid #cbd5e1;
+            background: #f8fafc;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 8pt;
+            margin-top: 10px;
+        }
+        .reconcil-title {
+            font-weight: bold;
+            font-size: 8.5pt;
+            color: #0f172a;
+            margin-bottom: 4px;
+        }
+        .status-ok { color: #16a34a; font-weight: bold; }
+        .status-warn { color: #d97706; font-weight: bold; }
+        .status-err { color: #dc2626; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <!-- Encabezado -->
+    <table class="header-table">
+        <tr>
+            <td style="vertical-align: top; width: 60%;">
+                <div class="company-title">{{ company.companyName or company.businessName or 'EMPRESA' }}</div>
+                <div class="meta-text">RNC: {{ company.companyRNC or company.rnc or '-' }}</div>
+                <div class="report-title">Kardex Valorizado Continuo (Método FIFO)</div>
+            </td>
+            <td style="vertical-align: top; text-align: right; width: 40%;">
+                <div class="meta-text"><strong>Artículo:</strong> [{{ kardex.item.code or kardex.item.reference or '-' }}] {{ kardex.item.name }}</div>
+                <div class="meta-text"><strong>Almacén:</strong> {{ kardex.warehouseName }}</div>
+                <div class="meta-text"><strong>Período:</strong> {{ kardex.dateFrom or 'Inicio' }} al {{ kardex.dateTo or 'Actual' }}</div>
+                <div class="meta-text"><strong>Emisión:</strong> {{ now.strftime('%d/%m/%Y %H:%M UTC') }}</div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Tarjetas KPI Resumen -->
+    <table class="kpi-container">
+        <tr>
+            <td style="width: 25%; padding-right: 5px;">
+                <div class="kpi-box">
+                    <div class="kpi-label">Saldo Inicial</div>
+                    <div class="kpi-value">{{ "%.2f"|format(kardex.initialBalance.quantity) }} uds</div>
+                    <div class="kpi-sub">RD$ {{ "{:,.2f}".format(kardex.initialBalance.totalValue) }}</div>
+                </div>
+            </td>
+            <td style="width: 25%; padding: 0 3px;">
+                <div class="kpi-box">
+                    <div class="kpi-label">Entradas Período</div>
+                    <div class="kpi-value" style="color: #065f46;">+{{ "%.2f"|format(kardex.periodTotals.inQuantity) }} uds</div>
+                    <div class="kpi-sub" style="color: #065f46;">RD$ {{ "{:,.2f}".format(kardex.periodTotals.inTotalValue) }}</div>
+                </div>
+            </td>
+            <td style="width: 25%; padding: 0 3px;">
+                <div class="kpi-box">
+                    <div class="kpi-label">Salidas (COGS FIFO)</div>
+                    <div class="kpi-value" style="color: #991b1b;">-{{ "%.2f"|format(kardex.periodTotals.outQuantity) }} uds</div>
+                    <div class="kpi-sub" style="color: #991b1b;">RD$ {{ "{:,.2f}".format(kardex.periodTotals.outTotalValue) }}</div>
+                </div>
+            </td>
+            <td style="width: 25%; padding-left: 5px;">
+                <div class="kpi-box" style="background: #eff6ff; border-color: #bfdbfe;">
+                    <div class="kpi-label">Saldo Final Valorizado</div>
+                    <div class="kpi-value" style="color: #1e40af;">{{ "%.2f"|format(kardex.finalBalance.quantity) }} uds</div>
+                    <div class="kpi-sub" style="color: #1e40af; font-weight: bold;">RD$ {{ "{:,.2f}".format(kardex.finalBalance.totalValue) }}</div>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Tabla Principal de Kardex -->
+    <table class="kardex-table">
+        <thead>
+            <tr>
+                <th colspan="5" class="th-main">DATOS DEL MOVIMIENTO</th>
+                <th colspan="3" class="th-in">ENTRADAS</th>
+                <th colspan="3" class="th-out">SALIDAS (COGS FIFO)</th>
+                <th colspan="3" class="th-bal">SALDO ACUMULADO</th>
+                <th class="th-meta">AUDITORÍA</th>
+            </tr>
+            <tr>
+                <th class="th-meta" style="width: 10%;">Fecha / Hora</th>
+                <th class="th-meta" style="width: 9%;">Documento</th>
+                <th class="th-meta" style="width: 6%;">Tipo</th>
+                <th class="th-meta" style="width: 12%;">Motivo</th>
+                <th class="th-meta" style="width: 9%;">Almacén</th>
+                
+                <!-- Entradas -->
+                <th class="th-in" style="width: 5%;">Cant.</th>
+                <th class="th-in" style="width: 6%;">C. Unit.</th>
+                <th class="th-in" style="width: 7%;">Total</th>
+
+                <!-- Salidas -->
+                <th class="th-out" style="width: 5%;">Cant.</th>
+                <th class="th-out" style="width: 6%;">C. Unit.</th>
+                <th class="th-out" style="width: 7%;">Total</th>
+
+                <!-- Saldo -->
+                <th class="th-bal" style="width: 5%;">Cant.</th>
+                <th class="th-bal" style="width: 6%;">C. Prom.</th>
+                <th class="th-bal" style="width: 7%;">Total</th>
+
+                <!-- Auditoría -->
+                <th class="th-meta" style="width: 10%;">Capas FIFO</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Saldo Inicial -->
+            <tr class="row-initial">
+                <td class="text-center">{{ kardex.initialBalance.date or 'INICIO' }}</td>
+                <td class="text-center">-</td>
+                <td class="text-center"><span class="badge" style="background:#cbd5e1;">SALDO</span></td>
+                <td>SALDO INICIAL ACUMULADO</td>
+                <td>{{ kardex.warehouseName }}</td>
+                
+                <td class="text-center">-</td>
+                <td class="text-center">-</td>
+                <td class="text-center">-</td>
+
+                <td class="text-center">-</td>
+                <td class="text-center">-</td>
+                <td class="text-center">-</td>
+
+                <td class="text-right">{{ "%.2f"|format(kardex.initialBalance.quantity) }}</td>
+                <td class="text-right">RD$ {{ "{:,.2f}".format(kardex.initialBalance.unitCost) }}</td>
+                <td class="text-right">RD$ {{ "{:,.2f}".format(kardex.initialBalance.totalValue) }}</td>
+                <td class="text-center">-</td>
+            </tr>
+
+            <!-- Movimientos del Período -->
+            {% for mov in kardex.movements %}
+            <tr class="{{ 'row-even' if loop.index0 % 2 == 0 else 'row-odd' }}">
+                <td class="text-center">{{ mov.date[:16].replace('T', ' ') if mov.date else '-' }}</td>
+                <td class="text-left">{{ mov.documentNumber or mov.referenceId or '-' }}</td>
+                <td class="text-center">
+                    {% if mov.type == 'ENTRADA' %}
+                        <span class="badge badge-entrada">ENTRADA</span>
+                    {% elif mov.type == 'SALIDA' %}
+                        <span class="badge badge-salida">SALIDA</span>
+                    {% elif mov.type == 'TRANSFERENCIA' %}
+                        <span class="badge badge-transf">TRANSF</span>
+                    {% else %}
+                        <span class="badge badge-ajuste">AJUSTE</span>
+                    {% endif %}
+                </td>
+                <td>{{ mov.reason }}</td>
+                <td>{{ mov.warehouseName }}</td>
+
+                <!-- Entradas -->
+                <td class="text-right">{{ "%.2f"|format(mov.inQty) if mov.inQty > 0 else '-' }}</td>
+                <td class="text-right">{{ "RD$ {:,.2f}".format(mov.inUnitCost) if mov.inQty > 0 else '-' }}</td>
+                <td class="text-right" style="color: #065f46; font-weight: {{ 'bold' if mov.inQty > 0 else 'normal' }};">{{ "RD$ {:,.2f}".format(mov.inTotalValue) if mov.inQty > 0 else '-' }}</td>
+
+                <!-- Salidas -->
+                <td class="text-right">{{ "%.2f"|format(mov.outQty) if mov.outQty > 0 else '-' }}</td>
+                <td class="text-right">{{ "RD$ {:,.2f}".format(mov.outUnitCost) if mov.outQty > 0 else '-' }}</td>
+                <td class="text-right" style="color: #991b1b; font-weight: {{ 'bold' if mov.outQty > 0 else 'normal' }};">{{ "RD$ {:,.2f}".format(mov.outTotalValue) if mov.outQty > 0 else '-' }}</td>
+
+                <!-- Saldos -->
+                <td class="text-right" style="font-weight: bold;">{{ "%.2f"|format(mov.balanceQty) }}</td>
+                <td class="text-right">RD$ {{ "{:,.2f}".format(mov.balanceUnitCost) }}</td>
+                <td class="text-right" style="font-weight: bold; color: #1e40af;">RD$ {{ "{:,.2f}".format(mov.balanceTotalValue) }}</td>
+
+                <!-- Auditoría / Capas -->
+                <td class="text-left" style="font-size: 6.5pt;">
+                    {% if mov.costLayers %}
+                        {% for l in mov.costLayers %}
+                            <div>{{ "%.0f"|format(l.quantity) }}u @ RD${{ "%.2f"|format(l.unitCost) }}</div>
+                        {% endfor %}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+
+            <!-- Fila Totales -->
+            <tr class="row-total">
+                <td colspan="5" class="text-right">TOTALES DEL PERÍODO:</td>
+                
+                <td class="text-right">{{ "%.2f"|format(kardex.periodTotals.inQuantity) }}</td>
+                <td class="text-center">-</td>
+                <td class="text-right" style="color:#065f46;">RD$ {{ "{:,.2f}".format(kardex.periodTotals.inTotalValue) }}</td>
+
+                <td class="text-right">{{ "%.2f"|format(kardex.periodTotals.outQuantity) }}</td>
+                <td class="text-center">-</td>
+                <td class="text-right" style="color:#991b1b;">RD$ {{ "{:,.2f}".format(kardex.periodTotals.outTotalValue) }}</td>
+
+                <td class="text-right" style="color:#1e40af;">{{ "%.2f"|format(kardex.finalBalance.quantity) }}</td>
+                <td class="text-right">RD$ {{ "{:,.2f}".format(kardex.finalBalance.unitCost) }}</td>
+                <td class="text-right" style="color:#1e40af;">RD$ {{ "{:,.2f}".format(kardex.finalBalance.totalValue) }}</td>
+
+                <td class="text-center">-</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- Conciliación y Auditoría -->
+    {% if kardex.reconciliation %}
+    <div class="reconcil-box">
+        <div class="reconcil-title">Conciliación y Auditoría de Integridad:</div>
+        <table style="width: 100%; border: none;">
+            <tr>
+                <td style="width: 50%; vertical-align: top;">
+                    • <strong>Existencia Física (inventory_stock):</strong> {{ "%.2f"|format(kardex.reconciliation.stockQty) }} uds<br>
+                    • <strong>Saldo Cantidad en Kardex:</strong> {{ "%.2f"|format(kardex.reconciliation.kardexQty) }} uds<br>
+                    • <strong>Diferencia Cantidad:</strong> {{ "%.2f"|format(kardex.reconciliation.qtyDifference) }} uds
+                </td>
+                <td style="width: 50%; vertical-align: top;">
+                    • <strong>Valor Capas Activas (inventory_cost_ledger):</strong> RD$ {{ "{:,.2f}".format(kardex.reconciliation.ledgerValue) }}<br>
+                    • <strong>Saldo Valor en Kardex:</strong> RD$ {{ "{:,.2f}".format(kardex.reconciliation.kardexValue) }}<br>
+                    • <strong>Estado:</strong> 
+                    {% if kardex.reconciliation.status == 'OK' %}
+                        <span class="status-ok">✔ CONCILIADO (OK)</span>
+                    {% else %}
+                        <span class="status-err">⚠ DISCREPANCIA ({{ kardex.reconciliation.notes }})</span>
+                    {% endif %}
+                </td>
+            </tr>
+        </table>
+    </div>
+    {% endif %}
+
+</body>
+</html>

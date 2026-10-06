@@ -3,11 +3,12 @@
 import uuid
 from datetime import datetime, timezone, date
 
-from flask import Blueprint, render_template, request, redirect, url_for, session, flash, g
+from flask import Blueprint, render_template, request, redirect, url_for, session, flash, g, send_file, make_response
 
 from app.utils.decorators import check_permission
 from app.services.purchase_order_service import PurchaseOrderService
 from app.services.goods_receipt_service import GoodsReceiptService
+from app.services.kardex_service import KardexService
 from app.services.audit_service import AuditService, ACTION_CREATE, ACTION_UPDATE
 
 MODULE_RECEIPT = "Recepción de Mercancía"
@@ -246,19 +247,22 @@ def physical_count_detail(count_id):
 def lot_list():
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
-    from app.services.db_service import db_firestore, firebase_initialized
+    from app.services.db_service import db_firestore, firebase_initialized, _company_coll
 
     lots = []
     if firebase_initialized:
         sb = _sandbox()
+        company_id = _company_id()
         coll = "sandbox_inventory_lots" if sb else "inventory_lots"
         try:
-            docs = db_firestore.collection("users").document(_owner()).collection(coll).get()
-            for doc in docs:
-                data = doc.to_dict()
-                data["id"] = doc.id
-                lots.append(data)
-            lots.sort(key=lambda l: l.get("expirationDate", ""))
+            coll_ref = _company_coll(company_id=company_id, owner_uid=_owner(), coll_name=coll)
+            if coll_ref is not None:
+                docs = coll_ref.get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    data["id"] = doc.id
+                    lots.append(data)
+                lots.sort(key=lambda l: l.get("expirationDate", ""))
         except Exception as e:
             print(f"⚠️ Error al obtener lotes: {e}")
 
@@ -441,3 +445,147 @@ def receipt_detail(receipt_id):
         return redirect(url_for("web_inventory.list_receipts"))
     return render_template("inventario/receipt_detail.html",
                            receipt=receipt, active_page="inventory_receipts")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# KARDEX VALORIZADO CONTINUO (FIFO)
+# ═══════════════════════════════════════════════════════════════════════════
+
+@web_inventory_bp.route("/inventory/kardex")
+def kardex_view():
+    if "user" not in session:
+        return redirect(url_for("web_auth.login"))
+    if not check_permission("canManageInventory"):
+        return render_template("auth/restricted.html", feature_name="Kardex Valorizado", required_permission="canManageInventory")
+
+    from app.services.db_service import DatabaseService
+
+    owner_uid = _owner()
+    company_id = _company_id()
+    sandbox = _sandbox()
+
+    item_id = request.args.get("item_id", "").strip()
+    warehouse_id = request.args.get("warehouse_id", "").strip() or None
+    date_from = request.args.get("date_from", "").strip() or None
+    date_to = request.args.get("date_to", "").strip() or None
+
+    warehouses = DatabaseService.get_warehouses(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox)
+    all_items = DatabaseService.get_items(owner_uid=owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get("branch_id"), project_id=g.get("project_id"))
+    physical_items = [i for i in all_items if i.get("type", "Bien") == "Bien"]
+
+    kardex_data = None
+    summary_data = None
+
+    if item_id:
+        kardex_data = KardexService.get_kardex_summary(
+            company_id=company_id,
+            item_id=item_id,
+            warehouse_id=warehouse_id,
+            date_from=date_from,
+            date_to=date_to,
+            sandbox=sandbox,
+            owner_uid=owner_uid
+        )
+    else:
+        summary_data = KardexService.get_kardex_summary(
+            company_id=company_id,
+            item_id=None,
+            warehouse_id=warehouse_id,
+            date_from=date_from,
+            date_to=date_to,
+            sandbox=sandbox,
+            owner_uid=owner_uid
+        )
+
+    return render_template(
+        "inventario/kardex.html",
+        active_page="inventory_kardex",
+        items=physical_items,
+        warehouses=warehouses,
+        selected_item_id=item_id,
+        selected_warehouse_id=warehouse_id,
+        date_from=date_from,
+        date_to=date_to,
+        kardex_data=kardex_data,
+        summary_data=summary_data
+    )
+
+
+@web_inventory_bp.route("/inventory/kardex/export/excel")
+def kardex_export_excel():
+    if "user" not in session:
+        return redirect(url_for("web_auth.login"))
+    if not check_permission("canManageInventory"):
+        return render_template("auth/restricted.html", feature_name="Exportar Kardex", required_permission="canManageInventory")
+
+    owner_uid = _owner()
+    company_id = _company_id()
+    sandbox = _sandbox()
+
+    item_id = request.args.get("item_id", "").strip()
+    if not item_id:
+        flash("Debe seleccionar un artículo para exportar el Kardex.", "warning")
+        return redirect(url_for("web_inventory.kardex_view"))
+
+    warehouse_id = request.args.get("warehouse_id", "").strip() or None
+    date_from = request.args.get("date_from", "").strip() or None
+    date_to = request.args.get("date_to", "").strip() or None
+
+    excel_buffer = KardexService.export_kardex_excel(
+        company_id=company_id,
+        item_id=item_id,
+        warehouse_id=warehouse_id,
+        date_from=date_from,
+        date_to=date_to,
+        sandbox=sandbox,
+        owner_uid=owner_uid
+    )
+
+    filename = f"Kardex_{item_id[:8]}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+    return send_file(
+        excel_buffer,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name=filename
+    )
+
+
+@web_inventory_bp.route("/inventory/kardex/export/pdf")
+def kardex_export_pdf():
+    if "user" not in session:
+        return redirect(url_for("web_auth.login"))
+    if not check_permission("canManageInventory"):
+        return render_template("auth/restricted.html", feature_name="Exportar Kardex", required_permission="canManageInventory")
+
+    owner_uid = _owner()
+    company_id = _company_id()
+    sandbox = _sandbox()
+
+    item_id = request.args.get("item_id", "").strip()
+    if not item_id:
+        flash("Debe seleccionar un artículo para exportar el Kardex.", "warning")
+        return redirect(url_for("web_inventory.kardex_view"))
+
+    warehouse_id = request.args.get("warehouse_id", "").strip() or None
+    date_from = request.args.get("date_from", "").strip() or None
+    date_to = request.args.get("date_to", "").strip() or None
+
+    try:
+        pdf_bytes = KardexService.export_kardex_pdf(
+            company_id=company_id,
+            item_id=item_id,
+            warehouse_id=warehouse_id,
+            date_from=date_from,
+            date_to=date_to,
+            sandbox=sandbox,
+            owner_uid=owner_uid,
+            base_url=request.host_url
+        )
+        response = make_response(pdf_bytes)
+        response.headers["Content-Type"] = "application/pdf"
+        response.headers["Content-Disposition"] = f"inline; filename=Kardex_{item_id[:8]}.pdf"
+        return response
+    except Exception as e:
+        flash(f"Error al generar el PDF del Kardex: {e}", "error")
+        return redirect(url_for("web_inventory.kardex_view", item_id=item_id, warehouse_id=warehouse_id, date_from=date_from, date_to=date_to))
+

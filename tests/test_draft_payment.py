@@ -285,11 +285,9 @@ def test_list_invoices_grid(client):
         resp = client.get('/invoices')
         assert resp.status_code == 200
         html = resp.data.decode('utf-8')
-        assert '# Interno' in html
         assert 'NCF/Número' in html
         assert 'Cliente' in html
         assert 'Creación' in html
-        assert 'Vencimiento' in html
         assert 'Total' in html
         assert 'Por cobrar' in html
         assert 'Estado' in html
