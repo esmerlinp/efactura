@@ -66,9 +66,25 @@ def _parse_date(value):
 
 
 def _model_dump(model):
+    if isinstance(model, dict):
+        return model
     if hasattr(model, "model_dump"):
-        return model.model_dump()
-    return model.dict()
+        try:
+            dumped = model.model_dump()
+            if isinstance(dumped, dict) and dumped:
+                return dumped
+        except Exception:
+            pass
+    if hasattr(model, "dict") and callable(model.dict):
+        try:
+            dumped = model.dict()
+            if isinstance(dumped, dict) and dumped:
+                return dumped
+        except Exception:
+            pass
+    if hasattr(model, "__dict__"):
+        return {k: v for k, v in model.__dict__.items() if not k.startswith("_")}
+    return {}
 
 
 def _opportunity_coll(sandbox):
@@ -132,13 +148,15 @@ def _resolve_team_member_name(owner_uid, member_uid, company_id=None):
 
 
 def _annotate_activity(activity):
+    if not isinstance(activity, dict):
+        return activity
     due_date = _parse_date(activity.get("dueDate"))
     today = datetime.now(timezone.utc).date()
     is_pending = activity.get("status", "pendiente") == "pendiente"
     activity["dueDate"] = _date_key(activity.get("dueDate"))
     activity["isOverdue"] = bool(is_pending and due_date and due_date < today)
     activity["isDueToday"] = bool(is_pending and due_date and due_date == today)
-    activity["daysLate"] = (today - due_date).days if activity["isOverdue"] else 0
+    activity["daysLate"] = (today - due_date).days if (activity["isOverdue"] and due_date) else 0
     return activity
 
 
@@ -282,7 +300,7 @@ class CRMService:
             data["closedAt"] = ""
             data["lostReason"] = ""
 
-        data = _model_dump(CRMOpportunity(**data))
+        data = cls._normalize_opportunity(data)
 
         if firebase_initialized:
             try:
@@ -510,7 +528,7 @@ class CRMService:
             "createdAt": serialize_field(existing.get("createdAt") or activity_dict.get("createdAt") or _now_iso()),
             "updatedAt": _now_iso(),
         }
-        data = _model_dump(CRMActivity(**data))
+        data = cls._normalize_activity(data)
 
         if firebase_initialized:
             try:
@@ -822,11 +840,15 @@ class CRMService:
             status = "perdida"
         elif status not in ("ganada", "perdida"):
             status = "abierta"
+        data["companyId"] = data.get("companyId", "")
+        data["branchId"] = data.get("branchId", "default-sucursal-principal")
+        data["projectId"] = data.get("projectId")
         data["stage"] = stage
         data["status"] = status
         data["amount"] = _safe_float(data.get("amount"))
         data["probability"] = _safe_int(data.get("probability"), CRM_STAGE_PROBABILITY.get(stage, 10))
         data["expectedCloseDate"] = _date_key(data.get("expectedCloseDate"))
+        data["invoices"] = data.get("invoices") or []
         data["createdAt"] = serialize_field(data.get("createdAt"))
         data["updatedAt"] = serialize_field(data.get("updatedAt"))
         data["closedAt"] = serialize_field(data.get("closedAt"))
@@ -835,6 +857,9 @@ class CRMService:
 
     @classmethod
     def _normalize_activity(cls, data):
+        data["companyId"] = data.get("companyId", "")
+        data["branchId"] = data.get("branchId", "default-sucursal-principal")
+        data["projectId"] = data.get("projectId")
         data["type"] = _normalize_activity_type(data.get("type"))
         data["priority"] = _normalize_priority(data.get("priority"))
         data["status"] = _normalize_status(data.get("status"))
