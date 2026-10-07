@@ -3,7 +3,6 @@
 {% block page_header %}Notas de Crédito en Compras{% endblock %}
 
 {% block content %}
-<div style="max-width: 1200px; margin: 0 auto;">
 <div class="page-title-container" style="margin-bottom:24px; padding-left:4px; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
     <div>
         <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
@@ -29,8 +28,8 @@
     </form>
 
     {% if notes %}
-    <div style="overflow-x:auto;">
-        <table class="data-grid">
+    <div class="table-responsive">
+        <table class="data-grid" style="width: 100%;">
             <thead>
                 <tr>
                     <th># NC</th>
@@ -80,6 +79,5 @@
         </a>
     </div>
     {% endif %}
-</div>
 </div>
 {% endblock %}

@@ -13,7 +13,6 @@ endblock %}
     {{ label }}{% if sort == col %} <i class="fa-solid {{ 'fa-sort-down' if order == 'desc' else 'fa-sort-up' }}" style="font-size:0.7rem;"></i>{% endif %}
 </a>
 {%- endmacro %}
-<div style="max-width: 1200px; margin: 0 auto;">
 <style>
     .invoice-link,
     .client-link {
@@ -892,5 +891,4 @@ endblock %}
             }
         });
 </script>
-</div>
 {% endblock %}

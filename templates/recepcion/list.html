@@ -9,7 +9,6 @@
     {{ label }}{% if sort == col %} <i class="fa-solid {{ 'fa-sort-down' if order == 'desc' else 'fa-sort-up' }}" style="font-size:0.7rem;"></i>{% endif %}
 </a>
 {%- endmacro %}
-<div style="max-width: 1200px; margin: 0 auto;">
 <style>
     .invoice-link {
         text-decoration: none;
@@ -141,7 +140,7 @@
 
     <!-- Contenedor Tabla (Vista de Lista) -->
     <div id="view-table" class="table-responsive">
-        <table class="data-grid">
+        <table class="data-grid" style="width: 100%;">
             <thead>
                 <tr>
                     <th>{{ sort_link('encf', 'e-NCF', 'asc') }}</th>
@@ -330,5 +329,4 @@
             window.location.href = form.action + '?' + params.toString();
         }
     </script>
-</div>
 {% endblock %}
