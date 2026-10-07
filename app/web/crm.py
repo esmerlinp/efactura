@@ -32,11 +32,11 @@ def _get_active_company_context():
     return DatabaseService.get_company_context(user["uid"], selected_cid)
 
 
-def _check(feature="CRM"):
+def _check(feature="CRM", required_permission="canCRM"):
     if "user" not in session:
         return redirect(url_for("web_auth.login")), None
-    if not check_permission("canClients"):
-        return render_template("auth/restricted.html", feature_name=feature, required_permission="canClients"), None
+    if not check_permission(required_permission):
+        return render_template("auth/restricted.html", feature_name=feature, required_permission=required_permission), None
     ctx = _get_active_company_context()
     if not ctx:
         flash("Debe seleccionar una empresa activa para acceder al CRM.", "warning")
@@ -128,7 +128,7 @@ def _activity_from_form(company_id=""):
 
 @web_crm_bp.route("/crm")
 def dashboard():
-    r, ctx = _check("Dashboard CRM")
+    r, ctx = _check("Dashboard CRM", required_permission="canCRMReports")
     if r:
         return r
     owner_uid, company_id, sandbox = ctx["owner_uid"], ctx["company_id"], _sandbox()
@@ -139,7 +139,7 @@ def dashboard():
 
 @web_crm_bp.route("/crm/pipeline")
 def pipeline():
-    r, ctx = _check("Pipeline CRM")
+    r, ctx = _check("Pipeline CRM", required_permission="canCRMOpportunities")
     if r:
         return r
     owner_uid, company_id, sandbox = ctx["owner_uid"], ctx["company_id"], _sandbox()
@@ -151,7 +151,7 @@ def pipeline():
 
 @web_crm_bp.route("/crm/opportunities/new", methods=["GET", "POST"])
 def opportunity_new():
-    r, ctx = _check("Nueva Oportunidad")
+    r, ctx = _check("Nueva Oportunidad", required_permission="canCRMOpportunities")
     if r:
         return r
     owner_uid, company_id, sandbox = ctx["owner_uid"], ctx["company_id"], _sandbox()
@@ -199,7 +199,7 @@ def opportunity_new():
 
 @web_crm_bp.route("/crm/opportunities/<opportunity_id>/edit", methods=["GET", "POST"])
 def opportunity_edit(opportunity_id):
-    r, ctx = _check("Editar Oportunidad")
+    r, ctx = _check("Editar Oportunidad", required_permission="canCRMOpportunities")
     if r:
         return r
     owner_uid, company_id, sandbox = ctx["owner_uid"], ctx["company_id"], _sandbox()
@@ -235,38 +235,51 @@ def opportunity_edit(opportunity_id):
 
 @web_crm_bp.route("/crm/opportunities/<opportunity_id>/stage", methods=["POST"])
 def opportunity_stage(opportunity_id):
-    r, ctx = _check("Actualizar Pipeline")
+    r, ctx = _check("Actualizar Pipeline", required_permission="canCRMOpportunities")
     if r:
         if request.is_json:
             return jsonify({"success": False, "error": "No autorizado"}), 403
         return r
     owner_uid, company_id, sandbox = ctx["owner_uid"], ctx["company_id"], _sandbox()
-    opportunity = CRMService.get_opportunity(owner_uid, opportunity_id, sandbox=sandbox, company_id=company_id)
-    if not opportunity:
-        return jsonify({"success": False, "error": "Oportunidad no encontrada"}), 404
 
     data = request.json or request.form
-    stage = data.get("stage", opportunity.get("stage", "Prospecto"))
-    probability = data.get("probability", CRM_STAGE_PROBABILITY.get(stage, opportunity.get("probability", 10)))
-    saved = CRMService.save_opportunity(owner_uid, opportunity_id, {**opportunity, "stage": stage, "probability": probability}, sandbox=sandbox, company_id=company_id)
-    return jsonify({"success": True, "opportunity": saved})
+    target_stage = data.get("stage", "Prospecto")
+    lost_reason = data.get("lostReason", "")
+    notes = data.get("notes", "")
+
+    ok, msg, saved = CRMService.transition_opportunity(
+        owner_uid=owner_uid,
+        opportunity_id=opportunity_id,
+        target_stage=target_stage,
+        sandbox=sandbox,
+        company_id=company_id,
+        user_name=_current_user_label(),
+        lost_reason=lost_reason,
+        notes=notes,
+    )
+    if not ok:
+        return jsonify({"success": False, "error": msg}), 400
+    return jsonify({"success": True, "message": msg, "opportunity": saved})
 
 
 @web_crm_bp.route("/crm/opportunities/<opportunity_id>/close", methods=["POST"])
 def opportunity_close(opportunity_id):
-    r, ctx = _check("Cerrar Oportunidad")
+    r, ctx = _check("Cerrar Oportunidad", required_permission="canCRMOpportunities")
     if r:
         return r
     owner_uid, company_id, sandbox = ctx["owner_uid"], ctx["company_id"], _sandbox()
     outcome = request.form.get("outcome", "ganada")
-    ok, msg = CRMService.close_opportunity(
-        owner_uid,
-        opportunity_id,
-        outcome=outcome,
+    target_stage = "Ganada" if outcome == "ganada" else "Perdida"
+    ok, msg, _ = CRMService.transition_opportunity(
+        owner_uid=owner_uid,
+        opportunity_id=opportunity_id,
+        target_stage=target_stage,
         lost_reason=request.form.get("lostReason", ""),
         invoice_id=request.form.get("invoiceId", ""),
         sandbox=sandbox,
         company_id=company_id,
+        user_name=_current_user_label(),
+        notes=request.form.get("notes", ""),
     )
     flash(msg, "success" if ok else "error")
     return redirect(url_for("web_crm.pipeline"))
@@ -274,12 +287,12 @@ def opportunity_close(opportunity_id):
 
 @web_crm_bp.route("/crm/opportunities/<opportunity_id>/delete", methods=["POST"])
 def opportunity_delete(opportunity_id):
-    r, ctx = _check("Eliminar Oportunidad")
+    r, ctx = _check("Eliminar Oportunidad", required_permission="canCRMOpportunities")
     if r:
         return r
     owner_uid, company_id, sandbox = ctx["owner_uid"], ctx["company_id"], _sandbox()
     opportunity = CRMService.get_opportunity(owner_uid, opportunity_id, sandbox=sandbox, company_id=company_id)
-    CRMService.delete_opportunity(owner_uid, opportunity_id, sandbox=sandbox, company_id=company_id)
+    CRMService.delete_opportunity(owner_uid, opportunity_id, sandbox=sandbox, company_id=company_id, deleted_by=_current_user_label())
     AuditService.log_from_request(
         owner_uid=owner_uid,
         action=ACTION_DELETE,
@@ -296,7 +309,7 @@ def opportunity_delete(opportunity_id):
 
 @web_crm_bp.route("/crm/activities")
 def activities():
-    r, ctx = _check("Agenda CRM")
+    r, ctx = _check("Agenda CRM", required_permission="canCRMActivities")
     if r:
         return r
     owner_uid, company_id, sandbox = ctx["owner_uid"], ctx["company_id"], _sandbox()
@@ -323,7 +336,7 @@ def activities():
 
 @web_crm_bp.route("/crm/activities/new", methods=["GET", "POST"])
 def activity_new():
-    r, ctx = _check("Nueva Actividad")
+    r, ctx = _check("Nueva Actividad", required_permission="canCRMActivities")
     if r:
         return r
     owner_uid, company_id, sandbox = ctx["owner_uid"], ctx["company_id"], _sandbox()
@@ -356,7 +369,7 @@ def activity_new():
 
 @web_crm_bp.route("/crm/activities/<activity_id>/edit", methods=["GET", "POST"])
 def activity_edit(activity_id):
-    r, ctx = _check("Editar Actividad")
+    r, ctx = _check("Editar Actividad", required_permission="canCRMActivities")
     if r:
         return r
     owner_uid, company_id, sandbox = ctx["owner_uid"], ctx["company_id"], _sandbox()
@@ -392,7 +405,7 @@ def activity_edit(activity_id):
 
 @web_crm_bp.route("/crm/activities/<activity_id>/complete", methods=["POST"])
 def activity_complete(activity_id):
-    r, ctx = _check("Completar Actividad")
+    r, ctx = _check("Completar Actividad", required_permission="canCRMActivities")
     if r:
         return r
     owner_uid, company_id, sandbox = ctx["owner_uid"], ctx["company_id"], _sandbox()
@@ -403,12 +416,12 @@ def activity_complete(activity_id):
 
 @web_crm_bp.route("/crm/activities/<activity_id>/delete", methods=["POST"])
 def activity_delete(activity_id):
-    r, ctx = _check("Eliminar Actividad")
+    r, ctx = _check("Eliminar Actividad", required_permission="canCRMActivities")
     if r:
         return r
     owner_uid, company_id, sandbox = ctx["owner_uid"], ctx["company_id"], _sandbox()
     activity = CRMService.get_activity(owner_uid, activity_id, sandbox=sandbox, company_id=company_id)
-    CRMService.delete_activity(owner_uid, activity_id, sandbox=sandbox, company_id=company_id)
+    CRMService.delete_activity(owner_uid, activity_id, sandbox=sandbox, company_id=company_id, deleted_by=_current_user_label())
     AuditService.log_from_request(
         owner_uid=owner_uid,
         action=ACTION_DELETE,
