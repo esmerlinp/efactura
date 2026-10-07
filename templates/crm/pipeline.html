@@ -305,12 +305,23 @@
                         RD$ {{ "{:,.2f}".format(opp.amount) }}
                     </div>
 
+                    {% if opp.isStale %}
+                    <div style="margin-bottom: 6px;">
+                        <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #dc2626; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 11px; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;" title="{{ opp.staleDetail or 'Oportunidad estancada' }}">
+                            <i class="fa-solid fa-triangle-exclamation"></i> Estancada ({{ opp.daysSinceLastActivity }}d)
+                        </span>
+                    </div>
+                    {% endif %}
+
                     <div class="crm-card-meta">
                         {% if opp.assignedToName %}
                         <div><i class="fa-solid fa-id-badge"></i> {{ opp.assignedToName }}</div>
                         {% endif %}
                         {% if opp.expectedCloseDate %}
                         <div><i class="fa-solid fa-calendar-day"></i> Cierre: {{ opp.expectedCloseDate }}</div>
+                        {% endif %}
+                        {% if opp.nextContactDate %}
+                        <div style="color: var(--color-primary); font-weight: 600;"><i class="fa-solid fa-clock-rotate-left"></i> Próx. contacto: {{ opp.nextContactDate }}</div>
                         {% endif %}
                         {% if opp.quotationNumber %}
                         <div><i class="fa-solid fa-file-invoice"></i> Cot: {{ opp.quotationNumber }}</div>
