@@ -517,7 +517,8 @@ def tax_obligations_status():
         description: Operación exitosa
     """
     from app.services.tax_obligation_service import TaxObligationService
-    status_list = TaxObligationService.get_status(g.owner_uid)
+    company_id = request.args.get('company_id') or getattr(g, 'company_id', None)
+    status_list = TaxObligationService.get_status(g.owner_uid, company_id=company_id)
     pending = [s for s in status_list if s["status"] in ("due_soon", "overdue", "upcoming")]
     return jsonify({
         "success": True,

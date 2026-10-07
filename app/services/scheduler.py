@@ -234,7 +234,7 @@ def run_tax_obligation_reminders(company_id=None):
     total_errors = 0
     for owner_uid in owner_uids:
         try:
-            sent, errors = TaxObligationService.process_notifications(owner_uid)
+            sent, errors = TaxObligationService.process_notifications(owner_uid, company_id=company_id)
             total_sent += sent
             total_errors += errors
         except Exception as exc:

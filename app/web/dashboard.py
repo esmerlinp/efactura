@@ -618,7 +618,7 @@ def dashboard():
     tax_alerts = []
     try:
         from app.services.tax_obligation_service import TaxObligationService
-        all_status = TaxObligationService.get_status(owner_uid)
+        all_status = TaxObligationService.get_status(owner_uid, company_id=company_id)
         tax_alerts = [s for s in all_status if s["status"] in ("due_soon", "overdue", "upcoming")]
     except Exception:
         pass
