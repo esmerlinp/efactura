@@ -701,3 +701,157 @@ def test_lead_scoring_tenant_isolation():
     """30. Aislamiento multi-tenant en lead scoring."""
     with pytest.raises(ValueError, match="company_id es requerido"):
         CRMService.calculate_lead_score("owner1", contact={"id": "c1"}, company_id="")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 31-36: F4.6 Validación de Negocio y Casos Límite
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_funnel_skipped_stages_exposes_anomaly_without_clamping():
+    """31. Embudo expone anomalías reales sin enmascarar con min(100) si una etapa posterior supera a la anterior."""
+    company_id = "comp_f46_31"
+    # Simular 100 en Propuesta y 120 en Negociación (ej. importación o salto de etapa)
+    opps = []
+    for i in range(100):
+        opps.append({
+            "id": f"op_p_{i}", "companyId": company_id, "status": "abierta", "stage": "Propuesta",
+            "stageHistory": [{"from": "Calificado", "to": "Propuesta"}], "isDeleted": False,
+        })
+    for i in range(120):
+        opps.append({
+            "id": f"op_n_{i}", "companyId": company_id, "status": "abierta", "stage": "Negociación",
+            "stageHistory": [{"from": "Calificado", "to": "Negociación"}], "isDeleted": False,
+        })
+
+    with patch.object(CRMService, "get_opportunities", return_value=opps):
+        metrics = CRMService.get_sales_metrics("owner1", sandbox=True, company_id=company_id)
+        # Propuesta = 100, Negociación = 120 -> 120/100 = 120.0% (no clamped at 100%)
+        assert metrics["funnel"]["Propuesta"] == 100
+        assert metrics["funnel"]["Negociación"] == 120
+        assert metrics["conversionRates"]["proposal_to_negotiation"] == 120.0
+
+
+def test_funnel_opportunity_created_in_advanced_stage_does_not_assume_prospecto():
+    """32. Oportunidad creada directamente en etapa avanzada sin historial no incrementa falsamente Prospecto."""
+    company_id = "comp_f46_32"
+    opps = [
+        {"id": "o_direct_cal", "companyId": company_id, "status": "abierta", "stage": "Calificado", "stageHistory": [], "isDeleted": False},
+        {"id": "o_direct_prop", "companyId": company_id, "status": "abierta", "stage": "Propuesta", "stageHistory": [], "isDeleted": False},
+    ]
+
+    with patch.object(CRMService, "get_opportunities", return_value=opps):
+        metrics = CRMService.get_sales_metrics("owner1", sandbox=True, company_id=company_id)
+        assert metrics["funnel"]["Prospecto"] == 0
+        assert metrics["funnel"]["Contactado"] == 0
+        assert metrics["funnel"]["Calificado"] == 1
+        assert metrics["funnel"]["Propuesta"] == 1
+
+
+def test_reopened_opportunity_sales_cycle_uses_final_closure_date():
+    """33. Oportunidad Ganada -> Reabierta -> Ganada nuevamente usa la fecha de cierre final."""
+    company_id = "comp_f46_33"
+    opps = [
+        {
+            "id": "o_reopened", "companyId": company_id, "status": "ganada", "stage": "Ganada",
+            "createdAt": "2026-09-01T10:00:00Z",
+            "stageHistory": [
+                {"from": "Negociación", "to": "Ganada", "timestamp": "2026-09-06T10:00:00Z"},      # Ganada inicial en 5 días
+                {"from": "Ganada", "to": "Negociación", "timestamp": "2026-09-10T10:00:00Z"},     # Reabierta
+                {"from": "Negociación", "to": "Ganada", "timestamp": "2026-09-26T10:00:00Z"},     # Ganada definitiva en 25 días
+            ],
+            "amount": 25000.0,
+            "isDeleted": False,
+        }
+    ]
+
+    with patch.object(CRMService, "get_opportunities", return_value=opps):
+        metrics = CRMService.get_sales_metrics("owner1", sandbox=True, company_id=company_id)
+        # El ciclo debe reflejar el cierre definitivo (2026-09-26 - 2026-09-01 = 25 días)
+        assert metrics["avgSalesCycleDays"] == 25.0
+
+
+def test_lead_scoring_distribution_no_artificial_saturation():
+    """34. Distribución del score calibrada en escala 0–100 sin saturación artificial."""
+    company_id = "comp_f46_34"
+    today = datetime(2026, 10, 7).date()
+
+    # 1. Lead frío básico (solo datos de contacto básicos)
+    contact_cold = {"id": "c_cold", "razonSocial": "Lead Frío"}
+    score_cold = CRMService.calculate_lead_score("owner1", contact=contact_cold, opportunities=[], activities=[], quotations=[], invoices=[], company_id=company_id, today_date=today)
+    assert score_cold["score"] == 5  # solo base (5 pts)
+    assert score_cold["classification"] == "cold_lead"
+
+    # 2. Lead templado (datos completos + contacto reciente 30d + opp inicial)
+    contact_warm = {"id": "c_warm", "razonSocial": "Lead Templado", "email": "w@test.com", "telefono": "8095551234", "responsibleId": "u1"}
+    act_warm = [{"contactId": "c_warm", "completedAt": "2026-09-25T10:00:00Z"}]  # 12d ago -> 10 pts
+    opp_warm = [{"contactId": "c_warm", "status": "abierta", "stage": "Contactado"}]  # 15 + 5 = 20 pts
+    # Total: 5(base) + 5(email) + 5(tel) + 5(resp) + 10(interac 30d) + 15(opp) + 5(stage) = 50 pts
+    score_warm = CRMService.calculate_lead_score("owner1", contact=contact_warm, activities=act_warm, opportunities=opp_warm, quotations=[], invoices=[], company_id=company_id, today_date=today)
+    assert score_warm["score"] == 50
+    assert score_warm["classification"] == "warm_lead"
+
+    # 3. Lead caliente (datos completos + interacción <=7d + opp avanzada + cotización activa)
+    contact_hot = {"id": "c_hot", "razonSocial": "Lead Caliente", "email": "h@test.com", "telefono": "8095554321", "responsibleId": "u1"}
+    act_hot = [{"contactId": "c_hot", "completedAt": "2026-10-06T10:00:00Z"}]  # 1d ago -> 20 pts
+    opp_hot = [{"contactId": "c_hot", "status": "abierta", "stage": "Negociación"}]  # 15 + 15 = 30 pts
+    quotes_hot = [{"clientId": "c_hot", "status": "Emitida"}]  # 15 pts
+    # Total: 20(profile) + 20(interac 7d) + 15(opp) + 15(stage negoc) + 15(quote) = 85 pts
+    score_hot = CRMService.calculate_lead_score("owner1", contact=contact_hot, activities=act_hot, opportunities=opp_hot, quotations=quotes_hot, invoices=[], company_id=company_id, today_date=today)
+    assert score_hot["score"] == 85
+    assert score_hot["classification"] == "hot_lead"
+
+    # 4. Cliente consolidado con score 100 exacto
+    inv_high = [{"clientId": "c_hot", "status": "Emitida", "total": 120000.0, "date": "2026-10-05"}]  # 10 + 5 = 15 pts
+    score_100 = CRMService.calculate_lead_score("owner1", contact=contact_hot, activities=act_hot, opportunities=opp_hot, quotations=quotes_hot, invoices=inv_high, company_id=company_id, today_date=today)
+    assert score_100["score"] == 100  # 85 + 15 = 100 exactamente, sin rebasar ni saturar
+
+
+def test_dashboard_metrics_are_live_and_independent_of_snapshots():
+    """35. El dashboard CRM siempre calcula métricas en tiempo real de forma dinámica y no a partir de snapshots congelados."""
+    company_id = "comp_f46_35"
+    with patch.object(CRMService, "get_sales_metrics") as mock_metrics, \
+         patch.object(CRMService, "get_opportunities", return_value=[]), \
+         patch.object(CRMService, "get_activities", return_value=[]), \
+         patch.object(CRMService, "get_leads", return_value=[]), \
+         patch.object(CRMService, "get_pipeline", return_value=[]), \
+         patch.object(CRMService, "get_stale_opportunities", return_value=[]), \
+         patch.object(CRMService, "get_next_action_suggestions", return_value=[]):
+
+        mock_metrics.return_value = {
+            "openOpportunities": 10, "wonOpportunities": 5, "lostOpportunities": 2,
+            "pipelineValue": 250000.0, "weightedPipelineValue": 150000.0,
+            "winRate": 71.4, "avgWonAmount": 50000.0, "avgSalesCycleDays": 8.0,
+            "funnel": {}, "conversionRates": {}, "bySalesperson": [], "byBranch": [], "byProject": []
+        }
+
+        dashboard = CRMService.get_dashboard("owner1", sandbox=True, company_id=company_id, date_range="30d")
+        # Confirma que se llamó directamente el cálculo en vivo con el rango
+        assert mock_metrics.called
+        assert dashboard["metrics"]["pipelineValue"] == 250000.0
+        assert dashboard["metrics"]["winRate"] == 71.4
+        assert dashboard["selectedDateRange"] == "30d"
+
+
+def test_metric_snapshot_does_not_corrupt_or_overwrite_live_opportunities():
+    """36. Generar un snapshot persiste exclusivamente en la colección de snapshots sin modificar las oportunidades operativas."""
+    mock_fs = InMemoryFirestore()
+    company_id = "comp_f46_36"
+
+    # Insertar oportunidad en el store
+    mock_fs.store[(company_id, "sandbox_crm_opportunities", "opp_1")] = {
+        "id": "opp_1", "companyId": company_id, "status": "abierta", "stage": "Propuesta", "amount": 10000.0
+    }
+
+    with patch("app.services.crm_service.firebase_initialized", True), \
+         patch("app.services.crm_service._company_coll", side_effect=lambda company_id, owner_uid, coll_name: mock_fs.get_collection(company_id, coll_name)), \
+         patch.object(CRMService, "get_sales_metrics", return_value={"openOpportunities": 1, "wonOpportunities": 0, "lostOpportunities": 0, "pipelineValue": 10000.0, "weightedPipelineValue": 5500.0, "winRate": 0.0, "avgWonAmount": 0.0, "avgSalesCycleDays": 0.0, "funnel": {}, "conversionRates": {}, "bySalesperson": [], "byBranch": [], "byProject": []}), \
+         patch.object(CRMService, "get_activities", return_value=[]), \
+         patch.object(CRMService, "get_leads", return_value=[]):
+
+        snap = CRMService.create_metric_snapshot("owner1", sandbox=True, company_id=company_id, period_start="2026-10-07")
+        assert snap["pipelineValue"] == 10000.0
+
+        # Verificar que la oportunidad original sigue intacta
+        opp_doc = mock_fs.get_collection(company_id, "sandbox_crm_opportunities").document("opp_1").get()
+        assert opp_doc.exists is True
+        assert opp_doc.to_dict()["amount"] == 10000.0

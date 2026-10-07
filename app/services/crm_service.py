@@ -1426,7 +1426,7 @@ class CRMService:
             crt_date = _parse_date(o.get("createdAt"))
             won_date = None
 
-            for h in (o.get("stageHistory") or []):
+            for h in reversed(o.get("stageHistory") or []):
                 if h.get("to") == "Ganada":
                     won_date = _parse_date(h.get("timestamp"))
                     if won_date:
@@ -1457,7 +1457,6 @@ class CRMService:
             curr = o.get("stage")
             if curr:
                 stages_touched.add(curr)
-            stages_touched.add("Prospecto")
 
             normalized_touched = set()
             for s in stages_touched:
@@ -1481,9 +1480,9 @@ class CRMService:
             denom = stage_reached_counts.get(s_from, 0)
             num = stage_reached_counts.get(s_to, 0)
             rate = round((num / denom * 100.0), 1) if denom > 0 else 0.0
-            conversion_rates[key_name] = min(100.0, rate)
+            conversion_rates[key_name] = rate
             # Spanish alias for template friendliness
-            conversion_rates[f"{s_from.lower()}_to_{s_to.lower()}"] = min(100.0, rate)
+            conversion_rates[f"{s_from.lower()}_to_{s_to.lower()}"] = rate
 
         # 6. Desgloses por vendedor, sucursal y proyecto
         by_salesperson = {}
