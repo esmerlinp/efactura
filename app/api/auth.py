@@ -135,6 +135,7 @@ def require_crm_auth(required_permission="canCRM"):
             g.company = company
             g.company_id = resolved_company_id
             g.owner_uid = owner_uid
+            g.user_name = company.get("userName") or company.get("name") or company.get("email") or "API User"
             g.sandbox_mode = request.headers.get('X-Sandbox-Mode', request.args.get('sandbox', 'true')).lower() in ('true', '1')
             g.branch_id = request.headers.get('X-Branch-ID') or request.args.get('branch_id') or None
             g.project_id = request.headers.get('X-Project-ID') or request.args.get('project_id') or None
