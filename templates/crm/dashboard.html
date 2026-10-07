@@ -83,6 +83,14 @@
         <div class="value" style="color:var(--accent-red);">{{ crm.metrics.overdueActivities }}</div>
     </div>
     <div class="small-metric">
+        <div class="label">Próximas (SLA)</div>
+        <div class="value" style="color:var(--color-primary);">{{ crm.metrics.upcomingActivities or 0 }}</div>
+    </div>
+    <div class="small-metric">
+        <div class="label">Estancadas</div>
+        <div class="value" style="color:#d97706;">{{ crm.metrics.staleOpportunities or 0 }}</div>
+    </div>
+    <div class="small-metric">
         <div class="label">Win Rate</div>
         <div class="value">{{ crm.metrics.winRate }}%</div>
     </div>

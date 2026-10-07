@@ -138,21 +138,121 @@ def _resolve_team_member_name(owner_uid, member_uid, company_id=None):
     return ""
 
 
-def _annotate_activity(activity):
+CRM_ACTIVITY_SLA_DAYS = 3
+CRM_STALE_OPPORTUNITY_DAYS = 7
+
+
+def _annotate_activity(activity, today=None):
     if not isinstance(activity, dict):
         return activity
     due_date = _parse_date(activity.get("dueDate"))
-    today = datetime.now(timezone.utc).date()
-    is_pending = activity.get("status", "pendiente") == "pendiente"
+    today = today or datetime.now(timezone.utc).date()
+    status = activity.get("status", "pendiente")
+    is_pending = status == "pendiente"
     activity["dueDate"] = _date_key(activity.get("dueDate"))
     activity["isOverdue"] = bool(is_pending and due_date and due_date < today)
     activity["isDueToday"] = bool(is_pending and due_date and due_date == today)
     activity["daysLate"] = (today - due_date).days if (activity["isOverdue"] and due_date) else 0
+
+    # Clasificación SLA centralizada (F4.1)
+    sla_info = CRMService.get_sla_status(activity.get("dueDate"), status=status, today_date=today)
+    activity["slaStatus"] = sla_info["code"]
+    activity["slaLabel"] = sla_info["label"]
+    activity["slaBadgeClass"] = sla_info["badge_class"]
+    activity["isUpcoming"] = sla_info["is_upcoming"]
     return activity
 
 
 class CRMService:
     """Operaciones de alto nivel para el módulo CRM con aislamiento multiempresa estricto."""
+
+    @classmethod
+    def get_sla_status(cls, due_date, status="pendiente", today_str=None, today_date=None):
+        """
+        Clasifica el estado SLA de una fecha de compromiso o actividad (F4.1).
+        Retorna dict con code ('vencida', 'hoy', 'proxima', 'normal', 'completada', 'cancelada', 'sin_fecha'),
+        label legible, flags booleanos y clase CSS de badge.
+        """
+        status = _normalize_status(status)
+        if status == "completada":
+            return {
+                "code": "completada",
+                "label": "Completada",
+                "is_overdue": False,
+                "is_today": False,
+                "is_upcoming": False,
+                "days_diff": 0,
+                "badge_class": "badge-success",
+            }
+        if status == "cancelada":
+            return {
+                "code": "cancelada",
+                "label": "Cancelada",
+                "is_overdue": False,
+                "is_today": False,
+                "is_upcoming": False,
+                "days_diff": 0,
+                "badge_class": "badge-secondary",
+            }
+
+        d = _parse_date(due_date)
+        if not d:
+            return {
+                "code": "sin_fecha",
+                "label": "Sin fecha",
+                "is_overdue": False,
+                "is_today": False,
+                "is_upcoming": False,
+                "days_diff": 0,
+                "badge_class": "badge-light",
+            }
+
+        ref_today = today_date or (_parse_date(today_str) if today_str else datetime.now(timezone.utc).date())
+        days_diff = (d - ref_today).days
+
+        if days_diff < 0:
+            days_abs = abs(days_diff)
+            label = "Vencida ayer" if days_abs == 1 else f"Vencida hace {days_abs}d"
+            return {
+                "code": "vencida",
+                "label": label,
+                "is_overdue": True,
+                "is_today": False,
+                "is_upcoming": False,
+                "days_diff": days_diff,
+                "badge_class": "badge-danger",
+            }
+        elif days_diff == 0:
+            return {
+                "code": "hoy",
+                "label": "Vence hoy",
+                "is_overdue": False,
+                "is_today": True,
+                "is_upcoming": False,
+                "days_diff": 0,
+                "badge_class": "badge-warning",
+            }
+        elif 1 <= days_diff <= CRM_ACTIVITY_SLA_DAYS:
+            label = "Vence mañana" if days_diff == 1 else f"En {days_diff} días"
+            return {
+                "code": "proxima",
+                "label": label,
+                "is_overdue": False,
+                "is_today": False,
+                "is_upcoming": True,
+                "days_diff": days_diff,
+                "badge_class": "badge-info",
+            }
+        else:
+            return {
+                "code": "normal",
+                "label": f"En {days_diff}d",
+                "is_overdue": False,
+                "is_today": False,
+                "is_upcoming": False,
+                "days_diff": days_diff,
+                "badge_class": "badge-light",
+            }
 
     @classmethod
     def get_opportunity(cls, owner_uid, opportunity_id, sandbox=True, company_id=None):
@@ -265,7 +365,7 @@ class CRMService:
             "notes": opportunity_dict.get("notes") or existing.get("notes", ""),
             "createdBy": opportunity_dict.get("createdBy") or existing.get("createdBy", ""),
             "createdAt": serialize_field(existing.get("createdAt") or opportunity_dict.get("createdAt") or _now_iso()),
-            "updatedAt": _now_iso(),
+            "updatedAt": serialize_field(opportunity_dict.get("updatedAt") or _now_iso()),
             "closedAt": existing.get("closedAt", ""),
         }
 
@@ -461,6 +561,42 @@ class CRMService:
                 }, sandbox=sandbox, company_id=company_id)
             except Exception:
                 pass
+
+        # Evaluación de automatizaciones CRM (Fase 4.2)
+        try:
+            from app.services.crm_automation_service import CRMAutomationService
+            if target_stage == "Ganada":
+                CRMAutomationService.evaluate_rules(
+                    owner_uid=owner_uid,
+                    event_type="opportunity_won",
+                    payload={"opportunity": saved, "opportunity_id": opportunity_id, "to_stage": "Ganada", "invoice_id": invoice_id},
+                    sandbox=sandbox,
+                    company_id=company_id,
+                )
+            elif target_stage == "Perdida":
+                CRMAutomationService.evaluate_rules(
+                    owner_uid=owner_uid,
+                    event_type="opportunity_lost",
+                    payload={"opportunity": saved, "opportunity_id": opportunity_id, "to_stage": "Perdida", "lost_reason": opp.get("lostReason")},
+                    sandbox=sandbox,
+                    company_id=company_id,
+                )
+
+            CRMAutomationService.evaluate_rules(
+                owner_uid=owner_uid,
+                event_type="stage_change",
+                payload={
+                    "opportunity": saved,
+                    "opportunity_id": opportunity_id,
+                    "from_stage": current_stage,
+                    "to_stage": target_stage,
+                    "user_name": user_name,
+                },
+                sandbox=sandbox,
+                company_id=company_id,
+            )
+        except Exception as auto_err:
+            print(f"⚠️ Error al evaluar automatizaciones CRM para oportunidad {opportunity_id}: {auto_err}")
 
         return True, f"Oportunidad transicionada a {target_stage}.", saved
 
@@ -800,12 +936,169 @@ class CRMService:
         return True
 
     @classmethod
+    def get_stale_opportunities(
+        cls,
+        owner_uid,
+        sandbox=True,
+        company_id=None,
+        threshold_days=CRM_STALE_OPPORTUNITY_DAYS,
+        branch_id=None,
+        project_id=None,
+        today_str=None,
+    ):
+        """
+        Detecta oportunidades abiertas sin actividad comercial relevante durante threshold_days (F4.1).
+        No incluye oportunidades Ganadas, Perdidas ni eliminadas (soft-deleted).
+        Retorna lista de oportunidades enriquecidas con isStale, staleReason y días sin actividad.
+        """
+        company_id = _require_company_id(company_id)
+        open_opps = cls.get_opportunities(
+            owner_uid,
+            sandbox=sandbox,
+            company_id=company_id,
+            include_closed=False,
+            branch_id=branch_id,
+            project_id=project_id,
+        )
+
+        all_activities = cls.get_activities(
+            owner_uid,
+            sandbox=sandbox,
+            company_id=company_id,
+            include_completed=True,
+            branch_id=branch_id,
+            project_id=project_id,
+        )
+
+        activities_by_opp = {}
+        for act in all_activities:
+            op_id = act.get("opportunityId")
+            if op_id:
+                activities_by_opp.setdefault(op_id, []).append(act)
+
+        ref_today = _parse_date(today_str) if today_str else datetime.now(timezone.utc).date()
+        stale_list = []
+
+        for opp in open_opps:
+            if opp.get("isDeleted") or opp.get("status") in ("ganada", "perdida") or opp.get("stage") in ("Ganada", "Perdida"):
+                continue
+
+            opp_id = opp["id"]
+            opp_activities = activities_by_opp.get(opp_id, [])
+
+            # 1. Verificar si tiene actividades pendientes vencidas
+            has_overdue_activity = any(
+                act.get("status") == "pendiente" and _parse_date(act.get("dueDate")) and _parse_date(act.get("dueDate")) < ref_today
+                for act in opp_activities
+            )
+
+            # 2. Determinar la fecha de última actividad relevante
+            activity_dates = []
+            for act in opp_activities:
+                for fld in ("completedAt", "updatedAt", "createdAt", "dueDate"):
+                    d_parsed = _parse_date(act.get(fld))
+                    if d_parsed:
+                        activity_dates.append(d_parsed)
+
+            stage_entry_date = None
+            stage_hist = opp.get("stageHistory") or []
+            if stage_hist:
+                last_hist = stage_hist[-1]
+                stage_entry_date = _parse_date(last_hist.get("timestamp"))
+
+            opp_crt = _parse_date(opp.get("createdAt"))
+            opp_upd = _parse_date(opp.get("updatedAt"))
+
+            # Determinar fecha base comercial
+            commercial_dates = [d for d in activity_dates if d is not None]
+            if commercial_dates:
+                last_activity_date = max(commercial_dates)
+            elif stage_entry_date:
+                last_activity_date = stage_entry_date
+            elif opp_upd:
+                last_activity_date = opp_upd
+            elif opp_crt:
+                last_activity_date = opp_crt
+            else:
+                last_activity_date = ref_today
+
+            days_inactive = (ref_today - last_activity_date).days
+
+            is_stale = False
+            stale_reason = ""
+            stale_detail = ""
+
+            if has_overdue_activity:
+                is_stale = True
+                stale_reason = "overdue_activity"
+                stale_detail = "Tiene actividades de seguimiento vencidas"
+            elif days_inactive >= threshold_days:
+                if stage_entry_date and (ref_today - stage_entry_date).days >= threshold_days:
+                    is_stale = True
+                    stale_reason = "stuck_in_stage"
+                    stale_detail = f"Sin avance en la etapa '{opp.get('stage')}' durante {days_inactive} días"
+                else:
+                    is_stale = True
+                    stale_reason = "no_activity"
+                    stale_detail = f"Sin actividad comercial registrada durante {days_inactive} días"
+
+            if is_stale:
+                opp_copy = dict(opp)
+                opp_copy["isStale"] = True
+                opp_copy["staleReason"] = stale_reason
+                opp_copy["staleDetail"] = stale_detail
+                opp_copy["daysSinceLastActivity"] = max(0, days_inactive)
+                opp_copy["lastActivityDate"] = last_activity_date.isoformat()
+                stale_list.append(opp_copy)
+
+        return stale_list
+
+    @classmethod
+    def compute_next_contact_date(cls, owner_uid, opportunity_id, sandbox=True, company_id=None, today_str=None):
+        """Calcula la próxima fecha de contacto para una oportunidad basada en la actividad pendiente más cercana."""
+        company_id = _require_company_id(company_id)
+        opp = cls.get_opportunity(owner_uid, opportunity_id, sandbox=sandbox, company_id=company_id)
+        if not opp or opp.get("isDeleted"):
+            return ""
+
+        ref_today = _parse_date(today_str) if today_str else datetime.now(timezone.utc).date()
+        activities = cls.get_activities(owner_uid, sandbox=sandbox, company_id=company_id, include_completed=False)
+        opp_acts = [a for a in activities if a.get("opportunityId") == opportunity_id and a.get("status") == "pendiente" and not a.get("isDeleted")]
+
+        future_dates = []
+        for a in opp_acts:
+            d = _parse_date(a.get("dueDate"))
+            if d and d >= ref_today:
+                future_dates.append(d)
+
+        if future_dates:
+            earliest = min(future_dates)
+            return earliest.isoformat()
+
+        return _date_key(opp.get("nextContactDate"))
+
+    @classmethod
     def get_pipeline(cls, owner_uid, sandbox=True, company_id=None, branch_id=None, project_id=None):
         company_id = _require_company_id(company_id)
         opportunities = cls.get_opportunities(owner_uid, sandbox=sandbox, company_id=company_id, include_closed=True, branch_id=branch_id, project_id=project_id)
+        stale_opps = {o["id"]: o for o in cls.get_stale_opportunities(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=branch_id, project_id=project_id)}
+
         grouped = []
         for stage in CRM_OPPORTUNITY_STAGES:
-            stage_items = [o for o in opportunities if o.get("stage") == stage]
+            stage_items = []
+            for o in opportunities:
+                if o.get("stage") == stage:
+                    item = dict(o)
+                    if o.get("id") in stale_opps:
+                        stale_data = stale_opps[o["id"]]
+                        item["isStale"] = True
+                        item["staleReason"] = stale_data.get("staleReason")
+                        item["staleDetail"] = stale_data.get("staleDetail")
+                        item["daysSinceLastActivity"] = stale_data.get("daysSinceLastActivity", 0)
+                    else:
+                        item["isStale"] = False
+                    stage_items.append(item)
+
             amount = sum(_safe_float(o.get("amount")) for o in stage_items)
             weighted = sum(_safe_float(o.get("amount")) * (_safe_float(o.get("probability")) / 100.0) for o in stage_items)
             grouped.append({
@@ -905,6 +1198,7 @@ class CRMService:
         activities = cls.get_activities(owner_uid, sandbox=sandbox, include_completed=False, company_id=company_id, branch_id=branch_id, project_id=project_id)
         leads = cls.get_leads(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=branch_id, project_id=project_id)
         pipeline = cls.get_pipeline(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=branch_id, project_id=project_id)
+        stale_opps = cls.get_stale_opportunities(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=branch_id, project_id=project_id)
 
         closed_total = len(won_opps) + len(lost_opps)
         win_rate = (len(won_opps) / closed_total * 100.0) if closed_total else 0.0
@@ -912,6 +1206,7 @@ class CRMService:
         weighted_value = sum(_safe_float(o.get("amount")) * (_safe_float(o.get("probability")) / 100.0) for o in open_opps)
         overdue = [a for a in activities if a.get("isOverdue")]
         today = [a for a in activities if a.get("isDueToday")]
+        upcoming = [a for a in activities if a.get("isUpcoming")]
 
         suggestions = cls.get_next_action_suggestions(owner_uid, sandbox=sandbox, company_id=company_id, opportunities=open_opps, leads=leads, activities=activities)
 
@@ -920,16 +1215,19 @@ class CRMService:
                 "openOpportunities": len(open_opps),
                 "wonOpportunities": len(won_opps),
                 "lostOpportunities": len(lost_opps),
+                "staleOpportunities": len(stale_opps),
                 "pipelineValue": round(pipeline_value, 2),
                 "weightedPipelineValue": round(weighted_value, 2),
                 "overdueActivities": len(overdue),
                 "todayActivities": len(today),
+                "upcomingActivities": len(upcoming),
                 "leadCount": len(leads),
                 "winRate": round(win_rate, 1),
             },
             "pipeline": pipeline,
             "activitiesToday": today[:8],
             "activitiesOverdue": overdue[:8],
+            "staleOpportunities": stale_opps[:8],
             "topLeads": leads[:8],
             "suggestions": suggestions[:8],
             "recentOpportunities": opportunities[:8],
@@ -1171,6 +1469,9 @@ class CRMService:
         data["amount"] = _safe_float(data.get("amount"))
         data["probability"] = _safe_int(data.get("probability"), CRM_STAGE_PROBABILITY.get(stage, 10))
         data["expectedCloseDate"] = _date_key(data.get("expectedCloseDate"))
+        data["nextContactDate"] = _date_key(data.get("nextContactDate"))
+        data["isStale"] = bool(data.get("isStale", False))
+        data["staleReason"] = data.get("staleReason", "")
         data["invoices"] = data.get("invoices") or []
         data["lostReason"] = data.get("lostReason", "")
         data["stageHistory"] = data.get("stageHistory") or []
@@ -1192,6 +1493,9 @@ class CRMService:
         data["priority"] = _normalize_priority(data.get("priority"))
         data["status"] = _normalize_status(data.get("status"))
         data["dueDate"] = _date_key(data.get("dueDate"))
+        data["originRuleId"] = data.get("originRuleId", "")
+        data["idempotencyKey"] = data.get("idempotencyKey", "")
+        data["autoGenerated"] = bool(data.get("autoGenerated", False))
         data["isDeleted"] = bool(data.get("isDeleted", False))
         data["deletedAt"] = data.get("deletedAt", "")
         data["deletedBy"] = data.get("deletedBy", "")
