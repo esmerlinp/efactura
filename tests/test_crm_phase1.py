@@ -328,6 +328,81 @@ def test_opportunity_supports_multiple_invoices():
         assert opp["invoices"][1]["amount"] == 50000.0
 
 
+def test_link_invoice_to_opportunity_is_idempotent():
+    """Verifica que guardar/vincular la misma factura múltiples veces no duplica invoices ni genera interacciones repetidas."""
+    fake_fs = InMemoryFirestore()
+
+    def fake_company_coll(company_id=None, coll_name=None, owner_uid=None):
+        return fake_fs.get_collection(company_id, coll_name)
+
+    interactions_recorded = []
+
+    def mock_save_interaction(owner_uid, contact_id, interaction_id, data, sandbox=True, company_id=None):
+        interactions_recorded.append((contact_id, interaction_id, data))
+
+    with patch("app.services.crm_service.firebase_initialized", True), \
+         patch("app.services.crm_service._company_coll", side_effect=fake_company_coll), \
+         patch("app.services.crm_service.ContactService.get_contact", return_value=None), \
+         patch("app.services.crm_service.ContactService.update_pipeline", return_value=None), \
+         patch("app.services.crm_service.DatabaseService.get_team_members", return_value=[]), \
+         patch("app.services.crm_service.DatabaseService.save_client_interaction", side_effect=mock_save_interaction):
+
+        CRMService.save_opportunity(
+            owner_uid="user-1",
+            opportunity_id="opp-idempotent",
+            opportunity_dict={"title": "Contrato Idempotente", "stage": "Propuesta", "contactId": "client-idem"},
+            sandbox=True,
+            company_id="company-A"
+        )
+
+        # 1era llamada: Vinculación inicial
+        updated_1 = CRMService.link_invoice_to_opportunity(
+            owner_uid="user-1",
+            invoice_id="inv-idem-1",
+            invoice_number="E3100000099",
+            opportunity_id="opp-idempotent",
+            sandbox=True,
+            company_id="company-A",
+            total_amount=25000.0,
+        )
+        assert updated_1 == 1
+        assert len(interactions_recorded) == 1
+
+        # 2da llamada con la misma factura (ej. re-guardado de factura)
+        updated_2 = CRMService.link_invoice_to_opportunity(
+            owner_uid="user-1",
+            invoice_id="inv-idem-1",
+            invoice_number="E3100000099",
+            opportunity_id="opp-idempotent",
+            sandbox=True,
+            company_id="company-A",
+            total_amount=25000.0,
+        )
+        assert updated_2 == 1
+        # No debe haber generado una segunda interacción
+        assert len(interactions_recorded) == 1
+
+        # 3ra llamada con la misma factura
+        updated_3 = CRMService.link_invoice_to_opportunity(
+            owner_uid="user-1",
+            invoice_id="inv-idem-1",
+            invoice_number="E3100000099",
+            opportunity_id="opp-idempotent",
+            sandbox=True,
+            company_id="company-A",
+            total_amount=25000.0,
+        )
+        assert updated_3 == 1
+        assert len(interactions_recorded) == 1
+
+        opp = CRMService.get_opportunity("user-1", "opp-idempotent", sandbox=True, company_id="company-A")
+        assert opp["stage"] == "Ganada"
+        # La lista invoices debe tener exactamente 1 factura
+        assert len(opp["invoices"]) == 1
+        assert opp["invoices"][0]["id"] == "inv-idem-1"
+        assert opp["invoices"][0]["amount"] == 25000.0
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 4. CRM-03: Performance y Caché de Compromisos Globales
 # ─────────────────────────────────────────────────────────────────────────────
@@ -498,3 +573,57 @@ def test_pipeline_and_dashboard_tenant_isolation():
 
         assert dashboard_a["metrics"]["pipelineValue"] == 10000.0
         assert dashboard_b["metrics"]["pipelineValue"] == 50000.0
+
+
+def test_commitments_includes_due_contacts_without_invoice_scans():
+    """Verifica que contactos con nextContactDate vencida/hoy se incluyan en compromisos si no tienen actividad duplicada."""
+    fake_fs = InMemoryFirestore()
+
+    def fake_company_coll(company_id=None, coll_name=None, owner_uid=None):
+        return fake_fs.get_collection(company_id, coll_name)
+
+    CRMService.invalidate_commitments_cache()
+
+    mock_contacts = [
+        {
+            "id": "c-due-today",
+            "razonSocial": "Cliente con Fecha Hoy",
+            "types": ["cliente"],
+            "nextContactDate": "2020-01-01",  # Vencida / Pasada
+            "notes": "Llamar para renovar contrato",
+            "telefono": "8095551234",
+        },
+        {
+            "id": "c-future",
+            "razonSocial": "Cliente Futuro",
+            "types": ["cliente"],
+            "nextContactDate": "2099-12-31",
+            "notes": "Seguimiento fin de siglo",
+        },
+        {
+            "id": "c-supplier",
+            "razonSocial": "Suplidor con Fecha",
+            "types": ["proveedor"],  # No es cliente
+            "nextContactDate": "2020-01-01",
+        }
+    ]
+
+    with patch("app.services.crm_service.firebase_initialized", True), \
+         patch("app.services.crm_service._company_coll", side_effect=fake_company_coll), \
+         patch("app.services.crm_service.ContactService.get_contacts", return_value=mock_contacts), \
+         patch("app.services.crm_service.DatabaseService.get_team_members", return_value=[]):
+
+        commitments = CRMService.get_global_commitments("user-1", sandbox=True, company_id="company-A")
+
+        # Debe incluir a c-due-today
+        c_ids = [c["id"] for c in commitments]
+        assert "c-due-today" in c_ids
+        assert "c-future" not in c_ids
+        assert "c-supplier" not in c_ids
+
+        target_item = next(c for c in commitments if c["id"] == "c-due-today")
+        assert target_item["razonSocial"] == "Cliente con Fecha Hoy"
+        assert target_item["crmNotes"] == "Llamar para renovar contrato"
+        assert target_item["commitmentType"] == "contact"
+        assert target_item["isOverdue"] is True
+
