@@ -63,6 +63,8 @@ class Invoice(BaseModel):
     encf: str = ""
     xmlSignature: str = ""
     qrCodeURL: str = ""
+    trackId: str = ""
+    codigoSeguridad: str = ""
     isSyncedWithDGII: bool = False
     emisionMode: str = ""
     dgiiStatus: str = ""

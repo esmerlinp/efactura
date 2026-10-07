@@ -493,11 +493,11 @@ class TestContingencyRoutes:
             html = resp.data.decode('utf-8')
             assert 'Sin Comprobantes en Contingencia' in html
 
-    def test_notification_stream_returns_401_when_not_logged_in(self, client):
-        resp = client.get('/notifications/stream')
+    def test_notification_poll_returns_401_when_not_logged_in(self, client):
+        resp = client.get('/notifications/poll')
         assert resp.status_code == 401
 
-    def test_notification_stream_returns_sse_when_authenticated(self, client):
+    def test_notification_poll_returns_data_when_authenticated(self, client):
         self._login(client)
         with patch('app.services.db_service.DatabaseService.get_user_profile', return_value=PROFILE_WITH_PERMS), \
              patch('app.services.db_service.DatabaseService.get_associated_companies',
@@ -506,7 +506,8 @@ class TestContingencyRoutes:
              patch('app.services.db_service.DatabaseService.get_user_notifications') as mock_notif:
 
             mock_notif.return_value = [{'id': 'n1', 'title': 'Test', 'message': 'Hello', 'type': 'info', 'createdAt': '2026-01-01'}]
-            resp = client.get('/notifications/stream')
+            resp = client.get('/notifications/poll')
             assert resp.status_code == 200
-            assert resp.mimetype == 'text/event-stream'
-            assert resp.headers.get('Cache-Control') == 'no-cache'
+            data = resp.get_json()
+            assert data.get('success') is True
+            assert len(data.get('notifications', [])) == 1

@@ -122,21 +122,13 @@ class ContingencySyncService:
 
     @classmethod
     def _should_retry(cls, attempts, last_attempt_str):
-        # Límite absoluto de reintentos para evitar bucles infinitos
-        if attempts >= MAX_RETRY_ATTEMPTS:
-            logger.warning(f"Documento agotó reintentos ({attempts}/{MAX_RETRY_ATTEMPTS}). Se marca como falla permanente.")
-            return False
-
         if attempts >= len(BACKOFF_INTERVALS):
-            logger.info(f"Documento fuera de ventana de backoff ({attempts} intentos). Último reintento con backoff extendido.")
-            # Usar backoff extendido: 24h después del último intento
-            wait_minutes = 1440
-        else:
-            wait_minutes = BACKOFF_INTERVALS[attempts]
+            return False
 
         if not last_attempt_str:
             return True
 
+        wait_minutes = BACKOFF_INTERVALS[attempts]
         try:
             last_attempt = datetime.fromisoformat(last_attempt_str)
             now = datetime.now(timezone.utc)
@@ -154,6 +146,8 @@ class ContingencySyncService:
         invoice["dgiiStatus"] = res.get("dgiiStatus") or "ACCEPTED"
         invoice["xmlSignature"] = res.get("xmlSignature", invoice.get("xmlSignature", ""))
         invoice["qrCodeURL"] = res.get("qrCodeURL", invoice.get("qrCodeURL", ""))
+        invoice["trackId"] = res.get("trackId") or res.get("track_id") or res.get("TrackId") or invoice.get("trackId", "")
+        invoice["codigoSeguridad"] = res.get("codigoSeguridad") or invoice.get("codigoSeguridad", "")
         invoice["contingencyEmittedAt"] = None
         invoice.pop("syncAttempts", None)
         invoice.pop("lastSyncAttempt", None)
@@ -306,6 +300,17 @@ class ContingencySyncService:
                 target_invoice["lastPendingCheckAt"] = datetime.now(timezone.utc).isoformat()
 
                 track_id = target_invoice.get("trackId") or inv.get("trackId") or ""
+                if not track_id and (target_invoice.get("encf") or inv.get("encf")):
+                    encf_val = target_invoice.get("encf") or inv.get("encf")
+                    rnc_emisor = (company or {}).get("companyRNC") or (company or {}).get("rnc") or (company or {}).get("rncNumber") or ""
+                    rnc_emisor = str(rnc_emisor).replace("-", "").strip()
+                    if rnc_emisor and encf_val:
+                        t_res = DgiiDirectService.consultar_trackids(company, rnc_emisor, encf_val, sandbox=sandbox)
+                        if t_res.get("success") and t_res.get("trackIds"):
+                            track_id = str(t_res["trackIds"][-1])
+                            target_invoice["trackId"] = track_id
+                            logger.info(f"TrackId {track_id} auto-recuperado para e-NCF {encf_val}")
+
                 if not track_id:
                     DatabaseService.save_invoice(owner_uid, inv_id, target_invoice, sandbox=sandbox, company_id=company_id)
                     still_pending += 1

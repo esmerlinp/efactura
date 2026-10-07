@@ -333,6 +333,8 @@ def _emit_consolidated_ecf(owner_uid, shift_id, pending_invoices, sandbox):
             consolidado_dict["encf"] = encf_consolidado
             consolidado_dict["xmlSignature"] = res.get('xmlSignature', '')
             consolidado_dict["qrCodeURL"] = res.get('qrCodeURL', '')
+            consolidado_dict["trackId"] = res.get("trackId") or res.get("track_id") or ""
+            consolidado_dict["codigoSeguridad"] = res.get("codigoSeguridad") or ""
             pending_dgii = res.get("status") == "PENDING" or res.get("mode") == "FALLBACK"
             is_synced = (res.get("mode") in ("API", "RFCE_API") and res.get("status") != "PENDING")
             emision_mode = res.get("mode", "API")
