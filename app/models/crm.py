@@ -60,18 +60,18 @@ CONTACT_PIPELINE_MAP = {
 }
 
 LEAD_SCORE_WEIGHTS = {
-    "base": 10,
-    "has_email": 10,
-    "has_phone": 10,
-    "has_responsible": 10,
+    "base": 5,
+    "has_email": 5,
+    "has_phone": 5,
+    "has_responsible": 5,
     "recent_interaction_7d": 20,
     "recent_interaction_30d": 10,
     "open_opportunity": 15,
-    "stage_proposal_or_negotiation": 20,
-    "stage_contacted_or_qualified": 10,
+    "stage_proposal_or_negotiation": 15,
+    "stage_contacted_or_qualified": 5,
     "active_quotation": 15,
-    "billing_history": 20,
-    "high_billing": 10,
+    "billing_history": 10,
+    "high_billing": 5,
 }
 
 
