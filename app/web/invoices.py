@@ -1116,6 +1116,7 @@ def list_invoices():
                 "status": "Emitida",
                 "isSyncedWithDGII": exp.get("isSyncedWithDGII", False),
                 "emisionMode": exp.get("emisionMode", ""),
+                "dgiiStatus": exp.get("dgiiStatus") or ("ACCEPTED" if exp.get("isSyncedWithDGII") else ("CONTINGENCY" if exp.get("emisionMode") == "FALLBACK" else "")),
                 "xmlSignature": exp.get("xmlSignature", ""),
                 "qrCodeURL": exp.get("qrCodeURL", ""),
                 "isExpense": True,
@@ -1149,6 +1150,12 @@ def list_invoices():
                     or inv.get('dgiiStatus') in ['PENDING', 'CONTINGENCY']
                 ):
                     continue
+            elif status == "DGII Aceptado":
+                if not (inv.get('isSyncedWithDGII') or inv.get('dgiiStatus') in ['ACCEPTED', 'ACEPTADO', 'ACCEPTED_PREVIOUSLY']):
+                    continue
+            elif status == "DGII Rechazado":
+                if not (inv.get('dgiiStatus') in ['REJECTED', 'RECHAZADO']):
+                    continue
             elif status == "Con Saldo Pendiente":
                 if not (inv.get('netPayable', 0.0) > 0.0 and inv.get('status') not in ['Anulada', 'Borrador', 'Cobrada', 'Pagado pero no emitido']):
                     continue
@@ -1170,6 +1177,7 @@ def list_invoices():
         "total": lambda d: float(d.get("total") or 0),
         "remainingBalance": lambda d: float(d.get("remainingBalance", d.get("netPayable", 0)) or 0),
         "status": lambda d: str(d.get("status") or "").lower(),
+        "dgiiStatus": lambda d: str(d.get("dgiiStatus") or ("ACCEPTED" if d.get("isSyncedWithDGII") else ("CONTINGENCY" if d.get("emisionMode") == "FALLBACK" else ""))).lower(),
         "encf": lambda d: str(d.get("encf") or "").lower(),
         "ecfType": lambda d: str(d.get("ecfType") or "").lower(),
     }
@@ -1185,7 +1193,23 @@ def list_invoices():
         from datetime import datetime
         output = io.StringIO()
         writer = csv.writer(output, quoting=csv.QUOTE_ALL)
-        writer.writerow(["Número de Factura", "Cliente", "RNC", "Fecha", "Fecha Vencimiento", "Subtotal (RD$)", "Total (RD$)", "Pendiente (RD$)", "Estatus", "NCF / e-CF", "Tipo e-CF"])
+        writer.writerow(["Número de Factura", "Cliente", "RNC", "Fecha", "Fecha Vencimiento", "Subtotal (RD$)", "Total (RD$)", "Pendiente (RD$)", "Estatus", "Estado DGII", "NCF / e-CF", "Tipo e-CF"])
+        
+        def _get_dgii_status_label(inv_item):
+            if inv_item.get("isSyncedWithDGII") or inv_item.get("dgiiStatus") in ("ACCEPTED", "ACEPTADO", "ACCEPTED_PREVIOUSLY"):
+                return "Aceptado"
+            if inv_item.get("dgiiStatus") in ("REJECTED", "RECHAZADO"):
+                return "Rechazado"
+            if inv_item.get("dgiiStatus") == "CONTINGENCY" or (inv_item.get("emisionMode") == "FALLBACK" and not inv_item.get("isSyncedWithDGII")):
+                return "Contingencia"
+            if inv_item.get("dgiiStatus") in ("PENDING", "PENDIENTE") or inv_item.get("status") == "Pendiente DGII" or (inv_item.get("emisionMode") == "API" and not inv_item.get("isSyncedWithDGII") and inv_item.get("encf") and inv_item.get("status") != "Anulada"):
+                return "Pendiente"
+            if inv_item.get("dgiiStatus") in ("CONDITIONAL", "CONDICIONAL", "ACEPTADO_CONDICIONAL"):
+                return "Condicional"
+            if inv_item.get("encf"):
+                return inv_item.get("dgiiStatus") or "No sincronizado"
+            return "N/A"
+
         for inv in filtered:
             writer.writerow([
                 inv.get("invoiceNumber", ""),
@@ -1197,6 +1221,7 @@ def list_invoices():
                 f"{inv.get('total', 0.0):.2f}",
                 f"{inv.get('remainingBalance', inv.get('netPayable', 0.0)):.2f}",
                 inv.get("status", ""),
+                _get_dgii_status_label(inv),
                 inv.get("encf", ""),
                 inv.get("ecfType", "")
             ])
@@ -3052,6 +3077,14 @@ def pay_invoice_route(invoice_id):
     if not invoice:
         flash('Factura no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_invoices'))
+
+    if invoice.get('dgiiStatus') in ['REJECTED', 'RECHAZADO']:
+        flash('No se puede registrar pagos a una factura cuyo comprobante fiscal fue rechazado por la DGII.', 'error')
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+
+    if invoice.get('status') == 'Anulada':
+        flash('No se puede registrar pagos a una factura anulada.', 'error')
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
         
     before_invoice = invoice.copy()
     remaining_balance = float(invoice.get('remainingBalance', invoice.get('netPayable', 0.0) if invoice.get('status') == 'Cobrada' else 0.0))
@@ -3297,6 +3330,14 @@ def pay_advanced_route(invoice_id):
     if not invoice:
         flash('Factura no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_invoices'))
+
+    if invoice.get('dgiiStatus') in ['REJECTED', 'RECHAZADO']:
+        flash('No se puede registrar pagos a una factura cuyo comprobante fiscal fue rechazado por la DGII.', 'error')
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+
+    if invoice.get('status') == 'Anulada':
+        flash('No se puede registrar pagos a una factura anulada.', 'error')
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
         
     company = DatabaseService.get_company_profile(owner_uid, company_id=company_id) or {}
     bank_accounts = DatabaseService.get_bank_accounts(owner_uid, company_id=company_id, sandbox=sandbox)
@@ -3400,6 +3441,14 @@ def approve_payment_proof(invoice_id):
     if not invoice:
         flash('Factura no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_invoices'))
+
+    if invoice.get('dgiiStatus') in ['REJECTED', 'RECHAZADO']:
+        flash('No se puede aprobar pagos a una factura cuyo comprobante fiscal fue rechazado por la DGII.', 'error')
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+
+    if invoice.get('status') == 'Anulada':
+        flash('No se puede aprobar pagos a una factura anulada.', 'error')
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
         
     before_invoice = invoice.copy()
     try:
@@ -10528,6 +10577,14 @@ def cxc_quick_pay(invoice_id):
     invoice = DatabaseService.get_invoice(owner_uid, invoice_id, company_id=company_id, sandbox=sandbox)
     if not invoice:
         flash('Factura no encontrada.', 'error')
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+
+    if invoice.get('dgiiStatus') in ['REJECTED', 'RECHAZADO']:
+        flash('No se puede registrar pagos a una factura cuyo comprobante fiscal fue rechazado por la DGII.', 'error')
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+
+    if invoice.get('status') == 'Anulada':
+        flash('No se puede registrar pagos a una factura anulada.', 'error')
         return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
     before_invoice = invoice.copy()

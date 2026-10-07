@@ -2246,6 +2246,8 @@ def register_payment(invoice_id):
         from app.services.db_service import DatabaseService
         DatabaseService.register_invoice_payment(g.owner_uid, invoice_id, payment_dict, company_id=g.company_id, sandbox=g.sandbox_mode)
         return jsonify({"success": True, "message": "Pago registrado exitosamente."})
+    except ValueError as ve:
+        return jsonify({"success": False, "error": str(ve)}), 400
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 

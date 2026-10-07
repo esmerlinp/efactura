@@ -338,3 +338,89 @@ def test_list_fiscal_notes_grid(client):
         assert 'Consumidor Final' in html
         assert 'E320000000002' in html
         assert 'Emitida' in html
+
+
+def test_pay_rejected_invoice_blocked(client):
+    """Verifica que no se permita registrar cobro a una factura rechazada por la DGII."""
+    mock_login(client)
+    mock_invoice = {
+        "id": "inv-rejected",
+        "status": "Emitida",
+        "subtotal": 1000.00,
+        "totalITBIS": 0.0,
+        "netPayable": 1000.00,
+        "remainingBalance": 1000.00,
+        "totalPaid": 0.0,
+        "invoiceNumber": "E3100000001",
+        "encf": "E3100000001",
+        "ecfType": "Factura de Crédito Fiscal (E31)",
+        "dgiiStatus": "REJECTED",
+        "isQuotation": False,
+        "clientName": "Cliente Rechazado",
+        "clientRNC": "131880681",
+        "date": "2026-10-07 10:00:00",
+        "dueDate": "2026-10-07",
+        "total": 1000.00,
+        "retainedISR": 0.0,
+        "retainedITBIS": 0.0,
+        "items": []
+    }
+
+    with patch('app.services.db_service.DatabaseService.get_invoice', return_value=mock_invoice), \
+         patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE), \
+         patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY), \
+         patch('app.services.db_service.DatabaseService.get_team_members', return_value=[]), \
+         patch('app.services.db_service.DatabaseService.get_invoice_payments', return_value=[]), \
+         patch('app.services.db_service.DatabaseService.get_invoice_comments', return_value=[]), \
+         patch('app.services.db_service.DatabaseService.get_bank_accounts', return_value=[]), \
+         patch('app.services.db_service.DatabaseService.get_projects', return_value=[]), \
+         patch('app.services.db_service.DatabaseService.register_invoice_payment') as mock_register:
+
+        # 1. GET /invoices/<id>/pay/advanced debe redirigir al detalle con error
+        resp_get = client.get('/invoices/inv-rejected/pay/advanced', follow_redirects=True)
+        assert resp_get.status_code == 200
+        html = resp_get.data.decode('utf-8')
+        assert 'rechazado por la DGII' in html
+        mock_register.assert_not_called()
+
+        # 2. POST /invoices/<id>/pay/advanced debe ser bloqueado
+        resp_post_adv = client.post('/invoices/inv-rejected/pay/advanced', data={
+            "bankAccountId": "bank-1",
+            "paymentDate": "2026-10-07",
+            "paymentMethod": "Efectivo",
+            "monto_recibido": "1000.00"
+        }, follow_redirects=True)
+        assert 'rechazado por la DGII' in resp_post_adv.data.decode('utf-8')
+        mock_register.assert_not_called()
+
+        # 3. POST /invoices/<id>/pay debe ser bloqueado
+        resp_pay = client.post('/invoices/inv-rejected/pay', data={
+            "amount": "1000.00",
+            "paymentMethod": "Efectivo"
+        }, follow_redirects=True)
+        assert 'rechazado por la DGII' in resp_pay.data.decode('utf-8')
+        mock_register.assert_not_called()
+
+
+def test_db_service_blocks_rejected_invoice_payment():
+    """Verifica que DatabaseService.register_invoice_payment lance ValueError si dgiiStatus es REJECTED."""
+    mock_doc = MagicMock()
+    mock_doc.exists = True
+    mock_doc.to_dict.return_value = {
+        "status": "Emitida",
+        "netPayable": 5000.0,
+        "remainingBalance": 5000.0,
+        "totalPaid": 0.0,
+        "dgiiStatus": "REJECTED"
+    }
+
+    with patch('app.services.db_service.firebase_initialized', True), \
+         patch('app.services.db_service._company_coll') as mock_coll:
+        mock_coll.return_value.document.return_value.get.return_value = mock_doc
+
+        import pytest
+        with pytest.raises(ValueError, match="rechazado por la DGII"):
+            DatabaseService.register_invoice_payment(
+                "owner-1", "inv-1", {"amount": 1000.0, "paymentMethod": "Efectivo"}, sandbox=True
+            )
+

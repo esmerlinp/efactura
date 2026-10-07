@@ -3520,6 +3520,11 @@ class DatabaseService:
                 raise ValueError("Factura no encontrada.")
             
             inv_data = inv_doc.to_dict()
+            if inv_data.get("dgiiStatus") in ["REJECTED", "RECHAZADO"]:
+                raise ValueError("No se puede registrar pagos a una factura cuyo comprobante fiscal fue rechazado por la DGII.")
+            if inv_data.get("status") == "Anulada":
+                raise ValueError("No se puede registrar pagos a una factura anulada.")
+
             net_payable = float(inv_data.get("netPayable", 0.0))
             
             # Si totalPaid o remainingBalance no existen en Firestore para esta factura antigua, inicializarlos con fallbacks

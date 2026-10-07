@@ -341,7 +341,8 @@ def new_bank_receipt(account_id):
     invoices = [inv for inv in DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
                 if inv.get('status') in ('Emitida', 'Parcialmente Cobrada', 'Vencida')
                 and inv.get('remainingBalance', 0) > 0
-                and not inv.get('isQuotation')]
+                and not inv.get('isQuotation')
+                and inv.get('dgiiStatus') not in ('REJECTED', 'RECHAZADO')]
 
     if request.method == 'POST':
         invoice_id = request.form.get('invoiceId', '')
