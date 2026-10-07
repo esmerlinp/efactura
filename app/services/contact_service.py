@@ -187,7 +187,8 @@ class ContactService:
             docs = _coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).get()
             for doc in docs:
                 c = _build_contact_from_doc(doc, owner_uid)
-                contacts.append(c)
+                if not c.get("isDeleted", False):
+                    contacts.append(c)
         except Exception as e:
             print(f"⚠️ Error al obtener contactos: {e}")
 
@@ -201,7 +202,10 @@ class ContactService:
         try:
             doc = _coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).document(contact_id).get()
             if doc.exists:
-                return _build_contact_from_doc(doc, owner_uid)
+                c = _build_contact_from_doc(doc, owner_uid)
+                if c.get("isDeleted", False):
+                    return None
+                return c
         except Exception as e:
             print(f"⚠️ Error al obtener contacto {contact_id}: {e}")
 
@@ -230,22 +234,33 @@ class ContactService:
             except Exception as e:
                 print(f"⚠️ Error al guardar contacto en Firestore: {e}")
 
+        _sync_to_legacy_clients(owner_uid=owner_uid, contact=contact_dict, sandbox=sandbox, company_id=company_id)
         _sync_to_legacy_suppliers(owner_uid=owner_uid, contact=contact_dict, sandbox=sandbox, company_id=company_id)
 
         return contact_dict
 
     @classmethod
-    def delete_contact(cls, owner_uid=None, contact_id=None, sandbox=True, company_id=None):
+    def delete_contact(cls, owner_uid=None, contact_id=None, sandbox=True, company_id=None, deleted_by=""):
+        """Eliminación segura (Soft Delete CRM-08) preservando documentos fiscales."""
         contact = cls.get_contact(owner_uid=owner_uid, contact_id=contact_id, sandbox=sandbox, company_id=company_id)
-        if contact:
-            _delete_from_legacy_clients(owner_uid=owner_uid, contact_id=contact_id, sandbox=sandbox, company_id=company_id)
-            _delete_from_legacy_suppliers(owner_uid=owner_uid, contact_id=contact_id, sandbox=sandbox, company_id=company_id)
+        if not contact:
+            return False
+
+        contact["isDeleted"] = True
+        contact["deletedAt"] = datetime.now(timezone.utc).isoformat()
+        contact["deletedBy"] = deleted_by or "Sistema"
+        contact["estado"] = "Inactivo"
 
         if firebase_initialized and db_firestore is not None:
             try:
-                _coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).document(contact_id).delete()
+                _coll_ref(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id).document(contact_id).set(contact)
             except Exception as e:
-                print(f"⚠️ Error al eliminar contacto {contact_id}: {e}")
+                print(f"⚠️ Error al realizar soft delete de contacto {contact_id}: {e}")
+                return False
+
+        _delete_from_legacy_clients(owner_uid=owner_uid, contact_id=contact_id, sandbox=sandbox, company_id=company_id)
+        _delete_from_legacy_suppliers(owner_uid=owner_uid, contact_id=contact_id, sandbox=sandbox, company_id=company_id)
+        return True
 
     @classmethod
     def get_contact_by_rnc(cls, owner_uid=None, rnc=None, sandbox=True, company_id=None):
