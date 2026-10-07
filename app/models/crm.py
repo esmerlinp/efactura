@@ -83,6 +83,7 @@ class CRMOpportunity(BaseModel):
     invoiceNumber: str = ""
     invoices: list[dict] = Field(default_factory=list)
     lostReason: str = ""
+    stageHistory: list[dict] = Field(default_factory=list)
     notes: str = ""
     isDeleted: bool = False
     deletedAt: str = ""
