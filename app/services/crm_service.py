@@ -422,6 +422,18 @@ class CRMService:
         if notes:
             opp["notes"] = f"{opp.get('notes', '')}\n[{_now_iso()[:10]} - {user_name}]: {notes}".strip()
 
+        # Auditoría de cambio de etapa (CRM-17)
+        history = list(opp.get("stageHistory") or [])
+        history.append({
+            "from": current_stage,
+            "to": target_stage,
+            "by": user_name or "Sistema",
+            "timestamp": _now_iso(),
+            "lostReason": opp.get("lostReason", ""),
+            "notes": notes or "",
+        })
+        opp["stageHistory"] = history
+
         saved = cls.save_opportunity(owner_uid, opportunity_id, opp, sandbox=sandbox, company_id=company_id)
 
         # Registrar interacción en el contacto
@@ -567,6 +579,31 @@ class CRMService:
             updated_count += 1
 
         return updated_count
+
+    @classmethod
+    def link_quotation_to_opportunity(
+        cls,
+        owner_uid,
+        quotation_id,
+        quotation_number="",
+        opportunity_id=None,
+        amount=0.0,
+        sandbox=True,
+        company_id=None,
+    ):
+        """Sincroniza cotización creada o actualizada con la oportunidad correspondiente (CRM-18)."""
+        company_id = _require_company_id(company_id)
+        if not opportunity_id or not quotation_id:
+            return None
+        opp = cls.get_opportunity(owner_uid, opportunity_id, sandbox=sandbox, company_id=company_id)
+        if not opp:
+            return None
+        opp["quotationId"] = quotation_id
+        opp["quotationNumber"] = quotation_number or opp.get("quotationNumber", "")
+        if amount and amount > 0:
+            opp["amount"] = _safe_float(amount)
+        saved = cls.save_opportunity(owner_uid, opportunity_id, opp, sandbox=sandbox, company_id=company_id)
+        return saved
 
     @classmethod
     def mark_contact_opportunities_won(cls, owner_uid, contact_id, invoice_id="", invoice_number="", sandbox=True, company_id=None):
@@ -1122,6 +1159,7 @@ class CRMService:
         data["expectedCloseDate"] = _date_key(data.get("expectedCloseDate"))
         data["invoices"] = data.get("invoices") or []
         data["lostReason"] = data.get("lostReason", "")
+        data["stageHistory"] = data.get("stageHistory") or []
         data["isDeleted"] = bool(data.get("isDeleted", False))
         data["deletedAt"] = data.get("deletedAt", "")
         data["deletedBy"] = data.get("deletedBy", "")
