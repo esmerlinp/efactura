@@ -332,24 +332,75 @@ class CRMService:
         return True, "Oportunidad cerrada correctamente."
 
     @classmethod
-    def mark_contact_opportunities_won(cls, owner_uid, contact_id, invoice_id="", invoice_number="", sandbox=True, company_id=None):
+    def link_invoice_to_opportunity(
+        cls,
+        owner_uid,
+        invoice_id,
+        invoice_number="",
+        opportunity_id=None,
+        quotation_id=None,
+        converted_from_quotation_id=None,
+        sandbox=True,
+        company_id=None,
+        total_amount=0.0,
+    ):
+        """
+        Vincula una factura emitida/cobrada a la oportunidad específica correspondiente.
+        Si la factura no cuenta con opportunityId ni quotationId, no altera ninguna oportunidad.
+        Registra la factura en el historial `invoices` de la oportunidad para soportar múltiples facturas.
+        """
         company_id = _require_company_id(company_id)
-        if not contact_id:
+        if not invoice_id:
             return 0
-        open_opportunities = cls.get_opportunities(owner_uid, sandbox=sandbox, company_id=company_id, include_closed=False, contact_id=contact_id)
-        updated = 0
-        for opportunity in open_opportunities:
-            if opportunity.get("stage") == "Perdida":
-                continue
-            opportunity["stage"] = "Ganada"
-            opportunity["status"] = "ganada"
-            opportunity["invoiceId"] = invoice_id or opportunity.get("invoiceId", "")
-            opportunity["invoiceNumber"] = invoice_number or opportunity.get("invoiceNumber", "")
-            opportunity["closedAt"] = _now_iso()
-            cls.save_opportunity(owner_uid, opportunity["id"], opportunity, sandbox=sandbox, company_id=company_id)
-            cls._record_opportunity_interaction(owner_uid, opportunity, sandbox=sandbox, company_id=company_id)
-            updated += 1
-        return updated
+
+        target_opportunities = []
+        if opportunity_id:
+            opp = cls.get_opportunity(owner_uid, opportunity_id, sandbox=sandbox, company_id=company_id)
+            if opp:
+                target_opportunities.append(opp)
+        elif quotation_id or converted_from_quotation_id:
+            qid = quotation_id or converted_from_quotation_id
+            all_opps = cls.get_opportunities(owner_uid, sandbox=sandbox, company_id=company_id, include_closed=True)
+            for opp in all_opps:
+                if opp.get("quotationId") == qid or (opp.get("quotationNumber") and opp.get("quotationNumber") == qid):
+                    target_opportunities.append(opp)
+
+        if not target_opportunities:
+            return 0
+
+        updated_count = 0
+        for opp in target_opportunities:
+            opp["stage"] = "Ganada"
+            opp["status"] = "ganada"
+            opp["invoiceId"] = invoice_id
+            opp["invoiceNumber"] = invoice_number or opp.get("invoiceNumber", "")
+            if not opp.get("closedAt"):
+                opp["closedAt"] = _now_iso()
+
+            invoices_list = opp.get("invoices") or []
+            if not isinstance(invoices_list, list):
+                invoices_list = []
+
+            existing_entry = next((item for item in invoices_list if isinstance(item, dict) and item.get("id") == invoice_id), None)
+            if not existing_entry:
+                invoices_list.append({
+                    "id": invoice_id,
+                    "number": invoice_number or "",
+                    "amount": _safe_float(total_amount),
+                    "linkedAt": _now_iso(),
+                })
+            opp["invoices"] = invoices_list
+
+            saved = cls.save_opportunity(owner_uid, opp["id"], opp, sandbox=sandbox, company_id=company_id)
+            cls._record_opportunity_interaction(owner_uid, saved, sandbox=sandbox, company_id=company_id)
+            updated_count += 1
+
+        return updated_count
+
+    @classmethod
+    def mark_contact_opportunities_won(cls, owner_uid, contact_id, invoice_id="", invoice_number="", sandbox=True, company_id=None):
+        """DEPRECATED: Usar link_invoice_to_opportunity en su lugar."""
+        return 0
 
     @classmethod
     def get_activity(cls, owner_uid, activity_id, sandbox=True, company_id=None):
