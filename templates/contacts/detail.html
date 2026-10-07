@@ -143,16 +143,24 @@
 </div>
 {% endif %}
 
-<!-- STATS ROW -->
-<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:16px; margin-bottom:24px;">
+<!-- STATS ROW (CRM-05 / CRM-06 360 Metrics) -->
+<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:16px; margin-bottom:24px;">
     {% if is_client %}
     <div class="card-segment" style="padding:16px; text-align:center;">
         <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary); margin-bottom:6px;">Total Facturado</div>
-        <div style="font-size:1.3rem; font-weight:700; color:var(--accent-emerald);">RD$ {{ contact.get('total_invoiced', 0)|round(2) }}</div>
+        <div style="font-size:1.3rem; font-weight:700; color:var(--accent-emerald);">RD$ {{ (crm_metrics.totalInvoiced if crm_metrics and crm_metrics.totalInvoiced is defined else contact.get('total_invoiced', 0))|round(2) }}</div>
     </div>
     <div class="card-segment" style="padding:16px; text-align:center;">
         <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary); margin-bottom:6px;">Pendiente CxC</div>
-        <div style="font-size:1.3rem; font-weight:700; color:var(--accent-amber);">RD$ {{ contact.get('total_cxc', 0)|round(2) }}</div>
+        <div style="font-size:1.3rem; font-weight:700; color:var(--accent-amber);">RD$ {{ (crm_metrics.totalCxc if crm_metrics and crm_metrics.totalCxc is defined else contact.get('total_cxc', 0))|round(2) }}</div>
+    </div>
+    <div class="card-segment" style="padding:16px; text-align:center;">
+        <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary); margin-bottom:6px;">Ops. Abiertas</div>
+        <div style="font-size:1.3rem; font-weight:700; color:var(--color-primary, #2563eb);">{{ (crm_metrics.openOpportunities if crm_metrics and crm_metrics.openOpportunities is defined else opportunities|selectattr('status', 'equalto', 'abierta')|list|length) }}</div>
+    </div>
+    <div class="card-segment" style="padding:16px; text-align:center;">
+        <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary); margin-bottom:6px;">Actividades Pend.</div>
+        <div style="font-size:1.3rem; font-weight:700; color:var(--accent-purple, #7c3aed);">{{ (crm_metrics.pendingActivities if crm_metrics and crm_metrics.pendingActivities is defined else activities|selectattr('status', 'equalto', 'pendiente')|list|length) }}</div>
     </div>
     {% endif %}
     {% if is_supplier %}
@@ -171,24 +179,33 @@
     </div>
 </div>
 
-<!-- TABS -->
-<div style="display:flex; gap:0; margin-bottom:20px; border-bottom:2px solid var(--border-color);">
-    <a href="#tab-resumen" class="detail-tab active" onclick="switchTab(event, 'resumen')" style="padding:10px 20px; cursor:pointer; border:none; background:none; font-size:0.9rem; color:var(--accent-emerald); border-bottom:2px solid var(--accent-emerald); margin-bottom:-2px; font-weight:600; font-family:var(--font-heading); text-decoration:none;">
-        <i class="fa-solid fa-chart-pie"></i> Resumen
+<!-- TABS (CRM 360 Navegación) -->
+<div style="display:flex; gap:0; margin-bottom:20px; border-bottom:2px solid var(--border-color); overflow-x:auto;">
+    <a href="#tab-resumen" class="detail-tab active" onclick="switchTab(event, 'resumen')" style="padding:10px 18px; cursor:pointer; border:none; background:none; font-size:0.88rem; color:var(--accent-emerald); border-bottom:2px solid var(--accent-emerald); margin-bottom:-2px; font-weight:600; font-family:var(--font-heading); text-decoration:none; white-space:nowrap;">
+        <i class="fa-solid fa-circle-info"></i> Resumen
     </a>
-    <a href="#tab-interacciones" class="detail-tab" onclick="switchTab(event, 'interacciones')" style="padding:10px 20px; cursor:pointer; border:none; background:none; font-size:0.9rem; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px; font-family:var(--font-heading); text-decoration:none;">
-        <i class="fa-solid fa-comments"></i> Interacciones ({{ interactions|length }})
+    <a href="#tab-timeline" class="detail-tab" onclick="switchTab(event, 'timeline')" style="padding:10px 18px; cursor:pointer; border:none; background:none; font-size:0.88rem; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px; font-family:var(--font-heading); text-decoration:none; white-space:nowrap;">
+        <i class="fa-solid fa-clock-rotate-left"></i> Timeline 360 ({{ (timeline|length) if timeline is defined else (interactions|length) }})
     </a>
     {% if is_client %}
-    <a href="#tab-facturas" class="detail-tab" onclick="switchTab(event, 'facturas')" style="padding:10px 20px; cursor:pointer; border:none; background:none; font-size:0.9rem; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px; font-family:var(--font-heading); text-decoration:none;">
+    <a href="#tab-oportunidades" class="detail-tab" onclick="switchTab(event, 'oportunidades')" style="padding:10px 18px; cursor:pointer; border:none; background:none; font-size:0.88rem; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px; font-family:var(--font-heading); text-decoration:none; white-space:nowrap;">
+        <i class="fa-solid fa-bullseye"></i> Oportunidades ({{ (opportunities|length) if opportunities is defined else 0 }})
+    </a>
+    <a href="#tab-actividades" class="detail-tab" onclick="switchTab(event, 'actividades')" style="padding:10px 18px; cursor:pointer; border:none; background:none; font-size:0.88rem; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px; font-family:var(--font-heading); text-decoration:none; white-space:nowrap;">
+        <i class="fa-solid fa-calendar-check"></i> Actividades ({{ (activities|length) if activities is defined else 0 }})
+    </a>
+    <a href="#tab-cotizaciones" class="detail-tab" onclick="switchTab(event, 'cotizaciones')" style="padding:10px 18px; cursor:pointer; border:none; background:none; font-size:0.88rem; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px; font-family:var(--font-heading); text-decoration:none; white-space:nowrap;">
+        <i class="fa-solid fa-file-signature"></i> Cotizaciones ({{ (quotations|length) if quotations is defined else 0 }})
+    </a>
+    <a href="#tab-facturas" class="detail-tab" onclick="switchTab(event, 'facturas')" style="padding:10px 18px; cursor:pointer; border:none; background:none; font-size:0.88rem; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px; font-family:var(--font-heading); text-decoration:none; white-space:nowrap;">
         <i class="fa-solid fa-file-invoice"></i> Facturas ({{ invoices|length }})
     </a>
-    <a href="#tab-pagos" class="detail-tab" onclick="switchTab(event, 'pagos')" style="padding:10px 20px; cursor:pointer; border:none; background:none; font-size:0.9rem; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px; font-family:var(--font-heading); text-decoration:none;">
+    <a href="#tab-pagos" class="detail-tab" onclick="switchTab(event, 'pagos')" style="padding:10px 18px; cursor:pointer; border:none; background:none; font-size:0.88rem; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px; font-family:var(--font-heading); text-decoration:none; white-space:nowrap;">
         <i class="fa-solid fa-money-bill-wave"></i> Pagos ({{ payments|length }})
     </a>
     {% endif %}
     {% if is_supplier %}
-    <a href="#tab-gastos" class="detail-tab" onclick="switchTab(event, 'gastos')" style="padding:10px 20px; cursor:pointer; border:none; background:none; font-size:0.9rem; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px; font-family:var(--font-heading); text-decoration:none;">
+    <a href="#tab-gastos" class="detail-tab" onclick="switchTab(event, 'gastos')" style="padding:10px 18px; cursor:pointer; border:none; background:none; font-size:0.88rem; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px; font-family:var(--font-heading); text-decoration:none; white-space:nowrap;">
         <i class="fa-solid fa-receipt"></i> Gastos ({{ expenses|length }})
     </a>
     {% endif %}
@@ -446,6 +463,211 @@
         <div style="padding:40px; text-align:center; color:var(--text-secondary);">
             <i class="fa-solid fa-receipt" style="font-size:2rem; display:block; margin-bottom:12px; opacity:0.4;"></i>
             No hay gastos asociados a este proveedor.
+        </div>
+        {% endif %}
+<!-- TAB: TIMELINE 360 (CRM-05 / CRM-06) -->
+<div id="tab-timeline" class="tab-content" style="display:none;">
+    <div class="card-segment" style="margin-bottom:20px;">
+        <div class="segment-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <span><i class="fa-solid fa-clock-rotate-left"></i> Timeline Comercial 360</span>
+            <div style="display:flex; gap:8px;">
+                <a href="{{ url_for('web_crm.opportunity_new', contact_id=contact.id) }}" class="btn btn-xs btn-accent">
+                    <i class="fa-solid fa-plus"></i> Oportunidad
+                </a>
+                <a href="{{ url_for('web_crm.activity_new', contact_id=contact.id) }}" class="btn btn-xs btn-secondary">
+                    <i class="fa-solid fa-calendar-plus"></i> Actividad
+                </a>
+            </div>
+        </div>
+        {% if timeline %}
+        <div style="padding:16px;">
+            {% for item in timeline %}
+            <div style="padding:14px; border-left:3px solid {% if item.type == 'invoice' %}var(--accent-emerald){% elif item.type == 'activity_completed' %}var(--color-primary, #2563eb){% else %}var(--accent-purple, #7c3aed){% endif %}; margin-bottom:12px; background:rgba(0,0,0,0.01); border-radius:0 var(--radius-sm) var(--radius-sm) 0;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+                    <div style="flex:1;">
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <span class="badge {% if item.type == 'invoice' %}badge-success{% elif item.type == 'activity_completed' %}badge-primary{% else %}badge-info{% endif %}" style="font-size:0.75rem;">
+                                {{ item.subtype or item.type }}
+                            </span>
+                            <span style="font-size:0.75rem; color:var(--text-muted);">{{ item.date }}</span>
+                            <span style="font-size:0.75rem; color:var(--text-secondary);"><i class="fa-solid fa-user"></i> {{ item.user }}</span>
+                        </div>
+                        <div style="margin-top:6px; font-weight:700; font-size:0.9rem; color:var(--text-primary);">{{ item.title }}</div>
+                        {% if item.content %}
+                        <div style="margin-top:4px; font-size:0.85rem; color:var(--text-secondary); white-space:pre-wrap;">{{ item.content }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="padding:40px; text-align:center; color:var(--text-secondary);">
+            <i class="fa-solid fa-timeline" style="font-size:2rem; display:block; margin-bottom:12px; opacity:0.4;"></i>
+            No hay eventos registrados en el timeline de este contacto.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- TAB: OPORTUNIDADES (CRM-05 / CRM-06) -->
+{% if is_client %}
+<div id="tab-oportunidades" class="tab-content" style="display:none;">
+    <div class="card-segment">
+        <div class="segment-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <span><i class="fa-solid fa-bullseye"></i> Oportunidades Comerciales ({{ opportunities|length }})</span>
+            <a href="{{ url_for('web_crm.opportunity_new', contact_id=contact.id) }}" class="btn btn-xs btn-primary">
+                <i class="fa-solid fa-plus"></i> Nueva Oportunidad
+            </a>
+        </div>
+        {% if opportunities %}
+        <div class="table-responsive">
+            <table class="data-grid" style="width:100%;">
+                <thead>
+                    <tr>
+                        <th>Título</th>
+                        <th>Etapa</th>
+                        <th>Monto</th>
+                        <th>Probabilidad</th>
+                        <th>Cierre Estimado</th>
+                        <th>Responsable</th>
+                        <th style="text-align:right;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for opp in opportunities %}
+                    <tr>
+                        <td>
+                            <strong>{{ opp.title }}</strong>
+                            {% if opp.lostReason %}<div style="font-size:0.75rem; color:var(--danger);">Motivo: {{ opp.lostReason }}</div>{% endif %}
+                        </td>
+                        <td>
+                            <span class="badge {% if opp.stage == 'Ganada' %}badge-success{% elif opp.stage == 'Perdida' %}badge-danger{% else %}badge-info{% endif %}">
+                                {{ opp.stage }}
+                            </span>
+                        </td>
+                        <td><strong>RD$ {{ "{:,.2f}".format(opp.amount) }}</strong></td>
+                        <td>{{ opp.probability }}%</td>
+                        <td>{{ opp.expectedCloseDate or '—' }}</td>
+                        <td>{{ opp.assignedToName or '—' }}</td>
+                        <td style="text-align:right;">
+                            <a href="{{ url_for('web_crm.opportunity_edit', opportunity_id=opp.id) }}" class="btn btn-xs btn-secondary">Editar</a>
+                            <a href="{{ url_for('web_crm.activity_new', contact_id=contact.id, opportunity_id=opp.id) }}" class="btn btn-xs btn-outline-secondary">Actividad</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="padding:40px; text-align:center; color:var(--text-secondary);">
+            <i class="fa-solid fa-bullseye" style="font-size:2rem; display:block; margin-bottom:12px; opacity:0.4;"></i>
+            No hay oportunidades registradas para este contacto.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- TAB: ACTIVIDADES (CRM-05 / CRM-06) -->
+<div id="tab-actividades" class="tab-content" style="display:none;">
+    <div class="card-segment">
+        <div class="segment-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <span><i class="fa-solid fa-calendar-check"></i> Actividades y Tareas CRM ({{ activities|length }})</span>
+            <a href="{{ url_for('web_crm.activity_new', contact_id=contact.id) }}" class="btn btn-xs btn-primary">
+                <i class="fa-solid fa-calendar-plus"></i> Agendar Actividad
+            </a>
+        </div>
+        {% if activities %}
+        <div class="table-responsive">
+            <table class="data-grid" style="width:100%;">
+                <thead>
+                    <tr>
+                        <th>Tipo</th>
+                        <th>Título</th>
+                        <th>Vencimiento</th>
+                        <th>Prioridad</th>
+                        <th>Estado</th>
+                        <th>Asignado</th>
+                        <th style="text-align:right;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for act in activities %}
+                    <tr>
+                        <td><span class="badge badge-secondary">{{ act.type }}</span></td>
+                        <td>
+                            <strong>{{ act.title }}</strong>
+                            {% if act.opportunityTitle %}<div style="font-size:0.75rem; color:var(--text-muted);">Op: {{ act.opportunityTitle }}</div>{% endif %}
+                        </td>
+                        <td>{{ act.dueDate or '—' }}</td>
+                        <td>
+                            <span class="badge {% if act.priority == 'urgente' %}badge-danger{% elif act.priority == 'alta' %}badge-warning{% else %}badge-info{% endif %}">
+                                {{ act.priority }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge {% if act.status == 'completada' %}badge-success{% elif act.status == 'cancelada' %}badge-secondary{% else %}badge-warning{% endif %}">
+                                {{ act.status }}
+                            </span>
+                        </td>
+                        <td>{{ act.assignedToName or '—' }}</td>
+                        <td style="text-align:right;">
+                            {% if act.status == 'pendiente' %}
+                            <form method="POST" action="{{ url_for('web_crm.activity_complete', activity_id=act.id) }}" style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-xs btn-success" title="Completar"><i class="fa-solid fa-check"></i></button>
+                            </form>
+                            {% endif %}
+                            <a href="{{ url_for('web_crm.activity_edit', activity_id=act.id) }}" class="btn btn-xs btn-secondary">Editar</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="padding:40px; text-align:center; color:var(--text-secondary);">
+            <i class="fa-solid fa-calendar-check" style="font-size:2rem; display:block; margin-bottom:12px; opacity:0.4;"></i>
+            No hay actividades asignadas a este contacto.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- TAB: COTIZACIONES (CRM-05 / CRM-06) -->
+<div id="tab-cotizaciones" class="tab-content" style="display:none;">
+    <div class="card-segment">
+        <div class="segment-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <span><i class="fa-solid fa-file-signature"></i> Cotizaciones Emitidas ({{ quotations|length }})</span>
+            <a href="{{ url_for('web_quotations.quotation_new', client_id=contact.id) if 'web_quotations.quotation_new' in url_for.__globals__.get('current_app', {}).view_functions|default({}) else '#' }}" class="btn btn-xs btn-primary">
+                <i class="fa-solid fa-plus"></i> Nueva Cotización
+            </a>
+        </div>
+        {% if quotations %}
+        <table style="width:100%; border-collapse:collapse;">
+            <thead>
+                <tr>
+                    <th style="text-align:left; padding:10px 16px; border-bottom:2px solid var(--border-color); font-size:0.75rem; text-transform:uppercase; color:var(--text-secondary);">Cotización</th>
+                    <th style="text-align:left; padding:10px 16px; border-bottom:2px solid var(--border-color); font-size:0.75rem; text-transform:uppercase; color:var(--text-secondary);">Fecha</th>
+                    <th style="text-align:left; padding:10px 16px; border-bottom:2px solid var(--border-color); font-size:0.75rem; text-transform:uppercase; color:var(--text-secondary);">Estado</th>
+                    <th style="text-align:right; padding:10px 16px; border-bottom:2px solid var(--border-color); font-size:0.75rem; text-transform:uppercase; color:var(--text-secondary);">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cot in quotations %}
+                <tr style="border-bottom:1px solid var(--border-color);">
+                    <td style="padding:10px 16px; font-family:monospace; font-size:0.85rem;">{{ cot.invoiceNumber or cot.id[:8] }}</td>
+                    <td style="padding:10px 16px; font-size:0.85rem;">{{ cot.date[:10] if cot.date else '—' }}</td>
+                    <td style="padding:10px 16px;"><span class="badge badge-info">{{ cot.status }}</span></td>
+                    <td style="padding:10px 16px; text-align:right; font-size:0.85rem;">RD$ {{ "{:,.2f}".format(cot.total) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="padding:40px; text-align:center; color:var(--text-secondary);">
+            <i class="fa-solid fa-file-signature" style="font-size:2rem; display:block; margin-bottom:12px; opacity:0.4;"></i>
+            No hay cotizaciones para este cliente.
         </div>
         {% endif %}
     </div>
