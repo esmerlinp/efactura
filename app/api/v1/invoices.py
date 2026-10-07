@@ -136,23 +136,48 @@ def emit_invoice():
         payment_method = data.get('payment_method', 'Efectivo')
         due_date = data.get('due_date', datetime.now(timezone.utc).strftime("%Y-%m-%d"))
         
-        # Cálculo fiscal completo (DGII)
+        # Cálculo fiscal completo (DGII) y resolución de catálogo
+        catalog = DatabaseService.get_items(g.owner_uid, company_id=g.company_id, sandbox=g.sandbox_mode) or []
+        catalog_by_id = {it["id"]: it for it in catalog if it.get("id")}
+        catalog_by_code = {str(it["code"]).strip().lower(): it for it in catalog if it.get("code")}
+        catalog_by_name = {str(it["name"]).strip().lower(): it for it in catalog if it.get("name")}
+
         parsed_items = []
         for index, item in enumerate(items):
             price = float(item.get('price', 0.0))
             qty = float(item.get('quantity', 1.0))
             itbis_rate = float(item.get('itbis_rate', item.get('itbisRate', 0.18)))
+            raw_id = str(item.get('id') or item.get('item_id') or item.get('itemId') or item.get('catalog_id') or item.get('catalogId') or '').strip()
+            raw_code = str(item.get('code') or '').strip()
+            raw_name = str(item.get('name') or 'Artículo Genérico').strip()
+
+            matched = None
+            if raw_id and raw_id in catalog_by_id:
+                matched = catalog_by_id[raw_id]
+            elif raw_code and raw_code.lower() in catalog_by_code:
+                matched = catalog_by_code[raw_code.lower()]
+            elif raw_name and raw_name.lower() in catalog_by_name:
+                matched = catalog_by_name[raw_name.lower()]
+
+            resolved_id = matched["id"] if matched else (raw_id or f"api_item_{index}")
+            resolved_code = matched.get("code", "") if matched else raw_code
+            resolved_type = matched.get("type", item.get('type', 'Bien')) if matched else item.get('type', 'Bien')
+            resolved_name = matched.get("name", raw_name) if matched else raw_name
+            resolved_unit = matched.get("unit", item.get('unit', 'Unidad')) if matched else item.get('unit', 'Unidad')
+
             parsed_items.append({
-                "id": item.get('id') or item.get('item_id') or f"api_item_{index}",
-                "code": item.get('code', ''),
-                "type": item.get('type', 'Bien'),
-                "name": item.get('name', 'Artículo Genérico'),
+                "id": resolved_id,
+                "catalogId": matched["id"] if matched else raw_id,
+                "itemId": matched["id"] if matched else raw_id,
+                "code": resolved_code,
+                "type": resolved_type,
+                "name": resolved_name,
                 "price": price,
                 "quantity": qty,
-                "unit": item.get('unit', 'Unidad'),
+                "unit": resolved_unit,
                 "itbisRate": itbis_rate,
                 "discountRate": float(item.get('discount_rate', item.get('discountRate', 0.0))),
-                "codigoImpuesto": item.get('codigo_impuesto', item.get('codigoImpuesto', '')),
+                "codigoImpuesto": item.get('codigo_impuesto', item.get('codigoImpuesto', '')) or (matched.get('codigoImpuesto', '') if matched else ''),
                 "tasaImpuestoAdicional": float(item.get('tasa_impuesto_adicional', item.get('tasaImpuestoAdicional', 0.0))),
                 "gradosAlcohol": float(item.get('grados_alcohol', item.get('gradosAlcohol', 0.0))),
                 "cantidadReferencia": float(item.get('cantidad_referencia', item.get('cantidadReferencia', 0.0))),
@@ -765,18 +790,45 @@ def create_draft_invoice():
         retained_isr_rate = float(data.get('retained_isr_rate', 0.0))
         retained_itbis_rate = float(data.get('retained_itbis_rate', 0.0))
         
+        # Resolución contra el catálogo de productos
+        catalog = DatabaseService.get_items(g.owner_uid, company_id=g.company_id, sandbox=g.sandbox_mode) or []
+        catalog_by_id = {it["id"]: it for it in catalog if it.get("id")}
+        catalog_by_code = {str(it["code"]).strip().lower(): it for it in catalog if it.get("code")}
+        catalog_by_name = {str(it["name"]).strip().lower(): it for it in catalog if it.get("name")}
+
         formatted_items = []
         for index, item in enumerate(items):
+            raw_id = str(item.get('id') or item.get('itemId') or item.get('item_id') or item.get('catalog_id') or item.get('catalogId') or '').strip()
+            raw_code = str(item.get('code') or '').strip()
+            raw_name = str(item.get('name') or 'Artículo').strip()
+
+            matched = None
+            if raw_id and raw_id in catalog_by_id:
+                matched = catalog_by_id[raw_id]
+            elif raw_code and raw_code.lower() in catalog_by_code:
+                matched = catalog_by_code[raw_code.lower()]
+            elif raw_name and raw_name.lower() in catalog_by_name:
+                matched = catalog_by_name[raw_name.lower()]
+
+            resolved_id = matched["id"] if matched else (raw_id or f"item_{index}")
+            resolved_code = matched.get("code", "") if matched else raw_code
+            resolved_type = matched.get("type", item.get('type', 'Bien')) if matched else item.get('type', 'Bien')
+            resolved_name = matched.get("name", raw_name) if matched else raw_name
+            resolved_unit = matched.get("unit", item.get('unit', 'Unidad')) if matched else item.get('unit', 'Unidad')
+
             formatted_items.append({
-                "id": item.get('id', f"item_{index}"),
-                "code": item.get('code', ''),
-                "type": item.get('type', 'Bien'),
-                "name": item.get('name', 'Artículo'),
+                "id": resolved_id,
+                "catalogId": matched["id"] if matched else raw_id,
+                "itemId": matched["id"] if matched else raw_id,
+                "code": resolved_code,
+                "type": resolved_type,
+                "name": resolved_name,
                 "price": float(item.get('price', 0.0)),
                 "quantity": float(item.get('quantity', 1.0)),
+                "unit": resolved_unit,
                 "itbisRate": float(item.get('itbis_rate', item.get('itbisRate', 0.18))),
-                "discountRate": float(item.get('discountRate', 0.0)),
-                "codigoImpuesto": item.get('codigoImpuesto', ''),
+                "discountRate": float(item.get('discountRate', item.get('discount_rate', 0.0))),
+                "codigoImpuesto": item.get('codigoImpuesto', item.get('codigo_impuesto', '')) or (matched.get('codigoImpuesto', '') if matched else ''),
                 "tasaImpuestoAdicional": float(item.get('tasaImpuestoAdicional', 0.0)),
                 "gradosAlcohol": float(item.get('gradosAlcohol', 0.0)),
                 "cantidadReferencia": float(item.get('cantidadReferencia', 0.0)),
@@ -949,18 +1001,44 @@ def update_invoice(invoice_id):
         retained_isr_rate = float(data.get('retained_isr_rate', invoice.get('retainedISR', 0.0)))
         retained_itbis_rate = float(data.get('retained_itbis_rate', invoice.get('retainedITBIS', 0.0)))
         
+        catalog = DatabaseService.get_items(g.owner_uid, company_id=g.company_id, sandbox=g.sandbox_mode) or []
+        catalog_by_id = {it["id"]: it for it in catalog if it.get("id")}
+        catalog_by_code = {str(it["code"]).strip().lower(): it for it in catalog if it.get("code")}
+        catalog_by_name = {str(it["name"]).strip().lower(): it for it in catalog if it.get("name")}
+
         formatted_items = []
         for index, item in enumerate(items):
+            raw_id = str(item.get('id') or item.get('itemId') or item.get('item_id') or item.get('catalog_id') or item.get('catalogId') or '').strip()
+            raw_code = str(item.get('code') or '').strip()
+            raw_name = str(item.get('name') or 'Artículo').strip()
+
+            matched = None
+            if raw_id and raw_id in catalog_by_id:
+                matched = catalog_by_id[raw_id]
+            elif raw_code and raw_code.lower() in catalog_by_code:
+                matched = catalog_by_code[raw_code.lower()]
+            elif raw_name and raw_name.lower() in catalog_by_name:
+                matched = catalog_by_name[raw_name.lower()]
+
+            resolved_id = matched["id"] if matched else (raw_id or f"item_{index}")
+            resolved_code = matched.get("code", "") if matched else raw_code
+            resolved_type = matched.get("type", item.get('type', 'Bien')) if matched else item.get('type', 'Bien')
+            resolved_name = matched.get("name", raw_name) if matched else raw_name
+            resolved_unit = matched.get("unit", item.get('unit', 'Unidad')) if matched else item.get('unit', 'Unidad')
+
             formatted_items.append({
-                "id": item.get('id', item.get('itemId', f"item_{index}")),
-                "code": item.get('code', ''),
-                "type": item.get('type', 'Bien'),
-                "name": item.get('name', 'Artículo'),
+                "id": resolved_id,
+                "catalogId": matched["id"] if matched else raw_id,
+                "itemId": matched["id"] if matched else raw_id,
+                "code": resolved_code,
+                "type": resolved_type,
+                "name": resolved_name,
                 "price": float(item.get('price', 0.0)),
                 "quantity": float(item.get('quantity', 1.0)),
+                "unit": resolved_unit,
                 "itbisRate": float(item.get('itbisRate', item.get('itbis_rate', 0.18))),
-                "discountRate": float(item.get('discountRate', 0.0)),
-                "codigoImpuesto": item.get('codigoImpuesto', ''),
+                "discountRate": float(item.get('discountRate', item.get('discount_rate', 0.0))),
+                "codigoImpuesto": item.get('codigoImpuesto', item.get('codigo_impuesto', '')) or (matched.get('codigoImpuesto', '') if matched else ''),
                 "tasaImpuestoAdicional": float(item.get('tasaImpuestoAdicional', 0.0)),
                 "gradosAlcohol": float(item.get('gradosAlcohol', 0.0)),
                 "cantidadReferencia": float(item.get('cantidadReferencia', 0.0)),

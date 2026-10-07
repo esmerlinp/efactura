@@ -490,6 +490,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 catalogIdHidden.value = id;
                 searchInput.value = `${name} (${code || 'N/A'})`;
                 nameInput.value = name;
+                const codeInput = activeProductRow.querySelector('.item-code-input');
+                if (codeInput) codeInput.value = code || '';
                 priceInput.value = parseFloat(price).toFixed(2);
                 itbisSelect.value = (typeof ecfTypeSelect !== 'undefined' && ecfTypeSelect && _isZeroItbisType()) ? '0.0' : itbis;
 
@@ -684,6 +686,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (catalogIdHidden) catalogIdHidden.value = productId;
         if (searchInput) searchInput.value = displayName;
         if (nameInput) nameInput.value = product.name || displayName;
+        const codeInput = row.querySelector('.item-code-input');
+        if (codeInput) codeInput.value = (product && product.code) || '';
         if (priceInput) priceInput.value = parseFloat(price).toFixed(2);
         if (itbisSelect) itbisSelect.value = (_isZeroItbisType()) ? '0.0' : itbis;
         if (product) {
@@ -867,6 +871,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   <div style="position:relative;">
                     <input type="text" class="form-input item-catalog-search-input" placeholder="Escriba nombre o código…" autocomplete="off" style="padding-right:30px;">
                     <input type="hidden" class="item-catalog-id-hidden" name="items[${rowIndex}][catalog_id]">
+                    <input type="hidden" class="item-code-input" name="items[${rowIndex}][code]">
                     <input type="hidden" class="item-name-input" name="items[${rowIndex}][name]">
                     <button type="button" class="btn-search-product" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;"><i class="fa-solid fa-magnifying-glass" style="font-size:0.65rem;"></i></button>
                   </div>
@@ -934,6 +939,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const rows = itemsTableBody.querySelectorAll('.item-row');
         rows.forEach((row, i) => {
             row.querySelector('.item-catalog-id-hidden').name = `items[${i}][catalog_id]`;
+            const cInput = row.querySelector('.item-code-input');
+            if (cInput) cInput.name = `items[${i}][code]`;
             row.querySelector('.item-name-input').name = `items[${i}][name]`;
             row.querySelector('.item-price-input').name = `items[${i}][price]`;
             row.querySelector('.item-qty-input').name = `items[${i}][quantity]`;
@@ -1247,6 +1254,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   <div style="position:relative;">
                     <input type="text" class="form-input item-catalog-search-input" placeholder="Escriba nombre o código…" autocomplete="off" style="padding-right:30px;">
                     <input type="hidden" class="item-catalog-id-hidden" name="items[${rowIndex}][catalog_id]">
+                    <input type="hidden" class="item-code-input" name="items[${rowIndex}][code]">
                     <input type="hidden" class="item-name-input" name="items[${rowIndex}][name]">
                     <button type="button" class="btn-search-product" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;"><i class="fa-solid fa-magnifying-glass" style="font-size:0.65rem;"></i></button>
                   </div>

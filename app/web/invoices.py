@@ -1595,7 +1595,10 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                     item_indices.add(int(idx))
                     
         # Obtener el catálogo para resolver automáticamente si es un Bien o Servicio e Impuestos Adicionales
-        catalog = DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id'))
+        catalog = DatabaseService.get_items(owner_uid, company_id=company_id, sandbox=sandbox, branch_id=g.get('branch_id'), project_id=g.get('project_id')) or []
+        catalog_by_id = {it["id"]: it for it in catalog if it.get("id")}
+        catalog_by_name = {it["name"].strip().lower(): it for it in catalog if it.get("name")}
+        catalog_by_code = {str(it["code"]).strip().lower(): it for it in catalog if it.get("code")}
         catalog_types = {it['name'].lower().strip(): it.get('type', 'Bien') for it in catalog}
         catalog_tax_data = {
             it['name'].lower().strip(): {
@@ -1611,19 +1614,36 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
 
         for idx in sorted(item_indices):
             name = request.form.get(f'items[{idx}][name]')
-            price = float(request.form.get(f'items[{idx}][price]', 0.0))
-            qty = int(request.form.get(f'items[{idx}][quantity]', 1))
-            itbis_rate = float(request.form.get(f'items[{idx}][itbisRate]', 0.18))
+            price = float(request.form.get(f'items[{idx}][price]', 0.0) or 0.0)
+            qty = float(request.form.get(f'items[{idx}][quantity]', 1) or 1)
+            itbis_rate = float(request.form.get(f'items[{idx}][itbisRate]', 0.18) or 0.18)
             if not regimen_rules.get("itbis_enabled", True):
                 itbis_rate = 0.0
             ecf_code_from_type = ecf_type.split("(")[-1].replace(")", "").strip() if "(" in ecf_type else ecf_type
             if ecf_code_from_type in ("E44", "E46"):
                 itbis_rate = 0.0
-            item_disc = float(request.form.get(f'items[{idx}][discountRate]', 0.0))
+            item_disc = float(request.form.get(f'items[{idx}][discountRate]', 0.0) or 0.0)
             
             if name:
+                cat_id_input = (request.form.get(f'items[{idx}][catalog_id]') or request.form.get(f'items[{idx}][id]') or request.form.get(f'items[{idx}][itemId]') or '').strip()
+                code_input = (request.form.get(f'items[{idx}][code]') or '').strip()
+                
+                # Resolver coincidencia en catálogo
+                matched_cat_item = None
+                if cat_id_input and cat_id_input in catalog_by_id:
+                    matched_cat_item = catalog_by_id[cat_id_input]
+                elif code_input and code_input.lower() in catalog_by_code:
+                    matched_cat_item = catalog_by_code[code_input.lower()]
+                elif name.strip().lower() in catalog_by_name:
+                    matched_cat_item = catalog_by_name[name.strip().lower()]
+                
+                catalog_id = matched_cat_item["id"] if matched_cat_item else cat_id_input
+                item_code = matched_cat_item.get("code", "") if matched_cat_item else code_input
+                
                 # Detección inteligente del tipo
-                item_type = catalog_types.get(name.lower().strip())
+                item_type = matched_cat_item.get('type') if matched_cat_item else None
+                if not item_type:
+                    item_type = catalog_types.get(name.lower().strip())
                 if not item_type:
                     if any(x in name.lower() for x in ['asesoria', 'asesoría', 'consultoria', 'consultoría', 'servicio', 'honorarios', 'soporte', 'mantenimiento']):
                         item_type = 'Servicio'
@@ -1631,20 +1651,26 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                         item_type = 'Bien'
                 
                 tax_data = catalog_tax_data.get(name.lower().strip(), {})
+                unit_val = matched_cat_item.get("unit") if matched_cat_item else tax_data.get("unit", "Unidad")
+                
                 parsed_items.append({
+                    "id": catalog_id or str(uuid.uuid4()),
+                    "catalogId": catalog_id,
+                    "itemId": catalog_id,
+                    "code": item_code,
                     "name": name,
                     "price": price,
                     "quantity": qty,
                     "itbisRate": itbis_rate,
                     "discountRate": item_disc,
                     "type": item_type,
-                    "codigoImpuesto": tax_data.get("codigoImpuesto", ""),
+                    "codigoImpuesto": tax_data.get("codigoImpuesto", "") or (matched_cat_item.get("codigoImpuesto", "") if matched_cat_item else ""),
                     "tasaImpuestoAdicional": tax_data.get("tasaImpuestoAdicional", 0.0),
                     "gradosAlcohol": tax_data.get("gradosAlcohol", 0.0),
                     "cantidadReferencia": tax_data.get("cantidadReferencia", 0.0),
                     "subcantidad": tax_data.get("subcantidad", 1.0),
                     "precioReferencia": tax_data.get("precioReferencia", 0.0),
-                    "unit": tax_data.get("unit", "Unidad")
+                    "unit": unit_val or "Unidad"
                 })
 
         if not parsed_items:
