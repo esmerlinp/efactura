@@ -145,6 +145,7 @@
                 <tr>
                     <th>{{ sort_link('encf', 'e-NCF', 'asc') }}</th>
                     <th>{{ sort_link('sender_name', 'Remitente', 'asc') }}</th>
+                    <th>{{ sort_link('sender_rnc', 'RNC', 'asc') }}</th>
                     <th>{{ sort_link('ecf_type', 'Tipo', 'asc') }}</th>
                     <th>{{ sort_link('monto_total', 'Monto', 'desc') }}</th>
                     <th>{{ sort_link('received_at', 'Recibido', 'desc') }}</th>
@@ -161,10 +162,8 @@
                             {{ doc.encf or '-' }}
                         </a>
                     </td>
-                    <td>
-                        <strong style="font-size: 0.82rem; font-weight: 700; color: var(--text-primary);">{{ doc.sender_name or '-' }}</strong>
-                        <span style="font-family: monospace; font-size: 0.75rem; color: var(--text-secondary); display: block;">RNC: {{ doc.sender_rnc or '-' }}</span>
-                    </td>
+                    <td style="font-size: 0.82rem; color: var(--text-primary);">{{ doc.sender_name or '-' }}</td>
+                    <td style="font-family: monospace; font-size: 0.82rem; color: var(--text-secondary);">{{ doc.sender_rnc or '-' }}</td>
                     <td>
                         <span class="badge" style="font-size: 0.65rem; background-color: rgba(59, 130, 246, 0.12); color: var(--accent-blue); padding: 4px 8px; border-radius: 4px; font-weight: 600;">
                             {{ doc.ecf_type | ecf_label }}
@@ -209,7 +208,7 @@
                 {% endfor %}
                 {% else %}
                 <tr>
-                    <td colspan="7" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                    <td colspan="8" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
                         <i class="fa-solid fa-inbox"
                             style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
                         <span>No hay documentos que coincidan con los filtros aplicados.</span>
