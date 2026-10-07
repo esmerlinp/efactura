@@ -1,37 +1,15 @@
 """
-Pruebas de Fase 5.1 (REST API CRM Foundation y Read-Only Endpoints).
+Pruebas de Fase 5.1 y 5.1.1 (REST API CRM Security Hardening & Read-Only Endpoints).
 
 Cubre:
-1. Autenticación y Cabeceras:
-   - Falta de API key -> 401 Unauthorized
-   - API key inválida -> 401 Unauthorized
-   - API key vía X-API-Key -> 200 OK
-   - API key vía Authorization: Bearer -> 200 OK
-
-2. Aislamiento Multi-Tenant y Company Context:
-   - Consulta sobre empresa autorizada -> 200 OK
-   - Consulta sobre empresa no autorizada vía X-Company-ID -> 403 Forbidden
-   - Consulta sobre empresa no autorizada vía query param -> 403 Forbidden
-   - Consulta de ID perteneciente a otra empresa -> 404 Not Found
-   - Parámetro ownerUID en query/body es ignorado (no permite impersonación)
-
-3. Permisos Granulares CRM (RBAC):
-   - Sin canCRMContacts -> 403 Forbidden en contactos
-   - Sin canCRMOpportunities -> 403 Forbidden en oportunidades
-   - Sin canCRMActivities -> 403 Forbidden en actividades
-   - Sin canCRMReports -> 403 Forbidden en métricas
-   - Fallback canClients -> 200 OK
-   - Role owner -> 200 OK en todos los endpoints
-
-4. Endpoints Read-Only y Reutilización de Dominio:
-   - GET /api/v1/crm/contacts (filtros, paginación, sanitización)
-   - GET /api/v1/crm/contacts/<id> (detalle y 404 en deleted)
-   - GET /api/v1/crm/contacts/<id>/360 (Contact 360 consolidado)
-   - GET /api/v1/crm/opportunities (filtros por stage, status, assignedTo, paginación)
-   - GET /api/v1/crm/opportunities/<id> (detalle y 404)
-   - GET /api/v1/crm/activities (filtros por status, assignedTo, paginación)
-   - GET /api/v1/crm/metrics (métricas comerciales en vivo con delegación a CRMService)
-   - Demostración de reutilización estricta de servicios de dominio
+1. Autenticación y Cabeceras (X-API-Key, Authorization: Bearer, 401 estructurado).
+2. Aislamiento Multi-Tenant y Company Context (X-Company-ID, anti-impersonación, 403/404 sin filtración).
+3. Anti-Enumeración Cross-Tenant (Contactos, Oportunidades, Actividades, Contact 360).
+4. Permisos Granulares CRM (RBAC) y Aislamiento entre submódulos.
+5. Reglas Legacy 'canClients' acotadas (sin escalación a Reportes o Actividades).
+6. Validación Estricta de Entradas (paginación negativa/inválida, límites de tamaño).
+7. Prevención de Fuga de Información en Respuestas de Error (500 controlado sin stack trace ni rutas internas).
+8. Endpoints Funcionales Read-Only (Contactos, Oportunidades, Actividades, Métricas).
 """
 
 import json
@@ -59,6 +37,7 @@ MOCK_COMPANY_A = {
     "role": "owner",
     "apiKey": "key_a_123",
     "name": "Empresa A SRL",
+    "allowed_company_ids": ["comp_a", "comp_a_subsidiary"],
 }
 
 MOCK_COMPANY_B = {
@@ -67,6 +46,7 @@ MOCK_COMPANY_B = {
     "role": "owner",
     "apiKey": "key_b_456",
     "name": "Empresa B SRL",
+    "allowed_company_ids": ["comp_b"],
 }
 
 MOCK_USER_RESTRICTED = {
@@ -80,7 +60,23 @@ MOCK_USER_RESTRICTED = {
         "canCRMOpportunities": False,
         "canCRMActivities": False,
         "canCRMReports": False,
-    }
+    },
+    "allowed_company_ids": ["comp_a"],
+}
+
+MOCK_USER_CONTACTS_ONLY = {
+    "id": "comp_a",
+    "ownerUID": "owner_a",
+    "role": "employee",
+    "apiKey": "key_employee_contacts_only",
+    "permissions": {
+        "canCRM": False,
+        "canCRMContacts": True,
+        "canCRMOpportunities": False,
+        "canCRMActivities": False,
+        "canCRMReports": False,
+    },
+    "allowed_company_ids": ["comp_a"],
 }
 
 MOCK_USER_FALLBACK = {
@@ -90,7 +86,8 @@ MOCK_USER_FALLBACK = {
     "apiKey": "key_employee_fallback",
     "permissions": {
         "canClients": True,
-    }
+    },
+    "allowed_company_ids": ["comp_a"],
 }
 
 
@@ -150,10 +147,17 @@ def test_api_crm_authorized_company_context(client):
         assert res.status_code == 200
 
 
+def test_api_crm_authorized_subsidiary_company_context(client):
+    """Consulta especificando una filial autorizada explícitamente en allowed_company_ids retorna 200."""
+    with patch("app.services.db_service.DatabaseService.get_company_by_api_key", return_value=MOCK_COMPANY_A), \
+         patch.object(ContactService, "get_contacts", return_value=[]):
+        res = client.get("/api/v1/crm/contacts", headers={"X-API-Key": "key_a_123", "X-Company-ID": "comp_a_subsidiary"})
+        assert res.status_code == 200
+
+
 def test_api_crm_unauthorized_company_header_rejected(client):
     """Cliente autenticado como Empresa A intenta acceder a Empresa B vía X-Company-ID -> 403 Forbidden."""
-    with patch("app.services.db_service.DatabaseService.get_company_by_api_key", return_value=MOCK_COMPANY_A), \
-         patch("app.services.db_service.DatabaseService.get_companies_by_owner", return_value=[{"id": "comp_a"}]):
+    with patch("app.services.db_service.DatabaseService.get_company_by_api_key", return_value=MOCK_COMPANY_A):
         res = client.get("/api/v1/crm/contacts", headers={"X-API-Key": "key_a_123", "X-Company-ID": "comp_b"})
         assert res.status_code == 403
         data = res.get_json()
@@ -163,8 +167,7 @@ def test_api_crm_unauthorized_company_header_rejected(client):
 
 def test_api_crm_unauthorized_company_query_param_rejected(client):
     """Cliente autenticado como Empresa A intenta acceder a Empresa B vía query param -> 403 Forbidden."""
-    with patch("app.services.db_service.DatabaseService.get_company_by_api_key", return_value=MOCK_COMPANY_A), \
-         patch("app.services.db_service.DatabaseService.get_companies_by_owner", return_value=[{"id": "comp_a"}]):
+    with patch("app.services.db_service.DatabaseService.get_company_by_api_key", return_value=MOCK_COMPANY_A):
         res = client.get("/api/v1/crm/contacts?company_id=comp_b", headers={"X-API-Key": "key_a_123"})
         assert res.status_code == 403
         data = res.get_json()
@@ -411,3 +414,242 @@ def test_api_crm_get_metrics(client):
             date_from="2026-09-01",
             date_to="2026-10-01",
         )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5. Fase 5.1.1 — Auditoría y Hardening de Seguridad
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_security_01_missing_api_key(client):
+    """Escenario 1: Request sin credencial retorna 401 AUTH_REQUIRED."""
+    res = client.get("/api/v1/crm/opportunities")
+    assert res.status_code == 401
+    assert res.get_json()["error"]["code"] == "AUTH_REQUIRED"
+
+
+def test_security_02_invalid_api_key(client):
+    """Escenario 2: Request con API Key inexistente/revocada retorna 401 AUTH_INVALID."""
+    with patch("app.services.db_service.DatabaseService.get_company_by_api_key", return_value=None):
+        res = client.get("/api/v1/crm/opportunities", headers={"X-API-Key": "revoked_or_fake_key"})
+        assert res.status_code == 401
+        assert res.get_json()["error"]["code"] == "AUTH_INVALID"
+
+
+def test_security_03_invalid_bearer_format(client):
+    """Escenario 3: Request con Bearer inválido o malformado."""
+    # Bearer vacío o sin token
+    res_empty = client.get("/api/v1/crm/opportunities", headers={"Authorization": "Bearer "})
+    assert res_empty.status_code == 401
+    assert res_empty.get_json()["error"]["code"] == "AUTH_REQUIRED"
+
+    # Bearer no registrado en base de datos
+    with patch("app.services.db_service.DatabaseService.get_company_by_api_key", return_value=None):
+        res_fake = client.get("/api/v1/crm/opportunities", headers={"Authorization": "Bearer fake_bearer_token"})
+        assert res_fake.status_code == 401
+        assert res_fake.get_json()["error"]["code"] == "AUTH_INVALID"
+
+
+def test_security_04_unauthorized_company_id_header(client):
+    """Escenario 4: Company ID no autorizado en cabecera retorna 403 FORBIDDEN_COMPANY."""
+    with patch("app.services.db_service.DatabaseService.get_company_by_api_key", return_value=MOCK_COMPANY_A):
+        res = client.get("/api/v1/crm/opportunities", headers={"X-API-Key": "key_a_123", "X-Company-ID": "comp_unauthorized"})
+        assert res.status_code == 403
+        assert res.get_json()["error"]["code"] == "FORBIDDEN_COMPANY"
+
+
+def test_security_05_cross_tenant_opportunity_returns_404_no_leak(client):
+    """
+    Escenario 5: Consultar una oportunidad de otra empresa retorna 404
+    sin revelar título, cliente, monto ni existencia.
+    """
+    with patch("app.services.db_service.DatabaseService.get_company_by_api_key", return_value=MOCK_COMPANY_A), \
+         patch.object(CRMService, "get_opportunity", return_value=None):
+        res = client.get("/api/v1/crm/opportunities/opp_other_company_id", headers={"X-API-Key": "key_a_123"})
+        assert res.status_code == 404
+        data = res.get_json()
+        assert data["success"] is False
+        assert data["error"]["code"] == "OPPORTUNITY_NOT_FOUND"
+        # No leak de datos
+        assert "opp_other_company_id" not in data["error"]["message"]
+        assert "amount" not in data
+        assert "assignedTo" not in data
+
+
+def test_security_06_cross_tenant_contact_returns_404_no_leak(client):
+    """
+    Escenario 6: Consultar un contacto de otra empresa retorna 404
+    sin revelar datos de la otra empresa.
+    """
+    with patch("app.services.db_service.DatabaseService.get_company_by_api_key", return_value=MOCK_COMPANY_A), \
+         patch.object(ContactService, "get_contact", return_value=None):
+        res = client.get("/api/v1/crm/contacts/contact_other_company_id", headers={"X-API-Key": "key_a_123"})
+        assert res.status_code == 404
+        data = res.get_json()
+        assert data["success"] is False
+        assert data["error"]["code"] == "CONTACT_NOT_FOUND"
+        assert "contact_other_company_id" not in data["error"]["message"]
+
+
+def test_security_07_cross_tenant_activity_isolation(client):
+    """Escenario 7: Listar actividades delega estrictamente con company_id autenticado."""
+    with patch("app.services.db_service.DatabaseService.get_company_by_api_key", return_value=MOCK_COMPANY_A), \
+         patch.object(CRMService, "get_activities") as mock_acts:
+        mock_acts.return_value = []
+        res = client.get("/api/v1/crm/activities", headers={"X-API-Key": "key_a_123"})
+        assert res.status_code == 200
+        mock_acts.assert_called_once_with(
+            owner_uid="owner_a",
+            sandbox=True,
+            include_completed=True,
+            company_id="comp_a",
+            branch_id=None,
+            project_id=None,
+            contact_id=None,
+            opportunity_id=None,
+        )
+
+
+def test_security_08_cross_tenant_contact_360_returns_404(client):
+    """Escenario 8: Contact 360 de un contacto inexistente/cross-tenant retorna 404 sin leaks."""
+    with patch("app.services.db_service.DatabaseService.get_company_by_api_key", return_value=MOCK_COMPANY_A), \
+         patch.object(CRMService, "get_contact_360", return_value={"contact": None}):
+        res = client.get("/api/v1/crm/contacts/foreign_contact_id/360", headers={"X-API-Key": "key_a_123"})
+        assert res.status_code == 404
+        data = res.get_json()
+        assert data["error"]["code"] == "CONTACT_NOT_FOUND"
+
+
+def test_security_09_permission_denied_granular(client):
+    """Escenario 9: Acceso denegado cuando falta el permiso requerido."""
+    with patch("app.services.db_service.DatabaseService.get_company_by_api_key", return_value=MOCK_USER_RESTRICTED):
+        res = client.get("/api/v1/crm/contacts", headers={"X-API-Key": "key_employee_restricted"})
+        assert res.status_code == 403
+        data = res.get_json()
+        assert data["error"]["code"] == "FORBIDDEN_PERMISSION"
+        assert "canCRMContacts" in data["error"]["message"]
+
+
+def test_security_10_permission_isolation_contacts_vs_reports(client):
+    """
+    Escenario 10: Aislamiento de permisos entre submódulos.
+    canCRMContacts=True permite /crm/contacts y /crm/contacts/<id>/360,
+    pero NO permite /crm/metrics (canCRMReports=False) -> 403.
+    """
+    with patch("app.services.db_service.DatabaseService.get_company_by_api_key", return_value=MOCK_USER_CONTACTS_ONLY), \
+         patch.object(ContactService, "get_contacts", return_value=[]), \
+         patch.object(CRMService, "get_contact_360", return_value={"contact": {"id": "c1"}}):
+
+        # Contactos permitido
+        res_contacts = client.get("/api/v1/crm/contacts", headers={"X-API-Key": "key_employee_contacts_only"})
+        assert res_contacts.status_code == 200
+
+        # Contact 360 permitido (requiere canCRMContacts)
+        res_360 = client.get("/api/v1/crm/contacts/c1/360", headers={"X-API-Key": "key_employee_contacts_only"})
+        assert res_360.status_code == 200
+
+        # Métricas denegado (requiere canCRMReports)
+        res_metrics = client.get("/api/v1/crm/metrics", headers={"X-API-Key": "key_employee_contacts_only"})
+        assert res_metrics.status_code == 403
+        assert res_metrics.get_json()["error"]["code"] == "FORBIDDEN_PERMISSION"
+
+
+def test_security_11_fake_owner_uid_injection_ignored(client):
+    """Escenario 11: Parámetro ownerUID malicioso en query no altera el owner de la credencial."""
+    with patch("app.services.db_service.DatabaseService.get_company_by_api_key", return_value=MOCK_COMPANY_A), \
+         patch.object(CRMService, "get_opportunities") as mock_opps:
+        mock_opps.return_value = []
+        res = client.get("/api/v1/crm/opportunities?ownerUID=attacker_injected_uid", headers={"X-API-Key": "key_a_123"})
+        assert res.status_code == 200
+        # Confirma que se usó owner_a de la base de datos, nunca el inyectado
+        mock_opps.assert_called_once_with(
+            owner_uid="owner_a",
+            sandbox=True,
+            company_id="comp_a",
+            include_closed=True,
+            branch_id=None,
+            project_id=None,
+            contact_id=None,
+        )
+
+
+def test_security_12_fake_company_id_rejected_403(client):
+    """Escenario 12: Inyección de company_id no autorizado retorna 403 FORBIDDEN_COMPANY."""
+    with patch("app.services.db_service.DatabaseService.get_company_by_api_key", return_value=MOCK_COMPANY_A):
+        res = client.get("/api/v1/crm/opportunities?company_id=fake_or_competitor_co", headers={"X-API-Key": "key_a_123"})
+        assert res.status_code == 403
+        assert res.get_json()["error"]["code"] == "FORBIDDEN_COMPANY"
+
+
+def test_security_13_nonexistent_company_id_no_silent_fallback(client):
+    """Escenario 13: Company ID inexistente retorna 403 y no hace fallback silencioso a la empresa default."""
+    with patch("app.services.db_service.DatabaseService.get_company_by_api_key", return_value=MOCK_COMPANY_A):
+        res = client.get("/api/v1/crm/contacts", headers={"X-API-Key": "key_a_123", "X-Company-ID": "non_existent_company_999"})
+        assert res.status_code == 403
+        assert res.get_json()["error"]["code"] == "FORBIDDEN_COMPANY"
+
+
+def test_security_14_invalid_pagination_parameters(client):
+    """Escenario 14: Paginación con valores negativos, 0 o strings no enteros retorna 400."""
+    with patch("app.services.db_service.DatabaseService.get_company_by_api_key", return_value=MOCK_COMPANY_A):
+        # Límite negativo
+        res1 = client.get("/api/v1/crm/contacts?limit=-5", headers={"X-API-Key": "key_a_123"})
+        assert res1.status_code == 400
+        assert res1.get_json()["error"]["code"] == "INVALID_PAGINATION"
+
+        # Límite cero
+        res2 = client.get("/api/v1/crm/contacts?limit=0", headers={"X-API-Key": "key_a_123"})
+        assert res2.status_code == 400
+        assert res2.get_json()["error"]["code"] == "INVALID_PAGINATION"
+
+        # Offset negativo
+        res3 = client.get("/api/v1/crm/opportunities?offset=-10", headers={"X-API-Key": "key_a_123"})
+        assert res3.status_code == 400
+        assert res3.get_json()["error"]["code"] == "INVALID_PAGINATION"
+
+        # Offset no numérico
+        res4 = client.get("/api/v1/crm/activities?limit=abc", headers={"X-API-Key": "key_a_123"})
+        assert res4.status_code == 400
+        assert res4.get_json()["error"]["code"] == "INVALID_PAGINATION"
+
+
+def test_security_15_excessive_parameter_strings_handled_safely(client):
+    """Escenario 15: Parámetros string con longitudes excesivas son sanitizados/truncados sin provocar scans desbordados ni crash."""
+    excessive_search = "A" * 5000
+    with patch("app.services.db_service.DatabaseService.get_company_by_api_key", return_value=MOCK_COMPANY_A), \
+         patch.object(ContactService, "get_contacts", return_value=[]):
+        res = client.get(f"/api/v1/crm/contacts?search={excessive_search}", headers={"X-API-Key": "key_a_123"})
+        assert res.status_code == 200
+        data = res.get_json()
+        assert data["success"] is True
+
+
+def test_security_16_internal_error_no_stack_trace_or_path_leak(client):
+    """Escenario 16: Excepciones internas no exponen stack traces, rutas del filesystem ni colecciones Firestore en el payload JSON."""
+    with patch("app.services.db_service.DatabaseService.get_company_by_api_key", return_value=MOCK_COMPANY_A), \
+         patch.object(ContactService, "get_contacts", side_effect=RuntimeError("Firestore connection failed: /companies/comp_a/contacts")):
+        res = client.get("/api/v1/crm/contacts", headers={"X-API-Key": "key_a_123"})
+        assert res.status_code == 500
+        data = res.get_json()
+        assert data["success"] is False
+        assert data["error"]["code"] == "INTERNAL_ERROR"
+        # Verificar que NO se fuga la ruta de Firestore ni el mensaje interno
+        assert "/companies/comp_a/contacts" not in data["error"]["message"]
+        assert "RuntimeError" not in data["error"]["message"]
+        assert "Traceback" not in json.dumps(data)
+
+
+def test_security_17_legacy_can_clients_does_not_grant_metrics_or_activities(client):
+    """
+    Escenario 17: canClients otorga acceso a contactos y oportunidades (compatibilidad legacy),
+    pero ESTRICTAMENTE RECHAZA (403) el acceso a métricas comerciales y actividades.
+    """
+    with patch("app.services.db_service.DatabaseService.get_company_by_api_key", return_value=MOCK_USER_FALLBACK):
+        # Rechazado en métricas
+        res_metrics = client.get("/api/v1/crm/metrics", headers={"X-API-Key": "key_employee_fallback"})
+        assert res_metrics.status_code == 403
+        assert res_metrics.get_json()["error"]["code"] == "FORBIDDEN_PERMISSION"
+
+        # Rechazado en actividades
+        res_acts = client.get("/api/v1/crm/activities", headers={"X-API-Key": "key_employee_fallback"})
+        assert res_acts.status_code == 403
+        assert res_acts.get_json()["error"]["code"] == "FORBIDDEN_PERMISSION"
