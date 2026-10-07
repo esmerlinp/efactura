@@ -400,17 +400,24 @@ class CRMService:
                 invoices_list = []
 
             existing_entry = next((item for item in invoices_list if isinstance(item, dict) and item.get("id") == invoice_id), None)
-            if not existing_entry:
+            is_new_link = (existing_entry is None)
+            if is_new_link:
                 invoices_list.append({
                     "id": invoice_id,
                     "number": invoice_number or "",
                     "amount": _safe_float(total_amount),
                     "linkedAt": _now_iso(),
                 })
+            else:
+                if invoice_number and not existing_entry.get("number"):
+                    existing_entry["number"] = invoice_number
+                if total_amount and not existing_entry.get("amount"):
+                    existing_entry["amount"] = _safe_float(total_amount)
             opp["invoices"] = invoices_list
 
             saved = cls.save_opportunity(owner_uid, opp["id"], opp, sandbox=sandbox, company_id=company_id)
-            cls._record_opportunity_interaction(owner_uid, saved, sandbox=sandbox, company_id=company_id)
+            if is_new_link:
+                cls._record_opportunity_interaction(owner_uid, saved, sandbox=sandbox, company_id=company_id)
             updated_count += 1
 
         return updated_count
@@ -805,11 +812,15 @@ class CRMService:
         )
 
         commitments = []
+        activity_contact_ids = set()
         for activity in pending_activities:
             if not activity.get("isOverdue") and not activity.get("isDueToday"):
                 continue
+            cid = activity.get("contactId")
+            if cid:
+                activity_contact_ids.add(cid)
             commitments.append({
-                "id": activity.get("contactId") or activity["id"],
+                "id": cid or activity["id"],
                 "activityId": activity["id"],
                 "razonSocial": activity.get("contactName") or activity.get("title", ""),
                 "telefono": "",
@@ -820,6 +831,31 @@ class CRMService:
                 "activityType": activity.get("type"),
                 "isOverdue": activity.get("isOverdue", False),
             })
+
+        # Incluir contactos con nextContactDate agendado para hoy/vencido sin actividad duplicada
+        try:
+            contacts = ContactService.get_contacts(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
+            for contact in contacts:
+                if "cliente" not in contact.get("types", []):
+                    continue
+                if contact.get("id") in activity_contact_ids:
+                    continue
+                next_date = _date_key(contact.get("nextContactDate"))
+                if next_date and next_date <= today:
+                    commitments.append({
+                        "id": contact["id"],
+                        "activityId": "",
+                        "razonSocial": contact.get("razonSocial", ""),
+                        "telefono": contact.get("telefono") or contact.get("celular", ""),
+                        "crmNotes": contact.get("crmNotes") or contact.get("notes", ""),
+                        "total_cxc": 0.0,
+                        "nextContactDate": next_date,
+                        "commitmentType": "contact",
+                        "activityType": "Seguimiento",
+                        "isOverdue": next_date < today,
+                    })
+        except Exception:
+            pass
 
         commitments.sort(key=lambda c: (
             not c.get("isOverdue", False),
