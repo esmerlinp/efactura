@@ -3,125 +3,648 @@
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
 <style>
+/* Kanban UI System */
+.crm-pipeline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+}
+.crm-filters-bar {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    align-items: center;
+    margin-bottom: var(--space-4);
+    box-shadow: var(--shadow-sm);
+}
+.crm-filter-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+.crm-filter-group label {
+    font-size: var(--text-xs);
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0;
+}
+.crm-filter-select, .crm-filter-input {
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font-size: var(--text-sm);
+    min-width: 150px;
+}
 .crm-kanban {
     display: grid;
-    grid-template-columns: repeat(7, minmax(220px, 1fr));
+    grid-template-columns: repeat(7, minmax(260px, 1fr));
     gap: var(--space-3);
     overflow-x: auto;
-    padding-bottom: var(--space-2);
+    padding-bottom: var(--space-4);
+    align-items: start;
 }
 .crm-column {
     background: var(--bg-input);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
-    min-height: 240px;
+    min-height: 480px;
     display: flex;
     flex-direction: column;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.crm-column.drag-over {
+    background: var(--bg-hover, rgba(59, 130, 246, 0.08));
+    border: 2px dashed var(--color-primary, #2563eb);
 }
 .crm-column-header {
-    padding: var(--space-3);
+    padding: var(--space-3) var(--space-4);
     border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
-    gap: var(--space-2);
     align-items: center;
+    background: var(--bg-card);
+    border-top-left-radius: var(--radius-md);
+    border-top-right-radius: var(--radius-md);
+}
+.crm-column-title {
+    font-weight: 700;
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.crm-column-stats {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+.crm-column-body {
+    padding: var(--space-2);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-height: 400px;
+    flex: 1;
 }
 .crm-card {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
     padding: var(--space-3);
-    margin: var(--space-2);
     box-shadow: var(--shadow-sm);
-    transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+    cursor: grab;
+    transition: box-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
+    position: relative;
+    user-select: none;
 }
 .crm-card:hover {
     box-shadow: var(--shadow-md);
-    transform: translateY(-1px);
+    transform: translateY(-2px);
+    border-color: var(--color-primary, #3b82f6);
+}
+.crm-card.is-dragging {
+    opacity: 0.4;
+    transform: scale(0.98);
+    cursor: grabbing;
 }
 .crm-card-title {
     font-weight: 700;
     color: var(--text-primary);
+    font-size: var(--text-sm);
     margin-bottom: var(--space-1);
     font-family: var(--font-heading);
+    line-height: 1.3;
+}
+.crm-card-contact {
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    margin-bottom: var(--space-2);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.crm-card-amount {
+    font-size: var(--text-base);
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: var(--space-2);
+}
+.crm-card-meta {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-bottom: var(--space-2);
+}
+.crm-card-actions {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-top: var(--space-2);
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--border-color);
+}
+.crm-badge-score {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 9999px;
+}
+.crm-badge-score.high { background: rgba(34, 197, 94, 0.15); color: #16a34a; border: 1px solid rgba(34, 197, 94, 0.3); }
+.crm-badge-score.mid { background: rgba(234, 179, 8, 0.15); color: #ca8a04; border: 1px solid rgba(234, 179, 8, 0.3); }
+.crm-badge-score.low { background: rgba(148, 163, 184, 0.15); color: #64748b; border: 1px solid rgba(148, 163, 184, 0.3); }
+
+/* Modal Custom Styling */
+.crm-modal-backdrop {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+.crm-modal-dialog {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    width: 95%;
+    max-width: 500px;
+    box-shadow: var(--shadow-xl);
+    padding: var(--space-5);
+    animation: modalIn 0.2s ease-out;
+}
+@keyframes modalIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
 }
 </style>
 {% endblock %}
+
 {% block content %}
 <div class="dashboard-container">
-<div class="page-title-container" style="margin-bottom: 0; padding-left: 4px;">
-    <h1 class="page-title"
-        style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
-        <i class="fa-solid fa-chart-simple"></i> Pipeline CRM
-    </h1>
-</div>
-
-<div class="crm-kanban">
-    {% for col in pipeline %}
-    <div class="crm-column">
-        <div class="crm-column-header">
-            <div>
-                <strong>{{ col.stage }}</strong>
-                <div style="font-size:var(--text-xs); color:var(--text-muted);">{{ col.count }} ops · {{ "RD$ {:,.2f}".format(col.weighted) }}</div>
-            </div>
-            <span class="badge badge-info">{{ col.probability }}%</span>
+    <div class="crm-pipeline-header">
+        <div>
+            <h1 class="page-title" style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+                <i class="fa-solid fa-chart-simple text-primary"></i> Pipeline CRM
+            </h1>
+            <p style="font-size: var(--text-sm); color: var(--text-muted); margin: 4px 0 0 0;">
+                Arrastre las tarjetas para mover oportunidades en el embudo comercial.
+            </p>
         </div>
-        {% for opp in col.opportunities %}
-        <div class="crm-card">
-            <div class="crm-card-title">{{ opp.title }}</div>
-            <div style="font-size:var(--text-sm); color:var(--text-secondary); margin-bottom:var(--space-2);">
-                {{ opp.contactName or 'Sin contacto' }}<br>
-                <strong>{{ "RD$ {:,.2f}".format(opp.amount) }}</strong> · {{ opp.probability }}%
-            </div>
-            {% if opp.expectedCloseDate %}
-            <div style="font-size:var(--text-xs); color:var(--text-muted); margin-bottom:var(--space-2);"><i class="fa-solid fa-calendar"></i> Cierre: {{ opp.expectedCloseDate }}</div>
-            {% endif %}
-            <select onchange="updateOpportunityStage('{{ opp.id }}', this.value, this.options[this.selectedIndex].dataset.probability)" style="width:100%; padding:6px; border:1px solid var(--border-color); border-radius:var(--radius-sm); background:var(--bg-card); color:var(--text-primary); font-size:var(--text-sm); margin-bottom:var(--space-2);">
-                {% for st in stages %}
-                <option value="{{ st }}" data-probability="{{ stage_probabilities.get(st, 10) }}" {% if opp.stage == st %}selected{% endif %}>{{ st }}</option>
+        <div style="display: flex; gap: var(--space-2); align-items: center;">
+            <a href="{{ url_for('web_crm.dashboard') }}" class="btn btn-secondary">
+                <i class="fa-solid fa-chart-pie"></i> Dashboard
+            </a>
+            <a href="{{ url_for('web_crm.activities') }}" class="btn btn-secondary">
+                <i class="fa-solid fa-calendar-check"></i> Agenda
+            </a>
+            <a href="{{ url_for('web_crm.opportunity_new') }}" class="btn btn-primary">
+                <i class="fa-solid fa-plus"></i> Nueva Oportunidad
+            </a>
+        </div>
+    </div>
+
+    <!-- Barra de Filtros (CRM-12) -->
+    <form method="GET" action="{{ url_for('web_crm.pipeline') }}" class="crm-filters-bar">
+        {% if branches and branches|length > 0 %}
+        <div class="crm-filter-group">
+            <label><i class="fa-solid fa-building"></i> Sucursal</label>
+            <select name="branch_id" class="crm-filter-select" onchange="this.form.submit()">
+                <option value="">Todas las sucursales</option>
+                {% for b in branches %}
+                <option value="{{ b.id }}" {% if selected_branch == b.id %}selected{% endif %}>{{ b.name }}</option>
                 {% endfor %}
             </select>
-            <div style="display:flex; gap:var(--space-1); flex-wrap:wrap;">
-                <a href="{{ url_for('web_crm.opportunity_edit', opportunity_id=opp.id) }}" class="btn btn-xs btn-secondary">Editar</a>
-                <a href="{{ url_for('web_crm.activity_new', contact_id=opp.contactId, opportunity_id=opp.id) }}" class="btn btn-xs btn-secondary">Actividad</a>
-            </div>
-            {% if opp.status == 'abierta' %}
-            <div style="display:flex; gap:var(--space-1); flex-wrap:wrap; margin-top:var(--space-2);">
-                <form method="POST" action="{{ url_for('web_crm.opportunity_close', opportunity_id=opp.id) }}">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <input type="hidden" name="outcome" value="ganada">
-                    <button class="btn btn-xs btn-success">Ganada</button>
-                </form>
-                <form method="POST" action="{{ url_for('web_crm.opportunity_close', opportunity_id=opp.id) }}" onsubmit="return confirm('¿Marcar oportunidad como perdida?')">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <input type="hidden" name="outcome" value="perdida">
-                    <button class="btn btn-xs btn-danger">Perdida</button>
-                </form>
-            </div>
+        </div>
+        {% endif %}
+
+        {% if projects and projects|length > 0 %}
+        <div class="crm-filter-group">
+            <label><i class="fa-solid fa-folder-tree"></i> Proyecto</label>
+            <select name="project_id" class="crm-filter-select" onchange="this.form.submit()">
+                <option value="">Todos los proyectos</option>
+                {% for p in projects %}
+                <option value="{{ p.id }}" {% if selected_project == p.id %}selected{% endif %}>{{ p.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+
+        <div class="crm-filter-group" style="margin-left: auto;">
+            <input type="text" id="kanbanSearch" placeholder="Filtrar por cliente / título..." class="crm-filter-input" onkeyup="filterKanbanCards(this.value)">
+            {% if selected_branch or selected_project %}
+            <a href="{{ url_for('web_crm.pipeline') }}" class="btn btn-xs btn-outline-secondary" title="Limpiar filtros">
+                <i class="fa-solid fa-xmark"></i>
+            </a>
             {% endif %}
         </div>
-        {% else %}
-        <div style="padding:var(--space-4); color:var(--text-muted); font-size:var(--text-sm); text-align:center;">Sin oportunidades.</div>
+    </form>
+
+    <!-- Tablero Kanban Drag & Drop (CRM-11) -->
+    <div class="crm-kanban">
+        {% for col in pipeline %}
+        <div class="crm-column" data-stage="{{ col.stage }}" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, '{{ col.stage }}')">
+            <div class="crm-column-header">
+                <div>
+                    <div class="crm-column-title">
+                        <span>{{ col.stage }}</span>
+                        <span class="badge badge-secondary" style="font-size: 10px;">{{ col.count }}</span>
+                    </div>
+                    <div class="crm-column-stats">
+                        {{ "RD$ {:,.2f}".format(col.amount) }}
+                    </div>
+                </div>
+                <span class="badge {% if col.probability >= 80 %}badge-success{% elif col.probability >= 40 %}badge-info{% else %}badge-secondary{% endif %}">
+                    {{ col.probability }}%
+                </span>
+            </div>
+
+            <div class="crm-column-body" id="col-body-{{ col.stage }}">
+                {% for opp in col.opportunities %}
+                <div class="crm-card"
+                     id="card-{{ opp.id }}"
+                     draggable="true"
+                     ondragstart="handleDragStart(event, '{{ opp.id }}', '{{ opp.stage }}')"
+                     ondragend="handleDragEnd(event)"
+                     data-opp-id="{{ opp.id }}"
+                     data-opp-stage="{{ opp.stage }}"
+                     data-opp-title="{{ opp.title }}"
+                     data-opp-contact="{{ opp.contactName or '' }}"
+                     data-opp-contact-id="{{ opp.contactId or '' }}"
+                     data-opp-amount="{{ opp.amount }}"
+                     data-opp-assigned="{{ opp.assignedTo or '' }}">
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 4px; margin-bottom: 4px;">
+                        <div class="crm-card-title">{{ opp.title }}</div>
+                        <span class="crm-badge-score {% if opp.probability >= 70 %}high{% elif opp.probability >= 30 %}mid{% else %}low{% endif %}">
+                            {{ opp.probability }}%
+                        </span>
+                    </div>
+
+                    <div class="crm-card-contact">
+                        <i class="fa-solid fa-user-tie text-muted"></i>
+                        <span>{{ opp.contactName or 'Sin contacto' }}</span>
+                    </div>
+
+                    <div class="crm-card-amount">
+                        RD$ {{ "{:,.2f}".format(opp.amount) }}
+                    </div>
+
+                    <div class="crm-card-meta">
+                        {% if opp.assignedToName %}
+                        <div><i class="fa-solid fa-id-badge"></i> {{ opp.assignedToName }}</div>
+                        {% endif %}
+                        {% if opp.expectedCloseDate %}
+                        <div><i class="fa-solid fa-calendar-day"></i> Cierre: {{ opp.expectedCloseDate }}</div>
+                        {% endif %}
+                        {% if opp.quotationNumber %}
+                        <div><i class="fa-solid fa-file-invoice"></i> Cot: {{ opp.quotationNumber }}</div>
+                        {% endif %}
+                        {% if opp.invoiceNumber %}
+                        <div><i class="fa-solid fa-receipt text-success"></i> Fact: {{ opp.invoiceNumber }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Acciones Rápidas (CRM-10) -->
+                    <div class="crm-card-actions">
+                        <a href="{{ url_for('web_crm.opportunity_edit', opportunity_id=opp.id) }}" class="btn btn-xs btn-outline-secondary" title="Editar oportunidad">
+                            <i class="fa-solid fa-pen"></i>
+                        </a>
+                        {% if opp.contactId %}
+                        <a href="{{ url_for('web_contacts.contact_detail', contact_id=opp.contactId) }}" class="btn btn-xs btn-outline-secondary" title="Ver ficha 360 del contacto">
+                            <i class="fa-solid fa-address-card"></i>
+                        </a>
+                        {% endif %}
+                        <a href="{{ url_for('web_crm.activity_new', contact_id=opp.contactId, opportunity_id=opp.id) }}" class="btn btn-xs btn-outline-secondary" title="Agendar actividad">
+                            <i class="fa-solid fa-calendar-plus"></i>
+                        </a>
+                        <button type="button" onclick="openQuickNoteModal('{{ opp.id }}', '{{ opp.title|escape }}')" class="btn btn-xs btn-outline-secondary" title="Nota rápida">
+                            <i class="fa-solid fa-comment-dots"></i>
+                        </button>
+                        {% if opp.status == 'abierta' %}
+                        <button type="button" onclick="promptCloseWon('{{ opp.id }}', '{{ opp.title|escape }}')" class="btn btn-xs btn-success" title="Marcar Ganada" style="margin-left: auto;">
+                            <i class="fa-solid fa-check"></i>
+                        </button>
+                        <button type="button" onclick="promptCloseLost('{{ opp.id }}', '{{ opp.title|escape }}')" class="btn btn-xs btn-danger" title="Marcar Perdida">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
         {% endfor %}
     </div>
-    {% endfor %}
 </div>
+
+<!-- Modal: Marcar como Perdida (CRM-09 & CRM-16) -->
+<div id="lostModal" class="crm-modal-backdrop">
+    <div class="crm-modal-dialog">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3);">
+            <h3 style="margin: 0; font-size: var(--text-lg); color: var(--text-primary);">
+                <i class="fa-solid fa-triangle-exclamation text-danger"></i> Marcar Oportunidad como Perdida
+            </h3>
+            <button type="button" onclick="closeLostModal()" class="btn btn-xs btn-outline-secondary">✕</button>
+        </div>
+        <p style="font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--space-3);">
+            Oportunidad: <strong id="lostModalOppTitle"></strong>
+        </p>
+        <div style="margin-bottom: var(--space-3);">
+            <label style="display: block; font-size: var(--text-xs); font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">
+                MOTIVO DE PÉRDIDA <span class="text-danger">*</span>
+            </label>
+            <select id="lostReasonPreset" class="form-control" style="margin-bottom: 8px;" onchange="handleLostPresetChange(this.value)">
+                <option value="">-- Seleccionar motivo habitual --</option>
+                <option value="Presupuesto insuficiente del cliente">Presupuesto insuficiente del cliente</option>
+                <option value="Eligió propuesta de la competencia">Eligió propuesta de la competencia</option>
+                <option value="Proyecto cancelado o pospuesto indefinidamente">Proyecto cancelado o pospuesto indefinidamente</option>
+                <option value="Sin respuesta tras múltiples intentos de contacto">Sin respuesta tras múltiples intentos de contacto</option>
+                <option value="No cumple requerimientos técnicos solicitados">No cumple requerimientos técnicos solicitados</option>
+                <option value="custom">Otro motivo (especificar abajo)...</option>
+            </select>
+            <textarea id="lostReasonText" class="form-control" rows="3" placeholder="Especifique detalladamente el motivo de pérdida obligatorio..."></textarea>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: var(--space-2);">
+            <button type="button" onclick="closeLostModal()" class="btn btn-secondary">Cancelar</button>
+            <button type="button" onclick="confirmLostTransition()" class="btn btn-danger">Confirmar Pérdida</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Marcar como Ganada -->
+<div id="wonModal" class="crm-modal-backdrop">
+    <div class="crm-modal-dialog">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3);">
+            <h3 style="margin: 0; font-size: var(--text-lg); color: var(--text-primary);">
+                <i class="fa-solid fa-trophy text-success"></i> Cerrar Oportunidad como Ganada
+            </h3>
+            <button type="button" onclick="closeWonModal()" class="btn btn-xs btn-outline-secondary">✕</button>
+        </div>
+        <p style="font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--space-3);">
+            Oportunidad: <strong id="wonModalOppTitle"></strong>
+        </p>
+        <div style="margin-bottom: var(--space-3);">
+            <label style="display: block; font-size: var(--text-xs); font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">
+                NÚMERO DE FACTURA VINCULADA (OPCIONAL)
+            </label>
+            <input type="text" id="wonInvoiceNumber" class="form-control" placeholder="Ej: E3100000045 o NCF">
+        </div>
+        <div style="margin-bottom: var(--space-3);">
+            <label style="display: block; font-size: var(--text-xs); font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">
+                NOTAS DE CIERRE
+            </label>
+            <textarea id="wonNotes" class="form-control" rows="2" placeholder="Comentarios de cierre exitoso..."></textarea>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: var(--space-2);">
+            <button type="button" onclick="closeWonModal()" class="btn btn-secondary">Cancelar</button>
+            <button type="button" onclick="confirmWonTransition()" class="btn btn-success">Confirmar Venta Ganada</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Nota Rápida (CRM-19) -->
+<div id="quickNoteModal" class="crm-modal-backdrop">
+    <div class="crm-modal-dialog">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3);">
+            <h3 style="margin: 0; font-size: var(--text-lg); color: var(--text-primary);">
+                <i class="fa-solid fa-comment-dots text-primary"></i> Registrar Nota Rápida
+            </h3>
+            <button type="button" onclick="closeQuickNoteModal()" class="btn btn-xs btn-outline-secondary">✕</button>
+        </div>
+        <p style="font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--space-3);">
+            Oportunidad: <strong id="quickNoteOppTitle"></strong>
+        </p>
+        <div style="margin-bottom: var(--space-3);">
+            <textarea id="quickNoteContent" class="form-control" rows="4" placeholder="Escriba aquí los detalles de la interacción comercial..."></textarea>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: var(--space-2);">
+            <button type="button" onclick="closeQuickNoteModal()" class="btn btn-secondary">Cancelar</button>
+            <button type="button" onclick="submitQuickNote()" class="btn btn-primary">Guardar Nota</button>
+        </div>
+    </div>
 </div>
 {% endblock %}
+
 {% block extra_scripts %}
 <script>
-function updateOpportunityStage(opportunityId, stage, probability) {
-    fetch('/crm/opportunities/' + opportunityId + '/stage', {
+// Estado de Drag & Drop
+let draggedOppId = null;
+let draggedSourceStage = null;
+let pendingOppId = null;
+
+function handleDragStart(e, oppId, stage) {
+    draggedOppId = oppId;
+    draggedSourceStage = stage;
+    e.dataTransfer.setData('text/plain', oppId);
+    e.dataTransfer.effectAllowed = 'move';
+    const card = document.getElementById('card-' + oppId);
+    if (card) {
+        card.classList.add('is-dragging');
+    }
+}
+
+function handleDragEnd(e) {
+    if (draggedOppId) {
+        const card = document.getElementById('card-' + draggedOppId);
+        if (card) {
+            card.classList.remove('is-dragging');
+        }
+    }
+    document.querySelectorAll('.crm-column').forEach(c => c.classList.remove('drag-over'));
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const col = e.currentTarget;
+    if (col && !col.classList.contains('drag-over')) {
+        col.classList.add('drag-over');
+    }
+}
+
+function handleDragLeave(e) {
+    const col = e.currentTarget;
+    if (col) {
+        col.classList.remove('drag-over');
+    }
+}
+
+function handleDrop(e, targetStage) {
+    e.preventDefault();
+    document.querySelectorAll('.crm-column').forEach(c => c.classList.remove('drag-over'));
+    
+    if (!draggedOppId) return;
+    const oppId = draggedOppId;
+    const sourceStage = draggedSourceStage;
+
+    if (sourceStage === targetStage) {
+        return; // Sin cambio
+    }
+
+    const card = document.getElementById('card-' + oppId);
+    const oppTitle = card ? card.dataset.oppTitle : 'Oportunidad';
+
+    if (targetStage === 'Perdida') {
+        promptCloseLost(oppId, oppTitle);
+        return;
+    }
+
+    if (targetStage === 'Ganada') {
+        promptCloseWon(oppId, oppTitle);
+        return;
+    }
+
+    // Transición directa mediante API formal
+    executeStageTransition(oppId, targetStage, '');
+}
+
+function executeStageTransition(oppId, targetStage, lostReason, invoiceNumber, notes) {
+    fetch('/crm/opportunities/' + oppId + '/stage', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}'},
-        body: JSON.stringify({stage: stage, probability: probability})
-    }).then(r => r.json()).then(d => {
-        if (!d.success) {
-            alert(d.error || 'No se pudo actualizar la oportunidad.');
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({
+            stage: targetStage,
+            lostReason: lostReason || '',
+            invoiceNumber: invoiceNumber || '',
+            notes: notes || ''
+        })
+    })
+    .then(r => r.json().then(data => ({ status: r.status, body: data })))
+    .then(res => {
+        if (!res.body.success) {
+            alert('⚠️ ' + (res.body.error || 'No se pudo realizar la transición de etapa.'));
+            window.location.reload();
         } else {
             window.location.reload();
         }
-    }).catch(() => alert('Error de red al actualizar pipeline.'));
+    })
+    .catch(err => {
+        alert('Error de red al actualizar la etapa de la oportunidad.');
+        window.location.reload();
+    });
+}
+
+// Modales
+function promptCloseLost(oppId, title) {
+    pendingOppId = oppId;
+    document.getElementById('lostModalOppTitle').textContent = title || 'Oportunidad';
+    document.getElementById('lostReasonPreset').value = '';
+    document.getElementById('lostReasonText').value = '';
+    document.getElementById('lostModal').style.display = 'flex';
+}
+
+function closeLostModal() {
+    document.getElementById('lostModal').style.display = 'none';
+    pendingOppId = null;
+}
+
+function handleLostPresetChange(val) {
+    if (val && val !== 'custom') {
+        document.getElementById('lostReasonText').value = val;
+    }
+}
+
+function confirmLostTransition() {
+    const reason = document.getElementById('lostReasonText').value.trim();
+    if (!reason) {
+        alert('Debe especificar un motivo de pérdida obligatorio (CRM-09).');
+        return;
+    }
+    const oppId = pendingOppId;
+    closeLostModal();
+    executeStageTransition(oppId, 'Perdida', reason);
+}
+
+function promptCloseWon(oppId, title) {
+    pendingOppId = oppId;
+    document.getElementById('wonModalOppTitle').textContent = title || 'Oportunidad';
+    document.getElementById('wonInvoiceNumber').value = '';
+    document.getElementById('wonNotes').value = '';
+    document.getElementById('wonModal').style.display = 'flex';
+}
+
+function closeWonModal() {
+    document.getElementById('wonModal').style.display = 'none';
+    pendingOppId = null;
+}
+
+function confirmWonTransition() {
+    const invNum = document.getElementById('wonInvoiceNumber').value.trim();
+    const notes = document.getElementById('wonNotes').value.trim();
+    const oppId = pendingOppId;
+    closeWonModal();
+    executeStageTransition(oppId, 'Ganada', '', invNum, notes);
+}
+
+function openQuickNoteModal(oppId, title) {
+    pendingOppId = oppId;
+    document.getElementById('quickNoteOppTitle').textContent = title || 'Oportunidad';
+    document.getElementById('quickNoteContent').value = '';
+    document.getElementById('quickNoteModal').style.display = 'flex';
+}
+
+function closeQuickNoteModal() {
+    document.getElementById('quickNoteModal').style.display = 'none';
+    pendingOppId = null;
+}
+
+function submitQuickNote() {
+    const content = document.getElementById('quickNoteContent').value.trim();
+    if (!content) {
+        alert('El contenido de la nota no puede estar vacío.');
+        return;
+    }
+    const oppId = pendingOppId;
+    fetch('/crm/opportunities/' + oppId + '/quick-note', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({ content: content })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            closeQuickNoteModal();
+            alert('Nota registrada correctamente.');
+        } else {
+            alert('Error: ' + (data.error || 'No se pudo guardar la nota.'));
+        }
+    })
+    .catch(() => alert('Error de conexión al guardar nota.'));
+}
+
+function filterKanbanCards(query) {
+    const q = (query || '').toLowerCase().trim();
+    document.querySelectorAll('.crm-card').forEach(card => {
+        const title = (card.dataset.oppTitle || '').toLowerCase();
+        const contact = (card.dataset.oppContact || '').toLowerCase();
+        if (!q || title.includes(q) || contact.includes(q)) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+    });
 }
 </script>
 {% endblock %}
