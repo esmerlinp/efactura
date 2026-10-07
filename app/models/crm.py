@@ -59,6 +59,21 @@ CONTACT_PIPELINE_MAP = {
     "Perdida": "Expirado",
 }
 
+LEAD_SCORE_WEIGHTS = {
+    "base": 10,
+    "has_email": 10,
+    "has_phone": 10,
+    "has_responsible": 10,
+    "recent_interaction_7d": 20,
+    "recent_interaction_30d": 10,
+    "open_opportunity": 15,
+    "stage_proposal_or_negotiation": 20,
+    "stage_contacted_or_qualified": 10,
+    "active_quotation": 15,
+    "billing_history": 20,
+    "high_billing": 10,
+}
+
 
 class CRMOpportunity(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
@@ -153,6 +168,9 @@ class CRMMetricSnapshot(BaseModel):
     companyId: str = ""
     branchId: str | None = None
     projectId: str | None = None
+    period: str = "daily"  # daily | weekly | monthly
+    periodStart: str = ""
+    periodEnd: str = ""
     snapshotDate: str = ""
     openOpportunities: int = 0
     wonOpportunities: int = 0
