@@ -3455,15 +3455,23 @@ class DatabaseService:
                             cls.update_client_pipeline(owner_uid, client_id, "Cliente Activo", sandbox=sandbox, company_id=company_id)
                         try:
                             from app.services.crm_service import CRMService
-                            CRMService.mark_contact_opportunities_won(
-                                owner_uid,
-                                client_id,
-                                invoice_id=invoice_id,
-                                invoice_number=inv_dict.get("invoiceNumber", ""),
-                                sandbox=sandbox
-                            )
+                            opp_id = inv_dict.get("opportunityId")
+                            quote_id = inv_dict.get("quotationId") or inv_dict.get("convertedFromQuotationId")
+                            resolved_cid = company_id or _resolve_company_id(owner_uid)
+                            if (opp_id or quote_id) and resolved_cid:
+                                total_amount = float(inv_dict.get("total") or inv_dict.get("netPayable") or 0.0)
+                                CRMService.link_invoice_to_opportunity(
+                                    owner_uid=owner_uid,
+                                    invoice_id=invoice_id,
+                                    invoice_number=inv_dict.get("invoiceNumber", ""),
+                                    opportunity_id=opp_id,
+                                    quotation_id=quote_id,
+                                    sandbox=sandbox,
+                                    company_id=resolved_cid,
+                                    total_amount=total_amount,
+                                )
                         except Exception as crm_err:
-                            print(f"⚠️ Error al cerrar oportunidades CRM del cliente {client_id}: {crm_err}")
+                            print(f"⚠️ Error al vincular factura con oportunidad CRM: {crm_err}")
                 except Exception as e:
                     print(f"⚠️ Error al actualizar automáticamente el pipelineStage del cliente {client_id}: {e}")
 
