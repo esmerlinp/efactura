@@ -5,12 +5,61 @@
 {% endblock %}
 {% block content %}
 <div class="dashboard-container">
-<div class="page-title-container" style="margin-bottom: 0; padding-left: 4px;">
-    <h1 class="page-title"
-        style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
-        <i class="fa-solid fa-address-book"></i> CRM
-    </h1>
+<div class="crm-pipeline-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:var(--space-3); margin-bottom:var(--space-3); padding-left:4px;">
+    <div>
+        <h1 class="page-title" style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+            <i class="fa-solid fa-chart-pie text-primary"></i> Dashboard CRM
+        </h1>
+        <p style="font-size: var(--text-sm); color: var(--text-muted); margin: 4px 0 0 0;">
+            Métricas comerciales, embudo de ventas y seguimiento de oportunidades.
+        </p>
+    </div>
+    <div style="display:flex; gap:var(--space-2); align-items:center;">
+        <a href="{{ url_for('web_crm.pipeline') }}" class="btn btn-primary">
+            <i class="fa-solid fa-chart-simple"></i> Ver Pipeline
+        </a>
+        <a href="{{ url_for('web_crm.activities') }}" class="btn btn-secondary">
+            <i class="fa-solid fa-calendar-check"></i> Agenda
+        </a>
+        <a href="{{ url_for('web_crm.opportunity_new') }}" class="btn btn-accent">
+            <i class="fa-solid fa-plus"></i> Nueva Oportunidad
+        </a>
+    </div>
 </div>
+
+{% if (branches and branches|length > 0) or (projects and projects|length > 0) %}
+<form method="GET" action="{{ url_for('web_crm.dashboard') }}" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:var(--space-3) var(--space-4); display:flex; flex-wrap:wrap; gap:var(--space-3); align-items:center; margin-bottom:var(--space-4);">
+    {% if branches and branches|length > 0 %}
+    <div style="display:flex; align-items:center; gap:var(--space-2);">
+        <label style="font-size:var(--text-xs); font-weight:600; color:var(--text-muted); text-transform:uppercase; margin:0;"><i class="fa-solid fa-building"></i> Sucursal</label>
+        <select name="branch_id" style="padding:6px 10px; border:1px solid var(--border-color); border-radius:var(--radius-sm); background:var(--bg-input); color:var(--text-primary); font-size:var(--text-sm);" onchange="this.form.submit()">
+            <option value="">Todas las sucursales</option>
+            {% for b in branches %}
+            <option value="{{ b.id }}" {% if selected_branch == b.id %}selected{% endif %}>{{ b.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
+    {% if projects and projects|length > 0 %}
+    <div style="display:flex; align-items:center; gap:var(--space-2);">
+        <label style="font-size:var(--text-xs); font-weight:600; color:var(--text-muted); text-transform:uppercase; margin:0;"><i class="fa-solid fa-folder-tree"></i> Proyecto</label>
+        <select name="project_id" style="padding:6px 10px; border:1px solid var(--border-color); border-radius:var(--radius-sm); background:var(--bg-input); color:var(--text-primary); font-size:var(--text-sm);" onchange="this.form.submit()">
+            <option value="">Todos los proyectos</option>
+            {% for p in projects %}
+            <option value="{{ p.id }}" {% if selected_project == p.id %}selected{% endif %}>{{ p.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
+    {% if selected_branch or selected_project %}
+    <a href="{{ url_for('web_crm.dashboard') }}" class="btn btn-xs btn-outline-secondary" title="Limpiar filtros" style="margin-left:auto;">
+        <i class="fa-solid fa-xmark"></i> Limpiar
+    </a>
+    {% endif %}
+</form>
+{% endif %}
 
 <div class="small-metrics-grid">
     <div class="small-metric">
