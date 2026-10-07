@@ -519,6 +519,7 @@ class CRMService:
                 print(f"⚠️ Error al guardar actividad CRM: {e}")
 
         cls._sync_activity_to_contact(owner_uid, data, sandbox=sandbox, company_id=company_id)
+        cls.invalidate_commitments_cache(company_id=company_id)
         return _annotate_activity(data)
 
     @classmethod
@@ -541,6 +542,7 @@ class CRMService:
             except Exception:
                 pass
 
+        cls.invalidate_commitments_cache(company_id=company_id)
         return True, "Actividad completada."
 
     @classmethod
@@ -558,6 +560,7 @@ class CRMService:
                 DatabaseService.delete_client_interaction(owner_uid, activity["contactId"], activity_id, sandbox=sandbox, company_id=company_id)
             except Exception:
                 pass
+        cls.invalidate_commitments_cache(company_id=company_id)
         return True
 
     @classmethod
@@ -744,36 +747,55 @@ class CRMService:
         suggestions.sort(key=lambda s: priority_order.get(s.get("priority", "media"), 1))
         return suggestions
 
+    _commitments_cache = {}
+    _CACHE_TTL_SECONDS = 60
+
+    @classmethod
+    def invalidate_commitments_cache(cls, company_id=None):
+        """Invalida el caché de compromisos globales para la empresa dada o todas."""
+        if company_id:
+            prefix = f"{company_id}:"
+            keys_to_del = [k for k in cls._commitments_cache if k.startswith(prefix)]
+            for k in keys_to_del:
+                cls._commitments_cache.pop(k, None)
+        else:
+            cls._commitments_cache.clear()
+
     @classmethod
     def get_global_commitments(cls, owner_uid, sandbox=True, company_id=None):
+        """
+        Retorna compromisos CRM (actividades para hoy o vencidas) para la empresa activa.
+        Optimizado: no escanea contactos ni facturas completas, y cachea el resultado durante 60 segundos.
+        """
+        import time
         company_id = _require_company_id(company_id)
-        contacts = [c for c in ContactService.get_contacts(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id) if "cliente" in c.get("types", [])]
-        contact_map = {c["id"]: c for c in contacts}
-        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False, company_id=company_id)
-        real_invoices = [inv for inv in invoices if not inv.get("isQuotation") and inv.get("status") not in ["Anulada", "Borrador", "Pagado pero no emitido"]]
         today = _today_str()
+        cache_key = f"{company_id}:{bool(sandbox)}:{today}"
+
+        cached = cls._commitments_cache.get(cache_key)
+        if cached:
+            ts, data = cached
+            if time.time() - ts < cls._CACHE_TTL_SECONDS:
+                return [dict(d) for d in data]
+
+        # Consultar únicamente actividades pendientes de la empresa
+        pending_activities = cls.get_activities(
+            owner_uid=owner_uid,
+            sandbox=sandbox,
+            include_completed=False,
+            company_id=company_id,
+        )
+
         commitments = []
-
-        for contact in contacts:
-            c_sales = [inv for inv in real_invoices if inv.get("clientId") == contact["id"]]
-            total_cxc = sum(_safe_float(inv.get("netPayable")) for inv in c_sales if inv.get("status") in ["Emitida", "Vencida", "Parcialmente Cobrada"])
-            if (_date_key(contact.get("nextContactDate")) == today) or total_cxc > 0.0:
-                item = contact.copy()
-                item["total_cxc"] = round(total_cxc, 2)
-                item["crmNotes"] = item.get("crmNotes") or item.get("notes", "")
-                item["commitmentType"] = "contact"
-                commitments.append(item)
-
-        for activity in cls.get_activities(owner_uid, sandbox=sandbox, include_completed=False, company_id=company_id):
+        for activity in pending_activities:
             if not activity.get("isOverdue") and not activity.get("isDueToday"):
                 continue
-            contact = contact_map.get(activity.get("contactId"), {})
             commitments.append({
                 "id": activity.get("contactId") or activity["id"],
                 "activityId": activity["id"],
-                "razonSocial": activity.get("contactName") or contact.get("razonSocial") or activity.get("title"),
-                "telefono": contact.get("telefono") or contact.get("celular", ""),
-                "crmNotes": activity.get("description") or activity.get("title"),
+                "razonSocial": activity.get("contactName") or activity.get("title", ""),
+                "telefono": "",
+                "crmNotes": activity.get("description") or activity.get("title", ""),
                 "total_cxc": 0.0,
                 "nextContactDate": activity.get("dueDate"),
                 "commitmentType": "activity",
@@ -781,8 +803,14 @@ class CRMService:
                 "isOverdue": activity.get("isOverdue", False),
             })
 
-        commitments.sort(key=lambda c: (not c.get("isOverdue", False), _date_key(c.get("nextContactDate")) or today, c.get("razonSocial", "").lower()))
-        return commitments[:20]
+        commitments.sort(key=lambda c: (
+            not c.get("isOverdue", False),
+            _date_key(c.get("nextContactDate")) or today,
+            c.get("razonSocial", "").lower(),
+        ))
+        result = commitments[:20]
+        cls._commitments_cache[cache_key] = (time.time(), result)
+        return [dict(d) for d in result]
 
     @classmethod
     def _normalize_opportunity(cls, data):

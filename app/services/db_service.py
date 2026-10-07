@@ -843,7 +843,12 @@ def _cached_associated_companies(uid):
     return companies
 
 
-def _invalidate_crm_contacts(owner_uid):
+def _invalidate_crm_contacts(owner_uid, company_id=None):
+    try:
+        from app.services.crm_service import CRMService
+        CRMService.invalidate_commitments_cache(company_id=company_id)
+    except Exception:
+        pass
     try:
         cache.delete_memoized(_cached_crm_contacts, owner_uid, True)
         cache.delete_memoized(_cached_crm_contacts, owner_uid, False)
