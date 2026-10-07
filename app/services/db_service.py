@@ -3194,8 +3194,14 @@ class DatabaseService:
             _reingreso = bool(item.get("reingresoStock", False))
             _orig_cost = float(item.get("originalCost") or item.get("unitCost") or item.get("costPrice") or 0.0)
             _qty_ret = float(item.get("quantityReturned", _quantity if _reingreso else 0.0))
+            _catalog_id = item.get("catalogId") or item.get("catalog_id") or item.get("itemId") or item.get("item_id") or item.get("id") or ""
+            _item_id = item.get("id")
+            if not _item_id or _item_id.startswith("item_") or _item_id.startswith("api_item_"):
+                _item_id = _catalog_id or _item_id or str(uuid.uuid4())
             fs_items.append({
-                "id": item.get("id") or str(uuid.uuid4()),
+                "id": _item_id,
+                "catalogId": _catalog_id,
+                "itemId": _catalog_id,
                 "code": item.get("code", ""),
                 "type": item.get("type", "Bien"),
                 "name": item["name"],
@@ -3267,57 +3273,72 @@ class DatabaseService:
                 print(f"⚠️ Error al verificar stock reducido en factura {invoice_id}: {e}")
 
         # Caso 1: Factura de Venta regular -> Descontar stock (SALIDA / VENTA)
-        if not is_quotation and not is_note and (is_synced or status in ["Emitida", "Cobrada", "Pagada", "Vencida"]) and status != "Borrador" and not inv_dict.get("stockReduced") and not existing_stock_reduced:
+        valid_sale_statuses = ["Emitida", "Cobrada", "Pagada", "Vencida", "Pendiente DGII", "Parcialmente Cobrada", "Revisión de Pago"]
+        if not is_quotation and not is_note and (is_synced or status in valid_sale_statuses) and status not in ("Borrador", "Anulada", "Rechazada", "Rechazado DGII") and not inv_dict.get("stockReduced") and not existing_stock_reduced:
             wh_id = inv_dict.get("warehouseId")
             if not wh_id:
                 whs = cls.get_warehouses(owner_uid, sandbox=sandbox, company_id=company_id)
                 wh_id = whs[0]["id"] if whs else "default-almacen-principal"
                 inv_dict["warehouseId"] = wh_id
             
+            items_catalog = cls.get_items(owner_uid, sandbox=sandbox, company_id=company_id) or []
+            catalog_by_id = {cit["id"]: cit for cit in items_catalog if cit.get("id")}
+            catalog_by_code = {str(cit["code"]).strip().lower(): cit for cit in items_catalog if cit.get("code")}
+            catalog_by_name = {str(cit["name"]).strip().lower(): cit for cit in items_catalog if cit.get("name")}
+
             for it in fs_items:
-                if it.get("type", "Bien") == "Bien" and it.get("id"):
-                    # Verificar que el item existe en el catálogo para descontar su stock
-                    items_catalog = cls.get_items(owner_uid, sandbox=sandbox, company_id=company_id)
-                    catalog_ids = {cit["id"] for cit in items_catalog}
-                    if it["id"] in catalog_ids:
-                        from app.services.inventory_transaction_service import InventoryTransactionService
-                        idempotency_key = InventoryTransactionService.build_idempotency_key(
-                            company_id=company_id,
-                            reference_type="INVOICE",
-                            reference_id=f"{invoice_id}_{it['id']}",
-                            operation=InventoryTransactionService.TYPE_SALIDA
-                        )
-                        tx_dict = {
-                            "itemId": it["id"],
-                            "itemName": it["name"],
-                            "type": InventoryTransactionService.TYPE_SALIDA,
-                            "quantity": float(it["quantity"]),
-                            "reason": InventoryTransactionService.REASON_VENTA,
-                            "referenceType": "INVOICE",
-                            "referenceId": inv_dict.get("invoiceNumber") or invoice_id,
-                            "idempotencyKey": idempotency_key,
-                            "originWarehouseId": wh_id,
-                            "destinationWarehouseId": "",
-                            "notes": f"Venta en Factura {inv_dict.get('invoiceNumber')}",
-                            "performedBy": f"Sistema {get_product_name()}"
-                        }
-                        res_tx = InventoryTransactionService.execute_transaction(
-                            owner_uid=owner_uid,
-                            company_id=company_id,
-                            tx_dict=tx_dict,
-                            sandbox=sandbox
-                        )
-                        if res_tx:
-                            try:
-                                from app.services.inventory_accounting_service import InventoryAccountingService
-                                InventoryAccountingService.post_inventory_transaction(
-                                    company_id=company_id,
-                                    tx=res_tx,
-                                    sandbox=sandbox,
-                                    owner_uid=owner_uid
-                                )
-                            except Exception as acc_e:
-                                print(f"⚠️ Error al contabilizar COGS para factura {invoice_id}: {acc_e}")
+                # Resolver artículo de catálogo por ID, catalogId, código o nombre
+                matched_item = None
+                cand_id = it.get("catalogId") or it.get("itemId") or it.get("id")
+                if cand_id and cand_id in catalog_by_id:
+                    matched_item = catalog_by_id[cand_id]
+                elif it.get("code") and str(it.get("code")).strip().lower() in catalog_by_code:
+                    matched_item = catalog_by_code[str(it.get("code")).strip().lower()]
+                elif it.get("name") and str(it.get("name")).strip().lower() in catalog_by_name:
+                    matched_item = catalog_by_name[str(it.get("name")).strip().lower()]
+
+                item_type = matched_item.get("type", it.get("type", "Bien")) if matched_item else it.get("type", "Bien")
+                if matched_item and item_type not in ("Servicio", "service"):
+                    real_item_id = matched_item["id"]
+                    real_item_name = matched_item.get("name", it.get("name", "Artículo"))
+                    from app.services.inventory_transaction_service import InventoryTransactionService
+                    idempotency_key = InventoryTransactionService.build_idempotency_key(
+                        company_id=company_id,
+                        reference_type="INVOICE",
+                        reference_id=f"{invoice_id}_{real_item_id}",
+                        operation=InventoryTransactionService.TYPE_SALIDA
+                    )
+                    tx_dict = {
+                        "itemId": real_item_id,
+                        "itemName": real_item_name,
+                        "type": InventoryTransactionService.TYPE_SALIDA,
+                        "quantity": float(it["quantity"]),
+                        "reason": InventoryTransactionService.REASON_VENTA,
+                        "referenceType": "INVOICE",
+                        "referenceId": inv_dict.get("invoiceNumber") or invoice_id,
+                        "idempotencyKey": idempotency_key,
+                        "originWarehouseId": wh_id,
+                        "destinationWarehouseId": "",
+                        "notes": f"Venta en Factura {inv_dict.get('invoiceNumber')}",
+                        "performedBy": f"Sistema {get_product_name()}"
+                    }
+                    res_tx = InventoryTransactionService.execute_transaction(
+                        owner_uid=owner_uid,
+                        company_id=company_id,
+                        tx_dict=tx_dict,
+                        sandbox=sandbox
+                    )
+                    if res_tx:
+                        try:
+                            from app.services.inventory_accounting_service import InventoryAccountingService
+                            InventoryAccountingService.post_inventory_transaction(
+                                company_id=company_id,
+                                tx=res_tx,
+                                sandbox=sandbox,
+                                owner_uid=owner_uid
+                            )
+                        except Exception as acc_e:
+                            print(f"⚠️ Error al contabilizar COGS para factura {invoice_id}: {acc_e}")
             
             inv_dict["stockReduced"] = True
 
