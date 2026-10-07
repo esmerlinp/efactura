@@ -39,6 +39,26 @@ CRM_ACTIVITY_PRIORITIES = ["baja", "media", "alta", "urgente"]
 CRM_ACTIVITY_STATUSES = ["pendiente", "completada", "cancelada"]
 CRM_OPPORTUNITY_STATUSES = ["abierta", "ganada", "perdida"]
 
+VALID_OPPORTUNITY_TRANSITIONS = {
+    "Prospecto": ["Contactado", "Perdida"],
+    "Contactado": ["Calificado", "Perdida"],
+    "Calificado": ["Propuesta", "Perdida"],
+    "Propuesta": ["Negociación", "Ganada", "Perdida"],
+    "Negociación": ["Ganada", "Perdida"],
+    "Ganada": ["Propuesta", "Negociación"],  # Reapertura controlada
+    "Perdida": ["Prospecto", "Contactado", "Calificado", "Propuesta", "Negociación"],  # Reapertura controlada
+}
+
+CONTACT_PIPELINE_MAP = {
+    "Prospecto": "Prospecto",
+    "Contactado": "Contactado",
+    "Calificado": "Calificado",
+    "Propuesta": "Propuesta",
+    "Negociación": "En Negociación",
+    "Ganada": "Cliente Activo",
+    "Perdida": "Expirado",
+}
+
 
 class CRMOpportunity(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
@@ -64,6 +84,9 @@ class CRMOpportunity(BaseModel):
     invoices: list[dict] = Field(default_factory=list)
     lostReason: str = ""
     notes: str = ""
+    isDeleted: bool = False
+    deletedAt: str = ""
+    deletedBy: str = ""
     createdBy: str = ""
     createdAt: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updatedAt: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
@@ -89,6 +112,9 @@ class CRMActivity(BaseModel):
     assignedTo: str = ""
     assignedToName: str = ""
     completedAt: str = ""
+    isDeleted: bool = False
+    deletedAt: str = ""
+    deletedBy: str = ""
     createdBy: str = ""
     createdAt: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updatedAt: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())

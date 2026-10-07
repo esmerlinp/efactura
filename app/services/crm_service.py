@@ -9,22 +9,13 @@ from app.models.crm import (
     CRM_ACTIVITY_TYPES,
     CRM_OPPORTUNITY_STAGES,
     CRM_STAGE_PROBABILITY,
+    VALID_OPPORTUNITY_TRANSITIONS,
+    CONTACT_PIPELINE_MAP,
     CRMActivity,
     CRMOpportunity,
 )
 from app.services.contact_service import ContactService
 from app.services.db_service import DatabaseService, db_firestore, firebase_initialized, serialize_field, _company_coll
-
-
-CONTACT_PIPELINE_MAP = {
-    "Prospecto": "Prospecto",
-    "Contactado": "Contactado",
-    "Calificado": "Contactado",
-    "Propuesta": "En Negociación",
-    "Negociación": "En Negociación",
-    "Ganada": "Cliente Activo",
-    "Perdida": "Expirado",
-}
 
 
 def _now_iso():
@@ -172,6 +163,8 @@ class CRMService:
             doc = _company_coll(company_id=company_id, coll_name=_opportunity_coll(sandbox)).document(opportunity_id).get()
             if doc.exists:
                 data = doc.to_dict() or {}
+                if data.get("isDeleted", False):
+                    return None
                 data["id"] = doc.id
                 data["companyId"] = data.get("companyId", company_id)
                 data["branchId"] = data.get("branchId", "default-sucursal-principal")
@@ -190,6 +183,8 @@ class CRMService:
                 docs = _company_coll(company_id=company_id, coll_name=_opportunity_coll(sandbox)).get()
                 for doc in docs:
                     data = doc.to_dict() or {}
+                    if data.get("isDeleted", False):
+                        continue
                     data["id"] = doc.id
                     data["companyId"] = data.get("companyId", company_id)
                     data["branchId"] = data.get("branchId", "default-sucursal-principal")
@@ -319,35 +314,186 @@ class CRMService:
         return data
 
     @classmethod
-    def delete_opportunity(cls, owner_uid, opportunity_id, sandbox=True, company_id=None):
+    def transition_opportunity(
+        cls,
+        owner_uid,
+        opportunity_id,
+        target_stage,
+        sandbox=True,
+        company_id=None,
+        user_name="Sistema",
+        lost_reason="",
+        invoice_id="",
+        invoice_number="",
+        total_amount=0.0,
+        notes="",
+    ):
+        """
+        Transiciona una oportunidad a una nueva etapa validando las reglas de la máquina de estados CRM-16.
+        Garantiza sincronización con Contact.pipelineStage, registro de interacciones, validaciones de cierre
+        y requerimiento estricto de lostReason para oportunidades Perdidas (CRM-09).
+        """
         company_id = _require_company_id(company_id)
-        if firebase_initialized:
+        opp = cls.get_opportunity(owner_uid, opportunity_id, sandbox=sandbox, company_id=company_id)
+        if not opp:
+            return False, "Oportunidad no encontrada.", None
+
+        target_stage = _normalize_stage(target_stage)
+        current_stage = opp.get("stage", "Prospecto")
+
+        # Idempotencia: si ya está en la etapa solicitada
+        if current_stage == target_stage:
+            return True, f"La oportunidad ya se encuentra en la etapa {target_stage}.", opp
+
+        # Validar transiciones permitidas según VALID_OPPORTUNITY_TRANSITIONS
+        allowed = VALID_OPPORTUNITY_TRANSITIONS.get(current_stage, [])
+        if target_stage not in allowed:
+            return False, f"Transición no permitida de '{current_stage}' a '{target_stage}'.", None
+
+        # Validaciones específicas por etapa:
+        # 1. Prospecto -> Contactado: Requiere contacto asociado
+        if current_stage == "Prospecto" and target_stage == "Contactado":
+            if not opp.get("contactId"):
+                return False, "Para avanzar a Contactado la oportunidad debe tener un contacto asignado.", None
+
+        # 2. Contactado -> Calificado: Responsable comercial requerido
+        if target_stage == "Calificado":
+            if not opp.get("assignedTo") and not opp.get("assignedToName"):
+                contact = _resolve_contact(owner_uid, opp.get("contactId"), sandbox=sandbox, company_id=company_id)
+                if not (contact and contact.get("responsibleId")):
+                    return False, "Se requiere un responsable comercial asignado para calificar la oportunidad.", None
+
+        # 3. Calificado -> Propuesta: Requiere monto > 0 o cotización asociada
+        if target_stage == "Propuesta":
+            has_amount = _safe_float(opp.get("amount")) > 0 or _safe_float(total_amount) > 0
+            has_quote = bool(opp.get("quotationId") or opp.get("quotationNumber"))
+            if not (has_amount or has_quote):
+                return False, "Para avanzar a Propuesta se requiere un monto estimado o una cotización asociada.", None
+
+        # 4. Propuesta -> Negociación: Validar expectedCloseDate
+        if target_stage == "Negociación":
+            if not opp.get("expectedCloseDate"):
+                opp["expectedCloseDate"] = (datetime.now(timezone.utc).date() + timedelta(days=30)).strftime("%Y-%m-%d")
+
+        # 5. Ganada: Requiere trazabilidad o confirmación
+        if target_stage == "Ganada":
+            if invoice_id:
+                opp["invoiceId"] = invoice_id
+                opp["invoiceNumber"] = invoice_number or opp.get("invoiceNumber", "")
+                invoices_list = opp.get("invoices") or []
+                if not any(item.get("id") == invoice_id for item in invoices_list if isinstance(item, dict)):
+                    invoices_list.append({
+                        "id": invoice_id,
+                        "number": invoice_number or "",
+                        "amount": _safe_float(total_amount),
+                        "linkedAt": _now_iso(),
+                    })
+                opp["invoices"] = invoices_list
+
+        # 6. Perdida: lostReason obligatorio (CRM-09)
+        if target_stage == "Perdida":
+            reason = (lost_reason or opp.get("lostReason", "")).strip()
+            if not reason:
+                return False, "El motivo de pérdida (lostReason) es obligatorio para marcar la oportunidad como Perdida.", None
+            opp["lostReason"] = reason
+
+        # Manejo de Reapertura controlada (de Ganada/Perdida a etapa abierta)
+        is_reopening = (current_stage in ("Ganada", "Perdida") and target_stage not in ("Ganada", "Perdida"))
+        if is_reopening:
+            opp["status"] = "abierta"
+            opp["closedAt"] = ""
+            if current_stage == "Perdida":
+                opp["lostReason"] = ""
+
+        # Actualizar datos de oportunidad
+        opp["stage"] = target_stage
+        if target_stage == "Ganada":
+            opp["status"] = "ganada"
+            opp["closedAt"] = opp.get("closedAt") or _now_iso()
+            opp["probability"] = 100
+        elif target_stage == "Perdida":
+            opp["status"] = "perdida"
+            opp["closedAt"] = opp.get("closedAt") or _now_iso()
+            opp["probability"] = 0
+        else:
+            opp["status"] = "abierta"
+            opp["probability"] = CRM_STAGE_PROBABILITY.get(target_stage, opp.get("probability", 10))
+
+        if notes:
+            opp["notes"] = f"{opp.get('notes', '')}\n[{_now_iso()[:10]} - {user_name}]: {notes}".strip()
+
+        saved = cls.save_opportunity(owner_uid, opportunity_id, opp, sandbox=sandbox, company_id=company_id)
+
+        # Registrar interacción en el contacto
+        contact_id = opp.get("contactId")
+        if contact_id:
+            interaction_title = f"Transición CRM: {current_stage} ➔ {target_stage}"
+            if is_reopening:
+                interaction_title = f"Reapertura de Oportunidad: {target_stage}"
+            content = f"Oportunidad '{opp.get('title')}'. Etapa anterior: {current_stage} ➔ Nueva etapa: {target_stage}."
+            if target_stage == "Perdida":
+                content += f" Motivo de pérdida: {opp.get('lostReason')}."
+            elif target_stage == "Ganada" and opp.get("invoiceNumber"):
+                content += f" Factura: {opp.get('invoiceNumber')}."
+            if notes:
+                content += f" Nota: {notes}."
+
             try:
-                _company_coll(company_id=company_id, coll_name=_opportunity_coll(sandbox)).document(opportunity_id).delete()
-                return True
-            except Exception as e:
-                print(f"⚠️ Error al eliminar oportunidad CRM: {e}")
-        return False
+                DatabaseService.save_client_interaction(owner_uid, contact_id, str(uuid.uuid4()), {
+                    "type": "Seguimiento",
+                    "title": interaction_title,
+                    "content": content,
+                    "date": _now_iso(),
+                    "completed": True,
+                    "createdBy": user_name or "Sistema CRM",
+                }, sandbox=sandbox, company_id=company_id)
+            except Exception:
+                pass
+
+        return True, f"Oportunidad transicionada a {target_stage}.", saved
 
     @classmethod
-    def close_opportunity(cls, owner_uid, opportunity_id, outcome, lost_reason="", invoice_id="", sandbox=True, company_id=None):
+    def delete_opportunity(cls, owner_uid, opportunity_id, sandbox=True, company_id=None, deleted_by=""):
+        """Eliminación segura (Soft Delete CRM-08) y cancelación de actividades pendientes."""
         company_id = _require_company_id(company_id)
-        opportunity = cls.get_opportunity(owner_uid, opportunity_id, sandbox=sandbox, company_id=company_id)
-        if not opportunity:
-            return False, "Oportunidad no encontrada."
+        opp = cls.get_opportunity(owner_uid, opportunity_id, sandbox=sandbox, company_id=company_id)
+        if not opp:
+            return False
 
-        stage = "Ganada" if outcome == "ganada" else "Perdida"
-        updates = {
-            **opportunity,
-            "stage": stage,
-            "status": outcome,
-            "lostReason": lost_reason if outcome == "perdida" else "",
-            "invoiceId": invoice_id or opportunity.get("invoiceId", ""),
-            "closedAt": _now_iso(),
-        }
-        saved = cls.save_opportunity(owner_uid, opportunity_id, updates, sandbox=sandbox, company_id=company_id)
-        cls._record_opportunity_interaction(owner_uid, saved, sandbox=sandbox, company_id=company_id)
-        return True, "Oportunidad cerrada correctamente."
+        opp["isDeleted"] = True
+        opp["deletedAt"] = _now_iso()
+        opp["deletedBy"] = deleted_by or "Sistema"
+        if firebase_initialized:
+            try:
+                _company_coll(company_id=company_id, coll_name=_opportunity_coll(sandbox)).document(opportunity_id).set(opp)
+            except Exception as e:
+                print(f"⚠️ Error al realizar soft delete de oportunidad CRM: {e}")
+                return False
+
+        # Cancelar actividades pendientes asociadas (no dejar huérfanos pendientes)
+        activities = cls.get_activities(owner_uid, sandbox=sandbox, opportunity_id=opportunity_id, company_id=company_id, include_completed=True)
+        for act in activities:
+            if act.get("status") == "pendiente":
+                act["status"] = "cancelada"
+                cls.save_activity(owner_uid, act["id"], act, sandbox=sandbox, company_id=company_id)
+
+        cls.invalidate_commitments_cache(company_id=company_id)
+        return True
+
+    @classmethod
+    def close_opportunity(cls, owner_uid, opportunity_id, outcome, lost_reason="", invoice_id="", sandbox=True, company_id=None, user_name="Sistema"):
+        target_stage = "Ganada" if outcome == "ganada" else "Perdida"
+        ok, msg, _ = cls.transition_opportunity(
+            owner_uid=owner_uid,
+            opportunity_id=opportunity_id,
+            target_stage=target_stage,
+            sandbox=sandbox,
+            company_id=company_id,
+            user_name=user_name,
+            lost_reason=lost_reason,
+            invoice_id=invoice_id,
+        )
+        return ok, msg
 
     @classmethod
     def link_invoice_to_opportunity(
@@ -436,6 +582,8 @@ class CRMService:
             doc = _company_coll(company_id=company_id, coll_name=_activity_coll(sandbox)).document(activity_id).get()
             if doc.exists:
                 data = doc.to_dict() or {}
+                if data.get("isDeleted", False):
+                    return None
                 data["id"] = doc.id
                 data["companyId"] = data.get("companyId", company_id)
                 data["branchId"] = data.get("branchId", "default-sucursal-principal")
@@ -454,6 +602,8 @@ class CRMService:
                 docs = _company_coll(company_id=company_id, coll_name=_activity_coll(sandbox)).get()
                 for doc in docs:
                     data = doc.to_dict() or {}
+                    if data.get("isDeleted", False):
+                        continue
                     data["id"] = doc.id
                     data["companyId"] = data.get("companyId", company_id)
                     data["branchId"] = data.get("branchId", "default-sucursal-principal")
@@ -571,20 +721,30 @@ class CRMService:
         return True, "Actividad completada."
 
     @classmethod
-    def delete_activity(cls, owner_uid, activity_id, sandbox=True, company_id=None):
+    def delete_activity(cls, owner_uid, activity_id, sandbox=True, company_id=None, deleted_by=""):
+        """Eliminación segura de actividades (CRM-08): preserva completadas, soft delete para pendientes."""
         company_id = _require_company_id(company_id)
         activity = cls.get_activity(owner_uid, activity_id, sandbox=sandbox, company_id=company_id)
+        if not activity:
+            return False
+
+        activity["isDeleted"] = True
+        activity["deletedAt"] = _now_iso()
+        activity["deletedBy"] = deleted_by or "Sistema"
+
         if firebase_initialized:
             try:
-                _company_coll(company_id=company_id, coll_name=_activity_coll(sandbox)).document(activity_id).delete()
+                _company_coll(company_id=company_id, coll_name=_activity_coll(sandbox)).document(activity_id).set(activity)
             except Exception as e:
                 print(f"⚠️ Error al eliminar actividad CRM: {e}")
                 return False
-        if activity and activity.get("contactId"):
+
+        if activity.get("contactId") and activity.get("status") != "completada":
             try:
                 DatabaseService.delete_client_interaction(owner_uid, activity["contactId"], activity_id, sandbox=sandbox, company_id=company_id)
             except Exception:
                 pass
+
         cls.invalidate_commitments_cache(company_id=company_id)
         return True
 
@@ -867,6 +1027,82 @@ class CRMService:
         return [dict(d) for d in result]
 
     @classmethod
+    def get_contact_360(cls, owner_uid, contact_id, sandbox=True, company_id=None):
+        """
+        Retorna la ficha consolidada 360 del contacto/cliente para CRM (CRM-05/CRM-06):
+        - Datos generales
+        - Oportunidades asociadas
+        - Actividades asociadas (pendientes y completadas)
+        - Interacciones históricas
+        - Facturas y cotizaciones
+        - Timeline unificado
+        - Métricas comerciales consolidadas
+        """
+        company_id = _require_company_id(company_id)
+        contact = _resolve_contact(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
+        if not contact:
+            return None
+
+        opportunities = cls.get_opportunities(owner_uid, sandbox=sandbox, company_id=company_id, contact_id=contact_id, include_closed=True)
+        activities = cls.get_activities(owner_uid, sandbox=sandbox, company_id=company_id, contact_id=contact_id, include_completed=True)
+        interactions = DatabaseService.get_client_interactions(owner_uid, contact_id, sandbox=sandbox, company_id=company_id)
+        all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id)
+        invoices = [inv for inv in all_invoices if inv.get("clientId") == contact_id and not inv.get("isQuotation")]
+        quotations = [inv for inv in all_invoices if inv.get("clientId") == contact_id and inv.get("isQuotation")]
+
+        timeline = []
+        for inter in interactions:
+            timeline.append({
+                "type": "interaction",
+                "subtype": inter.get("type", "Nota"),
+                "title": inter.get("title", "Interacción"),
+                "content": inter.get("content", ""),
+                "date": inter.get("date") or inter.get("createdAt") or "",
+                "user": inter.get("createdBy", "Sistema"),
+            })
+
+        for act in activities:
+            if act.get("status") == "completada":
+                timeline.append({
+                    "type": "activity_completed",
+                    "subtype": act.get("type", "Tarea"),
+                    "title": f"Actividad completada: {act.get('title')}",
+                    "content": act.get("description", ""),
+                    "date": act.get("completedAt") or act.get("updatedAt") or "",
+                    "user": act.get("assignedToName") or "Equipo Comercial",
+                })
+
+        for inv in invoices:
+            if inv.get("status") not in ("Anulada", "Borrador"):
+                timeline.append({
+                    "type": "invoice",
+                    "subtype": inv.get("ecfType", "Factura"),
+                    "title": f"Factura emitida: {inv.get('invoiceNumber') or inv.get('rnc', '')}",
+                    "content": f"Monto: RD$ {_safe_float(inv.get('total')):,.2f} - Estado: {inv.get('status')}",
+                    "date": inv.get("date") or inv.get("createdAt") or "",
+                    "user": "Facturación",
+                })
+
+        timeline.sort(key=lambda item: item.get("date") or "", reverse=True)
+
+        return {
+            "contact": contact,
+            "opportunities": opportunities,
+            "activities": activities,
+            "interactions": interactions,
+            "invoices": invoices,
+            "quotations": quotations,
+            "timeline": timeline,
+            "metrics": {
+                "totalInvoiced": sum(_safe_float(inv.get("total")) for inv in invoices if inv.get("status") not in ("Anulada", "Borrador")),
+                "totalCxc": sum(_safe_float(inv.get("netPayable")) for inv in invoices if inv.get("status") in ("Emitida", "Vencida", "Revisión de Pago")),
+                "openOpportunities": len([o for o in opportunities if o.get("status") == "abierta"]),
+                "wonOpportunities": len([o for o in opportunities if o.get("status") == "ganada"]),
+                "pendingActivities": len([a for a in activities if a.get("status") == "pendiente"]),
+            }
+        }
+
+    @classmethod
     def _normalize_opportunity(cls, data):
         stage = _normalize_stage(data.get("stage"))
         status = data.get("status", "abierta")
@@ -885,6 +1121,10 @@ class CRMService:
         data["probability"] = _safe_int(data.get("probability"), CRM_STAGE_PROBABILITY.get(stage, 10))
         data["expectedCloseDate"] = _date_key(data.get("expectedCloseDate"))
         data["invoices"] = data.get("invoices") or []
+        data["lostReason"] = data.get("lostReason", "")
+        data["isDeleted"] = bool(data.get("isDeleted", False))
+        data["deletedAt"] = data.get("deletedAt", "")
+        data["deletedBy"] = data.get("deletedBy", "")
         data["createdAt"] = serialize_field(data.get("createdAt"))
         data["updatedAt"] = serialize_field(data.get("updatedAt"))
         data["closedAt"] = serialize_field(data.get("closedAt"))
@@ -900,6 +1140,9 @@ class CRMService:
         data["priority"] = _normalize_priority(data.get("priority"))
         data["status"] = _normalize_status(data.get("status"))
         data["dueDate"] = _date_key(data.get("dueDate"))
+        data["isDeleted"] = bool(data.get("isDeleted", False))
+        data["deletedAt"] = data.get("deletedAt", "")
+        data["deletedBy"] = data.get("deletedBy", "")
         data["createdAt"] = serialize_field(data.get("createdAt"))
         data["updatedAt"] = serialize_field(data.get("updatedAt"))
         data["completedAt"] = serialize_field(data.get("completedAt"))
