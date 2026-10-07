@@ -103,6 +103,12 @@ def _normalize_status(status):
     return status if status in CRM_ACTIVITY_STATUSES else "pendiente"
 
 
+def _require_company_id(company_id):
+    if not company_id or not str(company_id).strip():
+        raise ValueError("company_id es requerido para todas las operaciones de CRM.")
+    return str(company_id).strip()
+
+
 def _resolve_contact(owner_uid, contact_id, sandbox=True, company_id=None):
     if not contact_id:
         return None
@@ -137,17 +143,19 @@ def _annotate_activity(activity):
 
 
 class CRMService:
-    """Operaciones de alto nivel para el módulo CRM."""
+    """Operaciones de alto nivel para el módulo CRM con aislamiento multiempresa estricto."""
 
     @classmethod
     def get_opportunity(cls, owner_uid, opportunity_id, sandbox=True, company_id=None):
+        company_id = _require_company_id(company_id)
         if not firebase_initialized:
             return None
         try:
-            doc = _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name=_opportunity_coll(sandbox)).document(opportunity_id).get()
+            doc = _company_coll(company_id=company_id, coll_name=_opportunity_coll(sandbox)).document(opportunity_id).get()
             if doc.exists:
                 data = doc.to_dict() or {}
                 data["id"] = doc.id
+                data["companyId"] = data.get("companyId", company_id)
                 data["branchId"] = data.get("branchId", "default-sucursal-principal")
                 data["projectId"] = data.get("projectId")
                 return cls._normalize_opportunity(data)
@@ -157,13 +165,15 @@ class CRMService:
 
     @classmethod
     def get_opportunities(cls, owner_uid, sandbox=True, company_id=None, include_closed=True, contact_id=None, branch_id=None, project_id=None):
+        company_id = _require_company_id(company_id)
         opportunities = []
         if firebase_initialized:
             try:
-                docs = _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name=_opportunity_coll(sandbox)).get()
+                docs = _company_coll(company_id=company_id, coll_name=_opportunity_coll(sandbox)).get()
                 for doc in docs:
                     data = doc.to_dict() or {}
                     data["id"] = doc.id
+                    data["companyId"] = data.get("companyId", company_id)
                     data["branchId"] = data.get("branchId", "default-sucursal-principal")
                     data["projectId"] = data.get("projectId")
                     opportunity = cls._normalize_opportunity(data)
@@ -190,6 +200,7 @@ class CRMService:
 
     @classmethod
     def save_opportunity(cls, owner_uid, opportunity_id, opportunity_dict, sandbox=True, company_id=None):
+        company_id = _require_company_id(company_id)
         opportunity_id = opportunity_id or opportunity_dict.get("id") or str(uuid.uuid4())
         existing = cls.get_opportunity(owner_uid, opportunity_id, sandbox=sandbox, company_id=company_id) or {}
 
@@ -218,6 +229,7 @@ class CRMService:
             **opportunity_dict,
             "id": opportunity_id,
             "ownerUID": owner_uid,
+            "companyId": company_id,
             "branchId": opportunity_dict.get("branchId", existing.get("branchId", "default-sucursal-principal")),
             "projectId": opportunity_dict.get("projectId", existing.get("projectId")),
             "contactId": contact_id,
@@ -235,6 +247,7 @@ class CRMService:
             "quotationNumber": opportunity_dict.get("quotationNumber") or existing.get("quotationNumber", ""),
             "invoiceId": opportunity_dict.get("invoiceId") or existing.get("invoiceId", ""),
             "invoiceNumber": opportunity_dict.get("invoiceNumber") or existing.get("invoiceNumber", ""),
+            "invoices": opportunity_dict.get("invoices") or existing.get("invoices", []),
             "lostReason": opportunity_dict.get("lostReason") or existing.get("lostReason", ""),
             "notes": opportunity_dict.get("notes") or existing.get("notes", ""),
             "createdBy": opportunity_dict.get("createdBy") or existing.get("createdBy", ""),
@@ -273,7 +286,7 @@ class CRMService:
 
         if firebase_initialized:
             try:
-                _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name=_opportunity_coll(sandbox)).document(opportunity_id).set(data)
+                _company_coll(company_id=company_id, coll_name=_opportunity_coll(sandbox)).document(opportunity_id).set(data)
             except Exception as e:
                 print(f"⚠️ Error al guardar oportunidad CRM: {e}")
 
@@ -289,9 +302,10 @@ class CRMService:
 
     @classmethod
     def delete_opportunity(cls, owner_uid, opportunity_id, sandbox=True, company_id=None):
+        company_id = _require_company_id(company_id)
         if firebase_initialized:
             try:
-                _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name=_opportunity_coll(sandbox)).document(opportunity_id).delete()
+                _company_coll(company_id=company_id, coll_name=_opportunity_coll(sandbox)).document(opportunity_id).delete()
                 return True
             except Exception as e:
                 print(f"⚠️ Error al eliminar oportunidad CRM: {e}")
@@ -299,6 +313,7 @@ class CRMService:
 
     @classmethod
     def close_opportunity(cls, owner_uid, opportunity_id, outcome, lost_reason="", invoice_id="", sandbox=True, company_id=None):
+        company_id = _require_company_id(company_id)
         opportunity = cls.get_opportunity(owner_uid, opportunity_id, sandbox=sandbox, company_id=company_id)
         if not opportunity:
             return False, "Oportunidad no encontrada."
@@ -318,6 +333,7 @@ class CRMService:
 
     @classmethod
     def mark_contact_opportunities_won(cls, owner_uid, contact_id, invoice_id="", invoice_number="", sandbox=True, company_id=None):
+        company_id = _require_company_id(company_id)
         if not contact_id:
             return 0
         open_opportunities = cls.get_opportunities(owner_uid, sandbox=sandbox, company_id=company_id, include_closed=False, contact_id=contact_id)
@@ -331,19 +347,21 @@ class CRMService:
             opportunity["invoiceNumber"] = invoice_number or opportunity.get("invoiceNumber", "")
             opportunity["closedAt"] = _now_iso()
             cls.save_opportunity(owner_uid, opportunity["id"], opportunity, sandbox=sandbox, company_id=company_id)
-            cls._record_opportunity_interaction(owner_uid, opportunity, sandbox=sandbox)
+            cls._record_opportunity_interaction(owner_uid, opportunity, sandbox=sandbox, company_id=company_id)
             updated += 1
         return updated
 
     @classmethod
     def get_activity(cls, owner_uid, activity_id, sandbox=True, company_id=None):
+        company_id = _require_company_id(company_id)
         if not firebase_initialized:
             return None
         try:
-            doc = _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name=_activity_coll(sandbox)).document(activity_id).get()
+            doc = _company_coll(company_id=company_id, coll_name=_activity_coll(sandbox)).document(activity_id).get()
             if doc.exists:
                 data = doc.to_dict() or {}
                 data["id"] = doc.id
+                data["companyId"] = data.get("companyId", company_id)
                 data["branchId"] = data.get("branchId", "default-sucursal-principal")
                 data["projectId"] = data.get("projectId")
                 return _annotate_activity(cls._normalize_activity(data))
@@ -353,13 +371,15 @@ class CRMService:
 
     @classmethod
     def get_activities(cls, owner_uid, sandbox=True, include_completed=True, contact_id=None, opportunity_id=None, branch_id=None, project_id=None, company_id=None):
+        company_id = _require_company_id(company_id)
         activities = []
         if firebase_initialized:
             try:
-                docs = _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name=_activity_coll(sandbox)).get()
+                docs = _company_coll(company_id=company_id, coll_name=_activity_coll(sandbox)).get()
                 for doc in docs:
                     data = doc.to_dict() or {}
                     data["id"] = doc.id
+                    data["companyId"] = data.get("companyId", company_id)
                     data["branchId"] = data.get("branchId", "default-sucursal-principal")
                     data["projectId"] = data.get("projectId")
                     activity = _annotate_activity(cls._normalize_activity(data))
@@ -389,6 +409,7 @@ class CRMService:
 
     @classmethod
     def save_activity(cls, owner_uid, activity_id, activity_dict, sandbox=True, company_id=None):
+        company_id = _require_company_id(company_id)
         activity_id = activity_id or activity_dict.get("id") or str(uuid.uuid4())
         existing = cls.get_activity(owner_uid, activity_id, sandbox=sandbox, company_id=company_id) or {}
 
@@ -401,7 +422,7 @@ class CRMService:
         opportunity_id = activity_dict.get("opportunityId") or existing.get("opportunityId", "")
         opportunity_title = activity_dict.get("opportunityTitle") or existing.get("opportunityTitle", "")
         if opportunity_id:
-            opportunity = cls.get_opportunity(owner_uid, opportunity_id, sandbox=sandbox)
+            opportunity = cls.get_opportunity(owner_uid, opportunity_id, sandbox=sandbox, company_id=company_id)
             if opportunity:
                 opportunity_title = opportunity.get("title", opportunity_title)
                 if not contact_id:
@@ -409,7 +430,7 @@ class CRMService:
                     contact_name = opportunity.get("contactName", "")
 
         assigned_to = activity_dict.get("assignedTo") or existing.get("assignedTo", "")
-        assigned_to_name = activity_dict.get("assignedToName") or _resolve_team_member_name(owner_uid, assigned_to)
+        assigned_to_name = activity_dict.get("assignedToName") or _resolve_team_member_name(owner_uid, assigned_to, company_id=company_id)
         activity_type = _normalize_activity_type(activity_dict.get("type") or existing.get("type"))
         title = (activity_dict.get("title") or existing.get("title") or activity_type).strip()
 
@@ -418,6 +439,7 @@ class CRMService:
             **activity_dict,
             "id": activity_id,
             "ownerUID": owner_uid,
+            "companyId": company_id,
             "branchId": activity_dict.get("branchId", existing.get("branchId", "default-sucursal-principal")),
             "projectId": activity_dict.get("projectId", existing.get("projectId")),
             "contactId": contact_id,
@@ -441,7 +463,7 @@ class CRMService:
 
         if firebase_initialized:
             try:
-                _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name=_activity_coll(sandbox)).document(activity_id).set(data)
+                _company_coll(company_id=company_id, coll_name=_activity_coll(sandbox)).document(activity_id).set(data)
             except Exception as e:
                 print(f"⚠️ Error al guardar actividad CRM: {e}")
 
@@ -450,6 +472,7 @@ class CRMService:
 
     @classmethod
     def complete_activity(cls, owner_uid, activity_id, sandbox=True, company_id=None):
+        company_id = _require_company_id(company_id)
         activity = cls.get_activity(owner_uid, activity_id, sandbox=sandbox, company_id=company_id)
         if not activity:
             return False, "Actividad no encontrada."
@@ -471,10 +494,11 @@ class CRMService:
 
     @classmethod
     def delete_activity(cls, owner_uid, activity_id, sandbox=True, company_id=None):
+        company_id = _require_company_id(company_id)
         activity = cls.get_activity(owner_uid, activity_id, sandbox=sandbox, company_id=company_id)
         if firebase_initialized:
             try:
-                _company_coll(owner_uid=owner_uid, company_id=company_id, coll_name=_activity_coll(sandbox)).document(activity_id).delete()
+                _company_coll(company_id=company_id, coll_name=_activity_coll(sandbox)).document(activity_id).delete()
             except Exception as e:
                 print(f"⚠️ Error al eliminar actividad CRM: {e}")
                 return False
@@ -486,8 +510,9 @@ class CRMService:
         return True
 
     @classmethod
-    def get_pipeline(cls, owner_uid, sandbox=True, company_id=None):
-        opportunities = cls.get_opportunities(owner_uid, sandbox=sandbox, include_closed=True)
+    def get_pipeline(cls, owner_uid, sandbox=True, company_id=None, branch_id=None, project_id=None):
+        company_id = _require_company_id(company_id)
+        opportunities = cls.get_opportunities(owner_uid, sandbox=sandbox, company_id=company_id, include_closed=True, branch_id=branch_id, project_id=project_id)
         grouped = []
         for stage in CRM_OPPORTUNITY_STAGES:
             stage_items = [o for o in opportunities if o.get("stage") == stage]
@@ -504,11 +529,19 @@ class CRMService:
         return grouped
 
     @classmethod
-    def get_leads(cls, owner_uid, sandbox=True, company_id=None):
+    def get_leads(cls, owner_uid, sandbox=True, company_id=None, branch_id=None, project_id=None):
+        company_id = _require_company_id(company_id)
         contacts = [c for c in ContactService.get_contacts(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id) if "cliente" in c.get("types", [])]
-        quotations = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=True, company_id=company_id)
-        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False, company_id=company_id)
-        open_activities = cls.get_activities(owner_uid, sandbox=sandbox, include_completed=False, company_id=company_id)
+        if branch_id:
+            contacts = [c for c in contacts if c.get("branchId") == branch_id]
+        if project_id == '__no_project__':
+            contacts = [c for c in contacts if not c.get("projectId")]
+        elif project_id:
+            contacts = [c for c in contacts if c.get("projectId") == project_id]
+
+        quotations = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=True, company_id=company_id, branch_id=branch_id, project_id=project_id)
+        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False, company_id=company_id, branch_id=branch_id, project_id=project_id)
+        open_activities = cls.get_activities(owner_uid, sandbox=sandbox, include_completed=False, company_id=company_id, branch_id=branch_id, project_id=project_id)
 
         quote_count_by_contact = {}
         sales_by_contact = {}
@@ -573,14 +606,15 @@ class CRMService:
         return leads
 
     @classmethod
-    def get_dashboard(cls, owner_uid, sandbox=True, company_id=None):
-        opportunities = cls.get_opportunities(owner_uid, sandbox=sandbox, include_closed=True)
+    def get_dashboard(cls, owner_uid, sandbox=True, company_id=None, branch_id=None, project_id=None):
+        company_id = _require_company_id(company_id)
+        opportunities = cls.get_opportunities(owner_uid, sandbox=sandbox, company_id=company_id, include_closed=True, branch_id=branch_id, project_id=project_id)
         open_opps = [o for o in opportunities if o.get("status") == "abierta"]
         won_opps = [o for o in opportunities if o.get("status") == "ganada"]
         lost_opps = [o for o in opportunities if o.get("status") == "perdida"]
-        activities = cls.get_activities(owner_uid, sandbox=sandbox, include_completed=False, company_id=company_id)
-        leads = cls.get_leads(owner_uid, sandbox=sandbox, company_id=company_id)
-        pipeline = cls.get_pipeline(owner_uid, sandbox=sandbox, company_id=company_id)
+        activities = cls.get_activities(owner_uid, sandbox=sandbox, include_completed=False, company_id=company_id, branch_id=branch_id, project_id=project_id)
+        leads = cls.get_leads(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=branch_id, project_id=project_id)
+        pipeline = cls.get_pipeline(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=branch_id, project_id=project_id)
 
         closed_total = len(won_opps) + len(lost_opps)
         win_rate = (len(won_opps) / closed_total * 100.0) if closed_total else 0.0
@@ -589,7 +623,7 @@ class CRMService:
         overdue = [a for a in activities if a.get("isOverdue")]
         today = [a for a in activities if a.get("isDueToday")]
 
-        suggestions = cls.get_next_action_suggestions(owner_uid, sandbox=sandbox, opportunities=open_opps, leads=leads, activities=activities)
+        suggestions = cls.get_next_action_suggestions(owner_uid, sandbox=sandbox, company_id=company_id, opportunities=open_opps, leads=leads, activities=activities)
 
         return {
             "metrics": {
@@ -613,7 +647,8 @@ class CRMService:
 
     @classmethod
     def get_next_action_suggestions(cls, owner_uid, sandbox=True, company_id=None, opportunities=None, leads=None, activities=None):
-        opportunities = opportunities if opportunities is not None else cls.get_opportunities(owner_uid, sandbox=sandbox, include_closed=False)
+        company_id = _require_company_id(company_id)
+        opportunities = opportunities if opportunities is not None else cls.get_opportunities(owner_uid, sandbox=sandbox, company_id=company_id, include_closed=False)
         leads = leads if leads is not None else cls.get_leads(owner_uid, sandbox=sandbox, company_id=company_id)
         activities = activities if activities is not None else cls.get_activities(owner_uid, sandbox=sandbox, include_completed=False, company_id=company_id)
 
@@ -660,6 +695,7 @@ class CRMService:
 
     @classmethod
     def get_global_commitments(cls, owner_uid, sandbox=True, company_id=None):
+        company_id = _require_company_id(company_id)
         contacts = [c for c in ContactService.get_contacts(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id) if "cliente" in c.get("types", [])]
         contact_map = {c["id"]: c for c in contacts}
         invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False, company_id=company_id)
