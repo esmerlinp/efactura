@@ -988,6 +988,14 @@ class DgiiDirectService:
         endpoints = cls._resolve_endpoints(sandbox=sandbox)
         consulta_url = endpoints.get("consulta_trackids")
         if not consulta_url:
+            if cls._use_local_simulation(sandbox):
+                sim_tid = f"SIM-TRK-{encf}"
+                return {
+                    "success": True,
+                    "trackIds": [sim_tid],
+                    "responseBody": [{"trackId": sim_tid, "estado": "Aceptado"}],
+                    "statusCode": 200
+                }
             return {"success": False, "message": "DGII_CONSULTA_TRACKIDS_URL no configurado."}
 
         token, token_error = cls.get_dgii_token(company_profile, sandbox=sandbox)
@@ -1003,8 +1011,26 @@ class DgiiDirectService:
             status_code = response.status_code if response is not None else 0
 
             if status_code >= 200 and status_code < 300:
+                track_ids = []
+                if isinstance(response_data, list):
+                    for item in response_data:
+                        if isinstance(item, str):
+                            track_ids.append(item)
+                        elif isinstance(item, dict):
+                            t = item.get("trackId") or item.get("track_id") or item.get("TrackId") or item.get("idTracking")
+                            if t:
+                                track_ids.append(str(t))
+                elif isinstance(response_data, dict):
+                    t = response_data.get("trackId") or response_data.get("track_id") or response_data.get("TrackId")
+                    if t:
+                        track_ids.append(str(t))
+                    t_list = response_data.get("trackIds") or response_data.get("track_ids")
+                    if isinstance(t_list, list):
+                        track_ids.extend([str(x.get("trackId") if isinstance(x, dict) else x) for x in t_list if x])
+
                 return {
                     "success": True,
+                    "trackIds": track_ids,
                     "responseBody": response_data or response_text,
                     "statusCode": status_code
                 }

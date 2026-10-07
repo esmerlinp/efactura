@@ -1976,6 +1976,8 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                     invoice_dict["qrCodeURL"] = res.get("qrCodeURL", "")
                     invoice_dict["firebasePDFURL"] = res.get("pdfUrl", "")
                     invoice_dict["firebaseXMLURL"] = res.get("xmlUrl", "")
+                    invoice_dict["trackId"] = res.get("trackId") or res.get("track_id") or res.get("TrackId") or ""
+                    invoice_dict["codigoSeguridad"] = res.get("codigoSeguridad") or invoice_dict.get("codigoSeguridad", "")
                     # FALLBACK = emitido offline, aún pendiente de sincronizar con la DGII
                     invoice_dict["isSyncedWithDGII"] = (res.get("mode") in ("API", "RFCE_API") and res.get("status") != "PENDING")
                     invoice_dict["emisionMode"] = res.get("mode", "API")
@@ -3668,7 +3670,8 @@ def sign_invoice_route(invoice_id):
             invoice["isSyncedWithDGII"] = (res.get("mode") in ("API", "RFCE_API") and res.get("status") != "PENDING")
             invoice["emisionMode"] = res.get("mode", "API")
             invoice["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
-            invoice["trackId"] = res.get("trackId", "")
+            invoice["trackId"] = res.get("trackId") or res.get("track_id") or res.get("TrackId") or invoice.get("trackId", "")
+            invoice["codigoSeguridad"] = res.get("codigoSeguridad") or invoice.get("codigoSeguridad", "")
             invoice["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat() if res.get("mode") == "FALLBACK" else None
             invoice["date"] = datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d %H:%M:%S")
             
@@ -3769,7 +3772,8 @@ def reemit_invoice_route(invoice_id):
             invoice["isSyncedWithDGII"] = (res.get("mode") in ("API", "RFCE_API") and res.get("status") != "PENDING")
             invoice["emisionMode"] = res.get("mode", "API")
             invoice["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
-            invoice["trackId"] = res.get("trackId", "")
+            invoice["trackId"] = res.get("trackId") or res.get("track_id") or res.get("TrackId") or invoice.get("trackId", "")
+            invoice["codigoSeguridad"] = res.get("codigoSeguridad") or invoice.get("codigoSeguridad", "")
             invoice["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat() if res.get("mode") == "FALLBACK" else None
             invoice.pop("dgiiError", None)
             invoice.pop("enviadoADGII", None)
@@ -5595,6 +5599,8 @@ def sync_contingency_invoices():
                 target_invoice["dgiiStatus"] = res.get("dgiiStatus") or "ACCEPTED"
                 target_invoice["xmlSignature"] = res.get("xmlSignature", target_invoice.get("xmlSignature", ""))
                 target_invoice["qrCodeURL"] = res.get("qrCodeURL", target_invoice.get("qrCodeURL", ""))
+                target_invoice["trackId"] = res.get("trackId") or res.get("track_id") or res.get("TrackId") or target_invoice.get("trackId", "")
+                target_invoice["codigoSeguridad"] = res.get("codigoSeguridad") or target_invoice.get("codigoSeguridad", "")
                 target_invoice["contingencyEmittedAt"] = None
                 if float(target_invoice.get("totalPaid", 0.0)) >= float(target_invoice.get("netPayable", target_invoice.get("total", 0.0))) and float(target_invoice.get("totalPaid", 0.0)) > 0:
                     target_invoice["status"] = "Cobrada"
@@ -5672,7 +5678,18 @@ def sync_single_invoice_route(invoice_id):
         # consultar el resultado final en vez de re-emitir (evita duplicar eNCF).
         if invoice.get("emisionMode") == "API" and invoice.get("dgiiStatus") == "PENDING":
             from app.services.contingency_sync_service import ContingencySyncService
-            track_id = invoice.get("trackId", "")
+            track_id = invoice.get("trackId") or invoice.get("track_id") or ""
+            if not track_id and invoice.get("encf"):
+                # Intentar auto-recuperar trackId ante la DGII vía RNC + eNCF
+                rnc_emisor = (company or {}).get("companyRNC") or (company or {}).get("rnc") or (company or {}).get("rncNumber") or ""
+                rnc_emisor = str(rnc_emisor).replace("-", "").strip()
+                if rnc_emisor:
+                    t_res = DgiiDirectService.consultar_trackids(company, rnc_emisor, invoice.get("encf"), sandbox=sandbox)
+                    if t_res.get("success") and t_res.get("trackIds"):
+                        track_id = str(t_res["trackIds"][-1])
+                        invoice["trackId"] = track_id
+                        DatabaseService.save_invoice(owner_uid, invoice_id, invoice, company_id=company_id, sandbox=sandbox)
+
             if not track_id:
                 flash('Este comprobante no tiene trackId para consultar su estado.', 'warning')
                 return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
@@ -5695,6 +5712,8 @@ def sync_single_invoice_route(invoice_id):
             invoice["dgiiStatus"] = res.get("dgiiStatus") or "ACCEPTED"
             invoice["xmlSignature"] = res.get("xmlSignature", invoice.get("xmlSignature", ""))
             invoice["qrCodeURL"] = res.get("qrCodeURL", invoice.get("qrCodeURL", ""))
+            invoice["trackId"] = res.get("trackId") or res.get("track_id") or res.get("TrackId") or invoice.get("trackId", "")
+            invoice["codigoSeguridad"] = res.get("codigoSeguridad") or invoice.get("codigoSeguridad", "")
             invoice["contingencyEmittedAt"] = None
             if res.get("pdfUrl"): invoice["firebasePDFURL"] = res["pdfUrl"]
             if res.get("xmlUrl"): invoice["firebaseXMLURL"] = res["xmlUrl"]
@@ -7423,6 +7442,8 @@ def sync_expense_ecf_route(expense_id):
             expense["isSyncedWithDGII"] = not pending_dgii
             expense["emisionMode"] = "API"
             expense["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
+            expense["trackId"] = res.get("trackId") or res.get("track_id") or res.get("TrackId") or expense.get("trackId", "")
+            expense["codigoSeguridad"] = res.get("codigoSeguridad") or expense.get("codigoSeguridad", "")
             expense["xmlSignature"] = res.get("xmlSignature", expense.get("xmlSignature", ""))
             expense["qrCodeURL"] = res.get("qrCodeURL", expense.get("qrCodeURL", ""))
             expense["encf"] = res.get("encf", expense.get("encf", ""))
