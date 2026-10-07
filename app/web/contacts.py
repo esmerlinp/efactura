@@ -423,6 +423,14 @@ def contact_detail(contact_id):
             if not contact.get(f):
                 missing_fields.append({"field": f, "label": lbl, "icon": ic})
 
+    from app.services.crm_service import CRMService
+
+    crm_360 = CRMService.get_contact_360(owner_uid, contact_id, sandbox=sandbox, company_id=company_id) or {}
+    opportunities = crm_360.get("opportunities", [])
+    activities = crm_360.get("activities", [])
+    timeline = crm_360.get("timeline", [])
+    crm_metrics = crm_360.get("metrics", {})
+
     return render_template(
         'contacts/detail.html',
         active_page='contacts',
@@ -439,6 +447,11 @@ def contact_detail(contact_id):
         portal_url=portal_url,
         client_insight=client_insight,
         missing_fields=missing_fields,
+        crm_360=crm_360,
+        opportunities=opportunities,
+        activities=activities,
+        timeline=timeline,
+        crm_metrics=crm_metrics,
     )
 
 
