@@ -43,6 +43,9 @@ CRM_OPPORTUNITY_STATUSES = ["abierta", "ganada", "perdida"]
 class CRMOpportunity(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     ownerUID: str = ""
+    companyId: str = ""
+    branchId: str = "default-sucursal-principal"
+    projectId: str | None = None
     contactId: str = ""
     contactName: str = ""
     title: str = ""
@@ -58,6 +61,7 @@ class CRMOpportunity(BaseModel):
     quotationNumber: str = ""
     invoiceId: str = ""
     invoiceNumber: str = ""
+    invoices: list[dict] = Field(default_factory=list)
     lostReason: str = ""
     notes: str = ""
     createdBy: str = ""
@@ -69,6 +73,9 @@ class CRMOpportunity(BaseModel):
 class CRMActivity(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     ownerUID: str = ""
+    companyId: str = ""
+    branchId: str = "default-sucursal-principal"
+    projectId: str | None = None
     contactId: str = ""
     contactName: str = ""
     opportunityId: str = ""
