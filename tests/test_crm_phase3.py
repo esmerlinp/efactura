@@ -368,3 +368,139 @@ def test_contact_360_metrics_and_unified_timeline():
         # Timeline
         timeline = data_360["timeline"]
         assert len(timeline) >= 4  # facturas emitidas + actividad completada + interacciones
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 7. Hardening: Sincronización automática Cotización -> Oportunidad vía save_invoice
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_quotation_save_invoice_auto_syncs_opportunity_amount():
+    """Verifica que modificar una cotización en save_invoice actualiza la oportunidad vinculada."""
+    fake_fs = InMemoryFirestore()
+
+    def fake_company_coll(company_id=None, coll_name=None, owner_uid=None):
+        return fake_fs.get_collection(company_id, coll_name)
+
+    with patch("app.services.crm_service.firebase_initialized", True), \
+         patch("app.services.crm_service._company_coll", side_effect=fake_company_coll), \
+         patch("app.services.db_service.firebase_initialized", True), \
+         patch("app.services.db_service._company_coll", side_effect=fake_company_coll), \
+         patch("app.services.db_service._invalidate_invoices"), \
+         patch("app.services.db_service._invalidate_crm_contacts"), \
+         patch("app.services.cache_service.CacheService.invalidate_dashboard"):
+
+        # 1. Crear oportunidad vinculada a la cotización "quote-999"
+        CRMService.save_opportunity("u1", "opp-auto-quote", {
+            "title": "Proyecto Licenciamiento",
+            "quotationId": "quote-999",
+            "quotationNumber": "COT-999",
+            "amount": 50000.0,
+            "stage": "Propuesta",
+        }, company_id="comp-1")
+
+        # 2. Guardar actualización de cotización con nuevo total $125,000
+        inv_data = {
+            "id": "quote-999",
+            "invoiceNumber": "COT-999-REV2",
+            "isQuotation": True,
+            "total": 125000.0,
+            "status": "Emitida",
+        }
+        DatabaseService.save_invoice("u1", "quote-999", inv_data, company_id="comp-1")
+
+        # 3. Verificar que la oportunidad actualizó automáticamente su monto y número
+        updated_opp = CRMService.get_opportunity("u1", "opp-auto-quote", company_id="comp-1")
+        assert updated_opp is not None
+        assert updated_opp["amount"] == 125000.0
+        assert updated_opp["quotationNumber"] == "COT-999-REV2"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 8. Hardening: Aislamiento Multi-tenant Estricto en Fase 3
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_phase3_tenant_isolation_complete():
+    """Verifica aislamiento estricto entre empresas en Contact 360, Pipeline y Notas Rápidas."""
+    fake_fs = InMemoryFirestore()
+
+    def fake_company_coll(company_id=None, coll_name=None, owner_uid=None):
+        return fake_fs.get_collection(company_id, coll_name)
+
+    with patch("app.services.crm_service.firebase_initialized", True), \
+         patch("app.services.crm_service._company_coll", side_effect=fake_company_coll), \
+         patch("app.services.crm_service.ContactService.get_contact", return_value={"id": "c-iso", "responsibleId": "rep-iso"}), \
+         patch("app.services.crm_service.ContactService.update_pipeline", return_value=None), \
+         patch("app.services.crm_service.DatabaseService.get_invoices", return_value=[]), \
+         patch("app.services.crm_service.DatabaseService.get_client_interactions", return_value=[]):
+
+        # Guardar datos en Empresa 1
+        CRMService.save_opportunity("u1", "opp-comp1", {
+            "title": "Op Tenant 1", "contactId": "c-iso", "stage": "Calificado", "assignedTo": "rep-iso"
+        }, company_id="comp-1")
+
+        # Guardar datos en Empresa 2
+        CRMService.save_opportunity("u1", "opp-comp2", {
+            "title": "Op Tenant 2", "contactId": "c-iso", "stage": "Propuesta", "assignedTo": "rep-iso"
+        }, company_id="comp-2")
+
+        # Pipeline Empresa 1 no ve Empresa 2
+        p1 = CRMService.get_pipeline("u1", company_id="comp-1")
+        opps_p1 = [opp["id"] for stage_grp in p1 for opp in stage_grp["opportunities"]]
+        assert "opp-comp1" in opps_p1
+        assert "opp-comp2" not in opps_p1
+
+        # Pipeline Empresa 2 no ve Empresa 1
+        p2 = CRMService.get_pipeline("u1", company_id="comp-2")
+        opps_p2 = [opp["id"] for stage_grp in p2 for opp in stage_grp["opportunities"]]
+        assert "opp-comp2" in opps_p2
+        assert "opp-comp1" not in opps_p2
+
+        # Intento de transición cruzada (Empresa 2 intentando transicionar op de Empresa 1)
+        ok, msg, _ = CRMService.transition_opportunity("u1", "opp-comp1", "Propuesta", company_id="comp-2")
+        assert not ok
+        assert "no encontrada" in msg.lower()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 9. Hardening: Oportunidad Eliminada (Soft-Delete) Excluida de Kanban y 360
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_soft_deleted_opportunity_excluded_from_kanban_and_360():
+    """Verifica que una oportunidad marcada como eliminada no aparezca en Pipeline ni Contact 360."""
+    fake_fs = InMemoryFirestore()
+
+    def fake_company_coll(company_id=None, coll_name=None, owner_uid=None):
+        return fake_fs.get_collection(company_id, coll_name)
+
+    mock_contact = {"id": "c-del", "name": "Cliente Soft Delete"}
+
+    with patch("app.services.crm_service.firebase_initialized", True), \
+         patch("app.services.crm_service._company_coll", side_effect=fake_company_coll), \
+         patch("app.services.crm_service._resolve_contact", return_value=mock_contact), \
+         patch("app.services.crm_service.DatabaseService.get_invoices", return_value=[]), \
+         patch("app.services.crm_service.DatabaseService.get_client_interactions", return_value=[]):
+
+        # 1. Crear oportunidad activa
+        CRMService.save_opportunity("u1", "opp-to-delete", {
+            "title": "Oportunidad Eliminable", "contactId": "c-del", "stage": "Propuesta", "amount": 75000.0
+        }, company_id="comp-1")
+
+        # 2. Verificar que existe en Pipeline
+        p1 = CRMService.get_pipeline("u1", company_id="comp-1")
+        opps_before = [opp["id"] for stage_grp in p1 for opp in stage_grp["opportunities"]]
+        assert "opp-to-delete" in opps_before
+
+        # 3. Eliminar (soft delete)
+        del_ok = CRMService.delete_opportunity("u1", "opp-to-delete", company_id="comp-1")
+        assert del_ok
+
+        # 4. Verificar que desapareció de Pipeline
+        p2 = CRMService.get_pipeline("u1", company_id="comp-1")
+        opps_after = [opp["id"] for stage_grp in p2 for opp in stage_grp["opportunities"]]
+        assert "opp-to-delete" not in opps_after
+
+        # 5. Verificar que Contact 360 no la cuenta
+        c360 = CRMService.get_contact_360("u1", "c-del", company_id="comp-1")
+        assert len(c360["opportunities"]) == 0
+        assert c360["metrics"]["openOpportunities"] == 0
+

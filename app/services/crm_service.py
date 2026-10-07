@@ -593,17 +593,31 @@ class CRMService:
     ):
         """Sincroniza cotización creada o actualizada con la oportunidad correspondiente (CRM-18)."""
         company_id = _require_company_id(company_id)
-        if not opportunity_id or not quotation_id:
+        if not quotation_id:
             return None
-        opp = cls.get_opportunity(owner_uid, opportunity_id, sandbox=sandbox, company_id=company_id)
-        if not opp:
-            return None
-        opp["quotationId"] = quotation_id
-        opp["quotationNumber"] = quotation_number or opp.get("quotationNumber", "")
-        if amount and amount > 0:
-            opp["amount"] = _safe_float(amount)
-        saved = cls.save_opportunity(owner_uid, opportunity_id, opp, sandbox=sandbox, company_id=company_id)
-        return saved
+
+        target_opps = []
+        if opportunity_id:
+            opp = cls.get_opportunity(owner_uid, opportunity_id, sandbox=sandbox, company_id=company_id)
+            if opp:
+                target_opps.append((opportunity_id, opp))
+        else:
+            all_opps = cls.get_opportunities(owner_uid, sandbox=sandbox, company_id=company_id)
+            for opp in all_opps:
+                if opp.get("quotationId") == quotation_id:
+                    target_opps.append((opp.get("id"), opp))
+
+        saved_opps = []
+        for opp_id, opp in target_opps:
+            opp["quotationId"] = quotation_id
+            if quotation_number:
+                opp["quotationNumber"] = quotation_number
+            if amount is not None and amount > 0:
+                opp["amount"] = _safe_float(amount)
+            saved = cls.save_opportunity(owner_uid, opp_id, opp, sandbox=sandbox, company_id=company_id)
+            saved_opps.append(saved)
+
+        return saved_opps[0] if saved_opps else None
 
     @classmethod
     def mark_contact_opportunities_won(cls, owner_uid, contact_id, invoice_id="", invoice_number="", sandbox=True, company_id=None):
