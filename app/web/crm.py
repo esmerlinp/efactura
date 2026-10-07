@@ -68,6 +68,8 @@ def _crm_context(owner_uid, sandbox=True, company_id=None, branch_id=None, proje
         contacts = [c for c in contacts if c.get("projectId") == project_id]
 
     collaborators = DatabaseService.get_team_members(owner_uid, company_id=company_id) or []
+    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id) or []
+    projects = DatabaseService.get_projects(owner_uid, sandbox=sandbox, company_id=company_id) or []
     opportunities = CRMService.get_opportunities(owner_uid, sandbox=sandbox, company_id=company_id, include_closed=False, branch_id=branch_id, project_id=project_id)
     quotations = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=True, company_id=company_id, branch_id=branch_id, project_id=project_id)
     invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False, company_id=company_id, branch_id=branch_id, project_id=project_id)
@@ -75,6 +77,10 @@ def _crm_context(owner_uid, sandbox=True, company_id=None, branch_id=None, proje
     return {
         "contacts": contacts,
         "collaborators": collaborators,
+        "branches": branches,
+        "projects": projects,
+        "selected_branch": branch_id or "",
+        "selected_project": project_id or "",
         "opportunities": opportunities,
         "quotations": quotations,
         "invoices": real_invoices,
@@ -103,8 +109,8 @@ def _opportunity_from_form(company_id=""):
         "invoiceId": request.form.get("invoiceId", "").strip(),
         "notes": request.form.get("notes", "").strip(),
         "createdBy": session.get("user", {}).get("email", ""),
-        "branchId": g.get("branch_id", "default-sucursal-principal"),
-        "projectId": g.get("project_id"),
+        "branchId": request.form.get("branchId") or g.get("branch_id", "default-sucursal-principal"),
+        "projectId": request.form.get("projectId") or g.get("project_id"),
     }
 
 
@@ -121,8 +127,8 @@ def _activity_from_form(company_id=""):
         "assignedTo": request.form.get("assignedTo", "").strip(),
         "status": request.form.get("status", "pendiente").strip(),
         "createdBy": session.get("user", {}).get("email", ""),
-        "branchId": g.get("branch_id", "default-sucursal-principal"),
-        "projectId": g.get("project_id"),
+        "branchId": request.form.get("branchId") or g.get("branch_id", "default-sucursal-principal"),
+        "projectId": request.form.get("projectId") or g.get("project_id"),
     }
 
 
@@ -132,9 +138,20 @@ def dashboard():
     if r:
         return r
     owner_uid, company_id, sandbox = ctx["owner_uid"], ctx["company_id"], _sandbox()
-    branch_id, project_id = g.get("branch_id"), g.get("project_id")
+    branch_id = request.args.get("branch_id") or g.get("branch_id")
+    project_id = request.args.get("project_id") or g.get("project_id")
     data = CRMService.get_dashboard(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=branch_id, project_id=project_id)
-    return render_template("crm/dashboard.html", active_page="crm_dashboard", crm=data)
+    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id) or []
+    projects = DatabaseService.get_projects(owner_uid, sandbox=sandbox, company_id=company_id) or []
+    return render_template(
+        "crm/dashboard.html",
+        active_page="crm_dashboard",
+        crm=data,
+        branches=branches,
+        projects=projects,
+        selected_branch=branch_id or "",
+        selected_project=project_id or "",
+    )
 
 
 @web_crm_bp.route("/crm/pipeline")
@@ -143,7 +160,8 @@ def pipeline():
     if r:
         return r
     owner_uid, company_id, sandbox = ctx["owner_uid"], ctx["company_id"], _sandbox()
-    branch_id, project_id = g.get("branch_id"), g.get("project_id")
+    branch_id = request.args.get("branch_id") or g.get("branch_id")
+    project_id = request.args.get("project_id") or g.get("project_id")
     context = _crm_context(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=branch_id, project_id=project_id)
     context["pipeline"] = CRMService.get_pipeline(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=branch_id, project_id=project_id)
     return render_template("crm/pipeline.html", active_page="crm_pipeline", **context)
@@ -247,6 +265,9 @@ def opportunity_stage(opportunity_id):
     lost_reason = data.get("lostReason", "")
     notes = data.get("notes", "")
 
+    existing = CRMService.get_opportunity(owner_uid, opportunity_id, sandbox=sandbox, company_id=company_id)
+    current_stage = (existing or {}).get("stage", "")
+
     ok, msg, saved = CRMService.transition_opportunity(
         owner_uid=owner_uid,
         opportunity_id=opportunity_id,
@@ -259,6 +280,19 @@ def opportunity_stage(opportunity_id):
     )
     if not ok:
         return jsonify({"success": False, "error": msg}), 400
+
+    # Auditoría de transición (CRM-17)
+    AuditService.log_from_request(
+        owner_uid=owner_uid,
+        action=ACTION_UPDATE,
+        module=MODULE_CRM,
+        entity_id=opportunity_id,
+        entity_label=f"Oportunidad '{saved.get('title', '')}' transicionada: {current_stage} ➔ {target_stage}",
+        user_session=session.get("user", {}),
+        before=existing,
+        after=saved,
+        sandbox=sandbox,
+    )
     return jsonify({"success": True, "message": msg, "opportunity": saved})
 
 
@@ -270,19 +304,110 @@ def opportunity_close(opportunity_id):
     owner_uid, company_id, sandbox = ctx["owner_uid"], ctx["company_id"], _sandbox()
     outcome = request.form.get("outcome", "ganada")
     target_stage = "Ganada" if outcome == "ganada" else "Perdida"
-    ok, msg, _ = CRMService.transition_opportunity(
+    existing = CRMService.get_opportunity(owner_uid, opportunity_id, sandbox=sandbox, company_id=company_id)
+    current_stage = (existing or {}).get("stage", "")
+    lost_reason = request.form.get("lostReason", "")
+
+    ok, msg, saved = CRMService.transition_opportunity(
         owner_uid=owner_uid,
         opportunity_id=opportunity_id,
         target_stage=target_stage,
-        lost_reason=request.form.get("lostReason", ""),
+        lost_reason=lost_reason,
         invoice_id=request.form.get("invoiceId", ""),
         sandbox=sandbox,
         company_id=company_id,
         user_name=_current_user_label(),
         notes=request.form.get("notes", ""),
     )
+    if ok and saved:
+        AuditService.log_from_request(
+            owner_uid=owner_uid,
+            action=ACTION_UPDATE,
+            module=MODULE_CRM,
+            entity_id=opportunity_id,
+            entity_label=f"Oportunidad '{saved.get('title', '')}' cerrada como {target_stage}",
+            user_session=session.get("user", {}),
+            before=existing,
+            after=saved,
+            sandbox=sandbox,
+        )
     flash(msg, "success" if ok else "error")
     return redirect(url_for("web_crm.pipeline"))
+
+
+@web_crm_bp.route("/crm/opportunities/<opportunity_id>/quick-note", methods=["POST"])
+def opportunity_quick_note(opportunity_id):
+    """Registra una nota rápida o interacción comercial en la oportunidad (CRM-19)."""
+    r, ctx = _check("Nota Rápida CRM", required_permission="canCRMOpportunities")
+    if r:
+        if request.is_json:
+            return jsonify({"success": False, "error": "No autorizado"}), 403
+        return r
+    owner_uid, company_id, sandbox = ctx["owner_uid"], ctx["company_id"], _sandbox()
+    data = request.json or request.form
+    note_content = (data.get("content") or data.get("note") or "").strip()
+    if not note_content:
+        return jsonify({"success": False, "error": "El contenido de la nota es requerido."}), 400
+
+    opp = CRMService.get_opportunity(owner_uid, opportunity_id, sandbox=sandbox, company_id=company_id)
+    if not opp:
+        return jsonify({"success": False, "error": "Oportunidad no encontrada."}), 404
+
+    author = _current_user_label()
+    now_stamp = _now_iso()[:10]
+    updated_notes = f"{opp.get('notes', '')}\n[{now_stamp} - {author}]: {note_content}".strip()
+    opp["notes"] = updated_notes
+    saved = CRMService.save_opportunity(owner_uid, opportunity_id, opp, sandbox=sandbox, company_id=company_id)
+
+    # Registrar en bitácora de interacciones del cliente si está asociado
+    if opp.get("contactId"):
+        try:
+            DatabaseService.save_client_interaction(owner_uid, opp["contactId"], str(uuid.uuid4()), {
+                "type": "Nota",
+                "title": f"Nota en oportunidad: {opp.get('title')}",
+                "content": note_content,
+                "date": _now_iso(),
+                "completed": True,
+                "createdBy": author,
+            }, sandbox=sandbox, company_id=company_id)
+        except Exception:
+            pass
+
+    return jsonify({"success": True, "message": "Nota agregada correctamente.", "opportunity": saved})
+
+
+@web_crm_bp.route("/crm/contacts/<contact_id>/quick-note", methods=["POST"])
+def contact_quick_note(contact_id):
+    """Registra una interacción rápida en la ficha del contacto (CRM-19)."""
+    r, ctx = _check("Nota Rápida Contacto", required_permission="canCRMContacts")
+    if r:
+        if request.is_json:
+            return jsonify({"success": False, "error": "No autorizado"}), 403
+        return r
+    owner_uid, company_id, sandbox = ctx["owner_uid"], ctx["company_id"], _sandbox()
+    data = request.json or request.form
+    note_type = data.get("type", "Nota")
+    note_title = (data.get("title") or f"Interacción rápida ({note_type})").strip()
+    note_content = (data.get("content") or data.get("note") or "").strip()
+
+    if not note_content:
+        return jsonify({"success": False, "error": "El contenido de la interacción es requerido."}), 400
+
+    interaction_id = str(uuid.uuid4())
+    interaction_data = {
+        "id": interaction_id,
+        "type": note_type,
+        "title": note_title,
+        "content": note_content,
+        "date": _now_iso(),
+        "completed": True,
+        "createdBy": _current_user_label(),
+    }
+    try:
+        DatabaseService.save_client_interaction(owner_uid, contact_id, interaction_id, interaction_data, sandbox=sandbox, company_id=company_id)
+        return jsonify({"success": True, "message": "Interacción registrada.", "interaction": interaction_data})
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Error al registrar nota: {e}"}), 500
 
 
 @web_crm_bp.route("/crm/opportunities/<opportunity_id>/delete", methods=["POST"])
