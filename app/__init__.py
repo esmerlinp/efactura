@@ -648,7 +648,7 @@ def create_app():
             from app.utils.module_gate import module_enabled as _me
             return _me(module_key)
 
-        return dict(check_permission=check_permission, static_hash=static_hash, module_enabled=module_enabled, abs=abs)
+        return dict(check_permission=check_permission, static_hash=static_hash, module_enabled=module_enabled, abs=abs, dgii_environment=Config.DGII_ENVIRONMENT)
 
     @app.context_processor
     def inject_i18n_helpers():
