@@ -2304,15 +2304,18 @@ def tax_obligations():
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
-    from app.services.tax_obligation_service import TaxObligationService
-    TaxObligationService.seed_defaults(owner_uid)
-    obligations = TaxObligationService.get_all(owner_uid)
-    status_list = TaxObligationService.get_status(owner_uid)
+    from app.services.tax_obligation_service import TaxObligationService, REGIME_PRESETS
+    TaxObligationService.seed_defaults(owner_uid, company_id=company_id)
+    obligations = TaxObligationService.get_all(owner_uid, company_id=company_id)
+    status_list = TaxObligationService.get_status(owner_uid, company_id=company_id)
     status_map = {s["key"]: s for s in status_list}
+    tax_profile = TaxObligationService.detect_tax_profile(owner_uid, company_id=company_id)
     return render_template('accounting/tax_obligations.html',
                            active_page='acc_tax_obligations',
                            obligations=obligations,
-                           status_map=status_map)
+                           status_map=status_map,
+                           tax_profile=tax_profile,
+                           regime_presets=REGIME_PRESETS)
 
 
 @web_accounting_bp.route('/accounting/tax-obligations/save', methods=['POST'])
@@ -2325,16 +2328,64 @@ def tax_obligations_save():
         return jsonify(success=False, error="Permiso denegado"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
-    key = request.form.get('key', '')
-    enabled = request.form.get('enabled', '1') == '1'
-    first_due_date = request.form.get('first_due_date', '')
+
+    data = request.get_json(silent=True) if request.is_json else request.form.to_dict()
+    if not data:
+        data = request.form.to_dict()
+
+    key = data.get('key', '')
     if not key:
         return jsonify(success=False, error="key requerido"), 400
+
+    payload = {"obligation_key": key}
+    if 'enabled' in data:
+        payload["enabled"] = str(data['enabled']).lower() in ('1', 'true', 'yes')
+    if 'first_due_date' in data:
+        payload["first_due_date"] = data['first_due_date']
+
     from app.services.tax_obligation_service import TaxObligationService
-    TaxObligationService.save(owner_uid, {
-        "obligation_key": key,
-        "enabled": enabled,
-        "first_due_date": first_due_date,
-    })
-    return jsonify(success=True)
+    TaxObligationService.save(owner_uid, payload, company_id=company_id)
+
+    # Calcular estado actualizado para respuesta inmediata en frontend
+    all_status = TaxObligationService.get_status(owner_uid, company_id=company_id)
+    updated_st = next((s for s in all_status if s["key"] == key), None)
+
+    return jsonify(
+        success=True,
+        key=key,
+        status=updated_st.get("status") if updated_st else "ok",
+        next_due_date=updated_st.get("next_due_date", "") if updated_st else "",
+        days_remaining=updated_st.get("days_remaining", 0) if updated_st else 0,
+        enabled=payload.get("enabled", True),
+    )
+
+
+@web_accounting_bp.route('/accounting/tax-obligations/apply-preset', methods=['POST'])
+@require_module('contabilidad')
+def tax_obligations_apply_preset():
+    user = _auth()
+    if not user:
+        return jsonify(success=False, error="No autorizado"), 401
+    if not check_permission('canAccounting'):
+        return jsonify(success=False, error="Permiso denegado"), 403
+    owner_uid = _owner_uid()
+    company_id = session.get('selected_company_id')
+
+    data = request.get_json(silent=True) if request.is_json else request.form.to_dict()
+    preset_key = data.get('preset_key') if data else None
+
+    from app.services.tax_obligation_service import TaxObligationService
+    applied = TaxObligationService.apply_regime_preset(owner_uid, company_id=company_id, preset_key=preset_key)
+
+    # Obtener estado general post-aplicación
+    obligations = TaxObligationService.get_all(owner_uid, company_id=company_id)
+    status_list = TaxObligationService.get_status(owner_uid, company_id=company_id)
+    status_map = {s["key"]: s for s in status_list}
+
+    return jsonify(
+        success=True,
+        applied=applied,
+        obligations=obligations,
+        status_map=status_map,
+    )
 
