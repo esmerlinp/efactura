@@ -32,8 +32,20 @@ def check_permission(permission_name):
     user = session['user']
     if user.get('role') == 'owner':
         return True
+
+    user_perms = user.get('permissions', {})
+
+    # Permisos granulares de CRM (CRM-07)
+    if permission_name in ('canCRM', 'canCRMContacts', 'canCRMOpportunities', 'canCRMActivities', 'canCRMReports'):
+        if permission_name in user_perms:
+            return bool(user_perms[permission_name])
+        # Compatibilidad hacia atrás: si no está definido el permiso CRM específico, consultar canClients
+        if 'canClients' in user_perms:
+            return bool(user_perms['canClients'])
+        return True
+
     default_val = False if permission_name in ('isPosSupervisor', 'canSupervisePOS', 'canUseChatbot', 'canAssignApprovers') else True
-    return user.get('permissions', {}).get(permission_name, default_val)
+    return user_perms.get(permission_name, default_val)
 
 
 def check_sod(owner_uid, user_uid, permission, entity_id, entity_type, company_id=None):
