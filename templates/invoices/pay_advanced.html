@@ -2,27 +2,54 @@
 {% block title %}Nuevo pago recibido{% endblock %}
 {% block content %}
 <style>
+    .pay-page-container {
+        max-width: 920px;
+        margin: 0 auto;
+        padding: 0 16px;
+    }
+    .pay-breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.82rem;
+        color: var(--text-muted);
+        margin-bottom: 16px;
+    }
+    .pay-breadcrumb a {
+        color: var(--text-muted);
+        text-decoration: none;
+        transition: color 0.15s ease;
+    }
+    .pay-breadcrumb a:hover {
+        color: var(--accent-purple);
+        text-decoration: underline;
+    }
+    .pay-breadcrumb .sep {
+        color: var(--border-color);
+        font-size: 0.75rem;
+    }
     .advanced-pay-card {
         background: var(--bg-card);
         border: 1px solid var(--border-color);
         border-radius: var(--radius-md);
-        padding: 30px;
+        padding: 32px;
         color: var(--text-primary);
-        max-width: 800px;
-        margin: 20px auto;
         box-shadow: var(--shadow-sm);
+        box-sizing: border-box;
+        overflow: hidden;
     }
     .header-section {
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
-        border-bottom: 2px solid var(--border-color);
+        border-bottom: 1px solid var(--border-color);
         padding-bottom: 20px;
         margin-bottom: 24px;
     }
     .company-info h2 {
         font-size: 1.4rem;
         font-weight: 800;
+        font-family: var(--font-heading);
         margin: 0 0 4px 0;
         color: var(--text-primary);
     }
@@ -37,6 +64,7 @@
     .receipt-title h3 {
         font-size: 1.25rem;
         font-weight: 700;
+        font-family: var(--font-heading);
         margin: 0 0 4px 0;
         color: var(--accent-purple);
     }
@@ -49,12 +77,13 @@
     .form-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 20px;
+        gap: 18px 24px;
         margin-bottom: 24px;
     }
-    @media (max-width: 600px) {
+    @media (max-width: 680px) {
         .form-grid {
             grid-template-columns: 1fr;
+            gap: 16px;
         }
     }
     .form-group {
@@ -63,11 +92,38 @@
         gap: 6px;
     }
     .form-group label {
-        font-size: 0.82rem;
+        font-size: 0.8rem;
         font-weight: 600;
         color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        display: block;
     }
-    .form-group input, .form-group select, .form-group textarea {
+    .form-group input:not([type="radio"]):not([type="checkbox"]),
+    .form-group select {
+        height: 42px;
+        min-height: 42px;
+        max-height: 42px;
+        box-sizing: border-box;
+        padding: 0 12px;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        background: var(--bg-input);
+        color: var(--text-primary);
+        font-family: inherit;
+        font-size: 0.88rem;
+        outline: none;
+        width: 100%;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .form-group input:not([type="radio"]):not([type="checkbox"]):focus,
+    .form-group select:focus {
+        border-color: var(--accent-purple);
+        box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.15);
+    }
+    .form-group textarea {
+        width: 100%;
+        box-sizing: border-box;
         padding: 10px 12px;
         border: 1px solid var(--border-color);
         border-radius: var(--radius-sm);
@@ -76,209 +132,260 @@
         font-family: inherit;
         font-size: 0.88rem;
         outline: none;
+        resize: vertical;
+        min-height: 80px;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
-    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    .form-group textarea:focus {
         border-color: var(--accent-purple);
+        box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.15);
     }
     .radio-group {
         display: flex;
         gap: 16px;
         align-items: center;
-        margin-top: 8px;
+        height: 42px;
+        min-height: 42px;
+        box-sizing: border-box;
+        padding: 0 4px;
     }
     .radio-option {
         display: flex;
         align-items: center;
         gap: 6px;
         font-size: 0.88rem;
+        color: var(--text-primary);
         cursor: pointer;
     }
     .radio-option input {
         cursor: pointer;
+        accent-color: var(--accent-purple);
     }
     .section-title {
         font-size: 1.05rem;
         font-weight: 700;
+        font-family: var(--font-heading);
         color: var(--text-primary);
-        margin: 24px 0 8px 0;
+        margin: 28px 0 6px 0;
         border-bottom: 1px solid var(--border-color);
-        padding-bottom: 6px;
+        padding-bottom: 8px;
     }
     .section-subtitle {
-        font-size: 0.8rem;
+        font-size: 0.82rem;
         color: var(--text-muted);
         margin: 0 0 16px 0;
+    }
+    .table-responsive-wrapper {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        margin-bottom: 20px;
+        box-sizing: border-box;
     }
     .cxc-table {
         width: 100%;
         border-collapse: collapse;
-        margin-bottom: 20px;
+        margin-bottom: 0;
+        min-width: 650px;
     }
     .cxc-table th {
         text-align: left;
-        padding: 12px;
-        background: rgba(0,0,0,0.02);
+        padding: 10px 14px;
+        background: var(--bg-hover, rgba(0,0,0,0.02));
         font-size: 0.76rem;
         font-weight: 700;
         color: var(--text-muted);
         text-transform: uppercase;
-        border-bottom: 2px solid var(--border-color);
+        letter-spacing: 0.03em;
+        border-bottom: 1px solid var(--border-color);
+        white-space: nowrap;
     }
     .cxc-table td {
-        padding: 12px;
+        padding: 12px 14px;
         border-bottom: 1px solid var(--border-color);
-        font-size: 0.85rem;
+        font-size: 0.88rem;
         vertical-align: middle;
+        white-space: nowrap;
+    }
+    .cxc-table tbody tr:last-child td {
+        border-bottom: none;
     }
     .cxc-table input {
-        padding: 6px 10px;
+        height: 38px;
+        min-height: 38px;
+        max-height: 38px;
+        box-sizing: border-box;
+        padding: 0 10px;
         border: 1px solid var(--border-color);
         border-radius: var(--radius-sm);
         background: var(--bg-input);
         color: var(--text-primary);
         width: 120px;
-        font-size: 0.85rem;
+        font-size: 0.88rem;
+        font-weight: 600;
+        text-align: right;
+        outline: none;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .cxc-table input:focus {
+        border-color: var(--accent-purple);
+        box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.15);
     }
     .total-box {
         display: flex;
         justify-content: flex-end;
         align-items: center;
         gap: 12px;
-        font-size: 1.1rem;
+        font-size: 1.15rem;
         font-weight: 700;
-        margin-top: 12px;
+        margin-top: 14px;
         border-top: 1px solid var(--border-color);
-        padding-top: 12px;
+        padding-top: 14px;
     }
     .action-buttons {
         display: flex;
         gap: 12px;
-        margin-top: 30px;
+        margin-top: 32px;
         justify-content: flex-end;
     }
 </style>
 
-<div class="advanced-pay-card">
-    <form method="POST" id="advanced-payment-form">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        
-        <div class="header-section">
-            <div class="company-info">
-                <h2>{{ company.companyName or 'vykcore' }}</h2>
-                <p>RNC: {{ company.companyRNC or '22900013305' }}</p>
-            </div>
-            <div class="receipt-title">
-                <h3>Recibo de caja</h3>
-                <p>No. {{ receipt_no }}</p>
-            </div>
-        </div>
+<div class="pay-page-container">
+    <div class="pay-breadcrumb">
+        <a href="{{ url_for('web_invoices.list_invoices') }}">Documentos</a>
+        <span class="sep">/</span>
+        <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=invoice.id) }}">Factura {{ invoice.invoiceNumber }}</a>
+        <span class="sep">/</span>
+        <span style="color: var(--text-primary); font-weight: 600;">Registrar Cobro</span>
+    </div>
 
-        <div class="form-grid">
-            <div class="form-group">
-                <label>Cliente</label>
-                <input type="text" value="{{ invoice.clientName or 'Cliente General' }}" readonly style="background: rgba(0,0,0,0.03); cursor: not-allowed;">
-            </div>
-            <div class="form-group">
-                <label>Cuenta bancaria *</label>
-                <select name="bankAccountId" required>
-                    <option value="">Seleccionar cuenta...</option>
-                    {% for acc in bank_accounts %}
-                    <option value="{{ acc.id }}">{{ acc.name }} — RD$ {{ "{:,.2f}".format(acc.currentBalance) }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Fecha de pago *</label>
-                <input type="date" name="paymentDate" value="{{ default_date }}" required>
-            </div>
-            <div class="form-group">
-                <label>Forma de pago *</label>
-                <select name="paymentMethod" required>
-                    <option value="Transferencia">Transferencia</option>
-                    <option value="Efectivo">Efectivo</option>
-                    <option value="Cheque">Cheque</option>
-                    <option value="Tarjeta">Tarjeta</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Centro de costo</label>
-                <select name="costCenterId">
-                    <option value="">— Sin centro de costo —</option>
-                    {% for cc in cost_centers %}
-                    <option value="{{ cc.id }}">{{ cc.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Tipo de ingreso</label>
-                <div class="radio-group">
-                    <label class="radio-option">
-                        <input type="radio" name="incomeType" value="Pago a factura de cliente" checked>
-                        <span>Pago a factura de cliente</span>
-                    </label>
-                    <label class="radio-option">
-                        <input type="radio" name="incomeType" value="Otros ingresos">
-                        <span>Otros ingresos</span>
-                    </label>
+    <div class="advanced-pay-card">
+        <form method="POST" id="advanced-payment-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <div class="header-section">
+                <div class="company-info">
+                    <h2>{{ company.companyName or 'vykcore' }}</h2>
+                    <p>RNC: {{ company.companyRNC or '22900013305' }}</p>
+                </div>
+                <div class="receipt-title">
+                    <h3>Recibo de caja</h3>
+                    <p>No. {{ receipt_no }}</p>
                 </div>
             </div>
-        </div>
 
-        <div id="fxc-section">
-            <div class="section-title">Facturas por cobrar</div>
-            <p class="section-subtitle">Agrega el monto recibido a las facturas relacionadas con este ingreso.</p>
-            
-            <table class="data-grid data-grid--editable cxc-table">
-                <thead>
-                    <tr>
-                        <th>Número</th>
-                        <th>Vencimiento</th>
-                        <th>Total</th>
-                        <th>Retenciones</th>
-                        <th>Por cobrar</th>
-                        <th>Monto recibido</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><strong>{{ invoice.invoiceNumber or 'B0100000002' }}</strong></td>
-                        <td>{{ invoice.dueDate | format_date }}</td>
-                        <td>RD$ {{ "{:,.2f}".format(invoice.total) }}</td>
-                        <td>
-                            <div style="display:flex; align-items:center; gap:4px;">
-                                <span style="font-size:0.8rem; color:var(--text-muted);">RD$</span>
-                                <input type="number" step="0.01" min="0" name="retenciones" id="retenciones-input" value="0.00" oninput="calculateTotals()">
-                            </div>
-                        </td>
-                        <td><span id="por-cobrar-display">RD$ {{ "{:,.2f}".format(invoice.remainingBalance) }}</span></td>
-                        <td>
-                            <div style="display:flex; align-items:center; gap:4px;">
-                                <span style="font-size:0.8rem; color:var(--text-muted);">RD$</span>
-                                <input type="number" step="0.01" min="0.01" max="{{ invoice.remainingBalance }}" name="monto_recibido" id="monto-recibido-input" value="{{ invoice.remainingBalance }}" oninput="calculateTotals()">
-                            </div>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-            
-            <div class="total-box">
-                <span>Total:</span>
-                <span id="total-display" style="color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(invoice.remainingBalance) }}</span>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Cliente</label>
+                    <input type="text" value="{{ invoice.clientName or 'Cliente General' }}" readonly style="background: rgba(0,0,0,0.03); cursor: not-allowed;">
+                </div>
+                <div class="form-group">
+                    <label>Cuenta bancaria *</label>
+                    <select name="bankAccountId" required>
+                        <option value="">Seleccionar cuenta...</option>
+                        {% for acc in bank_accounts %}
+                        <option value="{{ acc.id }}">{{ acc.name }} — RD$ {{ "{:,.2f}".format(acc.currentBalance) }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Fecha de pago *</label>
+                    <input type="date" name="paymentDate" value="{{ default_date }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Forma de pago *</label>
+                    <select name="paymentMethod" required>
+                        <option value="Transferencia">Transferencia</option>
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Cheque">Cheque</option>
+                        <option value="Tarjeta">Tarjeta</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Centro de costo</label>
+                    <select name="costCenterId">
+                        <option value="">— Sin centro de costo —</option>
+                        {% for cc in cost_centers %}
+                        <option value="{{ cc.id }}">{{ cc.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Tipo de ingreso</label>
+                    <div class="radio-group">
+                        <label class="radio-option">
+                            <input type="radio" name="incomeType" value="Pago a factura de cliente" checked>
+                            <span>Pago a factura de cliente</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="incomeType" value="Otros ingresos">
+                            <span>Otros ingresos</span>
+                        </label>
+                    </div>
+                </div>
             </div>
-        </div>
 
-        <div class="form-group" style="margin-top: 20px;">
-            <label>Notas</label>
-            <textarea name="notes" rows="3" placeholder="Detalles o comentarios adicionales del pago..."></textarea>
-        </div>
+            <div id="fxc-section">
+                <div class="section-title">Facturas por cobrar</div>
+                <p class="section-subtitle">Agrega el monto recibido a las facturas relacionadas con este ingreso.</p>
+                
+                <div class="table-responsive-wrapper">
+                    <table class="data-grid data-grid--editable cxc-table">
+                        <thead>
+                            <tr>
+                                <th>Número</th>
+                                <th>Vencimiento</th>
+                                <th>Total</th>
+                                <th>Retenciones</th>
+                                <th>Por cobrar</th>
+                                <th>Monto recibido</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>{{ invoice.invoiceNumber or 'B0100000002' }}</strong></td>
+                                <td>{{ invoice.dueDate | format_date }}</td>
+                                <td>RD$ {{ "{:,.2f}".format(invoice.total) }}</td>
+                                <td>
+                                    <div style="display:flex; align-items:center; gap:4px;">
+                                        <span style="font-size:0.8rem; color:var(--text-muted);">RD$</span>
+                                        <input type="number" step="0.01" min="0" name="retenciones" id="retenciones-input" value="0.00" oninput="calculateTotals()">
+                                    </div>
+                                </td>
+                                <td><span id="por-cobrar-display">RD$ {{ "{:,.2f}".format(invoice.remainingBalance) }}</span></td>
+                                <td>
+                                    <div style="display:flex; align-items:center; gap:4px;">
+                                        <span style="font-size:0.8rem; color:var(--text-muted);">RD$</span>
+                                        <input type="number" step="0.01" min="0.01" max="{{ invoice.remainingBalance }}" name="monto_recibido" id="monto-recibido-input" value="{{ invoice.remainingBalance }}" oninput="calculateTotals()">
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="total-box">
+                    <span>Total:</span>
+                    <span id="total-display" style="color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(invoice.remainingBalance) }}</span>
+                </div>
+            </div>
 
-        <div class="action-buttons">
-            <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=invoice.id) }}" class="btn btn-secondary">Cancelar</a>
-            <button type="submit" class="btn btn-primary" style="background: var(--accent-purple); border-color: var(--accent-purple); font-weight:700;">
-                <i class="fa-solid fa-floppy-disk"></i> Guardar
-            </button>
-        </div>
-    </form>
+            <div class="form-group" style="margin-top: 24px;">
+                <label>Notas</label>
+                <textarea name="notes" rows="3" placeholder="Detalles o comentarios adicionales del pago..."></textarea>
+            </div>
+
+            <div class="action-buttons">
+                <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=invoice.id) }}" class="btn btn-secondary">Cancelar</a>
+                <button type="submit" class="btn btn-primary" style="background: var(--accent-purple); border-color: var(--accent-purple); font-weight:700;">
+                    <i class="fa-solid fa-floppy-disk"></i> Guardar
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <script>

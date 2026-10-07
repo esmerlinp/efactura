@@ -187,6 +187,8 @@ endblock %}
                         Saldo</option>
                     <option value="Pendiente DGII" {% if status=='Pendiente DGII' %}selected{% endif %}>⚠️ Pendiente
                         DGII</option>
+                    <option value="DGII Aceptado" {% if status=='DGII Aceptado' %}selected{% endif %}>✅ DGII Aceptado</option>
+                    <option value="DGII Rechazado" {% if status=='DGII Rechazado' %}selected{% endif %}>❌ DGII Rechazado</option>
                     {% endif %}
                 </select>
             </div>
@@ -253,6 +255,9 @@ endblock %}
                     <th>{{ sort_link('total', 'Total', 'desc') }}</th>
                     <th>{{ sort_link('remainingBalance', 'Por cobrar', 'desc') }}</th>
                     <th>{{ sort_link('status', 'Estado', 'asc') }}</th>
+                    {% if active_page != 'quotations' %}
+                    <th>{{ sort_link('dgiiStatus', 'Estado DGII', 'asc') }}</th>
+                    {% endif %}
                     <th style="text-align: right; width: 50px;"></th>
                 </tr>
             </thead>
@@ -328,19 +333,48 @@ endblock %}
                             <span class="badge badge-danger" style="font-size: 0.65rem; background-color: rgba(239, 68, 68, 0.15); color: #ef4444; padding: 4px 8px; border-radius: 4px; font-weight: 600;">Anulada</span>
                             {% elif inv.remainingBalance <= 0.01 %}
                             <span class="badge badge-success" style="font-size: 0.65rem; background-color: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 8px; border-radius: 4px; font-weight: 600;">Cobrada</span>
-                            {% elif inv.totalPaid > 0.0 %}
+                            {% elif inv.totalPaid|default(0.0) > 0.0 %}
                             <span class="badge badge-warning" style="font-size: 0.65rem; background-color: rgba(245, 158, 11, 0.15); color: #d97706; padding: 4px 8px; border-radius: 4px; font-weight: 600;">Cobro parcial</span>
                             {% else %}
                             <span class="badge badge-warning" style="font-size: 0.65rem; background-color: rgba(251, 191, 36, 0.15); color: #b45309; padding: 4px 8px; border-radius: 4px; font-weight: 600;">Por cobrar</span>
                             {% endif %}
                             
-                            {% if inv.remainingBalance > 0.01 and inv.status != 'Anulada' %}
+                            {% if inv.remainingBalance > 0.01 and inv.status != 'Anulada' and inv.dgiiStatus not in ['REJECTED', 'RECHAZADO'] %}
                             <a href="{{ url_for('web_invoices.pay_advanced_route', invoice_id=inv.id) }}" title="Registrar Pago" style="color: inherit; text-decoration: none; margin-left: 12px; display: inline-flex; align-items: center; justify-content: center; vertical-align: middle;">
                                 <i class="fa-solid fa-coins" style="font-size: 0.95rem; color: #475569;"></i>
                             </a>
                             {% endif %}
                         {% endif %}
                     </td>
+                    {% if active_page != 'quotations' %}
+                    <td>
+                        {% if inv.isSyncedWithDGII or inv.dgiiStatus in ['ACCEPTED', 'ACEPTADO', 'ACCEPTED_PREVIOUSLY'] %}
+                        <span class="badge badge-success" style="font-size: 0.65rem; background-color: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 8px; border-radius: 4px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                            <i class="fa-solid fa-circle-check" style="font-size: 0.65rem;"></i> Aceptado
+                        </span>
+                        {% elif inv.dgiiStatus in ['REJECTED', 'RECHAZADO'] %}
+                        <span class="badge badge-danger" style="font-size: 0.65rem; background-color: rgba(239, 68, 68, 0.15); color: #ef4444; padding: 4px 8px; border-radius: 4px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                            <i class="fa-solid fa-circle-xmark" style="font-size: 0.65rem;"></i> Rechazado
+                        </span>
+                        {% elif inv.dgiiStatus == 'CONTINGENCY' or (inv.emisionMode == 'FALLBACK' and not inv.isSyncedWithDGII) %}
+                        <span class="badge badge-warning" style="font-size: 0.65rem; background-color: rgba(245, 158, 11, 0.15); color: #d97706; padding: 4px 8px; border-radius: 4px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;" title="Emitido en contingencia (pendiente de sincronizar con DGII)">
+                            <i class="fa-solid fa-triangle-exclamation" style="font-size: 0.65rem;"></i> Contingencia
+                        </span>
+                        {% elif inv.dgiiStatus in ['PENDING', 'PENDIENTE'] or inv.status == 'Pendiente DGII' or (inv.emisionMode == 'API' and not inv.isSyncedWithDGII and inv.encf and inv.status != 'Anulada') %}
+                        <span class="badge" style="font-size: 0.65rem; background-color: rgba(59, 130, 246, 0.15); color: #2563eb; padding: 4px 8px; border-radius: 4px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;" title="Comprobante enviado a DGII (esperando confirmación)">
+                            <i class="fa-solid fa-clock" style="font-size: 0.65rem;"></i> Pendiente
+                        </span>
+                        {% elif inv.dgiiStatus in ['CONDITIONAL', 'CONDICIONAL', 'ACEPTADO_CONDICIONAL'] %}
+                        <span class="badge" style="font-size: 0.65rem; background-color: rgba(99, 102, 241, 0.15); color: #6366f1; padding: 4px 8px; border-radius: 4px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                            <i class="fa-solid fa-circle-info" style="font-size: 0.65rem;"></i> Condicional
+                        </span>
+                        {% elif inv.encf %}
+                        <span class="badge badge-secondary" style="font-size: 0.65rem;">{{ inv.dgiiStatus or 'No sincronizado' }}</span>
+                        {% else %}
+                        <span style="color: var(--text-muted); font-size: 0.75rem;">—</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
                     <td style="text-align: right;">
                         <div class="action-menu">
                             <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
@@ -401,7 +435,7 @@ endblock %}
                 {% endfor %}
                 {% else %}
                 <tr>
-                    <td colspan="8" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                    <td colspan="{% if active_page == 'quotations' %}8{% else %}9{% endif %}" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
                         <i class="fa-solid fa-file-invoice-dollar"
                             style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
                         <span>No hay documentos que coincidan con los filtros aplicados.</span>

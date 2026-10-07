@@ -46,16 +46,39 @@ def test_list_invoices_sort_links(app):
     assert "fa-sort-up" in html                    # flecha asc en Total
     assert "?sort=invoiceNumber&order=asc" in html
     assert "?sort=date&order=desc" in html
+    assert "?sort=dgiiStatus&order=asc" in html   # Columna Estado DGII presente en listado
     # La paginación conserva el sort actual
     assert "&sort=total&order=asc" in html
 
 
 def test_list_invoices_sort_defaults_for_quotations(app):
-    """El template compartido con /quotations no se rompe sin sort/order."""
+    """El template compartido con /quotations no se rompe sin sort/order y no muestra Estado DGII."""
     with app.test_request_context("/quotations"):
         with app.app_context():
             html = _render(app, active_page="quotations", sort=None, order=None)
     assert "?sort=invoiceNumber&order=asc" in html
+    assert "Estado DGII" not in html
+
+
+def test_list_invoices_renders_dgii_status_badges(app):
+    """Verifica el renderizado de los badges de Estado DGII para diferentes estados."""
+    invoices = [
+        {"id": "inv-1", "invoiceNumber": "E3100000001", "encf": "E3100000001", "clientName": "Cliente 1", "date": "2026-10-07", "total": 1000.0, "remainingBalance": 0.0, "status": "Emitida", "isSyncedWithDGII": True, "dgiiStatus": "ACCEPTED"},
+        {"id": "inv-2", "invoiceNumber": "E3100000002", "encf": "E3100000002", "clientName": "Cliente 2", "date": "2026-10-07", "total": 2000.0, "remainingBalance": 2000.0, "status": "Emitida", "emisionMode": "FALLBACK", "isSyncedWithDGII": False, "dgiiStatus": "CONTINGENCY"},
+        {"id": "inv-3", "invoiceNumber": "E3100000003", "encf": "E3100000003", "clientName": "Cliente 3", "date": "2026-10-07", "total": 3000.0, "remainingBalance": 3000.0, "status": "Pendiente DGII", "emisionMode": "API", "dgiiStatus": "PENDING"},
+        {"id": "inv-4", "invoiceNumber": "E3100000004", "encf": "E3100000004", "clientName": "Cliente 4", "date": "2026-10-07", "total": 4000.0, "remainingBalance": 4000.0, "status": "Emitida", "dgiiStatus": "REJECTED"},
+        {"id": "inv-5", "invoiceNumber": "B0100000001", "encf": "", "clientName": "Cliente 5", "date": "2026-10-07", "total": 500.0, "remainingBalance": 500.0, "status": "Borrador"},
+    ]
+    with app.test_request_context("/invoices"):
+        with app.app_context():
+            html = _render(app, invoices=invoices, total_items=len(invoices))
+
+    assert "Estado DGII" in html
+    assert "Aceptado" in html
+    assert "Contingencia" in html
+    assert "Pendiente" in html
+    assert "Rechazado" in html
+    assert "—" in html
 
 
 def _strip_js_noise(code):

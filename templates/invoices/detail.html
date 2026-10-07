@@ -471,14 +471,14 @@
                         <span>Total Factura:</span>
                         <span>RD$ {{ "{:,.2f}".format(invoice.total) }}</span>
                     </div>
-                    {% if invoice.retainedISR > 0 %}
+                    {% if invoice.retainedISR|default(0.0) > 0 %}
                     <div
                         style="display: flex; justify-content: space-between; font-size: 0.88rem; color: var(--text-muted);">
                         <span>(-) Retención ISR:</span>
                         <span>-RD$ {{ "{:,.2f}".format(invoice.retainedISR) }}</span>
                     </div>
                     {% endif %}
-                    {% if invoice.retainedITBIS > 0 %}
+                    {% if invoice.retainedITBIS|default(0.0) > 0 %}
                     <div
                         style="display: flex; justify-content: space-between; font-size: 0.88rem; color: var(--text-muted);">
                         <span>(-) Retención ITBIS:</span>
@@ -547,13 +547,19 @@
                     </div>
 
                     {% if invoice.remainingBalance > 0.01 and invoice.status != 'Borrador' %}
-                    <button type="button"
-                        onclick="openPaymentModal(0, {{ invoice.remainingBalance }}, {{ invoice.totalMora or 0.0 }})"
-                        class="btn"
-                        style="width: 100%; margin-top: 8px; background: linear-gradient(135deg, #059669, #10b981); border: none; color: white; font-size: 0.95rem; padding: 14px 16px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; border-radius: var(--radius-sm); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25); transition: transform 0.2s, box-shadow 0.2s;">
-                        <i class="fa-solid fa-money-bill-transfer"></i>
-                        <span>Registrar Cobro de RD$ {{ "{:,.2f}".format(invoice.remainingBalance) }}</span>
-                    </button>
+                        {% if invoice.dgiiStatus in ['REJECTED', 'RECHAZADO'] %}
+                        <div style="width: 100%; margin-top: 8px; padding: 12px 16px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-sm); color: #dc2626; font-size: 0.84rem; text-align: center; font-weight: 600;">
+                            <i class="fa-solid fa-ban" style="margin-right: 6px;"></i> Cobro no permitido: Comprobante rechazado por la DGII
+                        </div>
+                        {% else %}
+                        <button type="button"
+                            onclick="openPaymentModal(0, {{ invoice.remainingBalance }}, {{ invoice.totalMora or 0.0 }})"
+                            class="btn"
+                            style="width: 100%; margin-top: 8px; background: linear-gradient(135deg, #059669, #10b981); border: none; color: white; font-size: 0.95rem; padding: 14px 16px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; border-radius: var(--radius-sm); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25); transition: transform 0.2s, box-shadow 0.2s;">
+                            <i class="fa-solid fa-money-bill-transfer"></i>
+                            <span>Registrar Cobro de RD$ {{ "{:,.2f}".format(invoice.remainingBalance) }}</span>
+                        </button>
+                        {% endif %}
                     {% endif %}
                     {% endif %}
                 </div>
@@ -725,7 +731,7 @@
                         <i class="fa-solid fa-print"></i>
                         <span>Imprimir Amortización</span>
                     </button>
-                    {% if invoice.remainingBalance > 0.01 %}
+                    {% if invoice.remainingBalance > 0.01 and invoice.dgiiStatus not in ['REJECTED', 'RECHAZADO'] %}
                     <button type="button"
                         onclick="openPaymentModal(0, {{ invoice.remainingBalance }}, {{ invoice.totalMora or 0.0 }})"
                         class="btn btn-primary"
@@ -1220,6 +1226,18 @@
                     style="width: 140px; height: 140px; display: block;">
             </div>
 
+            {% if invoice.dgiiStatus in ['REJECTED', 'RECHAZADO'] %}
+            <div
+                style="background-color: rgba(239, 68, 68, 0.12); border: 1px solid #ef4444; color: #dc2626; font-weight: 700; font-size: 0.82rem; padding: 12px; border-radius: var(--radius-sm); margin-bottom: 16px; text-align: center;">
+                <div style="text-transform: uppercase; letter-spacing: 0.02em; margin-bottom: 4px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                    <i class="fa-solid fa-circle-xmark"></i> Rechazado por DGII
+                </div>
+                <div style="font-size: 0.74rem; font-weight: normal; color: #b91c1c;">
+                    El comprobante fiscal fue rechazado por la DGII. No se permiten cobros a este documento.
+                </div>
+            </div>
+            {% endif %}
+
             {% if invoice.emisionMode == 'FALLBACK' %}
             <div
                 style="background-color: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #f87171; font-weight: 700; font-size: 0.82rem; padding: 12px; border-radius: var(--radius-sm); margin-bottom: 16px; text-align: center;">
@@ -1307,7 +1325,7 @@
                 </button>
             </form>
             
-            {% if invoice.remainingBalance > 0.01 %}
+            {% if invoice.remainingBalance > 0.01 and invoice.dgiiStatus not in ['REJECTED', 'RECHAZADO'] %}
             <button type="button" onclick="openDraftPaymentModal()" class="btn btn-secondary" style="width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-color: var(--accent-emerald); color: var(--accent-emerald);">
                 <i class="fa-solid fa-money-bill-wave"></i>
                 <span>Añadir Pago</span>
@@ -1357,7 +1375,7 @@
             </a>
             {% endif %}
 
-            {% if invoice.retainedISR > 0 or invoice.retainedITBIS > 0 %}
+            {% if invoice.retainedISR|default(0.0) > 0 or invoice.retainedITBIS|default(0.0) > 0 %}
             <a href="{{ url_for('web_invoices.invoice_retention_letter', invoice_id=invoice.id) }}?action=print" target="_blank"
                 class="btn btn-secondary"
                 style="width: 100%; border-color: var(--accent-blue); color: var(--accent-blue); display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
@@ -1946,7 +1964,7 @@ function closeDraftPaymentModal() {
             <div
                 style="background: rgba(59,130,246,0.05); border: 1px solid rgba(59,130,246,0.2); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 20px; font-size: 0.8rem; line-height: 1.4; color: var(--text-secondary);">
                 Se enviará la Carta de Retención de la factura <strong>{{ invoice.invoiceNumber }}</strong> en formato
-                PDF adjunto. Retención de ITBIS: <strong>RD$ {{ "{:,.2f}".format(invoice.retainedITBIS) }}</strong>{% if invoice.retainedISR > 0 %}, ISR: <strong>RD$ {{ "{:,.2f}".format(invoice.retainedISR) }}</strong>{% endif %}.
+                PDF adjunto. Retención de ITBIS: <strong>RD$ {{ "{:,.2f}".format(invoice.retainedITBIS|default(0.0)) }}</strong>{% if invoice.retainedISR|default(0.0) > 0 %}, ISR: <strong>RD$ {{ "{:,.2f}".format(invoice.retainedISR|default(0.0)) }}</strong>{% endif %}.
             </div>
 
             <div class="form-group" style="margin-bottom: 16px;">
@@ -2225,16 +2243,16 @@ function closeDraftPaymentModal() {
             // Header
             printWindow.document.write('<div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 20px; margin-bottom: 30px;">');
             printWindow.document.write('  <div>');
-            printWindow.document.write('    <h1 style="font-size: 1.85rem; font-weight: 800; color: #1e3a8a; margin-bottom: 6px;">' + {{ (company.tradeName or company.companyName) | tojson }} + '</h1>');
-        printWindow.document.write('    <span style="font-family: monospace; font-size: 0.88rem; color: #475569; display: block; margin-bottom: 4px;">RNC Emisor: ' + {{ company.companyRNC | tojson }} + '</span>');
-        printWindow.document.write('    <span style="font-size: 0.82rem; color: #64748b; display: block;">' + {{ company.companyAddress | tojson }} + '</span>');
-        printWindow.document.write('    <span style="font-size: 0.82rem; color: #64748b; display: block;"><i class="fa-solid fa-phone"></i> ' + {{ company.companyPhone | tojson }} + ' | <i class="fa-solid fa-envelope"></i> ' + {{ company.companyEmail | tojson }} + '</span>');
+            printWindow.document.write('    <h1 style="font-size: 1.85rem; font-weight: 800; color: #1e3a8a; margin-bottom: 6px;">' + {{ (company.tradeName or company.companyName or '') | tojson }} + '</h1>');
+        printWindow.document.write('    <span style="font-family: monospace; font-size: 0.88rem; color: #475569; display: block; margin-bottom: 4px;">RNC Emisor: ' + {{ (company.companyRNC or '') | tojson }} + '</span>');
+        printWindow.document.write('    <span style="font-size: 0.82rem; color: #64748b; display: block;">' + {{ (company.companyAddress or '') | tojson }} + '</span>');
+        printWindow.document.write('    <span style="font-size: 0.82rem; color: #64748b; display: block;"><i class="fa-solid fa-phone"></i> ' + {{ (company.companyPhone or '') | tojson }} + ' | <i class="fa-solid fa-envelope"></i> ' + {{ (company.companyEmail or '') | tojson }} + '</span>');
         printWindow.document.write('  </div>');
         printWindow.document.write('  <div style="text-align: right;">');
         printWindow.document.write('    <h2 style="font-size: 1.25rem; font-weight: 800; color: #0f172a; margin-bottom: 6px;">REPORTE DE AMORTIZACIÓN</h2>');
-        printWindow.document.write('    <span style="font-size: 0.88rem; color: #475569; display: block; margin-bottom: 4px;">Factura Nro: <strong>' + {{ invoice.invoiceNumber | tojson }} + '</strong></span>');
-        printWindow.document.write('    <span style="font-size: 0.85rem; color: #475569; display: block; margin-bottom: 4px;">Fecha Factura: ' + {{ (invoice.date[: 10]+ (' ' + invoice.date[11: 16] if invoice.date | length > 10 else ''))| tojson }} + '</span>');
-        printWindow.document.write('    <span style="font-size: 0.85rem; color: #475569; display: block;">Cliente CRM: <strong>' + {{ invoice.clientName | tojson }} + '</strong></span>');
+        printWindow.document.write('    <span style="font-size: 0.88rem; color: #475569; display: block; margin-bottom: 4px;">Factura Nro: <strong>' + {{ (invoice.invoiceNumber or '') | tojson }} + '</strong></span>');
+        printWindow.document.write('    <span style="font-size: 0.85rem; color: #475569; display: block; margin-bottom: 4px;">Fecha Factura: ' + {{ ((invoice.date[:10] + (' ' + invoice.date[11:16] if invoice.date|length > 10 else '')) if invoice.date else '') | tojson }} + '</span>');
+        printWindow.document.write('    <span style="font-size: 0.85rem; color: #475569; display: block;">Cliente CRM: <strong>' + {{ (invoice.clientName or '') | tojson }} + '</strong></span>');
         printWindow.document.write('  </div>');
         printWindow.document.write('</div>');
 
@@ -2384,15 +2402,14 @@ function closeDraftPaymentModal() {
         // RECIBO DE INGRESO - Imprimir
         // =========================================================================
         function printReceipt(paymentId, paymentDate, paymentMethod, bank, ref, amount) {
-            const invoiceNumber = {{ invoice.invoiceNumber| tojson
-        }};
-        const clientName = {{ invoice.clientName| tojson }};
-        const clientRNC = {{ invoice.clientRNC| tojson }};
-        const companyName = {{ (company.tradeName or company.companyName)| tojson }};
-        const companyRNC = {{ company.companyRNC| tojson }};
-        const companyAddr = {{ company.companyAddress| tojson }};
-        const companyPhone = {{ company.companyPhone| tojson }};
-        const companyEmail = {{ company.companyEmail| tojson }};
+            const invoiceNumber = {{ (invoice.invoiceNumber or '') | tojson }};
+            const clientName = {{ (invoice.clientName or '') | tojson }};
+            const clientRNC = {{ (invoice.clientRNC or '') | tojson }};
+            const companyName = {{ (company.tradeName or company.companyName or '') | tojson }};
+            const companyRNC = {{ (company.companyRNC or '') | tojson }};
+            const companyAddr = {{ (company.companyAddress or '') | tojson }};
+            const companyPhone = {{ (company.companyPhone or '') | tojson }};
+            const companyEmail = {{ (company.companyEmail or '') | tojson }};
         const receiptNo = paymentId ? paymentId.slice(-8).toUpperCase() : 'N/A';
         const amountFmt = 'RD$ ' + parseFloat(amount).toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
