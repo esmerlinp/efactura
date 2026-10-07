@@ -84,20 +84,25 @@ def list_contacts():
         owner_uid = g.owner_uid
         sandbox = g.sandbox_mode
 
-        search = (request.args.get("search") or "").strip().lower()
-        contact_type = (request.args.get("type") or "").strip().lower()
-        branch_id = request.args.get("branch_id") or g.branch_id
-        project_id = request.args.get("project_id") or g.project_id
+        search = (request.args.get("search") or "").strip()[:100].lower()
+        contact_type = (request.args.get("type") or "").strip()[:50].lower()
+        branch_id = (request.args.get("branch_id") or g.branch_id or "").strip()[:100] or None
+        project_id = (request.args.get("project_id") or g.project_id or "").strip()[:100] or None
 
+        # Validación estricta de paginación
+        raw_limit = request.args.get("limit", 50)
+        raw_offset = request.args.get("offset", 0)
         try:
-            limit = min(200, max(1, int(request.args.get("limit", 50))))
-            offset = max(0, int(request.args.get("offset", 0)))
+            limit = int(raw_limit)
+            offset = int(raw_offset)
+            if limit <= 0 or offset < 0:
+                return api_error("INVALID_PAGINATION", "Los parámetros 'limit' (> 0) y 'offset' (>= 0) deben ser válidos.", 400)
+            limit = min(200, limit)
         except (ValueError, TypeError):
-            return api_error("INVALID_PAGINATION", "Los parámetros 'limit' y 'offset' deben ser enteros positivos.", 400)
+            return api_error("INVALID_PAGINATION", "Los parámetros 'limit' y 'offset' deben ser enteros válidos.", 400)
 
         all_contacts = ContactService.get_contacts(owner_uid=owner_uid, sandbox=sandbox, company_id=company_id)
 
-        # Filtros en memoria respetando multi-tenant
         filtered = []
         for c in all_contacts:
             if c.get("isDeleted"):
@@ -126,7 +131,8 @@ def list_contacts():
             "offset": offset,
         })
     except Exception as e:
-        return api_error("INTERNAL_ERROR", f"Error al consultar contactos: {str(e)}", 500)
+        print(f"⚠️ Error en API CRM contacts: {e}")
+        return api_error("INTERNAL_ERROR", "Error interno al procesar la solicitud de contactos.", 500)
 
 
 @api_crm_bp.route("/crm/contacts/<contact_id>", methods=["GET"])
@@ -134,7 +140,7 @@ def list_contacts():
 def get_contact_detail(contact_id: str):
     """Obtener el detalle de un contacto por ID."""
     try:
-        contact_id = (contact_id or "").strip()
+        contact_id = (contact_id or "").strip()[:128]
         if not contact_id:
             return api_error("INVALID_PARAMETER", "El ID del contacto es requerido.", 400)
 
@@ -146,11 +152,12 @@ def get_contact_detail(contact_id: str):
         )
 
         if not contact:
-            return api_error("CONTACT_NOT_FOUND", f"El contacto '{contact_id}' no existe o no pertenece a la empresa.", 404)
+            return api_error("CONTACT_NOT_FOUND", "Contacto no encontrado.", 404)
 
         return api_success({"contact": contact})
     except Exception as e:
-        return api_error("INTERNAL_ERROR", f"Error al consultar el contacto: {str(e)}", 500)
+        print(f"⚠️ Error en API CRM contact detail: {e}")
+        return api_error("INTERNAL_ERROR", "Error interno al procesar la solicitud.", 500)
 
 
 @api_crm_bp.route("/crm/contacts/<contact_id>/360", methods=["GET"])
@@ -158,7 +165,7 @@ def get_contact_detail(contact_id: str):
 def get_contact_360(contact_id: str):
     """Obtener la vista unificada Contact 360 (perfil, oportunidades, actividades, métricas y timeline)."""
     try:
-        contact_id = (contact_id or "").strip()
+        contact_id = (contact_id or "").strip()[:128]
         if not contact_id:
             return api_error("INVALID_PARAMETER", "El ID del contacto es requerido.", 400)
 
@@ -170,11 +177,12 @@ def get_contact_360(contact_id: str):
         )
 
         if not data or not data.get("contact"):
-            return api_error("CONTACT_NOT_FOUND", f"El contacto '{contact_id}' no existe o no pertenece a la empresa.", 404)
+            return api_error("CONTACT_NOT_FOUND", "Contacto no encontrado.", 404)
 
         return api_success(data)
     except Exception as e:
-        return api_error("INTERNAL_ERROR", f"Error al consultar Contact 360: {str(e)}", 500)
+        print(f"⚠️ Error en API CRM contact 360: {e}")
+        return api_error("INTERNAL_ERROR", "Error interno al procesar la solicitud.", 500)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -193,19 +201,25 @@ def list_opportunities():
         owner_uid = g.owner_uid
         sandbox = g.sandbox_mode
 
-        stage = request.args.get("stage")
-        status = request.args.get("status")
-        assigned_to = request.args.get("assigned_to") or request.args.get("assignedTo")
-        contact_id = request.args.get("contact_id") or request.args.get("contactId")
-        branch_id = request.args.get("branch_id") or g.branch_id
-        project_id = request.args.get("project_id") or g.project_id
+        stage = (request.args.get("stage") or "").strip()[:50] or None
+        status = (request.args.get("status") or "").strip()[:50] or None
+        assigned_to = (request.args.get("assigned_to") or request.args.get("assignedTo") or "").strip()[:100] or None
+        contact_id = (request.args.get("contact_id") or request.args.get("contactId") or "").strip()[:128] or None
+        branch_id = (request.args.get("branch_id") or g.branch_id or "").strip()[:100] or None
+        project_id = (request.args.get("project_id") or g.project_id or "").strip()[:100] or None
         include_closed = request.args.get("include_closed", "true").lower() in ("true", "1")
 
+        # Validación de paginación
+        raw_limit = request.args.get("limit", 50)
+        raw_offset = request.args.get("offset", 0)
         try:
-            limit = min(200, max(1, int(request.args.get("limit", 50))))
-            offset = max(0, int(request.args.get("offset", 0)))
+            limit = int(raw_limit)
+            offset = int(raw_offset)
+            if limit <= 0 or offset < 0:
+                return api_error("INVALID_PAGINATION", "Los parámetros 'limit' (> 0) y 'offset' (>= 0) deben ser válidos.", 400)
+            limit = min(200, limit)
         except (ValueError, TypeError):
-            return api_error("INVALID_PAGINATION", "Los parámetros 'limit' y 'offset' deben ser enteros positivos.", 400)
+            return api_error("INVALID_PAGINATION", "Los parámetros 'limit' y 'offset' deben ser enteros válidos.", 400)
 
         all_opps = CRMService.get_opportunities(
             owner_uid=owner_uid,
@@ -239,7 +253,8 @@ def list_opportunities():
             "offset": offset,
         })
     except Exception as e:
-        return api_error("INTERNAL_ERROR", f"Error al consultar oportunidades: {str(e)}", 500)
+        print(f"⚠️ Error en API CRM opportunities: {e}")
+        return api_error("INTERNAL_ERROR", "Error interno al procesar la solicitud de oportunidades.", 500)
 
 
 @api_crm_bp.route("/crm/opportunities/<opportunity_id>", methods=["GET"])
@@ -247,7 +262,7 @@ def list_opportunities():
 def get_opportunity_detail(opportunity_id: str):
     """Obtener el detalle de una oportunidad comercial por ID."""
     try:
-        opportunity_id = (opportunity_id or "").strip()
+        opportunity_id = (opportunity_id or "").strip()[:128]
         if not opportunity_id:
             return api_error("INVALID_PARAMETER", "El ID de la oportunidad es requerido.", 400)
 
@@ -259,11 +274,12 @@ def get_opportunity_detail(opportunity_id: str):
         )
 
         if not opportunity or opportunity.get("isDeleted"):
-            return api_error("OPPORTUNITY_NOT_FOUND", f"La oportunidad '{opportunity_id}' no existe o no pertenece a la empresa.", 404)
+            return api_error("OPPORTUNITY_NOT_FOUND", "Oportunidad no encontrada.", 404)
 
         return api_success({"opportunity": opportunity})
     except Exception as e:
-        return api_error("INTERNAL_ERROR", f"Error al consultar la oportunidad: {str(e)}", 500)
+        print(f"⚠️ Error en API CRM opportunity detail: {e}")
+        return api_error("INTERNAL_ERROR", "Error interno al procesar la solicitud.", 500)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -282,19 +298,25 @@ def list_activities():
         owner_uid = g.owner_uid
         sandbox = g.sandbox_mode
 
-        status = request.args.get("status")
-        assigned_to = request.args.get("assigned_to") or request.args.get("assignedTo")
-        contact_id = request.args.get("contact_id") or request.args.get("contactId")
-        opportunity_id = request.args.get("opportunity_id") or request.args.get("opportunityId")
-        branch_id = request.args.get("branch_id") or g.branch_id
-        project_id = request.args.get("project_id") or g.project_id
+        status = (request.args.get("status") or "").strip()[:50] or None
+        assigned_to = (request.args.get("assigned_to") or request.args.get("assignedTo") or "").strip()[:100] or None
+        contact_id = (request.args.get("contact_id") or request.args.get("contactId") or "").strip()[:128] or None
+        opportunity_id = (request.args.get("opportunity_id") or request.args.get("opportunityId") or "").strip()[:128] or None
+        branch_id = (request.args.get("branch_id") or g.branch_id or "").strip()[:100] or None
+        project_id = (request.args.get("project_id") or g.project_id or "").strip()[:100] or None
         include_completed = request.args.get("include_completed", "true").lower() in ("true", "1")
 
+        # Validación de paginación
+        raw_limit = request.args.get("limit", 50)
+        raw_offset = request.args.get("offset", 0)
         try:
-            limit = min(200, max(1, int(request.args.get("limit", 50))))
-            offset = max(0, int(request.args.get("offset", 0)))
+            limit = int(raw_limit)
+            offset = int(raw_offset)
+            if limit <= 0 or offset < 0:
+                return api_error("INVALID_PAGINATION", "Los parámetros 'limit' (> 0) y 'offset' (>= 0) deben ser válidos.", 400)
+            limit = min(200, limit)
         except (ValueError, TypeError):
-            return api_error("INVALID_PAGINATION", "Los parámetros 'limit' y 'offset' deben ser enteros positivos.", 400)
+            return api_error("INVALID_PAGINATION", "Los parámetros 'limit' y 'offset' deben ser enteros válidos.", 400)
 
         all_acts = CRMService.get_activities(
             owner_uid=owner_uid,
@@ -327,7 +349,8 @@ def list_activities():
             "offset": offset,
         })
     except Exception as e:
-        return api_error("INTERNAL_ERROR", f"Error al consultar actividades: {str(e)}", 500)
+        print(f"⚠️ Error en API CRM activities: {e}")
+        return api_error("INTERNAL_ERROR", "Error interno al procesar la solicitud de actividades.", 500)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -346,11 +369,11 @@ def get_metrics():
         owner_uid = g.owner_uid
         sandbox = g.sandbox_mode
 
-        branch_id = request.args.get("branch_id") or g.branch_id
-        project_id = request.args.get("project_id") or g.project_id
-        assigned_to = request.args.get("assigned_to") or request.args.get("assignedTo")
-        date_from = request.args.get("date_from") or request.args.get("dateFrom")
-        date_to = request.args.get("date_to") or request.args.get("dateTo")
+        branch_id = (request.args.get("branch_id") or g.branch_id or "").strip()[:100] or None
+        project_id = (request.args.get("project_id") or g.project_id or "").strip()[:100] or None
+        assigned_to = (request.args.get("assigned_to") or request.args.get("assignedTo") or "").strip()[:100] or None
+        date_from = (request.args.get("date_from") or request.args.get("dateFrom") or "").strip()[:20] or None
+        date_to = (request.args.get("date_to") or request.args.get("dateTo") or "").strip()[:20] or None
 
         metrics = CRMService.get_sales_metrics(
             owner_uid=owner_uid,
@@ -365,4 +388,5 @@ def get_metrics():
 
         return api_success({"metrics": metrics})
     except Exception as e:
-        return api_error("INTERNAL_ERROR", f"Error al calcular métricas comerciales: {str(e)}", 500)
+        print(f"⚠️ Error en API CRM metrics: {e}")
+        return api_error("INTERNAL_ERROR", "Error interno al procesar las métricas comerciales.", 500)
