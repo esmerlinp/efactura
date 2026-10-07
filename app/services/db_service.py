@@ -233,7 +233,10 @@ def _cached_clients(owner_uid, sandbox, company_id=None):
             if canonical is not None:
                 docs = canonical.where(filter=firestore.FieldFilter("types", "array_contains", "cliente")).limit(Config.FIRESTORE_MAX_CLIENTS).get()
                 for doc in docs:
-                    clients.append(_contact_to_client(doc.id, doc.to_dict(), owner_uid))
+                    data = doc.to_dict()
+                    if data.get("isDeleted", False):
+                        continue
+                    clients.append(_contact_to_client(doc.id, data, owner_uid))
                     seen_ids.add(doc.id)
 
             legacy = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=_client_legacy_coll_name(sandbox))
@@ -242,6 +245,8 @@ def _cached_clients(owner_uid, sandbox, company_id=None):
                     if doc.id in seen_ids:
                         continue
                     data = doc.to_dict()
+                    if data.get("isDeleted", False):
+                        continue
                     client_dict = {
                         "id": doc.id,
                         "branchId": data.get("branchId", "default-sucursal-principal"),
@@ -2241,18 +2246,34 @@ class DatabaseService:
                 print(f"⚠️ Fallo al actualizar pipeline de cliente: {e}")
 
     @classmethod
-    def delete_client(cls, owner_uid, client_id, sandbox=True, company_id=None):
-        """Elimina un cliente en Firestore."""
+    def delete_client(cls, owner_uid, client_id, sandbox=True, company_id=None, deleted_by=""):
+        """Elimina un cliente en Firestore de forma segura (Soft Delete CRM-08 si posee facturas)."""
         if firebase_initialized:
             try:
-                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=_client_coll_name(sandbox)).document(client_id).delete()
-                legacy = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=_client_legacy_coll_name(sandbox))
-                if legacy is not None:
-                    legacy.document(client_id).delete()
+                # Verificar si tiene facturas asociadas
+                invoices = cls.get_invoices(owner_uid, sandbox=sandbox, company_id=company_id, quotations_only=False, include_all=True)
+                has_invoices = any(inv.get("clientId") == client_id for inv in invoices)
+
+                if has_invoices:
+                    client = cls.get_client(owner_uid, client_id, sandbox=sandbox, company_id=company_id) or {}
+                    client["isDeleted"] = True
+                    client["deletedAt"] = datetime.now(timezone.utc).isoformat()
+                    client["deletedBy"] = deleted_by or "Sistema"
+                    client["estado"] = "Inactivo"
+                    cls.save_client(owner_uid, client_id, client, sandbox=sandbox, company_id=company_id)
+                else:
+                    _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=_client_coll_name(sandbox)).document(client_id).delete()
+                    legacy = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=_client_legacy_coll_name(sandbox))
+                    if legacy is not None:
+                        legacy.document(client_id).delete()
+
                 _invalidate_clients(owner_uid, company_id=company_id)
-                _invalidate_crm_contacts(owner_uid)
+                _invalidate_crm_contacts(owner_uid, company_id=company_id)
+                return True
             except Exception as e:
                 print(f"⚠️ Fallo al borrar cliente de Firestore: {e}")
+                return False
+        return False
 
     @classmethod
     def get_client_interactions(cls, owner_uid, client_id, sandbox=True, company_id=None):
