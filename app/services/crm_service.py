@@ -11,6 +11,7 @@ from app.models.crm import (
     CRM_STAGE_PROBABILITY,
     VALID_OPPORTUNITY_TRANSITIONS,
     CONTACT_PIPELINE_MAP,
+    LEAD_SCORE_WEIGHTS,
     CRMActivity,
     CRMOpportunity,
 )
@@ -1140,34 +1141,27 @@ class CRMService:
                 activity_by_contact[cid] = activity_by_contact.get(cid, 0) + 1
 
         leads = []
+        all_opps = cls.get_opportunities(owner_uid, sandbox=sandbox, company_id=company_id, include_closed=True, branch_id=branch_id, project_id=project_id)
+        all_activities = cls.get_activities(owner_uid, sandbox=sandbox, include_completed=True, company_id=company_id, branch_id=branch_id, project_id=project_id)
+
         for contact in contacts:
-            stage = contact.get("pipelineStage", "Prospecto")
-            if stage == "Cliente Activo" and sales_by_contact.get(contact["id"], 0.0) > 0:
-                continue
+            score_data = cls.calculate_lead_score(
+                owner_uid=owner_uid,
+                contact=contact,
+                opportunities=all_opps,
+                activities=all_activities,
+                quotations=quotations,
+                invoices=invoices,
+                sandbox=sandbox,
+                company_id=company_id,
+            )
 
-            score = 10
-            if contact.get("email"):
-                score += 12
-            if contact.get("telefono") or contact.get("celular"):
-                score += 12
-            if contact.get("responsibleId"):
-                score += 10
-            if quote_count_by_contact.get(contact["id"], 0) > 0:
-                score += min(25, quote_count_by_contact[contact["id"]] * 10)
-            if stage in ("En Negociación", "Propuesta", "Contactado"):
-                score += 20
-            if contact.get("nextContactDate"):
-                due = _parse_date(contact.get("nextContactDate"))
-                if due and due <= datetime.now(timezone.utc).date() + timedelta(days=7):
-                    score += 15
-            if activity_by_contact.get(contact["id"], 0) > 0:
-                score += 10
-
+            # Próxima acción sugerida
             next_action = "Registrar primer contacto"
             if quote_count_by_contact.get(contact["id"], 0) > 0:
                 next_action = "Dar seguimiento a cotización"
-            elif stage in ("Contactado", "En Negociación"):
-                next_action = "Crear propuesta u oportunidad"
+            elif contact.get("pipelineStage") in ("Contactado", "En Negociación", "Propuesta"):
+                next_action = "Avanzar propuesta u oportunidad"
             elif contact.get("nextContactDate"):
                 next_action = "Cumplir seguimiento agendado"
 
@@ -1177,9 +1171,13 @@ class CRMService:
                 "rnc": contact.get("rnc", ""),
                 "email": contact.get("email", ""),
                 "telefono": contact.get("telefono") or contact.get("celular", ""),
-                "pipelineStage": stage,
+                "pipelineStage": contact.get("pipelineStage", "Prospecto"),
                 "nextContactDate": _date_key(contact.get("nextContactDate")),
-                "score": min(100, score),
+                "score": score_data["score"],
+                "classification": score_data["classification"],
+                "classificationLabel": score_data["classificationLabel"],
+                "scoreBreakdown": score_data["scoreBreakdown"],
+                "totalInvoiced": score_data["totalInvoiced"],
                 "quotationCount": quote_count_by_contact.get(contact["id"], 0),
                 "openActivities": activity_by_contact.get(contact["id"], 0),
                 "nextAction": next_action,
@@ -1189,48 +1187,543 @@ class CRMService:
         return leads
 
     @classmethod
-    def get_dashboard(cls, owner_uid, sandbox=True, company_id=None, branch_id=None, project_id=None):
+    def calculate_lead_score(
+        cls,
+        owner_uid,
+        contact,
+        opportunities=None,
+        activities=None,
+        quotations=None,
+        invoices=None,
+        interactions=None,
+        sandbox=True,
+        company_id=None,
+        today_date=None,
+    ):
+        """
+        Calcula el lead score determinístico (0-100), clasificación y desglose explicativo (F4.4).
+        Diferencia claramente clientes consolidados/activos de prospectos fríos.
+        """
         company_id = _require_company_id(company_id)
+        if not contact or not isinstance(contact, dict):
+            return {"score": 0, "classification": "cold_lead", "classificationLabel": "Lead Frío", "scoreBreakdown": [], "totalInvoiced": 0.0}
+
+        ref_today = today_date or datetime.now(timezone.utc).date()
+        contact_id = contact.get("id")
+
+        if opportunities is None:
+            opportunities = cls.get_opportunities(owner_uid, sandbox=sandbox, company_id=company_id, contact_id=contact_id, include_closed=True)
+        else:
+            opportunities = [o for o in opportunities if o.get("contactId") == contact_id]
+
+        if activities is None:
+            activities = cls.get_activities(owner_uid, sandbox=sandbox, company_id=company_id, contact_id=contact_id, include_completed=True)
+        else:
+            activities = [a for a in activities if a.get("contactId") == contact_id]
+
+        if quotations is None:
+            quotations = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=True, company_id=company_id)
+            quotations = [q for q in quotations if q.get("clientId") == contact_id]
+        else:
+            quotations = [q for q in quotations if q.get("clientId") == contact_id]
+
+        if invoices is None:
+            invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False, company_id=company_id)
+            invoices = [i for i in invoices if i.get("clientId") == contact_id and not i.get("isQuotation")]
+        else:
+            invoices = [i for i in invoices if i.get("clientId") == contact_id and not i.get("isQuotation")]
+
+        if interactions is None:
+            try:
+                interactions = DatabaseService.get_client_interactions(owner_uid, contact_id, sandbox=sandbox, company_id=company_id) or []
+            except Exception:
+                interactions = []
+
+        real_invoices = [inv for inv in invoices if inv.get("status") not in ("Anulada", "Borrador")]
+        total_invoiced = sum(_safe_float(inv.get("total")) for inv in real_invoices)
+
+        all_action_dates = []
+        for it in interactions:
+            d = _parse_date(it.get("date") or it.get("createdAt"))
+            if d:
+                all_action_dates.append(d)
+        for act in activities:
+            for fld in ("completedAt", "updatedAt", "createdAt"):
+                d = _parse_date(act.get(fld))
+                if d:
+                    all_action_dates.append(d)
+        for inv in real_invoices:
+            d = _parse_date(inv.get("date") or inv.get("createdAt"))
+            if d:
+                all_action_dates.append(d)
+
+        last_action_date = max(all_action_dates) if all_action_dates else None
+        days_since_last_action = (ref_today - last_action_date).days if last_action_date else 999
+
+        raw_score = 0
+        breakdown = []
+
+        # Base
+        raw_score += LEAD_SCORE_WEIGHTS["base"]
+        breakdown.append({"factor": "base", "points": LEAD_SCORE_WEIGHTS["base"], "description": "Puntaje base de registro"})
+
+        # Información de contacto
+        if contact.get("email"):
+            raw_score += LEAD_SCORE_WEIGHTS["has_email"]
+            breakdown.append({"factor": "has_email", "points": LEAD_SCORE_WEIGHTS["has_email"], "description": "Email registrado"})
+        if contact.get("telefono") or contact.get("celular"):
+            raw_score += LEAD_SCORE_WEIGHTS["has_phone"]
+            breakdown.append({"factor": "has_phone", "points": LEAD_SCORE_WEIGHTS["has_phone"], "description": "Teléfono registrado"})
+        if contact.get("responsibleId"):
+            raw_score += LEAD_SCORE_WEIGHTS["has_responsible"]
+            breakdown.append({"factor": "has_responsible", "points": LEAD_SCORE_WEIGHTS["has_responsible"], "description": "Responsable comercial asignado"})
+
+        # Recencia de interacción
+        if days_since_last_action <= 7:
+            raw_score += LEAD_SCORE_WEIGHTS["recent_interaction_7d"]
+            breakdown.append({"factor": "recent_interaction_7d", "points": LEAD_SCORE_WEIGHTS["recent_interaction_7d"], "description": f"Interacción reciente hace {days_since_last_action}d (últimos 7 días)"})
+        elif days_since_last_action <= 30:
+            raw_score += LEAD_SCORE_WEIGHTS["recent_interaction_30d"]
+            breakdown.append({"factor": "recent_interaction_30d", "points": LEAD_SCORE_WEIGHTS["recent_interaction_30d"], "description": f"Interacción reciente hace {days_since_last_action}d (últimos 30 días)"})
+
+        # Oportunidades y etapa
+        open_opps = [o for o in opportunities if o.get("status") == "abierta" and not o.get("isDeleted")]
+        if open_opps:
+            raw_score += LEAD_SCORE_WEIGHTS["open_opportunity"]
+            breakdown.append({"factor": "open_opportunity", "points": LEAD_SCORE_WEIGHTS["open_opportunity"], "description": f"{len(open_opps)} oportunidad(es) abierta(s)"})
+
+            highest_stage = None
+            for opp in open_opps:
+                st = opp.get("stage")
+                if st in ("Propuesta", "Negociación"):
+                    highest_stage = "advanced"
+                    break
+                elif st in ("Contactado", "Calificado") and highest_stage != "advanced":
+                    highest_stage = "early"
+
+            if highest_stage == "advanced":
+                raw_score += LEAD_SCORE_WEIGHTS["stage_proposal_or_negotiation"]
+                breakdown.append({"factor": "stage_proposal_or_negotiation", "points": LEAD_SCORE_WEIGHTS["stage_proposal_or_negotiation"], "description": "Oportunidad en etapa avanzada (Propuesta/Negociación)"})
+            elif highest_stage == "early":
+                raw_score += LEAD_SCORE_WEIGHTS["stage_contacted_or_qualified"]
+                breakdown.append({"factor": "stage_contacted_or_qualified", "points": LEAD_SCORE_WEIGHTS["stage_contacted_or_qualified"], "description": "Oportunidad en etapa inicial (Contactado/Calificado)"})
+
+        # Cotizaciones
+        active_quotes = [q for q in quotations if q.get("status") not in ("Anulada", "Rechazada")]
+        if active_quotes:
+            raw_score += LEAD_SCORE_WEIGHTS["active_quotation"]
+            breakdown.append({"factor": "active_quotation", "points": LEAD_SCORE_WEIGHTS["active_quotation"], "description": f"{len(active_quotes)} cotización(es) comercial(es)"})
+
+        # Historial de facturación
+        if total_invoiced > 0:
+            raw_score += LEAD_SCORE_WEIGHTS["billing_history"]
+            breakdown.append({"factor": "billing_history", "points": LEAD_SCORE_WEIGHTS["billing_history"], "description": f"Facturación histórica acumulada (RD$ {total_invoiced:,.2f})"})
+            if total_invoiced >= 100000.0:
+                raw_score += LEAD_SCORE_WEIGHTS["high_billing"]
+                breakdown.append({"factor": "high_billing", "points": LEAD_SCORE_WEIGHTS["high_billing"], "description": "Cliente de alto volumen (>= RD$ 100k)"})
+
+        score = max(0, min(100, raw_score))
+
+        # Clasificación contextual (diferenciando cliente vs lead)
+        is_client = "cliente" in contact.get("types", []) or total_invoiced > 0 or contact.get("pipelineStage") == "Cliente Activo"
+        if is_client and total_invoiced > 0:
+            if days_since_last_action <= 90:
+                classification = "active_customer"
+                classification_label = "Cliente Activo"
+            else:
+                classification = "dormant_customer"
+                classification_label = "Cliente Inactivo/Dormido"
+        else:
+            if score >= 70:
+                classification = "hot_lead"
+                classification_label = "Lead Caliente"
+            elif score >= 40:
+                classification = "warm_lead"
+                classification_label = "Lead Templado"
+            else:
+                classification = "cold_lead"
+                classification_label = "Lead Frío"
+
+        return {
+            "score": score,
+            "classification": classification,
+            "classificationLabel": classification_label,
+            "scoreBreakdown": breakdown,
+            "totalInvoiced": round(total_invoiced, 2),
+            "daysSinceLastAction": days_since_last_action if days_since_last_action != 999 else None,
+        }
+
+    @classmethod
+    def get_sales_metrics(
+        cls,
+        owner_uid,
+        sandbox=True,
+        company_id=None,
+        branch_id=None,
+        project_id=None,
+        assigned_to=None,
+        date_from=None,
+        date_to=None,
+    ):
+        """
+        Calcula métricas comerciales avanzadas y conversión de embudo (F4.3).
+        Soporta filtrado por sucursal, proyecto, vendedor y rango de fechas.
+        """
+        company_id = _require_company_id(company_id)
+        all_opps = cls.get_opportunities(
+            owner_uid,
+            sandbox=sandbox,
+            company_id=company_id,
+            include_closed=True,
+            branch_id=branch_id,
+            project_id=project_id,
+        )
+
+        if assigned_to:
+            all_opps = [o for o in all_opps if o.get("assignedTo") == assigned_to]
+
+        df = _parse_date(date_from)
+        dt = _parse_date(date_to)
+
+        if df or dt:
+            filtered_opps = []
+            for o in all_opps:
+                crt = _parse_date(o.get("createdAt"))
+                cls_d = _parse_date(o.get("closedAt"))
+                in_range = False
+                if crt and (not df or crt >= df) and (not dt or crt <= dt):
+                    in_range = True
+                if cls_d and (not df or cls_d >= df) and (not dt or cls_d <= dt):
+                    in_range = True
+                if in_range:
+                    filtered_opps.append(o)
+            opps = filtered_opps
+        else:
+            opps = all_opps
+
+        open_opps = [o for o in opps if o.get("status") == "abierta" and not o.get("isDeleted") and o.get("stage") not in ("Ganada", "Perdida")]
+        won_opps = [o for o in opps if (o.get("status") == "ganada" or o.get("stage") == "Ganada") and not o.get("isDeleted")]
+        lost_opps = [o for o in opps if (o.get("status") == "perdida" or o.get("stage") == "Perdida") and not o.get("isDeleted")]
+
+        # 1. Pipeline nominal y ponderado
+        pipeline_value = sum(_safe_float(o.get("amount")) for o in open_opps if _safe_float(o.get("amount")) > 0)
+        weighted_pipeline = sum(
+            _safe_float(o.get("amount")) * (max(0, min(100, _safe_int(o.get("probability"), 10))) / 100.0)
+            for o in open_opps if _safe_float(o.get("amount")) > 0
+        )
+
+        # 2. Win rate
+        closed_count = len(won_opps) + len(lost_opps)
+        win_rate = round((len(won_opps) / closed_count * 100.0), 2) if closed_count > 0 else 0.0
+
+        # 3. Ticket promedio (Average won amount)
+        won_amounts = [_safe_float(o.get("amount")) for o in won_opps if _safe_float(o.get("amount")) > 0]
+        avg_won_amount = round(sum(won_amounts) / len(won_amounts), 2) if won_amounts else 0.0
+
+        # 4. Ciclo promedio de venta (días hasta ganar)
+        sales_cycle_days = []
+        for o in won_opps:
+            crt_date = _parse_date(o.get("createdAt"))
+            won_date = None
+
+            for h in (o.get("stageHistory") or []):
+                if h.get("to") == "Ganada":
+                    won_date = _parse_date(h.get("timestamp"))
+                    if won_date:
+                        break
+
+            if not won_date:
+                won_date = _parse_date(o.get("closedAt")) or _parse_date(o.get("updatedAt"))
+
+            if crt_date and won_date:
+                days = (won_date - crt_date).days
+                sales_cycle_days.append(max(0, days))
+
+        avg_sales_cycle_days = round(sum(sales_cycle_days) / len(sales_cycle_days), 1) if sales_cycle_days else 0.0
+
+        # 5. Funnel de conversión usando stageHistory + estado actual
+        stages_order = ["Prospecto", "Contactado", "Calificado", "Propuesta", "Negociación", "Ganada"]
+        stage_reached_counts = {st: 0 for st in stages_order}
+
+        for o in opps:
+            if o.get("isDeleted"):
+                continue
+            stages_touched = set()
+            for h in (o.get("stageHistory") or []):
+                if h.get("from"):
+                    stages_touched.add(h["from"])
+                if h.get("to"):
+                    stages_touched.add(h["to"])
+            curr = o.get("stage")
+            if curr:
+                stages_touched.add(curr)
+            stages_touched.add("Prospecto")
+
+            normalized_touched = set()
+            for s in stages_touched:
+                if s == "En Negociación":
+                    normalized_touched.add("Negociación")
+                elif s in stage_reached_counts:
+                    normalized_touched.add(s)
+
+            for st in normalized_touched:
+                stage_reached_counts[st] += 1
+
+        canonical_pairs = [
+            ("prospect_to_contacted", "Prospecto", "Contactado"),
+            ("contacted_to_qualified", "Contactado", "Calificado"),
+            ("qualified_to_proposal", "Calificado", "Propuesta"),
+            ("proposal_to_negotiation", "Propuesta", "Negociación"),
+            ("negotiation_to_won", "Negociación", "Ganada"),
+        ]
+        conversion_rates = {}
+        for key_name, s_from, s_to in canonical_pairs:
+            denom = stage_reached_counts.get(s_from, 0)
+            num = stage_reached_counts.get(s_to, 0)
+            rate = round((num / denom * 100.0), 1) if denom > 0 else 0.0
+            conversion_rates[key_name] = min(100.0, rate)
+            # Spanish alias for template friendliness
+            conversion_rates[f"{s_from.lower()}_to_{s_to.lower()}"] = min(100.0, rate)
+
+        # 6. Desgloses por vendedor, sucursal y proyecto
+        by_salesperson = {}
+        by_branch = {}
+        by_project = {}
+
+        for o in opps:
+            if o.get("isDeleted"):
+                continue
+            rep_id = o.get("assignedTo") or "unassigned"
+            rep_name = o.get("assignedToName") or "Sin Asignar"
+            br_id = o.get("branchId") or "default-sucursal-principal"
+            pr_id = o.get("projectId") or "none"
+
+            if rep_id not in by_salesperson:
+                by_salesperson[rep_id] = {
+                    "salespersonId": rep_id,
+                    "salespersonName": rep_name,
+                    "open": 0, "won": 0, "lost": 0,
+                    "pipeline": 0.0, "weightedPipeline": 0.0, "wonAmount": 0.0,
+                }
+            if br_id not in by_branch:
+                by_branch[br_id] = {"branchId": br_id, "open": 0, "won": 0, "lost": 0, "pipeline": 0.0, "wonAmount": 0.0}
+            if pr_id not in by_project:
+                by_project[pr_id] = {"projectId": pr_id, "open": 0, "won": 0, "lost": 0, "pipeline": 0.0, "wonAmount": 0.0}
+
+            amt = _safe_float(o.get("amount"))
+            prob = max(0, min(100, _safe_int(o.get("probability"), 10))) / 100.0
+            st_status = o.get("status")
+
+            if st_status == "abierta" and o.get("stage") not in ("Ganada", "Perdida"):
+                by_salesperson[rep_id]["open"] += 1
+                by_salesperson[rep_id]["pipeline"] += amt
+                by_salesperson[rep_id]["weightedPipeline"] += (amt * prob)
+                by_branch[br_id]["open"] += 1
+                by_branch[br_id]["pipeline"] += amt
+                by_project[pr_id]["open"] += 1
+                by_project[pr_id]["pipeline"] += amt
+            elif st_status == "ganada" or o.get("stage") == "Ganada":
+                by_salesperson[rep_id]["won"] += 1
+                by_salesperson[rep_id]["wonAmount"] += amt
+                by_branch[br_id]["won"] += 1
+                by_branch[br_id]["wonAmount"] += amt
+                by_project[pr_id]["won"] += 1
+                by_project[pr_id]["wonAmount"] += amt
+            elif st_status == "perdida" or o.get("stage") == "Perdida":
+                by_salesperson[rep_id]["lost"] += 1
+                by_branch[br_id]["lost"] += 1
+                by_project[pr_id]["lost"] += 1
+
+        for rep in by_salesperson.values():
+            cl = rep["won"] + rep["lost"]
+            rep["winRate"] = round((rep["won"] / cl * 100.0), 1) if cl > 0 else 0.0
+            rep["pipeline"] = round(rep["pipeline"], 2)
+            rep["weightedPipeline"] = round(rep["weightedPipeline"], 2)
+            rep["wonAmount"] = round(rep["wonAmount"], 2)
+
+        return {
+            "openOpportunities": len(open_opps),
+            "wonOpportunities": len(won_opps),
+            "lostOpportunities": len(lost_opps),
+            "pipelineValue": round(pipeline_value, 2),
+            "weightedPipelineValue": round(weighted_pipeline, 2),
+            "winRate": win_rate,
+            "avgWonAmount": avg_won_amount,
+            "avgSalesCycleDays": avg_sales_cycle_days,
+            "funnel": stage_reached_counts,
+            "conversionRates": conversion_rates,
+            "bySalesperson": list(by_salesperson.values()),
+            "byBranch": list(by_branch.values()),
+            "byProject": list(by_project.values()),
+        }
+
+    @classmethod
+    def _snapshot_coll(cls, sandbox=True):
+        return "sandbox_crm_metric_snapshots" if sandbox else "crm_metric_snapshots"
+
+    @classmethod
+    def create_metric_snapshot(
+        cls,
+        owner_uid,
+        sandbox=True,
+        company_id=None,
+        branch_id=None,
+        project_id=None,
+        period="daily",
+        period_start=None,
+        period_end=None,
+    ):
+        """
+        Calcula y persiste de forma idempotente un snapshot histórico de métricas comerciales (F4.5).
+        """
+        company_id = _require_company_id(company_id)
+        ref_today = datetime.now(timezone.utc).date()
+        p_start = _date_key(period_start) or ref_today.strftime("%Y-%m-%d")
+        p_end = _date_key(period_end) or p_start
+
+        # Clave lógica de unicidad
+        b_key = branch_id or "all"
+        p_key = project_id or "all"
+        snapshot_id = f"snap_{company_id}_{b_key}_{p_key}_{period}_{p_start}".replace("/", "_")
+
+        metrics = cls.get_sales_metrics(
+            owner_uid,
+            sandbox=sandbox,
+            company_id=company_id,
+            branch_id=branch_id,
+            project_id=project_id,
+            date_from=p_start if period != "daily" else None,
+            date_to=p_end if period != "daily" else None,
+        )
+
+        activities = cls.get_activities(owner_uid, sandbox=sandbox, include_completed=False, company_id=company_id, branch_id=branch_id, project_id=project_id)
+        leads = cls.get_leads(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=branch_id, project_id=project_id)
+
+        snapshot_data = {
+            "id": snapshot_id,
+            "ownerUID": owner_uid,
+            "companyId": company_id,
+            "branchId": branch_id,
+            "projectId": project_id,
+            "period": period,
+            "periodStart": p_start,
+            "periodEnd": p_end,
+            "snapshotDate": p_start,
+            "openOpportunities": metrics["openOpportunities"],
+            "wonOpportunities": metrics["wonOpportunities"],
+            "lostOpportunities": metrics["lostOpportunities"],
+            "pipelineValue": metrics["pipelineValue"],
+            "weightedPipelineValue": metrics["weightedPipelineValue"],
+            "overdueActivities": len([a for a in activities if a.get("isOverdue")]),
+            "todayActivities": len([a for a in activities if a.get("isDueToday")]),
+            "leadCount": len(leads),
+            "winRate": metrics["winRate"],
+            "avgDealSize": metrics["avgWonAmount"],
+            "avgSalesCycleDays": metrics["avgSalesCycleDays"],
+            "conversionRates": metrics["conversionRates"],
+            "byStage": metrics["funnel"],
+            "byRep": metrics["bySalesperson"],
+            "createdAt": _now_iso(),
+        }
+
+        if firebase_initialized:
+            try:
+                _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=cls._snapshot_coll(sandbox)).document(snapshot_id).set(snapshot_data)
+            except Exception as e:
+                print(f"⚠️ Error al guardar snapshot de métricas CRM {snapshot_id}: {e}")
+
+        return snapshot_data
+
+    @classmethod
+    def get_metric_snapshots(
+        cls,
+        owner_uid,
+        sandbox=True,
+        company_id=None,
+        branch_id=None,
+        project_id=None,
+        period=None,
+        limit=30,
+    ):
+        """Recupera la evolución histórica de snapshots para el tenant."""
+        company_id = _require_company_id(company_id)
+        if not firebase_initialized:
+            return []
+        try:
+            docs = _company_coll(company_id=company_id, owner_uid=owner_uid, coll_name=cls._snapshot_coll(sandbox)).get()
+            snapshots = []
+            for doc in docs:
+                d = doc.to_dict() or {}
+                if d.get("companyId") != company_id:
+                    continue
+                if branch_id and d.get("branchId") != branch_id:
+                    continue
+                if project_id and d.get("projectId") != project_id:
+                    continue
+                if period and d.get("period") != period:
+                    continue
+                d["id"] = doc.id
+                snapshots.append(d)
+
+            snapshots.sort(key=lambda s: s.get("periodStart") or s.get("createdAt") or "", reverse=True)
+            return snapshots[:limit]
+        except Exception as e:
+            print(f"⚠️ Error al obtener snapshots de métricas CRM: {e}")
+            return []
+
+    @classmethod
+    def get_dashboard(cls, owner_uid, sandbox=True, company_id=None, branch_id=None, project_id=None, date_range=None):
+        company_id = _require_company_id(company_id)
+        today = datetime.now(timezone.utc).date()
+        date_from = None
+        date_to = None
+        if date_range == "30d":
+            date_from = (today - timedelta(days=30)).isoformat()
+        elif date_range == "90d":
+            date_from = (today - timedelta(days=90)).isoformat()
+        elif date_range == "year":
+            date_from = f"{today.year}-01-01"
+
+        sales_metrics = cls.get_sales_metrics(
+            owner_uid,
+            sandbox=sandbox,
+            company_id=company_id,
+            branch_id=branch_id,
+            project_id=project_id,
+            date_from=date_from,
+            date_to=date_to,
+        )
+
         opportunities = cls.get_opportunities(owner_uid, sandbox=sandbox, company_id=company_id, include_closed=True, branch_id=branch_id, project_id=project_id)
-        open_opps = [o for o in opportunities if o.get("status") == "abierta"]
-        won_opps = [o for o in opportunities if o.get("status") == "ganada"]
-        lost_opps = [o for o in opportunities if o.get("status") == "perdida"]
         activities = cls.get_activities(owner_uid, sandbox=sandbox, include_completed=False, company_id=company_id, branch_id=branch_id, project_id=project_id)
         leads = cls.get_leads(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=branch_id, project_id=project_id)
         pipeline = cls.get_pipeline(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=branch_id, project_id=project_id)
         stale_opps = cls.get_stale_opportunities(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=branch_id, project_id=project_id)
 
-        closed_total = len(won_opps) + len(lost_opps)
-        win_rate = (len(won_opps) / closed_total * 100.0) if closed_total else 0.0
-        pipeline_value = sum(_safe_float(o.get("amount")) for o in open_opps)
-        weighted_value = sum(_safe_float(o.get("amount")) * (_safe_float(o.get("probability")) / 100.0) for o in open_opps)
         overdue = [a for a in activities if a.get("isOverdue")]
-        today = [a for a in activities if a.get("isDueToday")]
+        today_acts = [a for a in activities if a.get("isDueToday")]
         upcoming = [a for a in activities if a.get("isUpcoming")]
 
-        suggestions = cls.get_next_action_suggestions(owner_uid, sandbox=sandbox, company_id=company_id, opportunities=open_opps, leads=leads, activities=activities)
+        suggestions = cls.get_next_action_suggestions(owner_uid, sandbox=sandbox, company_id=company_id, opportunities=[o for o in opportunities if o.get("status") == "abierta"], leads=leads, activities=activities)
 
         return {
             "metrics": {
-                "openOpportunities": len(open_opps),
-                "wonOpportunities": len(won_opps),
-                "lostOpportunities": len(lost_opps),
+                **sales_metrics,
                 "staleOpportunities": len(stale_opps),
-                "pipelineValue": round(pipeline_value, 2),
-                "weightedPipelineValue": round(weighted_value, 2),
                 "overdueActivities": len(overdue),
-                "todayActivities": len(today),
+                "todayActivities": len(today_acts),
                 "upcomingActivities": len(upcoming),
                 "leadCount": len(leads),
-                "winRate": round(win_rate, 1),
             },
+            "salesMetrics": sales_metrics,
             "pipeline": pipeline,
-            "activitiesToday": today[:8],
+            "activitiesToday": today_acts[:8],
             "activitiesOverdue": overdue[:8],
             "staleOpportunities": stale_opps[:8],
             "topLeads": leads[:8],
             "suggestions": suggestions[:8],
             "recentOpportunities": opportunities[:8],
+            "selectedDateRange": date_range or "all",
         }
 
     @classmethod

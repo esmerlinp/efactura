@@ -140,7 +140,8 @@ def dashboard():
     owner_uid, company_id, sandbox = ctx["owner_uid"], ctx["company_id"], _sandbox()
     branch_id = request.args.get("branch_id") or g.get("branch_id")
     project_id = request.args.get("project_id") or g.get("project_id")
-    data = CRMService.get_dashboard(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=branch_id, project_id=project_id)
+    date_range = request.args.get("date_range") or "all"
+    data = CRMService.get_dashboard(owner_uid, sandbox=sandbox, company_id=company_id, branch_id=branch_id, project_id=project_id, date_range=date_range)
     branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox, company_id=company_id) or []
     projects = DatabaseService.get_projects(owner_uid, sandbox=sandbox, company_id=company_id) or []
     return render_template(
@@ -151,6 +152,7 @@ def dashboard():
         projects=projects,
         selected_branch=branch_id or "",
         selected_project=project_id or "",
+        selected_date_range=date_range or "all",
     )
 
 

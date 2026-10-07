@@ -27,8 +27,17 @@
     </div>
 </div>
 
-{% if (branches and branches|length > 0) or (projects and projects|length > 0) %}
 <form method="GET" action="{{ url_for('web_crm.dashboard') }}" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:var(--space-3) var(--space-4); display:flex; flex-wrap:wrap; gap:var(--space-3); align-items:center; margin-bottom:var(--space-4);">
+    <div style="display:flex; align-items:center; gap:var(--space-2);">
+        <label style="font-size:var(--text-xs); font-weight:600; color:var(--text-muted); text-transform:uppercase; margin:0;"><i class="fa-solid fa-calendar"></i> Período</label>
+        <select name="date_range" style="padding:6px 10px; border:1px solid var(--border-color); border-radius:var(--radius-sm); background:var(--bg-input); color:var(--text-primary); font-size:var(--text-sm);" onchange="this.form.submit()">
+            <option value="all" {% if selected_date_range == 'all' or not selected_date_range %}selected{% endif %}>Todo el histórico</option>
+            <option value="30d" {% if selected_date_range == '30d' %}selected{% endif %}>Últimos 30 días</option>
+            <option value="90d" {% if selected_date_range == '90d' %}selected{% endif %}>Últimos 90 días</option>
+            <option value="year" {% if selected_date_range == 'year' %}selected{% endif %}>Este año</option>
+        </select>
+    </div>
+
     {% if branches and branches|length > 0 %}
     <div style="display:flex; align-items:center; gap:var(--space-2);">
         <label style="font-size:var(--text-xs); font-weight:600; color:var(--text-muted); text-transform:uppercase; margin:0;"><i class="fa-solid fa-building"></i> Sucursal</label>
@@ -53,46 +62,49 @@
     </div>
     {% endif %}
 
-    {% if selected_branch or selected_project %}
+    {% if selected_branch or selected_project or (selected_date_range and selected_date_range != 'all') %}
     <a href="{{ url_for('web_crm.dashboard') }}" class="btn btn-xs btn-outline-secondary" title="Limpiar filtros" style="margin-left:auto;">
         <i class="fa-solid fa-xmark"></i> Limpiar
     </a>
     {% endif %}
 </form>
-{% endif %}
 
-<div class="small-metrics-grid">
+<div class="small-metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); margin-bottom:var(--space-4);">
     <div class="small-metric">
-        <div class="label">Oportunidades Abiertas</div>
-        <div class="value">{{ crm.metrics.openOpportunities }}</div>
-    </div>
-    <div class="small-metric">
-        <div class="label">Pipeline Total</div>
-        <div class="value" style="color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(crm.metrics.pipelineValue) }}</div>
+        <div class="label">Pipeline Nominal</div>
+        <div class="value" style="color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(crm.metrics.pipelineValue or 0) }}</div>
     </div>
     <div class="small-metric">
         <div class="label">Pipeline Ponderado</div>
-        <div class="value" style="color:var(--accent-purple);">{{ "RD$ {:,.2f}".format(crm.metrics.weightedPipelineValue) }}</div>
+        <div class="value" style="color:var(--accent-purple);">{{ "RD$ {:,.2f}".format(crm.metrics.weightedPipelineValue or 0) }}</div>
+    </div>
+    <div class="small-metric">
+        <div class="label">Win Rate</div>
+        <div class="value">{{ crm.metrics.winRate or 0 }}%</div>
+    </div>
+    <div class="small-metric">
+        <div class="label">Ganadas / Perdidas</div>
+        <div class="value" style="font-size:1.1rem;"><span style="color:var(--accent-emerald);">{{ crm.metrics.wonOpportunities or 0 }}</span> / <span style="color:var(--accent-red);">{{ crm.metrics.lostOpportunities or 0 }}</span></div>
+    </div>
+    <div class="small-metric">
+        <div class="label">Ticket Promedio</div>
+        <div class="value">{{ "RD$ {:,.2f}".format(crm.metrics.avgWonAmount or 0) }}</div>
+    </div>
+    <div class="small-metric">
+        <div class="label">Ciclo Promedio</div>
+        <div class="value">{{ crm.metrics.avgSalesCycleDays or 0 }} d</div>
     </div>
     <div class="small-metric">
         <div class="label">Actividades Hoy</div>
-        <div class="value">{{ crm.metrics.todayActivities }}</div>
+        <div class="value">{{ crm.metrics.todayActivities or 0 }}</div>
     </div>
     <div class="small-metric">
-        <div class="label">Vencidas</div>
-        <div class="value" style="color:var(--accent-red);">{{ crm.metrics.overdueActivities }}</div>
-    </div>
-    <div class="small-metric">
-        <div class="label">Próximas (SLA)</div>
-        <div class="value" style="color:var(--color-primary);">{{ crm.metrics.upcomingActivities or 0 }}</div>
+        <div class="label">Vencidas (SLA)</div>
+        <div class="value" style="color:var(--accent-red);">{{ crm.metrics.overdueActivities or 0 }}</div>
     </div>
     <div class="small-metric">
         <div class="label">Estancadas</div>
         <div class="value" style="color:#d97706;">{{ crm.metrics.staleOpportunities or 0 }}</div>
-    </div>
-    <div class="small-metric">
-        <div class="label">Win Rate</div>
-        <div class="value">{{ crm.metrics.winRate }}%</div>
     </div>
 </div>
 
@@ -118,6 +130,50 @@
                         {% else %}
                         <tr><td colspan="5" class="text-center text-muted">Sin oportunidades registradas.</td></tr>
                         {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card-table-wrapper" style="margin-bottom:var(--space-4);">
+            <div class="table-header-row" style="margin-bottom:16px;">
+                <span style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--text-primary);"><i class="fa-solid fa-filter"></i> Embudo de Conversión (Funnel)</span>
+                <span class="badge badge-primary" style="font-size:0.75rem;">Win Rate: {{ crm.metrics.winRate or 0 }}%</span>
+            </div>
+            <div class="table-responsive">
+                <table class="data-grid">
+                    <thead><tr><th>Etapa</th><th>Alcanzaron Etapa</th><th>Conversión a Siguiente</th></tr></thead>
+                    <tbody>
+                        <tr>
+                            <td><i class="fa-solid fa-seedling text-muted"></i> <strong>Prospecto</strong></td>
+                            <td>{{ crm.salesMetrics.funnel.Prospecto or 0 }}</td>
+                            <td><span class="badge badge-info">{{ crm.salesMetrics.conversionRates.prospect_to_contacted or 0 }}%</span> <span style="font-size:0.75rem; color:var(--text-muted);">→ Contactado</span></td>
+                        </tr>
+                        <tr>
+                            <td><i class="fa-solid fa-phone text-muted"></i> <strong>Contactado</strong></td>
+                            <td>{{ crm.salesMetrics.funnel.Contactado or 0 }}</td>
+                            <td><span class="badge badge-info">{{ crm.salesMetrics.conversionRates.contacted_to_qualified or 0 }}%</span> <span style="font-size:0.75rem; color:var(--text-muted);">→ Calificado</span></td>
+                        </tr>
+                        <tr>
+                            <td><i class="fa-solid fa-check-double text-muted"></i> <strong>Calificado</strong></td>
+                            <td>{{ crm.salesMetrics.funnel.Calificado or 0 }}</td>
+                            <td><span class="badge badge-info">{{ crm.salesMetrics.conversionRates.qualified_to_proposal or 0 }}%</span> <span style="font-size:0.75rem; color:var(--text-muted);">→ Propuesta</span></td>
+                        </tr>
+                        <tr>
+                            <td><i class="fa-solid fa-file-signature text-muted"></i> <strong>Propuesta</strong></td>
+                            <td>{{ crm.salesMetrics.funnel.Propuesta or 0 }}</td>
+                            <td><span class="badge badge-info">{{ crm.salesMetrics.conversionRates.proposal_to_negotiation or 0 }}%</span> <span style="font-size:0.75rem; color:var(--text-muted);">→ Negociación</span></td>
+                        </tr>
+                        <tr>
+                            <td><i class="fa-solid fa-handshake text-muted"></i> <strong>Negociación</strong></td>
+                            <td>{{ crm.salesMetrics.funnel.Negociación or 0 }}</td>
+                            <td><span class="badge badge-success">{{ crm.salesMetrics.conversionRates.negotiation_to_won or 0 }}%</span> <span style="font-size:0.75rem; color:var(--text-muted);">→ Ganada</span></td>
+                        </tr>
+                        <tr style="background:var(--bg-highlight);">
+                            <td><i class="fa-solid fa-trophy" style="color:var(--accent-emerald);"></i> <strong>Ganada</strong></td>
+                            <td><strong style="color:var(--accent-emerald);">{{ crm.salesMetrics.funnel.Ganada or 0 }}</strong></td>
+                            <td><span style="font-size:0.8rem; color:var(--text-muted);">Cierre Exitoso</span></td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
