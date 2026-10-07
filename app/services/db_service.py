@@ -3501,6 +3501,25 @@ class DatabaseService:
                 except Exception as e:
                     print(f"⚠️ Error al actualizar automáticamente el pipelineStage del cliente {client_id}: {e}")
 
+        if is_quotation:
+            try:
+                from app.services.crm_service import CRMService
+                opp_id = inv_dict.get("opportunityId")
+                resolved_cid = company_id or _resolve_company_id(owner_uid)
+                if resolved_cid:
+                    quote_total = float(inv_dict.get("total") or inv_dict.get("netPayable") or 0.0)
+                    CRMService.link_quotation_to_opportunity(
+                        owner_uid=owner_uid,
+                        quotation_id=invoice_id,
+                        quotation_number=inv_dict.get("invoiceNumber", ""),
+                        opportunity_id=opp_id,
+                        amount=quote_total,
+                        sandbox=sandbox,
+                        company_id=resolved_cid,
+                    )
+            except Exception as quote_crm_err:
+                print(f"⚠️ Error al sincronizar cotización con oportunidad CRM: {quote_crm_err}")
+
         if firebase_initialized:
             try:
                 coll_name = "sandbox_invoices" if sandbox else "invoices"
