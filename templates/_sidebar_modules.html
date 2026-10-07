@@ -53,7 +53,7 @@
         <span>Portal de Clientes</span>
     </a>
     {% endif %}
-    {% if module_enabled('certificacion') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canCertifyDGII', True)) %}
+    {% if module_enabled('certificacion') and dgii_environment == 'certecf' and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canCertifyDGII', True)) %}
     <a href="{{ url_for('web_certificacion.wizard') }}"
         class="sidebar-discover-item {% if active_page == 'certificacion' %}active{% endif %}"
         data-tooltip="Certificación DGII">
