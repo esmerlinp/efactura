@@ -789,13 +789,15 @@ def _cached_crm_contacts(owner_uid, sandbox):
     return crm_contacts
 
 
-@cache.memoize(timeout=3600)
+@cache.memoize(timeout=30)
 def _cached_plan(plan_id, plan_version=0):
     if firebase_initialized and plan_id:
         try:
             doc = db_firestore.collection('plans').document(plan_id).get()
             if doc.exists:
-                return doc.to_dict()
+                data = doc.to_dict()
+                data['id'] = doc.id
+                return data
         except Exception as e:
             print(f"⚠️ Error al obtener plan {plan_id} de Firestore: {e}")
     return None
