@@ -7,10 +7,12 @@ from app.services.contact_service import ContactService
 from app.services.mailer import Mailer
 from app.services.dgii import DGIIService
 from app.utils.decorators import check_permission
+from app.utils.module_gate import gate_blueprint_module
 from app.brand import get_product_name
 from app.models.fiscal_document_type import all_types as _all_fiscal_types, Family as _Family, by_code as _by_code
 
 web_contacts_bp = Blueprint('web_contacts', __name__)
+gate_blueprint_module(web_contacts_bp, 'crm')
 
 
 # =========================================================================
@@ -21,7 +23,7 @@ def _check(perm='canClients', feature='Contactos'):
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission(perm):
-        return render_template('auth/restricted.html', feature_name=feature, required_permission=perm)
+        return render_template('auth/restricted.html', feature_name=feature, required_permission=perm), 403
     return None
 
 

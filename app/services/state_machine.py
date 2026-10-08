@@ -226,7 +226,7 @@ OFFBOARDING_STATES = {
     },
     "returned": {
         "label": "Devuelta para corrección",
-        "transitions": ["pending_supervisor_approval", "pending_hr_approval", "draft"],
+        "transitions": ["pending_supervisor_approval", "pending_hr_approval", "draft", "cancelled"],
         "color": "warning",
         "description": "Devolución al creador para corregir parámetros o empleados antes de reenviar.",
     },

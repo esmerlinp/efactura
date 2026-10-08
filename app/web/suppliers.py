@@ -5,15 +5,17 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from app.services.db_service import DatabaseService
 from app.services.supplier_service import SupplierService
 from app.utils.decorators import check_permission
+from app.utils.module_gate import gate_blueprint_module
 from app.models.fiscal_document_type import all_types as _all_fiscal_types, Family as _Family, by_code as _by_code
 
 web_suppliers_bp = Blueprint('web_suppliers', __name__)
+gate_blueprint_module(web_suppliers_bp, 'cxp_compras')
 
 @web_suppliers_bp.route('/suppliers')
 def list_suppliers():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageSuppliers'):
-        return render_template('auth/restricted.html', feature_name="Proveedores", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Proveedores", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -108,7 +110,7 @@ def list_suppliers():
 def new_supplier():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageSuppliers'):
-        return render_template('auth/restricted.html', feature_name="Nuevo Proveedor", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Nuevo Proveedor", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -259,7 +261,7 @@ def ajax_create_supplier():
 def supplier_detail(supplier_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageSuppliers'):
-        return render_template('auth/restricted.html', feature_name="Detalle Proveedor", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Detalle Proveedor", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -290,7 +292,7 @@ def supplier_detail(supplier_id):
 def edit_supplier(supplier_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageSuppliers'):
-        return render_template('auth/restricted.html', feature_name="Editar Proveedor", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Editar Proveedor", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -365,7 +367,7 @@ def edit_supplier(supplier_id):
 def delete_supplier(supplier_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageSuppliers'):
-        return render_template('auth/restricted.html', feature_name="Eliminar Proveedor", required_permission="canExpenses")
+        return render_template('auth/restricted.html', feature_name="Eliminar Proveedor", required_permission="canExpenses"), 403
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
 

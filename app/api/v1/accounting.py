@@ -5,16 +5,17 @@ from flask import Blueprint, request, jsonify, g
 from app.services.db_service import DatabaseService
 from app.services.accounting_service import AccountingService
 from app.services.fixed_asset_service import FixedAssetService
-from app.api.auth import require_api_key
+from app.api.auth import require_api_key, require_api_module, gate_api_blueprint_module
 
 api_accounting_bp = Blueprint('api_accounting', __name__)
+gate_api_blueprint_module(api_accounting_bp, 'contabilidad')
 
 
 # =========================================================================
 # CHART OF ACCOUNTS
 # =========================================================================
 @api_accounting_bp.route('/accounting/accounts', methods=['GET'])
-@require_api_key
+@require_api_module('contabilidad')
 def get_accounts():
     """
     Listar cuentas contables
@@ -35,7 +36,7 @@ def get_accounts():
 
 
 @api_accounting_bp.route('/accounting/accounts', methods=['POST'])
-@require_api_key
+@require_api_module('contabilidad')
 def create_account():
     """
     Crear cuenta contable
@@ -106,7 +107,7 @@ def create_account():
 
 
 @api_accounting_bp.route('/accounting/accounts/<account_id>', methods=['PUT'])
-@require_api_key
+@require_api_module('contabilidad')
 def update_account(account_id):
     """
     Actualizar cuenta contable
@@ -167,7 +168,7 @@ def update_account(account_id):
 
 
 @api_accounting_bp.route('/accounting/accounts/<account_id>', methods=['DELETE'])
-@require_api_key
+@require_api_module('contabilidad')
 def delete_account(account_id):
     """
     Eliminar cuenta contable
@@ -206,7 +207,7 @@ def delete_account(account_id):
 # ACCOUNTING ENTRIES
 # =========================================================================
 @api_accounting_bp.route('/accounting/entries', methods=['GET'])
-@require_api_key
+@require_api_module('contabilidad')
 def get_entries():
     """
     Listar asientos contables
@@ -228,7 +229,7 @@ def get_entries():
 
 
 @api_accounting_bp.route('/accounting/entries', methods=['POST'])
-@require_api_key
+@require_api_module('contabilidad')
 def create_entry():
     """
     Crear asiento contable
@@ -295,7 +296,7 @@ def create_entry():
 
 
 @api_accounting_bp.route('/accounting/entries/<entry_id>', methods=['GET'])
-@require_api_key
+@require_api_module('contabilidad')
 def get_entry(entry_id):
     """
     Obtener asiento contable
@@ -330,7 +331,7 @@ def get_entry(entry_id):
 # REPORTS
 # =========================================================================
 @api_accounting_bp.route('/accounting/reports/balance-sheet', methods=['GET'])
-@require_api_key
+@require_api_module('contabilidad')
 def balance_sheet():
     """
     Balance general
@@ -358,7 +359,7 @@ def balance_sheet():
 
 
 @api_accounting_bp.route('/accounting/reports/income-statement', methods=['GET'])
-@require_api_key
+@require_api_module('contabilidad')
 def income_statement():
     """
     Estado de resultados
@@ -392,7 +393,7 @@ def income_statement():
 
 
 @api_accounting_bp.route('/accounting/reports/trial-balance', methods=['GET'])
-@require_api_key
+@require_api_module('contabilidad')
 def trial_balance():
     """
     Balance de comprobación
@@ -423,7 +424,7 @@ def trial_balance():
 # FIXED ASSETS
 # =========================================================================
 @api_accounting_bp.route('/accounting/fixed-assets', methods=['GET'])
-@require_api_key
+@require_api_module('contabilidad')
 def get_fixed_assets():
     """
     Listar activos fijos
@@ -445,7 +446,7 @@ def get_fixed_assets():
 
 
 @api_accounting_bp.route('/accounting/fixed-assets', methods=['POST'])
-@require_api_key
+@require_api_module('contabilidad')
 def create_fixed_asset():
     """
     Registrar activo fijo
@@ -499,7 +500,7 @@ def create_fixed_asset():
 # OBLIGACIONES TRIBUTARIAS DGII
 # =========================================================================
 @api_accounting_bp.route('/accounting/tax-obligations/status', methods=['GET'])
-@require_api_key
+@require_api_module('contabilidad')
 def tax_obligations_status():
     """
     Estado de obligaciones tributarias

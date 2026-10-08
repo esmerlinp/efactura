@@ -1,11 +1,12 @@
 # app/api/v1/dgii.py
 from flask import Blueprint, jsonify, g, session
-from app.api.auth import require_api_key
+from app.api.auth import require_api_key, gate_api_blueprint_module
 from app.services.dgii import DGIIService
 from app.services.db_service import DatabaseService
 from app.utils.cache_utils import http_cache
 
 api_dgii_bp = Blueprint('api_dgii', __name__)
+gate_api_blueprint_module(api_dgii_bp, 'e_cf')
 
 
 @api_dgii_bp.before_request

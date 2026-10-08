@@ -3,9 +3,10 @@
 import uuid
 from datetime import datetime, timezone, date
 
-from flask import Blueprint, render_template, request, redirect, url_for, session, flash, g, send_file, make_response
+from flask import Blueprint, render_template, request, redirect, url_for, session, flash, g, send_file, make_response, jsonify
 
 from app.utils.decorators import check_permission
+from app.utils.module_gate import module_enabled
 from app.services.purchase_order_service import PurchaseOrderService
 from app.services.goods_receipt_service import GoodsReceiptService
 from app.services.kardex_service import KardexService
@@ -14,6 +15,28 @@ from app.services.audit_service import AuditService, ACTION_CREATE, ACTION_UPDAT
 MODULE_RECEIPT = "Recepción de Mercancía"
 
 web_inventory_bp = Blueprint("web_inventory", __name__, template_folder="templates")
+
+
+@web_inventory_bp.before_request
+def _check_inventory_module():
+    if "user" not in session:
+        return redirect(url_for("web_auth.login"))
+    if not module_enabled("inventario"):
+        if request.is_json or request.headers.get("Accept") == "application/json" or request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({
+                "success": False,
+                "error": {
+                    "code": "MODULE_DISABLED",
+                    "message": "El módulo 'Inventario' no está contratado en tu plan actual."
+                }
+            }), 403
+        return render_template(
+            "auth/restricted.html",
+            feature_name="Inventario & Almacenes",
+            required_permission="module_inventario",
+            custom_message="El módulo <strong>Inventario & Almacenes</strong> no está incluido en tu plan actual. "
+                           "Contacta a soporte para información sobre mejoras de plan."
+        ), 403
 
 
 def _owner():
@@ -35,7 +58,7 @@ def advanced_dashboard():
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
     if not check_permission("canManageInventory"):
-        return render_template("auth/restricted.html", feature_name="Inventario Avanzado", required_permission="canManageInventory")
+        return render_template("auth/restricted.html", feature_name="Inventario Avanzado", required_permission="canManageInventory"), 403
 
     from app.services.db_service import DatabaseService
     from app.services.inventory_alert_service import InventoryAlertService
@@ -297,7 +320,7 @@ def list_receipts():
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
     if not check_permission("canManageInventory"):
-        return render_template("auth/restricted.html", feature_name="Recepciones de Mercancía", required_permission="canManageInventory")
+        return render_template("auth/restricted.html", feature_name="Recepciones de Mercancía", required_permission="canManageInventory"), 403
     owner_uid = _owner()
     company_id = _company_id()
     sandbox = _sandbox()
@@ -312,7 +335,7 @@ def new_receipt():
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
     if not check_permission("canManageInventory"):
-        return render_template("auth/restricted.html", feature_name="Recepciones de Mercancía", required_permission="canManageInventory")
+        return render_template("auth/restricted.html", feature_name="Recepciones de Mercancía", required_permission="canManageInventory"), 403
     owner_uid = _owner()
     company_id = _company_id()
     sandbox = _sandbox()
@@ -435,7 +458,7 @@ def receipt_detail(receipt_id):
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
     if not check_permission("canManageInventory"):
-        return render_template("auth/restricted.html", feature_name="Recepciones de Mercancía", required_permission="canManageInventory")
+        return render_template("auth/restricted.html", feature_name="Recepciones de Mercancía", required_permission="canManageInventory"), 403
     owner_uid = _owner()
     company_id = _company_id()
     sandbox = _sandbox()
@@ -456,7 +479,7 @@ def kardex_view():
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
     if not check_permission("canManageInventory"):
-        return render_template("auth/restricted.html", feature_name="Kardex Valorizado", required_permission="canManageInventory")
+        return render_template("auth/restricted.html", feature_name="Kardex Valorizado", required_permission="canManageInventory"), 403
 
     from app.services.db_service import DatabaseService
 
@@ -516,7 +539,7 @@ def kardex_export_excel():
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
     if not check_permission("canManageInventory"):
-        return render_template("auth/restricted.html", feature_name="Exportar Kardex", required_permission="canManageInventory")
+        return render_template("auth/restricted.html", feature_name="Exportar Kardex", required_permission="canManageInventory"), 403
 
     owner_uid = _owner()
     company_id = _company_id()
@@ -555,7 +578,7 @@ def kardex_export_pdf():
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
     if not check_permission("canManageInventory"):
-        return render_template("auth/restricted.html", feature_name="Exportar Kardex", required_permission="canManageInventory")
+        return render_template("auth/restricted.html", feature_name="Exportar Kardex", required_permission="canManageInventory"), 403
 
     owner_uid = _owner()
     company_id = _company_id()

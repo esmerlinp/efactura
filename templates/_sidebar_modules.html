@@ -3,12 +3,14 @@
     <div class="sidebar-divider"></div>
     <span class="sidebar-discover-title">Módulos</span>
 
+    {% if module_enabled('e_cf') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canInvoice', True)) %}
     <a href="{{ url_for('web_invoices.list_invoices') }}"
         class="sidebar-discover-item {% if active_page == 'invoices' %}active{% endif %}"
         data-tooltip="Facturación">
         <i class="fa-solid fa-file-invoice-dollar"></i>
         <span>Facturación</span>
     </a>
+    {% endif %}
 
     {% if module_enabled('nomina') and (session.get('user', {}).get('role') == 'owner' or session.get('user',
     {}).get('permissions', {}).get('canHR', True)) %}

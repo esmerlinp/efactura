@@ -13,8 +13,10 @@ from datetime import datetime
 from flask import (Blueprint, render_template, request, session,
                    redirect, url_for, jsonify, flash, Response)
 from app.services.audit_service import AuditService
+from app.utils.module_gate import gate_blueprint_module
 
 web_audit_bp = Blueprint('web_audit', __name__)
+gate_blueprint_module(web_audit_bp, 'auditoria')
 
 
 def _require_audit_access():
@@ -25,8 +27,7 @@ def _require_audit_access():
     is_owner = user.get('role') == 'owner'
     has_perm = user.get('permissions', {}).get('canViewAuditLog', False)
     if not is_owner and not has_perm:
-        flash('No tienes permiso para acceder al Registro de Auditoría.', 'error')
-        return redirect(url_for('web_dashboard.dashboard'))
+        return render_template('auth/restricted.html', feature_name="Registro de Auditoría", required_permission="canViewAuditLog"), 403
     return None
 
 

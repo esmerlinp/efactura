@@ -1,13 +1,14 @@
 import uuid
 from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, g
-from app.api.auth import require_api_key
+from app.api.auth import require_api_key, require_api_module, gate_api_blueprint_module
 from app.services.db_service import DatabaseService
 
 api_prospects_bp = Blueprint('api_prospects', __name__)
+gate_api_blueprint_module(api_prospects_bp, 'crm')
 
 @api_prospects_bp.route('/prospects', methods=['POST'])
-@require_api_key
+@require_api_module('crm')
 def create_prospect():
     """
     Crear prospecto (CRM)

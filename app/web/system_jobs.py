@@ -2,9 +2,11 @@ from flask import Blueprint, render_template, redirect, url_for, session, reques
 
 from app.services.job_service import JobService
 from app.utils.decorators import check_permission
+from app.utils.module_gate import gate_blueprint_module
 
 
 web_system_jobs_bp = Blueprint("web_system_jobs", __name__)
+gate_blueprint_module(web_system_jobs_bp, "auditoria")
 
 
 @web_system_jobs_bp.route("/admin/jobs")
@@ -12,7 +14,7 @@ def dashboard():
     if "user" not in session:
         return redirect(url_for("web_auth.login"))
     if not (check_permission("canModifySettings") or check_permission("canViewAuditLog")):
-        return render_template("auth/restricted.html", feature_name="Jobs y procesos", required_permission="canModifySettings")
+        return render_template("auth/restricted.html", feature_name="Jobs y procesos", required_permission="canModifySettings"), 403
 
     status = request.args.get("status", "")
     try:

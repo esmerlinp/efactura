@@ -324,10 +324,8 @@ class TestSimuladorLiquidacion:
     """El simulador debe producir el MISMO cálculo que el procesamiento real:
     usa los montos del settlement, no el salario regular."""
 
-    def test_simulador_linea_liquidacion_usa_settlement(self):
+    def test_simulador_linea_liquidacion_usa_settlement(self, app):
         from datetime import date
-        from types import SimpleNamespace
-
         import app.web.rrhh.payroll_process as pp
 
         emp = _emp("emp-1", 45000.0)
@@ -338,56 +336,46 @@ class TestSimuladorLiquidacion:
         fake_off_svc.get_request.return_value = _req("emp-1")
 
         year = date.today().year
-        fake_request = SimpleNamespace(
-            args=SimpleNamespace(get=lambda k, d="": ""),
-            form={
-                "payrollGroupId": "grp-liq",
-                "period_key": f"{year}-08-M",
-                "periodSubType": "liquidation",
-            },
-            method="POST",
-        )
-        captured = {}
+        form_data = {
+            "payrollGroupId": "grp-liq",
+            "period_key": f"{year}-08-M",
+            "periodSubType": "liquidation",
+        }
 
-        def _fake_render(*args, **kwargs):
-            captured.update(kwargs)
-            return ""
+        with app.test_request_context("/rrhh/payroll/preview", method="POST", data=form_data):
+            with patch.object(pp, "_login_required", return_value=False), \
+                 patch.object(pp, "_get_owner_uid_and_sandbox",
+                              return_value=("u1", True, "co-1")), \
+                 patch.object(pp, "flash"), \
+                 patch.object(pp, "url_for", return_value="/"), \
+                 patch("app.services.hr_data_service") as mock_hr, \
+                 patch("app.services.offboarding_service.OffboardingService",
+                       return_value=fake_off_svc), \
+                 patch.object(pp, "PayrollService"), \
+                 patch.object(pp.OvertimeService, "get_approved_for_period",
+                              return_value=[]), \
+                 patch.object(pp.OvertimeService, "group_by_employee_and_type",
+                              return_value={}), \
+                 patch("app.services.legal_parameter_resolver.resolve_all", return_value={}), \
+                 patch("app.services.payroll_concept_engine.get_concepts", return_value=[]), \
+                 patch("app.services.payroll_concept_engine.build_concept_snapshot",
+                       return_value={}), \
+                 patch("app.services.recurring_service.get_recurring_movements",
+                       return_value=[]):
+                mock_hr.get_payroll_config.return_value = {
+                    "onboardingCompleted": True, "payrollFrequency": "mensual",
+                }
+                mock_hr.get_employees.return_value = [emp]
+                mock_hr.get_payroll_groups.return_value = [{
+                    "id": "grp-liq", "name": "Liquidados", "frequency": "mensual",
+                }]
+                mock_hr.get_payroll_group.return_value = {"groupOverrides": {}}
+                mock_hr.get_active_rules_for_scope.return_value = []
+                mock_hr.get_dependents_for_employees.return_value = {}
 
-        with patch.object(pp, "request", fake_request), \
-             patch.object(pp, "_login_required", return_value=False), \
-             patch.object(pp, "_get_owner_uid_and_sandbox",
-                          return_value=("u1", True, "co-1")), \
-             patch.object(pp, "render_template", side_effect=_fake_render), \
-             patch.object(pp, "flash"), \
-             patch.object(pp, "url_for", return_value="/"), \
-             patch("app.services.hr_data_service") as mock_hr, \
-             patch("app.services.offboarding_service.OffboardingService",
-                   return_value=fake_off_svc), \
-             patch.object(pp, "PayrollService"), \
-             patch.object(pp.OvertimeService, "get_approved_for_period",
-                          return_value=[]), \
-             patch.object(pp.OvertimeService, "group_by_employee_and_type",
-                          return_value={}), \
-             patch("app.services.legal_parameter_resolver.resolve_all", return_value={}), \
-             patch("app.services.payroll_concept_engine.get_concepts", return_value=[]), \
-             patch("app.services.payroll_concept_engine.build_concept_snapshot",
-                   return_value={}), \
-             patch("app.services.recurring_service.get_recurring_movements",
-                   return_value=[]):
-            mock_hr.get_payroll_config.return_value = {
-                "onboardingCompleted": True, "payrollFrequency": "mensual",
-            }
-            mock_hr.get_employees.return_value = [emp]
-            mock_hr.get_payroll_groups.return_value = [{
-                "id": "grp-liq", "name": "Liquidados", "frequency": "mensual",
-            }]
-            mock_hr.get_payroll_group.return_value = {"groupOverrides": {}}
-            mock_hr.get_active_rules_for_scope.return_value = []
-            mock_hr.get_dependents_for_employees.return_value = {}
+                res = pp.payroll_simulate()
+                simulation = res.get_json() if hasattr(res, "get_json") else None
 
-            pp.payroll_simulate()
-
-        simulation = captured.get("simulation")
         assert simulation is not None, "Debe devolverse un objeto simulation"
         assert len(simulation["lines"]) == 1
         line = simulation["lines"][0]
@@ -409,12 +397,10 @@ class TestSimuladorLiquidacion:
         assert liq_map.get("LIQ_CESANTIA") == 50000.0
         assert liq_map.get("LIQ_VACACIONES") == 20000.0
 
-    def test_simulador_regular_excluye_empleado_con_liquidacion_pendiente(self):
+    def test_simulador_regular_excluye_empleado_con_liquidacion_pendiente(self, app):
         """En modo "regular", un empleado con liquidación pendiente NO debe
         aparecer en las líneas de la simulación (solo va en la nómina de liquidación)."""
         from datetime import date
-        from types import SimpleNamespace
-
         import app.web.rrhh.payroll_process as pp
 
         emp = _emp("emp-1", 45000.0)
@@ -425,56 +411,46 @@ class TestSimuladorLiquidacion:
         fake_off_svc.get_request.return_value = _req("emp-1")
 
         year = date.today().year
-        fake_request = SimpleNamespace(
-            args=SimpleNamespace(get=lambda k, d="": ""),
-            form={
-                "payrollGroupId": "grp-liq",
-                "period_key": f"{year}-08-M",
-                "periodSubType": "regular",
-            },
-            method="POST",
-        )
-        captured = {}
+        form_data = {
+            "payrollGroupId": "grp-liq",
+            "period_key": f"{year}-08-M",
+            "periodSubType": "regular",
+        }
 
-        def _fake_render(*args, **kwargs):
-            captured.update(kwargs)
-            return ""
+        with app.test_request_context("/rrhh/payroll/preview", method="POST", data=form_data):
+            with patch.object(pp, "_login_required", return_value=False), \
+                 patch.object(pp, "_get_owner_uid_and_sandbox",
+                              return_value=("u1", True, "co-1")), \
+                 patch.object(pp, "flash"), \
+                 patch.object(pp, "url_for", return_value="/"), \
+                 patch("app.services.hr_data_service") as mock_hr, \
+                 patch("app.services.offboarding_service.OffboardingService",
+                       return_value=fake_off_svc), \
+                 patch.object(pp, "PayrollService"), \
+                 patch.object(pp.OvertimeService, "get_approved_for_period",
+                              return_value=[]), \
+                 patch.object(pp.OvertimeService, "group_by_employee_and_type",
+                              return_value={}), \
+                 patch("app.services.legal_parameter_resolver.resolve_all", return_value={}), \
+                 patch("app.services.payroll_concept_engine.get_concepts", return_value=[]), \
+                 patch("app.services.payroll_concept_engine.build_concept_snapshot",
+                       return_value={}), \
+                 patch("app.services.recurring_service.get_recurring_movements",
+                       return_value=[]):
+                mock_hr.get_payroll_config.return_value = {
+                    "onboardingCompleted": True, "payrollFrequency": "mensual",
+                }
+                mock_hr.get_employees.return_value = [emp]
+                mock_hr.get_payroll_groups.return_value = [{
+                    "id": "grp-liq", "name": "Liquidados", "frequency": "mensual",
+                }]
+                mock_hr.get_payroll_group.return_value = {"groupOverrides": {}}
+                mock_hr.get_active_rules_for_scope.return_value = []
+                mock_hr.get_dependents_for_employees.return_value = {}
 
-        with patch.object(pp, "request", fake_request), \
-             patch.object(pp, "_login_required", return_value=False), \
-             patch.object(pp, "_get_owner_uid_and_sandbox",
-                          return_value=("u1", True, "co-1")), \
-             patch.object(pp, "render_template", side_effect=_fake_render), \
-             patch.object(pp, "flash"), \
-             patch.object(pp, "url_for", return_value="/"), \
-             patch("app.services.hr_data_service") as mock_hr, \
-             patch("app.services.offboarding_service.OffboardingService",
-                   return_value=fake_off_svc), \
-             patch.object(pp, "PayrollService"), \
-             patch.object(pp.OvertimeService, "get_approved_for_period",
-                          return_value=[]), \
-             patch.object(pp.OvertimeService, "group_by_employee_and_type",
-                          return_value={}), \
-             patch("app.services.legal_parameter_resolver.resolve_all", return_value={}), \
-             patch("app.services.payroll_concept_engine.get_concepts", return_value=[]), \
-             patch("app.services.payroll_concept_engine.build_concept_snapshot",
-                   return_value={}), \
-             patch("app.services.recurring_service.get_recurring_movements",
-                   return_value=[]):
-            mock_hr.get_payroll_config.return_value = {
-                "onboardingCompleted": True, "payrollFrequency": "mensual",
-            }
-            mock_hr.get_employees.return_value = [emp]
-            mock_hr.get_payroll_groups.return_value = [{
-                "id": "grp-liq", "name": "Liquidados", "frequency": "mensual",
-            }]
-            mock_hr.get_payroll_group.return_value = {"groupOverrides": {}}
-            mock_hr.get_active_rules_for_scope.return_value = []
-            mock_hr.get_dependents_for_employees.return_value = {}
+                res = pp.payroll_simulate()
+                simulation = res.get_json() if hasattr(res, "get_json") else None
 
-            pp.payroll_simulate()
-
-        simulation = captured.get("simulation")
         assert simulation is not None, "Debe devolverse un objeto simulation"
         assert simulation["lines"] == [], (
             "En nómina regular el empleado con liquidación pendiente debe quedar excluido"
@@ -482,11 +458,9 @@ class TestSimuladorLiquidacion:
         assert simulation["total_gross"] == 0.0
         assert simulation["total_net"] == 0.0
 
-    def test_simulador_liquidacion_incluye_empleado_con_unassigned_but_in_group(self):
+    def test_simulador_liquidacion_incluye_empleado_con_unassigned_but_in_group(self, app):
         """Liquidación debe incluir empleado sin assignedGroupId pero en el grupo."""
         from datetime import date
-        from types import SimpleNamespace
-
         import app.web.rrhh.payroll_process as pp
 
         emp = _emp("emp-1", 45000.0, groups=["grp-liq"])
@@ -497,56 +471,46 @@ class TestSimuladorLiquidacion:
         fake_off_svc.get_request.return_value = _req("emp-1")
 
         year = date.today().year
-        fake_request = SimpleNamespace(
-            args=SimpleNamespace(get=lambda k, d="": ""),
-            form={
-                "payrollGroupId": "grp-liq",
-                "period_key": f"{year}-08-M",
-                "periodSubType": "liquidation",
-            },
-            method="POST",
-        )
-        captured = {}
+        form_data = {
+            "payrollGroupId": "grp-liq",
+            "period_key": f"{year}-08-M",
+            "periodSubType": "liquidation",
+        }
 
-        def _fake_render(*args, **kwargs):
-            captured.update(kwargs)
-            return ""
+        with app.test_request_context("/rrhh/payroll/preview", method="POST", data=form_data):
+            with patch.object(pp, "_login_required", return_value=False), \
+                 patch.object(pp, "_get_owner_uid_and_sandbox",
+                              return_value=("u1", True, "co-1")), \
+                 patch.object(pp, "flash"), \
+                 patch.object(pp, "url_for", return_value="/"), \
+                 patch("app.services.hr_data_service") as mock_hr, \
+                 patch("app.services.offboarding_service.OffboardingService",
+                       return_value=fake_off_svc), \
+                 patch.object(pp, "PayrollService"), \
+                 patch.object(pp.OvertimeService, "get_approved_for_period",
+                              return_value=[]), \
+                 patch.object(pp.OvertimeService, "group_by_employee_and_type",
+                              return_value={}), \
+                 patch("app.services.legal_parameter_resolver.resolve_all", return_value={}), \
+                 patch("app.services.payroll_concept_engine.get_concepts", return_value=[]), \
+                 patch("app.services.payroll_concept_engine.build_concept_snapshot",
+                       return_value={}), \
+                 patch("app.services.recurring_service.get_recurring_movements",
+                       return_value=[]):
+                mock_hr.get_payroll_config.return_value = {
+                    "onboardingCompleted": True, "payrollFrequency": "mensual",
+                }
+                mock_hr.get_employees.return_value = [emp]
+                mock_hr.get_payroll_groups.return_value = [{
+                    "id": "grp-liq", "name": "Liquidados", "frequency": "mensual",
+                }]
+                mock_hr.get_payroll_group.return_value = {"groupOverrides": {}}
+                mock_hr.get_active_rules_for_scope.return_value = []
+                mock_hr.get_dependents_for_employees.return_value = {}
 
-        with patch.object(pp, "request", fake_request), \
-             patch.object(pp, "_login_required", return_value=False), \
-             patch.object(pp, "_get_owner_uid_and_sandbox",
-                          return_value=("u1", True, "co-1")), \
-             patch.object(pp, "render_template", side_effect=_fake_render), \
-             patch.object(pp, "flash"), \
-             patch.object(pp, "url_for", return_value="/"), \
-             patch("app.services.hr_data_service") as mock_hr, \
-             patch("app.services.offboarding_service.OffboardingService",
-                   return_value=fake_off_svc), \
-             patch.object(pp, "PayrollService"), \
-             patch.object(pp.OvertimeService, "get_approved_for_period",
-                          return_value=[]), \
-             patch.object(pp.OvertimeService, "group_by_employee_and_type",
-                          return_value={}), \
-             patch("app.services.legal_parameter_resolver.resolve_all", return_value={}), \
-             patch("app.services.payroll_concept_engine.get_concepts", return_value=[]), \
-             patch("app.services.payroll_concept_engine.build_concept_snapshot",
-                   return_value={}), \
-             patch("app.services.recurring_service.get_recurring_movements",
-                   return_value=[]):
-            mock_hr.get_payroll_config.return_value = {
-                "onboardingCompleted": True, "payrollFrequency": "mensual",
-            }
-            mock_hr.get_employees.return_value = [emp]
-            mock_hr.get_payroll_groups.return_value = [{
-                "id": "grp-liq", "name": "Liquidados", "frequency": "mensual",
-            }]
-            mock_hr.get_payroll_group.return_value = {"groupOverrides": {}}
-            mock_hr.get_active_rules_for_scope.return_value = []
-            mock_hr.get_dependents_for_employees.return_value = {}
+                res = pp.payroll_simulate()
+                simulation = res.get_json() if hasattr(res, "get_json") else None
 
-            pp.payroll_simulate()
-
-        simulation = captured.get("simulation")
         assert simulation is not None
         assert len(simulation["lines"]) == 1
         assert simulation["lines"][0]["lineType"] == "liquidation"
@@ -609,7 +573,7 @@ class TestPendingSettlementsServerSide:
 class TestUXLiquidationEmployeesMerge:
     """En payroll_new, los empleados con liquidación pendiente se fusionan en la lista visible."""
 
-    def test_pending_liquidation_employees_se_agregan_a_employees(self):
+    def test_pending_liquidation_employees_se_agregan_a_employees(self, app):
         from app.services import hr_data_service as hr
         emp_active = _emp("emp-a", 45000.0, "Activo", groups=["grp-liq"])
         emp_liquid = _emp("emp-l", 50000.0, "LiquidationEmp", groups=["grp-liq"])
@@ -623,32 +587,33 @@ class TestUXLiquidationEmployeesMerge:
             _req("emp-l") if rid == "req-emp-l" else None
         )
 
-        with patch("app.services.offboarding_service.OffboardingService",
-                   return_value=fake_off_svc):
-            with patch.object(hr, "get_employees",
-                              return_value=[emp_active, emp_liquid]):
-                with patch.object(hr, "get_payroll_config",
-                                  return_value={"onboardingCompleted": True, "payrollFrequency": "mensual"}):
-                    with patch.object(hr, "get_payroll_groups",
-                                      return_value=[{"id":"grp-liq","name":"Liquidados","frequency":"mensual"}]):
-                        from app.web.rrhh import payroll_process as pp
-                        fake_request = type("Req", (), {
-                            "args": {"group": "grp-liq"},
-                            "form": {},
-                            "method": "GET",
-                        })()
-                        captured = {}
-                        def _fake_render(*args, **kwargs):
-                            captured.update(kwargs)
-                            return ""
-                        with patch.object(pp, "request", fake_request), \
-                             patch.object(pp, "_login_required", return_value=False), \
-                             patch.object(pp, "_get_owner_uid_and_sandbox", return_value=("u1", True, "co-1")), \
-                             patch.object(pp, "render_template", side_effect=_fake_render), \
-                             patch.object(pp, "flash"), \
-                             patch.object(pp, "url_for", return_value="/"):
-                            pp.payroll_new()
+        with app.test_request_context():
+            with patch("app.services.offboarding_service.OffboardingService",
+                       return_value=fake_off_svc):
+                with patch.object(hr, "get_employees",
+                                  return_value=[emp_active, emp_liquid]):
+                    with patch.object(hr, "get_payroll_config",
+                                      return_value={"onboardingCompleted": True, "payrollFrequency": "mensual"}):
+                        with patch.object(hr, "get_payroll_groups",
+                                          return_value=[{"id":"grp-liq","name":"Liquidados","frequency":"mensual"}]):
+                            from app.web.rrhh import payroll_process as pp
+                            fake_request = type("Req", (), {
+                                "args": {"group": "grp-liq"},
+                                "form": {},
+                                "method": "GET",
+                            })()
+                            captured = {}
+                            def _fake_render(*args, **kwargs):
+                                captured.update(kwargs)
+                                return ""
+                            with patch.object(pp, "request", fake_request), \
+                                 patch.object(pp, "_login_required", return_value=False), \
+                                 patch.object(pp, "_get_owner_uid_and_sandbox", return_value=("u1", True, "co-1")), \
+                                 patch.object(pp, "render_template", side_effect=_fake_render), \
+                                 patch.object(pp, "flash"), \
+                                 patch.object(pp, "url_for", return_value="/"):
+                                pp.payroll_new()
 
-                        employees = captured.get("employees", [])
-                        liquid_ids = [e["id"] for e in employees if e.get("isLiquidation")]
-                        assert "emp-l" in liquid_ids, "El empleado con liquidación debe aparecer con isLiquidation=True"
+                            employees = captured.get("employees", [])
+                            liquid_ids = [e["id"] for e in employees if e.get("isLiquidation")]
+                            assert "emp-l" in liquid_ids, "El empleado con liquidación debe aparecer con isLiquidation=True"

@@ -1,14 +1,15 @@
 # app/api/v1/expenses.py
 import json
 from flask import Blueprint, request, g, jsonify
-from app.api.auth import require_api_key
+from app.api.auth import require_api_key, require_api_module, gate_api_blueprint_module
 from app.services.db_service import DatabaseService
 
 api_expenses_bp = Blueprint('api_expenses', __name__)
+gate_api_blueprint_module(api_expenses_bp, 'gastos')
 
 
 @api_expenses_bp.route('/expenses/payments', methods=['GET'])
-@require_api_key
+@require_api_module('gastos')
 def list_payments():
     """
     Listar pagos formales
@@ -42,7 +43,7 @@ def list_payments():
 
 
 @api_expenses_bp.route('/expenses/minor', methods=['GET'])
-@require_api_key
+@require_api_module('gastos')
 def list_minor():
     """
     Listar gastos menores
@@ -65,7 +66,7 @@ def list_minor():
 
 
 @api_expenses_bp.route('/expenses/recurring', methods=['GET'])
-@require_api_key
+@require_api_module('gastos')
 def list_recurring():
     """
     Listar gastos recurrentes
@@ -88,7 +89,7 @@ def list_recurring():
 
 
 @api_expenses_bp.route('/expenses/payments/classify', methods=['GET'])
-@require_api_key
+@require_api_module('gastos')
 def classify_payment():
     """
     Clasificar concepto de pago con IA
@@ -134,7 +135,7 @@ def classify_payment():
 
 
 @api_expenses_bp.route('/expenses/minor/classify', methods=['GET'])
-@require_api_key
+@require_api_module('gastos')
 def classify_minor():
     """
     Clasificar concepto de gasto menor con IA

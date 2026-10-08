@@ -2,11 +2,12 @@
 import uuid
 from datetime import datetime
 from flask import Blueprint, request, jsonify, g
-from app.api.auth import require_api_key
+from app.api.auth import require_api_key, gate_api_blueprint_module
 from app.services.db_service import DatabaseService
 from app.utils.cache_utils import http_cache
 
 api_clients_bp = Blueprint('api_clients', __name__)
+gate_api_blueprint_module(api_clients_bp, 'crm')
 
 @api_clients_bp.route('/clients', methods=['GET'])
 @require_api_key

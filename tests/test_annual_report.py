@@ -1,12 +1,13 @@
 from unittest.mock import patch
 from datetime import datetime, timezone
+from contextlib import ExitStack
 
 MOCK_USER_PROFILE = {
     'uid': 'test-uid',
     'email': 'admin@test.com',
     'name': 'Admin',
     'role': 'owner',
-    'ownerUID': 'test-owner',
+    'ownerUID': 'test-uid',
     'status': 'active',
     'permissions': {'canInvoice': True}
 }
@@ -19,9 +20,23 @@ MOCK_COMPANY = {
     'productionEnabled': True,
     'sandboxEnabled': True,
     'sandboxIndefinite': True,
+    'planId': 'plan123',
+    'country': 'DO',
 }
 
-def mock_login(client, owner_uid='test-owner'):
+DB_PATCHES = (
+    patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE),
+    patch('app.services.db_service.DatabaseService.get_associated_companies', return_value=[{'ownerUID': 'test-uid', 'companyName': 'Test Co', 'role': 'owner'}]),
+    patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY),
+    patch('app.services.db_service.DatabaseService.get_company', return_value=None),
+    patch('app.services.db_service.DatabaseService.get_company_context', return_value={'permissions': {}, 'company_name': 'Test Co'}),
+    patch('app.services.db_service.DatabaseService.get_branches', return_value=[]),
+    patch('app.services.db_service.DatabaseService.get_projects', return_value=[]),
+    patch('app.services.db_service.DatabaseService.get_membership', return_value={'status': 'active'}),
+    patch('app.services.db_service.DatabaseService.get_plan', return_value={'modules': {'e_cf': {'enabled': True}, 'reportes': {'enabled': True}, 'gastos': {'enabled': True}, 'inventario': {'enabled': True}, 'contabilidad': {'enabled': True}, 'bancos': {'enabled': True}, 'cxc': {'enabled': True}, 'cxp': {'enabled': True}}}),
+)
+
+def mock_login(client, owner_uid='test-uid', company_id='test-uid'):
     with client.session_transaction() as sess:
         sess['user'] = {
             'uid': 'test-uid',
@@ -31,21 +46,25 @@ def mock_login(client, owner_uid='test-owner'):
             'name': 'Admin',
             'permissions': {'canInvoice': True},
         }
+        sess['selected_company_id'] = company_id
+        sess['selected_owner_uid'] = owner_uid
+        sess['company_country'] = 'DO'
+        sess['company_modules'] = {'e_cf': {'enabled': True}, 'reportes': {'enabled': True}, 'gastos': {'enabled': True}}
         sess['is_sandbox_mode'] = True
 
 def test_annual_report_unauthenticated(client):
     resp = client.get('/reports/admin/reporte-anual')
-    assert resp.status_code == 200
-    assert 'features/restricted.html' in resp.data.decode('utf-8') or 'restricted' in resp.data.decode('utf-8')
+    assert resp.status_code in (302, 401)
+
 
 def test_annual_report_authenticated_empty(client):
     mock_login(client)
-    with patch('app.services.db_service.DatabaseService.get_invoices', return_value=[]), \
-         patch('app.services.db_service.DatabaseService.get_expenses', return_value=[]), \
-         patch('app.services.db_service.DatabaseService.get_team_members', return_value=[]), \
-         patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE), \
-         patch('app.services.db_service.DatabaseService.get_associated_companies', return_value=[{'ownerUID': 'test-owner', 'companyName': 'Test Co', 'role': 'owner'}]), \
-         patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY):
+    with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_invoices', return_value=[]))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_expenses', return_value=[]))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_team_members', return_value=[]))
         resp = client.get('/reports/admin/reporte-anual?year=2025')
         assert resp.status_code == 200
         html = resp.data.decode('utf-8')
@@ -101,12 +120,12 @@ def test_annual_report_with_data(client):
         }
     ]
     
-    with patch('app.services.db_service.DatabaseService.get_invoices', return_value=mock_invoices), \
-         patch('app.services.db_service.DatabaseService.get_expenses', return_value=mock_expenses), \
-         patch('app.services.db_service.DatabaseService.get_team_members', return_value=mock_members), \
-         patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE), \
-         patch('app.services.db_service.DatabaseService.get_associated_companies', return_value=[{'ownerUID': 'test-owner', 'companyName': 'Test Co', 'role': 'owner'}]), \
-         patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY):
+    with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_invoices', return_value=mock_invoices))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_expenses', return_value=mock_expenses))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_team_members', return_value=mock_members))
         resp = client.get('/reports/admin/reporte-anual?year=2025')
         assert resp.status_code == 200
         html = resp.data.decode('utf-8')
@@ -149,12 +168,12 @@ def test_annual_report_comparison(client):
         }
     ]
     
-    with patch('app.services.db_service.DatabaseService.get_invoices', return_value=mock_invoices), \
-         patch('app.services.db_service.DatabaseService.get_expenses', return_value=[]), \
-         patch('app.services.db_service.DatabaseService.get_team_members', return_value=[]), \
-         patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE), \
-         patch('app.services.db_service.DatabaseService.get_associated_companies', return_value=[{'ownerUID': 'test-owner', 'companyName': 'Test Co', 'role': 'owner'}]), \
-         patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY):
+    with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_invoices', return_value=mock_invoices))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_expenses', return_value=[]))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_team_members', return_value=[]))
         resp = client.get('/reports/admin/reporte-anual?year=2025&compare=1')
         assert resp.status_code == 200
         html = resp.data.decode('utf-8')

@@ -1505,8 +1505,8 @@
                 {% endif %}
 
                 <!-- SECCIÓN: BANCOS -->
-                {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
-                {}).get('permissions', {}).get('canExpenses', True) %}
+                {% if module_enabled('banks') and (session.get('user', {}).get('role') == 'owner' or session.get('user',
+                {}).get('permissions', {}).get('canExpenses', True)) %}
                 <div class="sidebar-section" id="sidebar-section-bancos">
                     <div class="sidebar-section-header">
                         <div class="header-left">

@@ -78,9 +78,10 @@ def _flatten_tree(tree_nodes, accounts_list):
     return result
 from app.services.fixed_asset_service import FixedAssetService, ASSET_CATEGORIES
 from app.utils.decorators import check_permission
-from app.utils.module_gate import require_module
+from app.utils.module_gate import require_module, gate_blueprint_module
 
 web_accounting_bp = Blueprint('web_accounting', __name__)
+gate_blueprint_module(web_accounting_bp, 'contabilidad')
 
 
 # =========================================================================
@@ -110,7 +111,7 @@ def dashboard():
     if not user:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting")
+        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -148,7 +149,7 @@ def chart_of_accounts():
     if not user:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting")
+        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     tree_data, all_accounts = AccountingService.get_accounts_tree(company_id)
@@ -305,7 +306,7 @@ def account_movements(account_id):
     if not user:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting")
+        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     account = DatabaseService.get_account(owner_uid, account_id, company_id=company_id)
@@ -337,7 +338,7 @@ def journal_entries():
     if not user:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting")
+        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -433,7 +434,7 @@ def new_journal_entry():
     if not user:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting")
+        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -492,7 +493,7 @@ def journal_entry_detail(entry_id):
     if not user:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting")
+        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -551,7 +552,7 @@ def general_journal():
     if not user:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting")
+        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -584,7 +585,7 @@ def balance_sheet():
     if not user:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting")
+        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     AccountingService.seed_default_accounts(company_id, country=get_current_country())
@@ -966,7 +967,7 @@ def income_statement():
     if not user:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting")
+        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     AccountingService.seed_default_accounts(company_id, country=get_current_country())
@@ -1392,7 +1393,7 @@ def trial_balance():
     if not user:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting")
+        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     date = request.args.get('date', '')
@@ -1415,7 +1416,7 @@ def general_ledger():
     if not user:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting")
+        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -1530,7 +1531,7 @@ def fixed_assets():
     if not user:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting")
+        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -1553,7 +1554,7 @@ def new_fixed_asset():
     if not user:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting")
+        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -1597,7 +1598,7 @@ def fixed_asset_detail(asset_id):
     if not user:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting")
+        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -1666,7 +1667,7 @@ def entry_types_settings():
     if not user:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting")
+        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     AccountingService.seed_default_entry_types(company_id)
@@ -1714,7 +1715,7 @@ def accounting_rules_settings():
     if not user:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting")
+        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     from app.services.accounting_rules_service import AccountingRulesService
@@ -1800,7 +1801,7 @@ def initial_balances():
     if not user:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting")
+        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -1854,7 +1855,7 @@ def import_initial_balances():
     if not user:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting")
+        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -2038,7 +2039,7 @@ def list_cost_centers():
     if not user:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting")
+        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -2055,7 +2056,7 @@ def new_cost_center():
     if not user:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting")
+        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -2081,7 +2082,7 @@ def edit_cost_center(center_id):
     if not user:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting")
+        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -2111,7 +2112,7 @@ def delete_cost_center_route(center_id):
     if not user:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting")
+        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     sandbox = _sandbox()
@@ -2301,7 +2302,7 @@ def tax_obligations():
     if not user:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canAccounting'):
-        return render_template('auth/restricted.html', required_permission="canAccounting")
+        return render_template('auth/restricted.html', required_permission="canAccounting"), 403
     owner_uid = _owner_uid()
     company_id = session.get('selected_company_id')
     from app.services.tax_obligation_service import TaxObligationService, REGIME_PRESETS

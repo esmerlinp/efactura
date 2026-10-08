@@ -1,14 +1,15 @@
 from unittest.mock import patch
 from datetime import datetime, timezone
+from contextlib import ExitStack
 
 MOCK_USER_PROFILE = {
     'uid': 'test-uid',
     'email': 'admin@test.com',
     'name': 'Admin',
     'role': 'owner',
-    'ownerUID': 'test-owner',
+    'ownerUID': 'test-uid',
     'status': 'active',
-    'permissions': {'canInvoice': True}
+    'permissions': {'canExpenses': True, 'canReports': True}
 }
 
 MOCK_COMPANY = {
@@ -19,9 +20,32 @@ MOCK_COMPANY = {
     'productionEnabled': True,
     'sandboxEnabled': True,
     'sandboxIndefinite': True,
+    'planId': 'plan123',
+    'country': 'DO',
 }
 
-def mock_login(client, owner_uid='test-owner'):
+DB_PATCHES = (
+    patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE),
+    patch('app.services.db_service.DatabaseService.get_associated_companies', return_value=[{'ownerUID': 'test-uid', 'companyName': 'Test Co', 'role': 'owner'}]),
+    patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY),
+    patch('app.services.db_service.DatabaseService.get_company', return_value=None),
+    patch('app.services.db_service.DatabaseService.get_company_context', return_value={'permissions': {}, 'company_name': 'Test Co'}),
+    patch('app.services.db_service.DatabaseService.get_branches', return_value=[]),
+    patch('app.services.db_service.DatabaseService.get_projects', return_value=[]),
+    patch('app.services.db_service.DatabaseService.get_membership', return_value={'status': 'active'}),
+    patch('app.services.db_service.DatabaseService.get_plan', return_value={'modules': {
+        'e_cf': {'enabled': True},
+        'reportes': {'enabled': True},
+        'gastos': {'enabled': True},
+        'inventario': {'enabled': True},
+        'contabilidad': {'enabled': True},
+        'bancos': {'enabled': True},
+        'cxc': {'enabled': True},
+        'cxp': {'enabled': True},
+    }}),
+)
+
+def mock_login(client, owner_uid='test-uid', company_id='test-uid'):
     with client.session_transaction() as sess:
         sess['user'] = {
             'uid': 'test-uid',
@@ -29,7 +53,20 @@ def mock_login(client, owner_uid='test-owner'):
             'role': 'owner',
             'email': 'admin@test.com',
             'name': 'Admin',
-            'permissions': {'canInvoice': True},
+            'permissions': {'canExpenses': True, 'canReports': True},
+        }
+        sess['selected_company_id'] = company_id
+        sess['selected_owner_uid'] = owner_uid
+        sess['company_country'] = 'DO'
+        sess['company_modules'] = {
+            'e_cf': {'enabled': True},
+            'reportes': {'enabled': True},
+            'gastos': {'enabled': True},
+            'inventario': {'enabled': True},
+            'contabilidad': {'enabled': True},
+            'bancos': {'enabled': True},
+            'cxc': {'enabled': True},
+            'cxp': {'enabled': True},
         }
         sess['is_sandbox_mode'] = True
 
@@ -39,11 +76,11 @@ def test_cxp_report_unauthenticated(client):
 
 def test_cxp_report_authenticated_empty(client):
     mock_login(client)
-    with patch('app.services.supplier_invoice_service.SupplierInvoiceService.get_all', return_value=[]), \
-         patch('app.services.db_service.DatabaseService.get_expenses', return_value=[]), \
-         patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE), \
-         patch('app.services.db_service.DatabaseService.get_associated_companies', return_value=[{'ownerUID': 'test-owner', 'companyName': 'Test Co', 'role': 'owner'}]), \
-         patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY):
+    with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
+        stack.enter_context(patch('app.services.supplier_invoice_service.SupplierInvoiceService.get_all', return_value=[]))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_expenses', return_value=[]))
         resp = client.get('/reports/admin/cxp')
         assert resp.status_code == 200
         html = resp.data.decode('utf-8')
@@ -81,11 +118,11 @@ def test_cxp_report_with_data(client):
             'cxpRemainingBalance': 1500.0,
         }
     ]
-    with patch('app.services.supplier_invoice_service.SupplierInvoiceService.get_all', return_value=mock_invoices), \
-         patch('app.services.db_service.DatabaseService.get_expenses', return_value=mock_expenses), \
-         patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE), \
-         patch('app.services.db_service.DatabaseService.get_associated_companies', return_value=[{'ownerUID': 'test-owner', 'companyName': 'Test Co', 'role': 'owner'}]), \
-         patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY):
+    with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
+        stack.enter_context(patch('app.services.supplier_invoice_service.SupplierInvoiceService.get_all', return_value=mock_invoices))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_expenses', return_value=mock_expenses))
         resp = client.get('/reports/admin/cxp?hasta=2026-07-04')
         assert resp.status_code == 200
         html = resp.data.decode('utf-8')
@@ -113,11 +150,11 @@ def test_cxp_report_export(client):
             'cxpRemainingBalance': 1000.0,
         }
     ]
-    with patch('app.services.supplier_invoice_service.SupplierInvoiceService.get_all', return_value=mock_invoices), \
-         patch('app.services.db_service.DatabaseService.get_expenses', return_value=[]), \
-         patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE), \
-         patch('app.services.db_service.DatabaseService.get_associated_companies', return_value=[{'ownerUID': 'test-owner', 'companyName': 'Test Co', 'role': 'owner'}]), \
-         patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY):
+    with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
+        stack.enter_context(patch('app.services.supplier_invoice_service.SupplierInvoiceService.get_all', return_value=mock_invoices))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_expenses', return_value=[]))
         resp = client.get('/reports/admin/cxp/export?hasta=2026-07-04')
         assert resp.status_code == 200
         assert resp.mimetype == 'text/csv'

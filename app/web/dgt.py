@@ -18,7 +18,7 @@ def restrict_to_do():
     if session.get('company_country', 'DO') != 'DO':
         return render_template('auth/restricted.html',
             feature_name="Formularios DGT Ministerio de Trabajo (solo disponibles para República Dominicana)",
-            required_permission="")
+            required_permission=""), 403
 
 
 def _get_owner():

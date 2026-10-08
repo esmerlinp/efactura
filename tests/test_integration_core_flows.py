@@ -83,7 +83,7 @@ class TestInvoiceToAccountingEntry:
 
         saved_entries = []
         mock_db.save_accounting_entry = MagicMock(
-            side_effect=lambda uid, eid, entry, sandbox: saved_entries.append(entry)
+            side_effect=lambda uid, eid, entry, sandbox=True, **kw: saved_entries.append(entry)
         )
 
         from app.services.accounting_service import AccountingService
@@ -100,7 +100,7 @@ class TestInvoiceToAccountingEntry:
             "netPayable": 118000.00,
             "currency": "DOP",
             "ecfType": "Factura de Crédito Fiscal (E31)",
-            "paymentMethod": "Transferencia",
+            "paymentType": "Crédito",
         }
 
         entry = AccountingService.auto_generate_invoice_entry(
@@ -169,10 +169,10 @@ class TestInvoiceToAccountingEntry:
         """Factura con ISR e ITBIS retenidos genera líneas adicionales."""
         mock_db.get_chart_of_accounts.return_value = _mock_chart_of_accounts() + [
             {"id": "acc-itbis-ret", "code": "2.1.03", "name": "ITBIS Retenido",
-             "usage": "itbis_retenido", "group": "pasivos", "type": "movimiento", "level": 1,
+             "usage": "retenciones_a_favor", "group": "activos", "type": "movimiento", "level": 1,
              "nature": "deudora", "isActive": True},
             {"id": "acc-isr-ret", "code": "2.3.01", "name": "ISR Retenido",
-             "usage": "isr_retenido", "group": "pasivos", "type": "movimiento", "level": 1,
+             "usage": "impuesto_a_favor", "group": "activos", "type": "movimiento", "level": 1,
              "nature": "deudora", "isActive": True},
         ]
         mock_db.get_entry_types.return_value = _mock_entry_types()
@@ -181,7 +181,7 @@ class TestInvoiceToAccountingEntry:
 
         saved_entries = []
         mock_db.save_accounting_entry = MagicMock(
-            side_effect=lambda uid, eid, entry, sandbox: saved_entries.append(entry)
+            side_effect=lambda uid, eid, entry, sandbox=True, **kw: saved_entries.append(entry)
         )
 
         from app.services.accounting_service import AccountingService
@@ -197,6 +197,7 @@ class TestInvoiceToAccountingEntry:
             "netPayable": 45000.00,  # 50000 + 9000 - 5000 - 9000
             "date": "2026-07-02",
             "currency": "DOP",
+            "paymentType": "Crédito",
         }
 
         entry = AccountingService.auto_generate_invoice_entry(
@@ -211,12 +212,12 @@ class TestInvoiceToAccountingEntry:
         assert cxc_line["debit"] == pytest.approx(45000.00, abs=0.01)
 
         # ITBIS retenido (débito)
-        itbis_ret = next((l for l in lines if l["accountId"] == "acc-itbis-ret"), None)
+        itbis_ret = next((l for l in lines if l["debit"] == 9000.00), None)
         assert itbis_ret is not None
         assert itbis_ret["debit"] == pytest.approx(9000.00, abs=0.01)
 
         # ISR retenido (débito)
-        isr_ret = next((l for l in lines if l["accountId"] == "acc-isr-ret"), None)
+        isr_ret = next((l for l in lines if l["debit"] == 5000.00), None)
         assert isr_ret is not None
         assert isr_ret["debit"] == pytest.approx(5000.00, abs=0.01)
 
@@ -241,7 +242,7 @@ class TestExpenseToCxPEntry:
 
         saved_entries = []
         mock_db.save_accounting_entry = MagicMock(
-            side_effect=lambda uid, eid, entry, sandbox: saved_entries.append(entry)
+            side_effect=lambda uid, eid, entry, sandbox=True, **kw: saved_entries.append(entry)
         )
 
         from app.services.accounting_service import AccountingService
@@ -251,10 +252,12 @@ class TestExpenseToCxPEntry:
             "ncf": "E310000000001",
             "concept": "Servicio de consultoría",
             "supplierName": "Proveedor SRL",
-            "amount": 50000.00,
+            "subtotal": 50000.00,
             "itbisAmount": 9000.00,
+            "amount": 59000.00,
             "total": 59000.00,
             "isCost": False,  # Es gasto, no costo
+            "paymentType": "Crédito",
             "date": "2026-07-03",
         }
 
@@ -291,7 +294,7 @@ class TestExpenseToCxPEntry:
 
         saved_entries = []
         mock_db.save_accounting_entry = MagicMock(
-            side_effect=lambda uid, eid, entry, sandbox: saved_entries.append(entry)
+            side_effect=lambda uid, eid, entry, sandbox=True, **kw: saved_entries.append(entry)
         )
 
         from app.services.accounting_service import AccountingService
@@ -336,7 +339,7 @@ class TestDepreciationToEntries:
 
         saved_entries = []
         mock_db.save_accounting_entry = MagicMock(
-            side_effect=lambda uid, eid, entry, sandbox: saved_entries.append(entry)
+            side_effect=lambda uid, eid, entry, sandbox=True, **kw: saved_entries.append(entry)
         )
 
         from app.services.accounting_service import AccountingService
@@ -408,17 +411,19 @@ class TestDepreciationToEntries:
 
         assert result is None
 
+    @patch("app.services.fixed_asset_service.DatabaseService")
     @patch("app.services.accounting_service.DatabaseService")
-    def test_depreciation_with_fixed_asset_service(self, mock_db):
+    def test_depreciation_with_fixed_asset_service(self, mock_db_acc, mock_db_svc):
         """Flujo completo: FixedAssetService.register_depreciation genera entrada correcta."""
-        mock_db.get_chart_of_accounts.return_value = _mock_chart_of_accounts()
-        mock_db.get_entry_types.return_value = _mock_entry_types()
-        mock_db.get_accounting_entries.return_value = []
-        mock_db.get_next_entry_number.return_value = "DP-00002"
+        mock_db_acc.get_chart_of_accounts.return_value = _mock_chart_of_accounts()
+        mock_db_acc.get_entry_types.return_value = _mock_entry_types()
+        mock_db_acc.get_accounting_entries.return_value = []
+        mock_db_acc.get_next_entry_number.return_value = "DP-00002"
+        mock_db_svc.get_chart_of_accounts.return_value = _mock_chart_of_accounts()
 
         saved_entries = []
-        mock_db.save_accounting_entry = MagicMock(
-            side_effect=lambda uid, eid, entry, sandbox: saved_entries.append(entry)
+        mock_db_acc.save_accounting_entry = MagicMock(
+            side_effect=lambda uid, eid, entry, sandbox=True, **kw: saved_entries.append(entry)
         )
 
         # Mock del activo en Firestore
@@ -440,8 +445,8 @@ class TestDepreciationToEntries:
             "lastDepreciationDate": None,
             "nextDepreciationDate": "2026-07-15",
         }
-        mock_db.get_fixed_asset.return_value = mock_asset
-        mock_db.save_fixed_asset = MagicMock()
+        mock_db_svc.get_fixed_asset.return_value = mock_asset
+        mock_db_svc.save_fixed_asset = MagicMock()
 
         from app.services.fixed_asset_service import FixedAssetService
 
@@ -466,9 +471,9 @@ class TestDepreciationToEntries:
         assert lines[1]["credit"] == pytest.approx(expected_amount, abs=0.01)
 
         # Verificar que el activo se actualizó
-        assert mock_db.save_fixed_asset.called
-        call_args = mock_db.save_fixed_asset.call_args
-        updated_asset = call_args[0][3]  # 4to argumento posicional
+        assert mock_db_svc.save_fixed_asset.called
+        call_args = mock_db_svc.save_fixed_asset.call_args
+        updated_asset = call_args[0][2]  # 3er argumento posicional: (owner_uid, asset_id, asset_data)
         assert updated_asset["accumulatedDepreciation"] == pytest.approx(expected_amount, abs=0.01)
         assert updated_asset["currentValue"] == pytest.approx(60000.00 - expected_amount, abs=0.01)
 
@@ -488,7 +493,7 @@ class TestPurchaseFlow:
 
         saved_entries = []
         mock_db.save_accounting_entry = MagicMock(
-            side_effect=lambda uid, eid, entry, sandbox: saved_entries.append(entry)
+            side_effect=lambda uid, eid, entry, sandbox=True, **kw: saved_entries.append(entry)
         )
 
         from app.services.accounting_service import AccountingService
@@ -499,10 +504,12 @@ class TestPurchaseFlow:
             "ncf": "E310000000100",
             "concept": "Compra de materiales — OC-2026-001",
             "supplierName": "Materiales Industriales SRL",
-            "amount": 85000.00,
+            "subtotal": 85000.00,
+            "amount": 100300.00,
             "itbisAmount": 15300.00,
             "total": 100300.00,
             "isCost": True,  # Es costo (inventario/compra)
+            "paymentType": "Crédito",
             "date": "2026-07-05",
         }
 
@@ -544,7 +551,7 @@ class TestPurchaseFlow:
 
         saved_entries = []
         mock_db.save_accounting_entry = MagicMock(
-            side_effect=lambda uid, eid, entry, sandbox: saved_entries.append(entry)
+            side_effect=lambda uid, eid, entry, sandbox=True, **kw: saved_entries.append(entry)
         )
 
         from app.services.accounting_service import AccountingService

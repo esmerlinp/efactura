@@ -19,6 +19,8 @@ MOCK_COMPANY = {
     "companyName": "Empresa Test SRL",
     "configured": True,
     "planId": "plan-pro",
+    "country": "DO",
+    "modules": {"inventario": {"enabled": True}, "e_cf": {"enabled": True}},
 }
 
 
@@ -29,6 +31,8 @@ MOCK_DB_COMPANY = {
     "companyRNC": "132-10912-2",
     "plan_id": "plan-pro",
     "configured": True,
+    "country": "DO",
+    "modules": {"inventario": {"enabled": True}, "e_cf": {"enabled": True}},
 }
 
 MOCK_COMPANY_CTX = {
@@ -41,7 +45,7 @@ MOCK_COMPANY_CTX = {
 MOCK_PLAN = {
     "id": "plan-pro",
     "name": "Plan Pro",
-    "modules": {"inventory": True, "invoicing": True, "accounting": True},
+    "modules": {"inventario": {"enabled": True}, "e_cf": {"enabled": True}, "contabilidad": {"enabled": True}},
 }
 
 MOCK_MEMBERSHIP = {
@@ -64,6 +68,12 @@ def mock_login(client, owner_uid="test-owner"):
         }
         sess["selected_company_id"] = "comp-test-01"
         sess["selected_owner_uid"] = owner_uid
+        sess["company_country"] = "DO"
+        sess["company_modules"] = {
+            "inventario": {"enabled": True},
+            "e_cf": {"enabled": True},
+            "contabilidad": {"enabled": True},
+        }
         sess["is_sandbox_mode"] = True
 
 
@@ -203,7 +213,8 @@ def test_kardex_api_endpoints(client):
     mock_company_api = {
         "id": "comp-api-01",
         "ownerUID": "test-owner",
-        "companyName": "Empresa API Test"
+        "companyName": "Empresa API Test",
+        "modules": {"inventario": {"enabled": True}},
     }
 
     mock_summary_res = {

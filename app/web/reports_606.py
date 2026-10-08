@@ -4,16 +4,27 @@ from collections import defaultdict
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, send_file, g
 from app.services.db_service import DatabaseService
 from app.utils.decorators import check_permission
+from app.utils.module_gate import module_enabled
 
 web_reports_606_bp = Blueprint('web_reports_606', __name__)
 
 
 @web_reports_606_bp.before_request
 def restrict_to_do():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not module_enabled('reporte_606') and not module_enabled('gastos') and not module_enabled('cxp_compras'):
+        return render_template(
+            'auth/restricted.html',
+            feature_name="Reporte 606 DGII",
+            required_permission="module_reporte_606",
+            custom_message="El módulo <strong>Reporte 606 DGII</strong> no está incluido en tu plan actual. "
+                           "Contacta a soporte para información sobre mejoras de plan."
+        ), 403
     if session.get('company_country', 'DO') != 'DO':
         return render_template('auth/restricted.html',
             feature_name="Reporte 606 DGII (solo disponible para República Dominicana)",
-            required_permission="")
+            required_permission=""), 403
 
 TIPO_GASTO_606 = {
     "01": "Gastos de Personal",
@@ -338,7 +349,7 @@ def reporte_606():
     if "user" not in session:
         return redirect(url_for("login"))
     if not check_permission("canExpenses"):
-        return render_template("auth/restricted.html", active_page="reporte_606")
+        return render_template("auth/restricted.html", active_page="reporte_606"), 403
     owner_uid = session["user"]["ownerUID"]
     sandbox = session.get("is_sandbox_mode", True)
 
@@ -463,7 +474,7 @@ def reporte_606_dashboard():
     if "user" not in session:
         return redirect(url_for("login"))
     if not check_permission("canExpenses"):
-        return render_template("auth/restricted.html", active_page="dashboard_606")
+        return render_template("auth/restricted.html", active_page="dashboard_606"), 403
     owner_uid = session["user"]["ownerUID"]
     sandbox = session.get("is_sandbox_mode", True)
 

@@ -278,15 +278,19 @@ def test_validate_signed_seed_consumes_only_after_valid_signature():
 
 
 def test_fe_routes_exempt_from_csrf(app):
+    old_csrf = app.config.get("WTF_CSRF_ENABLED", False)
     app.config["WTF_CSRF_ENABLED"] = True
-    client = app.test_client()
-    with patch("app.api.v1.receptor.ReceptorRepository.get_token_global", return_value=None):
-        resp = client.post(
-            "/fe/recepcion/api/ecf",
-            data=b"<xml/>",
-            content_type="application/xml",
-        )
-        assert resp.status_code == 401
+    try:
+        client = app.test_client()
+        with patch("app.api.v1.receptor.ReceptorRepository.get_token_global", return_value=None):
+            resp = client.post(
+                "/fe/recepcion/api/ecf",
+                data=b"<xml/>",
+                content_type="application/xml",
+            )
+            assert resp.status_code == 401
+    finally:
+        app.config["WTF_CSRF_ENABLED"] = old_csrf
 
 
 # ── Verificador XMLDSig manual (equivalente .NET SignedXml) ──────────────────
@@ -896,6 +900,21 @@ def test_get_received_ecf_merged_finds_across_collections():
 
 # ── UI /recepcion/ecf/<id> (vista premium del detalle) ──────────────────────
 
+from contextlib import ExitStack
+
+MOCK_RECEPTOR_COMPANY = {
+    'companyRNC': '131880681',
+    'companyName': 'COMPRADOR SRL',
+    'configured': True,
+    'posEnabled': True,
+    'productionEnabled': True,
+    'sandboxEnabled': True,
+    'sandboxIndefinite': True,
+    'planId': 'plan123',
+    'country': 'DO',
+}
+
+
 def _patch_ui_session_dependencies(profile=None):
     from app.services.db_service import DatabaseService
     fresh_profile = profile or {
@@ -904,15 +923,55 @@ def _patch_ui_session_dependencies(profile=None):
         "email": "admin@test.com",
         "name": "Admin",
         "role": "owner",
-        "permissions": {"canInvoice": True},
+        "permissions": {"canInvoice": True, "canReports": True},
     }
     return (
         patch.object(DatabaseService, "get_user_profile", return_value=fresh_profile),
+        patch.object(DatabaseService, "get_associated_companies", return_value=[{"ownerUID": "owner-1", "companyName": "COMPRADOR SRL", "role": "owner"}]),
         patch.object(DatabaseService, "get_user_companies", return_value=[]),
         patch.object(DatabaseService, "get_branches", return_value=[]),
         patch.object(DatabaseService, "get_projects", return_value=[]),
-        patch.object(DatabaseService, "get_company_profile", return_value=None),
+        patch.object(DatabaseService, "get_company_profile", return_value=MOCK_RECEPTOR_COMPANY),
+        patch.object(DatabaseService, "get_company", return_value=None),
+        patch.object(DatabaseService, "get_company_context", return_value={'permissions': {}, 'company_name': 'COMPRADOR SRL'}),
+        patch.object(DatabaseService, "get_membership", return_value={'status': 'active'}),
+        patch.object(DatabaseService, "get_plan", return_value={'modules': {
+            'e_cf': {'enabled': True},
+            'reportes': {'enabled': True},
+            'gastos': {'enabled': True},
+            'inventario': {'enabled': True},
+            'contabilidad': {'enabled': True},
+            'bancos': {'enabled': True},
+            'cxc': {'enabled': True},
+            'cxp': {'enabled': True},
+        }}),
     )
+
+
+def _login_for_ui(client):
+    with client.session_transaction() as sess:
+        sess["user"] = {
+            "uid": "u1",
+            "ownerUID": "owner-1",
+            "role": "owner",
+            "email": "admin@test.com",
+            "name": "Admin",
+            "permissions": {"canInvoice": True, "canReports": True},
+        }
+        sess["selected_company_id"] = "owner-1"
+        sess["selected_owner_uid"] = "owner-1"
+        sess["company_country"] = "DO"
+        sess["company_modules"] = {
+            'e_cf': {'enabled': True},
+            'reportes': {'enabled': True},
+            'gastos': {'enabled': True},
+            'inventario': {'enabled': True},
+            'contabilidad': {'enabled': True},
+            'bancos': {'enabled': True},
+            'cxc': {'enabled': True},
+            'cxp': {'enabled': True},
+        }
+        sess["is_sandbox_mode"] = True
 
 
 def test_detail_received_ecf_renders_parsed_xml(client):
@@ -934,13 +993,11 @@ def test_detail_received_ecf_renders_parsed_xml(client):
         "received_at": "2026-08-31T10:00:00+00:00",
         "id": "doc-1",
     }
-    with _patch_ui_session_dependencies()[0], _patch_ui_session_dependencies()[1], \
-            _patch_ui_session_dependencies()[2], _patch_ui_session_dependencies()[3], \
-            _patch_ui_session_dependencies()[4], \
-            patch.object(ReceptorRepository, "get_received_ecf_merged", return_value=stored):
-        with client.session_transaction() as sess:
-            sess["user"] = {"uid": "u1", "ownerUID": "owner-1"}
-            sess["is_sandbox_mode"] = True
+    with ExitStack() as stack:
+        for p in _patch_ui_session_dependencies():
+            stack.enter_context(p)
+        stack.enter_context(patch.object(ReceptorRepository, "get_received_ecf_merged", return_value=stored))
+        _login_for_ui(client)
         resp = client.get("/recepcion/ecf/doc-1")
         assert resp.status_code == 200
         html = re.sub(r"\s+", " ", resp.get_data(as_text=True))
@@ -972,12 +1029,11 @@ def test_detail_received_ecf_renders_without_xml(client):
         "received_at": "2026-08-31T10:00:00+00:00",
         "id": "doc-2",
     }
-    with _patch_ui_session_dependencies()[0], _patch_ui_session_dependencies()[1], \
-            _patch_ui_session_dependencies()[2], _patch_ui_session_dependencies()[3], \
-            _patch_ui_session_dependencies()[4], \
-            patch.object(ReceptorRepository, "get_received_ecf_merged", return_value=stored):
-        with client.session_transaction() as sess:
-            sess["user"] = {"uid": "u1", "ownerUID": "owner-1"}
+    with ExitStack() as stack:
+        for p in _patch_ui_session_dependencies():
+            stack.enter_context(p)
+        stack.enter_context(patch.object(ReceptorRepository, "get_received_ecf_merged", return_value=stored))
+        _login_for_ui(client)
         resp = client.get("/recepcion/ecf/doc-2")
         assert resp.status_code == 200
         html = re.sub(r"\s+", " ", resp.get_data(as_text=True))
@@ -987,12 +1043,11 @@ def test_detail_received_ecf_renders_without_xml(client):
 
 def test_detail_received_ecf_missing_redirects(client):
     from app.repositories.receptor_repository import ReceptorRepository
-    with _patch_ui_session_dependencies()[0], _patch_ui_session_dependencies()[1], \
-            _patch_ui_session_dependencies()[2], _patch_ui_session_dependencies()[3], \
-            _patch_ui_session_dependencies()[4], \
-            patch.object(ReceptorRepository, "get_received_ecf_merged", return_value=None):
-        with client.session_transaction() as sess:
-            sess["user"] = {"uid": "u1", "ownerUID": "owner-1"}
+    with ExitStack() as stack:
+        for p in _patch_ui_session_dependencies():
+            stack.enter_context(p)
+        stack.enter_context(patch.object(ReceptorRepository, "get_received_ecf_merged", return_value=None))
+        _login_for_ui(client)
         resp = client.get("/recepcion/ecf/unknown")
         assert resp.status_code == 302
 
@@ -1016,13 +1071,11 @@ def test_download_received_ecf_pdf(client):
         "received_at": "2026-08-31T10:00:00+00:00",
         "id": "doc-1",
     }
-    with _patch_ui_session_dependencies()[0], _patch_ui_session_dependencies()[1], \
-            _patch_ui_session_dependencies()[2], _patch_ui_session_dependencies()[3], \
-            _patch_ui_session_dependencies()[4], \
-            patch.object(ReceptorRepository, "get_received_ecf_merged", return_value=stored):
-        with client.session_transaction() as sess:
-            sess["user"] = {"uid": "u1", "ownerUID": "owner-1"}
-            sess["is_sandbox_mode"] = True
+    with ExitStack() as stack:
+        for p in _patch_ui_session_dependencies():
+            stack.enter_context(p)
+        stack.enter_context(patch.object(ReceptorRepository, "get_received_ecf_merged", return_value=stored))
+        _login_for_ui(client)
         resp = client.get("/recepcion/ecf/doc-1/pdf?action=print")
         assert resp.status_code == 200
         html = re.sub(r"\s+", " ", resp.get_data(as_text=True))
@@ -1056,18 +1109,12 @@ def _received_docs():
     ]
 
 
-def _login_for_ui(client):
-    with client.session_transaction() as sess:
-        sess["user"] = {"uid": "u1", "ownerUID": "owner-1"}
-        sess["is_sandbox_mode"] = True
-
-
 def test_list_received_ecf_renders_rows(client):
     from app.repositories.receptor_repository import ReceptorRepository
-    _ctx = _patch_ui_session_dependencies()
-    with _ctx[0], _ctx[1], _ctx[2], _ctx[3], _ctx[4], \
-            patch.object(ReceptorRepository, "list_received_ecf_merged",
-                         return_value=_received_docs()):
+    with ExitStack() as stack:
+        for p in _patch_ui_session_dependencies():
+            stack.enter_context(p)
+        stack.enter_context(patch.object(ReceptorRepository, "list_received_ecf_merged", return_value=_received_docs()))
         _login_for_ui(client)
         resp = client.get("/recepcion/ecf")
         assert resp.status_code == 200
@@ -1080,10 +1127,10 @@ def test_list_received_ecf_renders_rows(client):
 
 def test_list_received_ecf_filters_by_q_and_status(client):
     from app.repositories.receptor_repository import ReceptorRepository
-    _ctx = _patch_ui_session_dependencies()
-    with _ctx[0], _ctx[1], _ctx[2], _ctx[3], _ctx[4], \
-            patch.object(ReceptorRepository, "list_received_ecf_merged",
-                         return_value=_received_docs()):
+    with ExitStack() as stack:
+        for p in _patch_ui_session_dependencies():
+            stack.enter_context(p)
+        stack.enter_context(patch.object(ReceptorRepository, "list_received_ecf_merged", return_value=_received_docs()))
         _login_for_ui(client)
         resp = client.get("/recepcion/ecf?q=EMISOR%20B&status=rechazado")
         assert resp.status_code == 200
@@ -1095,10 +1142,10 @@ def test_list_received_ecf_filters_by_q_and_status(client):
 
 def test_list_received_ecf_filters_by_date_range(client):
     from app.repositories.receptor_repository import ReceptorRepository
-    _ctx = _patch_ui_session_dependencies()
-    with _ctx[0], _ctx[1], _ctx[2], _ctx[3], _ctx[4], \
-            patch.object(ReceptorRepository, "list_received_ecf_merged",
-                         return_value=_received_docs()):
+    with ExitStack() as stack:
+        for p in _patch_ui_session_dependencies():
+            stack.enter_context(p)
+        stack.enter_context(patch.object(ReceptorRepository, "list_received_ecf_merged", return_value=_received_docs()))
         _login_for_ui(client)
         resp = client.get("/recepcion/ecf?start_date=2026-08-29&end_date=2026-08-30")
         assert resp.status_code == 200
@@ -1127,10 +1174,10 @@ def test_list_received_ecf_pagination(client):
          "status": "recibido", "track_id": "T6",
          "received_at": "2026-08-26T10:00:00+00:00"},
     ]
-    _ctx = _patch_ui_session_dependencies()
-    with _ctx[0], _ctx[1], _ctx[2], _ctx[3], _ctx[4], \
-            patch.object(ReceptorRepository, "list_received_ecf_merged",
-                         return_value=docs):
+    with ExitStack() as stack:
+        for p in _patch_ui_session_dependencies():
+            stack.enter_context(p)
+        stack.enter_context(patch.object(ReceptorRepository, "list_received_ecf_merged", return_value=docs))
         _login_for_ui(client)
         resp = client.get("/recepcion/ecf?per_page=5&page=1")
         assert resp.status_code == 200
@@ -1149,10 +1196,10 @@ def test_list_received_ecf_pagination(client):
 
 def test_list_received_ecf_sort_by_monto(client):
     from app.repositories.receptor_repository import ReceptorRepository
-    _ctx = _patch_ui_session_dependencies()
-    with _ctx[0], _ctx[1], _ctx[2], _ctx[3], _ctx[4], \
-            patch.object(ReceptorRepository, "list_received_ecf_merged",
-                         return_value=_received_docs()):
+    with ExitStack() as stack:
+        for p in _patch_ui_session_dependencies():
+            stack.enter_context(p)
+        stack.enter_context(patch.object(ReceptorRepository, "list_received_ecf_merged", return_value=_received_docs()))
         _login_for_ui(client)
         resp = client.get("/recepcion/ecf?sort=monto_total&order=asc")
         html = resp.get_data(as_text=True)
@@ -1162,10 +1209,10 @@ def test_list_received_ecf_sort_by_monto(client):
 
 def test_list_received_ecf_export_csv(client):
     from app.repositories.receptor_repository import ReceptorRepository
-    _ctx = _patch_ui_session_dependencies()
-    with _ctx[0], _ctx[1], _ctx[2], _ctx[3], _ctx[4], \
-            patch.object(ReceptorRepository, "list_received_ecf_merged",
-                         return_value=_received_docs()):
+    with ExitStack() as stack:
+        for p in _patch_ui_session_dependencies():
+            stack.enter_context(p)
+        stack.enter_context(patch.object(ReceptorRepository, "list_received_ecf_merged", return_value=_received_docs()))
         _login_for_ui(client)
         resp = client.get("/recepcion/ecf?export=csv&status=recibido")
         assert resp.status_code == 200
@@ -1174,3 +1221,4 @@ def test_list_received_ecf_export_csv(client):
         assert "RNC Emisor" in text
         assert "EMISOR A SRL" in text
         assert "EMISOR B SRL" not in text
+

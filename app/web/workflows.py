@@ -3,9 +3,11 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from app.services.approval_service import ApprovalService, APPROVAL_DOCUMENT_TYPES
 from app.services.db_service import DatabaseService
 from app.utils.decorators import check_permission
+from app.utils.module_gate import gate_blueprint_module
 
 
 web_workflows_bp = Blueprint("web_workflows", __name__)
+gate_blueprint_module(web_workflows_bp, "gastos")
 
 
 def _require_user():
@@ -38,7 +40,7 @@ def dashboard():
     if guard:
         return guard
     if not (check_permission("canExpenses") or check_permission("canModifySettings")):
-        return render_template("auth/restricted.html", feature_name="Workflows y aprobaciones")
+        return render_template("auth/restricted.html", feature_name="Workflows y aprobaciones"), 403
 
     owner_uid = session["user"]["ownerUID"]
     company_id = session.get("selected_company_id")
@@ -65,7 +67,7 @@ def save_rule():
     if guard:
         return guard
     if not check_permission("canModifySettings"):
-        return render_template("auth/restricted.html", feature_name="Reglas de aprobación", required_permission="canModifySettings")
+        return render_template("auth/restricted.html", feature_name="Reglas de aprobación", required_permission="canModifySettings"), 403
 
     owner_uid = session["user"]["ownerUID"]
     company_id = session.get("selected_company_id")
@@ -95,7 +97,7 @@ def delete_rule(rule_id):
     if guard:
         return guard
     if not check_permission("canModifySettings"):
-        return render_template("auth/restricted.html", feature_name="Reglas de aprobación", required_permission="canModifySettings")
+        return render_template("auth/restricted.html", feature_name="Reglas de aprobación", required_permission="canModifySettings"), 403
     ApprovalService.delete_rule(owner_uid=session["user"]["ownerUID"], rule_id=rule_id, company_id=session.get("selected_company_id"))
     flash("Regla eliminada.", "success")
     return redirect(url_for("web_workflows.dashboard"))

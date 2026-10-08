@@ -3,7 +3,7 @@ import json
 import uuid
 from datetime import datetime, timedelta, timezone
 from flask import Blueprint, request, g, jsonify
-from app.api.auth import require_api_key
+from app.api.auth import require_api_key, gate_api_blueprint_module
 from app.services.db_service import DatabaseService
 from app.services.mailer import Mailer
 from app.services.ecf_emission import EcfEmissionService
@@ -13,6 +13,7 @@ from app.utils.ecf_utils import get_ecf_type_short_code
 from app.brand import get_product_name
 
 api_invoices_bp = Blueprint('api_invoices', __name__)
+gate_api_blueprint_module(api_invoices_bp, 'e_cf')
 
 @api_invoices_bp.route('/invoices/emit', methods=['POST'])
 @require_api_key

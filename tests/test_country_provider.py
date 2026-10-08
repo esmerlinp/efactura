@@ -92,6 +92,9 @@ class _TestProvider(BaseCountryProvider):
     def get_tax_calculator(self, tax_rates=None):
         return None
 
+    def get_account_mapping(self):
+        return {}
+
     def supports_feature(self, feature):
         return feature in ["test"]
 
@@ -139,9 +142,9 @@ class TestCountryProviderFactory:
 
     def test_unknown_country_returns_none(self):
         """Países no soportados deben retornar None."""
-        assert CountryProviderFactory.create("MX") is None
-        assert CountryProviderFactory.create("US") is None
-        assert CountryProviderFactory.create("ES") is None
+        assert CountryProviderFactory.create("ZZ") is None
+        assert CountryProviderFactory.create("QQ") is None
+        assert CountryProviderFactory.create("YY") is None
 
     def test_get_supported_countries(self):
         CountryProviderFactory.register("XX", _TestProvider)
@@ -169,6 +172,7 @@ class TestCountryProviderFactory:
             def get_payroll_rules(self): return {}
             def get_labor_rules(self): return {}
             def get_tax_calculator(self, r=None): return None
+            def get_account_mapping(self): return {}
             def supports_feature(self, f): return False
 
         class ProviderB(BaseCountryProvider):
@@ -182,6 +186,7 @@ class TestCountryProviderFactory:
             def get_payroll_rules(self): return {}
             def get_labor_rules(self): return {}
             def get_tax_calculator(self, r=None): return None
+            def get_account_mapping(self): return {}
             def supports_feature(self, f): return False
 
         CountryProviderFactory.register("AA", ProviderA)
@@ -200,7 +205,7 @@ class TestCountryProviderFactory:
         provider = CountryProviderFactory.create("DO")
         rules = provider.get_tax_rules()
         assert isinstance(rules, dict)
-        assert "itbis" in rules
+        assert "vat" in rules
 
     def test_do_provider_get_payroll_rules(self):
         provider = CountryProviderFactory.create("DO")

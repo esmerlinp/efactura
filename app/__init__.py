@@ -211,8 +211,8 @@ def create_app():
                         'sandboxIndefinite': company.get('sandbox_indefinite', True),
                         'sandboxStartDate': company.get('sandbox_start_date', ''),
                         'sandboxEndDate': company.get('sandbox_end_date', ''),
-                        'planId': company.get('plan_id', ''),
-                        'plan_version': company.get('plan_version', 0),
+                        'planId': company.get('plan_id') or company.get('planId', ''),
+                        'plan_version': company.get('plan_version', 0) or 0,
                         'country': company.get('country', 'DO'),
                         'configured': company.get('configured', False),
                         'logoUrl': company.get('logo_url', ''),
@@ -270,7 +270,7 @@ def create_app():
                 if cached_plan_version != plan_version or old_plan_id != new_plan_id:
                     plan_id = new_plan_id
                     if plan_id and company_id:
-                        plan_data = DatabaseService.get_plan(plan_id)
+                        plan_data = DatabaseService.get_plan(plan_id, plan_version=plan_version)
                         if plan_data:
                             session['company_modules'] = plan_data.get('modules', {})
                             session['company_plan_version'] = plan_version
@@ -519,12 +519,27 @@ def create_app():
                 }
                 ep = request.endpoint
                 if ep in module_restricted:
-                    from app.utils.module_gate import module_enabled as _mod_check
-                    if not _mod_check(module_restricted[ep]):
-                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
-                            return jsonify({"success": False, "error": "Este módulo no está disponible en tu plan actual."}), 403
-                        flash("Este módulo no está incluido en tu plan actual. Contacta a soporte para información sobre mejoras de plan.", "warning")
-                        return redirect(flask_url_for('web_dashboard.dashboard'))
+                    from app.utils.module_gate import module_enabled as _mod_check, get_module_label as _mod_label
+                    _mod_key = module_restricted[ep]
+                    if not _mod_check(_mod_key):
+                        _mod_name = _mod_label(_mod_key)
+                        if (request.is_json or 
+                            request.headers.get('Accept') == 'application/json' or 
+                            request.headers.get('X-Requested-With') == 'XMLHttpRequest'):
+                            return jsonify({
+                                "success": False,
+                                "error": {
+                                    "code": "MODULE_DISABLED",
+                                    "message": f"El módulo '{_mod_name}' no está incluido en tu plan actual."
+                                }
+                            }), 403
+                        return render_template(
+                            'auth/restricted.html',
+                            feature_name=_mod_name,
+                            required_permission=f"module_{_mod_key}",
+                            custom_message=f"El módulo <strong>{_mod_name}</strong> no está incluido en tu plan actual. "
+                                           "Contacta a soporte para información sobre mejoras de plan."
+                        ), 403
 
                 if not company_profile.get('configured', False):
                     # Evitar bucle de redirección en páginas esenciales

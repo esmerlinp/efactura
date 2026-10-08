@@ -4,7 +4,10 @@ from app.services.db_service import DatabaseService, db_firestore, firebase_init
 from app.services.ecf_readiness_service import EcfReadinessService
 from app.utils.decorators import check_permission
 
+from app.utils.module_gate import gate_blueprint_module
+
 web_api_portal_bp = Blueprint('web_api_portal', __name__, template_folder='templates')
+gate_blueprint_module(web_api_portal_bp, 'api', feature_name="Área de Desarrolladores (API REST)")
 
 
 def _require_login():
@@ -25,7 +28,7 @@ def _require_developers():
             required_permission='developers_enabled',
             custom_message='El acceso al Área de Desarrolladores (API REST) no está habilitado para tu cuenta. '
                            'Contacta a soporte para activarlo.'
-        )
+        ), 403
     return None
 
 

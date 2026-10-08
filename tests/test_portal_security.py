@@ -6,8 +6,11 @@ from app.web.portal import portal_bp
 
 class TestPortalSecurity(unittest.TestCase):
     def setUp(self):
-        self.app = Flask(__name__)
+        from app import create_app
+        self.app = create_app()
         self.app.config['SECRET_KEY'] = 'test-secret-key-12345'
+        self.app.config['TESTING'] = True
+        self.app.config['WTF_CSRF_ENABLED'] = False
         self.app_context = self.app.app_context()
         self.app_context.push()
 
@@ -54,7 +57,6 @@ class TestPortalSecurity(unittest.TestCase):
     @patch('app.web.portal.DatabaseService.get_company_profile', return_value=None)
     @patch('app.web.portal.PortalDbService.get_client_by_id', return_value={'id': 'client-456'})
     def test_portal_main_does_not_require_selected_company_id(self, mock_client, mock_company):
-        self.app.register_blueprint(portal_bp)
         with self.app.test_client() as client:
             with client.session_transaction() as current_session:
                 current_session['portal_owner_uid'] = 'owner-123'

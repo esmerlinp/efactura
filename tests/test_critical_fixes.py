@@ -342,7 +342,7 @@ class TestSeedAccountsConcurrency:
 
         call_count = [0]
 
-        def get_chart(owner_uid):
+        def get_chart(owner_uid, *args, **kwargs):
             call_count[0] += 1
             if call_count[0] == 1:
                 return list(existing)
@@ -420,7 +420,7 @@ class TestSeedAccountsConcurrency:
 
         call_count = [0]
 
-        def get_chart(owner_uid):
+        def get_chart(owner_uid, *args, **kwargs):
             call_count[0] += 1
             if call_count[0] == 1:
                 return list(existing)

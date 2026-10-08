@@ -11,13 +11,14 @@ from datetime import date, datetime, timezone
 from uuid import UUID
 from flask import Blueprint, request, jsonify, g
 
-from app.api.auth import require_crm_auth
+from app.api.auth import require_crm_auth, gate_api_blueprint_module
 from app.services.crm_service import CRMService
 from app.services.contact_service import ContactService
 from app.services.db_service import DatabaseService
 
 
 api_crm_bp = Blueprint("api_crm", __name__)
+gate_api_blueprint_module(api_crm_bp, "crm")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

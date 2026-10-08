@@ -2,13 +2,14 @@
 
 from flask import Blueprint, request, jsonify, g
 from app.services.kardex_service import KardexService
-from app.api.auth import require_api_key
+from app.api.auth import require_api_key, require_api_module, gate_api_blueprint_module
 
 api_inventory_bp = Blueprint("api_inventory", __name__)
+gate_api_blueprint_module(api_inventory_bp, "inventario")
 
 
 @api_inventory_bp.route("/inventory/kardex", methods=["GET"])
-@require_api_key
+@require_api_module('inventario')
 def get_kardex():
     """
     Consultar Kardex Valorizado Continuo
@@ -83,7 +84,7 @@ def get_kardex():
 
 
 @api_inventory_bp.route("/inventory/kardex/summary", methods=["GET"])
-@require_api_key
+@require_api_module('inventario')
 def get_kardex_summary():
     """
     Consultar Resumen y Conciliación de Kardex

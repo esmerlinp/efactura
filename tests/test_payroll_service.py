@@ -359,30 +359,34 @@ class TestPreValidateEmployees:
 
     def test_empleado_valido(self):
         emps = [{"id": "E1", "firstName": "Juan", "firstLastName": "Pérez",
-                 "baseSalary": 50000, "afpProvider": "AFP Popular", "cedula": "00112345678"}]
+                 "baseSalary": 50000, "afpProvider": "AFP Popular", "cedula": "00112345678",
+                 "tssKey": "001", "paymentMethod": "efectivo"}]
         r = PayrollService.validate_employees_before_payroll(emps)
         assert len(r["errors"]) == 0
         assert len(r["warnings"]) == 0
 
     def test_sin_afp(self):
-        emps = [{"id": "E1", "firstName": "Juan", "baseSalary": 50000, "cedula": "00112345678"}]
+        emps = [{"id": "E1", "firstName": "Juan", "baseSalary": 50000, "cedula": "00112345678",
+                 "tssKey": "001", "paymentMethod": "efectivo"}]
         r = PayrollService.validate_employees_before_payroll(emps)
         assert len(r["errors"]) == 1
 
     def test_salario_cero(self):
-        emps = [{"id": "E1", "firstName": "Juan", "baseSalary": 0, "afpProvider": "AFP Popular", "cedula": "00112345678"}]
+        emps = [{"id": "E1", "firstName": "Juan", "baseSalary": 0, "afpProvider": "AFP Popular", "cedula": "00112345678",
+                 "tssKey": "001", "paymentMethod": "efectivo"}]
         r = PayrollService.validate_employees_before_payroll(emps)
         assert len(r["errors"]) == 1
 
     def test_sin_cedula(self):
-        emps = [{"id": "E1", "firstName": "Juan", "baseSalary": 50000, "afpProvider": "AFP Popular"}]
+        emps = [{"id": "E1", "firstName": "Juan", "baseSalary": 50000, "afpProvider": "AFP Popular",
+                 "tssKey": "001", "paymentMethod": "efectivo"}]
         r = PayrollService.validate_employees_before_payroll(emps)
         assert len(r["warnings"]) == 1
 
     def test_multiples_errores(self):
         emps = [
-            {"id": "E1", "firstName": "Juan", "baseSalary": 50000, "afpProvider": "AFP Popular"},
-            {"id": "E2", "firstName": "Ana", "baseSalary": 0, "afpProvider": "AFP Popular"},
+            {"id": "E1", "firstName": "Juan", "baseSalary": 50000, "afpProvider": "AFP Popular", "tssKey": "001", "paymentMethod": "efectivo"},
+            {"id": "E2", "firstName": "Ana", "baseSalary": 0, "afpProvider": "AFP Popular", "tssKey": "001", "paymentMethod": "efectivo"},
         ]
         r = PayrollService.validate_employees_before_payroll(emps)
         assert len(r["errors"]) == 1

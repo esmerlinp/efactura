@@ -1,7 +1,30 @@
 import uuid
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
+from app.utils.module_gate import module_enabled
 
 web_bank_entities_bp = Blueprint('web_bank_entities', __name__)
+
+
+@web_bank_entities_bp.before_request
+def _check_banks_module():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not module_enabled('banks'):
+        if request.is_json or request.headers.get('Accept') == 'application/json' or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                "success": False,
+                "error": {
+                    "code": "MODULE_DISABLED",
+                    "message": "El módulo 'Bancos' no está contratado en tu plan actual."
+                }
+            }), 403
+        return render_template(
+            'auth/restricted.html',
+            feature_name="Entidades Bancarias",
+            required_permission="module_banks",
+            custom_message="El módulo <strong>Bancos & Conciliación</strong> no está incluido en tu plan actual. "
+                           "Contacta a soporte para información sobre mejoras de plan."
+        ), 403
 
 BPD_SERVICE_TYPES = [
     {"value": "01", "label": "01 - Nomina automatica"},

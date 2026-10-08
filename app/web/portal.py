@@ -1932,14 +1932,17 @@ def portal_document_pdf(invoice_id):
         return rendered_html
 
 
+from app.utils.module_gate import require_module
+
 @portal_bp.route('/portal/admin')
+@require_module('portal_cliente')
 def portal_admin():
     if 'user' not in session:
         flash('Debe iniciar sesión para acceder a esta página.', 'error')
         return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name='Portal de Clientes',
-                               required_permission='canClients')
+                               required_permission='canClients'), 403
 
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')

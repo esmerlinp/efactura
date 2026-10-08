@@ -5,15 +5,16 @@ clasificación de impuestos, filtros y paginación.
 """
 from unittest.mock import patch
 from datetime import datetime, timezone
+from contextlib import contextmanager, ExitStack
 
 MOCK_USER_PROFILE = {
     'uid': 'test-uid',
     'email': 'admin@test.com',
     'name': 'Admin',
     'role': 'owner',
-    'ownerUID': 'test-owner',
+    'ownerUID': 'test-uid',
     'status': 'active',
-    'permissions': {'canInvoice': True}
+    'permissions': {'canInvoice': True, 'canReports': True}
 }
 
 MOCK_COMPANY = {
@@ -24,10 +25,33 @@ MOCK_COMPANY = {
     'productionEnabled': True,
     'sandboxEnabled': True,
     'sandboxIndefinite': True,
+    'planId': 'plan123',
+    'country': 'DO',
 }
 
+DB_PATCHES = (
+    patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE),
+    patch('app.services.db_service.DatabaseService.get_associated_companies', return_value=[{'ownerUID': 'test-uid', 'companyName': 'Test Co', 'role': 'owner'}]),
+    patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY),
+    patch('app.services.db_service.DatabaseService.get_company', return_value=None),
+    patch('app.services.db_service.DatabaseService.get_company_context', return_value={'permissions': {}, 'company_name': 'Test Co'}),
+    patch('app.services.db_service.DatabaseService.get_branches', return_value=[]),
+    patch('app.services.db_service.DatabaseService.get_projects', return_value=[]),
+    patch('app.services.db_service.DatabaseService.get_membership', return_value={'status': 'active'}),
+    patch('app.services.db_service.DatabaseService.get_plan', return_value={'modules': {
+        'e_cf': {'enabled': True},
+        'reportes': {'enabled': True},
+        'gastos': {'enabled': True},
+        'inventario': {'enabled': True},
+        'contabilidad': {'enabled': True},
+        'bancos': {'enabled': True},
+        'cxc': {'enabled': True},
+        'cxp': {'enabled': True},
+    }}),
+)
 
-def mock_login(client, owner_uid='test-owner'):
+
+def mock_login(client, owner_uid='test-uid', company_id='test-uid'):
     with client.session_transaction() as sess:
         sess['user'] = {
             'uid': 'test-uid',
@@ -35,7 +59,20 @@ def mock_login(client, owner_uid='test-owner'):
             'role': 'owner',
             'email': 'admin@test.com',
             'name': 'Admin',
-            'permissions': {'canInvoice': True},
+            'permissions': {'canInvoice': True, 'canReports': True},
+        }
+        sess['selected_company_id'] = company_id
+        sess['selected_owner_uid'] = owner_uid
+        sess['company_country'] = 'DO'
+        sess['company_modules'] = {
+            'e_cf': {'enabled': True},
+            'reportes': {'enabled': True},
+            'gastos': {'enabled': True},
+            'inventario': {'enabled': True},
+            'contabilidad': {'enabled': True},
+            'bancos': {'enabled': True},
+            'cxc': {'enabled': True},
+            'cxp': {'enabled': True},
         }
         sess['is_sandbox_mode'] = True
 
@@ -95,19 +132,18 @@ MOCK_EXPENSES = [
 MOCK_PURCHASE_CN = []
 
 
+@contextmanager
 def _patch_all(invoices=None, expenses=None, purchase_cn=None):
     inv = invoices if invoices is not None else MOCK_SALES_INVOICES + MOCK_CREDIT_NOTE
     exp = expenses if expenses is not None else MOCK_EXPENSES
     pcn = purchase_cn if purchase_cn is not None else MOCK_PURCHASE_CN
-    return [
-        patch('app.services.db_service.DatabaseService.get_invoices', return_value=inv),
-        patch('app.services.db_service.DatabaseService.get_expenses', return_value=exp),
-        patch('app.services.purchase_credit_note_service.PurchaseCreditNoteService.get_all', return_value=pcn),
-        patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE),
-        patch('app.services.db_service.DatabaseService.get_associated_companies',
-              return_value=[{'ownerUID': 'test-owner', 'companyName': 'Test Co', 'role': 'owner'}]),
-        patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY),
-    ]
+    with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_invoices', return_value=inv))
+        stack.enter_context(patch('app.services.db_service.DatabaseService.get_expenses', return_value=exp))
+        stack.enter_context(patch('app.services.purchase_credit_note_service.PurchaseCreditNoteService.get_all', return_value=pcn))
+        yield stack
 
 
 # ── Auth tests ────────────────────────────────────────────────────────────────
@@ -119,8 +155,7 @@ def test_unauthenticated_redirect(client):
 
 def test_authenticated_empty_period(client):
     mock_login(client)
-    patches = _patch_all(invoices=[], expenses=[], purchase_cn=[])
-    with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5]:
+    with _patch_all(invoices=[], expenses=[], purchase_cn=[]):
         resp = client.get('/reports/fiscal/detailed-taxes?year=2025&month=1')
         assert resp.status_code == 200
         html = resp.data.decode('utf-8')
@@ -134,8 +169,7 @@ def test_authenticated_empty_period(client):
 def test_sales_tax_kpi_shown(client):
     """With sales invoice of 1000 @ 18%, KPI should show 180.00."""
     mock_login(client)
-    patches = _patch_all(invoices=MOCK_SALES_INVOICES, expenses=[], purchase_cn=[])
-    with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5]:
+    with _patch_all(invoices=MOCK_SALES_INVOICES, expenses=[], purchase_cn=[]):
         resp = client.get('/reports/fiscal/detailed-taxes?year=2025&month=7')
         assert resp.status_code == 200
         html = resp.data.decode('utf-8')
@@ -145,8 +179,7 @@ def test_sales_tax_kpi_shown(client):
 def test_exento_invoice_appears(client):
     """Exento invoice shows 0.00 tax."""
     mock_login(client)
-    patches = _patch_all(invoices=[MOCK_SALES_INVOICES[1]], expenses=[], purchase_cn=[])
-    with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5]:
+    with _patch_all(invoices=[MOCK_SALES_INVOICES[1]], expenses=[], purchase_cn=[]):
         resp = client.get('/reports/fiscal/detailed-taxes?year=2025&month=7')
         assert resp.status_code == 200
         html = resp.data.decode('utf-8')
@@ -157,8 +190,7 @@ def test_exento_invoice_appears(client):
 def test_purchase_tax_kpi(client):
     """Expense of 1180 with 180 ITBIS shows in purchases column."""
     mock_login(client)
-    patches = _patch_all(invoices=[], expenses=MOCK_EXPENSES, purchase_cn=[])
-    with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5]:
+    with _patch_all(invoices=[], expenses=MOCK_EXPENSES, purchase_cn=[]):
         resp = client.get('/reports/fiscal/detailed-taxes?year=2025&month=7')
         assert resp.status_code == 200
         html = resp.data.decode('utf-8')
@@ -168,8 +200,7 @@ def test_purchase_tax_kpi(client):
 def test_credit_note_in_sales_returns_tab(client):
     """Nota de Crédito (E34) should appear in sales_returns tab."""
     mock_login(client)
-    patches = _patch_all(invoices=MOCK_CREDIT_NOTE, expenses=[], purchase_cn=[])
-    with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5]:
+    with _patch_all(invoices=MOCK_CREDIT_NOTE, expenses=[], purchase_cn=[]):
         resp = client.get('/reports/fiscal/detailed-taxes?year=2025&month=7&tab=sales_returns')
         assert resp.status_code == 200
         html = resp.data.decode('utf-8')
@@ -180,8 +211,7 @@ def test_credit_note_in_sales_returns_tab(client):
 
 def test_tax_filter_itbis18_includes_matching(client):
     mock_login(client)
-    patches = _patch_all(invoices=MOCK_SALES_INVOICES, expenses=[], purchase_cn=[])
-    with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5]:
+    with _patch_all(invoices=MOCK_SALES_INVOICES, expenses=[], purchase_cn=[]):
         resp = client.get('/reports/fiscal/detailed-taxes?year=2025&month=7&tab=sales&tax=ITBIS+%2818%25%29')
         assert resp.status_code == 200
         html = resp.data.decode('utf-8')
@@ -191,8 +221,7 @@ def test_tax_filter_itbis18_includes_matching(client):
 
 def test_year_filter_excludes_wrong_year(client):
     mock_login(client)
-    patches = _patch_all(invoices=MOCK_SALES_INVOICES, expenses=[], purchase_cn=[])
-    with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5]:
+    with _patch_all(invoices=MOCK_SALES_INVOICES, expenses=[], purchase_cn=[]):
         resp = client.get('/reports/fiscal/detailed-taxes?year=2024&month=7&tab=sales')
         assert resp.status_code == 200
         html = resp.data.decode('utf-8')
@@ -204,8 +233,7 @@ def test_year_filter_excludes_wrong_year(client):
 
 def test_breakdown_tables_present(client):
     mock_login(client)
-    patches = _patch_all()
-    with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5]:
+    with _patch_all():
         resp = client.get('/reports/fiscal/detailed-taxes?year=2025&month=7')
         assert resp.status_code == 200
         html = resp.data.decode('utf-8')
@@ -217,8 +245,7 @@ def test_breakdown_tables_present(client):
 
 def test_all_tax_labels_present(client):
     mock_login(client)
-    patches = _patch_all(invoices=[], expenses=[], purchase_cn=[])
-    with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5]:
+    with _patch_all(invoices=[], expenses=[], purchase_cn=[]):
         resp = client.get('/reports/fiscal/detailed-taxes?year=2025&month=7')
         assert resp.status_code == 200
         html = resp.data.decode('utf-8')
@@ -230,8 +257,7 @@ def test_all_tax_labels_present(client):
 
 def test_tab_sales_active(client):
     mock_login(client)
-    patches = _patch_all(invoices=[], expenses=[], purchase_cn=[])
-    with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5]:
+    with _patch_all(invoices=[], expenses=[], purchase_cn=[]):
         resp = client.get('/reports/fiscal/detailed-taxes?tab=sales')
         assert resp.status_code == 200
         html = resp.data.decode('utf-8')
@@ -240,8 +266,7 @@ def test_tab_sales_active(client):
 
 def test_tab_purchases_active(client):
     mock_login(client)
-    patches = _patch_all(invoices=[], expenses=[], purchase_cn=[])
-    with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5]:
+    with _patch_all(invoices=[], expenses=[], purchase_cn=[]):
         resp = client.get('/reports/fiscal/detailed-taxes?tab=purchases')
         assert resp.status_code == 200
         html = resp.data.decode('utf-8')
@@ -254,8 +279,7 @@ def test_pagination_per_page(client):
     """With per_page=1 and 2 invoice rows there should be 2 pages."""
     mock_login(client)
     many_invoices = MOCK_SALES_INVOICES * 5  # 10 invoices
-    patches = _patch_all(invoices=many_invoices, expenses=[], purchase_cn=[])
-    with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5]:
+    with _patch_all(invoices=many_invoices, expenses=[], purchase_cn=[]):
         resp = client.get('/reports/fiscal/detailed-taxes?year=2025&month=7&tab=sales&per_page=5&page=1')
         assert resp.status_code == 200
         html = resp.data.decode('utf-8')

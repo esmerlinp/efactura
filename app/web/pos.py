@@ -12,8 +12,31 @@ from app.utils.country_context import get_current_country
 from app.utils.decorators import require_permission, check_permission
 from app.brand import get_product_name
 from app.models.fiscal_document_type import all_types as _all_fiscal_types, Family as _Family, by_code as _by_code
+from app.utils.module_gate import module_enabled
 
 web_pos_bp = Blueprint('web_pos', __name__)
+
+
+@web_pos_bp.before_request
+def _check_pos_module():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not module_enabled('pos'):
+        if request.is_json or request.headers.get('Accept') == 'application/json' or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                "success": False,
+                "error": {
+                    "code": "MODULE_DISABLED",
+                    "message": "El módulo 'POS (Punto de Venta)' no está contratado en tu plan actual."
+                }
+            }), 403
+        return render_template(
+            'auth/restricted.html',
+            feature_name="POS (Punto de Venta)",
+            required_permission="module_pos",
+            custom_message="El módulo <strong>POS (Punto de Venta)</strong> no está incluido en tu plan actual. "
+                           "Contacta a soporte para información sobre mejoras de plan."
+        ), 403
 
 
 
@@ -32,7 +55,7 @@ def require_open_shift(f):
         if 'user' not in session:
             return redirect(url_for('web_auth.login'))
         if not check_permission('canManagePOS'):
-            return render_template('auth/restricted.html', feature_name="Punto de Venta", required_permission="canManagePOS")
+            return render_template('auth/restricted.html', feature_name="Punto de Venta", required_permission="canManagePOS"), 403
         
         owner_uid = session['user']['ownerUID']
         company_id = session.get('selected_company_id')
@@ -1126,7 +1149,7 @@ def print_z_report(shift_id):
 @require_permission('canManagePOS', 'Punto de Venta')
 def create_cash_register():
     if session['user'].get('role') != 'owner' and not check_permission('isPosSupervisor'):
-        return render_template('auth/restricted.html', feature_name="Administración de Cajas", required_permission="isPosSupervisor o Propietario")
+        return render_template('auth/restricted.html', feature_name="Administración de Cajas", required_permission="isPosSupervisor o Propietario"), 403
         
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -1162,7 +1185,7 @@ def create_cash_register():
 @require_permission('canManagePOS', 'Administración de Caja')
 def pos_admin_dashboard():
     if session['user'].get('role') != 'owner' and not check_permission('isPosSupervisor'):
-        return render_template('auth/restricted.html', feature_name="Administración de Cajas", required_permission="isPosSupervisor o Propietario")
+        return render_template('auth/restricted.html', feature_name="Administración de Cajas", required_permission="isPosSupervisor o Propietario"), 403
         
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -1188,7 +1211,7 @@ def pos_admin_dashboard():
 @require_permission('canManagePOS', 'Contingencia DGII')
 def pos_contingencia():
     if session['user'].get('role') != 'owner' and not check_permission('isPosSupervisor'):
-        return render_template('auth/restricted.html', feature_name="Contingencia DGII", required_permission="isPosSupervisor o Propietario")
+        return render_template('auth/restricted.html', feature_name="Contingencia DGII", required_permission="isPosSupervisor o Propietario"), 403
 
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -1333,7 +1356,7 @@ def process_shift_comment_mentions(owner_uid, content, shift_id, shift_label, sa
 @require_permission('canManagePOS', 'Administración de Caja')
 def pos_admin_shift_detail(shift_id):
     if session['user'].get('role') != 'owner' and not check_permission('isPosSupervisor'):
-        return render_template('auth/restricted.html', feature_name="Administración de Cajas", required_permission="isPosSupervisor o Propietario")
+        return render_template('auth/restricted.html', feature_name="Administración de Cajas", required_permission="isPosSupervisor o Propietario"), 403
 
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -1525,7 +1548,7 @@ def delete_shift_comment(shift_id, comment_id):
 @require_permission('canManagePOS', 'Administración de Caja')
 def audit_shift(shift_id):
     if session['user'].get('role') != 'owner' and not check_permission('isPosSupervisor'):
-        return render_template('auth/restricted.html', feature_name="Auditoría de Caja", required_permission="isPosSupervisor o Propietario")
+        return render_template('auth/restricted.html', feature_name="Auditoría de Caja", required_permission="isPosSupervisor o Propietario"), 403
 
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
@@ -1665,7 +1688,7 @@ def get_usd_rate():
 @require_permission('canManagePOS', 'Administración de Caja')
 def pos_admin_reports_dashboard():
     if session['user'].get('role') != 'owner' and not check_permission('isPosSupervisor'):
-        return render_template('auth/restricted.html', feature_name="Administración de Cajas", required_permission="isPosSupervisor o Propietario")
+        return render_template('auth/restricted.html', feature_name="Administración de Cajas", required_permission="isPosSupervisor o Propietario"), 403
 
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')

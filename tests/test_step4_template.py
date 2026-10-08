@@ -3,10 +3,25 @@ import os
 import sys
 import json
 
+import types
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 os.environ.setdefault("FIELD_ENCRYPTION_KEY", "wiS1GMquP_CvSrlBn7iOy-CalDQsPt7n1Pg_snPGluk=")
+
+# Mock WeasyPrint for environments without native Pango/GObject libraries
+class _FakeHTML:
+    def __init__(self, string=None, base_url=None):
+        self.string = string
+        self.base_url = base_url
+
+    def write_pdf(self, **kwargs):
+        return b"%PDF-1.4 mock pdf content"
+
+_mod = types.ModuleType("weasyprint")
+_mod.HTML = _FakeHTML
+sys.modules["weasyprint"] = _mod
 
 
 def test_step4_template_renders_with_set(app):

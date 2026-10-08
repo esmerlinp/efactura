@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
+from contextlib import ExitStack
 from app.services.contingency_sync_service import ContingencySyncService
 from app.services.dgii_direct import DgiiDirectService
 from app.services.db_service import DatabaseService
@@ -23,7 +24,55 @@ MOCK_COMPANY = {
     'productionEnabled': True,
     'sandboxEnabled': True,
     'sandboxIndefinite': True,
+    'planId': 'plan123',
+    'country': 'DO',
 }
+
+DB_PATCHES = (
+    patch('app.services.db_service.DatabaseService.get_user_profile', return_value=MOCK_USER_PROFILE),
+    patch('app.services.db_service.DatabaseService.get_associated_companies', return_value=[{'ownerUID': 'test-owner', 'companyName': 'Test Co', 'role': 'owner'}]),
+    patch('app.services.db_service.DatabaseService.get_company_profile', return_value=MOCK_COMPANY),
+    patch('app.services.db_service.DatabaseService.get_company', return_value=None),
+    patch('app.services.db_service.DatabaseService.get_company_context', return_value={'permissions': {}, 'company_name': 'Test Co'}),
+    patch('app.services.db_service.DatabaseService.get_branches', return_value=[]),
+    patch('app.services.db_service.DatabaseService.get_projects', return_value=[]),
+    patch('app.services.db_service.DatabaseService.get_membership', return_value={'status': 'active'}),
+    patch('app.services.db_service.DatabaseService.get_plan', return_value={'modules': {
+        'e_cf': {'enabled': True},
+        'reportes': {'enabled': True},
+        'gastos': {'enabled': True},
+        'inventario': {'enabled': True},
+        'contabilidad': {'enabled': True},
+        'bancos': {'enabled': True},
+        'cxc': {'enabled': True},
+        'cxp': {'enabled': True},
+    }}),
+)
+
+def mock_login(client, owner_uid='test-owner', company_id='test-owner'):
+    with client.session_transaction() as sess:
+        sess['user'] = {
+            'uid': 'test-uid',
+            'ownerUID': owner_uid,
+            'role': 'owner',
+            'email': 'admin@test.com',
+            'name': 'Admin',
+            'permissions': {'canInvoice': True, 'canManagePOS': True},
+        }
+        sess['selected_company_id'] = company_id
+        sess['selected_owner_uid'] = owner_uid
+        sess['company_country'] = 'DO'
+        sess['company_modules'] = {
+            'e_cf': {'enabled': True},
+            'reportes': {'enabled': True},
+            'gastos': {'enabled': True},
+            'inventario': {'enabled': True},
+            'contabilidad': {'enabled': True},
+            'bancos': {'enabled': True},
+            'cxc': {'enabled': True},
+            'cxp': {'enabled': True},
+        }
+        sess['is_sandbox_mode'] = True
 
 
 def test_contingency_sync_mark_synced_persists_track_id():
@@ -152,26 +201,16 @@ def test_sync_single_invoice_auto_recovers_missing_track_id(client):
         "trackId": "",
     }
 
-    with client.session_transaction() as sess:
-        sess['user'] = {
-            'uid': 'test-uid',
-            'ownerUID': 'test-owner',
-            'role': 'owner',
-            'email': 'admin@test.com',
-            'name': 'Admin',
-            'permissions': {'canInvoice': True},
-        }
-        sess['is_sandbox_mode'] = True
+    mock_login(client)
 
-    with patch("app.services.db_service.DatabaseService.get_user_profile", return_value=MOCK_USER_PROFILE), \
-         patch("app.services.db_service.DatabaseService.get_associated_companies", return_value=[{'ownerUID': 'test-owner', 'companyName': 'Test Co', 'role': 'owner'}]), \
-         patch("app.services.db_service.DatabaseService.get_company_profile", return_value=MOCK_COMPANY), \
-         patch("app.services.db_service.DatabaseService.get_user_companies", return_value=[]), \
-         patch("app.web.invoices.DatabaseService.get_invoice", return_value=invoice), \
-         patch("app.web.invoices.DatabaseService.save_invoice") as mock_save, \
-         patch("app.web.invoices.DgiiDirectService.consultar_trackids", return_value={"success": True, "trackIds": ["RECOVERED-TRK-789"]}) as mock_consultar, \
-         patch("app.web.invoices.DgiiDirectService.check_status", return_value={"success": True, "dgiiStatus": "ACCEPTED", "trackId": "RECOVERED-TRK-789"}) as mock_check, \
-         patch("app.services.contingency_sync_service.ContingencySyncService._apply_status_resolution", return_value="accepted") as mock_apply:
+    with ExitStack() as stack:
+        for p in DB_PATCHES:
+            stack.enter_context(p)
+        stack.enter_context(patch("app.web.invoices.DatabaseService.get_invoice", return_value=invoice))
+        mock_save = stack.enter_context(patch("app.web.invoices.DatabaseService.save_invoice"))
+        mock_consultar = stack.enter_context(patch("app.web.invoices.DgiiDirectService.consultar_trackids", return_value={"success": True, "trackIds": ["RECOVERED-TRK-789"]}))
+        mock_check = stack.enter_context(patch("app.web.invoices.DgiiDirectService.check_status", return_value={"success": True, "dgiiStatus": "ACCEPTED", "trackId": "RECOVERED-TRK-789"}))
+        mock_apply = stack.enter_context(patch("app.services.contingency_sync_service.ContingencySyncService._apply_status_resolution", return_value="accepted"))
 
         resp = client.post("/invoices/inv_test_123/sync", follow_redirects=False)
 

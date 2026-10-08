@@ -29,8 +29,8 @@ class EventEncoder(json.JSONEncoder):
 class DomainEvent:
     """Evento base del dominio. Todos los eventos heredan de esta clase."""
 
-    event_type: str
-    owner_uid: str
+    event_type: str = ""
+    owner_uid: str = ""
     sandbox: bool = False
     country: str = "DO"
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())

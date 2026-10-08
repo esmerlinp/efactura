@@ -7,7 +7,10 @@ from app.utils.decorators import require_permission, check_permission
 from app.services.dgii import DGIIService
 from app.models.fiscal_document_type import by_code as _by_code
 
+from app.utils.module_gate import gate_blueprint_module
+
 web_fiscal_notes_bp = Blueprint('web_fiscal_notes', __name__)
+gate_blueprint_module(web_fiscal_notes_bp, 'e_cf', feature_name="Notas Fiscales e-CF")
 
 
 def _ecf_code(ecf_type: str) -> str | None:
@@ -22,7 +25,7 @@ def restrict_to_do():
     if session.get('company_country', 'DO') != 'DO':
         return render_template('auth/restricted.html',
             feature_name="Notas Fiscales e-CF (solo disponibles para República Dominicana)",
-            required_permission="")
+            required_permission=""), 403
 
 
 @web_fiscal_notes_bp.route('/fiscal-notes')
@@ -46,7 +49,7 @@ def create_fiscal_note():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', required_permission="canInvoice")
+        return render_template('auth/restricted.html', required_permission="canInvoice"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)
@@ -101,7 +104,7 @@ def save_fiscal_note():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', required_permission="canInvoice")
+        return render_template('auth/restricted.html', required_permission="canInvoice"), 403
     owner_uid = session['user']['ownerUID']
     company_id = session.get('selected_company_id')
     sandbox = session.get('is_sandbox_mode', True)

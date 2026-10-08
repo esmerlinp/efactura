@@ -439,6 +439,8 @@ def _resolve_position(company_id, position_id, position_name, sandbox):
 def employee_list():
     if _login_required():
         return redirect(url_for("web_auth.login"))
+    if not _is_hr_role():
+        return render_template("auth/restricted.html", feature_name="Nómina y Recursos Humanos", required_permission="canHR"), 403
     owner_uid, sandbox, company_id = _get_owner_uid_and_sandbox()
     from app.services import hr_data_service as hr
     from app.services.db_service import DatabaseService
